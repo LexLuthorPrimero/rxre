@@ -1,0 +1,14 @@
+=======================================================
+    glmark2 2023.01
+=======================================================
+    OpenGL Information
+    GL_VENDOR:      Intel
+    GL_RENDERER:    Mesa Intel(R) HD Graphics 4600 (HSW GT2)
+    GL_VERSION:     4.6 (Compatibility Profile) Mesa 26.2.2
+    Surface Config: buf=32 r=8 g=8 b=8 a=8 depth=32 stencil=0 samples=0
+    Surface Size:   640x480 windowed
+=======================================================
+[terrain] <default>: FPS: 190 FrameTime: 5.281 ms
+=======================================================
+                                  glmark2 Score: 189 
+=======================================================

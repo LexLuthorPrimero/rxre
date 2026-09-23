@@ -1,0 +1,24 @@
+== 2026-09-23T01:39:28-03:00 ==
+--- pp_dpm_sclk ---
+0: 214Mhz *
+1: 551Mhz 
+2: 734Mhz 
+3: 980Mhz 
+4: 1000Mhz 
+5: 1020Mhz 
+6: 1046Mhz 
+7: 1071Mhz 
+--- pp_dpm_mclk ---
+0: 300Mhz *
+1: 625Mhz 
+2: 1500Mhz 
+--- power1_cap ---
+35000000
+--- kalm ---
+    PID COMMAND         COMMAND
+   4086 python3         /usr/bin/python3 /usr/local/bin/kalm-lite.py
+   4087 python3         /usr/bin/python3 /opt/kalm/kalmd.py
+--- gpu_busy/temp/power ---
+0
+49000
+3367000

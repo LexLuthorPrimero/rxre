@@ -1,0 +1,488 @@
+{
+ "A1": {
+  "tele_n": 2240,
+  "steady_n": 1517,
+  "power_avg_steady": 22.123,
+  "power_max_steady": 23.461,
+  "power_min_steady": 8.176,
+  "power_median_steady": 22.219,
+  "gpu_avg_steady": 99.99,
+  "mem_avg_steady": 25.58,
+  "mem_max_steady": 49,
+  "temp_avg_steady": 72.09,
+  "sclk_levels_steady": {
+   "7": 1517
+  },
+  "mclk_levels_steady": {
+   "2": 1517
+  },
+  "window_s": 180.6,
+  "power_full_avg": 17.35,
+  "power_full_max": 23.46,
+  "rt_n_win_gpu95": 172,
+  "rt_n_win_all": 180,
+  "rt_blocks_gpu95": {
+   "vgt": [
+    31.67,
+    19.17,
+    40.83
+   ],
+   "ta": [
+    80.6,
+    72.5,
+    92.5
+   ],
+   "sx": [
+    93.38,
+    85.0,
+    98.33
+   ],
+   "sh": [
+    40.78,
+    20.0,
+    55.83
+   ],
+   "spi": [
+    99.6,
+    95.83,
+    100.0
+   ],
+   "sc": [
+    99.31,
+    94.17,
+    100.0
+   ],
+   "pa": [
+    32.74,
+    19.17,
+    40.83
+   ],
+   "db": [
+    98.57,
+    91.67,
+    100.0
+   ],
+   "cb": [
+    73.96,
+    65.83,
+    85.83
+   ]
+  },
+  "rt_blocks_all": {
+   "vgt": 30.99,
+   "ta": 78.61,
+   "sx": 91.1,
+   "sh": 39.77,
+   "spi": 97.14,
+   "sc": 96.84,
+   "pa": 32.01,
+   "db": 96.08,
+   "cb": 72.07
+  }
+ },
+ "B1": {
+  "tele_n": 351,
+  "steady_n": 215,
+  "power_avg_steady": 15.822,
+  "power_max_steady": 15.91,
+  "power_min_steady": 15.02,
+  "power_median_steady": 15.836,
+  "gpu_avg_steady": 99.99,
+  "mem_avg_steady": 35.97,
+  "mem_max_steady": 36,
+  "temp_avg_steady": 69.79,
+  "sclk_levels_steady": {
+   "7": 215
+  },
+  "mclk_levels_steady": {
+   "2": 215
+  },
+  "window_s": 24.7,
+  "power_full_avg": 11.15,
+  "power_full_max": 15.91,
+  "rt_n_win_gpu95": 22,
+  "rt_n_win_all": 24,
+  "rt_blocks_gpu95": {
+   "vgt": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "ta": [
+    99.85,
+    99.17,
+    100.0
+   ],
+   "sx": [
+    59.13,
+    52.5,
+    69.17
+   ],
+   "sh": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "spi": [
+    99.85,
+    99.17,
+    100.0
+   ],
+   "sc": [
+    99.85,
+    99.17,
+    100.0
+   ],
+   "pa": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "db": [
+    99.85,
+    99.17,
+    100.0
+   ],
+   "cb": [
+    99.85,
+    99.17,
+    100.0
+   ]
+  },
+  "rt_blocks_all": {
+   "vgt": 0.0,
+   "ta": 94.9,
+   "sx": 56.42,
+   "sh": 0.0,
+   "spi": 94.9,
+   "sc": 94.9,
+   "pa": 0.0,
+   "db": 94.9,
+   "cb": 94.9
+  }
+ },
+ "A2": {
+  "tele_n": 2247,
+  "steady_n": 949,
+  "power_avg_steady": 22.301,
+  "power_max_steady": 23.676,
+  "power_min_steady": 12.773,
+  "power_median_steady": 22.422,
+  "gpu_avg_steady": 100,
+  "mem_avg_steady": 24.69,
+  "mem_max_steady": 49,
+  "temp_avg_steady": 79.87,
+  "sclk_levels_steady": {
+   "7": 949
+  },
+  "mclk_levels_steady": {
+   "2": 949
+  },
+  "window_s": 125.8,
+  "power_full_avg": 15.49,
+  "power_full_max": 23.68,
+  "rt_n_win_gpu95": 104,
+  "rt_n_win_all": 126,
+  "rt_blocks_gpu95": {
+   "vgt": [
+    30.87,
+    19.17,
+    45.0
+   ],
+   "ta": [
+    80.92,
+    73.33,
+    94.17
+   ],
+   "sx": [
+    93.16,
+    87.5,
+    97.5
+   ],
+   "sh": [
+    38.21,
+    20.0,
+    50.0
+   ],
+   "spi": [
+    99.66,
+    95.83,
+    100.0
+   ],
+   "sc": [
+    99.27,
+    95.0,
+    100.0
+   ],
+   "pa": [
+    31.74,
+    19.17,
+    45.0
+   ],
+   "db": [
+    98.61,
+    94.17,
+    100.0
+   ],
+   "cb": [
+    74.83,
+    65.0,
+    86.67
+   ]
+  },
+  "rt_blocks_all": {
+   "vgt": 27.1,
+   "ta": 70.65,
+   "sx": 81.3,
+   "sh": 33.47,
+   "spi": 86.8,
+   "sc": 86.44,
+   "pa": 27.84,
+   "db": 85.85,
+   "cb": 65.05
+  }
+ },
+ "B2": {
+  "tele_n": 227,
+  "steady_n": 174,
+  "power_avg_steady": 15.793,
+  "power_max_steady": 15.801,
+  "power_min_steady": 15.738,
+  "power_median_steady": 15.797,
+  "gpu_avg_steady": 99.99,
+  "mem_avg_steady": 35.96,
+  "mem_max_steady": 36,
+  "temp_avg_steady": 73.11,
+  "sclk_levels_steady": {
+   "7": 174
+  },
+  "mclk_levels_steady": {
+   "2": 174
+  },
+  "window_s": 20.0,
+  "power_full_avg": 15.35,
+  "power_full_max": 15.8,
+  "rt_n_win_gpu95": 20,
+  "rt_n_win_all": 20,
+  "rt_blocks_gpu95": {
+   "vgt": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "ta": [
+    99.83,
+    98.33,
+    100.0
+   ],
+   "sx": [
+    58.13,
+    50.0,
+    65.0
+   ],
+   "sh": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "spi": [
+    99.83,
+    98.33,
+    100.0
+   ],
+   "sc": [
+    99.83,
+    98.33,
+    100.0
+   ],
+   "pa": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "db": [
+    99.83,
+    98.33,
+    100.0
+   ],
+   "cb": [
+    99.83,
+    98.33,
+    100.0
+   ]
+  },
+  "rt_blocks_all": {
+   "vgt": 0.0,
+   "ta": 99.83,
+   "sx": 58.13,
+   "sh": 0.0,
+   "spi": 99.83,
+   "sc": 99.83,
+   "pa": 0.0,
+   "db": 99.83,
+   "cb": 99.83
+  }
+ },
+ "A3": {
+  "tele_n": 2204,
+  "steady_n": 807,
+  "power_avg_steady": 22.344,
+  "power_max_steady": 23.727,
+  "power_min_steady": 10.301,
+  "power_median_steady": 22.484,
+  "gpu_avg_steady": 100,
+  "mem_avg_steady": 24.37,
+  "mem_max_steady": 49,
+  "temp_avg_steady": 81.64,
+  "sclk_levels_steady": {
+   "7": 807
+  },
+  "mclk_levels_steady": {
+   "2": 807
+  },
+  "window_s": 102.0,
+  "power_full_avg": 15.14,
+  "power_full_max": 23.73,
+  "rt_n_win_gpu95": 88,
+  "rt_n_win_all": 102,
+  "rt_blocks_gpu95": {
+   "vgt": [
+    30.2,
+    18.33,
+    40.0
+   ],
+   "ta": [
+    81.28,
+    72.5,
+    93.33
+   ],
+   "sx": [
+    92.59,
+    85.0,
+    97.5
+   ],
+   "sh": [
+    36.85,
+    19.17,
+    47.5
+   ],
+   "spi": [
+    99.57,
+    95.83,
+    100.0
+   ],
+   "sc": [
+    99.2,
+    92.5,
+    100.0
+   ],
+   "pa": [
+    31.11,
+    18.33,
+    41.67
+   ],
+   "db": [
+    98.45,
+    92.5,
+    100.0
+   ],
+   "cb": [
+    74.94,
+    64.17,
+    86.67
+   ]
+  },
+  "rt_blocks_all": {
+   "vgt": 27.87,
+   "ta": 74.47,
+   "sx": 84.8,
+   "sh": 33.89,
+   "spi": 91.13,
+   "sc": 90.66,
+   "pa": 28.69,
+   "db": 89.98,
+   "cb": 68.41
+  }
+ },
+ "B3": {
+  "tele_n": 270,
+  "steady_n": 214,
+  "power_avg_steady": 15.72,
+  "power_max_steady": 15.801,
+  "power_min_steady": 15.098,
+  "power_median_steady": 15.77,
+  "gpu_avg_steady": 99.98,
+  "mem_avg_steady": 35.95,
+  "mem_max_steady": 36,
+  "temp_avg_steady": 69.83,
+  "sclk_levels_steady": {
+   "7": 214
+  },
+  "mclk_levels_steady": {
+   "2": 214
+  },
+  "window_s": 24.7,
+  "power_full_avg": 13.35,
+  "power_full_max": 15.8,
+  "rt_n_win_gpu95": 23,
+  "rt_n_win_all": 24,
+  "rt_blocks_gpu95": {
+   "vgt": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "ta": [
+    99.86,
+    98.33,
+    100.0
+   ],
+   "sx": [
+    57.46,
+    50.83,
+    64.17
+   ],
+   "sh": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "spi": [
+    99.86,
+    98.33,
+    100.0
+   ],
+   "sc": [
+    99.86,
+    98.33,
+    100.0
+   ],
+   "pa": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "db": [
+    99.86,
+    98.33,
+    100.0
+   ],
+   "cb": [
+    99.86,
+    98.33,
+    100.0
+   ]
+  },
+  "rt_blocks_all": {
+   "vgt": 0.0,
+   "ta": 96.81,
+   "sx": 55.66,
+   "sh": 0.0,
+   "spi": 96.81,
+   "sc": 96.81,
+   "pa": 0.0,
+   "db": 96.81,
+   "cb": 96.81
+  }
+ }
+}

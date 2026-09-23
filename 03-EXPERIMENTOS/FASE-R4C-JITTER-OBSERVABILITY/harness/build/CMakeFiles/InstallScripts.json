@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-R4C-JITTER-OBSERVABILITY/harness/build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

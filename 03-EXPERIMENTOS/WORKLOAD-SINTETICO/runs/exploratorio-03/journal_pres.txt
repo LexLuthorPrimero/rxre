@@ -1,0 +1,26 @@
+sep 20 06:27:49 lex-luthor kernel: workqueue: work func amdgpu_irq_handle_ih_soft [amdgpu] enqueued on deprecated workqueue. Use system_{percpu|dfl}_wq instead.
+sep 20 06:27:49 lex-luthor kernel: amdgpu 0000:01:00.0: GPU fault detected: 147 0x0e100402
+sep 20 06:27:49 lex-luthor kernel: amdgpu 0000:01:00.0:  Process main-graphics pid 323219 thread main-graphics pid 323219
+sep 20 06:27:49 lex-luthor kernel: amdgpu 0000:01:00.0:   VM_CONTEXT1_PROTECTION_FAULT_ADDR   0x000BCFC2
+sep 20 06:27:49 lex-luthor kernel: amdgpu 0000:01:00.0:   VM_CONTEXT1_PROTECTION_FAULT_STATUS 0x0E004002
+sep 20 06:27:49 lex-luthor kernel: amdgpu 0000:01:00.0: VM fault (0x02, vmid 7, pasid 3588) at page 774082, read from 'TC3' (0x54433300) (4)
+sep 20 06:28:43 lex-luthor kernel: amdgpu 0000:01:00.0: GPU fault detected: 147 0x0e100402
+sep 20 06:28:43 lex-luthor kernel: amdgpu 0000:01:00.0:  Process main-graphics pid 329221 thread main-graphics pid 329221
+sep 20 06:28:43 lex-luthor kernel: amdgpu 0000:01:00.0:   VM_CONTEXT1_PROTECTION_FAULT_ADDR   0x000BCFC2
+sep 20 06:28:43 lex-luthor kernel: amdgpu 0000:01:00.0:   VM_CONTEXT1_PROTECTION_FAULT_STATUS 0x0E004002
+sep 20 06:28:43 lex-luthor kernel: amdgpu 0000:01:00.0: VM fault (0x02, vmid 7, pasid 3590) at page 774082, read from 'TC3' (0x54433300) (4)
+sep 20 06:28:43 lex-luthor kernel: amdgpu 0000:01:00.0: GPU fault detected: 147 0x04b80802
+sep 20 06:28:43 lex-luthor kernel: amdgpu 0000:01:00.0:  Process main-graphics pid 329221 thread main-graphics pid 329221
+sep 20 06:28:43 lex-luthor kernel: amdgpu 0000:01:00.0:   VM_CONTEXT1_PROTECTION_FAULT_ADDR   0x00075C97
+sep 20 06:28:43 lex-luthor kernel: amdgpu 0000:01:00.0:   VM_CONTEXT1_PROTECTION_FAULT_STATUS 0x0E008002
+sep 20 06:28:43 lex-luthor kernel: amdgpu 0000:01:00.0: VM fault (0x02, vmid 7, pasid 3590) at page 482455, read from 'TC2' (0x54433200) (8)
+sep 20 06:28:43 lex-luthor kernel: amdgpu 0000:01:00.0: GPU fault detected: 147 0x0cd84402
+sep 20 06:28:43 lex-luthor kernel: amdgpu 0000:01:00.0:  Process main-graphics pid 329221 thread main-graphics pid 329221
+sep 20 06:28:43 lex-luthor kernel: amdgpu 0000:01:00.0:   VM_CONTEXT1_PROTECTION_FAULT_ADDR   0x00032D9B
+sep 20 06:28:43 lex-luthor kernel: amdgpu 0000:01:00.0:   VM_CONTEXT1_PROTECTION_FAULT_STATUS 0x0E044002
+sep 20 06:28:43 lex-luthor kernel: amdgpu 0000:01:00.0: VM fault (0x02, vmid 7, pasid 3590) at page 208283, read from 'TC1' (0x54433100) (68)
+sep 20 06:28:43 lex-luthor kernel: amdgpu 0000:01:00.0: GPU fault detected: 147 0x05604802
+sep 20 06:28:43 lex-luthor kernel: amdgpu 0000:01:00.0:  Process main-graphics pid 329221 thread main-graphics pid 329221
+sep 20 06:28:43 lex-luthor kernel: amdgpu 0000:01:00.0:   VM_CONTEXT1_PROTECTION_FAULT_ADDR   0x0000BAAC
+sep 20 06:28:43 lex-luthor kernel: amdgpu 0000:01:00.0:   VM_CONTEXT1_PROTECTION_FAULT_STATUS 0x0E048002
+sep 20 06:28:43 lex-luthor kernel: amdgpu 0000:01:00.0: VM fault (0x02, vmid 7, pasid 3590) at page 47788, read from 'TC0' (0x54433000) (72)

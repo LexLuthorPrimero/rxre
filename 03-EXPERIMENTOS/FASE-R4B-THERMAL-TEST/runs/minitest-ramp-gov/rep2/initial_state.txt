@@ -1,0 +1,6 @@
+== 2026-09-23T01:30:26-03:00 ==
+temp_mC=45000
+sclk_nivel=0 sclk_mhz=214
+mclk_nivel=0 mclk_mhz=300
+power_uW=3375000
+gpu_busy=0

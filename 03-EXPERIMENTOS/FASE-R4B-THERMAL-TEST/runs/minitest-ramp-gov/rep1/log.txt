@@ -1,0 +1,13 @@
+[01:19:41] ==> MINITEST-RAMP-GOV REP1 iniciando
+[01:19:41] pre: busy=0 temp=33C cap=35000000 kalm=   4086    4087 
+[01:19:41] COOLDOWN previo: esperando temp<=50C s30s ∧ SCLK nv0 ∧ P<4W
+[01:20:12] COOLDOWN previo FIN en 30s (T=33000 sclk=0 P=3793000) -> /home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-R4B-THERMAL-TEST/runs/minitest-ramp-gov/rep1/cooldown_prev.tsv
+[01:20:12] initial_state: T=33C sclk=214MHz mclk=300MHz P=3813mW
+[01:20:14] carga: DIST 200 s inicio (mono 1790137214090912937)
+[01:20:19] m0=407478551465 — gobernador en marcha (T=9.168 ms, banda [8.25,10.08] ms)
+[01:24:32] carga: fin a t=258s
+[01:24:32] COOLDOWN post: esperando temp<=50C s30s ∧ SCLK nv0 ∧ P<4W
+[01:28:52] COOLDOWN post FIN en 260s (T=49000 sclk=0 P=3363000) -> /home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-R4B-THERMAL-TEST/runs/minitest-ramp-gov/rep1/cooldown_post.tsv
+[01:28:54] verify read-only: DPM/kalm idénticos pre/post (ff9e8280bd)
+2267 /home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-R4B-THERMAL-TEST/runs/minitest-ramp-gov/rep1/telemetry.csv
+[01:28:54] ==> MINITEST-RAMP-GOV REP1 finalizado

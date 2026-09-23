@@ -1,0 +1,9 @@
+[EXP-F4-A] device=AMD Radeon RX 550 / 550 Series (RADV POLARIS12) vendor=0x1002 dev=0x699f mode=1 scale_start=1.000 duration=120 warm=5 size=1920x1080
+[EXP-F4-A] warm-up 5 s
+[EXP-F4-A] medindo 120 s (m0_mono_us=412764125596)
+[scale] control=1.000 (/home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-R4B-GOVERNOR/results/v23/session1/fase2/gov1/control_scale.txt)
+[scale] control=0.870 (/home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-R4B-GOVERNOR/results/v23/session1/fase2/gov1/control_scale.txt)
+[scale] control=0.870 (/home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-R4B-GOVERNOR/results/v23/session1/fase2/gov1/control_scale.txt)
+[scale] control=0.870 (/home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-R4B-GOVERNOR/results/v23/session1/fase2/gov1/control_scale.txt)
+[scale] control=0.870 (/home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-R4B-GOVERNOR/results/v23/session1/fase2/gov1/control_scale.txt)
+[EXP-F4-A] done frames=12272 final_scale=0.870

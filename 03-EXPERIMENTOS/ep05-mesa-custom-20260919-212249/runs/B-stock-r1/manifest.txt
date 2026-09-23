@@ -1,0 +1,3 @@
+run=B-stock-r1
+date=2026-09-19T21:25:33-0300
+cmd=env -u MESA_CUSTOM -u LD_LIBRARY_PATH -u LIBGL_DRIVERS_PATH -u VK_ICD_FILENAMES DRI_PRIME=1 glmark2 --fullscreen --reuse-context -s 1920x1080 -b jellyfish:duration=15

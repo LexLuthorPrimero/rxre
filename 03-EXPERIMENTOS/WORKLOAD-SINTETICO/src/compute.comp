@@ -1,0 +1,29 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) buffer Buf {
+    float data[];
+};
+
+layout(push_constant) uniform PC {
+    uint iterations;
+    uint stride;
+    uint seed;
+} pc;
+
+void main() {
+    uint gid  = gl_GlobalInvocationID.x;
+    uint base = gid * pc.stride;
+
+    float acc = float(pc.seed) + float(gid) * 9.765625e-4f;
+
+    for (uint it = 0u; it < pc.iterations; ++it) {
+        acc = fma(acc, 1.000001f, 0.25f);
+        uint idx = (base + it * 37u) & 0xFFFFu;
+        acc += data[idx];
+        acc = fma(acc, 0.999999f, float(int(acc) & 3) * 1e-3f);
+    }
+
+    data[gid & 0xFFFFu] = acc;
+}

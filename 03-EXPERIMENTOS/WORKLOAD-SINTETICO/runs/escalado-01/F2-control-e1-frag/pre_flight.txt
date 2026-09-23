@@ -1,0 +1,26 @@
+=== PRE 2026-09-20T07:16:19-03:00 ===
+--pp_dpm_sclk--
+0: 214Mhz *
+1: 551Mhz 
+2: 734Mhz 
+3: 980Mhz 
+4: 1000Mhz 
+5: 1020Mhz 
+6: 1046Mhz 
+7: 1071Mhz 
+--pp_dpm_mclk--
+0: 300Mhz *
+1: 625Mhz 
+2: 1500Mhz 
+--gpu_busy--
+0
+--mem_busy--
+0
+--vram_used--
+5439488
+--gtt_used--
+11231232
+--power_uW--
+3367000
+--temp_mC--
+38000

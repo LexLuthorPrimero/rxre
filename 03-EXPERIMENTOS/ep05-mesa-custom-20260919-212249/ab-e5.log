@@ -1,0 +1,40 @@
+/home/lucas/Escritorio/RX550_Iterative_Research/experiments/ep05-mesa-custom-20260919-212249/scripts/ab-e5.sh: línea 12: error de sintaxis cerca del elemento inesperado `('
+/home/lucas/Escritorio/RX550_Iterative_Research/experiments/ep05-mesa-custom-20260919-212249/scripts/ab-e5.sh: línea 12: `VK_STOCK_ENV=(env VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/radeon_icd.x86_64.json'
+inicio temp=42C cap=35000000
+>> [A/re1] CUSTOM  T=42C
+FPS line:   (rc=0)
+RUN A-custom-r1 |> status=0
+>> [A/re1] STOCK   T=48C
+FPS line:   (rc=0)
+RUN A-stock-r1 |> status=0
+>> [B/re1] CUSTOM  T=49C
+FPS line:   (rc=0)
+RUN B-custom-r1 |> status=0
+>> [B/re1] STOCK   T=50C
+FPS line:   (rc=0)
+RUN B-stock-r1 |> status=0
+>> [C/re1] CUSTOM  T=51C
+FPS line:   (rc=0)
+RUN C-custom-r1 |> status=0
+>> [C/re1] STOCK   T=47C
+FPS line:   (rc=0)
+RUN C-stock-r1 |> status=0
+>> [A/re2] CUSTOM  T=46C
+FPS line:   (rc=0)
+RUN A-custom-r2 |> status=0
+>> [A/re2] STOCK   T=51C
+FPS line:   (rc=0)
+RUN A-stock-r2 |> status=0
+>> [B/re2] CUSTOM  T=52C
+FPS line:   (rc=0)
+RUN B-custom-r2 |> status=0
+>> [B/re2] STOCK   T=53C
+FPS line:   (rc=0)
+RUN B-stock-r2 |> status=0
+>> [C/re2] CUSTOM  T=53C
+FPS line:   (rc=0)
+RUN C-custom-r2 |> status=0
+>> [C/re2] STOCK   T=50C
+FPS line:   (rc=0)
+RUN C-stock-r2 |> status=0
+== recorrido completado: 12 runs, temp final=49C ==

@@ -1,0 +1,15 @@
+{
+  "file_format_version": "1.0.0",
+  "layer": {
+    "name": "VK_LAYER_ITERATIVERO_jitter_observer",
+    "type": "GLOBAL",
+    "library_path": "libjitter_layer.so",
+    "api_version": "1.0.0",
+    "implementation_version": "1",
+    "description": "EXP-F1-A jitter observability layer (FASE R-4C). NIVEL A: intercepta vkCmdPushConstants. NIVEL B: reconstruye jitter desde UBO host-visible (magic PERFRAME_MAGIC).",
+    "functions": {
+      "vkGetInstanceProcAddr": "vkGetInstanceProcAddr",
+      "vkGetDeviceProcAddr": "vkGetDeviceProcAddr"
+    }
+  }
+}

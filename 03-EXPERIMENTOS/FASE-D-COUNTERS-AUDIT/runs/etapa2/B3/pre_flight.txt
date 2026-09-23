@@ -1,0 +1,26 @@
+== pre_flight 2026-09-21T05:34:03-03:00 ==
+--pp_dpm_sclk--
+0: 214Mhz *
+1: 551Mhz 
+2: 734Mhz 
+3: 980Mhz 
+4: 1000Mhz 
+5: 1020Mhz 
+6: 1046Mhz 
+7: 1071Mhz 
+--pp_dpm_mclk--
+0: 300Mhz *
+1: 625Mhz 
+2: 1500Mhz 
+--gpu_busy_percent--
+0
+--mem_busy_percent--
+0
+--power1_input(uW)--
+2965000
+--temp1_input(mC)--
+61000
+--vram_used--
+5439488
+--gtt_used--
+28520448

@@ -1,0 +1,6 @@
+[run_all:S1] build ok
+[run_all:S1] pre_flight ok
+[run_all:S1] warm-up global ok
+[run_all:S1] Fase 1 (15 bloques)…
+[run_all:S1] Fase 1 completa
+[run_all:S1] PARADA D en Fase 1 (gates/reachability) — ver /home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-R4B-GOVERNOR/results/logs/session1.phase1.log

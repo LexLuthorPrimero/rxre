@@ -1,0 +1,10 @@
+ESTADO INICIAL — 2026-09-20 (prueba exploratoria GravityMark 1.89, sel. workload M2)
+- power1_cap            = 35000000 (35 W)
+- power/control         = on
+- power_dpm_force_performance_level = auto
+- runtime_status        = active
+- GPU Vulkan seleccionada (con VK_ICD_FILENAMES=radeon_icd + MESA_VK_DEVICE_SELECT=1002:699f):
+    deviceName = AMD Radeon RX 550 / 550 Series (RADV POLARIS12)
+    deviceID   = 0x699f, DISCRETE_GPU, driverName=radv, api 1.4.354
+- PCI de la RX 550 = 0000:01:00.0 (card1, amdgpu)
+- Idle (previo a prueba): power1_input=3.36 W, temp1=37 C, gpu_busy=0%

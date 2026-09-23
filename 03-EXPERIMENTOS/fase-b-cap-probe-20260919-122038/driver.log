@@ -1,0 +1,46 @@
+cooldown done t=37C (waited=0s)
+===== ESTADO cap=25W start temp=37C =====
+set_cap: pedido=25000000 aplicado=25000000
+RUN cap25-J-640-r1 |> status=0 abort=no
+RUN cap25-J-640-r2 |> status=0 abort=no
+RUN cap25-P-640-r1 |> status=0 abort=no
+RUN cap25-P-640-r2 |> status=0 abort=no
+RUN cap25-D-640-r1 |> status=0 abort=no
+RUN cap25-D-640-r2 |> status=0 abort=no
+RUN cap25-J-1080-r1 |> status=0 abort=no
+RUN cap25-J-1080-r2 |> status=0 abort=no
+===== ESTADO cap=25W end temp=51C =====
+cooldown done t=49C (waited=5s)
+===== ESTADO cap=28W start temp=49C =====
+set_cap: pedido=28000000 aplicado=28000000
+RUN cap28-J-640-r1 |> status=0 abort=no
+RUN cap28-J-640-r2 |> status=0 abort=no
+RUN cap28-P-640-r1 |> status=0 abort=no
+RUN cap28-P-640-r2 |> status=0 abort=no
+RUN cap28-D-640-r1 |> status=0 abort=no
+RUN cap28-D-640-r2 |> status=0 abort=no
+===== ESTADO cap=28W end temp=57C =====
+cooldown done t=50C (waited=55s)
+===== ESTADO cap=32W start temp=50C =====
+set_cap: pedido=32000000 aplicado=32000000
+RUN cap32-J-640-r1 |> status=0 abort=no
+RUN cap32-J-640-r2 |> status=0 abort=no
+RUN cap32-P-640-r1 |> status=0 abort=no
+RUN cap32-P-640-r2 |> status=0 abort=no
+RUN cap32-D-640-r1 |> status=0 abort=no
+RUN cap32-D-640-r2 |> status=0 abort=no
+===== ESTADO cap=32W end temp=59C =====
+cooldown done t=50C (waited=80s)
+===== ESTADO cap=35W start temp=50C =====
+set_cap: pedido=35000000 aplicado=35000000
+RUN cap35-J-640-r1 |> status=0 abort=no
+RUN cap35-J-640-r2 |> status=0 abort=no
+RUN cap35-P-640-r1 |> status=0 abort=no
+RUN cap35-P-640-r2 |> status=0 abort=no
+RUN cap35-D-640-r1 |> status=0 abort=no
+RUN cap35-D-640-r2 |> status=0 abort=no
+RUN cap35-J-1080-r1 |> status=0 abort=no
+RUN cap35-J-1080-r2 |> status=0 abort=no
+===== ESTADO cap=35W end temp=59C =====
+TOTAL_RUNS=28
+restored cap=35000000 -> 35000000

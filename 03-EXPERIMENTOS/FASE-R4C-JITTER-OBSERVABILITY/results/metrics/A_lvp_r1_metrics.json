@@ -1,0 +1,81 @@
+{
+  "n_frames_measured": 320,
+  "n_missing_in_rec": 0,
+  "missing_frames": [],
+  "tol_px": 0.01,
+  "mae_x": 0.0,
+  "mae_y": 0.0,
+  "mae_total": 0.0,
+  "rms_x": 0.0,
+  "rms_y": 0.0,
+  "max_err": 0.0,
+  "max_err_x": 0.0,
+  "max_err_y": 0.0,
+  "frames_correct": 320,
+  "frames_incorrect": 0,
+  "frac_correct": 1.0,
+  "pearson_jx": 1.0,
+  "pearson_jy": 1.0,
+  "top5_outliers": [
+    {
+      "frame": 4,
+      "gt": [
+        0.5,
+        0.0
+      ],
+      "rec": [
+        0.5,
+        0.0
+      ],
+      "err_px": 0.0
+    },
+    {
+      "frame": 5,
+      "gt": [
+        -0.5,
+        0.0
+      ],
+      "rec": [
+        -0.5,
+        0.0
+      ],
+      "err_px": 0.0
+    },
+    {
+      "frame": 6,
+      "gt": [
+        0.0,
+        0.5
+      ],
+      "rec": [
+        0.0,
+        0.5
+      ],
+      "err_px": 0.0
+    },
+    {
+      "frame": 7,
+      "gt": [
+        0.0,
+        -0.5
+      ],
+      "rec": [
+        0.0,
+        -0.5
+      ],
+      "err_px": 0.0
+    },
+    {
+      "frame": 8,
+      "gt": [
+        0.5,
+        0.5
+      ],
+      "rec": [
+        0.5,
+        0.5
+      ],
+      "err_px": 0.0
+    }
+  ]
+}

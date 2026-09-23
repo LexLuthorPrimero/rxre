@@ -1,0 +1,5 @@
+workload=e03 replica=1
+start=2026-09-21T05:09:19-03:00 host=lex-luthor
+gpu=1002:699f (RX 550 polaris12) card1 renderD129
+kernel=7.2.4-201.nobara.fc44.x86_64 mesa=OpenGL version string: 4.6 (Compatibility Profile) Mesa 26.2.2
+samplers=telemetria@10Hz + radeontop@1Hz + UMR(SPI/RLC/GRBM)@~1Hz

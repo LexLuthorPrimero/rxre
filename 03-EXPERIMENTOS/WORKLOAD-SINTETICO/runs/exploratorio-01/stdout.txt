@@ -1,0 +1,8 @@
+device: AMD Radeon RX 550 / 550 Series (RADV POLARIS12) vendor=0x1002 device=0x699F driver=0x06802002
+device=AMD Radeon RX 550 / 550 Series (RADV POLARIS12)
+vendor=0x1002 device=0x699F
+duration=20.047 s
+dispatches=162
+fps=8.08
+workgroups=4096 iterations=512 stride=16 seed=42 vram=268435456 bytes
+shader_path=src/compute.comp
