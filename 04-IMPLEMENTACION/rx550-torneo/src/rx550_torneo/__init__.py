@@ -1,0 +1,1 @@
+"""rx550-torneo — Fase 1 (read-only). Paquete."""
