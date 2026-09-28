@@ -1,0 +1,68 @@
+# Python/test caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Native/build products
+**/build/
+**/.ninja_deps
+**/.ninja_log
+**/CMakeCache.txt
+**/CMakeFiles/
+*.o
+*.a
+*.so
+*.so.*
+*.bin
+*.dll
+*.exe
+03-EXPERIMENTOS/WORKLOAD-SINTETICO/main
+03-EXPERIMENTOS/WORKLOAD-SINTETICO/main-graphics
+
+# Downloaded installers, partial downloads and core dumps
+*.run
+*.partial
+*.dmp
+*.core
+core
+core.*
+
+# Local logs and process output
+*.log
+*.nohup.log
+*.stderr
+*.stdout
+
+# Raw preflight captures retained locally but not in the public tree
+01-AUDITORIA/FASE-C1-RUNTIME-PREFLIGHT/*-PRIV.*
+01-AUDITORIA/FASE-C1-RUNTIME-PREFLIGHT/*.collector.stderr
+01-AUDITORIA/FASE-C1-RUNTIME-PREFLIGHT/*.json
+00-INDICE/REORGANIZACION-MANIFEST.sha256
+03-EXPERIMENTOS/FASE-D-COUNTERS-AUDIT/runs/etapa2/resultados_etapa2.json
+
+# Temporary test/runtime state
+**/tmp/
+**/tmp-*/
+**/.cache/
+**/state/
+**/XDG_STATE_HOME/
+
+# Editor/host-local files
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Do not ignore source Markdown, JSON evidence, CSV/TSV measurements or
+# explicitly named validation artifacts.
+
+# Copia de estudio del driver amdgpu (Linux v7.1.3).
+# El arbol upstream son ~2.8k ficheros / 521 MB; dejarlos sin ignorar hace que
+# `git ls-files --others --exclude-standard` los reesanee en bucle.
+RESEARCH/
+
+# RE-03-E3: ejecutables sin extension del compresor de texturas.
+# *.o y *.bin ya estan cubiertos arriba; estos dos no tienen extension.
+04-IMPLEMENTACION/compressor/test_compress
+04-IMPLEMENTACION/compressor/diag
