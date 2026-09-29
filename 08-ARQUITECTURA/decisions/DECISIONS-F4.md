@@ -357,3 +357,28 @@ registro se apoya en `lsof`, `fuser` ni en un escaneo parcial de `/proc`.
   explícito de que el dispositivo **no** es llvmpipe.
 - **Precedente**: el agreement test de la Fase 2 ya identifica por PCI identity por el mismo
   motivo, y lo documentó en su salida.
+
+
+## F4-AD-24 — REGLA DE OPERACIÓN: citar el commit de origen de todo dato cruzado
+
+- **Fecha**: 2026-09-29 · **Estado**: `DECIDIDO`
+- **Contexto**: se cancela el protocolo de cerrojos y se trabaja en paralelo sobre ámbitos
+  disjuntos. Eso resuelve los conflictos de **fichero**, que `git merge` detecta. **No** los de
+  **contenido**: un documento puede afirmar un dato que otra IA cambió sin que nada lo señale.
+- **Regla**: un dato que provenga del trabajo de otra IA se cita **con su commit de origen**. Si no
+  lo mediste o verificaste tú en esta ronda, no lo escribas como hecho absoluto.
+- **Tres grados**: `medido por mí` (con el comando que lo demuestra) · `citado` (con commit) ·
+  `supuesto` (`NOT_DETERMINED`, con la razón). El tercero es el que se olvida y es el que más
+  cuesta.
+- **Costo real en este proyecto**:
+  - `b8294b1` afirmaba que la ruta de cómputo Vulkan no funcionaba en el host. **Falso**: era un
+    bug mío de structs declaradas a mano. Corregido en `AD-14`.
+  - `test_alpha_ramp` afirmaba conformidad con bcdec; `AD-11` cambió la regla de la rampa y el test
+    quedó obsoleto.
+  - En ambos casos el documento se quedó con toda la confianza y **sin ninguna marca de caducidad**.
+- **Regla de mantenimiento**: al terminar un turno, `git log` sobre los ficheros citados. Si alguno
+  cambió desde que lo escribí, corrijo la cita o la marco obsoleta. Son treinta segundos.
+- **Documento**: `designs/005-regla-citacion.md`.
+- **Lo que NO es**: no es ceremonia, no impide el paralelismo, no sustituye a medir. Solo cambia una
+  línea de cómo se escribe un dato. Es la única defensa posible contra la contradicción silenciosa:
+  `git merge` detecta ficheros, `grep` no detecta mentiras.
