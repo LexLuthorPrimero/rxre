@@ -63,7 +63,7 @@ artefactos de la sección siguiente.
 
 | Artefacto | Estado | Evidencia |
 |---|---|---|
-| `compressor/rx550_compress.c` | IMPLEMENTADO · EJECUTADO · VALIDADO | suite `test_compress`: `all checks passed`; commit `05c6297` |
+| `compressor/rx550_compress.c` | IMPLEMENTADO · EJECUTADO · VALIDADO | suite `test_compress`: `all checks passed`; introducido en `05c6297`, última modificación `44bc133` |
 | `compressor/rx550_compress_avx2.s` | IMPLEMENTADO · EJECUTADO · VALIDADO | 6 instrucciones AVX2 medidas en el `.o`; bit-idéntico a la ruta C en 200 000 bloques |
 | `decompressor/decompress_bc3.comp` | IMPLEMENTADO · EJECUTADO EN RX 550 · VALIDADO | `0/16384` discrepancias GPU vs CPU sobre 3 texturas; decisión `F4-AD-12` |
 | `llvmpipe_pairs.py` | IMPLEMENTADO · EJECUTADO · VALIDADO | 649 contrastados contra `1e28733`; control negativo `rc=1` |
