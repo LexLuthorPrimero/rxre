@@ -8,6 +8,26 @@ misma, y conviene que se lea una vez en lugar de tres.
 
 ---
 
+## ⛔ RETRACTADO 2026-09-29 — este diagnóstico era incorrecto
+
+**Los autogenerados SÍ estaban en el repo**, en
+`drivers/gpu/drm/amd/include/asic_reg/gca/gfx_8_0_sh_mask.h` (1 136 970 B, 50 registros
+`COMPUTE_*` con MASK y SHIFT).
+
+Busqué en `drivers/gpu/drm/amd/amdgpu/` y en `include/`, y no en el subárbol hermano
+`amd/include/`. Afirmé la ausencia con la misma seguridad que un hallazgo positivo, y
+escribí que la vía quedaba cerrada dentro del repo. **No lo estaba.** `kernel-devel` se
+instaló después y tampoco los trae: la instalación nunca fue la vía.
+
+Decodificación completa en **`010-pgm-rsrc1-decoded.md`**. Este documento se conserva
+porque el diagnóstico del CRC32 y de `GFX_HWIP` sigue siendo válido, pero **§1 y §2
+quedan retractados**.
+
+El error es el segundo caso de este proyecto de "se buscó donde no estaba y se concluyó
+que no existía", tras `vulkan.h` en la Ronda 2. Los dos míos.
+
+---
+
 ## 1. Causa raíz común: el árbol de referencia es parcial
 
 `RESEARCH/working/linux-7.1.3/` contiene **632 ficheros** en `drivers/gpu/drm/amd/amdgpu/`, pero
@@ -166,7 +186,7 @@ No coinciden. Dos hipótesis, ninguna verificable aquí:
 
 | Bloqueo | Estado | Causa exacta | Vía de apertura | Coste |
 |---|---|---|---|---|
-| `PGM_RSRC1` bits | `NOT_DETERMINED` | headers autogenerados ausentes del árbol | header de registros de GFX8 | bajo: un fichero |
+| ~~`PGM_RSRC1` bits~~ | **RESUELTO** en `010` | — | ya está: `asic_reg/gca/gfx_8_0_sh_mask.h` | **cerrado** |
 | CRC32 firmware | `NOT_DETERMINED` | `amdgpu_smc.c` ausente del árbol | `amdgpu_smc.c` | bajo: un fichero |
 | `GFX_HWIP` | `NOT_DETERMINED` | requiere leer hardware, no código | UMR, ASIC ID | **alto: `RUNTIME_EXECUTION` no autorizado** |
 
