@@ -166,9 +166,14 @@ autovalidación tiene un 2/3 de probabilidad de acertar por casualidad.
 | **V-E** | Se imprime `linearTilingFeatures` y se comprueba que **no** tiene `SAMPLED_IMAGE` | crear la imagen con tiling linear y no saber por qué falla |
 | **V-F** | Se comprueba `apiVersion >= 1.1` si se va a usar `Properties2` | interpretar mal flags de 2.0 |
 | **V-G** | `rc != 0` ante fallo de cualquier `P*` | el fallo de `F4-AD-7` §2: un CI verde sobre `[FAIL]` |
+| **V-H** | La rampa no coincide con el predictor llvmpipe en los 649 pares donde llvmpipe es único | contaminación por llvmpipe; ver `006` §4 |
 
 **V-B merece atención**: el filtro por PCI ya lo cubre, pero es una segunda barrera con coste
 cero. Si alguien cambia el filtro por índice, V-B salta.
+
+**V-H pertenece al test de rampa de `003`, no a este probe de formato**; se registra aquí
+porque comparte la misma pantalla de selección de dispositivo. Su fundamento está en
+`006-p9-hardware-vs-software.md` §4.
 
 **V-G no es opcional** y viene de un fallo ya medido en este proyecto: un test que imprimía
 `[FAIL]` por `stderr` devolvía `rc=0`, y un CI reportaba verde (`F4-AD-7`).
@@ -236,16 +241,20 @@ un FBO en OpenGL, leído con `glReadPixels`. Es el mismo principio que `003` §3
 
 ### 5.4 Prioridad de fallback — revisada
 
+**Estado tras P-9 (`006`, Ronda 9): esto ya no es condicional. `F1 = PASS`, así que el orden
+relevante es cuál se implementaría si una actualización de Mesa retirase `SAMPLED_IMAGE` de BC3.**
+
 | Orden | Vía | Por qué en esa posición |
 |---|---|---|
-| 1 | **C — OpenGL + FBO** | principio idéntico al de `003`; el bloqueo histórico era de contexto, no de formato; y es la única que puede usar BC3 como attachment |
+| 1 | **C — OpenGL + FBO** | principio idéntico al de `003`; el bloqueo histórico era de contexto, no de formato; y es la única que puede usar BC3 como attachment. **Su riesgo residual es el contexto equivocado, y lo cubre `GL_RENDERER` (V-A) + el predictor llvmpipe de `006` §4** |
 | 2 | **B — copia directa** | sin shader ni sampler; máxima limpieza **si** el hardware transcodifica, que está sin medir |
 | 3 | **A — compute `imageLoad`** | **`NOT_AVAILABLE` por medición.** Desciende a última posición por eliminación, no por prudencia |
 
 **A va última porque no va**: la versión anterior la ponía última «a propósito», por la
-posibilidad de una decodificación por software. Esa razón sigue siendo válida **para cuando se
-reabra**, y es la razón por la que A sigue en la lista en vez de borrarse. Un cambio de driver
-que añada `STORAGE_IMAGE` la reactiva, y entonces vuelve a ser la más traicionera de las tres.
+posibilidad de una decodificación por software. Esa razón era correcta pero estaba mal
+fundamentada —no es que `radeonsi` *pudiera* decodificar BC3 en software, es que no tiene esa
+capacidad en absoluto (`006` §1)—. Sigue en la lista, no borrada, porque un cambio de driver que
+añada `STORAGE_IMAGE` la reabre.
 
 ### 5.5 BC3 no puede ser color attachment en Vulkan — cierra una vía de replanteo
 
@@ -268,38 +277,39 @@ muestreable, y el fallo aparecería como un error de creación o como una imagen
 
 **Requisito**: `imageTiling = VK_IMAGE_TILING_OPTIMAL`. Comprobación `V-E`.
 
-## 6. Pregunta que queda abierta en el fallback
+## 6. Pregunta que queda abierta en el fallback — `P-9`
 
 **P-9**: ¿cómo se verifica empíricamente que una decodificación BC3 la hizo el **hardware de
 textura** y no el driver por software?
 
-**Cambio de estado**: con la Opción A refutada (§5.1), `P-9` ya **no** bloquea a la Opción A.
-**Sigue bloqueando a la Opción C**, que es la primera del orden. Sin `P-9`, la Opción C puede
-producir un número que parece hardware y no lo es — y ese número decidiría `AD-12`.
+**Estado: `RESUELTO` en `006-p9-hardware-vs-software.md` (Ronda 9).** Resumen de lo que cambió:
 
-Esto no es teórico. Es la diferencia entre `AD-12` resuelto y `AD-12` resuelto **con una mentira**.
+- **La hipótesis rival no era la que estaba escrita.** No es «el driver puede decodificar en
+  software» —en Mesa 26.2 `radeonsi` y `RADV` no contienen ningún descompresor BC3 en CPU
+  (verificado por grep)—. Es «**el contexto creado no es el que creemos**».
+- **El contaminante conocido es `llvmpipe`, y se puede predecir sin ejecutarlo.** Su aritmética
+  de rampa alfa está en `lp_bld_format_s3tc.c:817-877` y es determinista. Sobre los 136 686
+  pares donde spec y trunc difieren, coincide con trunc en el 68.6 %, con spec en el 30.8 %, y
+  con **ninguna de las dos en 649 casos (0.47 %)**. Ese tercer conjunto es el discriminante.
+- **La pista de los contadores de textura queda descartada por indisponibilidad, no por teoría**:
+  `gpu_busy_percent` da `EBUSY`, `/sys/kernel/debug/dri/` da `EPERM`, y el nodo KFD de la
+  RX 550 tiene `perf/` vacío. No era que el contador no separase hardware de software: es que
+  no es accesible.
+- **`P-9` ya no bloquea ninguna de las tres vías.** Con eso, este documento §5.4 pasa de
+  «recomendación condicionada» a **el plan A de Fase 3**, y el camino principal de `003` §3
+  queda sin bloqueos de diseño.
 
-Pistas, ninguna cerrada:
+**Lo que P-9 no resuelve**: `AD-12`. P-9 era sobre la interpretabilidad del experimento; la
+medición de la rampa sigue siendo Fase 3.
 
-- El hardware tiene un contador de **operaciones de textura**; si el bloque se decodifica por
-  software, el contador no se mueve. `F4` ya confirma que hay problemas de acceso a contadores
-  `GFX8`, así que esta vía puede no estar disponible. `NOT_DETERMINED`.
-- La **latencia** de la muestra cambia según el tamaño del recurso. No es concluyente por sí sola.
-- La comparación con `llvmpipe`: si el resultado de la iGPU y el de llvmpipe son **idénticos**
-  hasta el bit, eso es sospechoso. No es prueba de software, pero es una señal. **Ahora hay un
-  dato nuevo que la hace más fuerte**: los tres dispositivos reportan el mismo conjunto de
-  capabilities BC3 salvo por dos bits, lo que confirma que son rutas de código distintas — pero
-  **no** dice nada sobre si la decodificación de la RX 550 es de hardware.
-- **Especulación, no evidencia, y la dejo marcada como tal**: un `imageLoad` de un formato
-  bloqueado podría resolverse por software en algunos drivers. No lo he medido y no hay forma de
-  medirlo aquí sin el contador de §1. `NOT_DETERMINED`.
+Detalle completo, salvedades y peticiones a otras IAS: `006-p9-hardware-vs-software.md`.
 
 ## 7. Criterios de éxito de esta especificación
 
 | # | Criterio | Estado |
 |---|---|---|
 | Q1 | El probe identifica el dispositivo por PCI identity, y **aborta** si no lo encuentra | spec §3.1, sin implementar |
-| Q2 | `V-A`..`V-G` pasan antes de emitir veredicto | spec §4, sin implementar |
+| Q2 | `V-A`..`V-H` pasan antes de emitir veredicto | spec §4, sin implementar |
 | Q3 | Imprime el valor **completo** de `optimalTilingFeatures` y de `linearTilingFeatures` | spec §3.4 |
 | Q4 | Si `NO_SAMPLED`, dice **explícitamente** cuál de las tres vías toca, y por qué ese | spec §5.4 |
 | Q5 | `VK_FORMAT_BC3_UNORM_BLOCK` (137), nunca `SRGB` (138) | spec §3.3 |
@@ -317,7 +327,10 @@ Pistas, ninguna cerrada:
 - **No** dice si la Opción C funciona. El bloqueo histórico de contexto GLX sigue sin resolver
   desde mi última ronda, y la afirmación de que `DRI_PRIME=1` lo resuelve viene de `daf2f29`,
   **citada, no re-verificada**.
-- **No** dice si la decodificación es de hardware. `P-9` sigue abierto.
+- **No** dice si la decodificación es de hardware en el binario instalado. `P-9` está resuelto
+  por lectura del árbol `/home/lucas/mesa` (`26.1-branchpoint-1415-gc5e413533f4`), que no es
+  el mismo commit que `mesa-dri-drivers-26.2.3-1.fc44`. `PLAUSIBLE`, no `OBSERVED` para el
+  host. Ver `006` §5, petición `Q-3`.
 - **No** sustituye al probe. Una medición de formato ajena no ejercita el aborto de `F4-AD-23`.
 - **No** afirma nada sobre el rendimiento. Ninguna de estas vías es un benchmark.
 

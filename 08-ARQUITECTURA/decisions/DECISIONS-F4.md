@@ -1,7 +1,7 @@
 # Decisiones de Fase 4 — Driver Exclusivo RX 550
 
 **Ámbito**: `08-ARQUITECTURA/` — IA-3 (Arquitecto)
-**Iniciado**: 2026-09-29 · **Ronda**: 1 · **Última decisión**: `F4-AD-26` (Ronda 8)
+**Iniciado**: 2026-09-29 · **Ronda**: 1 · **Última decisión**: `F4-AD-27` (Ronda 9)
 
 Estados, según `AGENTS.md`: `DECIDIDO` · `PROPUESTO` · `ABIERTO` · `BLOQUEADO`.
 
@@ -448,3 +448,54 @@ registro se apoya en `lsof`, `fuser` ni en un escaneo parcial de `/proc`.
   desde que lo escribí, corrijo la cita o la marco obsoleta. Registrado en `005` §6.
 - **Documento de aplicación**: `designs/005-regla-citacion.md` (patrones y ejemplos) y
   `designs/004-fallback-sin-rasterizador.md` §9 (tabla de procedencia completa, aplicada).
+
+## F4-AD-27 — `P-9` resuelto: la hipótesis rival estaba mal formulada
+
+- **Fecha**: 2026-09-29 · **Ronda**: 9 · **Estado**: `DECIDIDO` (medido, con salvedad)
+- **La pregunta que `004` §6 hacía**: «¿cómo se **verifica** que la decodificación la hizo el
+  hardware?». Es la formulación equivocada, y por eso parecía irresoluble: `AGENTS.md` §
+  Falsificación no pide *demostrar*, pide **nombrar la observación que refutaría la hipótesis
+  rival**. Sin rival nombrado no hay criterio de éxito, y «no veo señales de software» no es
+  una medida.
+- **La hipótesis rival real**: no es «el driver puede decodificar BC3 en software». Es
+  «**el contexto creado no es el que creemos**».
+- **Medición** (`grep`, 2026-09-29):
+  ```
+  $ grep -rn "dxt5_rgba\|dxt5_srgba\|u_format_s3tc" src/gallium/drivers/radeonsi/  → 0
+  $ grep -rn "dxt5_rgba\|dxt5_srgba\|u_format_s3tc" src/amd/vulkan/               → 0
+  ```
+  Mesa 26.2: `radeonsi` y `RADV` **no contienen descompresor BC3 en CPU**. El único
+  decodificador por software está en el camino de `llvmpipe`
+  (`src/gallium/auxiliary/gallivm/lp_bld_format_s3tc.c`), que es **otro driver**, no una ruta
+  alternativa dentro de radeonsi. Un contexto radeonsi no tiene a dónde caer.
+- **Trampa que casi produce un diagnóstico falso**: `radeonsi` tiene funciones llamadas
+  `gfx6_decompress_textures` y `si_decompress_color_texture` que **no** son de BC3 — son
+  *fast-clear* (CMask/FMASK/DCC). La guarda en `si_blit.c:568-571` lo dice, y el
+  `assert(sctx->gfx_level < GFX11)` en `:567` lo confirma. Un grep de `decompress` en radeonsi
+  genera una advertencia falsa.
+- **Hallazgo que da valor al experimento**: la aritmética de `llvmpipe`
+  (`lp_build_lerpdxta`, `lp_bld_format_s3tc.c:817-877`) no es ni truncamiento ni redondeo.
+  Reproducida y comparada sobre los **136 686** pares donde spec y trunc difieren:
+  | llvmpipe coincide con… | Pares | % |
+  |---|---|---|
+  | spec `+3`/`+2` | 42 170 | 30.8 |
+  | truncamiento (bcdec) | 93 867 | 68.6 |
+  | **ninguna de las dos** | **649** | **0.47** |
+  Ese tercer conjunto es un **discriminante conocido y calculable sin GPU**. Convierte la idea
+  débil de `004` §6 («si coincide con llvmpipe, es sospechoso») en un control con poder de
+  discernimiento: requiere `V-H`.
+- **Consecuencia**: `P-9` **no bloquea** el camino principal (Vulkan selecciona por PCI identity
+  en el propio programa, sin depender de `DRI_PRIME`) ni la Opción C (cubre `GL_RENDERER` con
+  `V-A` más el predictor llvmpipe con `V-H`). Ninguna vía queda bloqueada por `P-9`.
+- **Vías descartadas y por qué**: `vkGetBufferDeviceAddress` responde a «¿la dirección es de
+  dispositivo?», no a «¿quién decodificó?». Los timeline semaphores miden orden de submits, no
+  el origen aritmético de un texel. **Latencia**: no concluyente por sí sola, y medirla exige
+  benchmark — prohibido por `AGENTS.md` §Safety sin autorización.
+- **Salvedad que impide llamarlo `OBSERVED` para este host**: el árbol leído es
+  `/home/lucas/mesa` = `26.1-branchpoint-1415-gc5e413533f4` (`VERSION 26.2.0-devel`); el driver
+  instalado es `mesa-dri-drivers-26.2.3-1.fc44`. Misma serie menor, **commit no verificado
+  igual**. La conclusión es `PLAUSIBLE` para el binario en ejecución. Petición `Q-3` en `006`
+  §10: `nm -D`/`strings` sobre `radeon_dri.so` y `libvulkan_radeon.so`.
+- **No resuelve `AD-12`**: `P-9` era sobre la interpretabilidad del experimento; la medición de
+  la rampa sigue siendo Fase 3.
+- **Documento**: `designs/006-p9-hardware-vs-software.md`.

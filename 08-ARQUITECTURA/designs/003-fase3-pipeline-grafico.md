@@ -202,6 +202,32 @@ de él, no.
 
 Sin esto, el fallo es el de la Fase 2 en otra forma: salida vacía leída como resultado.
 
+### 5.0 Predictores: cuatro categorías, no tres — añadido en Ronda 9
+
+La clasificación de §3 y §8 era binaria (`trunc` / `round`) más un residuo. `P-9` añadió una
+cuarta: **`llvmpipe`**. Su aritmética de rampa alfa (`lp_build_lerpdxta`,
+`lp_bld_format_s3tc.c:817-877`) es determinista, calculable offline, y **no coincide ni con
+truncamiento ni con redondeo** en 649 de los 136 686 pares donde spec y trunc difieren
+(0.47 %).
+
+| Categoría | Significado |
+|---|---|
+| `only_round` | coincide con spec `+3`/`+2` y no con trunc → hardware redondea |
+| `only_trunc` | coincide con trunc y no con spec → hardware trunca |
+| `only_llvmpipe` | coincide con llvmpipe y con ninguno de los otros dos → **contaminación por llvmpipe**, no un hallazgo |
+| `agree` | trunc y spec coinciden en ese par: no discrimina |
+| `neither` | no encaja en ninguno de los tres: `NOT_DETERMINED`, se reporta |
+
+Consecuencia sobre el corpus: el de 64 bloques de §2 **no alcanza** para cubrir los 649 pares
+excepcionales. Hay que ampliarlo (petición `Q-2` a IA-2, en `006` §10).
+
+**El predictor llvmpipe debe escribirse independiente** de los otros dos, por el mismo motivo
+que `N4` (§6): un predictor que comparte fórmula con otro no discrimina.
+
+Detalle y fundamento: `006-p9-hardware-vs-software.md`.
+
+### 5.1 Comprobaciones del camino de medición
+
 | # | Comprobación | Qué evita |
 |---|---|---|
 | S1 | `formatProperties` incluye `SAMPLED_IMAGE` | descubrir al final que el método no aplica |
@@ -211,6 +237,7 @@ Sin esto, el fallo es el de la Fase 2 en otra forma: salida vacía leída como r
 | S5 | Los **canales RGB de referencia son 0** en todo el corpus | si el sampler devuelve color, el corpus no es el esperado |
 | S6 | Los **índices 0 y 1 decodifican a `a0` y `a1` exactos** | caminho de medición roto |
 | S7 | El FBO **no** está todo a cero | el shader no ejecutó |
+| **S8** | El resultado **no** coincide con llvmpipe en los 649 pares donde llvmpipe es único | contaminación por software; `V-H` de `004` §4, fundamento en `006` §4 |
 
 **S6 es la fuerte.** Los índices 0 y 1 no interpolan: son los endpoints literales. Si el sampler no
 devuelve exactamente `a0`/`a1`, el problema está en el camino, no en la rampa. **Es el mismo
@@ -242,6 +269,8 @@ estar escrito dos veces, de forma independiente**, o el experimento no vale.
 | F3 | N4, N5, N6 se rechazan | control negativo | `NOT_RUN` |
 | F4 | **Clasificación inequívoca**: trunc **o** redondeo, sin residuo | conteo de las tres categorías | `NOT_RUN` — `AD-12` sigue `NOT_DETERMINED` |
 | F5 | La clasificación es **coherente en las dos ramas** (`a0>a1` y `a0<=a1`) | breakdown por rama | `NOT_RUN` |
+| **F6** | Ningún caso cae en `only_llvmpipe` | conteo de 4 categorías (§5.0) | `NOT_RUN` — requiere corpus ampliado |
+| **F7** | El corpus cubre los **649** pares donde llvmpipe difiere de ambos | cobertura del corpus | `NOT_RUN` — `006` §6, petición `Q-2` |
 
 **F4 con residuo no nulo no es un éxito parcial: es un `NOT_DETERMINED`**, y se reporta como tal.
 Sería el caso de que el sampler use una regla que no es ni truncamiento ni redondeo — y eso sería
