@@ -125,6 +125,31 @@ When a later finding refutes an earlier conclusion, correct it explicitly and sh
 the refuting evidence. Consistency with a previous answer is not a reason to keep
 it.
 
+**Verify the object itself before asserting its absence.** An absence state is a
+claim about a specific object, and it is refuted by that object turning out to
+exist. Extrapolating from a *neighbouring* check is the recurring way to get this
+wrong, and it happened three times in one session:
+
+| asserted | actually | the check that was mistaken for it |
+|---|---|---|
+| `git commit` is `deny` | `allow` | read from memory, `opencode.json` never opened |
+| `vulkan.h` absent | `vulkan-headers` installed | checked for `vulkan-devel`, a different package |
+| `spirv-tools` missing | installed, `spirv-val` rc=0 | inferred from `vulkan-devel` also being absent |
+
+So before emitting `NOT_AVAILABLE`, `NOT_FOUND` or `PROVEN_ABSENT`:
+
+- check the object by name, not a relative of it — `which X`, `X --version`,
+  `test -f X`, or run it and read the return code;
+- record *how* it was checked, the way a search records its `WHERE` and `QUERY`;
+- if the check was not run, the state is not `NOT_AVAILABLE`. It is
+  `NOT_DETERMINED`, and the sentence to write is "not verified".
+
+This is a special case of the rule above — a test that discriminates is worth more
+than a claim that agrees with itself — applied to a claim about the environment
+rather than about the code. A document that asserts a false limitation is worse
+than one that is silent about it: the first is read as a finding, the second as
+an omission.
+
 ## Investigation method
 
 1. Read the project's existing documents and preserved evidence first.
