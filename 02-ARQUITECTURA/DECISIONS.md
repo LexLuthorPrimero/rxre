@@ -632,3 +632,114 @@ fórmula `PDE_VRAM_OFFSET` de E1 — ver `DEC-5`.
 > No existe comprobación CRC de versiones de símbolos mediante MODVERSIONS; permanecen las demás comprobaciones del cargador, incluidas firma y políticas de seguridad.
 
 **Impacto**: `E1_TRANSFER_STATUS = PRESERVED` **no** es autorización de build. `BUILD_AUTHORIZATION`, `MODULE_SIGNATURE`, `TREE_EXCLUSIVITY`, `LOADABILITY` y `RUNTIME_AUTHORIZATION` siguen separados, y `BUILD_ALLOWED = NO`. La fuente dejó de ser el obstáculo; la firma de módulos es ahora el 후보 dominante, y es una pregunta que no depende de la procedencia.
+
+---
+
+## AD-2 — 2026-09-28 — Formato de compresión BC3/DXT5, con la rampa alfa corregida
+
+| Campo | Valor |
+|---|---|
+| **DECISIÓN** | Opción A — bloque de 16 B: sub-bloque alfa de 8 índices de 3 bits + sub-bloque color de 4 índices de 2 bits (BC3/DXT5) |
+| **DECIDER** | `MODEL_CHOICE` (formato) sobre `HUMAN_POLICY` AD-1 (alcance) |
+| **DATE** | `2026-09-28` |
+| **SUPERSEDE** | la entrada `AD-2` de la misma fecha, **en su justificación**. Su texto original se conserva sin editar (§12.4) |
+| **MOTIVO DE LA REVISIÓN** | la justificación original afirmaba conformidad DXT5 que **no existía**: la rampa alfa implementada no era DXT5, y el test que supuestamente la verificaba comparaba la implementación contra una copia literal de sí misma |
+
+### Por qué se revisó
+
+La rampa alfa de `rx550_compress.c` usaba `(7-i)` y dividía por 7 en **ambas** ramas. DXT5
+no hace eso: con `a0 <= a1` interpola **cuatro** valores con `/5` y gasta los dos códigos
+sobrantes en los extremos `0` y `255`. La consecuencia era que los bloques producidos no los
+decodifica ningún decodificador BC3 del mundo.
+
+Pasó desapercibida porque `dxt5_reference_alpha()` en `test_compress.c` era **copia línea a
+línea** de `alpha_palette()`. El test comparaba `f(x)` con `f(x)`, que es verdadero por
+construcción, y su comentario afirmaba haberla transcrito *«from the BC3 specification, not
+from the code»*. Era falso.
+
+Impacto medido del defecto, sobre 7 casos cerrados: **27 entradas discrepantes**. Caso
+inequívoco: con `a0=a1=128` la implementación producía `[128 x8]`; DXT5 produce
+`[128 x6, 0, 255]`. Un códec BC3 que decodifica un bloque alfa plano a 128 en las ocho
+entradas no es un códec BC3.
+
+### Rampa alfa, conforme
+
+```
+a0 >  a1 :  pal[i] = ((8-i)*a0 + (i-1)*a1 + 3) / 7   para i = 2..7
+a0 <= a1 :  pal[i] = ((6-i)*a0 + (i-1)*a1 + 2) / 5   para i = 2..5
+             pal[6] = 0 ;  pal[7] = 255
+```
+
+El coeficiente de `a0` es `(8-i)`, no `(6-i)` ni `(7-i)`: en `i=2`, DXT5 es
+`(6*a0 + a1 + 3)/7`, de modo que `a0` pierde exactamente un paso a lo largo de la rampa y
+`(7-i)` pierde dos.
+
+### Estructura del bloque (16 B)
+
+| offset | bytes | campo |
+|---:|---:|---|
+| 0 | 1 | `a0` endpoint alfa 0 |
+| 1 | 1 | `a1` endpoint alfa 1 |
+| 2-7 | 6 | índices alfa, 16 x 3 bits, LSB-first |
+| 8-9 | 2 | `c0` endpoint color, RGB565 LE |
+| 10-11 | 2 | `c1` endpoint color, RGB565 LE |
+| 12-15 | 4 | índices color, 16 x 2 bits, LSB-first |
+
+### Evidencia de conformidad — y lo que **no** es evidencia
+
+| Lo que sí se hizo | Resultado |
+|---|---|
+| Vectores literales de referencia (7 casos: extremos opuestos, planos 0/255/128, y dos típicos) | 27 discrepancias → **0** |
+| Barrido exhaustivo de los 65 536 pares contra una referencia escrita con **tablas de pesos** `{6,5,4,3,2,1}` / `{4,3,2,1}`, no con la expresión del código | 0 discrepancias |
+| Invariante estructural: con `a0 <= a1` los dos códigos sobrantes **deben** ser los extremos | se cumple |
+| `a0 > a1`: la parte interpolada `a[2..7]` es no creciente | se cumple |
+| `glslangValidator` 16.3.0 sobre el shader, `-V` | `rc=0`, sin warnings, SPIR-V 11 984 B |
+| `shader_vs_c.c`: lógica del shader transliterada a C contra el decodificador C | **0/4096** canales |
+
+**Retirado de la justificación propuesta, por no ser verificable:**
+
+- `bcdec`, `oxideav-dds`, `DirectXTex`/`D3DX` como corroboración: **ninguno instalado, ninguno
+  consultado**. Comprobado el 2026-09-28: 0 fuentes DXT5 en `~/Descargas`.
+- «Análisis ryg»: sin referencia identificable.
+- «Verificada contra la especificación Microsoft (Block Compression, Direct3D 10)»: **la
+  especificación no se ha leído**. La conformidad está establecida contra un conjunto de
+  literales cuya transcripción es mía. Eso es mejor que un test circular, pero es
+  `SECONDARY` respecto de la fuente primaria, y `AGENTS.md` §3.1 sitúa la fuente primaria por
+  encima. **Es el límite que queda abierto**, y se cierra consultando la especificación, no
+  con más vectores.
+
+`CONFORMITY_PROVENANCE = AGENT_TRANSCRIPTION`, no `SPECIFICATION_VERIFIED`.
+
+### Errores metodológicos registrados
+
+1. Afirmar conformidad desde memoria y desde un test circular, y que el circular pasara
+   porque `f(x) == f(x)`. La lección operativa: **una referencia que se parece a la
+   implementación no es una referencia.**
+2. Interpretar los extremos `[0, 255]` de la rama `a0 <= a1` como un defecto a evitar. De
+   hecho es la especificación. El error no estaba en la rampa ausente sino en la regla
+   escrita que la prohibía.
+3. Una expectativa de test puede ser ella misma el bug: «el alfa plano se decodifica a sí
+   mismo en las 8 entradas» es falsa bajo DXT5 y prohibía el comportamiento correcto.
+4. **Dos autores sobre el mismo fichero produce un par de implementaciones mutuamente
+   consistentes y ambas erróneas.** El shader se escribió contra el C no conforme, y el
+   encoder se corrigió después. El round-trip pasaba y la especificación era incorrecta.
+
+### Estado y cifras medidas
+
+| Elemento | Estado |
+|---|---|
+| Encoder | funcional, conforme en aritmética, **no ejecutado contra la especificación primaria** |
+| Suite | **26/26**, `make` rc = 0 |
+| PSNR | reference 28,73 · smooth 19,59 · noise 13,64 · adversarial 10,89 dB (reportado, no afirmado) |
+| Topes | 24 / 16 / 11 dB — se sostienen sin recalibrar; la rampa corregida **mejoró** los tres |
+| Throughput encoder C | ~28 MB/s |
+| Speedup AVX2 | **0,97x - 1,05x entre ejecuciones**, oscila alrededor de 1: el SIMD cubre sólo el min/max |
+| Shader | compila a SPIR-V; **ejecutado en GPU: no** |
+| Enlace shader-C | **`NOT_ESTABLISHED`** — las dos validaciones son independientes y nada las conecta |
+
+### Corrección a la atribución de los datos de entrada
+
+La versión propuesta de esta entrada atribuía el defecto original a `AD-6`. Es incorrecto:
+`AD-6` trata de los topes de calidad. El defecto estaba en `alpha_palette()` y en el test, y
+la decisión de formato de bloque es `AD-2`. Se deja dicho para que la referencia no lleve a
+buscar el defecto en la entrada equivocada.
