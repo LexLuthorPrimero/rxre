@@ -16,7 +16,7 @@ El proyecto implementó un compresor BC3/DXT5 en CPU (Fase 1) y un descompresor 
 - **Estado**: COMPLETA
 - **Tests**: 26/26 pasando
 - **PSNR**: 28.78/19.59/13.65/10.90 dB (reference/smooth/noise/adversarial)
-- **Throughput**: 77.3 MB/s (C), 79.9 MB/s (AVX2), speedup 1.03×
+- **Throughput**: 83.7 MB/s (C), 86.0 MB/s (AVX2), speedup 1.03×
 - **Conformidad**: Especificación Microsoft D3D9 (AD-11, redondeo +3/+2)
 - **Commits clave**: f870e8e (AD-10), ec847d7 (AD-11), 44bc133 (D19a)
 
