@@ -23,11 +23,15 @@
  * radeon/sid.h as evidence; that citation was the wrong file, and it is
  * corrected here.
  *
- * What is still missing is not the encoding but the register state around it:
- * COMPUTE_PGM_RSRC1 carries the workgroup count, and its bit fields are
- * NOT_DETERMINED. A packet with a correct header and an uninitialised PGM_RSRC1
- * dispatches the wrong amount of work silently, so the sequence cannot be
- * assembled yet.
+ * The register state around the packet is also decoded now, and it corrects a
+ * claim in 007-gfx8-pm4-format.md: the workgroup count is NOT in
+ * COMPUTE_PGM_RSRC1. gfx_8_0_sh_mask.h:8301-8320 gives PGM_RSRC1 ten fields, and
+ * 0x240 from sgpr1_init_regs decodes to VGPRS=0, SGPRS=9 -- resource counts, no
+ * dimensions. The grid lives in COMPUTE_NUM_THREAD_X/Y/Z, each 16 bits FULL
+ * (bits 15:0) and 16 bits PARTIAL (31:16), same file lines 8271-8280.
+ * COMPUTE_PGM_RSRC3 does not exist in GFX8: zero occurrences.
+ * What is still missing is what those registers must contain for a given shader,
+ * which is per-shader state and not a constant.
  *
  * rx550_load_firmware() calls an ioctl that does not exist yet and will get
  * ENOTTY. That is the honest answer, and it is better than a stub that returns 0
@@ -166,12 +170,12 @@ int rx550_load_firmware(const void *blob, size_t size)
  * Returns 0 on success, -1 with errno set. Always fails with ENOSYS on the
  * current driver.
  *
- * The packet ENCODING is known and verified (see the file header); what is not
- * known is the register state that must accompany it, chiefly the bit layout of
- * COMPUTE_PGM_RSRC1, which carries the workgroup count. Encoding a dispatch with
- * an uninitialised PGM_RSRC1 does not fail loudly, so this stays a stub until
- * that field layout is established. See 007-gfx8-pm4-format.md and the open
- * questions in 07-DRIVER/outgoing-reviews/.
+ * The packet encoding and the register layout around it are both known and
+ * verified (see the file header). What is not known is what COMPUTE_NUM_THREAD_X
+ * and friends must contain for a given shader: that is per-shader state, not a
+ * constant, and a wrong value dispatches the wrong amount of work without an
+ * error. So this stays a stub. See 007-gfx8-pm4-format.md, which is wrong about
+ * which register holds the grid.
  */
 int rx550_submit_compute(const void *cmd_buf, size_t cmd_size)
 {

@@ -88,35 +88,52 @@ struct rx550_fw_blob {
 /*
  * Firmware loading is declared and NOT implemented. The driver returns -ENOTTY.
  *
- * CORRECTION 2026-09-29, after reading IA-1's bee9f4b: reason 1 below was WRONG
- * as written. The blob exists and is committed at
- * 06-INGENIERIA-INVERSA/firmware/polaris12_smc.bin, 130388 B, SHA256
- * 4b8eb326a7fbd391554fe50bc43cf04a917b01a806884ea324f5c3fe88a6ec77. I searched
- * /lib/firmware/amdgpu/ and found no Polaris 12 entry, and generalised from that
- * absence to "no blob available" without checking the repository. Same class of
- * error as the three recorded in AGENTS.md: checking a neighbour, not the object.
- * "Not in this directory" is not "does not exist".
+ * WHY THIS IS STILL A STUB, after two corrections. The first version of this
+ * comment gave two reasons; both were wrong, in different ways, and the error was
+ * mine in both cases. They are recorded rather than replaced, because the second
+ * failure was worse than the first and is worth not repeating.
  *
- * The two reasons that SURVIVE, both re-verified here:
+ * WHAT I GOT WRONG #1 -- "there is no Polaris 12 blob".
+ * False. Both the repository and the host have them:
+ *   - 06-INGENIERIA-INVERSA/firmware/polaris12_smc.bin, 130388 B, SHA256
+ *     4b8eb326...c77, committed in IA-1's bee9f4b.
+ *   - /usr/lib/firmware/amdgpu/polaris12_*.bin.xz, 20 files. I had grepped that
+ *     directory for 'polars|lexa' and got zero, then generalised to "no blob".
+ *     "POLARIS" does not match "polars". A misspelt pattern is not a search
+ *     result, and I reported its output as one. /lib is a symlink to usr/lib, so
+ *     the two paths I treated as different were the same directory throughout.
  *
- *  1. The blob is the SMC microcontroller, not the SDMA engine. It is
- *     common_firmware_header version 1.0, ip_version 7.2, header 36 B, payload
- *     at offset 256 (I decoded it against amdgpu_ucode.h:30; the arithmetic
- *     closes exactly: 256 + 130132 = 130388 = the file size). The SDMA
- *     microcode -- the part that actually issues PM4 packets, which is what this
- *     driver exists to do -- was DEFERRED by IA-1 and is not in the tree. Loading
- *     the SMC would not give this driver a working submit path.
- *  2. The CRC cannot be checked. The header declares crc32 = 0xae2b3b78, and
- *     that does not match zlib.crc32 over the payload, over the 32 B header, or
- *     over any other region or (init, xorout) combination I tried. A loader that
- *     cannot verify what it is handed should not be writing it to a GPU.
+ * WHAT I GOT WRONG #2 -- "the SDMA blob was DEFERRED by IA-1 and is not in the
+ * tree, so there is nothing to load".
+ * Also false, and worse: polaris12_sdma.bin.xz was on the host the whole time and
+ * decompresses to 12692 B, header 52 B, ip_version 3.1 -- which is exactly the
+ * sdma_v3_1_ip_block that vi.c:2113 binds to CHIP_POLARIS12. I had already read
+ * vi.c and still asked IA-1 for a file I could have extracted myself.
  *
- * Reason 3 from the previous revision -- PSP v10.0 signature validation -- is
- * NOT established and has been REMOVED rather than kept. psp_v10_0.c existing in
- * the tree does not establish that this path validates signatures, and no source
- * for the SMC load path is present to check (amdgpu_smc.c and amdgpu_firmware.c
- * are absent from this partial tree). Asserting it would repeat the error above
- * in the opposite direction: inferring a property from a neighbouring file.
+ * SO THE REAL REASON IS NARROWER, and it is not "the blob is missing":
+ *
+ *  1. amdgpu owns the SDMA engine. The microcode is loaded by
+ *     amdgpu_sdma_init_microcode() from "amdgpu/polaris12_sdma.bin", named at
+ *     sdma_v3_0.c:67 by MODULE_FIRMWARE, and the memory is programmed through
+ *     registers owned by that IP block. A second driver loading the same engine
+ *     on a live GPU is not a copy operation; it is a re-initialisation with no
+ *     defined failure mode. Whether that is safe is a hardware question, and
+ *     nothing in the source answers it.
+ *  2. The CRC is not zlib CRC-32, for BOTH blobs, so a verifier cannot be written
+ *     from the tree: SMC declares 0xae2b3b78 vs 0x9d6aef38 computed, SDMA declares
+ *     0x67458532 vs 0x5045d5a3. The kernel does not verify it either --
+ *     amdgpu_ucode_validate() only checks that size_bytes matches the file size
+ *     (amdgpu_ucode.c:535). So the field is documentation, not a gate, and there
+ *     is no algorithm in this tree to reproduce.
+ *
+ * REMOVED, not kept: "PSP v10.0 validates signatures". psp_v10_0.c existing does
+ * not establish that this path validates signatures, and amdgpu_smc.c is absent
+ * from this partial tree. Asserting it would repeat the same error in the
+ * opposite direction.
+ *
+ * What would change this: a decision to load firmware only in the pre-amdgpu
+ * window, plus the firmware load sequence itself, which is in amdgpu_smc.c and
+ * not here. Until then -ENOTTY is the honest answer.
  *
  * The struct exists so the number is frozen and userspace can be written against
  * it. Its layout is provisional: the fields needed for a real load (target
