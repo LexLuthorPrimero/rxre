@@ -1,7 +1,7 @@
 # Decisiones de Fase 4 — Driver Exclusivo RX 550
 
 **Ámbito**: `08-ARQUITECTURA/` — IA-3 (Arquitecto)
-**Iniciado**: 2026-09-29 · **Ronda**: 1 · **Última decisión**: `F4-AD-28` (Ronda 10)
+**Iniciado**: 2026-09-29 · **Ronda**: 1 · **Última decisión**: `F4-AD-28` §4.1 (Ronda 11)
 
 Estados, según `AGENTS.md`: `DECIDIDO` · `PROPUESTO` · `ABIERTO` · `BLOQUEADO`.
 
@@ -562,13 +562,54 @@ incorrectos sin ninguna señal. `NEAREST` aísla la decodificación del bloque.
 | # | Dependencia | Responsable | Qué bloquea |
 |---|---|---|---|
 | `Q-5` | Validar `expect_llvmpipe` contra el decodificador **real** de llvmpipe, no contra mi modelo Python | `@IA-1` | la validez de los 649. Mi transcripción de `lp_build_lerpdxta` es una **reimplementación**, no una ejecución |
-| `Q-3` | `nm -D`/`strings` sobre `radeon_dri.so` y `libvulkan_radeon.so` | `@IA-1` | convierte `PLAUSIBLE` en `OBSERVED` para el binario instalado (el árbol leído es `26.1-branchpoint-1415-gc5e413533f4`; el driver es `26.2.3-1.fc44`) |
+| `Q-3` | `nm -D`/`strings` sobre `radeon_dri.so` y `libvulkan_radeon.so` | `@IA-1` | **`FAIL` por método — retirada**, ver §4.1 |
 | commit de fuentes de `04-IMPLEMENTACION/` | — | `@IA-2` | reproducibilidad del corpus |
 | autorización de carga de GPU | humano | — | ejecutar la medición en la RX 550. `AGENTS.md` §Safety |
 
 **`Q-5` es la dependencia dura.** Si mi transcripción tiene un error, los 649 casos son los
 equivocados y el test no discrimina nada — con apariencia de funcionar. El test de `Q-5` tiene
 poder de fallar: si un `expect_llvmpipe` estuviera mal, la comparación lo dice.
+
+### 4.1 `Q-3` — `FAIL` por método, y por qué eso importa más que el resultado
+
+- **Fecha**: 2026-09-29 · **Ronda**: 11 · **Estado**: `DECIDIDO` (medido)
+- **Qué pedía `Q-3`**: comprobar sobre el binario instalado que `radeonsi` no tiene
+  descompresor BC3 en CPU, con `nm -D` y `strings`.
+- **Medición** (solo lectura, `libgallium-26.2.3.so`):
+  ```
+  /usr/lib64/dri/radeon_dri.so        NO EXISTE
+  radeonsi_dri.so                     symlink 14 B -> libdril_dri.so (stub, 93 592 B)
+  /usr/lib64/libgallium-26.2.3.so     55 347 624 B  <- el driver real
+    .symtab                           AUSENTE (stripped)
+    simbolos s3tc|dxt|lerp            0 en .symtab y en .dynsym
+    cadenas lp_bld_format_s3tc        0
+  ```
+- **Por qué `nm -D` no sirve**: el paquete de Fedora separa el driver en una librería compartida
+  sin tabla de símbolos. Cero símbolos **no** es evidencia de ausencia de código — en un binario
+  stripped el código está y el nombre no. Razonar desde ahí sería el primer caso de la tabla de
+  `AGENTS.md` §Falsificación, y además aplicado por mí, que escribí la premisa.
+- **Por qué buscar constantes tampoco** — esto es lo que cierra la vía, y es la razón de `FAIL`
+  por método y no solo por inutilidad de `nm`:
+
+  | Constante | Apariciones (le16) | Percentil vs ruido |
+  |---|---|---|
+  | `3264` (`weight5`) | 1 111 | 278 |
+  | **`2331`** (`weight7` real) | **159** | **40** |
+  | `2330` (`weight7` de IA-1) | 196 | 49 |
+  | baseline: 400 valores de 16 bits aleatorios | media **443** | — |
+
+  En 55 MB, un valor de 16 bits aparece **~443 veces por azar**. `2331` aparece 159 veces,
+  **por debajo del ruido**, y el valor **incorrecto** `2330` aparece *más*. Esa ordenación es
+  la firma del azar. Convertirla en evidencia sería el error opuesto: ruido」→「prueba».
+- **Clasificación: `FAIL`.** No es que el driver tenga un descompresor; es que **este método no
+  puede distinguirlo**. La hipótesis de `F4-AD-27` sigue `PLAUSIBLE` (lectura del árbol), con la
+  salvedad de que la vía de verificación por binario está **cerrada**.
+- **Lo que sí cerraría `Q-3`**: reconstruir el árbol que produjo el binario, o compilar `radeonsi`
+  desde fuente y comparar. Trabajo de `@IA-1`; excede mi ámbito.
+- **Contra reintentos**: `Q-3` queda **retirada**. No repetir `nm -D`, `strings` ni búsqueda de
+  constantes esperando distinto resultado. La medición está en `006` §5.1 y es reproducible.
+- **Qué NO hace este `FAIL`**: no refuta `F4-AD-27`. Un método incapaz de discriminar no es
+  evidencia en contra. `Q-3` sale `FAIL`, la hipótesis sigue viva.
 
 ### 5. Hallazgo de esta ronda — el error de IA-1 es real pero inocuo
 

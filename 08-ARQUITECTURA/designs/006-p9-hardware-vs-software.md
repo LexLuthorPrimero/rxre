@@ -121,13 +121,14 @@ cubre las dos ramas pero 64 bloques no alcanzan para 649 casos excepcionales. Ve
 
 ## 5. Salvedades — lo que este documento NO establece
 
-- **El árbol de Mesa no es el binario instalado.** `/home/lucas/mesa` es
-  `26.1-branchpoint-1415-gc5e413533f4` / `VERSION 26.2.0-devel`; el driver que corre es
-  `mesa-dri-drivers-26.2.3-1.fc44`. Son la misma serie menor, **no** necesariamente el mismo
-  commit. Que `radeonsi` no tenga descompresor BC3 en CPU en este árbol **no lo establece** para
-  el binario instalado. `PLAUSIBLE`, no `OBSERVED` para el host.
-  **Cómo cerrarlo**: comparar `strings` sobre `/usr/lib64/dri/radeon_dri.so` buscando símbolos
-  del decodificador, o `nm -D` si exporta. No ejecutado: es lectura, pero no la he hecho.
+- **El árbol de Mesa no es el binario instalado — y la vía para verificarlo por binario está
+  CERRADA.** `/home/lucas/mesa` es `26.1-branchpoint-1415-gc5e413533f4` / `VERSION
+  26.2.0-devel`; el driver que corre es `mesa-dri-drivers-26.2.3-1.fc44`. Misma serie menor,
+  **commit no verificado igual**. Que `radeonsi` no tenga descompresor BC3 en CPU en este árbol
+  **no lo establece** para el binario instalado. `PLAUSIBLE`, no `OBSERVED` para el host.
+
+  **`Q-3` se intentó y es `FAIL` por método**, no por resultado. Ver §5.1. **No reintentar con
+  `nm -D`, `strings` ni búsqueda de constantes**: se midió que no discriminan.
 - **`llvmpipe` y `radeonsi` son el mismo paquete.** Que llvmpipe tenga el decodificador y
   radeonsi no, dentro del mismo `.so` de distro, es consistente con la lectura del código, pero
   la separación real es entre **ICD de Vulkan** (`libvulkan_radeon.so` vs `libvulkan_lvp.so`,
@@ -138,6 +139,56 @@ cubre las dos ramas pero 64 bloques no alcanzan para 649 casos excepcionales. Ve
 - **No he medido contadores, latencia, ni `vkGetBufferDeviceAddress`.** Ver §7, por qué no hacen
   falta.
 - **No he verificado** que el árbol `/home/lucas/mesa` sea el que se usó para compilar cualquier
+
+### 5.1 `Q-3` — `FAIL` por método: la verificación por binario **no puede** hacerse aquí
+
+`Q-3` pedía comprobar, sobre el binario instalado, que `radeonsi` no contiene descompresor BC3
+en CPU. `nm -D` y `strings` eran el método propuesto. **Medido, no supuesto** (2026-09-29T07:0xZ,
+solo lectura):
+
+```
+/usr/lib64/dri/radeon_dri.so           NO EXISTE
+/usr/lib64/dri/radeonsi_dri.so          symlink 14 B -> libdril_dri.so  (stub, 93 592 B)
+/usr/lib64/libgallium-26.2.3.so        55 347 624 B   <-- el driver real esta aqui
+  .symtab                              AUSENTE (binario stripped)
+  simbolos s3tc|dxt|lerp (.symtab)     0
+  simbolos s3tc|dxt|lerp (.dynsym)     0
+  cadenas lp_bld_format_s3tc           0
+  cadenas util_format_s3tc             0
+```
+
+**Por qué el método no puede discriminar.** El paquete `mesa-dri-drivers` de Fedora separa el
+driver en una librería compartida sin tabla de símbolos. No hay nombres de función que buscar.
+Cero símbolos **no** es evidencia de ausencia de código: en un binario stripped el código está y
+el nombre no. Usar `nm -D` aquí razonaría desde la ausencia de evidencia, que es el primer caso
+de la tabla de `AGENTS.md` §Falsificación.
+
+**Por qué buscar constantes tampoco.** Es la parte que cierra la vía, y es la razón de
+`FAIL` por método y no solo por inutilidad de `nm`:
+
+| Constante | Apariciones (le16) | Percentil vs ruido |
+|---|---|---|
+| `3264` (`weight5 = 255*64/5`) | 1 111 | 278 |
+| **`2331`** (`weight7 = 255*64/7`, valor real) | **159** | **40** |
+| `2330` (`weight7`, valor de IA-1) | 196 | 49 |
+| **baseline**: 400 valores de 16 bits aleatorios | media **443**, max 29 485, min 22 | — |
+
+En un binario de 55 MB, un valor de 16 bits aparece **~443 veces por azar**. `2331` aparece
+**159** veces, **por debajo** del ruido, y el valor **incorrecto** `2330` aparece *más*. Esa
+ordenación es la firma del azar, no de un programa. La búsqueda de constantes no discrimina
+nada: convertiría ruido en evidencia si alguien la presentara como confirmación.
+
+**Clasificación: `FAIL`.** No es que el driver tenga un descompresor; es que **este método no
+puede distinguirlo**. La hipótesis de `F4-AD-27` sigue `PLAUSIBLE` — sostenida por la lectura
+del árbol, con la salvedad adicional de que la vía de verificación por binario está cerrada.
+
+**Lo que sí cerraría `Q-3`**: reconstruir el árbol que produjo el binario, o compilar `radeonsi`
+desde fuente y comparar. Es trabajo de `@IA-1` y excede mi ámbito (`06-INGENIERIA-INVERSA/`).
+
+**Aviso contra reintentos**: no repetir `nm -D`, `strings` ni búsqueda de constantes esperando
+distinto resultado. La measurement está en §5.1 y es reproducible.
+
+
   build del proyecto. `mesa-26.2.2-build` existe en `/home/lucas` y podría ser otro árbol.
 
 ## 6. Requisito nuevo para el test de Fase 3
@@ -202,5 +253,5 @@ necesitando la medición de la rampa en la RX 550, y eso es Fase 3, no este docu
 |---|---|---|---|
 | `Q-1` | `@IA-2` | En el probe, añadir el predictor llvmpipe como cuarta categoría (R-1, R-2) | la interpretabilidad de Fase 3 |
 | `Q-2` | `@IA-2` | Ampliar el corpus para cubrir los 649 pares donde llvmpipe difiere de ambos (R-3) | igual |
-| `Q-3` | `@IA-2` o quien lea | Verificar con `nm -D`/`strings` sobre `radeon_dri.so` y `libvulkan_radeon.so` la ausencia de símbolos del decodificador BC3, para cerrar la salvedad de §5 | convierte `PLAUSIBLE` en `OBSERVED` |
+| `Q-3` | `@IA-1` | **RETIRADA — `FAIL` por método** (§5.1). Sustituto: reconstruir el árbol del binario, o compilar `radeonsi` desde fuente y comparar | convertiría `PLAUSIBLE` en `OBSERVED` |
 | `Q-4` | `@IA-1` | Solo informativo: si el árbol de `/home/lucas/mesa` es el mismo del build del proyecto, o si `mesa-26.2.2-build` es otro árbol | salen en §5 |
