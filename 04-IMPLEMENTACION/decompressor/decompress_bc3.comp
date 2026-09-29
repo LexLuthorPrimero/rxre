@@ -338,15 +338,32 @@ void main()
     }
     aindex &= 7u;
 
-    /* --- colour index, 2 bits at bit offset 2*p (C :517) --------------- */
-    uint cbyte = p >> 2;          /* c_idx[p >> 2] */
-    uint cshift = 2u * (p & 3u);  /* 2u * (p & 3u) */
-    uint cindex;
-    if (cbyte < 2u)
-        cindex = (w3 >> (8u * cbyte + cshift)) & 0xFFu;
-    else
-        cindex = (w3 >> (8u * (cbyte - 2u) + cshift)) & 0xFFu;
-    cindex &= 3u;
+    /* --- colour index, 2 bits at bit offset 2*p (C :517) ---------------
+     *
+     * FIXED 2026-09-29. Found by executing this shader on the RX 550 against
+     * rx550_decompress_block(); the GPU readback disagreed with the C in the
+     * colour path while the alpha path matched byte for byte. The defect was
+     * invisible to shader_vs_c.c, which models this arithmetic in C instead of
+     * compiling the GLSL -- so the validator agreed with the C while the GLSL
+     * did not. See 02-ARQUITECTURA/DECISIONS.md AD-14.
+     *
+     * ONE defect, not two: the `else` branch. c_idx is 4 bytes, exactly one
+     * uint, so cbyte = p >> 2 is 0..3, all inside w3, and the `else` was carried
+     * over from the alpha index whose 6-byte array really does span two words.
+     * Its `8u * (cbyte - 2u)` re-based the offset, so for p = 8..15 it read the
+     * low bytes of w3 instead of the colour index bytes.
+     *
+     * The `& 0xFFu` was NOT the cause. `cindex &= 3u` on the following line
+     * already clipped to two bits, so `& 0xFFu` followed by `& 3u` is identical
+     * to `& 3u`. Measured: correcting only the mask and leaving the `else` in
+     * place still gives 894 of 4096 channels wrong, exactly the same as
+     * correcting neither. Only removing the `else` reaches 0.
+     *
+     * The C is the specification: cindex = (c_idx[p >> 2] >> (2*(p & 3))) & 3.
+     */
+    uint cbyte = p >> 2;          /* c_idx[p >> 2], 0..3, all inside w3 */
+    uint cshift = 2u * (p & 3u);  /* 0, 2, 4 or 6 within that byte */
+    uint cindex = (w3 >> (8u * cbyte + cshift)) & 3u;
 
     /* --- write, R,G,B,A in that order (C :519-522) --------------------- */
     uint r = pal_r[cindex];

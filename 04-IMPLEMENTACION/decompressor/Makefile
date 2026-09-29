@@ -75,12 +75,18 @@ $(SPV): decompress_bc3.comp
 # vk_pipeline_min.c. Vulkan 1.4 also renamed pMemoryTypes to memoryTypes, a
 # change the real header catches at compile time and a hand-written one would
 # not. Do not reintroduce manual declarations. See AD-13.
+# The link line needs -lvulkan. It did not, when Phase B was Fase A only: the
+# older test_decompress.c never called into the loader, so the omission was
+# invisible. Phase A therefore linked cleanly against a file that could not
+# possibly have run Phase B. Any build rule whose output has grown a new
+# dependency should be re-read, not assumed still correct.
 test_decompress: test_decompress.c $(C_OBJS) $(COMP)/rx550_compress.h
 	@test -f $(VULKAN) || { \
 	  echo "ERROR: $(VULKAN) no existe."; \
-	  echo "       sudo dnf install vulkan-devel"; \
+	  echo "       El paquete que la aporta es vulkan-headers, no vulkan-devel."; \
+	  echo "       dnf install vulkan-headers"; \
 	  exit 1; }
-	$(CC) $(CFLAGS) -o $@ test_decompress.c $(C_OBJS) $(ASMFLAGS) -ldl -lm
+	$(CC) $(CFLAGS) -o $@ test_decompress.c $(C_OBJS) $(ASMFLAGS) -lvulkan -ldl -lm
 
 # Phase A only: no GPU, no device creation. Safe to run unattended.
 test-fase-a: test_decompress

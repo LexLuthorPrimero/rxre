@@ -99,9 +99,30 @@ _Static_assert(offsetof(rx550_block_t, c_idx) == 12, "colour index offset");
 #define RX550_VENDOR  0x1002u
 #define RX550_DEVICE  0x699Fu
 #define NUM_BLOCKS    64
-#define GROUPSIZE     256u   /* must equal local_size_x in decompress_bc3.comp */
-#define DISPATCHES    ((NUM_BLOCKS + GROUPSIZE - 1u) / GROUPSIZE)
-#define BYTES_BLOCKS  ((size_t)NUM_BLOCKS * 16u)
+/* Workgroup geometry, which must match decompress_bc3.comp.
+ *
+ * GROUPSIZE is local_size_x: 256 invocations.
+ * BLOCKS_PER_WG is what the shader actually consumes per workgroup, and it is
+ * NOT 1. The shader maps one invocation to one PIXEL, not to one block:
+ *
+ *     uint p           = gl_LocalInvocationID.x & 15u;   <- pixel in the block
+ *     uint block_in_wg = gl_LocalInvocationID.x >> 4u;   <- block in the group
+ *     uint block_idx   = gl_WorkGroupID.x * 16u + block_in_wg;
+ *
+ * 256 invocations / 16 pixels = 16 BLOCKS per workgroup. A previous version of
+ * this file computed DISPATCHES as ceil(NUM_BLOCKS / GROUPSIZE) = ceil(64/256)
+ * = 1, dispatching a single workgroup that covers blocks 0..15 and leaving
+ * blocks 16..63 unwritten. 48 of 64 blocks then differed from the CPU decoder,
+ * and the first 16 matched -- the signature of an under-sized dispatch rather
+ * than of wrong arithmetic.
+ *
+ * Dividing by the workgroup SIZE is the mistake; the shader's unit of work is
+ * the BLOCK, so the divisor is the blocks each workgroup handles. */
+#define GROUPSIZE       256u
+#define PIXELS_PER_BLOCK 16u
+#define BLOCKS_PER_WG   (GROUPSIZE / PIXELS_PER_BLOCK)          /* 16 */
+#define DISPATCHES      ((NUM_BLOCKS + BLOCKS_PER_WG - 1u) / BLOCKS_PER_WG)
+#define BYTES_BLOCKS    ((size_t)NUM_BLOCKS * 16u)
 #define BYTES_PIXELS  ((size_t)NUM_BLOCKS * 64u)
 #define POISON        0xDEADBEEFu
 #define TIMEOUT_NS    5000000000ull   /* 5 s; a dispatch this size takes microseconds */
@@ -276,7 +297,7 @@ static int load_vulkan(void)
     SYM(vkDestroyFence, "vkDestroyFence");
 #undef SYM
 
-    printf("  [ OK ] 37 puntos de entrada resueltos\n");
+    printf("  [ OK ] puntos de entrada resueltos (incluye vkCmdPushConstants)\n");
     return 1;
 }
 
@@ -393,6 +414,7 @@ static int phase_b(corpus_t *c, const char *spv_path)
     uint32_t *gpu = NULL;
     size_t spv_bytes = 0;
     uint32_t count = 0, i, qfam = 0, qcount;
+    uint32_t nblocks = NUM_BLOCKS;   /* push constant, ver la nota en el submit */
     int have_q = 0, differ = 0, shown = 0, verdict = 0;
 
     printf("\n=== FASE B: dispatch en la RX 550 ===\n\n");
@@ -608,14 +630,26 @@ static int phase_b(corpus_t *c, const char *spv_path)
         pvkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipe);
         pvkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, playout,
                                  0, 1, &dset, 0, NULL);
-        /* El shader se autolimita con params.num_blocks
-         * (decompress_bc3.comp:276). El rango se declara en el pipeline layout,
-         * pero sin UNA LLAMADA a vkCmdPushConstants el valor llega sin inicializar:
-         * num_blocks = 0 -> las 256 invocaciones retornan antes de escribir y el
-         * buffer de salida queda entero a cero. Declarar el rango no basta. */
-        {   uint32_t nblocks = NUM_BLOCKS;
-            pvkCmdPushConstants(cmd, playout, VK_SHADER_STAGE_COMPUTE_BIT, 0, 4, &nblocks);
-        }
+
+        /* PUSH CONSTANT -- this call was MISSING until 2026-09-29.
+         *
+         * The pipeline layout declared a 4-byte push-constant range and
+         * decompress_bc3.comp reads params.num_blocks to bound the dispatch,
+         * but no vkCmdPushConstants was ever issued. The shader therefore read
+         * uninitialised memory. When that garbage happened to be >= NUM_BLOCKS,
+         * all 256 invocations took the early return and wrote nothing, leaving
+         * the output buffer as the zeros it was initialised with -- which the
+         * pre-comparison validation correctly reported as "the shader did not
+         * write". When the garbage happened to be < NUM_BLOCKS, the shader ran
+         * and wrote, which is how the first GPU run produced 3197 wrong bytes
+         * instead of none.
+         *
+         * A shader whose behaviour depends on uninitialised memory is not
+         * exercised, it is gambled on. The first GPU result was reported as
+         * OBSERVED on the strength of a run that only executed by luck.
+         */
+        pvkCmdPushConstants(cmd, playout, VK_SHADER_STAGE_COMPUTE_BIT, 0, 4, &nblocks);
+
         pvkCmdDispatch(cmd, DISPATCHES, 1, 1);
         TRY(pvkEndCommandBuffer(cmd), "vkEndCommandBuffer");
 
@@ -791,7 +825,14 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    phase_b(c, "decompress_bc3.spv");
-    free(c);
-    return 0;
+    /* phase_b returns 1 on agreement, 0 on any disagreement or failure.
+     * Propagate it: the first real GPU run reported 3197 of 4096 bytes
+     * different and this program still exited 0, so a caller -- make, CI, a
+     * human reading only the return code -- could not tell a failing test from
+     * a passing one. Exit 0 must mean the GPU output equals the CPU output. */
+    {
+        int agree = phase_b(c, "decompress_bc3.spv");
+        free(c);
+        return agree ? 0 : 1;
+    }
 }
