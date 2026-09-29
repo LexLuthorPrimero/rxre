@@ -1,0 +1,634 @@
+# DECISIONS — registro de decisiones arquitectónicas del proyecto
+
+**WORK_CLASS** `DOCUMENTATION`. Fichero **versionado y fechado**, separado de
+`AGENTS.md` porque §10.2 exige que las decisiones no vivan en línea en un fichero
+que envejece, y separado de `02-ARQUITECTURA/RE02-DECISION-REGISTER.md` porque
+ese fichero declara scope propio — *«decisiones de gobernanza de la línea RE-02»*
+— y este registro **no es** RE-02.
+
+| Prefijo | Qué registra | Dónde |
+|---|---|---|
+| `AD-*` | decisiones de arquitectura de hardware/driver de la línea RE-03 | este fichero |
+| `RG-n` | decisiones de gobernanza y alcance de la línea RE-02 | `RE02-DECISION-REGISTER.md` |
+| `AD-n` | arquitectura del modelo C de `polaris12xl` | `RESEARCH/polaris12xl/docs/DECISION-REGISTER.md` |
+| `D-nn` | defectos encontrados y reparados | `RESEARCH/polaris12xl/docs/04-DEFECT-REGISTRY.md` |
+| `D1..D10` | reconciliación documental | `01-AUDITORIA/DECISIONES-D1-D10.md` |
+
+**Regla de este registro**: una entrada no se escribe hasta que existe una
+`DECISION` con `DECIDER`. Las cuestiones abiertas se registran como
+`DECISION_REQUIRED` y **no** como decisiones tomadas. Una entrada con
+`DECIDER` vacío o con estado `PENDING` no autoriza ninguna acción.
+
+**Índice de estados a 2026-09-28**: `AD-1` en vigor · `DECISION_REQUIRED #1`,
+`#2` y `#3` **resueltos** por el `HUMAN` el 2026-09-28 y absorbidos por `AD-1`.
+
+---
+
+## AD-1 — 2026-09-28 — RE-03: límites de optimización y confirmación de hardware
+
+| Campo | Valor |
+|---|---|
+| **DECISION** | Opción B — construir una capa de compresión nueva en C/ASM que interactúa con `amdgpu` vía APIs públicas, preservando el kernel base |
+| **DECIDER** | `HUMAN` (`HUMAN_POLICY`, vinculante) |
+| **DATE** | `2026-09-28` |
+| **Anula** | los tres `DECISION_REQUIRED` de la entrada del manifiesto RX550-FIRST de esta misma fecha |
+
+**Contexto**: inicio de la fase de implementación del compresor
+personalizado. Hacían falta tres decisiones previas, registradas como
+`DECISION_REQUIRED` más abajo en este mismo fichero.
+
+**Opciones consideradas**:
+
+- Opción A: reescribir structs de `amdgpu` (`amdgpu_vm`, `amdgpu_ttm`, `drm_sched`) — **RECHAZADA**. Viola `RG-1` vigente; rompe la equivalencia E1 demostrada el 2026-09-28; y con `CONFIG_MODVERSIONS=n` no hay CRC que detecte el desajuste de layout resultante.
+- Opción B: capa de compresión nueva en C/ASM, autocontenida, sobre APIs públicas — **ELEGIDA**.
+
+**Decisión tomada**: Opción B. `RG-1` **se mantiene**. El trabajo continúa
+exclusivamente en `RESEARCH/kernelbuild/linux-7.1.3`; el directorio
+`rx550-upstream-7.2.8` queda **ignorado** para esta fase. La equivalencia E1
+queda congelada y preservada.
+
+**Justificación**: permite optimizar de forma agresiva el flujo de datos para
+la RX 550 sin perder la capacidad de depuración contra upstream, ni chocar con
+Secure Boot/Lockdown. La filosofía RX550-FIRST se aplica **exclusivamente al
+diseño de código nuevo**, nunca a la destrucción del kernel base.
+
+**Impacto**: todo el código nuevo en `04-IMPLEMENTACION/` debe ser
+autocontenido y **no** debe asumir modificación de structs internos de
+`amdgpu`.
+
+### Hardware confirmado — `FACT`, 2026-09-28
+
+Medición autorizada explícitamente por el `HUMAN` como observación de sysfs, no
+como modificación.
+
+| Dato | Valor | Fuente |
+|---|---|---|
+| **VRAM total** | **`2147483648` bytes = 2048 MiB = 2.0000 GiB = 2.1475 GB** | `/sys/class/drm/card1/device/mem_info_vram_total` |
+| VRAM usada | `5439488` B (5,19 MiB) | `mem_info_vram_used` |
+| VRAM visible (apertura BAR) | `268435456` B = 256 MiB | `mem_info_vis_vram_total` |
+| GTT (dominio CPU) | `6194638848` B ≈ 5 GiB | `mem_info_gtt_total` |
+| preempt_used | `0` B | `mem_info_preempt_used` |
+| Identidad PCI | `0000:01:00.0 [1002:699f] rev c7`, subsistema `[1002:0b04]` | `lspci` |
+| Nodo DRM correcto | `card1` | `card0` es la iGPU Intel `[8086:0412]` |
+
+**Corrección de medición**: el manifiesto y la premisa de diseño decían
+«2 GB». El hecho medido es **`2147483648` bytes**, que es exactamente
+2 GiB, no 2 GB. La diferencia es 147,483,648 B (~2,6 %). Toda aritmética de
+diseño que use «2 GB» como decimal se desvía; debe usar **2147483648**.
+
+**Nota de alcance**: `vis_vram_total` (256 MiB) es un subespacio de la
+apertura BAR, **no** la VRAM total. No confundirlos: el diseño que intente
+acotar a 256 MiB estaría acotando 8× por debajo de la VRAM real.
+
+---
+
+## 2026-09-28 — Manifiesto RX550-FIRST: adopción con reservas y 3 decisiones bloqueantes
+
+**Contexto**: RE-03 se abre como reinicio arquitectónico con la filosofía
+RX550-FIRST (adaptar el driver al hardware; no código sagrado; no imitar la
+arquitectura de AMD; C + ASM; cada byte cuenta; arreglar en código lo que esté
+mal). Antes de aplicar esas reglas hizo falta verificar las coordenadas sobre
+las que se apoyan, porque tres no se sostienen tal como están escritas.
+
+**Opciones consideradas**:
+
+- Opción A: adoptar las seis reglas literalmente y empezar a modificar el driver → Pros: avance inmediato, máxima autonomía del agente. Contras: contradice `RG-1` vigente sin revocación explícita; dos coordenadas factuales son erróneas; se optimizes sobre un parámetro no medido.
+- Opción B: adoptar las reglas que no dependen de las tres incógnitas, registrar las que sí, y no tocar código hasta resolverlas → Pros: no introduce trabajo que haya que revertir; deja las decisiones donde §10.2 las sitúa. Contras: retrasa el inicio de RE-03.
+- Opción C: rechazar el manifiesto completo → Pros: preserva el estado actual. Contras: la filosofía es legítima y útil; el conflicto es de alcance, no de validez.
+
+**Decisión tomada**: Opción B.
+
+**Justificación para RX550 (2 GB, 512 shaders, 4 CUs)**: la filosofía RX550-FIRST
+es correcta y especialmente valiosa aquí, donde `amdgpu` arrastra 963 objetos
+compilados y la mayor parte son irrelevantes para 4 CUs. El conflicto no es con
+la filosofía sino con su alcance: dos reglas chocan con hechos registrados, y
+una tercera depende de un número que aún no está medido. Adoptar sin verificar
+produciría un artefacto construido sobre coordenadas falsas, que es exactamente
+el modo de fallo que este proyecto lleva siete rondas evitando.
+
+**Impacto**: `02-ARQUITECTURA/DECISIONS.md` creado. **Ningún fichero de código
+modificado.** `RE02-DECISION-REGISTER.md` intacto
+(sha256 `7021330bfee1e125bedf1364dd0bbf84978dca078850c78418dc31e3169f7eee`).
+
+### Reglas adoptadas sin reservas
+
+| Regla | Estado | Nota |
+|---|---|---|
+| 1 · RX550-FIRST | `ADOPTED` | como criterio de diseño |
+| 2 · Cero miedo | `ADOPTED` | como permiso para modificar código upstream en el árbol de investigación |
+| 3 · No imitar | `ADOPTED` | válido y con fuerza: la mayoría de `amdgpu` es irrelevante para 4 CUs |
+| 4 · C + ASM | `ADOPTED` | ya es la línea de `RESEARCH/tests/elfsyms.c` |
+| 5 · Cada byte cuenta | `ADOPTED` (código nuevo) | reescritura de structs del kernel base excluida por `AD-1` |
+| 6 · Arreglar, no documentar | `ADOPTED` (código nuevo) | `RG-1` se mantiene: nada de alterar `amdgpu` |
+
+### Hechos verificados que sostienen o corrigen el manifiesto
+
+- **Hardware `FACT`**: `01:00.0 [1002:699f] rev c7`, subsistema `[1002:0b04]`,
+  `Kernel driver in use: amdgpu`. Lexa PRO / Polaris 12 confirmado **por
+  identidad PCI**, no por número de versión ni por parecido.
+- **Hardware `FACT`**: `amdgpu` **está cargado ahora mismo** (18.698.240 bytes,
+  5 referencias).
+- **VRAM `NOT_DETERMINED`**: el BAR de 64 bits expone 256 MB mapeados; la VRAM
+  total **no** es observable sin leer `amdgpu` en runtime, no autorizado. Los
+  «2 GB» del manifiesto son **una afirmación del usuario, no un hecho medido**.
+- **Árbol `CORRECTED`**: el manifiesto nombra `rx550-upstream-7.2.8`. **Sí
+  existe** — 2 842 ficheros: `linux-7.2.8/`, `linux-7.2.8.tar.xz`
+  (160 371 176 B), `local.sha256`, `upstream.sha256`. Pero **no es árbol de
+  trabajo** por `AD-1`, y por tres razones medidas, no supuestas: es sólo el
+  subárbol `drivers/gpu/drm/amd/` (2 839 ficheros, sin `Makefile`, sin
+  `.config`, sin `scripts/`, sin `arch/` — §4.8.4 sólo `kernelbuild/` los
+  tiene); **no contiene la instrumentación E1** (0 referencias frente a
+  50/4/2/2 en `kernelbuild/linux-7.1.3`); y su `vermagic` no casaría con el
+  host, que corre `7.1.3-200.nobara.fc44`. Queda como **referencia de
+  consulta**. La afirmación previa de esta misma entrada —«no existe»— era
+  **falsa** y se corrige aquí; el razonamiento de `DECISION_REQUIRED #2` se
+  conserva intacto más abajo por §12.4, incluida aquella frase.
+- **Reserva sobre la regla 5**: reempaquetar estructuras rompe la
+  correspondencia con el host demostrada el 2026-09-28
+  (`E1_CHAIN_COMPARISON`: camino causal de emisión **byte-idéntico**;
+  `E1_TRANSFER_STATUS = PRESERVED`, corregido en la entrada siguiente) y reabre
+  `SOURCE_ABI_EQUIVALENCE`. Con `MODVERSIONS=n` **no hay CRC que detecte un
+  desajuste de layout**. Optimizar sin kernel de referencia es cambiar la
+  variable bajo el experimento.
+
+---
+
+## 2026-09-28 — `DECISION_REQUIRED #1` · ¿RG-1 sigue vigente para RE-03?
+
+**Estado**: `RESUELTA` por el `HUMAN` el 2026-09-28 · absorbida por `AD-1`
+**DECIDER**: `HUMAN` · **DECISIÓN**: ver `AD-1`
+
+> **SUPERADA.** Se conserva el razonamiento como registro de por qué se
+> preguntó. La decisión que cierra esta cuestión está en `AD-1`; esta
+> entrada ya no autoriza ni bloquea nada por sí sola.
+
+**Contexto**: RG-1, registrado como `HUMAN_POLICY` el 2026-09-28 en
+`RE02-DECISION-REGISTER.md`, autoriza RE-02 y **prohíbe** *functional/semantics
+changes, optimization, and altering scheduling/memory/PT/CGPG/MEC/power
+policies*. Las reglas 1, 5 y 6 del manifiesto RX550-FIRST piden precisamente
+eso. RG-1 es `HUMAN_POLICY` registrada; por precedencia (§10.3, rank 3 sobre
+rank 6) una instrucción de sesión no la deroga por omisión.
+
+**Opciones consideradas**:
+
+- Opción A: revocar RG-1 para RE-03 → Pros: el manifiesto aplica sin conflicto. Contras: RG-1 es no retroactiva; la revocación debe quedar registrada, no implícita.
+- Opción B: RE-03 hereda la prohibición → Pros: coherencia; ninguna evidencia E1 se altera. Contras: la regla 6 queda inerte y el manifiesto pierde su propósito.
+- Opción C: delimitar por artículo → Pros: se autoriza lo útil sin abrir PT/CGPG/MEC/power. Contras: frontera entre «optimizar page tables» y «alterar PT policies» requiere criterio explícito.
+
+**Pregunta al `HUMAN`**: ¿cuál? Si es A o C, corresponde registrar `RG-2` en
+`RE02-DECISION-REGISTER.md` — **no en este fichero**, porque RG-2 es gobernanza
+de RE-02.
+
+**Bloquea**: regla 6; toda modificación de código del driver.
+
+---
+
+## 2026-09-28 — `DECISION_REQUIRED #2` · ¿Sobre qué árbol corre RE-03?
+
+**Estado**: `RESUELTA` por el `HUMAN` el 2026-09-28 · absorbida por `AD-1`
+**DECIDER**: `HUMAN` · **DECISIÓN**: ver `AD-1`
+
+> **SUPERADA.** Se conserva el razonamiento como registro de por qué se
+> preguntó. La decisión que cierra esta cuestión está en `AD-1`; esta
+> entrada ya no autoriza ni bloquea nada por sí sola.
+
+**Contexto**: el manifiesto nombra `rx550-upstream-7.2.8`, que no existe. Todo
+el trabajo de E1 está anclado a `kernelbuild/linux-7.1.3`: hashes congelados
+(`amdgpu_vm.c=de4f485cb8ec0aa5`, `amdgpu_vm_pt.c=98dde50a9c66cf6f`,
+`amdgpu_debugfs.c=b0dda80b0abc07c6`), tres objetos con evidencia directa de
+compilación, y la equivalencia con el host medida el 2026-09-28.
+
+**Opciones consideradas**:
+
+- Opción A: RE-03 continúa en `kernelbuild/linux-7.1.3` → Pros: conserva toda la evidencia; `E1_TRANSFER_STATUS` sigue siendo interpretable. Contras: no cumple la premisa escrita del manifiesto.
+- Opción B: crear `rx550-upstream-7.2.8` como árbol nuevo → Pros: cumple la premisa; base más reciente. Contras: 963 objetos por recompilar; la equivalencia demostrada **no se transfiere**; `SOURCE_ABI_EQUIVALENCE` vuelve a `NOT_PROVEN` y el host corre 7.1.3, no 7.2.8.
+- Opción C: mantener 7.1.3 y congelar 7.2.8 para más adelante → Pros: no se pierde evidencia. Contras: retrasa la ventaja de la base nueva.
+
+**Pregunta al `HUMAN`**: ¿A, B o C? Si es B: ¿qué se hace con la evidencia E1
+—se congela como histórica, y la equivalencia se re-mide contra 7.2.8?
+
+**Bloquea**: cualquier build; la validez de la cadena E1.
+
+---
+
+## 2026-09-28 — `DECISION_REQUIRED #3` · VRAM: ¿2 GB medidos o supuestos?
+
+**Estado**: `RESUELTA` por el `HUMAN` el 2026-09-28 · absorbida por `AD-1`
+**DECIDER**: `HUMAN` · **DECISIÓN**: ver `AD-1`
+
+> **SUPERADA.** Se conserva el razonamiento como registro de por qué se
+> preguntó. La decisión que cierra esta cuestión está en `AD-1`; esta
+> entrada ya no autoriza ni bloquea nada por sí sola.
+
+**Contexto**: las reglas 1 y 5 justifican el diseño por «2 GB». Ese número no
+está medido. El BAR de 64 bits expone 256 MB mapeados; la VRAM total requiere
+leer `amdgpu` en runtime. `NOT_DETERMINED` no es «2 GB» ni «no son 2 GB».
+
+**Opciones consideradas**:
+
+- Opción A: autorizar una lectura mínima de `amdgpu` para confirmar VRAM → Pros: convierte la premisa de diseño en `FACT`; es un solo dato. Contras: requiere autorización de lectura runtime, fuera del `WORK_CLASS` actual.
+- Opción B: mantener 2 GB como `HYPOTHESIS` explícita → Pros: no requiere nada. Contras: todo diseño que dependa del número queda condicionado a una hipótesis no verificada.
+- Opción C: usar el registro `polaris12xl` existente como fuente → Pros: ya revisado. Contras: es un documento del proyecto, no evidencia sobre *este* host; `§3.1` no admite fuente secundaria como primaria.
+
+**Pregunta al `HUMAN`**: ¿autoriza la lectura mínima de runtime (A), o
+registramos 2 GB como `HYPOTHESIS` (B)?
+
+**Bloquea**: la justificación de las reglas 1 y 5; la regla 5 en particular.
+
+---
+
+## AD-2 — 2026-09-28 — Formato de bloque: 4x4 → 16 B con rampa alpha de 8 códigos
+
+| Campo | Valor |
+|---|---|
+| **DECISION** | Opción A — bloque de 16 B con sub-bloque alpha de 8 índices de 3 bits y sub-bloque color de 4 índices de 2 bits (forma BC3/DXT5) |
+| **DECIDER** | `MODEL_CHOICE` (decisión del agente, reversible) |
+| **DATE** | `2026-09-28` |
+| **Cancela** | ninguna |
+
+**Contexto**: el encargo fija "4x4 píxeles → ≤16 bytes" sin especificar el
+formato. 64 bytes de entrada a 16 de salida es 4:1, y esa forma admite varias
+codificaciones.
+
+**Opciones consideradas**:
+
+- Opción A: rampa de 8 valores en alpha + paleta de 4 colores en RGB565. → Pros: es *la* forma 4x4→16 B que el decodificador de bloques de la unidad de textura ya contiene; el índice de color empaqueta 4 por byte y el de alpha 8 en 3 bytes, que es la disposición más densa posible para esos anchos. Contras: 3 bits de alpha por píxel fijan una límite de error conocida; la rampa alpha con `a0==a1` desborda `uint8_t` si se usa la fórmula `/5` sin caso degenerado.
+- Opción B: formato propietario de 16 B con semántica inventada. → Pros: libertad total sobre el reparto de bits. Contras: **obligaría a gastar shader GCN ISA en decodificar lo que el silicio ya decodifica en hardware**, y ninguna de las tres unidades de este proyecto podría validarlo sin escribir un shader. Contradice `AD-1` en el mismo punto donde la Regla 3 del manifiesto se sobrepone a la 1.
+- Opción C: reducir a 1 byte por píxel (p. ej. un solo canal). → Pros: 4:1 trivial, muy rápido. Contras: no es un formato de textura; no lo decodifica ninguna unidad de textura; la pérdida de información es arbitraria y no ligada a la percepcion.
+
+**Decisión tomada**: Opción A.
+
+**Justificación**: la Regla 3 del manifiesto RX550-FIRST ("no imitar la
+arquitectura de `amdgpu`") **no aplica aquí**, por la misma razón por la que la
+Regla 1 prevalece sobre la 3 en el caso de las page tables: el layout de bloque
+no es una preferencia de diseño del driver, es la forma de cable que el
+decodificador fijo del hardware consume. Elegir otro layout no sería
+adaptarse al hardware, sería obligar al software a rehacer en GCN ISA una
+función que el silicio ya tiene. Se documenta aquí para que la exención sea
+explícita y no una omisión.
+
+El sub-bloque alpha es de 8 códigos, no de 6, porque con 6 códigos el sobrante
+se gasta reconstruyendo el mismo valor: `a0==a1` produce `(6*a0)/5`, que para
+`a0=255` es `306` y se envuelve a `50`. Ese caso degenerado se trata antes de la
+rampa, y la conformidad contra la referencia DXT5 se verifica sobre los **65536
+pares de endpoints** en el banco.
+
+**Impacto**: `rx550_compress.h` (definición de `rx550_block_t`, `_Static_assert`
+de 16 B y de los offsets 0/2/8/12), `rx550_compress.c` (`alpha_palette`,
+`colour_palette`, `rx550_decompress_block`).
+
+---
+
+## AD-3 — 2026-09-28 — El fallback en C se compila SIN `-mavx2`, contra el encargo
+
+| Campo | Valor |
+|---|---|
+| **DECISION** | Opción B — `rx550_compress.c` se compila para la línea base x86-64; `-mavx2` se aplica solo al ensamblador |
+| **DECIDER** | `MODEL_CHOICE` (desvío deliberado del encargo; elApartado "Justificación" lo justifica por medida) |
+| **DATE** | `2026-09-28` |
+| **Anula** | la instrucción literal "`-O3 -mavx2` para todo" del encargo de la Fase 1 |
+
+**Contexto**: el encargo pide compilar "todo con `-O3 -mavx2 -Wall -Wextra`" y a
+la vez pide detección de CPU en tiempo de ejecución con
+`__builtin_cpu_supports("avx2")`. Las dos cosas son incompatibles.
+
+**Opciones consideradas**:
+
+- Opción A: `-mavx2` en todo. → Pros: exactamente lo pedido, máxima velocidad en el compilador. Contras: **GCC auto-vectoriza la ruta C de referencia con instrucciones AVX2**, así que `rx550_have_avx2()` devolvería 0 en una CPU pre-Haswell, el dispatcher elegiría correctamente la ruta "C", y esa ruta ejecutaría una instrucción ilegal. La detección en tiempo de ejecución pasaría de ser un mecanismo de seguridad a ser el Vector de ataque.
+- Opción B: la referencia C a línea base, el AVX2 solo en `.s`. → Pros: el fallback es realmente portable y la detección significa algo. Contras: se pierde la auto-vectorización del compilador en la ruta C.
+
+**Decisión tomada**: Opción B.
+
+**Justificación**: la opción A hace que la única garantía de seguridad del
+diseño sea falsa. Un detector de CPU que no protege de nada es peor que no
+tenerlo, porque el lector del códigoAssume que protege. La verificación de que
+`rx550_compress.o` no contiene AVX2 es trivial con `objdump` y queda en el
+Makefile (`make check-asm` cubre el lado del ensamblador; el lado C se comprueba
+porflags de compilación).
+
+**Impacto**: `Makefile` (`CFLAGS_BASE`, `ASMFLAGS`, y el comentario que explica
+por qué divergen), `rx550_compress.c` (la detección y el dispatcher), y el
+requisito de que la ruta por defecto nunca ejecute AVX2.
+
+---
+
+## AD-4 — 2026-09-28 — Alcance del ensamblador y reparación estructural del aliasing de registros
+
+| Campo | Valor |
+|---|---|
+| **DECISION** | Opción A — solo la reducción min/max por canal en AVX2, y como **dos funciones hoja** (`hred_min`, `hred_max`) en vez de ocho copias inlined |
+| **DECIDER** | `MODEL_CHOICE` |
+| **DATE** | `2026-09-28` |
+| **Riesgo corregido** | 4 defectos de ensamblador, registrados en la cabecera del propio `.s` |
+
+**Contexto**: el encargo pide "toda la lógica en ASM con YMM". La reducción
+min/max es la única parte del codificador que es realmente paralelizable sin
+riesgo; la construcción de paleta y la asignación de índices son de control de
+flujo por píxel.
+
+**Opciones consideradas**:
+
+- Opción A: reducción en ASM, resto en C, y la reducción como función hoja llamada 8 veces. → Pros: `xmm5` es siempre la mitad baja de `ymm5` y `xmm1` el único scratch, así que **no existe ningún otro registro con el que confundirlo**; una sola copia de la secuencia sutil que hay que acertar. Contras: una llamada cuesta unos ciclos.
+- Opción B: portar índice y paleta también a AVX2. → Pros: más cobertura SIMD. Contras: la búsqueda del índice más cercano es un `argmin` de 4 vías sobre 16 píxeles con control de flujo por píxel; el beneficio medido es incierto y el riesgo de un ensamblado incorrecto que *ensambla limpio* es alto.
+- Opción C: la reducción inlined 8 veces, o envuelta en `.macro` de GAS. → Pros: sin coste de llamada. Contras: **rechazada por medida, no por gusto**. Un `.macro` de GAS no propaga el escape `%%` a través de invocaciones anidadas y no ensambla; y la versión inlined suffers *aliasing de registros*: `xmm0` es la mitad baja de `ymm0`, no de `ymm5`, y la equivocación ensambla sin error mientras calcula otra cosa. Ocurrió **tres veces** en la misma secuencia.
+
+**Decisión tomada**: Opción A. La secuencia de 7 instrucciones vive **una vez**,
+en `hred_min` / `hred_max`, con el contrato declarado en un comentario.
+
+**Justificación**: el error de aliasing no es detectable por el ensamblador ni
+por un test de tamaño de salida, porque un bloque comprimido es *lossy* y no
+puede certificar una reducción min/max. Lo que sí lo detecta es comparar el
+resultado del ASM contra la referencia C bloque a bloque, y eso es lo que hace
+`T3` sobre 200 000 bloques. La Opción A reduce la superficie a una sola copia
+verificable; la Opción C la multiplicaba por ocho.
+
+**Impacto**: `rx550_compress_avx2.s` (funciones `hred_min`, `hred_max`; uso de
+`ymm6`/`ymm7` para los datos crudos de modo que `ymm5` pueda pasarse a la hoja
+sin movimiento), `test_compress.c` (`T3`, bit-exactitud C↔ASM).
+
+---
+
+## AD-5 — 2026-09-28 — Selección de endpoints: barrido diagonal, NO separable por canal
+
+| Campo | Valor |
+|---|---|
+| **DECISION** | Opción A — barrido diagonal de inset (mismo `i` para R, G y B) puntuado sobre el error real del bloque |
+| **DECIDER** | `MODEL_CHOICE` |
+| **DATE** | `2026-09-28` |
+| **Revertido** | una variante "separable" que se probó y se descartó por medición |
+
+**Contexto**: la calidad depende de elegir los dos endpoints de color. Se
+implementó primero la versión separable, por la razón aparentemente sólida de
+que la distancia de un píxel a una entrada de paleta es la *suma* de tres
+distancias por canal, luego el error sería separable.
+
+**Opciones consideradas**:
+
+- Opción A: barrido diagonal sobre el error del bloque completo. → Pros: optimiza el objetivo que el decodificador realmente tiene. Contras: un mismo inset Treatment para canales con rangos muy distintos.
+- Opción B: minimizar cada canal por separado. → **DESCARTADA POR MEDICIÓN**. El índice de paleta es **compartido** entre canales, así que `min_k(dr²+dg²+db²) ≠ (min_k dr²) + (min_k dg²) + (min_k db²)`: la versión separable optimiza un objetivo que el decodificador no puede realizar. Medido sobre un corpus de 1200 bloques: **19,90 dB a 1289 ns/bloque** frente a **20,71 dB a 542 ns/bloque** de la diagonal — peor en calidad *y* 2,4× más lenta. Una variante de descenso por coordenadas sobre el objetivo verdadero tampoco mejoró la diagonal.
+
+**Decisión tomada**: Opción A. La diagonal se conserva porque **midió mejor**,
+no porque fuera la primera.
+
+**Justificación**: el argumento de separabilidad era plausible y falso, y la
+medición lo refutó en los dos ejes. Revertir un "mejoramiento" que empeora es
+parte del trabajo, y el motivo queda escrito en el fuente para que nadie lo
+repita. La variante separable no se conserva como opción configurable: sin
+ventaja medida, mantenerla sería complexity sin pago.
+
+**Impacto**: `rx550_compress.c` (`score_colour`, `encode_colour`,
+`RX550_INSET_CANDIDATES`).
+
+---
+
+## AD-6 — 2026-09-28 — Los niveles de calidad son topes de regresión medidos, no objetivos
+
+| Campo | Valor |
+|---|---|
+| **DECISION** | Opción B — un tope por clase de contenido, fijado ~15% por debajo de lo medido, y **sin** afirmación de paridad con un codificador BCn de referencia |
+| **DECIDER** | `MODEL_CHOICE` |
+| **DATE** | `2026-09-28` |
+| **Corrige** | dos versiones previas del test con topes inventados |
+
+**Contexto**: el encargo pedía verificar "tamaño de salida ≤ 16 bytes". Esa
+aserción es verdadera por construcción — el bloque es un struct de tamaño fijo —
+así que no certifica nada. Las comprobaciones que sí tienen dientes son la
+bit-exactitud ASM↔C y el error de ida y vuelta.
+
+**Opciones consideradas**:
+
+- Opción A: un único tope para todas las clases. → Pros: simple. Contras: 20 dB sobre ruido independiente por píxel es **físicamente inalcanzable** con una paleta de 4 colores — un tope que_asserta lo imposible solo produce falsas alarmas.
+- Opción B: topes por clase, medidos, etiquetados como topes de regresión. → Pros: cada tope está justificado por una propiedad del formato o por una medición. Contras: hay que mantener la medición al día.
+
+**Decisión tomada**: Opción B. Valores medidos sobre el corpus determinista que
+genera el propio test (semilla fija): referencia 27,7 dB · suave 19,5 dB ·
+ruido independiente 13,6 dB · adversario 10,9 dB. Topes: 24 / 16 / 11 dB.
+
+**Justificación**: un tope fijado por esperanza de que la compilación lo supere
+no es un tope. Y `NOT_AVAILABLE` se declara de forma explícita para la paridad
+con un codificador BCn de referencia: **no se ejecutó ninguno**, así que los
+números no la implican ni la niegan.
+
+Se añade además que la patrón "reference" original era Reference
+involuntariamente inganable: cargaba una rampa R, una rampa G *invertida* y un
+checker B en el mismo bloque. Cuatro señales independientes, paleta de 4
+colores. Medía 10,9 dB y hacía fallar el test sin que el codificador tuviera
+culpa. Se sustituyó por un bloque representativo y el caso adversario se
+conserva, reportado y **no afirmado**.
+
+**Impacto**: `test_compress.c` (`pat_known`, `pat_adversarial`, `pat_smooth`,
+`t_quality`, `rgb565_nearest`/`rgb565_exact` en `t_edge_cases`).
+
+---
+
+## Nota de autoría concurrente — `EXTERNAL`, 2026-09-28
+
+Durante esta fase, `test_compress.c` y `rx550_compress.h` recibieron
+modificaciones **que no son mías** (19:46:15 y 19:46:19), consistentes en
+`dxt5_reference_alpha()`, `t_alpha_ramp_dxt5()` y el hook declarado
+`rx550_alpha_palette_for_test()`. La authorship no está establecida y no se
+atribuye.
+
+Se conservan y no se tocan (§12.4). Son **mejoras**: la conformidad de la rampa
+alpha contra la referencia DXT5 sobre los 65536 pares de endpoints es una
+comprobación de corrección más fuerte que cualquiera que yo hubiera escrito, y
+pasa. El layout de `rx550_block_t` no se ve afectado: 16 B, offsets 0/2/8/12,
+verificado tras el cambio.
+
+**Riesgo pendiente**: dos escritores sobre el mismo fichero. Si el otro agente
+sigue escribiendo, este registro y el codificador pueden divergir. Requiere una
+decisión del `HUMAN` sobre quién escribe qué.
+
+---
+
+## 2026-09-28 — Corrección de dos premisas falsas del registro
+
+**Tipo de claim**: `CONTRADICTION` resuelta · **Origen**: verificación del agente
+contra el árbol de la decisión de alcance.
+
+Este registro afirmaba dos cosas que **la evidencia refuta**. Se corrigen aquí con
+el nombre del test que las refuta.
+
+> **Preservación del texto original — verificada, con una corrección.** Este
+> fichero **no está rastreado por git y tiene 0 commits que lo toquen**
+> (`git ls-files` vacío, `git log` vacío, 2026-09-28). Por tanto **no** hay
+> historial de git del que recuperar el texto anterior, y decir lo contrario
+> sería afirmar una preservación que no existe. La copia previa vive **sólo** en
+> `/tmp/opencode/recovery/DECISIONS.disk-20260928.md` (9 110 B), que **se pierde
+> al reiniciar**. La frase original permanece además en `DECISION_REQUIRED #2`
+> más abajo de este mismo fichero, sin editar, por §12.4.
+
+| Afirmación previa | Estado real | Cómo se refutó |
+|---|---|---|
+| `E1_TRANSFER_STATUS = REQUIRES_REVALIDATION` | **`PRESERVED`** | `E1_CHAIN_COMPARISON` del 2026-09-28: 13 de los 14 puntos de la cadena causal byte-idénticos, y el restante (`amdgpu_vm_sdma.c`) con un delta textual `container_of(rq,…,rq)` → `rq->sched` que produce el mismo puntero del mismo tipo — `REQUIRES_REVALIDATION = NO` |
+| «`rx550-upstream-7.2.8` no existe» | **Sí existe**, y no es árbol de trabajo | `ls` + `find` del 2026-09-28: 2 842 ficheros. Refutada por inspección directa del directorio |
+
+**El error de origen** del segundo es un tipo de búsqueda incompleta: se concluyó
+ausencia a partir de una comprobación que no cubría el directorio que se nombraba.
+Es `NOT_FOUND` en disfraz de `PROVEN_ABSENT` sin alcance declarado (§2.7).
+
+**Efecto sobre el registro**: ninguna de las dos premisas sostenía una decisión.
+`AD-1` sigue vigente y su razón de ser (`RG-1` intacta, árbol `7.1.3`) no
+dependía de ninguna de las dos. La reserva sobre la regla 5 **sí** se mantiene y
+es independiente: reempaquetar `struct amdgpu_bo` destruiría el ancla de la
+fórmula `PDE_VRAM_OFFSET` de E1 — ver `DEC-5`.
+
+---
+
+## 2026-09-28 - `DEC-1` RX550-FIRST se adopta, con su premisa corregida
+
+**Tipo de claim**: `HUMAN_POLICY` (orientación) + `CONFLICT` (premisa) · **DECIDER**: `HUMAN`
+
+**Contexto**: el manifiesto RE-03 orienta el proyecto a *«RX550-FIRST: el driver se adapta al hardware, nunca al revés. Si una estructura de amdgpu upstream es subóptima para 2GB, la reescribes»*, sostenido sobre la premisa de que *«AMD diseña para GPUs de 24GB; tú diseñas para 2GB»*.
+
+**Opciones consideradas**:
+
+- **Opción A** — aceptar el manifiesto literalmente y reescribir las estructuras de page table. → Pros: cumple al pie de la letra. Contras: son o bien derivados de hardware (`DEC-2`, `DEC-3`), o bien ya parametrizados; sin medición previa no hay discriminante entre «mejor» y «roto» (`E1_CPU_READBACK_EMPIRICAL = NOT_VERIFIED`).
+- **Opción B** — adoptar la orientación y corregir su alcance: se aplica donde el hardware deja libertad, se excluye donde el hardware dicta. → Pros: conserva la intención y quita el error que la hacía inaplicable. Contras: exige un criterio explícito de «capa reescribible vs capa contractual».
+- **Opción C** — rechazar el manifiesto completo. → Pros: ninguna. Contras: la orientación es correcta; el defecto está en su alcance, no en su dirección.
+
+**Decisión tomada**: **Opción B**.
+
+**Justificación**: la orientación es correcta justo donde el 2 GiB la hace necesaria, y es un hecho que la hace **innecesaria** en la capa de page table (`DEC-2`). La formulación operativa:
+
+> **RX550-FIRST** — se optimiza para la RX550 real: Polaris 12 (Lexa), `[1002:699f]`, 512 shaders, 4 CUs, `2147483648` B de VRAM (medido, `AD-1`). Donde el driver upstream toma una decisión parametrizable, el parámetro se ajusta a este objetivo. Donde el hardware dicta el formato, el software obedece.
+
+**Impacto**: principio transversal. `AD-1` ya lo acota al código nuevo en `04-IMPLEMENTACION/`. Este registro no habilita ninguna escritura por sí mismo.
+
+---
+
+## 2026-09-28 - `DEC-2` La geometría de la page table no se reescribe: ya es por dispositivo
+
+**Tipo de claim**: `FACT_FOR_linux-7.1.3` + `DERIVATION` · **Ámbito**: `READ_ONLY_EVIDENCE`
+
+**Contexto**: la regla 1 pide reescribir *«estructuras de amdgpu upstream subóptimas para 2GB»*. Antes de tocar nada hay que determinar si existe alguna.
+
+**Opciones consideradas**:
+
+- **Opción A** — reescribir `struct amdgpu_vm_bo_base`, la geometría de niveles o el formato de entrada. → Pros: control total. Contras: son derivados de hardware o ya parametrizados; reescribirlos no gana nada y arriesga la corrección.
+- **Opción B** — verificar la premisa antes de actuar. → Pros: la decisión queda sobre evidencia, y «no había nada que reescribir» queda como resultado negativo útil. Contras: puede devolver un resultado menos iluminante que un rediseño.
+
+**Decisión tomada**: **Opción B** — y la verificación devuelve que **en esta capa no hay nada subóptico que reescribir**.
+
+**Justificación** (evidencia, `FACT_FOR_linux-7.1.3`):
+
+| Comprobación | Dónde | Resultado |
+|---|---|---|
+| Profundidad por dispositivo | `amdgpu_vm.c:2433-2440` | `max_pfn = vm_size << 18`; `num_level = min(max_level, …roundup_pow_of_two(max_pfn)…)` — derivado del tamaño, no constante |
+| VRAM como entrada | `amdgpu_vm.c:2427-2430` | `vm_size = roundup_pow_of_two(clamp(phys_ram_gb*3, min_vm_size, max_size))`; `min_vm_size`/`max_size` los fija el ASIC |
+| Máscara de dirección | `amdgpu_gmc.h` | `uint64_t pte_addr_mask;` — por ASIC |
+| Bloque y profundidad VMID0 | `amdgpu_gmc.h` | `vmid0_page_table_block_size`, `vmid0_page_table_depth` — del hardware |
+| Posición entre niveles | `amdgpu_vm_pt.c:188-192` | `shift = amdgpu_vm_pt_level_shift(adev, cursor->level); idx = (cursor->pfn >> shift) & mask;` |
+
+**Refutación de la premisa**: la geometría es idéntica en el mismo código para una tarjeta de 2 GiB y una de 24 GiB; lo que difiere son los *parámetros* que cada ASIC le pasa. Ninguna línea depende del tamaño de VRAM en forma constante.
+
+**Impacto**: cierra la regla 1 para la capa PDE/PT. `E1_TRANSFER_STATUS = PRESERVED` deja de estar en riesgo por este frente. No se toca `amdgpu_vm_pt.c`, `amdgpu_gmc.[ch]`, `amdgpu_vm_bo_base`.
+
+**`FALSIFICATION_CONDITION`**: si un ASIC de 2 GiB y uno de 24 GiB obtuvieran la *misma* geometría por un bug, esta decisión se reabre. Instrumento: `amdgpu_debugfs` (`amdgpu_vm.c:2512` publica `max_pfn`), que requiere root y está fuera de la autorización vigente.
+
+---
+
+## 2026-09-28 - `DEC-3` El formato de la PDE es contrato de hardware, no diseño de AMD
+
+**Tipo de claim**: `DERIVATION` + `HUMAN_POLICY` (frontera) · **DECIDER**: `HUMAN`
+
+**Contexto**: las reglas 2 (*«cero miedo»*) y 5 (*«cada byte cuenta, empaquetar»*) alcanzan, leídas literalmente, el formato de la entrada de page table.
+
+**Opciones consideradas**:
+
+- **Opción A** — aplicar «cero miedo» a los contratos de hardware. → Pros: coherente. Contras: el formato no lo elige AMD ni el driver; lo interpreta el MM/VMHUB del ASIC. Un formato distinto no es diseño, es un dispositivo que no mapea.
+- **Opción B** — fijar la frontera: *cero miedo* aplica a la implementación, no a los contratos de hardware. → Pros: §13.7 ya distingue implementación de requisito. Contras: requiere criterio por capa.
+
+**Decisión tomada**: **Opción B**.
+
+**Justificación**: la entrada de page table es un contrato con el silicio — anchura de 8 B, flags `AMDGPU_PTE_VALID`/`DIRTY`/`NO_FETCH`, y enmascaración por `pte_addr_mask`, los decodifica el hardware. Reescribirlos no es «adaptarse al objetivo»: es romper la correspondencia. «CERO MIEDO» se adopta **entero** para nombres, firmas internas, partición de responsabilidades, flujo de control y módulos, y queda acotado donde el hardware manda.
+
+**Nota de convergencia**: `AD-2` aplica este mismo razonamiento al códec — el layout 4×4→16 B es la forma que el decodificador de bloques de la unidad de textura ya consume, no una preferencia del driver. La exención es explícita en ambos casos para que no se lea como omisión.
+
+**Impacto**: `amdgpu_vm_pt.c` (formato de entrada, `expect_written` en `:662-672`), `amdgpu_gmc.c/.h`, `asic_reg.h` — **intocables por decisión de diseño, no por superstición**.
+
+---
+
+## 2026-09-28 - `DEC-4` C+ASM para todo código crítico: no en la ruta PDE/PT
+
+**Tipo de claim**: `NEGATIVE_RESULT` + `MODEL_CHOICE`
+
+**Contexto**: la regla 4 pide *«todo código crítico en C y ASM x86_64 o GCN ISA»*.
+
+**Opciones consideradas**:
+
+- **Opción A** — reescribir en ensamblador la ruta de actualización de page table. → Pros: elimina la incertidumbre del compilador en la ruta más crítica. Contras: **no es un bucle caliente**. `amdgpu_vm_pde_update()` se invoca una vez por BO relocalizado por llamada, no por byte. No hay rendimiento que ganar y se pierde la semántica de orden de memoria y estado de cerrojo que el C expresa.
+- **Opción B** — ASM donde hay objetivo de rendimiento medible; C con verificación estricta donde el objetivo es corrección. → Pros: coherente con §9.1 (no se optimiza sin `NOISE` medido). Contras: hay que nombrar el objetivo antes de escribir el ASM.
+
+**Decisión tomada**: **Opción B**.
+
+**Justificación**: §13.8 ya fija C como defecto para el trabajo de formato-binario/ABI de este proyecto, y es más específica y anterior que la regla 4. `NOISE = NOT_DETERMINED` y `E1_CPU_READBACK_EMPIRICAL = NOT_VERIFIED`: sin ruido medido ningún tamaño de efecto es interpretable, así que «optimizar» no tiene predicado. GCN ISA queda como el idioma correcto para shaders y compute — que es exactamente lo que Fase 2 propone.
+
+**Impacto**: §13.8 más esta entrada. `DEC-n` futuro requerido antes de escribir ASM, con su `PREDICTION`.
+
+---
+
+## 2026-09-28 - `DEC-5` Layout de `struct amdgpu_bo` congelado: rompe el contrato de medición
+
+**Tipo de claim**: `CONTRADICTION` + `MODEL_CHOICE` · **Contrada con**: la regla 5 · **Coherente con**: `AD-1`
+
+**Contexto**: la regla 5 pide empaquetar y optimizar estructuras. `struct amdgpu_bo` es el caso más obvio.
+
+**Opciones consideradas**:
+
+- **Opción A** — reempaquetar `struct amdgpu_bo` y las de page table. → Pros: menos memoria. Contras: `sizeof(struct amdgpu_bo)` es un **input de la fórmula `PDE_VRAM_OFFSET`** de RE-02, la referencia autoritativa de la lectura de E1. Hoy es `NOT_DETERMINED` y la fórmula **nunca se ha ejercitado**. Reempaquetar mueve ese ancla y vuelve indeterminable cualquier lectura futura. Además rompe alineación natural bajo atómicos y cerrojos.
+- **Opción B** — congelar el layout de las estructuras que anclan fórmulas de medición hasta que exista una medición que lo fije empíricamente. → Pros: conserva el contrato; el valor pasa de `NOT_DETERMINED` a medido. Contras: retrasa una optimización que aquí no es el cuello de botella.
+
+**Decisión tomada**: **Opción B**.
+
+**Justificación**: §12.4 — *«nunca alterar, ocultar, inventar ni reinterpretar evidencia para que una implementación o un test pase»*. Aquí la evidencia **es** el layout. `RG-1` art. 3 autorizó la instrumentación **precisamente** para medir la emisión de PDE; romper el ancla de su fórmula la deja sin objeto. Y el cuello de botella de esta línea no es la memoria de las estructuras: no hay ni una medición. Coincide con la Opción A de `AD-1` (*«reescribir structs de `amdgpu` — RECHAZADA»*), que ya cubrió; esta entrada la aterriza sobre el caso concreto.
+
+**Impacto**: `struct amdgpu_bo` y `struct amdgpu_vm_bo_base` — **layout congelado**. El modelo C de `polaris12xl` (`AD-n` de su registro) **sí** puede empaquetarse: es userspace y no ancla ninguna fórmula de kernel.
+
+---
+
+## 2026-09-28 - `DEC-6` `rx550-upstream-7.2.8` existe pero no es árbol de trabajo
+
+**Tipo de claim**: `FACT` + `MODEL_CHOICE` · **Coherente con**: `AD-1` (esta entrada la precisa, no la sustituye)
+
+**Contexto**: el manifiesto nombra `rx550-upstream-7.2.8`; este registro afirmó primero que no existía, lo cual era falso.
+
+**Opciones consideradas**:
+
+- **Opción A** — pivotar la línea a 7.2.8. → Contras: no construible, sin instrumento E1, y `vermagic` incompatible con el host.
+- **Opción B** — 7.1.3 como árbol de trabajo, 7.2.8 como referencia de consulta. → Pros: conserva la evidencia, el instrumento y la equivalencia demostrada.
+
+**Decisión tomada**: **Opción B**, ya decidida por el `HUMAN` en `AD-1` y confirmada aquí con la evidencia que faltaba.
+
+**Justificación**: `rx550-upstream-7.2.8/` contiene 2 842 ficheros: `linux-7.2.8/` (2 839, todos bajo `drivers/gpu/drm/amd/`), `linux-7.2.8.tar.xz` (160 371 176 B), `local.sha256`, `upstream.sha256`. Tres hechos medidos lo disqualifican como árbol de trabajo: no tiene `Makefile` ni `.config` ni `scripts/` ni `arch/`; no contiene la instrumentación E1 (0 refs vs 50/4/2/2); y el host corre `7.1.3-200.nobara.fc44`, cuyo `Makefile` es **byte-idéntico** (`9e2bb27ef5af11b9…`) al del tarball `cachyos-7.1.3-1` del SRPM verificado. Además §3.2: `E1_TRANSFER_STATUS = PRESERVED` está medido sobre 7.1.3 y no viaja a 7.2.8 sin re-verificar los 14 puntos.
+
+**Impacto**: la línea sigue en `RESEARCH/kernelbuild/linux-7.1.3`. `rx550-upstream-7.2.8` es **consulta**, no trabajo. No se abre línea paralela.
+
+---
+
+## 2026-09-28 - `DEC-7` Separación de `CONFIG_EQUIVALENCE` / `SOURCE_EQUIVALENCE` / `ABI_EQUIVALENCE`
+
+**Tipo de claim**: `DERIVATION` + `MODEL_CHOICE` · **Ámbito**: `READ_ONLY_EVIDENCE`
+
+**Contexto**: al cerrar la procedencia del código host (SRPM `kernel-7.1.3-200.nobara.fc44.src.rpm`, verificado contra el checksum del índice) было fácil dejar que una equivalencia arrastrara a las otras.
+
+**Opciones consideradas**:
+
+- **Opción A** — reportar «el árbol coincide con el host». → Contras: es falso globalmente y no usable para la decisión.
+- **Opción B** — medir las tres por separado y declarar el alcance exacto. → Pros: permite usar lo que sí se sostiene sin arrastrar a la que no.
+
+**Decisión tomada**: **Opción B**.
+
+**Justificación**:
+
+| Dimensión | Estado | Evidencia |
+|---|---|---|
+| `CONFIG_EQUIVALENCE` (config del SRPM vs config construido del host) | **0 diferencias** en `DRM`\|`AMDGPU`\|`TTM`\|`HSA`, `MODULE`\|`MODVERSIONS`\|`MODULE_SIG`, `SECURITY`\|`LOCKDOWN`, `CC_OPT`\|`LTO`, `MM` | 81 diferencias residuales, todas de identidad de build y sondeo de compilador (`BUILD_SALT`, `GCC_VERSION`, `CC_HAS_*`, `CONFIG_CACHY`) |
+| `SOURCE_EQUIVALENCE` | **DIFFERENT** globalmente; **PRESERVED** en la cadena causal E1 | `Makefile` A `8139969d…` ≠ B `9e2bb27e…`; 36 de 2689 ficheros AMDGPU difieren antes de parches; ningún parche de la distro toca la cadena E1 |
+| `ABI_EQUIVALENCE` | **UNKNOWN** | No hay build. La firma de módulo sigue sin resolverse: `CONFIG_MODULE_SIG_ALL=y` + `SECURITY_LOCKDOWN_LSM=y` ⇒ un `.ko` reconstruido localmente iría firmado con otra clave y el host no lo aceptaría |
+
+**Ninguna de las tres implica las otras.** Y la formulación correcta sobre `MODVERSIONS` se mantiene, sin relajarla:
+
+> No existe comprobación CRC de versiones de símbolos mediante MODVERSIONS; permanecen las demás comprobaciones del cargador, incluidas firma y políticas de seguridad.
+
+**Impacto**: `E1_TRANSFER_STATUS = PRESERVED` **no** es autorización de build. `BUILD_AUTHORIZATION`, `MODULE_SIGNATURE`, `TREE_EXCLUSIVITY`, `LOADABILITY` y `RUNTIME_AUTHORIZATION` siguen separados, y `BUILD_ALLOWED = NO`. La fuente dejó de ser el obstáculo; la firma de módulos es ahora el 후보 dominante, y es una pregunta que no depende de la procedencia.

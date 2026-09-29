@@ -534,79 +534,149 @@ static void t_throughput(void)
 /* ------------------------------------------------------------------------ */
 
 /* Reference ramp, transcribed from the BC3 specification, not from the code. */
-static void dxt5_reference_alpha(uint8_t a0, uint8_t a1, uint8_t pal[8])
-{
-    int i;
+    /* Ground truth transcribed from the BC3/DXT5 block specification. These are
+   * literals, not a re-implementation, precisely so that a transcription slip
+   * in rx550_compress.c cannot be mirrored here. The previous version of this
+   * function was a line-for-line copy of the implementation's alpha_palette(),
+   * so the test compared f(x) with f(x): it passed by construction while both
+   * disagreed with DXT5 in 27 of the probed entries. It cannot be circular. */
+  static const struct {
+      uint8_t a0, a1;
+      uint8_t pal[8];
+      const char *what;
+  } dxt5_truth[] = {
+      { 0, 255, { 0,255, 51,102,153,204,   0,255 }, "a0<a1, extremos opuestos" },
+      {255,   0, {255,  0,219,182,146,109, 73, 36 }, "a0>a1, extremos opuestos" },
+      {  0,   0, {  0,  0,  0,  0,  0,  0,  0,255 }, "a0==a1==0" },
+      {255, 255, {255,255,255,255,255,255,  0,255 }, "a0==a1==255" },
+      {128, 128, {128,128,128,128,128,128,  0,255 }, "a0==a1, gris medio" },
+      {200,  50, {200, 50,179,157,136,114, 93, 71 }, "a0>a1, tipico" },
+      { 10, 240, { 10,240, 56,102,148,194,  0,255 }, "a0<a1, tipico" },
+  };
 
-    pal[0] = a0;
-    pal[1] = a1;
-    if (a0 > a1) {
-        for (i = 2; i < 8; i++)
-            pal[i] = (uint8_t)(((7 - i) * (int)a0 + (i - 1) * (int)a1 + 3) / 7);
-    } else {
-        for (i = 2; i < 8; i++)
-            pal[i] = (uint8_t)(((7 - i) * (int)a0 + (int)i * (int)a1 + 3) / 7);
-    }
-}
+  /* Exhaustive reference, written with explicit weight TABLES instead of an
+   * (8-i)/(6-i) expression, so it is a different derivation from the code under
+   * test and a shared slip is unlikely to coincide.
+   *   a0 >  a1: 8 codes, 6 interpolated, denominator 7, rounding +3.
+   *   a0 <= a1: 6 codes, 4 interpolated, denominator 5, rounding +2, and the
+   *              two spare codes are the extremes 0 and 255. */
+  static void dxt5_reference_alpha(uint8_t a0, uint8_t a1, uint8_t pal[8])
+  {
+      static const int w7_a0[6] = { 6, 5, 4, 3, 2, 1 };
+      static const int w7_a1[6] = { 1, 2, 3, 4, 5, 6 };
+      static const int w5_a0[4] = { 4, 3, 2, 1 };
+      static const int w5_a1[4] = { 1, 2, 3, 4 };
+      int j;
 
-static void t_alpha_ramp_dxt5(void)
-{
-    uint8_t pal[8], ref[8];
-    int a0, a1, i, bad;
-    char detail[128];
+      pal[0] = a0;
+      pal[1] = a1;
+      if (a0 > a1) {
+          for (j = 0; j < 6; j++)
+              pal[2 + j] = (uint8_t)((w7_a0[j] * (int)a0 + w7_a1[j] * (int)a1 + 3) / 7);
+      } else {
+          for (j = 0; j < 4; j++)
+              pal[2 + j] = (uint8_t)((w5_a0[j] * (int)a0 + w5_a1[j] * (int)a1 + 2) / 5);
+          pal[6] = 0;
+          pal[7] = 255;
+      }
+  }
 
-    /* Exhaustive over all 65536 endpoint pairs. */
-    bad = 0;
-    for (a0 = 0; a0 < 256 && bad < 4; a0++) {
-        for (a1 = 0; a1 < 256; a1++) {
-            rx550_alpha_palette_for_test((uint8_t)a0, (uint8_t)a1, pal);
-            dxt5_reference_alpha((uint8_t)a0, (uint8_t)a1, ref);
-            for (i = 0; i < 8; i++) {
-                if (pal[i] != ref[i]) {
-                    snprintf(detail, sizeof(detail),
-                             "a0=%d a1=%d entry %d: got %u want %u",
-                             a0, a1, i, pal[i], ref[i]);
-                    bad++;
-                    break;
-                }
-            }
-            if (bad >= 4)
-                break;
-        }
-    }
-    check(bad == 0, "alpha ramp matches DXT5 for all 65536 endpoint pairs",
-          detail);
+  static void t_alpha_ramp_dxt5(void)
+  {
+      uint8_t pal[8], ref[8];
+      int a0, a1, i, bad, mono;
+      unsigned k;
+      char detail[192];
 
-    /* The BC4 tell: a[7] must reach the endpoint a1 when a0 <= a1, and must
-     * NOT be a1 when a0 > a1. A /5 branch fails the first; a shared (i-1)
-     * expression fails the second. */
-    rx550_alpha_palette_for_test(0, 255, pal);
-    check(pal[7] == 255, "a0<a1 closes the ramp at a1", "a[7] != 255");
-    check(pal[0] == 0 && pal[1] == 255, "a0<a1 endpoints preserved", "swapped");
-    check(pal[2] == 73 && pal[6] == 219,
-          "a0<a1 interior matches DXT5 (73,219)", "divisor is not 7");
+      /* (1) Literal ground truth, byte for byte. */
+      bad = 0;
+      detail[0] = '\0';
+      for (k = 0; k < sizeof(dxt5_truth) / sizeof(dxt5_truth[0]); k++) {
+          rx550_alpha_palette_for_test(dxt5_truth[k].a0, dxt5_truth[k].a1, pal);
+          for (i = 0; i < 8; i++) {
+              if (pal[i] != dxt5_truth[k].pal[i]) {
+                  snprintf(detail, sizeof(detail),
+                           "%s (a0=%d a1=%d) entry %d: got %u want %u",
+                           dxt5_truth[k].what, dxt5_truth[k].a0, dxt5_truth[k].a1,
+                           i, pal[i], dxt5_truth[k].pal[i]);
+                  bad++;
+                  break;
+              }
+          }
+      }
+      check(bad == 0, "alpha ramp matches DXT5 ground-truth vectors", detail);
 
-    rx550_alpha_palette_for_test(255, 0, pal);
-    check(pal[7] == 0, "a0>a1 ramp is interior, a[7]=(a0+6*a1)/7=0", "a[7]!=0");
-    check(pal[2] == 182 && pal[6] == 36,
-          "a0>a1 interior matches DXT5 (182,36)", "divisor is not 7");
+      /* (2) Exhaustive sweep against the weight-table reference. */
+      bad = 0;
+      detail[0] = '\0';
+      for (a0 = 0; a0 < 256 && bad < 4; a0++) {
+          for (a1 = 0; a1 < 256; a1++) {
+              rx550_alpha_palette_for_test((uint8_t)a0, (uint8_t)a1, pal);
+              dxt5_reference_alpha((uint8_t)a0, (uint8_t)a1, ref);
+              for (i = 0; i < 8; i++) {
+                  if (pal[i] != ref[i]) {
+                      snprintf(detail, sizeof(detail),
+                               "a0=%d a1=%d entry %d: got %u want %u",
+                               a0, a1, i, pal[i], ref[i]);
+                      bad++;
+                      break;
+                  }
+              }
+              if (bad >= 4)
+                  break;
+          }
+      }
+      check(bad == 0, "alpha ramp matches DXT5 for all 65536 endpoint pairs",
+            detail);
 
-    /* Flat alpha must be preserved at every one of the 8 entries. The (i-1)
-     * form gives (6*a0)/7 here, turning 200 into 171. */
-    for (i = 0; i < 8; i++) {
-        rx550_alpha_palette_for_test(200, 200, pal);
-        if (pal[i] != 200) {
-            snprintf(detail, sizeof(detail),
-                     "a0==a1=200, entry %d = %u, want 200", i, pal[i]);
-            break;
-        }
-    }
-    check(i == 8, "flat alpha (a0==a1) decodes to itself at all 8 entries", detail);
+      /* (3) The tell that separates the two ramps, stated structurally: when
+       * a0 <= a1 the two spare codes MUST be the extremes, so a[6]==0 and
+       * a[7]==255 whatever the endpoints are. A shared /7 branch cannot do
+       * that, and this is the one property the old code got wrong. */
+      rx550_alpha_palette_for_test(0, 255, pal);
+      check(pal[7] == 255, "a0<a1 closes the ramp at a1", "a[7] != 255");
+      check(pal[0] == 0 && pal[1] == 255, "a0<a1 endpoints preserved", "swapped");
+      check(pal[2] == 51 && pal[6] == 0,
+            "a0<a1 interior is /5 with extremes 0 and 255, not /7",
+            "a[2]!=51 or a[6]!=0");
 
-    /* Fully opaque: a 255 endpoint must not be pulled below 255 anywhere. */
-    rx550_alpha_palette_for_test(255, 255, pal);
-    check(pal[7] == 255, "flat opaque stays 255 at a[7]", "opaque corrupted");
-}
+      rx550_alpha_palette_for_test(255, 0, pal);
+      check(pal[7] == 36, "a0>a1 ramp is interior, a[7]=(a0+6*a1)/7=36", "a[7]!=36");
+      check(pal[2] == 219 && pal[6] == 73,
+            "a0>a1 interior is /7 with weight (8-i) on a0",
+            "a[2]!=219 or a[6]!=73");
+
+      /* (4) The INTERPOLATED part of the a0>a1 ramp, indices 2..7, must be
+       * non-increasing: the expression is linear in i with a0's coefficient
+       * falling from 6 to 1, so floor division cannot make it rise. Index 1
+       * is deliberately EXCLUDED -- it is the endpoint a1, the minimum BY
+       * DEFINITION, and with a small a0-a1 the integer rounding can put a[2]
+       * above a[1]: for a0=8, a1=7 DXT5 yields [8, 7, 8, ...]. That is the
+       * format behaving correctly. An earlier version of this check walked
+       * 1..7 and asserted a property DXT5 does not have. */
+      mono = 1;
+      for (a0 = 1; a0 < 256 && mono; a0 += 7) {
+          for (a1 = 0; a1 < a0 && mono; a1 += 11) {
+              rx550_alpha_palette_for_test((uint8_t)a0, (uint8_t)a1, pal);
+              for (i = 3; i < 8; i++)       /* a[2..7] only, see note */
+                  if (pal[i] > pal[i - 1]) { mono = 0; break; }
+          }
+      }
+      check(mono, "a0>a1 interpolated ramp (a[2..7]) is non-increasing", "ramp rises");
+
+      /* (5) Flat alpha does NOT decode to itself at all 8 entries, and the
+       * earlier expectation that it did was itself the bug: a0==a1 takes the
+       * a0<=a1 branch, so a[6] and a[7] are the extremes. The encoder still
+       * round-trips flat alpha, because it selects index 0, which is a0. */
+      rx550_alpha_palette_for_test(200, 200, pal);
+      check(pal[6] == 0 && pal[7] == 255,
+            "flat alpha spends the spare codes on 0 and 255",
+            "spare codes are not the extremes");
+
+      /* Fully opaque: a 255 endpoint must not be pulled below 255 anywhere. */
+      rx550_alpha_palette_for_test(255, 255, pal);
+      check(pal[7] == 255, "flat opaque stays 255 at a[7]", "opaque corrupted");
+  }
 
 /* ------------------------------------------------------------------------ */
 

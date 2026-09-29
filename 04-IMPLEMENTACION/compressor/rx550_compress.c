@@ -72,11 +72,20 @@ static void alpha_palette(uint8_t a0, uint8_t a1, uint8_t pal[8])
     pal[1] = a1;
 
     if (a0 > a1) {
+        /* Six interpolated values, /7. The coefficient of a0 is (8-i), not
+         * (6-i) and not (7-i): at i=2 DXT5 is (6*a0 + a1 + 3)/7, so a0 loses
+         * exactly one step across the ramp. */
         for (i = 2; i < 8; i++)
-            pal[i] = (uint8_t)(((7 - i) * (int)a0 + (i - 1) * (int)a1 + 3) / 7);
+            pal[i] = (uint8_t)(((8 - i) * (int)a0 + (i - 1) * (int)a1 + 3) / 7);
     } else {
-        for (i = 2; i < 8; i++)
-            pal[i] = (uint8_t)(((7 - i) * (int)a0 + (int)i * (int)a1 + 3) / 7);
+        /* Only FOUR interpolated values, /5, and the two spare codes are the
+         * extremes 0 and 255 -- not more interpolation. This is the case the
+         * old code got wrong: it interpolated all six with /7, which is a
+         * non-standard ramp that no DXT5 decoder in the world reproduces. */
+        for (i = 2; i < 6; i++)
+            pal[i] = (uint8_t)(((6 - i) * (int)a0 + (i - 1) * (int)a1 + 2) / 5);
+        pal[6] = 0;
+        pal[7] = 255;
     }
 }
 
