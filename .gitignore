@@ -66,3 +66,4 @@ RESEARCH/
 # *.o y *.bin ya estan cubiertos arriba; estos dos no tienen extension.
 04-IMPLEMENTACION/compressor/test_compress
 04-IMPLEMENTACION/compressor/diag
+04-IMPLEMENTACION/decompressor/shader_vs_c
