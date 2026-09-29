@@ -239,12 +239,26 @@ registramos 2 GB como `HYPOTHESIS` (B)?
 
 ## AD-2 — 2026-09-28 — Formato de bloque: 4x4 → 16 B con rampa alpha de 8 códigos
 
+> **`ESTADO: SUPERSEDED`** por la entrada `AD-2` de la línea 679 de este mismo
+> documento, que es la versión vigente. Se conserva sin borrar (§12.4: no se
+> destruye evidencia histórica), pero **no citar esta**. La entrada vigente
+>corrige la rampa alfa, que aquí se describe solo como «8 códigos» y resulted
+> ambigua sobre el modo de 6 valores.
+>
+> El identificador `AD-2` está duplicado por error de registro. No se renumera
+> esta entrada: hacerlo exigiría reescribir las referencias que otros documentos
+> hacen a la versión vigente, y esa referencia es ambigua por construcción — no
+> puede distinguir «el AD-2 de la línea 240» de «el AD-2 de la línea 679» sin
+> conocimiento del historial. La corrección honesta es **retirar el duplicado**,
+> no desplazar números. Registrado como `REFERENCE_AMBIGUITY`.
+
 | Campo | Valor |
 |---|---|
 | **DECISION** | Opción A — bloque de 16 B con sub-bloque alpha de 8 índices de 3 bits y sub-bloque color de 4 índices de 2 bits (forma BC3/DXT5) |
 | **DECIDER** | `MODEL_CHOICE` (decisión del agente, reversible) |
 | **DATE** | `2026-09-28` |
 | **Cancela** | ninguna |
+| **Estado** | `SUPERSEDED` |
 
 **Contexto**: el encargo fija "4x4 píxeles → ≤16 bytes" sin especificar el
 formato. 64 bytes de entrada a 16 de salida es 4:1, y esa forma admite varias
@@ -681,7 +695,7 @@ fórmula `PDE_VRAM_OFFSET` de E1 — ver `DEC-5`.
 | **DECISIÓN** | Opción A — bloque de 16 B: sub-bloque alfa de 8 índices de 3 bits + sub-bloque color de 4 índices de 2 bits (BC3/DXT5) |
 | **DECIDER** | `MODEL_CHOICE` (formato) sobre `HUMAN_POLICY` AD-1 (alcance) |
 | **DATE** | `2026-09-28` |
-| **SUPERSEDE** | la entrada `AD-2` de la misma fecha, **en su justificación**. Su texto original se conserva sin editar (§12.4) |
+| **SUPERSEDE** | la entrada `AD-2` de la línea 240, **en su justificación**. Su texto se conserva intacto; sólo se le añadió arriba una banderola `SUPERSEDED` con el motivo (§12.4 permite marcar el estado, no alterar la evidencia) |
 | **MOTIVO DE LA REVISIÓN** | la justificación original afirmaba conformidad DXT5 que **no existía**: la rampa alfa implementada no era DXT5, y el test que supuestamente la verificaba comparaba la implementación contra una copia literal de sí misma |
 
 ### Por qué se revisó
@@ -924,9 +938,9 @@ recuerdo.
 | **Regla** | No se cambia sin autorización explícita del Arquitecto Principal |
 
 > **Nota sobre el identificador.** La primera redacción de esta decisión se tituló `AD-8`, que
-> ya estaba ocupado por la entrada anterior. Es `AD-9`. El desvío se registra aquí porque el
-> identificador duplicado en un registro de decisiones es exactamente la clase de defecto que
-> este registro existe para impedir.
+> ya estaba ocupado por la entrada de nomenclatura de la línea 863. Es `AD-9`. El desvío se
+> registra aquí porque el identificador duplicado en un registro de decisiones es exactamente la
+> clase de defecto que este registro existe para impedir.
 
 **Contexto**: la implementación redondeaba al más cercano (`+3` sobre `/7`, `+2` sobre `/5`).
 El commit `cda0440` afirmó que esos offsets *están en la especificación de Microsoft* y los
@@ -1006,7 +1020,15 @@ especificación afirmada sin leer):
 
 ---
 
-## AD-9 — 2026-09-28 — La búsqueda de inset alfa cuesta 2,8× y no compra calidad medida
+## AD-10 — 2026-09-28 — La búsqueda de inset alfa cuesta 2,8× y no compra calidad medida
+
+> **Nota de identificador.** Esta entrada se escribió como `AD-9`, número ya
+> ocupado por la decisión de truncamiento puro (línea 916, vigente). Se
+> renumera a `AD-10`. La búsqueda del repositorio dio **3 apariciones de
+> `AD-9` en total**, todas dentro de este mismo fichero, y ninguna en otro
+> documento: no hay referencias externas que actualizar. La serie salta de
+> `AD-6` a `AD-8` porque `AD-7` nunca existió; el hueco **no se rellena con una
+> entrada artificial**.
 
 **Tipo de claim**: `MEASUREMENT` + `MODEL_CHOICE` (pendiente de `HUMAN_POLICY`)
 
