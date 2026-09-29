@@ -136,6 +136,8 @@ cubre las dos ramas pero 64 bloques no alcanzan para 649 casos excepcionales. Ve
   (`radeonsi_dri.so` vs `swrast`) la atribución es por convención de nombre de driver.
 - **No he ejecutado el test de rampa.** No sé qué responderá la RX 550. `AD-12` sigue
   `NOT_DETERMINED`.
+- **`Q-5` no se ejecutó con éxito: `NOT_DETERMINED`.** Y al intentarlo apareció un dato que
+  corrige este documento — ver §5.2.
 - **No he medido contadores, latencia, ni `vkGetBufferDeviceAddress`.** Ver §7, por qué no hacen
   falta.
 - **No he verificado** que el árbol `/home/lucas/mesa` sea el que se usó para compilar cualquier
@@ -204,6 +206,48 @@ en `lp_bld_format_s3tc.c:817-877`, es determinista y no necesita GPU).
 | R-3 | El corpus debe cubrir los 649 pares donde llvmpipe no coincide con nadie | si no, el control no tiene potencia |
 | R-4 | Un resultado llvmpipe puro se reporta como **`CONTAMINATED_LLVMPIPE`**, no como un hallazgo | sería un fallo del entorno, no una propiedad del hardware |
 
+### 5.2 Corrección de §1 y §4 — hay **dos** implementaciones software, no una
+
+**Ronda 12, al ejecutar `Q-5`.** §1 y §4 de este documento dicen que el único rival software
+posible es llvmpipe, y que por tanto basta un predictor llvmpipe. Eso es **incompleto**, y la
+evidencia que lo corrige es `FACT`, ejecutada.
+
+Mesa trae **otro** decodificador BC3, independiente del de llvmpipe:
+
+| Implementación | Dónde | Aritmética | Verificado |
+|---|---|---|---|
+| `lp_build_lerpdxta` | `src/gallium/auxiliary/gallivm/lp_bld_format_s3tc.c:817-877` — texture unit de llvmpipe | pesos fijos de 16 bits `255*64/5`, `255*64/7`, dos desplazamientos | solo por lectura del fuente; comportamiento `NOT_DETERMINED` (`Q-5`) |
+| `fetch_2d_texel_rgba_dxt5` | `src/util/format/texcompress_s3tc_tmp.h:144-173` — decodificador genérico de Mesa | `((a0*(8-code) + a1*(code-1)) / 7)`, `/5` — **sin `+3`, sin `+2`** | **ejecutado**: coincide con **bcdec en 1 048 576 / 1 048 576** |
+
+**Consecuencia para el diseño de Fase 3.** La categoría `only_trunc` **ya no autoriza** a afirmar
+que el hardware trunca: un decodificador software de Mesa da **exactamente** el mismo resultado que
+`bcdec`. Son bit a bit iguales en las 1 048 576 observaciones ejecutadas. Un `trunc` uniforme es
+compatible con dos causas indistinguibles por el valor:
+
+- el hardware trunca, o
+- el driver decodificó en software con la ruta genérica.
+
+`V-H` (§4) **no cubre** este caso: solo descarta llvmpipe, no al decodificador genérico. Hace falta
+un predictor más, o un criterio que separe los dos. Petición `Q-7` a `@IA-2`.
+
+**Lo que NO cambia**: el corpus de 649 sigue discriminando. Contra el decodificador genérico real
+coincide con `expect_trunc` en **649/649** y con `expect_llvmpipe` y `expect_spec` en **0/649** —
+las tres respuestas siguen siendo distintas. Detalle y evidencia: `q5-informe.md`.
+
+### 5.3 `Q-5` — `NOT_DETERMINED`: no obtuve la observación de llvmpipe
+
+`Q-5` exigía comparar el modelo Python contra **llvmpipe real**. Las tres rutas Vulkan sobre
+`10005:0000` fallaron: `SIGFPE` en el JIT (con un error mío de formato de attachment, ya
+corregido), luego readback a cero **incluso para el `LOAD_OP_CLEAR` del propio render pass**, y
+`SIGSEGV` en la vía compute. `vkCmdClearColorImage` y la copia de imagen **sí** funcionan, así que
+el fallo está acotado, pero **no sé si es de lavapipe o del harness** y no lo atribuyo.
+
+Evidencia completa, incluyendo los controles negativos que demuestran que el contraste discrimina:
+`../validations/q5-informe.md`. Pre-registro del criterio: `../validations/q5-preregistration.md`.
+
+**La vía que propongo para cerrarla**: OpenGL con `LIBGL_ALWAYS_SOFTWARE=1`, que es un JIT distinto
+del de lavapipe. Requiere harness y autorización; no la ejecuto por mi cuenta.
+
 ## 7. Las tres preguntas de la recepción, respondidas
 
 | Pregunta | Respuesta | Base |
@@ -255,3 +299,6 @@ necesitando la medición de la rampa en la RX 550, y eso es Fase 3, no este docu
 | `Q-2` | `@IA-2` | Ampliar el corpus para cubrir los 649 pares donde llvmpipe difiere de ambos (R-3) | igual |
 | `Q-3` | `@IA-1` | **RETIRADA — `FAIL` por método** (§5.1). Sustituto: reconstruir el árbol del binario, o compilar `radeonsi` desde fuente y comparar | convertiría `PLAUSIBLE` en `OBSERVED` |
 | `Q-4` | `@IA-1` | Solo informativo: si el árbol de `/home/lucas/mesa` es el mismo del build del proyecto, o si `mesa-26.2.2-build` es otro árbol | salen en §5 |
+| `Q-5` | — | **REABIERTA, no cerrada.** `NOT_DETERMINED` en Ronda 12: no se obtuvo observación de llvmpipe. Vía propuesta: OpenGL con `LIBGL_ALWAYS_SOFTWARE=1` (§5.3) | la validez de los `expect_llvmpipe` |
+| `Q-6` | `@IA-1` | ¿El fallo de Vulkan en `10005:0000` es de lavapipe o del harness? Decide si insistir por esa vía tiene sentido | el método de cierre de `Q-5` |
+| `Q-7` | `@IA-2` | **`only_trunc` uniforme ya no prueba truncamiento en hardware**: el decodificador genérico de Mesa da un resultado idéntico a bcdec. Hace falta un criterio que separe los dos (§5.2) | la interpretación de `AD-12` |

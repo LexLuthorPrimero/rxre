@@ -1,7 +1,7 @@
 # Decisiones de Fase 4 — Driver Exclusivo RX 550
 
 **Ámbito**: `08-ARQUITECTURA/` — IA-3 (Arquitecto)
-**Iniciado**: 2026-09-29 · **Ronda**: 1 · **Última decisión**: `F4-AD-28` §4.1 (Ronda 11)
+**Iniciado**: 2026-09-29 · **Ronda**: 1 · **Última decisión**: `F4-AD-28` §4.2 (Ronda 12)
 
 Estados, según `AGENTS.md`: `DECIDIDO` · `PROPUESTO` · `ABIERTO` · `BLOQUEADO`.
 
@@ -561,7 +561,7 @@ incorrectos sin ninguna señal. `NEAREST` aísla la decodificación del bloque.
 
 | # | Dependencia | Responsable | Qué bloquea |
 |---|---|---|---|
-| `Q-5` | Validar `expect_llvmpipe` contra el decodificador **real** de llvmpipe, no contra mi modelo Python | `@IA-1` | la validez de los 649. Mi transcripción de `lp_build_lerpdxta` es una **reimplementación**, no una ejecución |
+| `Q-5` | Validar `expect_llvmpipe` contra el decodificador **real** de llvmpipe | `@IA-1` | **`NOT_DETERMINED`** — ejecutado en Ronda 12, ver §4.2. La dependencia dura sigue abierta |
 | `Q-3` | `nm -D`/`strings` sobre `radeon_dri.so` y `libvulkan_radeon.so` | `@IA-1` | **`FAIL` por método — retirada**, ver §4.1 |
 | commit de fuentes de `04-IMPLEMENTACION/` | — | `@IA-2` | reproducibilidad del corpus |
 | autorización de carga de GPU | humano | — | ejecutar la medición en la RX 550. `AGENTS.md` §Safety |
@@ -610,6 +610,54 @@ poder de fallar: si un `expect_llvmpipe` estuviera mal, la comparación lo dice.
   constantes esperando distinto resultado. La medición está en `006` §5.1 y es reproducible.
 - **Qué NO hace este `FAIL`**: no refuta `F4-AD-27`. Un método incapaz de discriminar no es
   evidencia en contra. `Q-3` sale `FAIL`, la hipótesis sigue viva.
+### 4.2 `Q-5` — `NOT_DETERMINED`: no obtuve la observación, y un hallazgo que obliga
+
+- **Fecha**: 2026-09-29 · **Ronda**: 12 · **Estado**: `NOT_DETERMINED` (pre-registro `1259dc4`)
+- **Qué exigía el pre-registro**: ¿el modelo Python de `lp_build_lerpdxta` predice lo que devuelve
+  **llvmpipe real**? Criterio fijado **antes** de ejecutar: `PASS` / `FAIL` / `NOT_DETERMINED`.
+- **Lo que obtuve**: una observación de la **otra** función de Mesa. `Q-5` sale
+  **`NOT_DETERMINED`**, no `PASS` ni `FAIL`, porque la observación que el pre-registro exigía no la
+  conseguí.
+- **Las tres rutas Vulkan sobre `10005:0000` fallaron**, con evidencia:
+  | Vía | Resultado |
+  |---|---|
+  | Graphics con BC3 muestreada | `SIGFPE` en `llvm::InstCombinerImpl::visitTrunc` ← `lp_passmgr_run` ← `fs_compile_cb`. Causa parcialmente **mía**: usé la image view de la textura como attachment del framebuffer con render pass `R8G8B8A8_UNORM` |
+  | Graphics, ya corregido | no crashea, pero el readback da **0 en 1 048 576**, **incluido el `LOAD_OP_CLEAR` del propio render pass** (esperado `A=44`), sin draw, con los 4 tipos de memoria |
+  | Compute con `texture()` sobre BC3 | `SIGSEGV` en código JIT tras el dispatch, puntero nulo en `#1`; los 8 hilos `llvmpipe-*` vivos, luego el dispatch arrancó |
+- **Lo que sí funciona** (acota el fallo): `vkCmdFillBuffer`+copia+map **OK** (`0xA5C3F00D`
+  exacto); `vkCmdClearColorImage`+copia **OK** (`17 34 51 68` exacto); el mismo clear sobre la
+  imagen del render pass **OK** (`99 88 77 66`); `vkcube --gpu_number 2` renderiza, `rc=0`.
+  **La copia de imagen y el readback funcionan; el render pass no produce salida legible.**
+- **No atribuyo el fallo a lavapipe**: no sé si es suyo o si mi harness sigue teniendo un error.
+  Afirmarlo sería ir más allá de lo medido.
+- **Hallazgo que sí es `FACT`, y que obliga a corregir el diseño**:
+  - El decodificador BC3 **genérico** de Mesa, `fetch_2d_texel_rgba_dxt5`
+    (`texcompress_s3tc_tmp.h:144-173`), **trunca**: `/7` y `/5` sin `+3` ni `+2`.
+  - Ejecutado: coincide con **bcdec en 1 048 576 / 1 048 576** (0 discrepancias) y difiere de
+    `spec +3/+2` en 273 372 (26.071 %).
+  - Mi modelo de `lp_build_lerpdxta` difiere de él en **178 638 (17.036 %)** — lo esperable, porque
+    son **funciones distintas en drivers distintos**. No es un error de transcripción: el observado
+    coincide con una regla coherente en el 100 %.
+  - Controles negativos `C-1` y `C-2` **detectan** la diferencia inyectada: el contraste discrimina.
+- **Consecuencia para `006` §1 y para `F4-AD-27`**: la frase «el único rival software posible en
+  este host es llvmpipe» queda **acotada**. En un host Mesa hay al menos dos implementaciones:
+  ```
+  llvmpipe/lavapipe  -> lp_build_lerpdxta           (pesos de 16 bits, tercera regla)
+  decodificador genérico -> fetch_2d_texel_rgba_dxt5 -> TRUNCAMIENTO == bcdec
+  ```
+- **Requisito nuevo para el test de Fase 3** (`Q-7` a `@IA-2`): `only_trunc` uniforme **ya no
+  autoriza** a afirmar truncamiento en hardware, porque un decodificador software de Mesa da
+  **exactamente** el mismo resultado que `bcdec`. Hay que separar hardware de software, y `V-H`
+  por sí solo no alcanza: solo descarta llvmpipe, no al genérico.
+- **El corpus de 649 no queda invalidado**: contra el decodificador real coincide con
+  `expect_trunc` en **649/649** y con `expect_llvmpipe` y `expect_spec` en **0/649**. Las tres
+  respuestas siguen siendo distintas.
+- **El modelo Python**: no sobrevive sin cambios ni queda invalidado — queda **acotado**. Los
+  `expect_llvmpipe` del corpus **no se tocan**: son la predicción correcta de `lp_build_lerpdxta`, y
+  ajustarlos a lo observado sería el patrón que el pre-registro §7 prohíbe.
+- **Vía que cerraría `Q-5`**: OpenGL con `LIBGL_ALWAYS_SOFTWARE=1` (ruta distinta del JIT de
+  lavapipe). Es la que propongo; requiere harness GL y autorización.
+- **Documentos**: `validations/q5-preregistration.md`, `validations/q5-informe.md`.
 
 ### 5. Hallazgo de esta ronda — el error de IA-1 es real pero inocuo
 
