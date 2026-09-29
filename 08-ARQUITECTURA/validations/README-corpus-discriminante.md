@@ -99,13 +99,45 @@ verifiques que sabes hacerlo.
 | 2 | **`VK_IMAGE_TILING_OPTIMAL`** — obligatorio | `004` §5.6, medición propia |
 | 3 | Filtrar por `vendorID == 0x1002 && deviceID == 0x699f`, **abortar** si no aparece | `F4-AD-23` |
 | 4 | `VK_IMAGE_USAGE_SAMPLED_BIT \| VK_IMAGE_USAGE_TRANSFER_DST_BIT` | `003` §3 |
-| 5 | Sampler `NEAREST`, no `LINEAR` | ver §6 |
+| 5 | **`VK_FILTER_NEAREST`**, no `LINEAR` | `F4-AD-28` §3 |
+| 6 | El predictor llvmpipe usa `weight7 = 2331`, **con** el `>> 6` | §4.0 |
 
-**Sobre el punto 5**: `SAMPLED_IMAGE_FILTER_LINEAR_BIT` está presente (`0xd401` lo incluye), así
-que `LINEAR` sería legal. Pero con filtrado lineal el sampler **interpola entre texels** además de
-decodificar, y la interpolación espacial es aritmética que no es la que queremos medir. `NEAREST`
-aísla la decodificación del bloque. `003` §3 usaba `LINEAR` sin justificarlo; **`NEAREST` es lo
-correcto** para esta medición.
+### 4.0 Sobre `Q-5` — el valor dudoso de mi modelo, y por qué no cambia nada
+
+Revisando el trabajo de IA-1 (`015`, sin commitear al momento de escribir esto) encontré que su
+transcripción usa `weight7 = 255*64/7 = 2330`. El valor entero correcto es **2331**
+(`16320/7 = 2331`, resto 3).
+
+Lo comprobé porque el número parecía erróneo, y la respuesta es que no lo es. `weight7` se consume
+siempre como `(weight7 * (code-1)) >> 6`, y para todo `i` de 2 a 7 los dos valores dan el mismo
+peso tras el desplazamiento:
+
+| `i` | `2331*(i-1)>>6` | `2330*(i-1)>>6` |
+|---|---|---|
+| 2 | 36 | 36 |
+| 5 | 145 | 145 |
+| 7 | 218 | 218 |
+
+Verificado sobre las **195 840** triplas de la rama `a0 > a1` — las únicas donde `weight7` se usa,
+porque en la rama `a0 <= a1` se usa `weight5`: **0** cambian de resultado. El desplazamiento de
+6 bits absorbe la diferencia de 1.
+
+**Por qué lo declaro entonces**: el `expect_llvmpipe` de cada uno de los 649 casos de este JSON
+usa `2331`. Si alguien reimplementa el predictor con `2330` y **omite** el `>> 6`, o lo aplica en
+otro orden, los resultados no coincidirán y la comparación de `Q-5` fallará por una razón que no
+es la que se busca. La constante correcta es `2331`.
+
+Registrado también en `F4-AD-28` §5. **No he corregido `015`**: es ámbito de IA-1.
+
+### 4.1 Por qué `NEAREST` y no `LINEAR`
+
+`SAMPLED_IMAGE_FILTER_LINEAR_BIT` está presente en `0xd401`, así que `LINEAR` sería **legal** — y
+por eso el fallo sería silencioso. Con filtrado lineal el sampler **además** de decodificar el
+bloque interpola espacialmente entre texels vecinos. Eso destruye el aislamiento del índice `i` en
+la posición `p`, y es exactamente la aritmética que `AD-12` no quiere medir.
+
+`003` §3 especificaba `LINEAR` sin justificarlo. `NEAREST` aísla la decodificación del bloque.
+Este requisito quedó formalizado en `F4-AD-28` §3.
 
 ## 5. Criterio de pase — y una corrección importante
 

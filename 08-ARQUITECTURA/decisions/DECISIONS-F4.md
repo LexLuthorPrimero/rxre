@@ -1,7 +1,7 @@
 # Decisiones de Fase 4 — Driver Exclusivo RX 550
 
 **Ámbito**: `08-ARQUITECTURA/` — IA-3 (Arquitecto)
-**Iniciado**: 2026-09-29 · **Ronda**: 1 · **Última decisión**: `F4-AD-27` (Ronda 9)
+**Iniciado**: 2026-09-29 · **Ronda**: 1 · **Última decisión**: `F4-AD-28` (Ronda 10)
 
 Estados, según `AGENTS.md`: `DECIDIDO` · `PROPUESTO` · `ABIERTO` · `BLOQUEADO`.
 
@@ -499,3 +499,113 @@ registro se apoya en `lsof`, `fuser` ni en un escaneo parcial de `/proc`.
 - **No resuelve `AD-12`**: `P-9` era sobre la interpretabilidad del experimento; la medición de
   la rampa sigue siendo Fase 3.
 - **Documento**: `designs/006-p9-hardware-vs-software.md`.
+
+## F4-AD-28 — Cierre formal de Fase 3: qué queda cerrado y qué no
+
+- **Fecha**: 2026-09-29 · **Ronda**: 10 · **Estado**: `DECIDIDO` (cierre de diseño, no de
+  medición)
+- **Qué significa este cierre**: la **infraestructura de diseño** de Fase 3 está cerrada y
+  verificada. La **medición de `AD-12` no está hecha**. Estas dos cosas se han viene confundiendo
+  en los intercambios, y la confusión produce un estado que parece más avanzado de lo que es.
+
+### 1. Cerrado y verificado
+
+| # | Elemento | Evidencia | Commit |
+|---|---|---|---|
+| 1 | `VK_FORMAT_BC3_UNORM_BLOCK` soporta `SAMPLED_IMAGE` en `1002:699f`; `optimalTilingFeatures = 0xd401` | `vulkaninfo --show-formats`, sha256 `5ff5762b…fffd` | `9277e3c` |
+| 2 | La `VkImage` BC3 debe ser **`VK_IMAGE_TILING_OPTIMAL`** — `linearTilingFeatures` no tiene `SAMPLED_IMAGE` | misma medición | `9277e3c` |
+| 3 | Orden real de dispositivos: iGPU(0) → RX550(1) → llvmpipe(2). Los **tres** reportan `SAMPLED_IMAGE` | `vulkaninfo --summary` | `9277e3c` |
+| 4 | `F4-AD-23` justificado empíricamente: elegir por índice acertaría **por accidente** | ídem | `9277e3c` |
+| 5 | `radeonsi` y `RADV` **no** tienen descompresor BC3 en CPU → la hipótesis rival no es la de `P-9` | `grep`, 2 búsquedas, 0 resultados | `1e28733` |
+| 6 | `gfx6_decompress_textures` / `si_decompress_color_texture` son **fast-clear**, no BC3 | `si_blit.c:568-571`, `assert(:567)` | `1e28733` |
+| 7 | La aritmética de llvmpipe difiere de spec **y** de trunc en **649** triplas `(a0,a1,i)`, con los tres valores esperados | Python con los tipos del fuente, incl. wrap i16 | `5c02833` |
+| 8 | Los 649 bloques BC3 están codificados y verificados (posición del índice, color negro, UV) | 0 fallos de 649 | `5c02833` |
+| 9 | `P-9` no bloquea ninguna vía: la hipótesis rival es «contexto equivocado» y la cubren `V-A`/`V-B`/`V-H` | `006` §1, §4 | `1e28733` |
+
+### 2. Criterio de pase — cuatro ramas, `rc` distinto de cero en todas salvo el acierto
+
+**El test mide `AD-12`; no lo presupone.** Un criterio que presupusiera la respuesta declararía
+fallo un hardware que funciona bien. En las 649 triplas, por construcción,
+`spec ≠ trunc ≠ llvmpipe`, luego las tres ramas son excluyentes:
+
+| Resultado en las 649 | Interpretación | `rc` |
+|---|---|---|
+| uniforme en `spec`, **cero** en `llvmpipe` | hardware, redondeo `+3`/`+2` — `AD-11` confirmado en hardware | `0` |
+| uniforme en `trunc`, **cero** en `llvmpipe` | hardware, truncamiento — `AD-11` **refutado** en hardware | `1` |
+| reparto mixto `spec`/`trunc`, o ninguno de los tres | regla distinta; `NOT_DETERMINED`, se reporta sin forzar | `2` |
+| **cualquier** caso en `llvmpipe` | `CONTAMINATED_LLVMPIPE` — fallo del entorno, **no** propiedad del hardware | `3` |
+
+**Regla que decide el paso**: uniforme en `spec` **o** uniforme en `trunc`, y **cero** en
+`llvmpipe`. `AD-12` es la consecuencia del test, no su premisa.
+
+**`rc` distinto de cero ante cualquier fallo** es obligatorio, no una recomendación: en este
+proyecto un test que imprimía `[FAIL]` por `stderr` devolvía `rc=0` y un CI reportaba verde
+(`F4-AD-7` §2). Comprobación `V-G`.
+
+### 3. `VK_FILTER_NEAREST` — requisito obligatorio, no preferencia
+
+**Cambio respecto a `003` §3, que especificaba `LINEAR` sin justificarlo.**
+
+Con `LINEAR`, el sampler **además** de decodificar el bloque interpola espacialmente entre texels
+vecinos. Esa aritmética adicional:
+
+- destruye el aislamiento del índice `i` en la posición `p` — el valor leído ya no depende solo
+  del bloque y del código de índice;
+- es exactamente la aritmética que `AD-12` **no** quiere medir.
+
+`SAMPLED_IMAGE_FILTER_LINEAR_BIT` **está presente** en `0xd401`, luego `LINEAR` es perfectamente
+legal — y por eso el fallo sería **silencioso**: el test correría, devolvería números, y serían
+incorrectos sin ninguna señal. `NEAREST` aísla la decodificación del bloque.
+
+### 4. Dependencias externas — `AD-12` sigue `NOT_DETERMINED` hasta que se resuelvan
+
+| # | Dependencia | Responsable | Qué bloquea |
+|---|---|---|---|
+| `Q-5` | Validar `expect_llvmpipe` contra el decodificador **real** de llvmpipe, no contra mi modelo Python | `@IA-1` | la validez de los 649. Mi transcripción de `lp_build_lerpdxta` es una **reimplementación**, no una ejecución |
+| `Q-3` | `nm -D`/`strings` sobre `radeon_dri.so` y `libvulkan_radeon.so` | `@IA-1` | convierte `PLAUSIBLE` en `OBSERVED` para el binario instalado (el árbol leído es `26.1-branchpoint-1415-gc5e413533f4`; el driver es `26.2.3-1.fc44`) |
+| commit de fuentes de `04-IMPLEMENTACION/` | — | `@IA-2` | reproducibilidad del corpus |
+| autorización de carga de GPU | humano | — | ejecutar la medición en la RX 550. `AGENTS.md` §Safety |
+
+**`Q-5` es la dependencia dura.** Si mi transcripción tiene un error, los 649 casos son los
+equivocados y el test no discrimina nada — con apariencia de funcionar. El test de `Q-5` tiene
+poder de fallar: si un `expect_llvmpipe` estuviera mal, la comparación lo dice.
+
+### 5. Hallazgo de esta ronda — el error de IA-1 es real pero inocuo
+
+`06-INGENIERIA-INVERSA/findings/015-llvmpipe-discriminating-pairs.md` (sin commitear al momento
+de escribir esto) calcula `weight7 = 255*64/7 = 2330`. El valor entero es **2331**
+(`16320/7 = 2331 r3`). **IA-1 se equivocó.**
+
+Lo comprobé porque el número importa: es el peso de la rampa de 8 valores.
+
+**Verificación del impacto**, sobre las 195 840 triplas de la rama `a0 > a1` (las únicas donde
+`weight7` se usa):
+
+```
+triplas donde w7=2330 vs w7=2331 cambia el resultado: 0
+  i=2: w(2331)=36  w(2330)=36  IGUALES
+  i=5: w(2331)=145 w(2330)=145 IGUALES
+  i=7: w(2331)=218 w(2330)=218 IGUALES
+```
+
+`2330·(i−1) >> 6` y `2331·(i−1) >> 6` coinciden para todo `i` de 2 a 7. **Los 649 casos del
+commit `5c02833` no cambian**, y el clasificador de IA-1 tampoco, siempre que use el mismo
+`>> 6`.
+
+**Lo que sí hay que corregir** es la transcripción en el documento, no el corpus: publicar
+`2330` como el valor de la constante es un dato falso en la documentación, del mismo tipo que los
+ya registrados en `AGENTS.md` §Falsificación. La clasificación correcta del defecto es
+`NON_BLOCKER` para el corpus y **defecto documental** para `015`.
+
+**No he corregido `015`**: es ámbito de `06-INGENIERIA-INVERSA/`. Lo reporto.
+
+### 6. Lo que este cierre NO declara
+
+- **No** declara `AD-12` resuelto. Sigue `NOT_DETERMINED`.
+- **No** declara que la GPU ejecuta el shader de Fase 3. Nadie lo ha ejecutado.
+- **No** declara `OWNERSHIP != FULL` en ningún sentido; `F4-AD-5` sigue vigente y `unbind` no
+  está autorizado.
+- **No** repara el `CONFLICT` del router sobre el estado de Vulkan en `HOST-C`, reportado en
+  `9277e3c` §6 y pendiente de quien mantenga `01-AUDITORIA/`.
+- **No** cierra `P-1`…`P-8` (peticiones a otras IAS en `F4-AD-6` y §«Peticiones»).
+- **No** toca el cerrojo ajeno ni `COORDINACION.md`.
