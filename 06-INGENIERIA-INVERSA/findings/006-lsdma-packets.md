@@ -39,24 +39,55 @@ las generaciones y vive en `sid.h`, y se replica en `cikd.h`, `nvd.h` y
                                       ((op) & 0xFF))
 ```
 
-Tres campos, 32 bits:
+> ## ⛔ CORRECCIÓN 2026-09-29 (Ronda 3) — ESTA SECCIÓN ESTÁ INCORRECTA
+>
+> **El layout de arriba NO es el de GFX8.** Es el de `SDMA_PACKET()` (`cikd.h:495`), el
+> subsistema SDMA de generación anterior, que sigue presente en el mismo driver. GFX8 **no lo
+> usa**: `gfx_v8_0.c` llama a `PACKET3()` de `sid.h:336`, y su layout es:
+>
+> ```
+> [31:30] = 3  PACKET_TYPE3    [29:24] = reservado
+> [23:16] = count (14 bits)   [15:8]  = opcode    [7:0] = reservado
+> ```
+>
+> El **tipo va arriba, no el opcode**. `PACKET3(DISPATCH_DIRECT, 3)` = **`0xC0031500`**, no
+> `SDMA_PACKET(0x15, 3, 0)`. Además hay una cuarta variante que aquí no aparece:
+> `PACKET3_COMPUTE(op, n) = PACKET3(op,n) | (1<<1)` = `0xC0031502`.
+>
+> **La referencia canónica es `007-gfx8-pm4-format.md`.** Este documento se conserva por el
+> resto de su contenido (§3 packet types, §4 secuencia, §4.1 `sgpr1_init_regs`), pero su §2
+> **no debe usarse**. El error fue no verificar qué macro usa el fichero de GFX8 antes de citar
+> la definición de otro.
+>
+> La tabla de packet types de §3 (`sid.h`) **sí es válida**; lo único erróneo es el layout del
+> header de esta §2.
+
+Layout real, `sid.h:335-338`:
+
+```c
+#define RADEON_PACKET_TYPE3 3
+#define PACKET3(op, n)  ((RADEON_PACKET_TYPE3 << 30) |   \
+                        (((op) & 0xFF) << 8) |          \
+                        ((n) & 0x3FFF) << 16)
+#define PACKET3_COMPUTE(op, n) (PACKET3(op, n) | 1 << 1)
+```
 
 | Bits | Campo | Anchura |
 |---|---|---|
-| 0-7 | `op` (packet type) | 8 |
-| 8-15 | `sub_op` (header type) | 8 |
-| 16-31 | `e` (datos del header) | 16 |
+| 31:30 | `PACKET_TYPE3` = 3 | 2, fijo |
+| 29:24 | reservado | 6 |
+| 23:16 | `count` (máscara `0x3FFF`) | 14 |
+| 15:8 | `opcode` | 8 |
+| 7:0 | reservado; **bit 1** = marca de compute (`PACKET3_COMPUTE`) | 8 |
 
-**`sub_op` es el "header type"**, y es el que determina cuántos dwords de payload siguen al
-header. En un dispatch de compute vale **3**, es decir 3 dwords de payload tras el header. Un
-driver propio que fije el `op` correcto y el `sub_op` equivocado produce un packet que la HW
-interpreta con la longitud equivocada y desalinea todo lo que viene después.
+El campo `count` es el que determina cuántos dwords de payload siguen: la HW lee `count - 1`
+dwords tras el header de 32 bits.
 
 ## 3. Packet types relevantes para compute
 
 Valores de `sid.h` (líneas 343-516), verificados en la fuente:
 
-| Packet type | Valor | Payload (`sub_op`) | Uso en compute |
+| Packet type | Valor | `count` (ver nota) | Uso en compute |
 |---|---|---|---|
 | `PACKET3_NOP` | `0x10` | 0 | relleno y alineación |
 | **`PACKET3_DISPATCH_DIRECT`** | **`0x15`** | **3** | **launch de un dispatch con dirección inmediata** |
@@ -80,7 +111,13 @@ escribirlo como payload.
 
 **Confirmado por el código de esta generación:** `gfx_v8_0.c:1541` usa
 `PACKET3(PACKET3_DISPATCH_DIRECT, 3)`, y ese es el packet que lanza el compute shader. El valor
-`0x15` con `sub_op` 3 está verificado por uso, no solo por la definición.
+`0x15` con `count` 3 está verificado por uso, no solo por la definición.
+
+> **Nota sobre la columna `count`:** con el layout corregido (ver la corrección al principio de
+> esta §2), el segundo argumento de `PACKET3(op, n)` es el **count de 14 bits** de [23:16],
+> no el `sub_op` de [15:8]. La HW lee `count - 1` dwords de payload. La columna nombra el valor
+> que el código pasa como segundo argumento, que es lo que el ensamblador necesita, y el
+> nombre del campo se corrige aquí para no dejar `sub_op` circulando.
 
 Los `sub_op` de `EVENT_WRITE_EOP` (4) e `INDIRECT_BUFFER` (2) están medidos por uso en
 `gfx_v8_0.c`. Los de `EVENT_WRITE_EOS`, `ATOMIC` y `ATOMIC_GDS` **no se han leído**: no aparecen
