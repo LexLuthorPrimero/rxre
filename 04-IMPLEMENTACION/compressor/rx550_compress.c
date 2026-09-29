@@ -273,7 +273,26 @@ static void pack_2bit(const uint8_t idx[16], uint8_t out[4])
  * quantisation, so its endpoints are searched over the full 8-bit range.
  * 15 is 1/17 of the range -- enough to absorb an outlier without collapsing a
  * small-ramp block, and the scan stops early once the range closes. */
-#define RX550_ALPHA_INSET_STEPS 15
+/* Alpha endpoint inset search -- AD-9 + HUMAN_POLICY 2026-09-29.
+ *
+ * The search swept 0..15 insets of the alpha min/max, each scored against all
+ * 16 pixels x 8 palette entries: 2048 inner iterations per block, 6.4x the
+ * colour path. It bought NOTHING measurable: PSNR is identical to within
+ * 0.01 dB (noise) across STEPS = 0, 2, 5, 10, 15, while throughput falls 2.8x.
+ * Cause: encode_alpha already selects, per pixel, the nearest of the 8 palette
+ * entries, and at inset = 0 the endpoints are the real min/max, which already
+ * span the data; narrowing can only hurt the extremes. The loop also breaks once
+ * a0 > a1, so later steps can only be worse.
+ *
+ * LIMIT: the corpus is the synthetic one in test_compress.c, not real textures.
+ * A null on this corpus does not establish that no real texture would benefit.
+ * Re-enable if a representative corpus ever shows a gain. `make
+ * measure-alpha-inset` reproduces the sweep.
+ *
+ * Kept as a single-line define so that sed-based sweeps do not orphan
+ * continuation lines.
+ */
+#define RX550_ALPHA_INSET_STEPS 0
 
 static uint32_t pack565(uint32_t r5, uint32_t g5, uint32_t b5)
 {

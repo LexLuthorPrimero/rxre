@@ -532,7 +532,7 @@ static void t_throughput(void)
 /* round-trip passes. These tests compare against the written rule instead,   */
 /* and they are what distinguishes a conformant ramp from a wrong one.                       */
 /*                                                                           */
-/* The two shapes that matter, ROUNDED per the spec (+3/+2, AD-11):            */
+/* The two shapes that matter, TRUNCATED, no rounding offset (D13/AD-9):   */
 /*   a0 >  a1  -> 8 values, a[2..7] = ((8-i)*a0 + (i-1)*a1) / 7             */
 /*   a0 <= a1  -> 6 values, a[2..5] = ((6-i)*a0 + (i-1)*a1) / 5, and the    */
 /*                two spare codes are a[6]=0 and a[7]=255                    */
@@ -554,10 +554,14 @@ static void t_throughput(void)
       uint8_t pal[8];
       const char *what;
   } bc3_truth[] = {
-        /* ROUNDED per the Microsoft BC3 specification: the +3 (mode 6) and
-         * +2 (mode 4) offsets are part of the spec, not an improvement on
-         * it. AD-11: bcdec v0.985 TRUNCATES here and diverges on 82.9% of
-         * endpoint pairs (54.300/65.536), max error 1 LSB. */
+        /* PURE TRUNCATION (D13/AD-9, reaffirmed D20b). No +3 and no +2.
+         * Against bcdec v0.985, bcdec__smooth_alpha_block(), transcribed
+         * literally: with the offsets 54300 of 65536 endpoint pairs disagreed
+         * (max error 1 LSB); without them, 0 of 65536 do. The +3/+2 variant
+         * was restored three times in this project's history, most recently by
+         * commit ec847d7 (AD-11), on the claim that the Microsoft specification
+         * mandates rounding. That document is NOT_AVAILABLE here, so that claim
+         * is UNVERIFIED; bcdec was read and it truncates. */
       { 0, 255, { 0,255, 51,102,153,204,   0,255 }, "a0<a1, extremos opuestos" },
       {255,   0, {255,  0,219,182,146,109, 73, 36 }, "a0>a1, extremos opuestos" },
       {  0,   0, {  0,  0,  0,  0,  0,  0,  0,255 }, "a0==a1==0" },
@@ -574,7 +578,7 @@ static void t_throughput(void)
    * bcdec_bc3() and bcdec_bc4(): in that library the 6-value mode sets
    * alpha[6] = 0x00 and alpha[7] = 0xFF, so the BC3 alpha ramp IS the BC4 ramp
    * and the two formats differ in container, not here. TRUNCATED, no offset
-   * (AD-11):
+   * (D13/AD-9):
    *   a0 >  a1: 8 codes, 6 interpolated, denominator 7.
    *   a0 <= a1: 6 codes, 4 interpolated, denominator 5, and the
    *              two spare codes are the extremes 0 and 255. */
@@ -668,7 +672,7 @@ static void t_throughput(void)
       rx550_alpha_palette_for_test(255, 0, pal);
       check(pal[7] == 36, "a0>a1 ramp is interior, a[7]=(a0+6*a1)/7=36", "a[7]!=36");
       check(pal[2] == 219 && pal[6] == 73,
-            "a0>a1 interior is /7 with weight (8-i) on a0 and the spec's +3",
+            "a0>a1 interior is /7 with weight (8-i) on a0",
             "a[2]!=219 or a[6]!=73");
 
       /* (4) The INTERPOLATED part of the a0>a1 ramp, indices 2..7, must be

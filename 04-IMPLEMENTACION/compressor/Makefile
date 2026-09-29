@@ -116,19 +116,22 @@ disasm: rx550_compress_avx2.o
 # PSNR. It is deliberately a build-time sweep, not a test assertion, because the
 # result is a trade-off for the HUMAN to decide, not a pass/fail condition.
 measure-alpha-inset:
-	@echo "ALPHA_STEPS  reference  smooth  noise    MB/s"
-	@for n in 0 2 5 10 15; do \
-	  sed -i "s/#define RX550_ALPHA_INSET_STEPS .*/#define RX550_ALPHA_INSET_STEPS $$n/" rx550_compress.c; \
-	  $(MAKE) --no-print-directory clean all >/dev/null 2>&1 || exit 1; \
-	  o=$$(./$(BIN) 2>/dev/null); \
-	  printf "%-12s %-11s %-7s %-8s %s\n" "$$n" \
-	    "$$(echo "$$o" | grep 'reference ' | grep -oE '[0-9]+\.[0-9]+' | head -1)" \
-	    "$$(echo "$$o" | grep 'smooth '    | grep -oE '[0-9]+\.[0-9]+' | head -1)" \
-	    "$$(echo "$$o" | grep 'pure noise' | grep -oE '[0-9]+\.[0-9]+' | head -1)" \
-	    "$$(echo "$$o" | grep -E '^ *C *:' | grep -oE '[0-9]+\.[0-9]+')"; \
-	done
-	@$(MAKE) --no-print-directory clean all >/dev/null 2>&1
-	@echo "(restaurado a 15)"
+	@orig=$$(sed -n 's/^#define RX550_ALPHA_INSET_STEPS \([0-9][0-9]*\).*/\1/p' rx550_compress.c); \
+	 orig=$${orig:-0}; \
+	 echo "ALPHA_STEPS  reference  smooth  noise    MB/s"; \
+	 for n in 0 2 5 10 15; do \
+	   sed -i "s/^#define RX550_ALPHA_INSET_STEPS .*/#define RX550_ALPHA_INSET_STEPS $$n/" rx550_compress.c; \
+	   $(MAKE) --no-print-directory clean all >/dev/null 2>&1 || exit 1; \
+	   o=$$(./$(BIN) 2>/dev/null); \
+	   printf "%-12s %-11s %-7s %-8s %s\n" "$$n" \
+	     "$$(echo "$$o" | grep 'reference ' | grep -oE '[0-9]+\.[0-9]+' | head -1)" \
+	     "$$(echo "$$o" | grep 'smooth '    | grep -oE '[0-9]+\.[0-9]+' | head -1)" \
+	     "$$(echo "$$o" | grep 'pure noise' | grep -oE '[0-9]+\.[0-9]+' | head -1)" \
+	     "$$(echo "$$o" | grep -E '^ *C *:' | grep -oE '[0-9]+\.[0-9]+')"; \
+	 done; \
+	 sed -i "s/^#define RX550_ALPHA_INSET_STEPS .*/#define RX550_ALPHA_INSET_STEPS $$orig/" rx550_compress.c; \
+	 $(MAKE) --no-print-directory clean all >/dev/null 2>&1; \
+	 echo "(restaurado a $$orig, el valor original)"
 
 clean:
 	rm -f $(OBJS) test_compress.o $(BIN) $(RAMP_BIN) $(RAMP_BIN).mut
