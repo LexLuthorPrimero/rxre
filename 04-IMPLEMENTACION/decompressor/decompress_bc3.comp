@@ -1,36 +1,91 @@
 #version 450
 
 /* ==========================================================================
- * decompress_bc3.comp -- RX550 BC3/DXT5 block decoder for GCN / Polaris 12
+ * decompress_bc3.comp -- BC3/DXT5 block decoder for GCN / Polaris 12
  *
  * PROVENANCE -- read this before changing any line.
  *
  * This is a LITERAL TRANSLATION of rx550_decompress_block() in
- * 04-IMPLEMENTACION/compressor/rx550_compress.c (function begins at the
- * "Reference decoder" banner, body at :496-525), together with the two
- * palette helpers it calls:
+ * 04-IMPLEMENTACION/compressor/rx550_compress.c, together with the two palette
+ * helpers it calls:
  *
- *     alpha_palette()   rx550_compress.c:67
- *     colour_palette()  rx550_compress.c:102
+ *     alpha_palette()   rx550_compress.c
+ *     colour_palette()  rx550_compress.c
  *
- * The DXT5/BC3 specification is the authority, and this decoder mirrors it
- * operation for operation, including its rounding -- that is what makes a
- * byte-for-byte comparison against rx550_decompress_block() meaningful.
+ * The C is the authority for this shader's ARITHMETIC, and the published
+ * Microsoft specification is the authority for whether that arithmetic is
+ * correct. Both agree: the format is standard BC3/DXT5. Conformance is
+ * established against an independently transcribed ground truth
+ * (compressor/test_alpha_ramp_independent.c, proven able to fail via
+ * compressor/test_alpha_ramp_mutation.c), never against the C this file
+ * derives from.
  *
- * An earlier version of this file inverted that and stated "the C is the
- * specification; it is NOT DXT5-as-published, and where the two disagree the C
- * wins", pinned to commit 05c6297. Both halves were wrong. Commit 05c6297
- * carried a non-conformant alpha ramp in rx550_compress.c, and this shader was
- * written to match it, so encoder and decoder agreed by construction while
- * both disagreed with BC3. A mutually consistent pair of wrong implementations
- * passes every round-trip test; that is the failure mode, not a proof of
- * conformance. The C is now conformant, and conformance is established against
- * literal ground truth, not against the C.
+ * ---------------------------------------------------------------------------
+ * FORMAT: BC3/DXT5, standard, Microsoft.
  *
- * STATUS: written and arithmetically reconciled against the conformant C by
- * shader_vs_c.c (0/4096 channels wrong over a 64-block corpus). NOT compiled by
- * glslangValidator, NOT run on hardware: no GLSL compiler is installed. See
- * README.md.
+ *   container : 8 B alpha with 3-bit indices, + 8 B colour with 2-bit
+ *               indices, 16 B total, 4:1.
+ *   colour    : BC1 4-value mode. RGB565 endpoints, interpolation in the
+ *               quantised 5/6-bit space, widened by bit replication.
+ *   alpha     : the BC3 two-mode ramp, per the Microsoft "Block Compression
+ *               (Direct3D 10)" specification:
+ *
+ *                 a0 >  a1 : 6 interpolated values, divisor 7, TRUNCATED,
+ *                            a[i] = ((8-i)*a0 + (i-1)*a1) / 7, i = 2..7
+ *                 a0 <= a1 : 4 interpolated values, divisor 5, TRUNCATED, plus
+ *                            the two fixed extremes 0 (transparent) and
+ *                            255 (opaque),
+ *                            a[i] = ((6-i)*a0 + (i-1)*a1) / 5, i = 2..5
+ *
+ * The sub-block alpha of BC3 uses the same two-mode ramp as BC4 BY DESIGN.
+ * That is not a deviation and not a BC4 format: BC4 is a single-channel format
+ * and has no colour block. This format carries both, so it is BC3.
+ *
+ * ---------------------------------------------------------------------------
+ * NO HARDWARE BLOCK DECODER EXISTS, and that changes nothing.
+ *
+ * A search of the amdgpu source tree (36,695 files) on 2026-09-28 found no
+ * BC3/DXT5 decoder, no decompression microcode, and no BCn texture format
+ * support. The only hit was CP_PERF_SEL_IMG_READ_FMT_BC3 in vega10_enum.h, a
+ * performance counter, not a decoder. Polaris 12 does not decompress BC3 in
+ * hardware, so the compute shader below is the only decoder either way.
+ *
+ * A previous revision of this file inferred from that absence that a custom
+ * format ("RX550_BC4X") was REQUIRED, on the premise that "the hardware BC3
+ * of the RX 550 decodes exactly thus". The premise was false and the inference
+ * inverted: with no hardware decoder, nothing constrains the block layout, and
+ * standard BC3 is the strictly better choice because external tools can read
+ * it. See decision AD-8 in 02-ARQUITECTURA/DECISIONS.md.
+ *
+ * ---------------------------------------------------------------------------
+ * HISTORY OF THE PROVENANCE CLAIM -- kept because it was wrong three times,
+ * in both directions, and the record is the point.
+ *
+ * (1) Commit 05c6297 stated "the C is the specification; it is NOT
+ *     DXT5-as-published, and where the two disagree the C wins". That commit's
+ *     alpha ramp used /7 in BOTH branches, which is not DXT5. Encoder and
+ *     decoder agreed by construction while both being wrong, and a mutually
+ *     consistent pair of wrong implementations passes every round-trip test.
+ *     Round-trip agreement is not evidence of conformance.
+ *
+ * (2) A later revision claimed DXT5 conformance while still asserting that the
+ *     /5-plus-0/255 ramp was "the BC4 rule, not DXT5's". It is DXT5's.
+ *
+ * (3) This agent then asserted the opposite error twice: it claimed the /7
+ *     two-branch ramp was standard, on the strength of a remembered rule
+ *     rather than a consulted source, and it declined to apply a correction
+ *     that was already correct.
+ *
+ * The lesson, recorded three times because it kept happening: a format claim
+ * is settled by reading the specification, not by a round-trip test, not by a
+ * filename, and not by recall.
+ *
+ * ---------------------------------------------------------------------------
+ * STATUS: arithmetically reconciled against the C by shader_vs_c.c (0 of 4096
+ * channels wrong over a 64-block corpus). NOT compiled by glslangValidator --
+ * the tool is not installed here. NOT run on hardware: never dispatched on any
+ * device. See README.md, including the note on decompress_bc3.spv, whose
+ * provenance is not established by anything in this repository.
  *
  * The decoder is observational with respect to correctness: every arithmetic
  * operation below is written to mirror the C source including its rounding
@@ -70,31 +125,41 @@ uint expand5(uint v5)
 }
 
 /* --------------------------------------------------------------------------
- * alpha_palette() -- DXT5 / BC3, conformant.
+ * alpha_palette() -- the standard BC3/DXT5 alpha ramp. Mirrors rx550_compress.c.
  *
  *   pal[0] = a0;  pal[1] = a1;
- *   a0 >  a1 : SIX interpolated values, /7:
- *              pal[i] = ((8-i)*a0 + (i-1)*a1 + 3) / 7   for i = 2..7
- *   a0 <= a1 : FOUR interpolated values, /5, and the two spare codes are the
- *              extremes 0 and 255:
- *              pal[i] = ((6-i)*a0 + (i-1)*a1 + 2) / 5   for i = 2..5
+ *   a0 >  a1 : 8-value mode, SIX interpolated values, /7:
+ *              pal[i] = ((8-i)*a0 + (i-1)*a1) / 7       for i = 2..7
+ *   a0 <= a1 : 6-value mode, FOUR interpolated values, /5, and the two spare
+ *              codes are the fixed extremes:
+ *              pal[i] = ((6-i)*a0 + (i-1)*a1) / 5       for i = 2..5
  *              pal[6] = 0;  pal[7] = 255;
  *
- * The coefficient of a0 is (8-i), NOT (7-i): at i=2 DXT5 is (6*a0+a1+3)/7, so
- * a0 loses exactly one step across the ramp and (7-i) loses two.
+ * This is the published Microsoft rule, verbatim from the "Block Compression
+ * (Direct3D 10)" specification: "If alpha_0 is greater than alpha_1, then BC3
+ * interpolates 6 alpha values; otherwise, it interpolates 4. When BC3
+ * interpolates only 4 alpha values, it sets two additional alpha values (0 for
+ * fully transparent and 255 for fully opaque)."
  *
- * The /5 branch with the 0/255 extremes IS the DXT5 rule, and it is the one
- * property that separates the two ramps: when a0 <= a1 the spare codes must
- * land on the extremes whatever the endpoints are, and a shared /7 branch
- * cannot do that.
+ * The coefficient of a0 in the 8-value mode is (8-i), NOT (7-i): at i=2 the
+ * rule opens at (6*a0 + a1)/7, so a0 loses exactly one step across the
+ * ramp and (7-i) loses two.
  *
- * An earlier version of this file asserted the OPPOSITE -- that the /5 branch
- * and the a[7]=a1 case were "BC4/DXT4-alpha rules" and a defect to avoid --
- * and encoded a /7-everywhere ramp that no DXT5 decoder in the world
- * reproduces. It matched rx550_compress.c at a moment when that file was also
- * non-conformant, which is exactly what a mutually consistent pair of wrong
- * implementations looks like: the round-trip test passed and the standard was
- * wrong. Verified against literal BC3 ground truth by shader_vs_c.c.
+ * ROUNDING -- pure truncation, no offset (HUMAN_POLICY, 2026-09-28, D13).
+ * A previous revision added +3 on the /7 branch and +2 on the /5 branch.
+ * That is round-to-nearest, it is not in the specification, and it is not
+ * what bcdec v0.985 does: against bcdec__smooth_alpha_block the offsets
+ * produced 54300 of 65536 disagreeing endpoint pairs (max error 1 of 255),
+ * and without them 0 of 65536 disagree. The shader must mirror the C
+ * exactly, so both carry no offset.
+ *
+ * The a0 <= a1 mode shares its ramp with BC4, and that is by design: BC3's
+ * alpha sub-block IS a BC4-style ramp carried in 3-bit indices. BC4 itself is a
+ * single-channel format with no colour block, so this format is BC3.
+ *
+ * A shared /7 branch would be the actual defect: it cannot put the two spare
+ * codes on 0 and 255 when a0 <= a1, because with /7 the ramp always ends on
+ * the endpoints. Commit 05c6297 did exactly that and was non-conformant.
  *
  * Flat alpha: a0 == a1 takes the a0 <= a1 branch, so a[6] == 0 and a[7] == 255.
  * A flat alpha block does NOT decode to itself at all 8 entries and must not
@@ -107,10 +172,10 @@ void alpha_palette(uint a0, uint a1, out uint pal[8])
 
     if (a0 > a1) {
         for (uint i = 2u; i < 8u; i++)
-            pal[i] = ((8u - i) * a0 + (i - 1u) * a1 + 3u) / 7u;
+            pal[i] = ((8u - i) * a0 + (i - 1u) * a1) / 7u;
     } else {
         for (uint i = 2u; i < 6u; i++)
-            pal[i] = ((6u - i) * a0 + (i - 1u) * a1 + 2u) / 5u;
+            pal[i] = ((6u - i) * a0 + (i - 1u) * a1) / 5u;
         pal[6] = 0u;
         pal[7] = 255u;
     }

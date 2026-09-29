@@ -35,11 +35,12 @@ ASMFLAGS := -mavx2
 # The test uses clock_gettime, log10 and sqrt from libm.
 LDLIBS  := -lm
 
-BIN     := test_compress
-OBJS    := rx550_compress.o rx550_compress_avx2.o
-HDR     := rx550_compress.h
+BIN      := test_compress
+RAMP_BIN := test_alpha_ramp
+OBJS     := rx550_compress.o rx550_compress_avx2.o
+HDR      := rx550_compress.h
 
-.PHONY: all test clean check-asm disasm
+.PHONY: all test clean check-asm disasm check-ramp-discriminates
 
 all: $(BIN)
 
@@ -58,9 +59,45 @@ test_compress.o: test_compress.c $(HDR)
 $(BIN): $(OBJS) test_compress.o
 	$(CC) $(CFLAGS_BASE) -o $@ $^ $(LDLIBS)
 
+# --- independent alpha-ramp conformance test --------------------------------
+# Separate from test_compress on purpose. test_compress.c is the harness that
+# already existed; the reference it compares against lived inside it and was, for
+# a while, a line-for-line copy of the implementation, so it compared f(x) with
+# f(x). This file holds a reference transcribed independently, and it exits
+# non-zero on any disagreement, so it can fail.
+#
+# It links $(OBJS), not just rx550_compress.o: the dispatcher in the C file
+# references rx550_minmax_avx2, so linking the C object alone leaves that
+# symbol undefined.
+$(RAMP_BIN): test_alpha_ramp_independent.c $(OBJS) $(HDR)
+	$(CC) $(CFLAGS_BASE) -o $@ test_alpha_ramp_independent.c $(OBJS) $(LDLIBS)
+
+# Prove the test above can fail, by running it against the ramp that was
+# committed in 05c6297 instead of the real implementation. A test never observed
+# to fail has not been shown to discriminate. See test_alpha_ramp_mutation.c.
+# The mutation provides its own rx550_alpha_palette_for_test, so the real
+# implementation must NOT be linked in: two definitions of that symbol is a
+# duplicate-symbol link error. It links only the AVX2 object, which the
+# dispatcher in the C file needs and which does not define the palette hook.
+check-ramp-discriminates: test_alpha_ramp_independent.c test_alpha_ramp_mutation.c rx550_compress_avx2.o $(HDR)
+	$(CC) $(CFLAGS_BASE) -o $(RAMP_BIN).mut \
+	    test_alpha_ramp_independent.c test_alpha_ramp_mutation.c \
+	    rx550_compress_avx2.o $(LDLIBS)
+	@echo "Expecting a NON-zero exit: this is the pre-fix ramp, and the test must reject it."
+	@./$(RAMP_BIN).mut; \
+	  rc=$$?; \
+	  if [ $$rc -eq 0 ]; then \
+	    echo "FAIL: the test passed against a ramp that is known wrong."; \
+	    echo "      It does not discriminate and certifies nothing."; \
+	    exit 1; \
+	  else \
+	    echo "OK: rejected the known-wrong ramp (exit $$rc). The test discriminates."; \
+	  fi
+
 # --- run --------------------------------------------------------------------
-test: $(BIN)
+test: $(BIN) $(RAMP_BIN)
 	./$(BIN)
+	./$(RAMP_BIN)
 
 # Fail the build if the assembly ever loses its AVX2 instructions, which would
 # mean the SIMD path silently degraded to something unverified.
@@ -74,4 +111,4 @@ disasm: rx550_compress_avx2.o
 	$(OBJDUMP) -d -M intel $<
 
 clean:
-	rm -f $(OBJS) test_compress.o $(BIN)
+	rm -f $(OBJS) test_compress.o $(BIN) $(RAMP_BIN) $(RAMP_BIN).mut

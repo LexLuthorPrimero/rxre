@@ -131,9 +131,25 @@ void rx550_minmax_avx2(const uint8_t src[RX550_INPUT_BLOCK_BYTES], uint8_t out[8
  *
  * A round-trip test cannot certify this function: encoder and decoder share
  * it, so a wrong divisor reproduces itself exactly and the round-trip passes.
- * The test therefore compares against the BC3 specification transcribed
- * independently, which is the only thing that distinguishes BC3 from BC4.
- * pal[0]=a0, pal[1]=a1, pal[2..7] = the /7 ramp. */
+ * The test therefore compares against the Microsoft BC3/DXT5 rule transcribed
+ * independently, in test_alpha_ramp_independent.c.
+ *
+ * The rule, per "Block Compression (Direct3D 10)":
+ *
+ *   a0 >  a1 : 6 interpolated values, divisor 7
+ *              pal[i] = ((8-i)*a0 + (i-1)*a1 + 3) / 7,  i = 2..7
+ *   a0 <= a1 : 4 interpolated values, divisor 5, plus the two fixed extremes
+ *              0 (transparent) and 255 (opaque)
+ *              pal[i] = ((6-i)*a0 + (i-1)*a1 + 2) / 5,  i = 2..5
+ *
+ * The sub-block alpha of BC3 uses the same two-mode ramp as BC4 by design.
+ * This format carries a colour block as well, so it is BC3 and not BC4. An
+ * earlier revision of this header claimed the /5-plus-0/255 branch was a
+ * departure from BC3; it is BC3's own rule, and the claim was wrong. See
+ * decision AD-8.
+ *
+ * pal[0]=a0, pal[1]=a1, pal[2..7] = the 8-value /7 ramp when a0 > a1, and the
+ * 6-value /5 ramp plus the two extremes when a0 <= a1. */
 void rx550_alpha_palette_for_test(uint8_t a0, uint8_t a1, uint8_t pal[8]);
 
 /* ------------------------------------------------------------------------ */

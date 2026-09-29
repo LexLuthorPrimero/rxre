@@ -400,11 +400,16 @@ static void t_asm_matches_c(void)
  * REGRESSION TRIPWIRES, not quality targets.
  *
  * Measured on the corpus this file generates (deterministic seed, so
- * reproducible): reference 27.7 dB, smooth 19.5 dB, independent noise 13.6 dB,
- * adversarial 10.9 dB.
+ * reproducible), 2026-09-28, after the BC3/DXT5 alpha ramp replaced the
+ * non-conformant one committed in 05c6297: reference 28.73 dB, smooth 19.59 dB,
+ * independent noise 13.64 dB, adversarial 10.89 dB. The ramp change cost
+ * about 0.07 dB on the reference image: the BC4 rule spends two of the eight
+ * alpha codes on the fixed extremes 0 and 255 rather than on interior values.
  *
  * NO PARITY CLAIM IS MADE against a reference BCn encoder. None was run, so
- * "matches BC3 quality" is NOT_AVAILABLE, not implied by these numbers.
+ * "matches BCn quality" is NOT_AVAILABLE, not implied by these numbers. The
+ * comparison is additionally meaningless here: a non-conformant ramp is not a BCn format,
+ * so no BCn encoder is a peer for it.
  *
  * The noise figure is the interesting one. A 4-colour palette over independent
  * per-pixel noise is bounded near 13 dB no matter how the endpoints are chosen;
@@ -520,31 +525,35 @@ static void t_throughput(void)
 }
 
 /* ------------------------------------------------------------------------ */
-/* Alpha ramp conformance to DXT5/BC3.                                        */
+/* Alpha ramp conformance to BC3/DXT5 (Microsoft).                                      */
 /*                                                                           */
 /* A round-trip test cannot certify the ramp: encoder and decoder share       */
 /* alpha_palette(), so a wrong divisor reproduces itself exactly and the      */
-/* round-trip passes. These tests compare against the written specification   */
-/* instead, and they are what distinguishes BC3 from BC4.                     */
+/* round-trip passes. These tests compare against the written rule instead,   */
+/* and they are what distinguishes a conformant ramp from a wrong one.                       */
 /*                                                                           */
 /* The two shapes that matter:                                                */
-/*   a0 >  a1  -> interior ramp, a[7] = (a0 + 6*a1)/7, NOT a1               */
-/*   a0 <= a1  -> closing ramp,  a[7] = (0 + 7*a1)/7 = a1 exactly             */
-/* and the flat case a0 == a1, which must decode to itself at every entry.    */
+/*   a0 >  a1  -> 8 values, a[2..7] = ((8-i)*a0 + (i-1)*a1 + 3) / 7          */
+/*   a0 <= a1  -> 6 values, a[2..5] = ((6-i)*a0 + (i-1)*a1 + 2) / 5, and the */
+/*                two spare codes are a[6]=0 and a[7]=255                     */
+/* and the flat case a0 == a1, which takes the second branch and so has      */
+/* a[6]=0, a[7]=255: it does NOT decode to itself at every entry.             */
 /* ------------------------------------------------------------------------ */
 
-/* Reference ramp, transcribed from the BC3 specification, not from the code. */
-    /* Ground truth transcribed from the BC3/DXT5 block specification. These are
+/* Reference ramp, transcribed from the Microsoft BC3/DXT5 rule, not from the code. */
+    /* Ground truth transcribed from the Microsoft BC3/DXT5 alpha rule. These are
    * literals, not a re-implementation, precisely so that a transcription slip
-   * in rx550_compress.c cannot be mirrored here. The previous version of this
+   * in rx550_compress.c cannot be mirrored here. The original version of this
    * function was a line-for-line copy of the implementation's alpha_palette(),
    * so the test compared f(x) with f(x): it passed by construction while both
-   * disagreed with DXT5 in 27 of the probed entries. It cannot be circular. */
+   * disagreed with the rule in 27 of the probed entries. It cannot be circular.
+   * The weight-table form below is a second, differently shaped transcription;
+   * test_alpha_ramp_independent.c is a third, and is proven able to fail. */
   static const struct {
       uint8_t a0, a1;
       uint8_t pal[8];
       const char *what;
-  } dxt5_truth[] = {
+  } bc3_truth[] = {
       { 0, 255, { 0,255, 51,102,153,204,   0,255 }, "a0<a1, extremos opuestos" },
       {255,   0, {255,  0,219,182,146,109, 73, 36 }, "a0>a1, extremos opuestos" },
       {  0,   0, {  0,  0,  0,  0,  0,  0,  0,255 }, "a0==a1==0" },
@@ -560,7 +569,7 @@ static void t_throughput(void)
    *   a0 >  a1: 8 codes, 6 interpolated, denominator 7, rounding +3.
    *   a0 <= a1: 6 codes, 4 interpolated, denominator 5, rounding +2, and the
    *              two spare codes are the extremes 0 and 255. */
-  static void dxt5_reference_alpha(uint8_t a0, uint8_t a1, uint8_t pal[8])
+  static void bc3_reference_alpha(uint8_t a0, uint8_t a1, uint8_t pal[8])
   {
       static const int w7_a0[6] = { 6, 5, 4, 3, 2, 1 };
       static const int w7_a1[6] = { 1, 2, 3, 4, 5, 6 };
@@ -572,10 +581,10 @@ static void t_throughput(void)
       pal[1] = a1;
       if (a0 > a1) {
           for (j = 0; j < 6; j++)
-              pal[2 + j] = (uint8_t)((w7_a0[j] * (int)a0 + w7_a1[j] * (int)a1 + 3) / 7);
+              pal[2 + j] = (uint8_t)((w7_a0[j] * (int)a0 + w7_a1[j] * (int)a1) / 7);
       } else {
           for (j = 0; j < 4; j++)
-              pal[2 + j] = (uint8_t)((w5_a0[j] * (int)a0 + w5_a1[j] * (int)a1 + 2) / 5);
+              pal[2 + j] = (uint8_t)((w5_a0[j] * (int)a0 + w5_a1[j] * (int)a1) / 5);
           pal[6] = 0;
           pal[7] = 255;
       }
@@ -591,20 +600,20 @@ static void t_throughput(void)
       /* (1) Literal ground truth, byte for byte. */
       bad = 0;
       detail[0] = '\0';
-      for (k = 0; k < sizeof(dxt5_truth) / sizeof(dxt5_truth[0]); k++) {
-          rx550_alpha_palette_for_test(dxt5_truth[k].a0, dxt5_truth[k].a1, pal);
+      for (k = 0; k < sizeof(bc3_truth) / sizeof(bc3_truth[0]); k++) {
+          rx550_alpha_palette_for_test(bc3_truth[k].a0, bc3_truth[k].a1, pal);
           for (i = 0; i < 8; i++) {
-              if (pal[i] != dxt5_truth[k].pal[i]) {
+              if (pal[i] != bc3_truth[k].pal[i]) {
                   snprintf(detail, sizeof(detail),
                            "%s (a0=%d a1=%d) entry %d: got %u want %u",
-                           dxt5_truth[k].what, dxt5_truth[k].a0, dxt5_truth[k].a1,
-                           i, pal[i], dxt5_truth[k].pal[i]);
+                           bc3_truth[k].what, bc3_truth[k].a0, bc3_truth[k].a1,
+                           i, pal[i], bc3_truth[k].pal[i]);
                   bad++;
                   break;
               }
           }
       }
-      check(bad == 0, "alpha ramp matches DXT5 ground-truth vectors", detail);
+      check(bad == 0, "alpha ramp matches BC3/DXT5 ground-truth vectors", detail);
 
       /* (2) Exhaustive sweep against the weight-table reference. */
       bad = 0;
@@ -612,7 +621,7 @@ static void t_throughput(void)
       for (a0 = 0; a0 < 256 && bad < 4; a0++) {
           for (a1 = 0; a1 < 256; a1++) {
               rx550_alpha_palette_for_test((uint8_t)a0, (uint8_t)a1, pal);
-              dxt5_reference_alpha((uint8_t)a0, (uint8_t)a1, ref);
+              bc3_reference_alpha((uint8_t)a0, (uint8_t)a1, ref);
               for (i = 0; i < 8; i++) {
                   if (pal[i] != ref[i]) {
                       snprintf(detail, sizeof(detail),
@@ -626,15 +635,22 @@ static void t_throughput(void)
                   break;
           }
       }
-      check(bad == 0, "alpha ramp matches DXT5 for all 65536 endpoint pairs",
+      check(bad == 0, "alpha ramp matches BC3/DXT5 for all 65536 endpoint pairs",
             detail);
 
       /* (3) The tell that separates the two ramps, stated structurally: when
        * a0 <= a1 the two spare codes MUST be the extremes, so a[6]==0 and
        * a[7]==255 whatever the endpoints are. A shared /7 branch cannot do
        * that, and this is the one property the old code got wrong. */
+      /* a1 != 255 on purpose. With a1 = 255 the assertion "a[7] == 255" also
+       * holds under the BC3 rule, where a[7] = a1 = 255, so the check would
+       * not discriminate between the two formats. a1 = 20 makes them differ. */
+      rx550_alpha_palette_for_test(10, 20, pal);
+      check(pal[6] == 0 && pal[7] == 255,
+            "a0<a1 spends the spare codes on 0 and 255, not on a1",
+            "a[6]!=0 or a[7]!=255");
+
       rx550_alpha_palette_for_test(0, 255, pal);
-      check(pal[7] == 255, "a0<a1 closes the ramp at a1", "a[7] != 255");
       check(pal[0] == 0 && pal[1] == 255, "a0<a1 endpoints preserved", "swapped");
       check(pal[2] == 51 && pal[6] == 0,
             "a0<a1 interior is /5 with extremes 0 and 255, not /7",
@@ -651,9 +667,9 @@ static void t_throughput(void)
        * falling from 6 to 1, so floor division cannot make it rise. Index 1
        * is deliberately EXCLUDED -- it is the endpoint a1, the minimum BY
        * DEFINITION, and with a small a0-a1 the integer rounding can put a[2]
-       * above a[1]: for a0=8, a1=7 DXT5 yields [8, 7, 8, ...]. That is the
+       * above a[1]: for a0=8, a1=7 the 8-value rule yields [8, 7, 8, ...]. That is the
        * format behaving correctly. An earlier version of this check walked
-       * 1..7 and asserted a property DXT5 does not have. */
+       * 1..7 and asserted a property the rule does not have. */
       mono = 1;
       for (a0 = 1; a0 < 256 && mono; a0 += 7) {
           for (a1 = 0; a1 < a0 && mono; a1 += 11) {

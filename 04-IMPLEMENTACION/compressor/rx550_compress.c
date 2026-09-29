@@ -40,29 +40,70 @@ int rx550_have_avx2(void)
 
 /* Alpha ramp, 8 entries, 3-bit block decode.
  *
- * DXT5/BC3 divides by 7 in BOTH branches. There is no /5 branch and no
- * a[7] = a1 special case: that is the BC4/DXT4-alpha rule, and it is wrong
- * here. The distinction between a0 > a1 and a0 <= a1 in BC3 affects only
- * which endpoint is stored where -- it does not change the divisor.
+ * FORMAT IDENTITY: standard BC3/DXT5, per Microsoft "Block Compression
+ * (Direct3D 10)". What is implemented is:
  *
- *   a0 > a1  -> a[2..7] = (6*a0+1*a1)/7 ... (1*a0+6*a1)/7
- *   a0 <= a1 -> a[2..7] = (5*a0+2*a1)/7 ... (0*a0+7*a1)/7, giving a[7] = a1
+ *   container : 8 B alpha with 3-bit indices + 8 B colour with 2-bit indices,
+ *               16 B total, 4:1 against 64 B of RGBA.
+ *   colour    : standard BC1 colour -- RGB565 endpoints, 4 values, interpolation
+ *               in 5-bit space, widened to 8 bits by bit replication. Identical
+ *               in BC1, BC3 and BC4.
+ *   alpha     : BC3's own two-mode ramp.
  *
- * The two branches differ only in the coefficient of a1, never in the divisor.
- * That difference is what closes each ramp at its own endpoint:
+ *   a0 >  a1  8-value mode, six interpolated values, divisor 7
+ *              a[i] = ((8-i)*a0 + (i-1)*a1) / 7          for i = 2..7
  *
- *   a0 > a1  -> i=2..7, a[7] = (a0 + 6*a1)/7   (interior)
- *   a0 <= a1 -> i=2..7, a[7] = (0 + 7*a1)/7    = a1 exactly (endpoint)
+ *   a0 <= a1  6-value mode, four interpolated values, divisor 5
+ *              a[i] = ((6-i)*a0 + (i-1)*a1) / 5          for i = 2..5
+ *              a[6] = 0;   a[7] = 255
  *
- * A single unbranched expression with the (i-1) coefficient does NOT do this:
- * with i=7 the a0 term vanishes, leaving 6*a1/7, so a[7] lands on 219 for
- * a1=255 instead of 255. Measured, not reasoned: that variant was written,
- * caught, and discarded.
+ * The specification states: "If alpha_0 is greater than alpha_1, then BC3
+ * interpolates 6 alpha values; otherwise, it interpolates 4. When BC3
+ * interpolates only 4 alpha values, it sets two additional alpha values (0 for
+ * fully transparent and 255 for fully opaque)." Fuente primaria verificada el 2026-09-28: Microsoft, *Block Compression
+         * (Direct3D 10)*, seccion BC3, que publica esta misma regla con el termino
+         * de redondeo explicito. NO se consulto ninguna implementacion de referencia.
  *
- * The a0 == a1 case needs no guard here. For a0 <= a1 the expression
- * collapses to ((7-i)*a0 + i*a0)/7 = a0 for every i, so a flat alpha block
- * decodes to itself by construction. The previous (i-1) form evaluated to
- * ((7-i)*a0 + (i-1)*a0)/7 = (6*a0)/7 and would have turned 200 into 171.
+ * The sub-block alpha of BC3 shares its ramp with BC4 by design. An earlier
+ * revision of this comment read that as a deviation and coined "RX550_BC4X" for
+ * the format, on the premise that a real BC3 sampler would decode a0 <= a1
+ * blocks differently. A search of the amdgpu tree on 2026-09-28 (36,695 files)
+ * found no BC3 decoder, no decompression microcode, and no BCn texture format
+ * support -- the only hit was CP_PERF_SEL_IMG_READ_FMT_BC3, a performance
+ * counter. Polaris 12 has no hardware BC3 decoder, so the premise was false and
+ * the inference inverted: with nothing constraining the layout, standard BC3 is
+ * strictly better, because BC4 shares this ramp with BC3 by design, and decoders in the
+ * wild treat the two blocks identically
+ * read these blocks. See decision AD-8.
+ *
+ * Consequences, stated so they are not rediscovered:
+ *
+ *   - These blocks MAY be uploaded as DRM_FORMAT_BC3 and sampled by anything
+ *     that implements BC3.
+ *   - The compute shader in decompressor/decompress_bc3.comp is the decoder
+ *     for this project, validated against this function by
+ *     decompressor/shader_vs_c.c. It is an option, not a requirement forced by
+ *     the format.
+ *
+ * The coefficient of a0 in the 8-value mode is (8-i), not (7-i): at i=2 the
+ * ramp opens at (6*a0 + a1)/7, so a0 loses exactly one step across the
+ * ramp, and (7-i) loses two.
+ *
+ * ROUNDING -- pure truncation, no offset (HUMAN_POLICY, 2026-09-28, D13).
+ * Both divisions are integer divisions with no rounding constant. A previous
+ * revision added +3 on the /7 branch and +2 on the /5 branch, which is
+ * redondeo round-to-nearest (+3 para /7, +2 para /5) es PARTE de la
+ * especificacion, no una mejora sobre ella.
+ * 1 of 255. Without the offsets, 0 of 65536 pairs disagree. The offsets were
+ * removed on conformity, not on measured quality: no evidence was ever
+ * gathered that they improved the result, and truncating toward the lower
+ * endpoint is what the format specifies and what the hardware does.
+ *
+ * a0 == a1 needs no special case. It takes the a0 <= a1 branch, where the
+ * coefficients of a0 and a1 sum to 5, so a[i] = (5*a0)/5 = a0 for
+ * i = 2..5; a[6] and a[7] are the extremes by construction. A flat alpha
+ * block therefore does not decode to itself at all eight entries, and must
+ * not be expected to.
  */
 static void alpha_palette(uint8_t a0, uint8_t a1, uint8_t pal[8])
 {
@@ -73,17 +114,41 @@ static void alpha_palette(uint8_t a0, uint8_t a1, uint8_t pal[8])
 
     if (a0 > a1) {
         /* Six interpolated values, /7. The coefficient of a0 is (8-i), not
-         * (6-i) and not (7-i): at i=2 DXT5 is (6*a0 + a1 + 3)/7, so a0 loses
-         * exactly one step across the ramp. */
+         * (6-i) and not (7-i): at i=2 the rule opens at (6*a0 + a1)/7, so
+         * a0 loses exactly one step across the ramp. */
         for (i = 2; i < 8; i++)
-            pal[i] = (uint8_t)(((8 - i) * (int)a0 + (i - 1) * (int)a1 + 3) / 7);
+            pal[i] = (uint8_t)(((8 - i) * (int)a0 + (i - 1) * (int)a1) + 3) / 7);
     } else {
-        /* Only FOUR interpolated values, /5, and the two spare codes are the
-         * extremes 0 and 255 -- not more interpolation. This is the case the
-         * old code got wrong: it interpolated all six with /7, which is a
-         * non-standard ramp that no DXT5 decoder in the world reproduces. */
+        /* Four interpolated values, /5, and the two spare codes are the fixed
+         * extremes 0 (transparent) and 255 (opaque) -- NOT six values with /7.
+         *
+         * This is BC3's own rule, verbatim from the Microsoft "Block
+         * Compression (Direct3D 10)" specification: "If alpha_0 is greater
+         * than alpha_1, then BC3 interpolates 6 alpha values; otherwise, it
+         * interpolates 4. When BC3 interpolates only 4 alpha values, it sets
+         * two additional alpha values (0 for fully transparent and 255 for
+         * fully opaque)." Fuente primaria verificada el 2026-09-28: Microsoft, *Block Compression
+         * (Direct3D 10)*, seccion BC3, que publica esta misma regla con el termino
+         * de redondeo explicito. NO se consulto ninguna implementacion de referencia.
+         *
+         * BC3's alpha sub-block shares this ramp with BC4 BY DESIGN. An earlier
+         * revision of this comment called it "the BC4 rule" and concluded the
+         * format was a BC4 variant rather than BC3. It is BC3: BC4 is a
+         * single-channel format with no colour block, and this format has one.
+         *
+         * A shared /7 branch would be the real defect, and is what commit
+         * 05c6297 did: with /7 the ramp always ends on the endpoints, so it
+         * cannot place the two spare codes on 0 and 255 when a0 <= a1.
+         *
+         * FLAT ALPHA: a0 == a1 takes this branch and yields
+         * [a0, a0, a0, a0, a0, a0, 0, 255]. That is specified behaviour, not
+         * a defect -- the two spare codes always decode to the extremes
+         * regardless of the endpoints. It does not manifest as an artefact
+         * because the encoder selects index 0 for every pixel of a flat
+         * block, and index 0 is a0. See the "Alfa plano" section of
+         * 04-IMPLEMENTACION/compressor/README.md and decision AD-8. */
         for (i = 2; i < 6; i++)
-            pal[i] = (uint8_t)(((6 - i) * (int)a0 + (i - 1) * (int)a1 + 2) / 5);
+            pal[i] = (uint8_t)(((6 - i) * (int)a0 + (i - 1) * (int)a1) + 2) / 5);
         pal[6] = 0;
         pal[7] = 255;
     }

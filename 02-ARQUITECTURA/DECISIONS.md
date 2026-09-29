@@ -804,3 +804,70 @@ La versión propuesta de esta entrada atribuía el defecto original a `AD-6`. Es
 `AD-6` trata de los topes de calidad. El defecto estaba en `alpha_palette()` y en el test, y
 la decisión de formato de bloque es `AD-2`. Se deja dicho para que la referencia no lleve a
 buscar el defecto en la entrada equivocada.
+
+---
+
+## AD-8 — 2026-09-28 — Formato BC3/DXT5 estándar confirmado; `RX550_BC4X` descartado
+
+| Campo | Valor |
+|---|---|
+| **DECISION** | El formato es BC3/DXT5 estándar de Microsoft. `RX550_BC4X` no existe como formato independiente |
+| **DECIDER** | `HUMAN` (`HUMAN_POLICY`, vinculante) |
+| **DATE** | `2026-09-28` |
+| **Corrige** | la premisa de formato de `AD-2` en cuanto al nombre y a la supuesta desviación BC4 |
+
+**Contexto**: entre 2026-09-28 y 2026-09-29 el proyecto se llamó a sí mismo
+`RX550_BC4X` y afirmó que la rampa alfa de 6 valores «no es BC3, es la regla BC4». Eso
+obligaba a no subir los bloques como `DRM_FORMAT_BC3` y forzaba el compute shader como
+decodificador único. Ambas cosas se construyeron sobre una premisa no verificada.
+
+**Evidencia 1 — especificación primaria.** Microsoft, *Block Compression (Direct3D 10)*:
+> *«If alpha_0 is greater than alpha_1, then BC3 interpolates 6 alpha values; otherwise, it
+> interpolates 4. When BC3 interpolates only 4 alpha values, it sets two additional alpha
+> values (0 for fully transparent and 255 for fully opaque).»*
+
+Corroborado por cuatro implementaciones independientes: `bcdec` (`bcdec__smooth_alpha_block`),
+`oxideav-dds`, `DirectXTex/D3DX` (`D3DXDecodeBC3`) y el análisis de ryg sobre
+comportamiento real de hardware.
+
+**Evidencia 2 — no existe decodificador por hardware.** Búsqueda del árbol de amdgpu
+(`drivers/gpu/drm/amd/`, 36 695 ficheros, 2026-09-28):
+
+- cero decodificadores BC3/DXT5
+- cero microcode de descompresión
+- cero soporte de formato de textura BCn (`VK_FORMAT_BC*`, `DXGI_FORMAT_BC*`)
+
+Único hit: `include/vega10_enum.h` → `CP_PERF_SEL_IMG_READ_FMT_BC3 = 0x30`, un contador de
+rendimiento de la unidad de comandos, no un decodificador.
+
+**Conclusión.** Polaris 12 no descomprime BC3 en hardware. La premisa «el hardware BC3 de la
+RX 550 decodifica exactamente así» era falsa, y la inferencia apoyada en ella estaba
+**invertida**: sin decodificador de hardware nada restringe el layout, y BC3 estándar es
+estrictamente superior porque `bcdec`, `basisu`, visores y otros drivers leen estos
+bloques. Un formato propio garantiza lo contrario.
+
+**Errores metodológicos registrados**, porque el patrón se repitió:
+
+1. `AD-2` se apoyó en una regla recordada, no consultada.
+2. `[0, 255]` se interpretó como defecto cuando es la especificación.
+3. `RX550_BC4X` se construyó sobre la premisa no verificada del decodificador de hardware,
+   refutada con un `grep` sobre un árbol ya presente.
+4. Un test se reescribió para certificar la rampa `÷5` («*is /5 … not /7*»), sustituyendo al
+   que verificaba conformidad DXT5.
+5. Este agente afirmó la regla correcta desde memoria, rechazó dos veces una corrección que ya
+   era correcta, y cometió la misma falta que corregir.
+
+**Lección**: una afirmación sobre un formato se resuelve leyendo la especificación. No la
+resuelve un round-trip —un par de implementaciones mutuamente consistentes y ambas erróneas
+pasa cualquier test de ida y vuelta—, ni un nombre de fichero, ni un comentario previo, ni el
+recuerdo.
+
+**Impacto**:
+
+- Eliminadas 40 referencias a `RX550_BC4X` en 6 ficheros.
+- Corregidos `rx550_compress.c`, `rx550_compress.h` y los dos README, que afirmaban la
+  desviación y prohibían `DRM_FORMAT_BC3`.
+- `decompress_bc4x.comp` renombrado a `decompress_bc3.comp`; SPIR-V regenerado
+  (`glslangValidator` 11:16.3.0, rc=0, 11 984 B).
+- El código no cambió: la aritmética ya era correcta. Lo que cambia es la afirmación sobre
+  ella.

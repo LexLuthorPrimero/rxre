@@ -5,50 +5,86 @@ Polaris 12 (Lexa) on the RX 550.
 
 ---
 
-## ⚠️ STATUS: WRITTEN, NOT EXERCISED
+## ⚠️ STATUS: RECONCILED AGAINST C, NOT RUN ON HARDWARE
 
-**This shader has never been compiled and never been run.**
+**This shader has never executed on a GPU.**
 
-- **Not compiled.** `glslangValidator` is not installed on this host. The GLSL
-  has never been through a GLSL front end, so it is not known to be
-  syntactically valid GLSL, let alone valid SPIR-V.
-- **Not validated against hardware.** The shader has not executed on the
-  RX 550, the Intel iGPU, or any device.
-- **Agreement test not written.** The byte-for-byte comparison against
-  `rx550_decompress_block()` — the criterion that would make this file
-  evidence rather than a proposal — has not been run. It does not exist yet.
+- **Not run on hardware.** It has not been dispatched on the RX 550, the Intel
+  iGPU, or any device. Nothing here has been observed to produce a pixel.
+- **Not compiled by a GLSL front end.** `glslangValidator` was not installed
+  when the SPIR-V in this directory was produced, so the GLSL has never been
+  through a compiler. See "Compilation status" below for what changed.
+- **Agreement with the C is established arithmetically**, by
+  `shader_vs_c.c`: the palette and index-extraction arithmetic is reconciled
+  channel by channel against `rx550_decompress_block()`. 0 of 4096 channels
+  disagree over a 64-block corpus.
 
-What *is* verified is the C encoder side (commit `05c6297`), which has 33/33
-checks passing including a 65 536-pair exhaustive sweep of the alpha ramp
-against the DXT5 specification.
+That last item is `SIMULATED_ARITHMETIC`, not hardware evidence. A validator that
+models the shader in C proves the two agree under the model; it cannot prove the
+GLSL compiles, that the compiler preserves the arithmetic, or that the GPU
+produces the modelled values. The same failure mode that produced the
+non-conformant alpha ramp in commit `05c6297` — two implementations agreeing
+with each other and both disagreeing with the format — is what a modelled
+comparison cannot rule out on its own.
 
-**Do not treat this file as working code.** Treat it as a reviewed draft whose
-logic was derived by reading a tested C function line by line, and which is
-one compiler invocation away from being checkable.
+---
+
+## Format: RX550_BC4X, not BC3/DXT5
+
+This directory was named `decompress_bc3.comp` until 2026-09-28 and the format
+was called "BC3/DXT5" throughout. That name was false. The format is
+**RX550_BC4X**:
+
+| part | rule | conformant? |
+|---|---|---|
+| container | 8 B alpha with 3-bit indices + 8 B colour with 4-bit indices, 16 B, 4:1 | matches BC3 |
+| colour | standard BC1: RGB565 endpoints, 4 values, interpolation in 5-bit space | **yes** |
+| alpha, 8-value mode | `a[i] = ((8-i)*a0 + (i-1)*a1 + 3)/7`, `i = 2..7` | yes |
+| alpha, 6-value mode | `a[i] = ((6-i)*a0 + (i-1)*a1 + 2)/5`, `i = 2..5`, then `a[6]=0`, `a[7]=255` | **BC4, not BC3** |
+
+BC3's 6-value mode ends with `a[7] = a1`, a duplicate endpoint. This one spends
+the two spare codes on the fixed extremes, which is BC4's rule. No shipping
+Microsoft format combines them, so **there is no hardware block decoder for
+RX550_BC4X**.
+
+Two consequences, stated so they are not rediscovered:
+
+- Every block whose alpha endpoints satisfy `a0 <= a1` — half the endpoint
+  space — decodes differently in a real BC3 sampler than it does here. Do not
+  be uploaded as `DRM_FORMAT_BC3` and sampled by any BC3 implementation.
+- This compute shader *is* the decoder. That is the correct architecture for
+  this format, not a workaround.
+
+The colour sub-block is standard and is not in question. An earlier note in this
+README suggested it was also non-standard; it is not.
 
 ---
 
 ## Why a translation and not a reimplementation
 
-`rx550_decompress_block()` in `../compressor/rx550_compress.c` (banner at
-line 492, body at 496–525) is the specification. It is **not** DXT5 as
-published — and where the C and the published spec disagree, the C wins.
+`rx550_decompress_block()` in `../compressor/rx550_compress.c` is the
+specification for this shader. Every arithmetic operation in the `.comp` mirrors
+it, including rounding offsets, the bit-extraction straddle, and the masks.
+Where a shorter GLSL form would be valid GLSL but an invalid translation, the C
+form is kept and marked.
 
-That distinction is not academic. This project already shipped one version of
-this file that implemented the published spec:
+This file has been wrong before, in both directions, and the record is worth
+keeping:
 
-- the alpha ramp used the BC4 `/5` divisor with a hardcoded `a[6]=0, a[7]=255`
-- colour interpolation ran on 8-bit widened values instead of the quantised
-  5-bit space
-- it diverged from the encoder on 5 of 8 alpha palette entries
+- A version asserted "the C is the specification; it is **not** DXT5 as
+  published, and where the two disagree the C wins." It encoded a `/7`-everywhere
+  alpha ramp. At the time it was written, `rx550_compress.c` carried the same
+  non-conformant ramp, so encoder and decoder agreed by construction while both
+  disagreed with the format. A mutually consistent pair of wrong
+  implementations passes every round-trip test. That is the failure mode, not a
+  proof of conformance.
+- The next version inverted the claim to "DXT5/BC3 conformant" while keeping
+  `/5` with the `0`/`255` extremes — which is the BC4 rule, not DXT5's.
 
-Every one of those would have produced a shader that decodes to plausible
-pixels and matches nothing. The encoder at `05c6297` was corrected for the same
-family of defect, verified by exhaustive sweep.
-
-So: **every arithmetic operation in the `.comp` mirrors the C, including its
-rounding offsets, its bit-extraction straddle, and its masks.** Where a shorter
-GLSL form would be valid GLSL but an invalid translation, the C form is kept.
+The resolution is that neither "conformant to DXT5" nor "the C overrides the
+spec" is a usable description of this project. The format is standard BC3/DXT5, it is
+defined by the C, and its conformance is established against the transcribed
+rule, not against the C it is derived from.
 
 ---
 
@@ -56,10 +92,12 @@ GLSL form would be valid GLSL but an invalid translation, the C form is kept.
 
 | file | state |
 |---|---|
-| `decompress_bc3.comp` | **written, not compiled, not run** |
-| `test_decompress.c` | **not written** — needs `vulkan.h` |
+| `decompress_bc3.comp` | **written; arithmetically reconciled with C; not run on hardware** |
+| `shader_vs_c.c` | **written and run** — the arithmetic reconciliation |
+| `shader_vs_c` | built binary of the above |
+| `decompress_bc3.spv` | see "Compilation status" |
+| `test_decompress.c` | **not written** — needs `vulkan.h` and a live device |
 | `Makefile` | **not written** — needs `glslangValidator` |
-| `README.md` | this file |
 
 ---
 
@@ -67,7 +105,7 @@ GLSL form would be valid GLSL but an invalid translation, the C form is kept.
 
 Confirmed on this host after the 2026-09-28 reboot, via `vulkaninfo`, on
 `deviceType = PHYSICAL_DEVICE_TYPE_DISCRETE_GPU` / `deviceID = 0x699f`
-(Lexa), driver `radv`, Mesa 26.2.3, API 1.4.354:
+(Lexa), driver `radv`:
 
 | limit | value |
 |---|---|
@@ -81,7 +119,7 @@ Confirmed on this host after the 2026-09-28 reboot, via `vulkaninfo`, on
 `local_size_x = 256` is 4 wavefronts of 64 lanes. It fits inside one CU
 without exceeding 10 waves/SIMD, and uses 1/4 of the invocation limit.
 
-**The CU count is not established.** `gfx_v8_0_get_cu_info()` counts CUs by
+**The CU count is `NOT_DETERMINED`.** `gfx_v8_0_get_cu_info()` counts CUs by
 reading the hardware register `RLC_CU_BUSY` via
 `gfx_v8_0_get_cu_active_bitmap()`; there is no per-ASIC table in the driver
 source, and the driver publishes the count through `amdgpu_info` in **debugfs**,
@@ -95,30 +133,48 @@ affects dispatch width, not the shader body.
 ## Known deviation, deliberately reproduced
 
 `colour_palette()` masks **all three** channels with `0x1F`, including green,
-which RGB565 stores in 6 bits (`rx550_compress.c:100`). Only 5 of the 6 green
-bits therefore reach the palette.
+which RGB565 stores in 6 bits. Only 5 of the 6 green bits therefore reach the
+palette.
 
 The shader reproduces the mask exactly. Changing it to `0x3F` for green would
 be more correct in the abstract and would silently break byte-exactness with
 the C decoder, which is the criterion this project is using.
 
 This is a fidelity observation about the encoder, not a translation error, and
-it is **not fixed here** — fixing it changes the encoder and invalidates the
-33/33 suite. It is recorded for a later, separate decision.
+it is **not fixed here** — fixing it changes the encoder. It is recorded for a
+later, separate decision. Note that it is a lossy choice in the encoder, not a
+format requirement: the BC1 colour rule does not mandate discarding the sixth
+green bit.
+
+---
+
+## Compilation status
+
+`decompress_bc3.spv` exists in this directory and is dated after the source was
+last edited. It was **not produced by `glslangValidator`** — that tool is not
+installed on this host. Its provenance is not established by anything in this
+repository, and it is retained under `UNVERIFIED_UNTIL_RECHECKED` rather than
+deleted, because deleting an artifact because a newer one appeared is the loss
+this project has recorded before.
+
+Its name matches the format. Do not infer from the `.spv`
+extension that the file is valid SPIR-V for this shader.
+
+To establish compilation properly:
+
+```sh
+sudo dnf install glslang-tools spirv-tools   # not yet done, needs authorization
+glslangValidator -V decompress_bc3.comp -o decompress_bc3.spv
+```
 
 ---
 
 ## To finish this file
 
-```sh
-sudo dnf install glslang-tools vulkan-devel spirv-tools   # not yet done
-
-glslangValidator -V decompress_bc3.comp -o decompress_bc3.spv
-```
-
-Then build the agreement test: decode a corpus of blocks produced by
-`rx550_compress_block()` on the CPU, decode the same corpus through the shader
-on the GPU, and require byte-for-byte equality against
-`rx550_decompress_block()`.
-
-Until that test runs and passes, the status at the top of this file stands.
+1. Compile with `glslangValidator`, and establish the provenance of the existing
+   `.spv` or discard it.
+2. Write `test_decompress.c`: decode a corpus produced by
+   `rx550_compress_block()` on the CPU, dispatch the same corpus through the
+   shader on the GPU, and require byte-for-byte equality against
+   `rx550_decompress_block()`.
+3. Only then is the "not run on hardware" caveat at the top of this file lifted.

@@ -63,7 +63,18 @@ core.*
 RESEARCH/
 
 # RE-03-E3: ejecutables sin extension del compresor de texturas.
-# *.o y *.bin ya estan cubiertos arriba; estos dos no tienen extension.
+# *.o y *.bin ya estan cubiertos arriba; estos no tienen extension.
+# test_alpha_ramp.mut lo produce `make check-ramp-discriminates`.
 04-IMPLEMENTACION/compressor/test_compress
 04-IMPLEMENTACION/compressor/diag
 04-IMPLEMENTACION/decompressor/shader_vs_c
+04-IMPLEMENTACION/compressor/test_alpha_ramp
+04-IMPLEMENTACION/compressor/test_alpha_ramp.mut
+
+# Artefacto SIN procedencia establecida (HUMAN_POLICY 2026-09-28: no versionar).
+# decompress_bc3.spv carries el nombre anterior al renombrado a RX550_BC4X, y
+# glslangValidator no esta instalado en este host, asi que nada en el repositorio
+# acredita que saliera del fuente actual. Se conserva en disco como
+# UNVERIFIED_UNTIL_RECHECKED; se sustituye por decompress_bc4x.spv cuando
+# glslang esté construido y su hash quede registrado.
+04-IMPLEMENTACION/decompressor/decompress_bc3.spv
