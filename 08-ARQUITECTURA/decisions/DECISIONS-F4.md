@@ -213,3 +213,39 @@ registro se apoya en `lsof`, `fuser` ni en un escaneo parcial de `/proc`.
   `unbind` ahora compra **riesgo de sistema** a cambio de un objetivo que sigue fuera de
   alcance.
 - **Orden**: 1) formato del shader, 2) validarlo, 3) **entonces** pedir `unbind` para 4B.
+
+
+## F4-AD-16 — El artefacto ELF no es cargable tal cual: hay relocaciones
+
+- **Fecha**: 2026-09-29 · **Estado**: `DECIDIDO` (medido)
+- **Medición**: decodificador BC3 completo en OpenCL C, `clang -target amdgcn -mcpu=gfx803
+  -x cl`, compila y produce `.text` (0x0aac B), `.rel.text`, `.AMDGPU.config`,
+  `.AMDGPU.gpr_maximums`.
+- **Hallazgo**: `.rel.text` trae **6 reubicaciones sin resolver**:
+  - 2 × `R_AMDGPU_ABS32_LO` → `SCRATCH_RSRC_DWORD0`, `SCRATCH_RSRC_DWORD1`
+  - 4 × `R_AMDGPU_REL32_LO`/`HI` → `_Z13get_global_idj`
+- **Consecuencia para la 4A**: el paso de objeto ELF a código ejecutable es un **procesador de
+  relocaciones**, no una volcadura a memoria. **«Volcar PM4 a memoria» subestimaba el trabajo.**
+  `A5` entra en los criterios de la 4A (`002-opencl-c-validator.md` §7).
+- **Pendiente IA-1** (`P-6`): si esas seis son las que espera el hardware en compute, si hay más
+  obligatorias, y qué parseo exige `.AMDGPU.config`. **Esto bloquea la comprobación V4** del
+  validador: sin el conjunto correcto, V4 sería un checksum de la salida de clang, no una
+  propiedad del formato.
+- **No afirmo** que esas seis sean suficientes. El kernel medido es pequeño; uno con LDS o
+  atómicos tendría más. `NOT_DETERMINED` hasta P-6.
+
+## F4-AD-17 — Tres capas de validación, separadas por diseño
+
+- **Fecha**: 2026-09-29 · **Estado**: `DECIDIDO`
+- **Decisión**: el validador de Fase 4 se divide en capa 1 (algoritmo en CPU), capa 2 (forma del
+  artefacto ELF) y capa 3 (agreement en GPU, **inexistente** hasta 4B).
+- **Por qué separarlas**: la capa 1 no necesita driver ni hardware. Si falla, las otras dos son
+  irrelevantes. Y la capa 3 se documenta como **inexistente**, no como «pendiente», para que
+  nadie la cuente como cobertura.
+- **Control negativo desde el primer commit**: N1 (`+3` eliminado), N2 (el bug real de Fase 2,
+  `8*(cbyte-2)`), N3 (`.text` truncado). **N2 es el más valioso**: es el defecto que
+  `shader_vs_c` no detectó. Si el test lo rechaza, tiene poder de discernimiento sobre el tipo de
+  fallo que realmente ocurrió.
+- **Riesgo declarado**: el artefacto de Fase 2 se validó **en la RX 550**; el de 4A no se
+  validará en hardware hasta 4B. **No son resultados equivalentes** y no deben citarse como
+  tales.

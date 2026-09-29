@@ -252,3 +252,34 @@ eviction de VRAM · reset de GPU · virtualización · rendimiento · vGPU · GF
 - Fuente disponible en disco: `RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/amdgpu`
   (304 ficheros `.c`) e `include/uapi/drm/amdgpu_drm.h`. **No hay fuentes de Mesa en esta
   máquina**, solo binarios.
+
+
+---
+
+## 9. Addendum Ronda 4 — el artefacto OpenCL C no es cargable tal cual
+
+`F4-AD-12` fijó OpenCL C. Compilé un decodificador BC3 real para diseñar el validador y medí lo
+que produce:
+
+```
+clang -target amdgcn -mcpu=gfx803 -x cl -cl-std=CL2.0 -O2 -c d.cl -o d.o
+→ .text 0x0aac B, .rel.text, .AMDGPU.config, .AMDGPU.gpr_maximums
+```
+
+**`.rel.text` trae 6 reubicaciones sin resolver**: dos `SCRATCH_RSRC_DWORD0/1` y cuatro
+`get_global_id`. El objeto **no se puede escribir en el ring sin resolverlas**.
+
+**Consecuencia**: «volcar PM4 a memoria» (`F4-AD-11`) **subestimaba el trabajo**. El paso de ELF
+a código ejecutable es un **procesador de relocaciones**, y es trabajo real de driver. Entra como
+criterio **A5** de la 4A.
+
+**Por qué esto también mueve el objetivo**: el criterio 5 ya no puede ser «reusar
+`make test-gpu` sin tocarlo». Ese test carga un **módulo SPIR-V** vía RADV; el artefacto nuevo es
+un **objeto ELF** ejecutado por nuestro driver. El transporte es común —el resultado, byte a byte,
+contra el mismo decodificador de referencia—, pero la ruta de carga es distinta y hace falta un
+test propio. `F4-AD-16`, `F4-AD-17` y `designs/002-opencl-c-validator.md` lo detallan.
+
+**Límite honesto**: que la ISA se desensamble no prueba que compute bien. La capa 3 —agreement
+**en la RX 550**, contra el driver propio— **no existe** y no existirá hasta que haya
+autorización de `unbind` (`F4-AD-15`) y exista el driver. Hasta entonces, lo que se valida es el
+algoritmo y la forma del artefacto. No el hardware.
