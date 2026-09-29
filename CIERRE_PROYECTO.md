@@ -16,7 +16,13 @@ El proyecto implementó un compresor BC3/DXT5 en CPU (Fase 1) y un descompresor 
 - **Estado**: COMPLETA
 - **Tests**: 26/26 pasando
 - **PSNR**: 28.78/19.59/13.65/10.90 dB (reference/smooth/noise/adversarial)
-- **Throughput**: 83.7 MB/s (C), 86.0 MB/s (AVX2), speedup 1.03×
+- **Throughput**: 82.1 / 82.2 / 78.9 / 82.7 / 85.1 MB/s (C, 5 corridas);
+  83.5 / 87.4 / 88.6 / 88.5 / 85.0 MB/s (AVX2, 5 corridas)
+- **Speedup C→AVX2**: **no concluyente**. El rango intra-implementación (C entre 78.9 y
+  85.1; AVX2 entre 83.5 y 88.6) es del orden de la diferencia entre implementaciones. El
+  ensamblador AVX2 reduce min/max, que es una fracción del trabajo; la selección de índices
+  permanece en C. **No se afirma aceleración** y el benchmark de speedup no se considera
+  concluyente: `NOISE` sin establecer para esta métrica.
 - **Conformidad**: Especificación Microsoft D3D9 (AD-11, redondeo +3/+2)
 - **Commits clave**: f870e8e (AD-10), ec847d7 (AD-11), 44bc133 (D19a)
 
@@ -40,10 +46,12 @@ El proyecto implementó un compresor BC3/DXT5 en CPU (Fase 1) y un descompresor 
 
 | Limitación | Estado | Impacto |
 |---|---|---|
-| Sampler hardware (AD-12) | NOT_DETERMINED | Requiere Fase 3 (pipeline gráfico) |
-| Esquema SPIR-V | NOT_AVAILABLE | Falta spirv-val |
-| Corpus sintético | 64 bloques | AD-10 podría no sobrevivir a texturas reales |
-| Throughput GPU | sin medir | Un dispatch no es benchmark |
+| Sampler hardware (AD-12) | `NOT_DETERMINED` | Requiere Fase 3. Que shader y C concuerden **no** demuestra qué regla sigue el sampler del hardware: el shader no es el sampler |
+| `GFX_HWIP` | `NOT_DETERMINED` | Nada de este proyecto consulta la generación gfx ni la infiere |
+| Corpus sintético | 64 bloques | AD-10 (`STEPS=0`, 2.8×) se decidió sobre un corpus que no representa texturas reales; el número puede no sobrevivir |
+| Rendimiento del shader | sin medir | Un dispatch de 64 bloques no es un benchmark. `NOISE` sin establecer |
+| Exhaustividad | no probada | Guarda de regresión sobre hardware real, no prueba sobre todos los bloques posibles |
+| Esquema SPIR-V | **VÁLIDO** | `spirv-val --target-env vulkan1.1` rc=0, SPIRV-Tools v2026.1 |
 
 ## Lecciones aprendidas
 

@@ -78,3 +78,7 @@ RESEARCH/
 # UNVERIFIED_UNTIL_RECHECKED; se sustituye por decompress_bc4x.spv cuando
 # glslang esté construido y su hash quede registrado.
 04-IMPLEMENTACION/decompressor/decompress_bc3.spv
+
+# Cerrojo de turno entre las tres sesiones de IA (ver COORDINACION.md).
+# Un cerrojo versionado ensucia `git status` con una entrada que cambia cada vez.
+.write-lock/
