@@ -273,9 +273,48 @@ se gasta reconstruyendo el mismo valor: `a0==a1` produce `(6*a0)/5`, que para
 rampa, y la conformidad contra la referencia DXT5 se verifica sobre los **65536
 pares de endpoints** en el banco.
 
-**Impacto**: `rx550_compress.h` (definición de `rx550_block_t`, `_Static_assert`
-de 16 B y de los offsets 0/2/8/12), `rx550_compress.c` (`alpha_palette`,
-`colour_palette`, `rx550_decompress_block`).
+### Nota de truncamiento (2026-09-28, `HUMAN_POLICY`)
+
+El formato BC3/DXT5 usa **truncamiento puro, sin offsets `+3`/`+2`**.
+
+**Evidencia**:
+
+- `bcdec` v0.985 (`bcdec__smooth_alpha_block`): `alpha[2] = (6 * alpha[0] + alpha[1]) / 7;`
+  — sin offset de redondeo.
+- El hardware de GPU trunca en la interpolación BC3.
+- La especificación Microsoft da las fórmulas de interpolación sin especificar
+  redondeo.
+- Objetivo de compatibilidad con `bcdec`, `basisu` y visores estándar.
+
+**Medición**: truncamiento da **0/65536** discrepancias contra la referencia
+`bcdec`; el redondeo `+3`/`+2` daba **54300/65536** (82,9%).
+
+**Impacto en calidad**: caída marginal de **0,07 dB** en `reference`
+(28,80 → 28,73). `smooth`, `noise` y `adversarial` sin cambio. Throughput de
+26,7 → 29,3 MB/s.
+
+**Regla**: no se cambia sin autorización explícita del Arquitecto Principal.
+
+### Corrección a dos afirmaciones de esta entrada
+
+Esta entrada, tal como se escribió, afirmaba dos cosas que `AD-8` desmintió con
+fuente primaria. Se dejan ambas visibles porque el error es el registro:
+
+1. *"es la forma 4x4→16 B que el decodificador de bloques de la unidad de
+   textura ya contiene"* y *"el silicio ya tiene"* esa función. **Falso**: una
+   búsqueda de `drivers/gpu/drm/amd/` (36 695 ficheros) no encontró ningún
+   decodificador BC3/DXT5, ni microcode, ni soporte BCn. El único hit fue
+   `CP_PERF_SEL_IMG_READ_FMT_BC3`, un contador de rendimiento. El shader es el
+   único decodificador, y no por elección del formato.
+2. *"con 6 códigos el sobrante se gasta reconstruyendo el mismo valor"*. **Falso
+   como justificación del sub-bloque**: la rama `a0 <= a1` de BC3 **sí** gasta los
+   dos códigos sobrantes en los extremos fijos 0 y 255, por especificación. La
+   afirmación era correcta en que `/5` desborda con `a0==a1` y en que el caso
+   degenerado se trata aparte, pero la razón de fondo era inventada.
+
+Lo que sí se sostiene, y por eso la decisión no cambia: BC3 es el formato
+estándar de 4×4→16 B con 8 códigos de alpha, y elegir otro obligaría a escribir
+un decodificador no estándar. El hardware no participa en esa elección.
 
 ---
 
