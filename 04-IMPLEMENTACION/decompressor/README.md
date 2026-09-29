@@ -11,9 +11,12 @@ Polaris 12 (Lexa) on the RX 550.
 
 - **Not run on hardware.** It has not been dispatched on the RX 550, the Intel
   iGPU, or any device. Nothing here has been observed to produce a pixel.
-- **Not compiled by a GLSL front end.** `glslangValidator` was not installed
-  when the SPIR-V in this directory was produced, so the GLSL has never been
-  through a compiler. See "Compilation status" below for what changed.
+- **Now compiled by a GLSL front end.** `glslangValidator` 11:16.3.0 builds it
+  from this directory: `rc=0`, 11 944 B, 2 986 SPIR-V words, magic `07230203`.
+  An earlier revision of this file said the GLSL had never been through a
+  compiler; that was true when written and is no longer. `glslangValidator` is
+  not installed system-wide, it is invoked by path from the `Makefile`.
+  See "Compilation status" below.
 - **Agreement with the C is established arithmetically**, by
   `shader_vs_c.c`: the palette and index-extraction arithmetic is reconciled
   channel by channel against `rx550_decompress_block()`. 0 of 4096 channels
@@ -29,34 +32,77 @@ comparison cannot rule out on its own.
 
 ---
 
-## Format: RX550_BC4X, not BC3/DXT5
-
-This directory was named `decompress_bc3.comp` until 2026-09-28 and the format
-was called "BC3/DXT5" throughout. That name was false. The format is
-**RX550_BC4X**:
+## Format: BC3/DXT5
 
 | part | rule | conformant? |
 |---|---|---|
-| container | 8 B alpha with 3-bit indices + 8 B colour with 4-bit indices, 16 B, 4:1 | matches BC3 |
-| colour | standard BC1: RGB565 endpoints, 4 values, interpolation in 5-bit space | **yes** |
-| alpha, 8-value mode | `a[i] = ((8-i)*a0 + (i-1)*a1 + 3)/7`, `i = 2..7` | yes |
-| alpha, 6-value mode | `a[i] = ((6-i)*a0 + (i-1)*a1 + 2)/5`, `i = 2..5`, then `a[6]=0`, `a[7]=255` | **BC4, not BC3** |
+| container | 8 B alpha with 3-bit indices + 8 B colour with 4-bit indices, 16 B, 4:1 | **yes** |
+| colour | standard BC1: RGB565 endpoints, 4 values, interpolation in 5-bit space, always 4-colour mode | **yes** |
+| alpha, 8-value mode (`a0 > a1`) | `a[i] = ((8-i)*a0 + (i-1)*a1 + 3)/7`, `i = 2..7` | **yes** |
+| alpha, 6-value mode (`a0 <= a1`) | `a[i] = ((6-i)*a0 + (i-1)*a1 + 2)/5`, `i = 2..5`, then `a[6]=0`, `a[7]=255` | **yes** |
 
-BC3's 6-value mode ends with `a[7] = a1`, a duplicate endpoint. This one spends
-the two spare codes on the fixed extremes, which is BC4's rule. No shipping
-Microsoft format combines them, so **there is no hardware block decoder for
-RX550_BC4X**.
+Endpoint order is BC3's: `a0` is the block alpha **maximum**, `a1` the **minimum**, so `a0 > a1`
+is the ordinary case and selects the 8-value ramp. The encoder now follows that convention
+(D19a, commit `44bc133`); before it, `a0 = mn + inset` and `a1 = mx - inset` meant `a0 <= a1`
+always, and the 8-value branch was never exercised. Measured by
+`test_corpus_validate`: coverage of the 8-value branch went from **0 of 64 blocks to 59 of 64**.
 
-Two consequences, stated so they are not rediscovered:
+**Two claims this file previously made, both wrong, and now removed.** It is worth recording
+because both were asserted confidently and both would have misled a reader:
 
-- Every block whose alpha endpoints satisfy `a0 <= a1` — half the endpoint
-  space — decodes differently in a real BC3 sampler than it does here. Do not
-  be uploaded as `DRM_FORMAT_BC3` and sampled by any BC3 implementation.
-- This compute shader *is* the decoder. That is the correct architecture for
-  this format, not a workaround.
+1. That the format was "**RX550_BC4X**, not BC3/DXT5", on the grounds that the 6-value mode's
+   `a[6]=0, a[7]=255` is BC4's rule rather than BC3's. It is BC3. BC3's alpha sub-block uses the
+   *same* two-mode ramp as BC4 — the formats differ in container (BC3 carries a colour block, BC4
+   does not), not in the ramp. The name `RX550_BC4X` denoted a format that does not exist. See
+   AD-8.
+2. That blocks "decode differently in a real BC3 sampler". They do not: the ramp is indexed by
+   whichever pair the block declares, so a conformant BC3 decoder reproduces these blocks exactly.
 
-The colour sub-block is standard and is not in question. An earlier note in this
-README suggested it was also non-standard; it is not.
+Rounding: the `+3` and `+2` are rounding terms of the Microsoft D3D9/DXT5 definition (AD-11).
+`bcdec` v0.985 truncates instead and therefore diverges from the specification on ~82.9 % of
+endpoint pairs, with a maximum error of 1 of 255. Blocks here follow the specification, not
+`bcdec`, and will render 1 LSB differently in tools built on `bcdec`.
+
+---
+
+## Validation status
+
+**Fase A (CPU, no GPU): COMPLETE**
+
+| check | result |
+|---|---|
+| `shader_vs_c` | **0 of 4096** channels differ from `rx550_decompress_block()` |
+| `test_alpha_ramp` | **0 of 65 536** endpoint pairs, against two independent transcriptions of the spec |
+| `test_corpus_validate` | SPIR-V header valid; corpus deterministic; both alpha-ramp branches covered |
+| `glslangValidator` | `rc=0`, 11 944 B, 2 986 words, magic `07230203` |
+
+**Fase B (GPU dispatch): `NOT_WRITTEN`**
+
+The shader has **never been executed on any GPU** — not the RX 550, not llvmpipe, not anything.
+Every statement above is a claim about the algorithm and about the compiled artefact, never
+about execution. `GFX_HWIP` remains `NOT_DETERMINED`.
+
+Blocked on `vulkan-devel`, which is not installed and cannot be installed without privileges:
+
+```
+/usr/include/vulkan/vulkan.h   absent
+dnf info vulkan-devel           no matching package
+sudo -n true                   a password is required
+```
+
+Declaring the Vulkan structs by hand was attempted and abandoned: 37 compile errors, and a
+duplicated `pNext` field that shifts a struct's layout silently rather than failing to compile.
+`vk_pipeline_min.c` segfaults on RADV and llvmpipe for a reason that cannot be diagnosed without
+the real headers — a layout fault presents as a crash, not a message. See AD-13.
+
+When Fase B is written, two requirements are not optional:
+
+- Identify the RX 550 by **PCI identity** `0x1002:0x699F`, never by enumeration index. This host
+  exposes the Intel iGPU, the AMD device, and llvmpipe, and llvmpipe would happily accept the
+  dispatch.
+- **Validate the buffer before comparing it.** A dispatch that never ran leaves the output
+  untouched, a byte-for-byte comparison reports zero discrepancies, and the test passes. Checking
+  that the output is non-trivial first is what makes the result evidence.
 
 ---
 
@@ -95,9 +141,11 @@ rule, not against the C it is derived from.
 | `decompress_bc3.comp` | **written; arithmetically reconciled with C; not run on hardware** |
 | `shader_vs_c.c` | **written and run** — the arithmetic reconciliation |
 | `shader_vs_c` | built binary of the above |
-| `decompress_bc3.spv` | see "Compilation status" |
-| `test_decompress.c` | **not written** — needs `vulkan.h` and a live device |
-| `Makefile` | **not written** — needs `glslangValidator` |
+| `decompress_bc3.spv` | built by `make`; see "Compilation status" |
+| `test_corpus_validate.c` | **written and run** — Fase A: validates the artefact, builds a deterministic corpus, measures coverage of both alpha-ramp branches |
+| `test_decompress.c` | **not written** — needs `vulkan.h` and a live device. See AD-13 |
+| `vk_pipeline_min.c` | abandoned: hand-declared Vulkan structs, `SIGSEGV` on RADV and llvmpipe, cause not diagnosticable without real headers |
+| `Makefile` | **written** — `all` · `test` · `check-codec` · `check-spirv` · `clean` |
 
 ---
 
@@ -150,31 +198,39 @@ green bit.
 
 ## Compilation status
 
-`decompress_bc3.spv` exists in this directory and is dated after the source was
-last edited. It was **not produced by `glslangValidator`** — that tool is not
-installed on this host. Its provenance is not established by anything in this
-repository, and it is retained under `UNVERIFIED_UNTIL_RECHECKED` rather than
-deleted, because deleting an artifact because a newer one appeared is the loss
-this project has recorded before.
-
-Its name matches the format. Do not infer from the `.spv`
-extension that the file is valid SPIR-V for this shader.
-
-To establish compilation properly:
+`decompress_bc3.spv` in this directory is produced from `decompress_bc3.comp` by the `Makefile`:
 
 ```sh
-sudo dnf install glslang-tools spirv-tools   # not yet done, needs authorization
-glslangValidator -V decompress_bc3.comp -o decompress_bc3.spv
+make decompress_bc3.spv
+# /home/lucas/glslang/build/StandAlone/glslangValidator -V decompress_bc3.comp -o decompress_bc3.spv
 ```
+
+`glslangValidator` was built on this host on 2026-05-02 and is **not** installed system-wide and
+not in `PATH`; the `Makefile` invokes it by absolute path and `GLSLANG=` overrides that. It is
+`glslang` 11:16.3.0, SHA256 `202cd086…`.
+
+An earlier revision of this file recorded the module as having **no established provenance**,
+retained under `UNVERIFIED_UNTIL_RECHECKED`, because the tool was not available. That is resolved:
+the tool exists and the `Makefile` regenerates the module on demand. A stale module is still
+possible if the `.comp` is edited without rerunning `make` — `test_corpus_validate` fails when the
+`.spv` is older than the `.comp`, which is the check that catches it.
+
+**What compilation does not establish.** `rc=0` means the GLSL is syntactically valid and
+translated to SPIR-V. It does **not** mean the module is schema-valid: `spirv-val` is not
+installed on this host (`NOT_AVAILABLE`), and a driver accepting a module is evidence about that
+driver, not about the specification. It does not mean the codes exist on GFX8 hardware, and it
+certainly does not mean the shader runs.
 
 ---
 
 ## To finish this file
 
-1. Compile with `glslangValidator`, and establish the provenance of the existing
-   `.spv` or discard it.
-2. Write `test_decompress.c`: decode a corpus produced by
-   `rx550_compress_block()` on the CPU, dispatch the same corpus through the
-   shader on the GPU, and require byte-for-byte equality against
-   `rx550_decompress_block()`.
+1. `sudo dnf install vulkan-devel` — currently absent, and the reason the GPU
+   test is not written.
+2. Write `test_decompress.c` with `#include <vulkan/vulkan.h>`: build a corpus
+   with `rx550_compress_block()` on the CPU, dispatch the same corpus through
+   the shader on the GPU, and require byte-for-byte equality against
+   `rx550_decompress_block()`. Two requirements are not optional — identify the
+   RX 550 by PCI identity rather than enumeration index, and validate the
+   output buffer before comparing it, or a dispatch that never ran will pass.
 3. Only then is the "not run on hardware" caveat at the top of this file lifted.
