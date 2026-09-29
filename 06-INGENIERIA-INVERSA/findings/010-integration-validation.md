@@ -15,7 +15,52 @@ antes de que el script de IA-2 exista.
 
 ---
 
-## 0. ACTUALIZACIÓN — el script de IA-2 apareció durante esta ronda
+## 0. ACTUALIZACIÓN 2 — corrección aplicada y verificada por mí
+
+**`integration_test.sh` da 3/3 `PASO`, rc=0, reproducido 3 veces.** Verificado por mí,
+no por reporte ajeno.
+
+| Textura | Fase 1 PSNR | Fase 2 (bytes) | GPU vs CPU en PNG | Veredicto |
+|---|---|---|---|---|
+| `t1_gradiente` | 38.24 dB | 0 de 16384 | **0 de 16384** | PASO |
+| `t2_ruido` | 13.55 dB | 0 de 16384 | **0 de 16384** | PASO |
+| `t3_estructura` | 45.12 dB | 0 de 16384 | **0 de 16384** | PASO |
+
+Tres comprobaciones adicionales que **no estaban en el encargo** y que hice igualmente:
+
+1. **Oracle independiente sobre el PNG de la GPU.** `bc3_ref_decoder.py` (spec BC3, sin
+   mirar el C ni el shader) contra los tres PNG ya reordenados: **0 de 16384** en las tres.
+   Es la cuarta fuente coincidiendo, ahora también sobre el fichero escrito y no sólo sobre
+   el buffer. Antes de la corrección fallaba 12505–16258; ahora es exacto.
+2. **Reproducibilidad.** 3 corridas consecutivas: `3/3 texturas: ESTADO: PASO` las tres,
+   rc=0. Sin dispersión.
+3. **Los binarios se reconstruyen solos.** Borré `bin/` entero y el script lo rehizo
+   desde fuentes y volvió a dar 3/3. Los tres comandos del `README.md` funcionan tal como
+   están escritos, ejecutados desde la raíz del repo.
+
+Hashes de los binarios que produjo esa reconstrucción limpia (útiles para que IA-3
+compruebe reproducibilidad):
+
+```
+da4eb4cc4736b16329f3360e53742b2923e818b2d8ab5a1368e5b5aa974e484e  bin/rx550_compress
+680407e0dfb27543752e50cb69828dd02a113a18e529ed5d9c784b17dec8efd9  bin/rx550_decompress
+```
+
+**Regresión de las dos fases, con los dos programas de siempre**, no sólo con el pipeline
+nuevo — porque un pipeline nuevo puede pasar mientras la suite de siempre falla:
+
+```
+compressor:  test_compress          28.78/19.59/13.65/10.90 dB, 26/26, rc=0
+             test_alpha_ramp        CONFORMA (AD-11), rc=0
+decompressor: test_decompress --gpu 0 de 4096, rc=0
+```
+
+**Líneas base de las Fases 1 y 2: reproducen exactamente.** Ninguna se movió.
+
+## 0-bis. ACTUALIZACIÓN 1 — el script apareció durante la ronda
+
+*(Este apartado quedó obsoleto 3 minutos después de escribirse. Lo conservo: un documento
+que se corrige a sí mismo sin dejar constancia del estado anterior no es auditable.)*
 
 `integration_test.sh`, `bin/`, `common/` y `tools/` **ya existen** (IA-2 los escribió
 mientras yo medía; `git status` los muestra como `??`, **sin commitear todavía**). El
@@ -369,10 +414,10 @@ fundamento.
 
 | # | Ítem | Estado | Quién |
 |---|---|---|---|
-| 1 | **`dst` sin el factor 4 en `rx550_decompress.c:576`** | **`FAIL` — 4 caracteres** | IA-2 |
-| 2 | `README.md` con los 3 comandos | `NOT_DETERMINED` — no existe | IA-2 |
-| 3 | Mensaje `GPU != CPU` contradictorio | `NON_BLOCKER` — redacción | IA-2 |
-| 4 | `side = nblocks/16` acierta sólo en potencias de 16 | `NON_BLOCKER` — latente | IA-2 |
+| 1 | **`dst` sin el factor 4** | **`FIXED`** — verificado por mí, 3/3, 3 corridas | cerrado |
+| 2 | `README.md` con los 3 comandos | `OBSERVED` — existe; los 3 comandos ejecutados tal cual desde la raíz | cerrado |
+| 3 | Mensaje `GPU != CPU` contradictorio | `FIXED` — ahora nombra la comparación que falló | cerrado |
+| 4 | `side = nblocks/16` acierta sólo en potencias de 16 | `OBSERVED` — sigue así; el aviso ahora cubre el caso no cuadrado | `NON_BLOCKER` latente |
 | 5 | Línea base del PSNR de imagen completa | `NOT_AVAILABLE`; el criterio correcto es A1+A2+A3 | IA-3 |
 | 6 | `AD-12` (truncamiento o redondeo del sampler) | `NOT_DETERMINED` | Fase 3, **fuera del alcance por directiva** |
 | 7 | `mesa-vulkan-drivers` presente, RADV operativo | `OBSERVED` 2026-09-29 | corregir el router |
@@ -388,10 +433,24 @@ registrado como pendiente, no como resuelto, y es relevante para el cierre: este
 **produce un encoder** cuyo consumidor es el hardware, así que si el sampler trunca, la
 decisión AD-11 hay que reabrirla y el round-trip del encoder no sería el que dice AD-11.
 
-**Recomendación al cierre**: tras corregir `dst`, el script debe dar **3/3 PASÓ**.
-A1 y A2 ya están medidos y pasan. A3 y el PSNR de imagen se siguen del mismo cambio.
-**No propongo el cierre mientras el script dé `0/3`**, y la razón es concreta y de 4
-caracteres, no una discrepancia de criterio.
+**Estado del cierre, actualizado (§0)**: los tres criterios que propuse se cumplen.
+
+| Criterio | Estado | Evidencia |
+|---|---|---|
+| A1 — línea base del encoder | **PASO** | 28.78 / 19.59 / 13.65 / 10.90 dB, exactos |
+| A2 — agreement GPU, byte a byte | **PASO** | 0 de 4096 (suite) y 0 de 16384 (pipeline, 3 texturas) |
+| A3 — `PSNR(GPU) == PSNR(CPU)` | **PASO** | 38.24 / 13.55 / 45.12 dB, idénticos en ambas rutas |
+| Pipeline completo sobre 3 texturas | **PASO** | 3/3, rc=0, 3 corridas |
+| Cuarta fuente (spec BC3) sobre el PNG | **PASO** | 0 de 16384 × 3 |
+| Binarios reproducibles desde fuentes | **PASO** | `bin/` borrado y reconstruido, 3/3 |
+
+**Condición de refutación de mi "PASO"**: si alguien cambia el corpus, el compresor, el
+shader o el escritor de PNG, los tres números de PSNR y el 0/16384 deben moverse. Si el
+script vuelve a dar 0/3 con el mismo corpus, el defecto volvió.
+
+**Lo único que no puedo afirmar**: que las Fases 1 y 2 estén *cerradas*. Eso lo declara
+IA-3, y le corresponde. Lo que puedo afirmar es que **los tres criterios que yo propuse
+para el cierre se cumplen y los medí con reproducibilidad**.
 
 **Criterio que propongo rechazar**: "el pipeline pasa". Un pipeline que no existe no puede
 pasar, y un criterio que se cumple por ausencia es peor que uno que no se cumple.
