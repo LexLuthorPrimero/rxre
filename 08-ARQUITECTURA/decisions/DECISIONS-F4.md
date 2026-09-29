@@ -110,3 +110,52 @@ P-5..P-8 bloquean la implementación pero no el diseño.
 
 `AGENTS.md` prohíbe afirmar `OWNERSHIP=FULL` con evidencia parcial. Ninguna afirmación de este
 registro se apoya en `lsof`, `fuser` ni en un escaneo parcial de `/proc`.
+
+
+## F4-AD-9 — La via SPIR-V -> ISA esta BLOQUEADA en esta maquina
+
+- **Fecha**: 2026-09-29 · **Estado**: `BLOQUEADO` — medido, no supuesto
+- **Medicion** (esta host, clang 22.1.8, `-target amdgcn -mcpu=gfx803`):
+
+| Via | Resultado |
+|---|---|
+| `clang -x spirv` | `language not recognized: 'spirv'` → **RECHAZADO** |
+| `clang -x hlsl` | `HLSL code generation is unsupported for target 'amdgcn'` → **RECHAZADO** |
+| `spirv-cross` (SPIR-V->HLSL) | **AUSENTE** en el host |
+| `clang -x cl` (OpenCL C) | **FUNCIONA**: emite `.text` + `.AMDGPU.config` |
+
+- **Consecuencia**: el camino propuesto para "`decompress_bc3.spv` (SPIR-V) -> ISA"
+  **no esta disponible**. No es una cuestion de prioridad: ninguna de las tres rutas converge.
+- **Implicacion**: el shader de Fase 2 **no es reutilizable tal cual**. Habria que
+  **reescribirlo en OpenCL C** para que clang produzca ISA. Coste real, no estaba en el plan.
+- **Mitigacion parcial**: la ISA es alcanzable por OpenCL C. Falta el **front-end** que convierta
+  nuestro shader. `spirv-cross` es una opcion; **no esta autorizado** (instalar paquetes).
+- **Lo que NO afirmo**: no se si `spirv-cross` convertiria este shader sin perdida. Usa SSBOs y
+  push constants, y su soporte de push constants en HLSL es limitado. `NOT_DETERMINED`.
+
+## F4-AD-10 — El firmware de Polaris 12 esta identificado por fuente primaria
+
+- **Fecha**: 2026-09-29 · **Estado**: `DECIDIDO` (dato) / `ABIERTO` (decision)
+- **Dato verificado** en
+  `RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/amdgpu/amdgpu_cgs.c:325-332`,
+  `case CHIP_POLARIS12:`:
+  - revision P23 (kicker) -> `amdgpu/polaris12_k_smc.bin`
+  - resto -> `amdgpu/polaris12_smc.bin`
+- **Consecuencia para F4-AD-6**: el blob **existe y es especifico del chip**. La secuencia de
+  carga sigue `PENDIENTE-IA-1`, pero ya sabemos **que** hay que cargar.
+- **Decision abierta**: cargar el blob desde userspace (Opcion A) o depender de `amdgpu.ko`
+  (Opcion B). **No es solo arquitectura**: la Opcion A evita la dependencia que `F4-AD-3`
+  prohibe, y por tanto es la unica compatible con ella. La Opcion B contradice `F4-AD-3` y
+  deberia rechazarse por esa razon, no por dificultad.
+
+## F4-AD-11 — Fase 4A se redefine: volcar paquetes, no ejecutar
+
+- **Fecha**: 2026-09-29 · **Estado**: `DECIDIDO`
+- **Decision**: mientras no haya autorizacion de `unbind` (F4-AD-5), el MVP no escribe en la
+  GPU. Produce **paquetes en memoria para inspeccion**; el valor verificable es que el paquete
+  tiene la estructura correcta.
+- **Por que no es degradar el objetivo**: es **reordenar**. El objetivo sigue siendo 0/4096 en
+  hardware (Fase 4B). Lo que cambia es que 4A no lo cubre, y hay que decirlo.
+- **Limite honesto de 4A**: validar la estructura de un paquete **no** prueba que el hardware
+  lo ejecute. Es el patron que hundio las Fases 1 y 2: un validador que confirma la forma sin
+  ejecutar. Por eso 4B no es opcional, y el criterio 6 se mantiene vivo.

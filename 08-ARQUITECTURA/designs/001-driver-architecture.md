@@ -88,7 +88,33 @@ traducción de un nivel superior a los ioctls. **El kernel no interpreta SPIR-V.
 El SPIR-V es el de Fase 2, ya compilado y verificado:
 `04-IMPLEMENTACION/decompressor/decompress_bc3.spv`. No se reescribe.
 
-### 3.3 Shader integration — el riesgo que domina el proyecto
+### 3.3 Shader integration — MEDIDO en Ronda 2: la vía está bloqueada
+
+**Medición en esta host** (clang 22.1.8, `-target amdgcn -mcpu=gfx803`):
+
+| Vía | Resultado |
+|---|---|
+| `clang -x spirv` | `language not recognized: 'spirv'` → **rechazado** |
+| `clang -x hlsl` | `HLSL code generation is unsupported for target 'amdgcn'` → **rechazado** |
+| `spirv-cross` | **ausente** |
+| `clang -x cl` (OpenCL C) | **funciona**: `.text` + `.AMDGPU.config` |
+
+`clang` está instalado y el target `amdgcn` existe. Lo que falta es el **front-end** que
+convierta nuestro SPIR-V. `F4-AD-9` documenta esto.
+
+**Dos consecuencias que cambian el plan**:
+
+1. `decompress_bc3.spv` **no es reutilizable tal cual**. Habría que reescribir el shader en
+   OpenCL C.
+2. **OpenCL C no tiene push constants.** `num_blocks` pasaría a ser argumento de kernel o
+   lectura de un buffer. Eso **cambia la interfaz del shader** y, en consecuencia, el
+   agreement test de la Fase 2.
+
+**Sobre el riesgo GAR**: queda parcialmente mitigado en un sentido y aggravating en otro. La ISA
+es alcanzable (OpenCL C compila), pero **el camino desde el artefacto que ya tenemos está
+cortado**. `F4-AD-4` sigue vigente: la pregunta a IA-1 es si hay otro camino.
+
+### 3.4 Las tres vías revisadas, con el estado medido
 
 GFX8 no tiene compilador de shaders público. Tres caminos posibles:
 
@@ -96,15 +122,17 @@ GFX8 no tiene compilador de shaders público. Tres caminos posibles:
 |---|---|---|
 | **(A) Reutilizar el GAR de `amdgpu.ko`** | bajo | contradice F4-AD-3 |
 | **(B) Reutilizar LLVM/RADV** | medio |dejaría de ser "driver exclusivo" |
-| **(C) Escribir el backend ISA** | muy alto | **puede ser mayor que el driver** |
+| **(C) Escribir el backend ISA** | muy alto | puede ser mayor que el driver |
+| **(D) OpenCL C + `clang -mcpu=gfx803`** | bajo | **FUNCIONA, medido** (`.text` + `.AMDGPU.config`) — pero exige reescribir el shader |
 
 **Lo que sí está establecido por evidencia propia** (commit `edd434b`, tag
 `v1.0-fase2-completa`): el hardware **ejecuta** `decompress_bc3.comp` en la RX 550 vía RADV y
 produce 0/4096 de discrepancias. Lo que **no** está establecido es si puede hacerse sin RADV.
 
-**Por eso P-1 a IA-1 es la primera pregunta de la ronda.** Si la respuesta es "no hay camino
-viable sin reutilizar el GAR de `amdgpu`, el MVP debe redefinirse antes de escribir código", y
-eso es mejor saberlo en la ronda 2 que en la semana 6.
+**Por eso P-1 a IA-1 es la primera pregunta.** Y la medición de la Ronda 2 ha añadido un dato:
+la vía (D) funciona, así que **existe una ruta al hardware que no pasa por `amdgpu.ko`** — pero
+cuesta el shader verificado de la Fase 2. Ese intercambio hay que hacerlo explícitamente, no
+por omisión.
 
 ## 4. Path de submit de comandos
 

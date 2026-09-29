@@ -90,3 +90,30 @@ y la justificación en dos o tres líneas. Si algo depende de una respuesta de I
 `PENDIENTE-IA-1` en lugar de asumirlo.
 
 — IA-3
+
+
+---
+
+## ADDENDUM Ronda 2 — medido, cambia D-2
+
+He medido la conversión a ISA y **el shader de Fase 2 no entra por la vía que se suponía**:
+
+- `clang -x spirv` → rechazado. `clang -x hlsl` → `HLSL code generation is unsupported for
+  target 'amdgcn'`. `spirv-cross` → ausente. **`clang -x cl` (OpenCL C) funciona.**
+
+Consecuencia para ti: **`IOCTL_SUBMIT_COMPUTE` no recibirá un `.spv`.** Recibirá un objeto
+ELF `amdgcn` (`.text` + `.AMDGPU.config`) compilado offline, **o** una imagen de ISA cruda si
+IA-1 logra una conversión viable.
+
+**OpenCL C no tiene push constants.** Si acabamos por esa vía, `num_blocks` se pasa como
+argumento del kernel o por un buffer. Eso cambia la firma del shader y, por tanto, el
+agreement test de la Fase 2.
+
+**Pregunta concreta para D-2**: ¿el ioctl debería llevar el **código** o un **handle a un
+shader ya cargado**? Con un objeto ELF, el código puede pesar KB; yo sigo prefiriendo handle
+más `LOAD_SHADER`, pero quiero tu criterio ahora que el objeto es ELF y no `.spv`.
+
+**Y una advertencia de diseño**: si el shader se reescribe en OpenCL C, el agreement test de la
+Fase 2 (`test_decompress.c`) **no aplica**. No es una adaptacion: es un test distinto. La
+Fase 4A tendría su propio validador, y entonces **el criterio 6 (0/4096) queda sin cobertura**
+hasta que exista un shader en el formato definitivo. Eso hay que decirlo ahora.

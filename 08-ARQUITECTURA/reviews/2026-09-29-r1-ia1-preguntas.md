@@ -37,6 +37,37 @@ Mi documento de arquitectura marca todo lo dependiente de ingeniería inversa co
 
 ---
 
+## P-0 — CORRECCIÓN URGENTE de P-1 (medido en Ronda 2, antes de que Empieces)
+
+He medido la vía SPIR-V → ISA en esta máquina. **No funciona**, y esto cambia el encargo:
+
+| Vía | Resultado |
+|---|---|
+| `clang -x spirv` | `language not recognized: 'spirv'` |
+| `clang -x hlsl` | `HLSL code generation is unsupported for target 'amdgcn'` |
+| `spirv-cross` | **ausente** |
+| `clang -x cl` (OpenCL C) | **funciona**: emite `.text` + `.AMDGPU.config` |
+
+`clang` está instalado (22.1.8) y soporta `-target amdgcn -mcpu=gfx803`. Lo que **no** existe
+es el front-end que convierta **nuestro shader SPIR-V** a algo que `clang` acepte.
+
+**Consecuencia**: `decompress_bc3.spv` **no es reutilizable tal cual** en la vía del driver.
+Habría que reescribir el shader en **OpenCL C**.
+
+**Lo que te pido ahora, en vez de P-1**:
+
+1. ¿Existe algún camino en el árbol del kernel o en el host que convierta SPIR-V a OpenCL C o
+   a un formato que `clang -x cl` acepte? Busca en `RESEARCH/kernelbuild/linux-7.1.3` y en
+   `/usr/lib64`. **`spirv-cross` no está**, pero quizá haya otra cosa.
+2. Si no existe: ¿el shader se puede **reescribir en OpenCL C** sin cambiar su semántica? Esto
+   es una decisión de arquitectura mía, pero necesito tu judgement sobre si el shader usa
+   constructs de GLSL que OpenCL C no tiene. Concretamente **push constants**: OpenCL C no
+   tiene el concepto, se emula con argumentos del kernel o con un buffer. Eso **cambia la
+   interfaz** `num_blocks` y por tanto el test de la Fase 2.
+
+**Esto es más urgente que los offsets de ring.** Si el shader se reescribe, cambia el
+contrato con el agreement test, y eso hay que decidir antes de escribir el driver.
+
 ## P-1 — ¿Existe un camino de SPIR-V a ISA para GFX8 sin `amdgpu.ko`?
 
 **Esta es la pregunta que decide si el proyecto es viable.** Especificación de la decisión
