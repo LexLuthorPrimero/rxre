@@ -278,3 +278,42 @@ registro se apoya en `lsof`, `fuser` ni en un escaneo parcial de `/proc`.
   `F4-AD-16`.
 - **Comprobado también**: `--help` no lista ninguna bandera equivalente en este target. No lo
   doy por definitivo para otras versiones de clang; solo para la medida.
+
+
+## F4-AD-20 — Fase 3 se disena ahora; NO requiere unbind (pregunta incorrecta)
+
+- **Fecha**: 2026-09-29 · **Estado**: `DECIDIDO` (medido)
+- **Premisa que se me dio por cierta**: «la ejecución en hardware real sigue bloqueada por
+  F4-AD-15 (requiere `unbind`)». **Es incorrecta**, y lo verifiqué antes de aceptar la tarea.
+- **Medición**:
+  - `vkcube --gpu_number 1` → `Selected GPU 1: AMD Radeon RX 550 (RADV POLARIS12)`, `rc=0`
+  - `DRI_PRIME=1 glxgears` → `GL_RENDERER = AMD Radeon RX 550 (radeonsi, polaris12)`
+- **Por qué**: Fase 3 mide el sampler **con el driver que ya está cargado**. `F4-AD-15` aplica al
+  **driver propio de Fase 4**, que es otra cosa: reclamar el dispositivo en exclusiva. Son dos
+  questions distintas y se confundieron.
+- **Consecuencia**: **`AD-12` no está bloqueada.** Es ejecutable hoy con el host como está.
+  `003-fase3-pipeline-grafico.md` define el experimento.
+- **Lo que sí bloquea Fase 3, y es real, y NO es `unbind`**:
+  - `VK_FORMAT_BC3_UNORM_BLOCK` como `SAMPLED_IMAGE`: **sin verificar** (es `F1`)
+  - `VkImage` BC3 como attachment de render pass: **sin verificar**
+  - GLX desde un programa propio: sin resolver (medido en ronda anterior)
+- **Tres decisiones de diseño del experimento**:
+  1. El fragment shader **no calcula nada**: solo `texture(sampler, uv)`. Si hiciera aritmética,
+     un defecto del shader se confundiría con un defecto del sampler. `texture()` es opaco.
+  2. El destino es un **FBO**, no un storage buffer: `imageStore` es escritura del shader, y con
+     FBO el único escritor es el rasterizador, que es el sampler.
+  3. El **predictor se escribe dos veces, de forma independiente**. Si comparte la fórmula con lo
+     que se espera, el test **no puede** distinguir truncamiento de redondeo. Control `N4`.
+
+## F4-AD-21 — Fase 3 es prerrequisito lógico de Fase 4B
+
+- **Fecha**: 2026-09-29 · **Estado**: `DECIDIDO`
+- **Cadena**: si el sampler **trunca** y mantenemos el redondeo (`F4-AD-12`), entonces el encoder de
+  la Fase 1 y el sampler de la Fase 4 **no coinciden en la rampa**, y el agreement test de 4B **no
+  puede dar 0/4096 por esa causa**.
+- **No es un experimento paralelo**: si Fase 3 responde «truncamiento», `F4-AD-12` hay que
+  reabrirla **antes** de escribir el shader OpenCL C.
+- **Conexión que existe**: los **mismos bloques BC3** (`corpus_compressed.bin`, 1024 B, 64
+  bloques) alimentan ambas fases.
+- **Conexión que NO existe**: Fase 3 **no necesita nada de Fase 4** para ejecutarse. La
+  dependencia es unidireccional: Fase 4B ← Fase 3.
