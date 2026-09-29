@@ -136,11 +136,13 @@ void rx550_minmax_avx2(const uint8_t src[RX550_INPUT_BLOCK_BYTES], uint8_t out[8
  *
  * The rule, per "Block Compression (Direct3D 10)":
  *
+ * No rounding offset: pure truncation, as bcdec and GPU hardware do.
+ *
  *   a0 >  a1 : 6 interpolated values, divisor 7
- *              pal[i] = ((8-i)*a0 + (i-1)*a1 + 3) / 7,  i = 2..7
+ *              pal[i] = ((8-i)*a0 + (i-1)*a1) / 7,      i = 2..7
  *   a0 <= a1 : 4 interpolated values, divisor 5, plus the two fixed extremes
  *              0 (transparent) and 255 (opaque)
- *              pal[i] = ((6-i)*a0 + (i-1)*a1 + 2) / 5,  i = 2..5
+ *              pal[i] = ((6-i)*a0 + (i-1)*a1) / 5,      i = 2..5
  *
  * The sub-block alpha of BC3 uses the same two-mode ramp as BC4 by design.
  * This format carries a colour block as well, so it is BC3 and not BC4. An
