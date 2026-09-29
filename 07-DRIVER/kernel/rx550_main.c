@@ -16,6 +16,35 @@
  * declared in the ABI header with placeholder structs and are not implemented;
  * see the note there about why they are not defined yet.
  *
+ * THE STUBS, AND WHY THEY ARE STUBS
+ *
+ * Both remaining ioctls are declared in the ABI and refuse cleanly. Neither is
+ * waiting for somebody to write code; both are waiting for a fact.
+ *
+ * RX550_IOCTL_SUBMIT_COMPUTE -> -ENOSYS
+ * The PM4 packet encoding is established and verified against amdgpu.ko
+ * (0xC0031500 x10, 0xC0031502 x1, 0xC0027600 x10, 0xC0017600 x10, 0xC0004600
+ * x15; all five counts reproduced). The register layout around it is established
+ * too: the grid is COMPUTE_NUM_THREAD_X/Y/Z, and COMPUTE_PGM_RSRC1 holds
+ * resource counts, not dimensions.
+ *
+ * What is missing is a sequence that runs on this ASIC. The one in gfx_v8_0.c
+ * is gfx_v8_0_do_edc_gpr_workarounds(), whose first statement is
+ *
+ *     if (adev->asic_type != CHIP_CARRIZO) return 0;
+ *
+ * so it is a Carrizo EDC workaround that never executes on Polaris 12, and it
+ * loads three different init shaders, not a client shader. A dispatch built from
+ * it would be the wrong sequence for the wrong reason, and a malformed one fails
+ * by doing nothing. -ENOSYS is the honest answer.
+ *
+ * RX550_IOCTL_LOAD_FIRMWARE -> -ENOTTY
+ * The blob exists and parses: tests/test_firmware_parse.c validates the real
+ * polaris12_sdma.bin against the criterion from amdgpu_ucode.c:535. What is
+ * missing is the register programming, whose ordering lives in amdgpu_smc.c and
+ * is not in this tree. Writing registers without that ordering is not an
+ * incomplete implementation, it is a guess executed against live hardware.
+ *
  * WHY cdev AND NOT DRM
  *
  * DRM is the right long-term answer and this driver will grow into one. It is
