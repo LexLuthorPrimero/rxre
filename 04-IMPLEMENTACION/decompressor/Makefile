@@ -47,8 +47,9 @@ C_SRC   := shader_vs_c.c
 C_OBJS  := $(COMP)/rx550_compress.o $(COMP)/rx550_compress_avx2.o
 SPV     := decompress_bc3.spv
 COMP_SP := $(COMP)/test_compress
+VULKAN  := /usr/include/vulkan/vulkan.h
 
-.PHONY: all test clean check-spirv check-codec
+.PHONY: all test test-gpu test-fase-a clean check-spirv check-codec
 
 all: shader_vs_c $(SPV)
 
@@ -66,6 +67,30 @@ $(C_OBJS) $(COMP)/rx550_compress.h:
 # --- SPIR-V ------------------------------------------------------------------
 $(SPV): decompress_bc3.comp
 	$(GLSLANG) -V $< -o $@
+
+# --- GPU agreement test ------------------------------------------------------
+# Requires vulkan-headers. The earlier version hand-declared the Vulkan structs
+# and was abandoned: 37 compile errors plus a duplicated pNext that shifted a
+# struct's layout silently, surfacing later as an undiagnosed SIGSEGV in
+# vk_pipeline_min.c. Vulkan 1.4 also renamed pMemoryTypes to memoryTypes, a
+# change the real header catches at compile time and a hand-written one would
+# not. Do not reintroduce manual declarations. See AD-13.
+test_decompress: test_decompress.c $(C_OBJS) $(COMP)/rx550_compress.h
+	@test -f $(VULKAN) || { \
+	  echo "ERROR: $(VULKAN) no existe."; \
+	  echo "       sudo dnf install vulkan-devel"; \
+	  exit 1; }
+	$(CC) $(CFLAGS) -o $@ test_decompress.c $(C_OBJS) $(ASMFLAGS) -ldl -lm
+
+# Phase A only: no GPU, no device creation. Safe to run unattended.
+test-fase-a: test_decompress
+	./test_decompress
+
+# Phase B dispatches on the RX 550. It is a separate target because it creates
+# a Vulkan instance and a logical device, which is a GPU workload and outside
+# the agent's authorised scope -- a human runs it.
+test-gpu: test_decompress $(SPV)
+	./test_decompress --gpu
 
 # --- run ---------------------------------------------------------------------
 # Order matters: reconcile the shader with the C BEFORE compiling SPIR-V. A
@@ -93,4 +118,4 @@ check-spirv: $(SPV)
 	@echo "  que no esta instalado en este host (NOT_AVAILABLE)."
 
 clean:
-	rm -f shader_vs_c $(SPV)
+	rm -f shader_vs_c test_decompress $(SPV)
