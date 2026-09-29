@@ -245,6 +245,23 @@ Controles negativos del cotejo, exigidos por §6 antes de aceptar un `PASS`:
 **Artefactos**: `06-INGENIERIA-INVERSA/corpus/q5_predict_full.py` (predicción) y
 `06-INGENIERIA-INVERSA/corpus/q5_ref_c.c` (referencia en C), commit `0e19a2f`.
 
+**El volcado NO se versiona, y el hash sigue siendo citable.** Son 524 288 B de
+datos generados, cubiertos por `*.bin` en `.gitignore:17`, y la predicción es
+**reproducible bit a bit** en segundos desde el repo:
+
+```sh
+cd 06-INGENIERIA-INVERSA/corpus
+python3 q5_predict_full.py /tmp/q5_pred.bin
+sha256sum /tmp/q5_pred.bin
+# -> 2435189d8e1e7284bbc3da1fc44b2d82bc1b86f832e0cbc7eab28e62b14d0845
+```
+
+Verificado dos veces con salidas en ficheros distintos: **idénticas**. El
+artefacto congelado es por tanto el par *(comando, sha256)*, y no un blob que
+dependa de que alguien guarde un fichero en `/tmp`. Es lo que permite que el
+paso 5 de §8 compare contra un volcado **congelado** sin que el modelo se
+regenere durante la ejecución.
+
 **Sobre la referencia en C, y por qué el primer intento no valía nada.**
 La escribí implementando sólo `lp_build_lerpdxta()`, igual que mi modelo en
 Python, y por eso **coincidieron en las 524 288**. Eso no era un control: eran
