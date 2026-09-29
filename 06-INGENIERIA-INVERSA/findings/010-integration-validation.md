@@ -72,6 +72,48 @@ trabajo de IA-2 sin commit. `git log -1` = `1b71c9a` (este documento). El commit
 verificables, y no un hash. Cuando IA-2 commitee, este apartado queda obsoleto en un solo
 sentido: el hash. Los números de línea no cambian por un commit.
 
+## 0-quater. OPCIÓN A — clon limpio, `rc=0`. El último criterio cae
+
+Las siete fuentes que el pipeline necesita están versionadas (las recogió `0b95f90`; la
+procedencia, en `d94460d`). Ejecuté la prueba que quedaba.
+
+```
+$ git clone /home/lucas/Escritorio/RX550-INVESTIGACION /tmp/rx550-clean
+$ cd /tmp/rx550-clean/04-IMPLEMENTACION && ./integration_test.sh
+  t1_gradiente.png     PASO     0 discrepancias, 38.24 dB (suelo 25.0)
+  t2_ruido.png         PASO     0 discrepancias, 13.55 dB (suelo 10.0)
+  t3_estructura.png    PASO     0 discrepancias, 45.12 dB (suelo 20.0)
+3/3 texturas: ESTADO: PASO
+rc=0
+```
+
+El clon no traía `bin/` ni `work/` — están en `.gitignore` y es lo correcto — así que el
+script **los reconstruyó desde fuentes** antes de correr. Eso es la prueba de lo que
+importaba: nada de lo que el pipeline usa estaba en el disco de trabajo.
+
+**Hashes de los binarios reconstruidos en el clon, idénticos a los del árbol de trabajo:**
+
+```
+da4eb4cc4736b16329f3360e53742b2923e818b2d8ab5a1368e5b5aa974e484e  bin/rx550_compress
+680407e0dfb27543752e50cb69828dd02a113a18e529ed5d9c784b17dec8efd9  bin/rx550_decompress
+```
+
+Compilación reproducible de hecho, no por confianza: mismo hash tras dos construcciones
+en directorios distintos.
+
+**Comprobado además**:
+
+| | |
+|---|---|
+| 3 corridas consecutivas en el clon | rc=0 las tres |
+| Los 3 comandos del `README.md`, literales, desde la raíz del clon | rc=0 los tres |
+| `make -C compressor test` en el clon | `CONFORMA` (AD-11) |
+| `decompress_bc3.spv` disponible desde git | sha256 `e760e9d8…285c19` |
+
+Clon eliminado después de medir.
+
+**`REPRODUCIBLE_FROM_CLEAN_CLONE = PASS`.** Los ocho criterios de cierre se cumplen.
+
 ## 0-ter. OPCIÓN B — el layout 2D del PNG, medido y con control negativo
 
 Decisión del humano: ejecutar la recompresión, o aceptarla por inferencia. **La ejecuté.**
@@ -495,7 +537,7 @@ decisión AD-11 hay que reabrirla y el round-trip del encoder no sería el que d
 | Cuarta fuente (spec BC3) sobre el PNG | **PASO** | 0 de 16384 × 3 |
 | Layout 2D del PNG (§0-ter) | **PASO** | 38.24 / 13.55 / 45.12 dB contra el original, con control negativo a 6–12 dB |
 | Binarios reproducibles desde fuentes | **PASO en el árbol de trabajo** | `bin/` borrado y reconstruido, 3/3 |
-| **Pipeline reproducible desde un clon del repo** | **`NOT_DETERMINED`** | **`04-IMPLEMENTACION/` sin commitear — §0-bis. Bloquea a IA-2** |
+| **Pipeline reproducible desde un clon del repo** | **PASO** | `git clone` → `integration_test.sh` → **3/3, rc=0**, 3 corridas (§0-quater) |
 
 **Condición de refutación de mi "PASO"**: si alguien cambia el corpus, el compresor, el
 shader o el escritor de PNG, los tres números de PSNR y el 0/16384 deben moverse. Si el
