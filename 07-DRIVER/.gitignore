@@ -19,6 +19,7 @@ modules.order
 tests/test_version_ioctl
 tests/test_firmware_load
 tests/test_firmware_parse
+tests/test_pm4
 
 # tests/data/polaris12_sdma.bin se versiona, y hace falta una excepcion para
 # que sea posible: el .gitignore de la raiz tiene "*.bin" para artefactos de

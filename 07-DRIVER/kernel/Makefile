@@ -16,7 +16,14 @@
 # kernel/README.md.
 
 obj-m += rx550.o
-rx550-objs := rx550_main.o
+
+# rx550_pm4.o is the packet encoder. It is listed here even though nothing calls
+# it yet: SUBMIT_COMPUTE is a stub, so the encoder has no caller in the kernel.
+# Building it anyway means the kernel build is what proves it compiles against
+# kernel headers, rather than the userspace test being the only check. The
+# test compiles the same .c, so a packet the test validates is the packet this
+# object encodes.
+rx550-objs := rx550_main.o rx550_pm4.o
 
 KERNELRELEASE ?= $(shell uname -r)
 KERNELDIR    := /lib/modules/$(KERNELRELEASE)/build

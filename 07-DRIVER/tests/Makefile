@@ -21,7 +21,12 @@ BLOBSRC := /usr/lib/firmware/amdgpu/polaris12_sdma.bin.xz
 # compressed one next to the payload is how a fixture check silently passes.
 BLOB_SHA256 := e27b3ec976f87e32883b9190e653b20d27f9e77da8dd2d77eeb10c35ee9f1e61
 
-TESTS := test_firmware_parse test_firmware_load
+TESTS := test_firmware_parse test_firmware_load test_pm4
+
+# Kernel-side sources the userspace tests compile directly. The test then
+# exercises the same object the module links, not a transcription of it: a
+# packet the test validates is the packet the driver emits.
+KERNEL_SRC := ../kernel/rx550_pm4.c
 
 .PHONY: all run clean check-blob
 
@@ -51,6 +56,13 @@ test_firmware_parse: test_firmware_parse.c $(DATA)/polaris12_sdma.bin
 test_firmware_load: test_firmware_load.c ../userspace/librx550.c
 	$(CC) $(CFLAGS) -o $@ $^
 
+# -I../kernel so the test finds rx550_pm4.h; the sources are shared with the
+# module. rx550_pm4.c includes <linux/types.h> and <linux/stddef.h>, which
+# resolve against the running kernel's headers, so the test is built against the
+# same definitions the module is.
+test_pm4: test_pm4.c $(KERNEL_SRC)
+	$(CC) $(CFLAGS) -I../kernel -o $@ $^
+
 # make -C tests enters this directory, so ./tests/... would be wrong here. The
 # tests take their fixture paths as argv[1] precisely so that the directory they
 # run from stops mattering.
@@ -60,6 +72,9 @@ run: $(TESTS)
 	@echo
 	@echo "--- test_firmware_load ---"
 	@./test_firmware_load
+	@echo
+	@echo "--- test_pm4 ---"
+	@./test_pm4
 
 clean:
 	rm -f $(TESTS) $(DATA)/*.bin
