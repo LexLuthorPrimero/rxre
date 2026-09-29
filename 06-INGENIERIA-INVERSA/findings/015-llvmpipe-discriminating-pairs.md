@@ -22,6 +22,14 @@ directorio, y **una división en 271/378 que yo mismo propuse era falsa**.
 > anticipa el resultado de `RUNTIME_EXECUTION`; sólo evita que un
 > `NOT_DETERMINED` demasiado ancho sobreviva a evidencia ya reunida.
 
+> **Segunda enmienda (2026-09-29, 04:58).** El eje *«árbol fuente leído =
+> binario instalado»* pasa de `NOT_DETERMINED` a **`SUPPORTED` con salvedad**,
+> por la cadena de identidad del binario y la auditoría del intervalo de
+> versiones. Ver §«Procedencia del binario». **El eje de ejecución no se
+> toca**: `llvmpipe ejecutado` y `modelo ↔ ejecución` siguen
+> `NOT_DETERMINED`, y este resultado **no reduce** la necesidad de
+> `RUNTIME_EXECUTION`. Queda un solo discriminante.
+
 ---
 
 ## Qué se pide y qué hay
@@ -98,18 +106,27 @@ fallo que esta sección evita.
 
 ### Estado de Q-5
 
-**Enmienda del 2026-09-29, 04:40.** La redacción anterior de esta tabla decía
-`NOT_DETERMINED` para la ruta efectiva. Sigue siendo `NOT_DETERMINED`, pero
-**por un motivo más estrecho**: antes no se había trazado nada, y ahora hay
-un trazado de 8 saltos. La clasificación sube de `UNKNOWN` a `EVIDENCE` en
-un eje, y los demás siguen abiertos. Ver §«Ruta efectiva, por trazado».
+**Dos enmiendas el mismo día.** La tabla de abajo no existió en esa forma al
+escribir el documento.
+
+- **04:40** — se traza la ruta estática, 8 saltos, del sampler `NEAREST` a
+  `lp_build_lerpdxta()`. El eje *ruta efectiva* sube de `NOT_DETERMINED` a
+  `EVIDENCE`. Ver §«Ruta efectiva, por trazado».
+- **04:58** — el eje *árbol leído = binario instalado* pasa de
+  `NOT_DETERMINED` a `SUPPORTED` con salvedad, por la cadena de identidad del
+  binario y la auditoría del intervalo de versiones. Ver §«Procedencia del
+  binario». Sustituye al `FAIL` por método de `Q-3` (`00f9051`).
+
+**Ningún eje de ejecución se ha tocado.** `llvmpipe ejecutado` y
+`modelo ↔ ejecución` siguen `NOT_DETERMINED`, y el segundo hallazgo **no reduce**
+la necesidad de `RUNTIME_EXECUTION`. Queda un discriminante, no dos.
 
 | Eje | Estado | Cómo se midió |
 |---|---|---|
 | Función identificada | **`FACT`** | `lp_bld_format_s3tc.c:817-877`, leído |
 | Ruta efectiva para el sampler `NEAREST` | **`EVIDENCE`** | trazado estático, 8 saltos, §«Ruta efectiva» |
 | Aritmética de los 649 | **`TEST`** | `q5_validate_llvmpipe.py`, 649/649, control negativo por mutación |
-| Árbol fuente leído **=** binario instalado | **`NOT_DETERMINED`** | `Q-3` salió `FAIL` por método en `00f9051` |
+| Árbol fuente leído **=** binario instalado | **`SUPPORTED`** | §«Procedencia del binario», con `LIMITATION` explícita |
 | llvmpipe ejecutado | **`NOT_DETERMINED`** | requiere `RUNTIME_EXECUTION` |
 | Correspondencia modelo ↔ ejecución | **`NOT_DETERMINED`** | requiere `RUNTIME_EXECUTION` |
 
@@ -175,29 +192,99 @@ por hechas sin comprobarlas:
 > el binario/ICD instalado haya sido compilado a partir de ese árbol ni que esa
 > ruta sea la observada durante ejecución.
 
-**Por qué el segundo hueco no es subsanable leyendo.** `Q-3` (`00f9051`) salió
-`FAIL` por método al intentar verificar por binario que el árbol leído es el
-del build instalado. Un `strings` o un `nm -D` sobre `libgallium` **no**
-distinguen dos revisiones del mismo fichero fuente. Cerrarlo exige o el hash del
-paquete que produjo el binario, o un símbolo que este árbol no tiene. Ese es el
-primer hueco, y es independiente del segundo: aunque se probara que el binario
-es de este árbol, **`RUNTIME_EXECUTION` sigue siendo la única forma de observar
-la ruta**.
+**Por qué el segundo hueco no lo subsana `RUNTIME_EXECUTION`.** Ejecutar
+llvmpipe observa *qué hace*, no *qué código tiene delante*. Las dos
+incertidumbres son independientes, y confundirlas haría creer que basta con
+ejecutar para resolver la procedencia. Se resuelven por vías distintas:
+
+| Incertidumbre | Se cierra con |
+|---|---|
+| Qué código hay detrás del binario | cadena RPM + Build-ID + auditoría del intervalo de versiones |
+| Qué código se ejecuta | una ejecución observada, `RUNTIME_EXECUTION` |
+
+### Procedencia del binario
+
+Medido el 2026-09-29, por mí. Sustituye al `FAIL` por método de `Q-3`
+(`00f9051`): aquel buscado símbolos, y un símbolo no distingue dos revisiones
+del mismo fichero fuente. Esto usa la **cadena de identidad** que el
+instalador sí escribe.
+
+| Dato | Valor | Cómo se midió |
+|---|---|---|
+| Paquete | `mesa-libgallium-26.2.3-1.fc44.x86_64` | `rpm -qf` |
+| SRPM declarado | `mesa-26.2.3-1.fc44.src.rpm` | `%{SOURCERPM}` |
+| sha256 del `.so` | `9725973f873b42751f8c9d9862986dffac51ed8bb47ace13124f298d140e4d1e` | `sha256sum` |
+| Build-ID | `40bd61677c87355ec3a60949323dfc2473a56ace` | `file` |
+| El enlace Build-ID resuelve a este `.so` | **sí**, y `rpm -qf` sobre el enlace da el paquete | `readlink -f` + `rpm -qf` |
+| Árbol analizado | `c5e4135` (`26.1-branchpoint-1415`), 16 mayo 2026 | `git describe` |
+| Branchpoint de la serie | `5b20089` (`26.2-branchpoint`), 3 julio 2026 | `git rev-parse` |
+| `c5e4135` es ancestro de `26.2-branchpoint` | **sí**, verificado | `git merge-base --is-ancestor` |
+
+**Auditoría del intervalo** `c5e4135..26.2-branchpoint`, sobre la ruta trazada:
+
+| Fichero | Commits | Efecto |
+|---|---:|---|
+| `lp_bld_format_s3tc.c` | **0** | la aritmética, literalmente intacta |
+| `lp_bld_sample_aos.c` | **0** | el sampler `NEAREST`, intacto |
+| `lp_bld_format_aos.c` | 1 | `5bb025f953a`, **sólo big-endian** |
+| `lp_bld_format_soa.c` | 0 | — |
+| `lp_bld_sample_soa.c` | 4 | `min_lod`, sparse residency, filtrado de cube maps. Ninguno toca `lp_build_sample_image_nearest()` |
+
+`5bb025f953a` (*"gallivm: fix small_unorm -> unorm8 fetch path on
+big-endian"*) es el único cambio en la zona, y su propio diff lo acota:
+`#if UTIL_ARCH_BIG_ENDIAN ... #else ... j * type.width`. Esta máquina es
+`x86_64` little-endian, y la rama tocada no es además la de S3TC sino la del
+*fast path* `small_unorm`.
+
+**Afirmación que esto sostiene, y su límite exacto:**
+
+> La identidad del commit que produjo el binario **no** está establecida. Pero
+> la ruta relevante analizada **no presenta cambios funcionales** entre el árbol
+> examinado y el branchpoint de la serie 26.2, salvo un cambio condicionado a
+> big-endian que no aplica a esta máquina.
+
+Eso es más fuerte que la igualdad literal, y sobrevive al hueco que no puede
+cerrarse: **cualquiera que sea el commit exacto dentro de ese intervalo, el
+comportamiento de la ruta es el mismo.** Un argumento así no depende de
+identificar el commit.
+
+`LIMITATION` de este eje, explícita:
+
+1. El commit exacto del point release `26.2.3` **no** está identificado. El
+   clon no tiene tags de point release: `git tag -l "26.2*"` devuelve sólo
+   `26.2-branchpoint`.
+2. El SRPM `mesa-26.2.3-1.fc44.src.rpm` **no está en disco**. No se puede
+   verificar la cadena de build.
+3. **Parches downstream de Fedora no descartados.** Si Fedora aplicó un parche
+   a `lp_bld_format_s3tc.c` o a la ruta del sampler, esta auditoría del
+   *upstream* no lo ve. Declarado, no descartado.
+
+Por (1)-(3) el eje es `SUPPORTED` **con salvedad**, y la salvedad viaja como
+campo aparte, no como categoría nueva: `AGENTS.md` §Evidence vocabulary tiene
+una lista cerrada y no incluye ninguna variante de caveat, y el precedente del
+repo es el mismo —`PASS_CON_CAVEATS` con la salvedad en el identificador
+(`R1-COLLECTOR-INDEPENDENT-REVIEW-20260925.md:199`) y el detalle en campo
+`LIMITATION`—. Un token nuevo sería más fácil de citar mal.
+
+**Y esto no reduce la necesidad de `RUNTIME_EXECUTION`.** Ahora sabemos mucho
+mejor qué código esperamos detrás del binario; seguimos sin saber, por
+observación, que una ejecución concreta de llvmpipe atraviese
+`NEAREST → lp_build_fetch_rgba_aos() → lp_build_fetch_s3tc_rgba_aos() →
+s3tc_dxt5_* → lp_build_lerpdxta()`. El discriminante que queda **es uno solo**.
 
 ### Qué queda pendiente, con precisión
 
 ### Qué queda pendiente, con precisión
 
-1. **Q-5**: cerrar los **dos** huecos de la tabla de arriba. El segundo —
-   que el árbol leído sea el binario instalado — no lo cierra
-   `RUNTIME_EXECUTION`; lo cierra el hash del paquete que produjo el binario, o
-   una fuente de build. El primero sí.
-   Con ambos cerrados, el clasificador compara contra una referencia correcta
-   **y alcanzada**.
+1. **Q-5**: queda **un** hueco, no dos. Cerrado el de procedencia (§«Procedencia
+   del binario»). El que sigue es **ejecución**: demostrar por observación que
+   llvmpipe atraviesa la cadena trazada. Eso requiere `RUNTIME_EXECUTION` y
+   nada más lo sustituye. Con él cerrado, el clasificador compara contra una
+   referencia correcta **y alcanzada**.
 2. **AD-12**: el comportamiento real de redondeo o truncamiento del sampler de
    la RX 550. `NOT_DETERMINED`, y es la medición que el corpus de 649 existe
-   para interpretar. **No lo adelantaría Q-5 ni aunque los dos huecos se
-   cerraran**: Q-5 establece la aritmética de un rival de software, AD-12
+   para interpretar. **No lo adelantaría Q-5 ni aunque su único hueco se
+   cerrara**: Q-5 establece la aritmética de un rival de software, AD-12
    pregunta por el hardware. Son dos mediciones sobre dos dispositivos.
 3. **El driver exclusivo**: `07-DRIVER/`, que es trabajo de Fase 4 y no de
    este documento.
@@ -428,5 +515,7 @@ Este trabajo se refutaría con:
 - Generador y clasificador: `06-INGENIERIA-INVERSA/llvmpipe_pairs.py`, commit `75e6b85`
 - Validación de la aritmética: `06-INGENIERIA-INVERSA/corpus/q5_validate_llvmpipe.py`, commit `d07aaac` — 649/649, con control negativo por mutación
 - Cadena `NEAREST` → `lp_build_lerpdxta`: trazada por mí el 2026-09-29, 8 saltos, todos por lectura. Ficheros citados: `lp_bld_sample_aos.c:363,431,963` · `lp_bld_format_aos.c:468,730` · `lp_bld_format_s3tc.c:881,985,1032,2150,2175`. **Grado**: `EVIDENCE` sobre el árbol leído, no sobre el binario
-- `Q-3` (binario instalado = árbol leído): `FAIL` por método, commit `00f9051`
+- `Q-3` (binario instalado = árbol leído): `FAIL` por método, commit `00f9051`. **Sustituido** por §«Procedencia del binario», que usa la cadena RPM + Build-ID + auditoría del intervalo en vez de símbolos
+- Paquete del `.so`: `mesa-libgallium-26.2.3-1.fc44.x86_64`, sha256 `9725973f…4e1e`, Build-ID `40bd6167…6ace`. Medido por mí con `rpm -qf`, `sha256sum`, `file`, `readlink -f`
+- Intervalo auditado: `c5e4135..26.2-branchpoint` en `src/gallium/auxiliary/gallivm/`. 0 commits en `lp_bld_format_s3tc.c` y `lp_bld_sample_aos.c`; 1 en `lp_bld_format_aos.c` (`5bb025f953a`, big-endian); 4 en `lp_bld_sample_soa.c` (min_lod, sparse, cube). Medido con `git log --oneline c5e4135..26.2-branchpoint -- <fichero>`
 - Corpus materializado: `08-ARQUITECTURA/validations/casos_llvmpipe_unico.json`, commit `5c02833` (IA-3), sha256 `4e9de0a3…`
