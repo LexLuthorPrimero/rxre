@@ -1,113 +1,112 @@
-# DECISIONS-F4 — Registro de decisiones, Fase 4
+# Decisiones de Fase 4 — Driver Exclusivo RX 550
 
-**Ámbito**: `08-ARQUITECTURA/` (IA-3 Arquitecto)
-**Iniciado**: 2026-09-29
-**Estado**: vivo
+**Ámbito**: `08-ARQUITECTURA/` — IA-3 (Arquitecto)
+**Iniciado**: 2026-09-29 · **Ronda**: 1
 
-Convención de estados, tomada de `AGENTS.md`:
-
-| Estado | Significado |
-|---|---|
-| `DECIDIDO` | cerrado, con la evidencia que lo sostiene |
-| `ABIERTO` | requiere información que aún no existe |
-| `BLOQUEADO` | no avanzable hasta resolver una dependencia |
-| `PROPUESTO` |-emittingido por mí, pendiente de las otras IAS |
+Estados, según `AGENTS.md`: `DECIDIDO` · `PROPUESTO` · `ABIERTO` · `BLOQUEADO`.
 
 ---
 
-## F4-001 — El MVP es solo compute
+## F4-AD-1 — Ámbitos disjuntos para 3 IAS
 
-- **Fecha**: 2026-09-29
-- **Estado**: `DECIDIDO`
-- **Decisión**: el driver propio cubre exclusivamente carga de compute. No toca gráficos,
-  vídeo, display, PM ni reset.
-- **Por qué**: el objetivo verificable del proyecto es el agreement test de Fase 2, que es
-  compute. Ampliar al stack gráfico multiplica la superficie sin producir un criterio de éxito
-  adicional.
-- **Consecuencia**: amdgpu sigue presente para PCIe, APM, power state y display. Ver F4-002.
+- **Fecha**: 2026-09-29 · **Estado**: `DECIDIDO`
+- **Decisión**: IA-1 `06-INGENIERIA-INVERSA/` · IA-2 `07-DRIVER/` · IA-3 `08-ARQUITECTURA/`.
+- **Justificación**: elimina conflictos de edición entre IAS concurrentes.
 
-## F4-002 — El MVP no puede ejecutar en la GPU real sin autorización de sistema
+## F4-AD-2 — Solo compute inicialmente, no gráficos
 
-- **Fecha**: 2026-09-29
-- **Estado**: `BLOQUEADO`
-- **Defecto**: un driver exclusivo necesita que amdgpu no reclame `1002:699f`. Eso exige
-  bind/unbind, que es un cambio de estado del sistema.
-- **Delimito**: invalida el **criterio de éxito 5** (agreement test contra el driver propio)
-  durante el MVP. **No** invalida los criterios 1–4 y 6: cargar el módulo, la validación de
-  ABI, el ring en CPU y el fuzz siguen siendo ejecutables.
-- **Autorización que lo resuelve**: permiso explícito del humano para `echo 0000:03:00.0 >
-  /sys/bus/pci/drivers/amdgpu/unbind` y carga de `rx550.ko`, con restore garantizado.
-  `AGENTS.md` prohíbe(sysfs y acciones privilegiadas sin autorización expresa.
-- **Nota**: sin esta autorización el MVP entrega "el driver funciona pero no ejecuta shaders
-  en la RX 550", lo cual **no** satisface el objetivo declarado. Debe declararse así, no
-  maquillarse.
+- **Fecha**: 2026-09-29 · **Estado**: `DECIDIDO`
+- **Decisión**: el driver inicial solo soporta compute.
+- **Justificación**: reduce el alcance y permite un MVP realista.
+- **Reserva**: el argumento "reduce 10x" es condicional a `F4-AD-6`. Si no hay inicialización
+  de firmware reutilizable, el alcance real es mayor.
 
-## F4-003 — Transporte kernel↔userspace: ioctl, no mmap de ring
+## F4-AD-3 — Stack completo propio, sin dependencia de `amdgpu.ko`
 
-- **Fecha**: 2026-09-29
-- **Estado**: `PROPUESTO`
-- **Decisión**: ioctl con copia intermedia en el MVP. `mmap` del ring se difiere.
-- **Por qué**: `mmap` exige un modelo de coherencia de caché y sincronización que no está
-  diseñado; ioctl basta para compute por lotes.
-- **Contraargumento que acepto**: la copia añade latencia y puede ser inaceptable si el
-  objetivo incluye rendimiento. Se revisa al final del MVP, no antes.
-
-## F4-004 — GPUAddressing: no se usa BISM/HST en el MVP
-
-- **Fecha**: 2026-09-29
-- **Estado**: `ABIERTO` — depende de `@IA-1`
-- **Decisión provisional**: precisión 32/40 bits si el modo de compute lo soporta. El modo por
-  rangos de 48 bits, que es lo que VRAM de 2 GiB normalmente requiere, tiene un formato de
-  tabla que aún no está verificado.
-- **Por qué importa**: 2 GiB de VRAM y punteros de buffer de proceso no caben en 32 bits.
-  Si el hardware solo ofrece 48 bits por rangos, esto **bloquea** el MVP.
-
-## F4-005 — El riesgo principal es el GAR, no el driver
-
-- **Fecha**: 2026-09-29
-- **Estado**: `DECIDIDO`
-- **Decisión**: la primera petición a `@IA-1` es si existe un camino utilizable de shader a
-  ISA para GFX8. Sin eso, el proyecto no es viable y hay que saberlo antes de escribir código.
-- **Evidencia disponible**: el hardware **sí** ejecuta el shader, vía RADV, con 0/4096 de
-  discrepancias (`edd434b`). Lo que no está establecido es si puede hacerse **sin** RADV.
-
-## F4-006 — `OWNERSHIP` del dispositivo es requisito, no descripción
-
-- **Fecha**: 2026-09-29
-- **Estado**: `DECIDIDO`
-- **Decisión**: ningún entregable de IA-1 o IA-2 puede declarar `OWNERSHIP=FULL` del nodo.
-  Según `AGENTS.md`, `FULL` exige evidencia atribuible completa por identidad PCI, más
-  namespaces, FDs de DRM, escritores, PM, governor, IRQ, scheduler, storage y BtrF.
-- **Consecuencia práctica**: mientras amdgpu esté cargada, la propiedad del nodo **no es
-  nuestra**. Declararlo es un error, no una convencionalidad.
-
-## F4-007 — Heredado de Fases 1 y 2: validar antes de comparar
-
-- **Fecha**: 2026-09-29
-- **Estado**: `DECIDIDO`
-- **Decisión**: el test debe validar sus propios datos antes de comparar, y el control
-  negativo es obligatorio. Learned de esta fase:
-  1. Sin validación previa, una salida **entera a cero** produjo "0 discrepancias" y un
-     falso `PASS`.
-  2. Un test que imprime `[FAIL]` y devuelve `rc=0` hace que un CI reporte verde sobre un
-     fallo. **Todo test de Fase 4 debe devolver código de salida no cero ante fallo.**
-  3. Un validador que **modela** el código en lugar de ejecutarlo (`shader_vs_c`) no detectó
-     ninguno de los tres bugs reales. Para GFX8, un emulador en CPU del GAR **no** sustituye a
-     la ejecución real.
-- **Consecuencia**: el mismo `make test-gpu` debe correr sin modificarse y dar 0/4096 contra
-  `rx550_rt`. Si hay que tocarlo para que funcione, el diseño está mal.
+- **Fecha**: 2026-09-29 · **Estado**: `DECIDIDO` **con reserva mayor** — ver `F4-AD-6`.
+- **Decisión**: `rx550.ko` no depende de `amdgpu.ko` en runtime.
+- **Justificación**: si dependiera, no sería un driver "exclusivo".
 
 ---
 
-## Registro de peticiones a otras IAS
+## F4-AD-4 — El riesgo que domina el proyecto es el GAR, no el scheduler
 
-| # | Destinatario | Asunto | Fecha | Estado |
+- **Fecha**: 2026-09-29 · **Estado**: `DECIDIDO`
+- **Decisión**: la primera petición a IA-1 es si existe un camino de SPIR-V a ISA para GFX8
+  **sin** `amdgpu`. Sin eso, el objetivo del proyecto no es alcanzable y hay que redefinir el
+  MVP **antes** de escribir código.
+- **Evidencia de lo que sí sabemos**: el hardware ejecuta el shader vía RADV con 0/4096 de
+  discrepancias (`edd434b`, tag `v1.0-fase2-completa`). Lo que no está establecido es si puede
+  hacerse sin RADV.
+
+## F4-AD-5 — El MVP no puede ejecutar en la RX 550 sin autorización de sistema
+
+- **Fecha**: 2026-09-29 · **Estado**: `BLOQUEADO`
+- **Defecto**: un driver exclusivo exige que `amdgpu` no reclame `1002:699f`. Eso requiere
+  `unbind` por sysfs, prohibido por `AGENTS.md` sin autorización expresa.
+- **`OWNERSHIP`**: mientras `amdgpu` esté cargada, `OWNERSHIP != FULL`. `AGENTS.md` exige
+  evidencia atribuible completa por identidad PCI, FDs, escritores, PM, governor, IRQ,
+  scheduler, storage y Btrfs. Declarar `FULL` sería un error.
+- **Delimito lo que invalida**: el criterio de éxito 6 (agreement test vía `librx550`).
+- **NO invalida**: criterios 1–5, ring en CPU, validación de ioctl, empaquetado, tests de ABI.
+- **Autorización que lo resuelve**: permiso humano explícito para desenlazar `1002:699f` y
+  cargar `rx550.ko`, con restore garantizado.
+- **Comunicación obligatoria**: sin esa autorización, el estado del proyecto se describe como
+  *"el driver funciona pero no ejecuta shaders en la RX 550"*. Sin adornos.
+
+## F4-AD-6 — F4-AD-3 choca con el firmware
+
+- **Fecha**: 2026-09-29 · **Estado**: `BLOQUEADO` — depende de `@IA-1`
+- **Conflicto**: la especificación pide a la vez «firmware: usar el del kernel» y «sin
+  dependencia de `amdgpu.ko` en runtime». **Son incompatibles**: no se puede usar el firmware
+  de `amdgpu` sin depender de `amdgpu`.
+- **Lo que probablemente falta**: inicializar un GCN/RDNA desde cero exige PSP/SMU —blanqueo
+  de stacks, descarga de firmware, formación de heaps, arranque del scheduler SMU. Ese trabajo
+  vive hoy dentro de `amdgpu.ko`. **No afirmo** cómo de recuperable es; es `PENDIENTE-IA-1`.
+- **Consecuencia**: el alcance del MVP depende de esto. Si resulta que hay que reimplementar
+  PSP/SMU, el proyecto cambia de dimension y conviene saberlo antes de invertir.
+
+## F4-AD-7 — Validar antes de comparar, y control negativo obligatorio
+
+- **Fecha**: 2026-09-29 · **Estado**: `DECIDIDO`
+- **Decisión**, heredada de tres incidentes medidos en esta fase:
+  1. Una salida **entera a cero** produjo "0 discrepancias" y un falso `PASS`.
+  2. Un test que imprimía `[FAIL]` por `stderr` devolvía **`rc=0`**: un CI reportaba verde.
+     **Todo test de Fase 4 devuelve código distinto de cero ante fallo.**
+  3. `shader_vs_c` no detectó ninguno de los tres bugs reales porque **modela** la aritmética
+     en C en vez de compilar y ejecutar el GLSL. **Un emulador en CPU del GAR no sustituye a la
+     ejecución real.**
+- **Requisito de calidad**: el agreement test debe correr **sin modificar**. Si hay que tocarlo
+  para que funcione con `librx550`, el diseño está mal.
+
+## F4-AD-8 — Ningún offset sin fuente registrada
+
+- **Fecha**: 2026-09-29 · **Estado**: `DECIDIDO`
+- **Decisión**: ningún offset de registro, tamaño de ring ni formato de descriptor se escribe
+  en código hasta que venga de un fuente registrado: binario analizado, offset, contexto.
+- **Origen**: AD-1. El coste de aprenderlo fue alto.
+- **Estado actual**: `06-INGENIERIA-INVERSA/register-maps/gfx-v8-compute.md` es una **plantilla
+  con todos los offsets vacíos** (`NOT_STARTED`). Ningún dato de ring está establecido.
+
+---
+
+## Peticiones a otras IAS
+
+| # | Destinatario | Asunto | Bloquea | Estado |
 |---|---|---|---|---|
-| P-1 | `@IA-1` | ¿Existe camino de shader a ISA para GFX8 sin RADV? | 2026-09-29 | `ABIERTO` |
-| P-2 | `@IA-1` | Formato del descriptor de work y del ring de SDMA | 2026-09-29 | `ABIERTO` |
-| P-3 | `@IA-1` | Offsets de doorbell, WDDM/RDDM, CQ e IRQ | 2026-09-29 | `ABIERTO` |
-| P-4 | `@IA-1` | Modo de addressing de VRAM soportado en compute | 2026-09-29 | `ABIERTO` |
-| P-5 | `@IA-2` | Scheduler: round-robin por contexto o contexto único | 2026-09-29 | `ABIERTO` |
-| P-6 | `@IA-2` | Aislamiento de memoria por contexto en el MVP | 2026-09-29 | `ABIERTO` |
+| P-1 | `@IA-1` | ¿GAR reutilizable sin `amdgpu`? | viabilidad del MVP | `ABIERTO` |
+| P-2 | `@IA-1` | Secuencia PSP/SMU | init del dispositivo | `ABIERTO` |
+| P-3 | `@IA-1` | Offsets de ring, doorbell, CQ, IRQ | scheduler | `ABIERTO` |
+| P-4 | `@IA-1` | Modo de addressing de VRAM en compute | 2 GiB no caben en 32 bits | `ABIERTO` |
+| P-5 | `@IA-2` | Char device vs DRM | modo de acceso, ioctl | `ABIERTO` |
+| P-6 | `@IA-2` | Campos de `IOCTL_SUBMIT_COMPUTE` | ABI | `ABIERTO` |
+| P-7 | `@IA-2` | BOs propios vs TTM/GEM | GPUAddressing en el MVP | `ABIERTO` |
+| P-8 | `@IA-2` | Fence: user/kernel, poll/IRQ | si se puede completar sin IRQ | `ABIERTO` |
 
-P-1 y P-4 son bloqueantes. P-2 y P-3 son necesarios antes de escribir el scheduler.
+P-1 y P-2 son **bloqueantes de arquitectura**. P-3 y P-4 son necesarios antes del scheduler.
+P-5..P-8 bloquean la implementación pero no el diseño.
+
+## Nota de procedencia
+
+`AGENTS.md` prohíbe afirmar `OWNERSHIP=FULL` con evidencia parcial. Ninguna afirmación de este
+registro se apoya en `lsof`, `fuser` ni en un escaneo parcial de `/proc`.

@@ -1,207 +1,221 @@
-# 001 — Arquitectura del driver exclusivo RX 550 (Fase 4)
+# Arquitectura del Driver Exclusivo RX 550
 
-**Ámbito**: `08-ARQUITECTURA/` (IA-3 Arquitecto)
-**Fecha**: 2026-09-29
-**Estado**: borrador inicial, pendiente de input de IA-1 e IA-2
+**Ámbito**: `08-ARQUITECTURA/` — IA-3 (Arquitecto)
+**Fecha**: 2026-09-29 · **Ronda**: 1
+**Estado**: borrador de arquitectura, pendiente de input de IA-1 e IA-2
 
-> **Regla de escritura de este documento.** No se afirma ningún offset de registro, formato de
-> SDMA ni layout de ring sin fuente. Todo lo que depende de ingeniería inversa va marcado
-> `[PENDIENTE-IA-1]` y no se da por conocido. Este documento define **interfaces y
-> responsabilidades**, que es lo que un arquitecto puede fijar antes de que exista el análisis.
+> **Disciplina de escritura.** Este documento define **interfaces, responsabilidades y
+> criterios de éxito**. No afirma ningún offset de registro, tamaño de ring, formato de
+> descriptor ni secuencia de inicialización. Eso depende de ingeniería inversa y va marcado
+> `[PENDIENTE-IA-1]`. Es la lección de AD-1: un offset escrito de memoria es un cuelgue
+> silencioso, y el coste de la lección fue alto.
 
 ---
 
-## 1. Objetivo
+## 1. Objetivo en una frase
 
-Sustituir `amdgpu` + RADV para la carga de **compute** en la RX 550, de modo que
-`decompress_bc3.comp` se ejecute en un driver propio, conservando el resultado verificado en
-Fase 2: **0 de 4096 bytes discrepantes** frente al decodificador de referencia (tag
-`v1.0-fase2-completa`, commit `edd434b`).
+Driver mínimo que permita ejecutar compute shaders BC3 en la RX 550 (Polaris 12, GFX8, PCI
+`1002:699f`) sin dependencias de `amdgpu.ko` ni RADV en runtime.
 
-La prueba de que el objetivo se ha cumplido no es "el driver arranca", sino que el mismo
-agreement test da 0/4096 **contra el driver propio**.
+**Criterio que demuestra que se ha cumplido**, y que es el mismo de Fase 2:
+`make test-gpu` da **0 de 4096 bytes discrepantes** entre el shader ejecutado por
+`librx550` y `rx550_decompress_block()`, sin modificar una línea del test.
 
-## 2. Arquitectura de alto nivel
+## 2. Stack a reemplazar
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│ userspace:  rx550_rt  (runtime, ICD o API privada)            │
-│   · carga/descarga SPIR-V            · dispatch               │
-│   · buffers SSBO                     · lectura de resultados  │
-└───────────────┬──────────────────────────────────────────────┘
-                │  ioctl (ABI estable, versionado)
-┌───────────────▼──────────────────────────────────────────────┐
-│ kernel:  rx550.ko                                             │
-│   · gestión de contexto y memoria          ·GAR: shader→host  │
-│   · ICD de cola y scheduler               · Residency         │
-│   · doorbell / SQEs                       · fault handling    │
-└───────────────┬──────────────────────────────────────────────┘
-                │  MMIO (BAR0..BAR5) + SDMA rings
-┌───────────────▼──────────────────────────────────────────────┐
-│ hardware:  Polaris 12 (GFX8)                                 │
-│   · CUs, LDS, TCS                        · texture units      │
-│   · SDMA engines + doorbells             · VRAM 2 GiB         │
-└──────────────────────────────────────────────────────────────┘
-```
-
-Componentes y responsabilidades:
-
-| Componente | Responsabilidad | Depende de |
+| Capa | Actual | Objetivo |
 |---|---|---|
-| `rx550.ko` | MMIO, rings, reset, IRQ, memoria | BSD, PIC, PM |
-| Scheduler | Filas de trabajo, preemptión, contexto | formato de SQ: `[PENDIENTE-IA-1]` |
-| GAR (GPU Assembly/Register) | Shader → ISA hardware | **`[PENDIENTE-IA-1]`, es el riesgo mayor** |
-| `rx550_rt` userspace | API, ICD, caché de shaders | ABI de ioctl (este doc) |
+| Kernel | `amdgpu.ko` | `rx550.ko` |
+| Userspace | `libdrm_amdgpu` + RADV + Vulkan loader | `librx550` |
+| Firmware | PSP/SMU de `amdgpu` | **sin decidir** — ver §7 |
 
-## 3. Interfaz kernel ↔ userspace
+**Lo que NO se reemplaza en el MVP**: PCIe, APM, power state, reset, display. Eso sigue en
+`amdgpu`. Ver F4-AD-2.
 
-Transport: **ioctl**, no `mmap` de ring por el cliente en el MVP. Motivo: `mmap` de un ring
-exige un modelo de sincronización que todavía no está diseñado, y un ioctl con copia
-intermedia es suficiente para compute por lotes. `mmap` se difiere a la Fase 4.2 si el
-rendimiento lo exige.
+### 2.1 Tensión no resuelta entre F4-AD-2 y F4-AD-3
 
-```
-struct rx550_ioctl_desc {
-    __u32 abi_version;      // el kernel rechaza si no coincide
-    __u32 cmd;              // RX550_IOC_*
-    __u64 arg;              // puntero a struct del comando
-    __u64 arg_size;         // longitud, validada contra max del comando
-    __u64 out_off, out_len; // copia a userspace
-    __u64 in_off,  in_len;  // copia desde userspace
-    __u64 status;           // salida: 0 = OK, >0 = código de error
-};
-```
+`F4-AD-3` decide que `rx550.ko` no dependerá de `amdgpu.ko` en runtime. `F4-AD-2` razona que
+limitarse a compute reduce el alcance "10x".
 
-Comandos del MVP:
+**Estas dos son incompatibles en un punto que aún no está puesto**: inicializar un GCN/RDNA
+desde cero exige la secuencia de carga de firmware **PSP/SMU** —blanqueo de stacks, descarga de
+firmware, formación de heaps, arranque del scheduler SMU. Sin esa secuencia la GPU no
+inicializa y **no hay compute que despachar**. Ese trabajo vive hoy dentro de `amdgpu.ko`.
 
-| Cmd | Uso |
-|---|---|
-| `CREATE_CTX` | crea contexto de compute |
-| `LOAD_SHADER` | registra SPIR-V; devuelve id + log de compilación |
-| `ALLOC_MEM` | reserva VRAM (USERPTR o no) |
-| `MAP_MEM` | fija direcciones de VRAM en el espacio del shader |
-| `BIND_SSBO` | liga binding ↔ buffer + offset + rango |
-| `SET_PUSH_CONST` | escribe el push constant block |
-| `DISPATCH` | x,y,z workgroups |
-| `WAIT` | fence con timeout |
-| `READBACK` | copia VRAM → userspace |
+Consecuencias honestas:
 
-Decisiones de ABI, con su porqué:
+- "Scope 10x menor" **solo es cierto** si se puede reutilizar la inicialización de firmware de
+  alguna forma. Sin ella, el alcance real es mayor, no menor.
+- La especificación dice a la vez "Firmware: ninguno propio (usar el del kernel si es
+  necesario)" y "sin dependencia de `amdgpu.ko` en runtime". **Son incompatibles**: no se
+  puede usar el firmware de `amdgpu` sin depender de `amdgpu`.
+- **No afirmo** que la secuencia exacta sea recuperable del módulo, ni cómo. Es
+  `[PENDIENTE-IA-1]`, y es probablemente **la pregunta más importante de la ronda 2**, por
+  encima de los offsets de ring.
 
-- **`abi_version` obligatorio y comparado al entrar.** Un driver de kernel y una librería
-  userspace desalineados no deben producir corrupción silenciosa.
-- **Validación de `arg_size` por comando**, contra un máximo conocido, antes de copiar.
-- **`READBACK` como comando y no como `mmap`**: es el camino que necesita el agreement test, y
-  así el MVP no depende todavía de un modelo de coherencia de caché compartido.
+## 3. Componentes del driver
 
-**Interfaz de GPUAddressing.** No se usa BISM/HST por defecto. Alternativa: precisión 48 bits
-requiere el modo de addressing por rangos, cuyo formato de tabla es `[PENDIENTE-IA-1]`. Para el
-MVP, planar 32/40 bits si el hardware lo soporta en el modo de compute elegido
-`[PENDIENTE-IA-1]`. Este es un bloqueante real para 2 GiB de VRAM y hay que decidirlo pronto.
+### 3.1 Kernel (`rx550.ko`)
 
-## 4. Path de submit: de userspace a la ring de compute
-
-```
-userspace:  rx550_rt_dispatch(ctx, x, y, z)
-   ↓ rellena un paquete de trabajo en memoria de usuario
-ioctl DISPATCH
-   ↓
-kernel:     scheduler añade el TW a una fila
-   ↓ escribe el descriptor en el ring de SDMA
-doorbell:   MMIO write → despierta el motor
-   ↓
-hardware:   SDMA drena el ring → rellena WDDM/RDDM → CQ/interrupt
-   ↓ IRQ
-kernel:     marca el fence, despierta el waiter
-   ↓
-userspace:  rx550_rt_wait(fence) → READBACK
-```
-
-Puntos donde el diseño **está abierto** y requieren IA-1:
-
-| Punto | Por qué importa | Estado |
+| Componente | Responsabilidad | Riesgo |
 |---|---|---|
-| Estructura del descriptor de work | Si está mal, el hardware cuelga o ejecuta basura | `[PENDIENTE-IA-1]` |
-| Ring sizing y wraparound | Si el ring no envuelve correctamente, trabajo perdido | `[PENDIENTE-IA-1]` |
-| Doorbell register y su offset | Un offset inventado es un cuelgue silencioso | `[PENDIENTE-IA-1]` |
-| Inkremento de WDDM | Señal de error si el hardware no avanza | `[PENDIENTE-IA-1]` |
-| Interrupción CQ | Si no se dispara, `WAIT` cuelga | `[PENDIENTE-IA-1]` |
+| Dispositivo | nodo de carácter `/dev/rx550` (frente a DRM: §7) | bajo |
+| `IOCTL_VERSION` | versionado de ABI; el kernel rechaza si no coincide | **alto** — sin esto, desalineación silenciosa |
+| `IOCTL_DEVICE_INFO` | identidad PCI, capabilities, VRAM, heaps | bajo |
+| Ring manager | 1 ring de compute en el MVP | medio |
+| Command submission | PM4/packets al ring | **crítico** `[PENDIENTE-IA-1]` |
+| Shader cache | SPIR-V → ISA (GAR) y Lookup por hash | **crítico** — ver §3.3 |
+| BO manager | reserva y mapa de VRAM | medio |
+| Fence | sincronización submit→completado | medio |
+| Reset | fuera de alcance | — |
+| Reclamación del bus PCI | fuera de alcance: se asume exclusividad declarada | **crítico** — ver §5.1 |
 
-**Regla dura que se hereda de Fases 1 y 2**: ningún offset se escribe en código hasta que
-venga de un fuente registrado. La cadena de evidencia debe incluir el binario analysed, el
-offset y el contexto, como se hizo con el parser de AD-1.
+**El riesgo crítico no es el ring, es el GAR** (§3.3).
 
-## 5. Stack mínimo a reemplazar
+### 3.2 Userspace (`librx550`)
 
-**Solo compute.** El driver propio **no** toca gráficos, vídeo, display ni capacidad de compute
-avanzado en el MVP.
+```
+rx550_open() / rx550_close()
+rx550_load_spirv(const void *spv, size_t len, rx550_shader_t *out)
+rx550_submit_compute(rx550_shader_t, const rx550_submit_desc_t *desc)
+rx550_wait_fence(rx550_fence_t, uint64_t timeout_ns)
+rx550_readback(rx550_bo_t, void *dst, size_t len, size_t offset)
+```
 
-Se mantiene amdgpu para: gestión de PCIe, APM, power state, reset, display. **Implicación
-crítica**: para que el driver propio tome la GPU, hay que hacer que amdgpu **no** reclame el
-dispositivo — bind/unbind de `1002:699f`. Eso requiere privilegios y es un cambio de estado
-del sistema: **no está autorizado** sin aprobación explícita del humano, y el MVP **no lo
-incluye**.
+Responsabilidades: validación del SPIR-V en userspace antes de subirlo, caché de shaders,
+traducción de un nivel superior a los ioctls. **El kernel no interpreta SPIR-V.**
 
-### Consecuencia que hay que aceptar de entrada
+El SPIR-V es el de Fase 2, ya compilado y verificado:
+`04-IMPLEMENTACION/decompressor/decompress_bc3.spv`. No se reescribe.
 
-Con dos drivers compitiendo por el mismo dispositivo, **el MVP no puede ejecutar el
-shader en la GPU real desde el driver propio**. Las dos opciones:
+### 3.3 Shader integration — el riesgo que domina el proyecto
 
-- **(A) Bind sobre `vfio-pci` / `bind` de driver**: fuera de la GPU para amdgpu, piloto en
-  modo no-exclusivo. Requiere autorización de sistema.
-- **(B) GPU secundaria o entorno de pruebas**: un segundo `[1002:699f]` no está disponible.
+GFX8 no tiene compilador de shaders público. Tres caminos posibles:
 
-**Conclusión: el agreement test del MVP solo es ejecutable si se autoriza (A).** Hasta
-entonces, el trabajo se limita a compilar, a tests de estructura de paquetes en CPU, y a
-revisión del análisis de IA-1. Esto es una limitación de planificación, no de diseño, y hay
-que decía antes de empezar, no después.
-
-## 6. Criterios de éxito del MVP
-
-| # | Criterio | Verificación |
+| Camino | Coste | Riesgo |
 |---|---|---|
-| 1 | `rx550.ko` carga sin panic en una máquina de prueba | log de dmesg |
-| 2 | ioctl round-trip con validación de ABI | fuzz de `arg_size` |
-| 3 | `LOAD_SHADER` acepta el SPIR-V de `decompress_bc3.comp` y devuelve handle | log de GAR |
-| 4 | `DISPATCH` completa sin WDDM stuck | fence con timeout |
-| 5 | **`make test-gpu` da 0/4096 con `rx550_rt`** | el agreement test existente, sin modificar |
-| 6 | Sin `oops`, sin VRAM leak en 10 000 dispatches | dmesg + RSS |
+| **(A) Reutilizar el GAR de `amdgpu.ko`** | bajo | contradice F4-AD-3 |
+| **(B) Reutilizar LLVM/RADV** | medio |dejaría de ser "driver exclusivo" |
+| **(C) Escribir el backend ISA** | muy alto | **puede ser mayor que el driver** |
 
-**El criterio 5 es el único que demuestra el objetivo.** Los otros son necesarios.
+**Lo que sí está establecido por evidencia propia** (commit `edd434b`, tag
+`v1.0-fase2-completa`): el hardware **ejecuta** `decompress_bc3.comp` en la RX 550 vía RADV y
+produce 0/4096 de discrepancias. Lo que **no** está establecido es si puede hacerse sin RADV.
 
-El criterio 5 reutiliza `04-IMPLEMENTACION/decompressor/test_decompress.c` sin modificar una
-línea. Si el test necesita cambios para funcionar con el driver propio, es señal de que el
-driver se ha adaptado al test en vez de al revés.
+**Por eso P-1 a IA-1 es la primera pregunta de la ronda.** Si la respuesta es "no hay camino
+viable sin reutilizar el GAR de `amdgpu`, el MVP debe redefinirse antes de escribir código", y
+eso es mejor saberlo en la ronda 2 que en la semana 6.
 
-## 7. Decisiones pendientes que requieren input
+## 4. Path de submit de comandos
 
-### De IA-1 (Ingeniero Inverso) — bloqueantes
+```
+ 1. userspace  rx550_submit_compute(shader, desc)
+ 2. ioctl      RX550_IOCTL_SUBMIT_COMPUTE
+ 3. kernel     valida abi_version, cmd, arg_size contra el máximo del comando
+ 4. kernel     localiza el shader en caché (hash del SPIR-V)
+ 5. kernel     escribe el paquete de trabajo en el ring de compute   [PENDIENTE-IA-1]
+ 6. kernel     publica el WPTR y hace doorbell                      [PENDIENTE-IA-1]
+ 7. hardware   SDMA drena el ring y ejecuta el dispatch
+ 8. hardware   actualiza el WDDM o genera la interrupción de cola    [PENDIENTE-IA-1]
+ 9. kernel     marca el fence y despierta al waiter
+10. userspace  rx550_wait_fence() → rx550_readback()
+```
 
-1. **GAR: ¿existe un compilador de shader utilizable?** GFX8 no tiene un compilador público.
-   Esto decide si el MVP es viable: usar un compilador existente (LLVM/AMDGPU) o escribir el
-   backend, que es un proyecto mayor que el driver.
-2. Formato del descriptor de work de compute en el ring de SDMA.
-3. Offsets de doorbell, WDDM/RDDM, CQ, y el mecanismo de IRQ.
-4. Modo de addressing de VRAM soportado en compute (32/40/48 bits).
+Puntos abiertos, todos `[PENDIENTE-IA-1]`:
 
-### De IA-2 (Driver)
+- Estructura del header de paquete y del descriptor de dispatch.
+- Offsets MMIO de `CP_RB_BASE`, `CP_RB_WPTR`, `CP_RB_CNTL`, `CP_START`.
+- Semántica de doorbell y si el ring envuelve correctamente.
+- Mecanismo de interrupción: qué registro de CQ hay que limpiar y cómo se limpia.
 
-1. ¿El scheduler del MVP es round-robin por contexto, o un único contexto activo? Afecta al
-   diseño de `CREATE_CTX` y al aislamiento.
-2. ¿Aislamiento de memoria por contexto en el MVP, o memoria plana compartida? Afecta a si
-   hace falta GPUAddressing en 2.1.
+**Regla dura heredada de Fases 1 y 2**: ningún offset se escribe en código hasta que venga de
+un fuente registrado, con el binario analizado, el offset y el contexto. Igual que en AD-1.
 
-### Mías, pendientes de los anteriores
+## 5. MVP — criterios de éxito
 
-- `DECISIONS-F4-002`: si se puede ejecutar en GPU real durante el MVP (depende de la autorización A).
-- `DECISIONS-F4-003`:ICD de Vulkan frente a API privada (solo decide al final del MVP).
+| # | Criterio | Cómo se verifica | Ejecutable sin autorización de sistema |
+|---|---|---|---|
+| 1 | `rx550.ko` carga y crea `/dev/rx550` | `dmesg`, `ls -l /dev/rx550` | sí |
+| 2 | `IOCTL_VERSION` responde correctamente | test de ioctl, incluido ABI mismatch | sí |
+| 3 | Se puede submitir un compute shader simple | fence completa sin timeout | sí |
+| 4 | El shader escribe en memoria legible desde CPU | lectura y verificación del valor | sí |
+| 5 | Fence retorna al completarse | test de `wait` con timeout | sí |
+| 6 | `decompress_bc3.comp` da **0/4096** vía `librx550` | `make test-gpu` sin modificar | **NO** — ver §5.1 |
 
-## 8. Riesgo principal
+### 5.1 Por qué el criterio 6 no es ejecutable en el MVP
 
-**El riesgo no es el driver. Es el GAR.** Si no hay un camino de shader a ISA para GFX8, el
-MVP se convierte en "el driver funciona pero no ejecuta shaders", que es un resultado que no
-sustenta el objetivo del proyecto. **Por eso la pregunta 1 a IA-1 es la primera petición, antes
-de escribir una línea de código.**
+Escribir en el ring de la RX 550 requiere ser dueño del dispositivo. Con `amdgpu` cargada, no lo
+somos: el módulo reclama `1002:699f` y su nodo DRM.
 
-Lo que sí sabemos por evidencia propia: el hardware **ejecuta** el shader en la RX 550, vía
-RADV, con 0/4096 de discrepancias. Lo que no sabemos es si podemos hacerlo sin RADV.
+- **Implicación de `OWNERSHIP`**: `AGENTS.md` establece que `OWNERSHIP=FULL` exige evidencia
+  atribuible completa. Mientras `amdgpu` esté presente, **`OWNERSHIP != FULL`**. Declarar lo
+  contrario es un error, no una convención.
+- **El desbloqueo** es `unbind` de `1002:699f` de `amdgpu` más carga de `rx550.ko`. Eso es
+  escritura en sysfs y cambio de estado del sistema: **prohibido por `AGENTS.md`** sin
+  autorización expresa del humano, con restore garantizado.
+
+**Delimitación**, para no propagar el bloqueo más de lo necesario:
+
+- **Invalida**: el criterio 6, y con él el objetivo declarado del proyecto.
+- **NO invalida**: criterios 1–5 y todo el trabajo estructural — ring en CPU, validación de
+  ioctl, empaquetado de shaders, tests de ABI.
+
+Mientras tanto, el estado honesto del proyecto es: *"el driver funciona pero no ejecuta
+shaders en la RX 550 real"*. Eso debe decirse así, sin adornos.
+
+### 5.2 Dos requisitos de calidad heredados
+
+**Validar antes de comparar.** Tres incidentes de esta fase lo motivate:
+
+1. Una salida **entera a cero** produjo "0 discrepancias" y un falso `PASS`. Sin validación
+   previa del buffer, el test se autolimita a confirmar que dos caminos erred identically.
+2. Un test que imprimía `[FAIL]` por `stderr` y devolvía **`rc=0`** hacía que un CI reportara
+   verde sobre un fallo. **Todo test de Fase 4 devuelve código distinto de cero ante fallo.**
+3. `shader_vs_c` —el validador que "confirmaba" el shader— **no detectó ninguno** de los tres
+   bugs reales, porque **modela** la aritmética en C en vez de compilar y ejecutar el GLSL. Un
+   emulador en CPU del GAR **no** sustituye a la ejecución real.
+
+**Reutilizar el test sin tocarlo.** El criterio 6 usa `04-IMPLEMENTACION/decompressor/
+test_decompress.c` tal cual. Si hay que modificarlo para que funcione con `librx550`, la
+interpretación es que el driver se ha adaptado al test en vez de al revés.
+
+## 6. NO objetivos
+
+Gráficos, display y modesetting · multi-GPU · power management · suspend/resume ·
+eviction de VRAM · reset de GPU · virtualización · rendimiento · vGPU · GFX8 counters.
+
+## 7. Decisiones pendientes
+
+### Para IA-2 (Driver)
+
+| # | Decisión | Por qué bloquea |
+|---|---|---|
+| D-1 | Char device vs subsistema DRM | fija el modo de acceso y el modelo de ioctl |
+| D-2 | `IOCTL_SUBMIT_COMPUTE`: campos exactos | ABI; cambiarla después rompe a userspace |
+| D-3 | BOs propios vs reusar TTM/GEM | decide si hace falta GPUAddressing en el MVP |
+| D-4 | Fence: user o kernel, poll o IRQ | decide si el MVP puede completarse sin IRQ |
+
+### Para IA-1 (Ingeniero Inverso)
+
+| # | Decisión | Por qué bloquea |
+|---|---|---|
+| R-1 | **¿Hay GAR reutilizable sin `amdgpu`?** | **define si el MVP es viable** |
+| R-2 | Secuencia de carga de firmware PSP/SMU | sin ella no hay inicialización |
+| R-3 | Offsets de ring, doorbell, CQ, IRQ | necesario antes del scheduler |
+| R-4 | Modo de addressing de VRAM soportado en compute | 2 GiB de VRAM no caben en 32 bits |
+
+### Mías, pendientes de lo anterior
+
+- D-5: ICD de Vulkan frente a API privada. Se decide al final del MVP, no antes.
+- D-6: reutilización de firmware (contradice F4-AD-3; §2.1).
+
+## 8. Referencias
+
+- `02-ARQUITECTURA/DECISIONS.md` — AD-1..AD-15. AD-1 sobre no reescribir structs internas de
+  `amdgpu` se mantiene vigente como advertencia.
+- `06-INGENIERIA-INVERSA/register-maps/gfx-v8-compute.md` — **plantilla, offsets vacíos
+  (`NOT_STARTED`)**. Ningún dato de este documento debe considerarse establecido.
+- `04-IMPLEMENTACION/decompressor/` — shader y agreement test, cierre v1.0.
+- Fuente disponible en disco: `RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/amdgpu`
+  (304 ficheros `.c`) e `include/uapi/drm/amdgpu_drm.h`. **No hay fuentes de Mesa en esta
+  máquina**, solo binarios.
