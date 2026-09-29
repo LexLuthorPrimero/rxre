@@ -910,3 +910,153 @@ recuerdo.
   (`glslangValidator` 11:16.3.0, rc=0, 11 984 B).
 - El código no cambió: la aritmética ya era correcta. Lo que cambia es la afirmación sobre
   ella.
+
+---
+
+## AD-9 — 2026-09-28 — BC3/DXT5 usa truncamiento puro; los offsets `+3`/`+2` se retiran
+
+| Campo | Valor |
+|---|---|
+| **DECISION** | La rampa alfa de BC3/DXT5 se calcula con **división entera sin constante de redondeo**. Sin `+3` en la rama `/7`, sin `+2` en la rama `/5` |
+| **DECIDER** | `HUMAN` (`HUMAN_POLICY`, vinculante) |
+| **DATE** | `2026-09-28` |
+| **COMPLEMENTA** | `AD-8`, que fijó la nomenclatura del formato; no la aritmética |
+| **Regla** | No se cambia sin autorización explícita del Arquitecto Principal |
+
+> **Nota sobre el identificador.** La primera redacción de esta decisión se tituló `AD-8`, que
+> ya estaba ocupado por la entrada anterior. Es `AD-9`. El desvío se registra aquí porque el
+> identificador duplicado en un registro de decisiones es exactamente la clase de defecto que
+> este registro existe para impedir.
+
+**Contexto**: la implementación redondeaba al más cercano (`+3` sobre `/7`, `+2` sobre `/5`).
+El commit `cda0440` afirmó que esos offsets *están en la especificación de Microsoft* y los
+restauró tras haber sido retirados. Esa afirmación no estaba verificada.
+
+**Evidencia — `bcdec` v0.985**, función `bcdec__smooth_alpha_block()`, transcrita literalmente
+en `/tmp/opencode/bcdec_check.c`:
+
+```c
+if (alpha[0] > alpha[1]) {
+    alpha[2] = (6 * alpha[0] +     alpha[1]) / 7;     /* sin +3 */
+    ...
+} else {
+    alpha[2] = (4 * alpha[0] +     alpha[1]) / 5;     /* sin +2 */
+    ...
+    alpha[6] = 0x00;   alpha[7] = 0xFF;
+}
+```
+
+La misma función sirve a `bcdec_bc3()` y a `bcdec_bc4()`: BC3 y BC4 comparten rampa alfa por
+diseño, y difieren en el contenedor. Esto es lo que refutó `RX550_BC4X` (ver `AD-8`).
+
+**Medición — rampa nuestra contra `bcdec`, los 65 536 pares de endpoints:**
+
+| variante | pares que discrepan | entradas de 524 288 | error máx. |
+|---|---:|---:|---:|
+| con `+3`/`+2` | 54 300 / 65 536 (82.9 %) | 136 686 | 1 de 255 |
+| **truncamiento puro** | **0 / 65 536** | **0** | **0** |
+
+**Especificación de Microsoft**: `NOT_AVAILABLE`. No ha sido leída directamente por este
+proyecto: no está en el corpus de `~/Descargas` (`buscar.py ALL 'DXT5|BC3'` → 2 coincidencias,
+ambas en la ISA GCN3 p.88, una tabla de capacidades sin la rampa) y las búsquedas web no
+devolvieron la especificación. Que la rampa se comporte como afirma `bcdec` es
+`SINGLE_SOURCE`: lo que corroboraría es la lectura directa de la especificación, o una
+implementación independiente como `basisu` transcrita y comparada con el mismo barrido.
+
+**Conformidad declarada**: `CONFORMITY_PROVENANCE=BCDEC_TRANSCRIPTION`. No
+`=SPECIFICATION_VERIFIED`.
+
+**Justificación**:
+
+- Compatibilidad con `bcdec`, `basisu` y visores: con los offsets, un bloque emitido por este
+  códec se vería distinto al de cualquier herramienta estándar.
+- Compatibilidad con decodificación por hardware, que trunca.
+- Los offsets nunca se midieron como mejora. El PSNR de referencia es 28.73 dB con truncamiento
+  y 28.73 dB con redondeo: idénticos. **El PSNR no tiene sensibilidad para distinguir estas dos
+  implementaciones**, porque difieren en 1 LSB dentro de la paleta y el encoder elige índice, no
+  valor. La conformidad la establece el barrido de 0/524 288 contra `bcdec`, no una métrica de
+  calidad.
+
+**Impacto**:
+
+- `rx550_compress.c`, `decompress_bc3.comp`, `test_compress.c` y
+  `test_alpha_ramp_independent.c`: offsets retirados; vectores literales recomputados
+  (219→218, 146→145, 73→72, 179→178, 136→135, 93→92).
+- `make test` en `compressor/`: 26/26, `rc=0`, distancia a `bcdec` 0 de 524 288.
+- `shader_vs_c.c` **hubo quedado desincronizado**: sus copias de la rampa conservaban los
+  offsets y reportaban 248 de 4096 canales discrepantes con el códec correcto. Corregido.
+- `decompressor/Makefile` creado, con `make test` ejecutando el validador diferencial. Antes
+  sólo se ejecutaba a mano, y por eso la desincronización no falló en ninguna parte.
+- SPIR-V regenerado: 11 944 B, 2 986 palabras, magic `07230203`.
+
+**Límite de lo verificado**: el shader no se ha ejecutado en la GPU. `GFX_HWIP` sigue
+`NOT_DETERMINED` y la validación de esquema SPIR-V es `NOT_AVAILABLE` (`spirv-val` no instalado
+en este host). Lo que `make test` en `decompressor/` establece es que la aritmética del shader
+modelada en C concuerda con el decodificador de Fase 1 — no que el GLSL compile en un driver ni
+que la RX 550 produzca esos píxeles.
+
+**Errores registrados**, porque el patrón ya apareció cuatro veces en este punto del proyecto
+(un test autorreferente, un nombre inventado, una premisa de hardware refutada, una
+especificación afirmada sin leer):
+
+6. `cda0440` afirmó que los offsets constan en la especificación sin haberla leído, y los
+   restauró. Una afirmación sobre un documento no es un hecho sobre el documento.
+7. `shader_vs_c.c` quedó obsoleto en silencio porque nada lo ejecutaba. **Un validador que no
+   corre en el build no es un validador.**
+
+---
+
+## AD-9 — 2026-09-28 — La búsqueda de inset alfa cuesta 2,8× y no compra calidad medida
+
+**Tipo de claim**: `MEASUREMENT` + `MODEL_CHOICE` (pendiente de `HUMAN_POLICY`)
+
+### Contexto
+
+`make test` publicaba 85,9 / 89,9 MB/s y speedup 1,05×; el codificador actual rinde
+~28 MB/s. La regresión estaba marcada `UNEXPLAINED`. `RX550_ALPHA_INSET_STEPS = 15`
+introduce 16 candidatos de endpoint alfa, cada uno puntuado sobre 16 píxeles × 8 entradas
+de paleta.
+
+### Medición A/B — mismo binario, sólo cambia la constante
+
+| `RX550_ALPHA_INSET_STEPS` | reference dB | smooth dB | noise dB | MB/s |
+|---:|---:|---:|---:|---:|
+| 0 | 28,73 | 19,59 | 13,63 | **74,1** |
+| 2 | 28,73 | 19,59 | 13,63 | 57,8 |
+| 5 | 28,73 | 19,59 | 13,63 | 47,4 |
+| 10 | 28,73 | 19,59 | 13,64 | 34,5 |
+| 15 | 28,73 | 19,59 | 13,64 | **26,8** |
+
+**Resultado**: la calidad es **idéntica** en todo el rango — la única variación es
+0,01 dB en ruido, dentro del ruido de medición — mientras el rendimiento cae **2,8×**.
+
+Coste por bloque: alfa 16 × 16 × 8 = **2048** iteraciones internas; color
+5 × 16 × 4 = **320**. El alfa domina **6,4×** la ruta de color, y es la razón del
+speedup AVX2 ≈ 1: la reducción min/max es una fracción minúscula del trabajo total.
+
+**Causa estructural**: `encode_alpha()` ya selecciona, por píxel, la entrada más cercana de
+las 8 de la paleta. Con `inset = 0` los endpoints son el mínimo y el máximo reales, que ya
+abarcan el rango de los datos; estrecharlo sólo puede empeorar los píxeles de los extremos.
+El bucle corta cuando `a0 > a1`, de modo que los pasos siguientes no encuentran un
+endpoint mejor, sólo uno peor. La búsqueda es un **no-op en calidad**.
+
+### Alcance y lo que NO se afirma
+
+- La medición es sobre el **corpus sintético** que genera `test_compress.c` con semilla
+  fija, no sobre texturas reales. El nulo vale para el corpus que gobierna los topes de
+  calidad; **no** descarta que alguna textura real se beneficie. Cerrarlo requiere un
+  corpus representativo, que no existe en el proyecto.
+- Queda un **residuo sin explicar**: con `STEPS = 0` el codificador rinde 74,1 MB/s, no
+  los 85,9 MB/s publicados anteriormente. ~15 % de la diferencia no está atribuido. La
+  versión que produjo 85,9 MB/s (`5d086238`) **nunca se commiteó** y no se conserva, así
+  que la atribución del residuo es `NOT_DETERMINED` y no se especula.
+
+### Decisión
+
+`ALPHA_INSET_STEPS_PRESENT = RECOMMEND_REDUCE_TO_0` — recomendación del agente, **no
+aplicada**. Se propone `RX550_ALPHA_INSET_STEPS = 0` (o eliminar la búsqueda), que
+recupera 2,8× sin mover ningún PSNR. **No se aplica sin `HUMAN_POLICY`**: cambiar un
+compromiso calidad/velocidad es decisión del humano (§10.2), y el corpus sintético no es
+representativo suficiente para impositionarlo.
+
+**Reproducir**: `make measure-alpha-inset` barre la constante y reimprime la tabla.
