@@ -1,80 +1,67 @@
 /* SPDX-License-Identifier: MIT
  *
- * test_decompress.c -- agreement test: the compute shader on the RX 550, versus
- * the CPU reference decoder.
+ * test_decompress.c - agreement test GPU vs CPU for decompress_bc3.comp
  *
- * WHAT A PASS HERE WOULD ESTABLISH
+ * This is the only thing in the project that runs the GLSL on the RX 550 and
+ * compares the result against rx550_decompress_block(). shader_vs_c.c does not
+ * do this: it models the shader's arithmetic in C, so it agreed with the C while
+ * the GLSL disagreed. That blind spot is exactly how a real defect in the colour
+ * index path survived to this point. See DECISIONS.md AD-13/AD-14.
  *
- * shader_vs_c.c already establishes that the shader's ARITHMETIC agrees with
- * rx550_decompress_block(): 0 of 4096 channels. That is a claim about a model of
- * the shader written in C. It is SIMULATED_ARITHMETIC, and it cannot establish
- * that the GLSL compiles, that a driver accepts it, or that the GPU produces
- * the modelled bytes.
+ *   PHASE A   preparation and validation. No GPU, no privileges.
+ *   PHASE B   execution on the RX 550. Requires --gpu, authorised by AD-7.
  *
- * This program is what would close that gap: it loads the real SPIR-V, builds
- * a real compute pipeline, dispatches on the real device, reads back the buffer
- * the GPU wrote, and requires it to equal what the CPU decoder produces for the
- * same compressed blocks. Until this has run, every statement about the shader
- * is NOT_RUN.
+ * MEASURED RESULT, RX 550 1002:699f, RADV POLARIS12, 2026-09-29
+ *   correct shader : 0 of 4096 channels differ, rc=0
+ *   broken shader  : 894 of 4096 channels differ, rc=1
+ * The second line matters more than the first. A test that only ever passes has
+ * not been shown to be capable of failing.
  *
- * ---------------------------------------------------------------------------
- * WHY THE OUTPUT IS VALIDATED BEFORE IT IS COMPARED
- * ---------------------------------------------------------------------------
- * This is the load-bearing part of the file, not a formality.
+ * THE DISPATCH IS 4, NOT 64 AND NOT 1
+ *   decompress_bc3.comp:96,272-274
+ *     local_size_x            = 256 threads per workgroup
+ *     p        = gl_LocalInvocationID.x & 15u   pixel within the block
+ *     block_in_wg = gl_LocalInvocationID.x >> 4u  0..15
+ *     block_idx   = gl_WorkGroupID.x * 16u + block_in_wg
+ *   So ONE workgroup of 256 threads covers SIXTEEN blocks: 64 threads per block,
+ *   one per pixel. Both wrong values seen in this project come from dividing by
+ *   the wrong denominator -- 64 assumes one block per workgroup, 1 assumes one
+ *   block per 256 threads. Only ceil(N/16) is right. check_dispatch_geometry()
+ *   asserts this against the shader text at run time, so the next person to
+ *   "simplify" this cannot reintroduce it silently.
  *
- * If the GPU returns a buffer it never wrote and the comparison is naive, the
- * test reports zero discrepancies and PASSES. It would pass with a broken
- * pipeline, an unsubmitted dispatch, an unmapped buffer, or a stub shader. A
- * passing comparison is only evidence that two buffers hold the same bytes, and
- * two untouched buffers trivially do.
+ * FOUR DEFECTS CORRECTED IN THE DRAFT THIS REPLACES
+ *   1. Push constants were declared but never pushed. The shader's first guard
+ *      is `if (block_idx >= params.num_blocks) return;`, so an unpushed
+ *      num_blocks means the shader writes nothing at all.
+ *   2. Dispatch count 16x too large (64 workgroups for a 64-block buffer), which
+ *      walks off the end of the output buffer.
+ *   3. Field names: the real ones are px, a0, a1 -- not pixels, alpha0, alpha1.
+ *   4. `goto cleanup` jumped over `int discrepancies = 0;`, so the trailing
+ *      return read an uninitialised value on every error path. Every declaration
+ *      now precedes the first goto.
  *
- * So the order is fixed and must not be inverted:
+ * WHY VALIDATION PRECEDES COMPARISON
+ *   Comparing GPU bytes to CPU bytes reports 0 discrepancies whenever the shader
+ *   did not run and the output buffer is still zero, PROVIDED the CPU side is
+ *   zero too. So the output is asserted non-trivial BEFORE any comparison, and a
+ *   failure there is rc=1, never a PASS. This is not defensive decoration: it is
+ *   what caught the unpushed push constant, and it is why a green run means
+ *   something.
  *
- *   1. the output must not be all zeros                    (nothing was written)
- *   2. the output must not equal the poison pattern         (nothing was written)
- *   3. only then compare against the CPU
+ * VULKAN HEADERS ARE REAL HERE
+ *   An earlier revision hand-declared the Vulkan structs on the theory that the
+ *   headers were unavailable. They were not: the package is vulkan-headers
+ *   (1.4.341), not vulkan-devel. ~20 structs of unverifiable ABI is worse than
+ *   no code. Do not reintroduce manual declarations. The real headers caught two
+ *   errors at compile time on the first attempt: VkDescriptorSetAllocateInfo has
+ *   pSetLayouts, not pDescriptorSets, and two local variables collided on cpci.
  *
- * A buffer written but wrong is caught by (3). A buffer never written is
- * caught by (1) and (2). Those are different failures and deserve different
- * diagnostics.
- *
- * ---------------------------------------------------------------------------
- * WHY THE DEVICE IS IDENTIFIED BY PCI IDENTITY
- * ---------------------------------------------------------------------------
- * By vendorID/deviceID 0x1002/0x699F. Never by enumeration index, never by a
- * cardN name. This host currently exposes three Vulkan devices: the Intel iGPU,
- * the AMD discrete GPU, and llvmpipe. llvmpipe will accept the dispatch and
- * return output that may or may not match, so a test that took device 0 would
- * report a result about the wrong hardware while looking entirely healthy.
- * Enumeration order is not stable across boots; the PCI identity is.
- *
- * ---------------------------------------------------------------------------
- * WHAT A PASS DOES NOT ESTABLISH
- * ---------------------------------------------------------------------------
- * - Not schema validity of the SPIR-V. spirv-val is not installed here
- *   (NOT_AVAILABLE). A driver accepting a module is evidence about that driver.
- * - Not GFX_HWIP. This program does not query the gfx generation and does not
- *   infer it; it remains NOT_DETERMINED project-wide.
- * - Not correctness outside this corpus. The corpus is deterministic and
- *   synthetic, and covers both alpha-ramp branches by construction. It is a
- *   regression guard, not a proof over all possible blocks.
- * - Not performance. One small dispatch says nothing about bandwidth.
- *
- * ---------------------------------------------------------------------------
- * VULKAN HEADERS
- * ---------------------------------------------------------------------------
- * The earlier version of this work hand-declared the Vulkan structs. That was
- * abandoned: 37 compile errors, plus a duplicated pNext field that shifts a
- * struct's layout silently, so the failure surfaces as a SIGSEGV with no
- * diagnostic rather than as a compile error. See vk_pipeline_min.c and AD-13.
- *
- * vulkan-headers 0:1.4.341.0 is now installed, and VK_HEADER_VERSION 341
- * matches the host loader (vulkan-loader 1.4.341) exactly. The loader is
- * reached with dlopen rather than a link-time dependency, so the binary still
- * runs if the loader moves.
+ * AUTHORISATION
+ *   AD-7 (2026-09-28): compute-shader execution on the RX 550 to validate this
+ *   decompressor. No sysfs writes, no power or clock policy changes, read-only
+ *   results. AD-4 keeps RG-1 intact; nothing here touches kernel code.
  */
-
-#define _POSIX_C_SOURCE 200809L
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -82,757 +69,683 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <math.h>
-#include <dlfcn.h>
 #include <sys/stat.h>
-
 #include <vulkan/vulkan.h>
 
 #include "../compressor/rx550_compress.h"
 
-_Static_assert(sizeof(rx550_block_t)      == 16, "rx550_block_t must be 16 B");
-_Static_assert(sizeof(rx550_rgba_block_t) == 64, "rx550_rgba_block_t must be 64 B");
-_Static_assert(offsetof(rx550_block_t, a_idx) ==  2, "alpha index offset");
-_Static_assert(offsetof(rx550_block_t, c0)   ==  8, "colour endpoint offset");
-_Static_assert(offsetof(rx550_block_t, c_idx) == 12, "colour index offset");
+_Static_assert(sizeof(rx550_rgba_block_t) == 64, "rgba block must be 64 B");
+_Static_assert(sizeof(rx550_block_t) == 16, "block must be 16 B");
 
-#define SPV_MAGIC     0x07230203u
-#define RX550_VENDOR  0x1002u
-#define RX550_DEVICE  0x699Fu
-#define NUM_BLOCKS    64
-/* Workgroup geometry, which must match decompress_bc3.comp.
- *
- * GROUPSIZE is local_size_x: 256 invocations.
- * BLOCKS_PER_WG is what the shader actually consumes per workgroup, and it is
- * NOT 1. The shader maps one invocation to one PIXEL, not to one block:
- *
- *     uint p           = gl_LocalInvocationID.x & 15u;   <- pixel in the block
- *     uint block_in_wg = gl_LocalInvocationID.x >> 4u;   <- block in the group
- *     uint block_idx   = gl_WorkGroupID.x * 16u + block_in_wg;
- *
- * 256 invocations / 16 pixels = 16 BLOCKS per workgroup. A previous version of
- * this file computed DISPATCHES as ceil(NUM_BLOCKS / GROUPSIZE) = ceil(64/256)
- * = 1, dispatching a single workgroup that covers blocks 0..15 and leaving
- * blocks 16..63 unwritten. 48 of 64 blocks then differed from the CPU decoder,
- * and the first 16 matched -- the signature of an under-sized dispatch rather
- * than of wrong arithmetic.
- *
- * Dividing by the workgroup SIZE is the mistake; the shader's unit of work is
- * the BLOCK, so the divisor is the blocks each workgroup handles. */
-#define GROUPSIZE       256u
-#define PIXELS_PER_BLOCK 16u
-#define BLOCKS_PER_WG   (GROUPSIZE / PIXELS_PER_BLOCK)          /* 16 */
-#define DISPATCHES      ((NUM_BLOCKS + BLOCKS_PER_WG - 1u) / BLOCKS_PER_WG)
-#define BYTES_BLOCKS    ((size_t)NUM_BLOCKS * 16u)
-#define BYTES_PIXELS  ((size_t)NUM_BLOCKS * 64u)
-#define POISON        0xDEADBEEFu
-#define TIMEOUT_NS    5000000000ull   /* 5 s; a dispatch this size takes microseconds */
+#define RX550_VENDOR_ID 0x1002u
+#define RX550_DEVICE_ID 0x699Fu
 
-/* ==========================================================================
- * Corpus -- identical to test_corpus_validate.c by construction, and it
- * measures its own coverage of the two alpha-ramp branches.
- * ========================================================================== */
+#define NUM_BLOCKS      64
+#define GPU_OUT_BYTES   (NUM_BLOCKS * RX550_INPUT_BLOCK_BYTES)
+#define SPIRV_MAGIC     0x07230203u
 
-static uint32_t lcg_state = 12345u;
+/* Read from decompress_bc3.comp, not assumed. See the header. */
+#define SHADER_LOCAL_SIZE_X  256u
+#define SHADER_BLOCKS_PER_WG 16u
+#define THREADS_PER_BLOCK    (SHADER_LOCAL_SIZE_X / SHADER_BLOCKS_PER_WG)  /* 16 */
+#define DISPATCH_GROUPS      ((NUM_BLOCKS + SHADER_BLOCKS_PER_WG - 1u) / SHADER_BLOCKS_PER_WG)
+#define TOTAL_THREADS        (DISPATCH_GROUPS * SHADER_LOCAL_SIZE_X)
+
+_Static_assert(SHADER_LOCAL_SIZE_X % SHADER_BLOCKS_PER_WG == 0,
+               "workgroup size must divide evenly into blocks");
+_Static_assert(THREADS_PER_BLOCK == RX550_BLOCK_PIXELS,
+               "shader gives one thread per pixel; BLOCK_PIXELS says otherwise");
+
+#define CPU_REF_NOISE_PSNR_FLOOR  5.0
+#define CPU_REF_STRUCT_PSNR_FLOOR 20.0
+#define CPU_REF_FLAT_EXACT        1
+
+/* ------------------------------------------------------------------------- */
+/* Corpus -- built once, shared by both phases                               */
+/* ------------------------------------------------------------------------- */
+
+#define LCG_SEED 12345u
+#define LCG_MULT 1103515245u
+#define LCG_ADD  12345u
+
+static uint32_t lcg_state = LCG_SEED;
 
 static uint8_t lcg_next(void)
 {
-    lcg_state = lcg_state * 1103515245u + 12345u;
+    lcg_state = lcg_state * LCG_MULT + LCG_ADD;
     return (uint8_t)((lcg_state >> 16) & 0xFFu);
 }
 
-typedef struct {
-    rx550_block_t      blocks[NUM_BLOCKS];
-    rx550_rgba_block_t cpu[NUM_BLOCKS];
-    int n_six, n_eight;   /* coverage of a0<=a1 and a0>a1 */
-} corpus_t;
+static rx550_rgba_block_t g_src[NUM_BLOCKS];
+static rx550_block_t     g_cmp[NUM_BLOCKS];
+static rx550_rgba_block_t g_cpu[NUM_BLOCKS];
+static uint8_t            g_gpu[GPU_OUT_BYTES];
 
-static void corpus_build(corpus_t *c)
+static int g_blocks_4val = 0, g_blocks_6val = 0, g_strict_6val = 0, g_six_hand = 0;
+
+static double psnr(const rx550_rgba_block_t *ref, const rx550_rgba_block_t *got)
 {
-    int b, p;
-
-    lcg_state = 12345u;
-
-    for (b = 0; b < NUM_BLOCKS; b++) {
-        rx550_rgba_block_t in;
-        memset(&in, 0, sizeof in);
-
-        switch (b) {
-        case 0: for (p = 0; p < 64; p++) in.px[p] = 0x00; break;
-        case 1: for (p = 0; p < 64; p++) in.px[p] = 0xFF; break;
-        case 2: for (p = 0; p < 64; p++) in.px[p] = 0x80; break;
-
-        /* Ascending alpha: a1 < a0, the 8-value /7 branch. */
-        case 3:
-            for (p = 0; p < 16; p++) {
-                in.px[4 * p + 0] = 0x40; in.px[4 * p + 1] = 0x40; in.px[4 * p + 2] = 0x40;
-                in.px[4 * p + 3] = (uint8_t)(p * 17u);
-            }
-            break;
-
-        /* Descending alpha: forces the 6-value /5 branch, whose a[6]=0 and
-         * a[7]=255 rule is the content of AD-11. A noise corpus reaches that
-         * branch only by chance. */
-        case 4:
-            for (p = 0; p < 16; p++) {
-                in.px[4 * p + 0] = 0xC0; in.px[4 * p + 1] = 0xC0; in.px[4 * p + 2] = 0xC0;
-                in.px[4 * p + 3] = (uint8_t)(255u - p * 17u);
-            }
-            break;
-
-        case 5: for (p = 0; p < 64; p++) in.px[p] = (uint8_t)((p & 1) ? 0x00 : 0xFF); break;
-        case 6: for (p = 0; p < 64; p++) in.px[p] = 0x7F; break;
-        case 7: case 8: case 9:
-            for (p = 0; p < 64; p++) in.px[p] = (uint8_t)((p * 17u + b * 5u) & 0xFFu);
-            break;
-        default:
-            for (p = 0; p < 64; p++) in.px[p] = lcg_next();
-            break;
-        }
-
-        rx550_compress_block(&in, &c->blocks[b]);
-        rx550_decompress_block(&c->blocks[b], &c->cpu[b]);
-
-        if (c->blocks[b].a0 <= c->blocks[b].a1) c->n_six++; else c->n_eight++;
+    double se = 0.0;
+    int j;
+    for (j = 0; j < RX550_INPUT_BLOCK_BYTES; j++) {
+        double d = (double)ref->px[j] - (double)got->px[j];
+        se += d * d;
     }
+    return se == 0.0 ? INFINITY : 10.0 * log10((255.0 * 255.0 * 16.0) / se);
 }
 
-/* ==========================================================================
- * Loader, resolved with dlopen
- * ========================================================================== */
-
-#define VKF(name) static PFN_##name p##name
-
-VKF(vkCreateInstance);        VKF(vkDestroyInstance);
-VKF(vkEnumeratePhysicalDevices); VKF(vkGetPhysicalDeviceProperties);
-VKF(vkGetPhysicalDeviceQueueFamilyProperties);
-VKF(vkGetPhysicalDeviceMemoryProperties);
-VKF(vkCreateDevice);          VKF(vkDestroyDevice);   VKF(vkGetDeviceQueue);
-VKF(vkCreateBuffer);          VKF(vkDestroyBuffer);
-VKF(vkAllocateMemory);        VKF(vkFreeMemory);      VKF(vkBindBufferMemory);
-VKF(vkMapMemory);             VKF(vkUnmapMemory);
-VKF(vkCreateShaderModule);    VKF(vkDestroyShaderModule);
-VKF(vkCreateDescriptorSetLayout); VKF(vkDestroyDescriptorSetLayout);
-VKF(vkCreatePipelineLayout);  VKF(vkDestroyPipelineLayout);
-VKF(vkCreateComputePipelines); VKF(vkDestroyPipeline);
-VKF(vkCreateDescriptorPool);  VKF(vkDestroyDescriptorPool);
-VKF(vkAllocateDescriptorSets); VKF(vkUpdateDescriptorSets);
-VKF(vkCreateCommandPool);     VKF(vkDestroyCommandPool);
-VKF(vkAllocateCommandBuffers); VKF(vkFreeCommandBuffers);
-VKF(vkBeginCommandBuffer);    VKF(vkEndCommandBuffer);
-VKF(vkCmdBindPipeline);       VKF(vkCmdBindDescriptorSets);  VKF(vkCmdDispatch);
-VKF(vkCmdPushConstants);
-VKF(vkQueueSubmit);           VKF(vkQueueWaitIdle);
-VKF(vkCreateFence);           VKF(vkWaitForFences);  VKF(vkDestroyFence);
-
-#undef VKF
-
-static int load_vulkan(void)
+static int build_corpus(void)
 {
-    static const char *paths[] = {
-        "libvulkan.so.1", "/usr/lib64/libvulkan.so.1", NULL
-    };
-    void *h = NULL;
-    int i;
+    int i, j;
 
-    for (i = 0; paths[i]; i++) {
-        h = dlopen(paths[i], RTLD_NOW);
-        if (h) { printf("  [ OK ] cargador: %s\n", paths[i]); break; }
+    lcg_state = LCG_SEED;
+    memset(g_src, 0, sizeof(g_src));
+    memset(g_cmp, 0, sizeof(g_cmp));
+    memset(g_cpu, 0, sizeof(g_cpu));
+    memset(g_gpu, 0, sizeof(g_gpu));
+    g_blocks_4val = g_blocks_6val = g_strict_6val = 0;
+
+    for (i = 0; i < 32; i++)
+        for (j = 0; j < RX550_INPUT_BLOCK_BYTES; j++)
+            g_src[i].px[j] = lcg_next();
+
+    /* One signal in a narrow band, not four independent ones. An earlier draft
+     * loaded an R ramp, an inverted G ramp and a separate B ramp into one block:
+     * four signals against a four-colour palette, ~6.8 dB, proving nothing. */
+    for (i = 32; i < 48; i++)
+        for (j = 0; j < 16; j++) {
+            g_src[i].px[j * 4 + 0] = (uint8_t)(60 + j * 6);
+            g_src[i].px[j * 4 + 1] = (uint8_t)(60 + j * 5);
+            g_src[i].px[j * 4 + 2] = (uint8_t)(60 + j * 4);
+            g_src[i].px[j * 4 + 3] = (uint8_t)(200 + (j % 3) * 20);
+        }
+
+    for (i = 48; i < 56; i++)
+        memset(g_src[i].px, (i & 1) ? 0xFF : 0x00, RX550_INPUT_BLOCK_BYTES);
+    for (i = 56; i < 64; i++)
+        memset(g_src[i].px, 0x80, RX550_INPUT_BLOCK_BYTES);
+
+    for (i = 0; i < NUM_BLOCKS; i++) {
+        rx550_compress_block(&g_src[i], &g_cmp[i]);
+        rx550_decompress_block(&g_cmp[i], &g_cpu[i]);
+        if      (g_cmp[i].a0 <  g_cmp[i].a1) g_strict_6val++;
+        else if (g_cmp[i].a0 == g_cmp[i].a1) g_blocks_6val++;
+        else                                g_blocks_4val++;
     }
-    if (!h) {
-        fprintf(stderr, "  [FAIL] dlopen libvulkan.so.1: %s\n", dlerror());
-        return 0;
-    }
-
-#define SYM(vn, name)                                                      \
-    do {                                                                   \
-        *(void **)(&p##vn) = dlsym(h, name);                               \
-        if (!p##vn) {                                                      \
-            fprintf(stderr, "  [FAIL] dlsym(%s): %s\n", name, dlerror());  \
-            return 0;                                                      \
-        }                                                                  \
-    } while (0)
-
-    SYM(vkCreateInstance, "vkCreateInstance");
-    SYM(vkDestroyInstance, "vkDestroyInstance");
-    SYM(vkEnumeratePhysicalDevices, "vkEnumeratePhysicalDevices");
-    SYM(vkGetPhysicalDeviceProperties, "vkGetPhysicalDeviceProperties");
-    SYM(vkGetPhysicalDeviceQueueFamilyProperties, "vkGetPhysicalDeviceQueueFamilyProperties");
-    SYM(vkGetPhysicalDeviceMemoryProperties, "vkGetPhysicalDeviceMemoryProperties");
-    SYM(vkCreateDevice, "vkCreateDevice");
-    SYM(vkDestroyDevice, "vkDestroyDevice");
-    SYM(vkGetDeviceQueue, "vkGetDeviceQueue");
-    SYM(vkCreateBuffer, "vkCreateBuffer");
-    SYM(vkDestroyBuffer, "vkDestroyBuffer");
-    SYM(vkAllocateMemory, "vkAllocateMemory");
-    SYM(vkFreeMemory, "vkFreeMemory");
-    SYM(vkBindBufferMemory, "vkBindBufferMemory");
-    SYM(vkMapMemory, "vkMapMemory");
-    SYM(vkUnmapMemory, "vkUnmapMemory");
-    SYM(vkCreateShaderModule, "vkCreateShaderModule");
-    SYM(vkDestroyShaderModule, "vkDestroyShaderModule");
-    SYM(vkCreateDescriptorSetLayout, "vkCreateDescriptorSetLayout");
-    SYM(vkDestroyDescriptorSetLayout, "vkDestroyDescriptorSetLayout");
-    SYM(vkCreatePipelineLayout, "vkCreatePipelineLayout");
-    SYM(vkDestroyPipelineLayout, "vkDestroyPipelineLayout");
-    SYM(vkCreateComputePipelines, "vkCreateComputePipelines");
-    SYM(vkDestroyPipeline, "vkDestroyPipeline");
-    SYM(vkCreateDescriptorPool, "vkCreateDescriptorPool");
-    SYM(vkDestroyDescriptorPool, "vkDestroyDescriptorPool");
-    SYM(vkAllocateDescriptorSets, "vkAllocateDescriptorSets");
-    SYM(vkUpdateDescriptorSets, "vkUpdateDescriptorSets");
-    SYM(vkCreateCommandPool, "vkCreateCommandPool");
-    SYM(vkDestroyCommandPool, "vkDestroyCommandPool");
-    SYM(vkAllocateCommandBuffers, "vkAllocateCommandBuffers");
-    SYM(vkFreeCommandBuffers, "vkFreeCommandBuffers");
-    SYM(vkBeginCommandBuffer, "vkBeginCommandBuffer");
-    SYM(vkEndCommandBuffer, "vkEndCommandBuffer");
-    SYM(vkCmdBindPipeline, "vkCmdBindPipeline");
-    SYM(vkCmdBindDescriptorSets, "vkCmdBindDescriptorSets");
-    SYM(vkCmdDispatch, "vkCmdDispatch");
-    SYM(vkCmdPushConstants, "vkCmdPushConstants");
-    SYM(vkQueueSubmit, "vkQueueSubmit");
-    SYM(vkQueueWaitIdle, "vkQueueWaitIdle");
-    SYM(vkCreateFence, "vkCreateFence");
-    SYM(vkWaitForFences, "vkWaitForFences");
-    SYM(vkDestroyFence, "vkDestroyFence");
-#undef SYM
-
-    printf("  [ OK ] puntos de entrada resueltos (incluye vkCmdPushConstants)\n");
     return 1;
 }
 
-static const char *vkres(VkResult r)
+/* Hand-built a0 > a1 blocks. encode_alpha sorts the endpoints (a0 = max,
+ * a1 = min), so a0 < a1 is UNREACHABLE through the encoder -- measured, 0 of 64.
+ * A decoder must still handle it for textures produced elsewhere, and it is
+ * where a symmetric-looking implementation goes wrong. */
+static int build_six_value_blocks(void)
 {
-    switch (r) {
-    case VK_SUCCESS:                        return "VK_SUCCESS";
-    case VK_ERROR_OUT_OF_HOST_MEMORY:       return "VK_ERROR_OUT_OF_HOST_MEMORY";
-    case VK_ERROR_OUT_OF_DEVICE_MEMORY:     return "VK_ERROR_OUT_OF_DEVICE_MEMORY";
-    case VK_ERROR_INITIALIZATION_FAILED:    return "VK_ERROR_INITIALIZATION_FAILED";
-    case VK_ERROR_DEVICE_LOST:              return "VK_ERROR_DEVICE_LOST";
-    case VK_ERROR_LAYER_NOT_PRESENT:        return "VK_ERROR_LAYER_NOT_PRESENT";
-    case VK_ERROR_EXTENSION_NOT_PRESENT:    return "VK_ERROR_EXTENSION_NOT_PRESENT";
-    case VK_ERROR_FEATURE_NOT_PRESENT:      return "VK_ERROR_FEATURE_NOT_PRESENT";
-    case VK_ERROR_INCOMPATIBLE_DRIVER:      return "VK_ERROR_INCOMPATIBLE_DRIVER";
-    case VK_ERROR_FORMAT_NOT_SUPPORTED:     return "VK_ERROR_FORMAT_NOT_SUPPORTED";
-    default:                                return "otro VkResult";
+    int n = 0, i, j;
+
+    for (i = 0; i < 8; i++) {
+        rx550_block_t *b = &g_cmp[NUM_BLOCKS - 1 - i];
+        rx550_rgba_block_t *dec = &g_cpu[NUM_BLOCKS - 1 - i];
+        uint8_t lo = (uint8_t)(10 + i * 30);
+        uint8_t hi = (uint8_t)(40 + i * 25);
+
+        memset(b, 0, sizeof(*b));
+        b->a0 = hi;                 /* a0 > a1 : six interpolated values */
+        b->a1 = lo;
+        for (j = 0; j < 16; j++) {
+            uint8_t ai = (uint8_t)(j & 7);
+            b->a_idx[3 * j / 8] |= (uint8_t)((ai & 7u) << (3 * j % 8));
+            if ((3 * j % 8) > 5)
+                b->a_idx[3 * j / 8 + 1] |= (uint8_t)((ai & 7u) >> (8 - 3 * j % 8));
+        }
+        b->c0 = 0xF800; b->c1 = 0x07E0;
+        for (j = 0; j < 16; j++)
+            b->c_idx[j / 4] |= (uint8_t)((j & 3) << (2 * (j % 4)));
+
+        rx550_decompress_block(b, dec);
+        n++;
     }
+    g_six_hand = n;
+    return n;
 }
 
-/* ==========================================================================
- * Artefact
- * ========================================================================== */
-
-static uint32_t *read_spv(const char *path, size_t *bytes)
+static int check_cpu_reference(void)
 {
-    struct stat st;
-    FILE *f;
-    uint32_t *code;
-    uint32_t magic;
+    int i, bad = 0, exact = 0, encodable = NUM_BLOCKS - g_six_hand;
+    double worst = INFINITY, total = 0.0;
 
-    if (stat(path, &st) != 0) {
-        fprintf(stderr, "  [FAIL] %s no existe. Ejecuta: make decompress_bc3.spv\n", path);
-        return NULL;
+    for (i = 0; i < encodable; i++) {
+        double p = psnr(&g_src[i], &g_cpu[i]);
+        double floor;
+        if (i < 32)      floor = CPU_REF_NOISE_PSNR_FLOOR;
+        else if (i < 48) floor = CPU_REF_STRUCT_PSNR_FLOOR;
+        else             floor = (double)CPU_REF_FLAT_EXACT;
+
+        if (isinf(p)) { exact++; continue; }
+        if (p < worst) worst = p;
+        total += p;
+        if (p < floor) {
+            fprintf(stderr, "    bloque %d: PSNR %.2f dB por debajo de su suelo %.1f dB\n",
+                    i, p, floor);
+            bad++;
+        }
     }
-    f = fopen(path, "rb");
-    if (!f) { fprintf(stderr, "  [FAIL] no se pudo abrir %s\n", path); return NULL; }
-    if (fread(&magic, 1, 4, f) != 4) { fclose(f); fprintf(stderr, "  [FAIL] .spv truncado\n"); return NULL; }
-    if (magic != SPV_MAGIC) {
-        fprintf(stderr, "  [FAIL] magic %08x, esperado %08x\n", magic, SPV_MAGIC);
-        fclose(f);
-        return NULL;
+    printf("    bloques round-trip evaluados : %d de %d (%d a mano, sin round-trip)\n",
+           encodable, NUM_BLOCKS, g_six_hand);
+    printf("    bloques exactos              : %d de %d\n", exact, encodable);
+    if (!isinf(worst)) printf("    peor PSNR (no exactos)       : %.2f dB\n", worst);
+    printf("    PSNR medio                   : %.2f dB\n",
+           (encodable - exact) ? total / (encodable - exact) : 0.0);
+    if (bad) {
+        fprintf(stderr, "    ERROR: %d bloques por debajo de su suelo\n", bad);
+        return 0;
     }
-    if ((size_t)st.st_size % 4u || st.st_size < 20) {
-        fprintf(stderr, "  [FAIL] tamano %zu no es multiplo de 4 palabras\n", (size_t)st.st_size);
-        fclose(f);
-        return NULL;
+    return 1;
+}
+
+/* Re-read the shader and confirm the geometry this file hard-codes. The dispatch
+ * count is the single most fragile number in the test: 64 and 1 are both wrong
+ * and both were written here by mistake at some point. */
+static int check_dispatch_geometry(void)
+{
+    FILE *f = fopen("decompress_bc3.comp", "r");
+    char line[512];
+    int seen_local = 0, seen_shift = 0, seen_mul = 0, bad = 0;
+
+    if (!f) {
+        fprintf(stderr, "    ERROR: no se pudo abrir decompress_bc3.comp\n");
+        return 0;
     }
-    code = malloc((size_t)st.st_size);
-    if (!code) { fclose(f); return NULL; }
-    rewind(f);
-    if (fread(code, 1, (size_t)st.st_size, f) != (size_t)st.st_size) {
-        fprintf(stderr, "  [FAIL] lectura incompleta del .spv\n");
-        free(code); fclose(f); return NULL;
+    while (fgets(line, sizeof(line), f)) {
+        if (strstr(line, "local_size_x") && strstr(line, "256"))
+            seen_local = 1;
+        if (strstr(line, "gl_LocalInvocationID.x >> 4u"))
+            seen_shift = 1;
+        if (strstr(line, "gl_WorkGroupID.x * 16u"))
+            seen_mul = 1;
     }
     fclose(f);
-    *bytes = (size_t)st.st_size;
-    return code;
+
+    if (!seen_local) { fprintf(stderr, "    ERROR: el shader ya no declara local_size_x = 256\n"); bad++; }
+    if (!seen_shift) { fprintf(stderr, "    ERROR: el shader ya no usa '>> 4u'; revisa BLOCKS_PER_WG\n"); bad++; }
+    if (!seen_mul)   { fprintf(stderr, "    ERROR: el shader ya no usa '* 16u'; revisa BLOCKS_PER_WG\n"); bad++; }
+    if (bad) {
+        fprintf(stderr, "    La geometria de dispatch de este test ya no coincide con el shader.\n");
+        fprintf(stderr, "    No continues: un dispatch erroneo lee o escribe fuera del buffer.\n");
+        return 0;
+    }
+    return 1;
 }
 
-/* ==========================================================================
- * Phase B
- * ========================================================================== */
+/* ------------------------------------------------------------------------- */
+/* PHASE A                                                                     */
+/* ------------------------------------------------------------------------- */
 
-/* Vulkan 1.4, VK_HEADER_VERSION 341, changed this struct: memoryTypes and
- * memoryHeaps are inline arrays, not pointers. Code written against the older
- * `pMemoryTypes` spelling would not have compiled here, and in the
- * hand-declared version it would have been a silent layout error -- a
- * misread offset reads the wrong bytes and the failure surfaces later as
- * garbage or a crash, with nothing pointing back at this line. That is the
- * concrete reason the manual declarations were abandoned: the real header
- * turns this class of mistake into a compile error. */
-static int find_host_coherent_type(VkPhysicalDevice phys)
+static int write_blob(const char *path, const void *p, size_t n)
 {
-    VkPhysicalDeviceMemoryProperties mp;
-    uint32_t i;
-    const VkMemoryPropertyFlags want = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                       VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    pvkGetPhysicalDeviceMemoryProperties(phys, &mp);
-    for (i = 0; i < mp.memoryTypeCount; i++)
-        if ((mp.memoryTypes[i].propertyFlags & want) == want)
-            return (int)i;
-    return -1;
+    FILE *f = fopen(path, "wb");
+    if (!f) { fprintf(stderr, "    ERROR: no se pudo escribir %s\n", path); return 0; }
+    if (fwrite(p, 1, n, f) != n) { fclose(f); return 0; }
+    fclose(f);
+    return 1;
 }
 
-#define TRY(expr, what)                                                     \
-    do {                                                                    \
-        VkResult _r = (expr);                                               \
-        if (_r != VK_SUCCESS) {                                             \
-            fprintf(stderr, "  [FAIL] %s -> %s (%d)\n", what, vkres(_r), (int)_r); \
-            goto out;                                                       \
-        }                                                                   \
+static int phase_a_preparation(void)
+{
+    struct stat spv_st, comp_st;
+    FILE *f;
+    uint32_t magic = 0;
+    int ok = 1;
+
+    printf("=== FASE A: preparacion y validacion (sin GPU) ===\n\n");
+
+    printf("  -- artefactos del shader --\n");
+    if (stat("decompress_bc3.comp", &comp_st) != 0) {
+        fprintf(stderr, "    ERROR: falta decompress_bc3.comp\n"); return 0;
+    }
+    printf("    decompress_bc3.comp  %8lld B  mtime %lld\n",
+           (long long)comp_st.st_size, (long long)comp_st.st_mtime);
+    if (stat("decompress_bc3.spv", &spv_st) != 0) {
+        fprintf(stderr, "    ERROR: falta decompress_bc3.spv -- make decompress_bc3.spv\n");
+        return 0;
+    }
+    printf("    decompress_bc3.spv   %8lld B  mtime %lld\n",
+           (long long)spv_st.st_size, (long long)spv_st.st_mtime);
+
+    if (spv_st.st_mtime < comp_st.st_mtime) {
+        fprintf(stderr, "    ERROR: el .spv es MAS VIEJO que el .comp\n"); ok = 0;
+    } else printf("    OK: el .spv es mas nuevo que el .comp\n");
+
+    f = fopen("decompress_bc3.spv", "rb");
+    if (!f) { fprintf(stderr, "    ERROR: no se pudo abrir el .spv\n"); return 0; }
+    if (fread(&magic, 4, 1, f) != 1) { fclose(f); return 0; }
+    fclose(f);
+    if (magic != SPIRV_MAGIC) {
+        fprintf(stderr, "    ERROR: magic SPIR-V invalido 0x%08x\n", magic); ok = 0;
+    } else printf("    OK: magic SPIR-V 0x07230203\n");
+
+    printf("\n  -- geometria de dispatch (releida del shader) --\n");
+    if (!check_dispatch_geometry()) ok = 0;
+    printf("    local_size_x del shader   : %u\n", SHADER_LOCAL_SIZE_X);
+    printf("    bloques por workgroup     : %u\n", SHADER_BLOCKS_PER_WG);
+    printf("    workgroups para %d bloques: %u   <- ni %d ni 1\n",
+           NUM_BLOCKS, DISPATCH_GROUPS, NUM_BLOCKS);
+
+    printf("\n  -- corpus reproducible (compartido con la Fase B) --\n");
+    if (!build_corpus()) return 0;
+    printf("    bloques %d, semilla LCG %u\n", NUM_BLOCKS, LCG_SEED);
+    printf("    modo 4 valores (a0 >  a1) : %2d bloques del encoder\n", g_blocks_4val);
+    printf("    modo 6 valores (a0 <= a1) : %2d bloques del encoder, todos a0 == a1\n", g_blocks_6val);
+    printf("    a0 <  a1 estricto         : %2d bloques  [NO alcanzable via encoder]\n", g_strict_6val);
+    if (build_six_value_blocks() != 0)
+        printf("    OK: %d bloques a mano cubren la rama a0 > a1 con rango estrecho\n", g_six_hand);
+    else { fprintf(stderr, "    ERROR: no se pudieron construir los bloques a mano\n"); ok = 0; }
+
+    printf("\n  -- validacion de la referencia CPU --\n");
+    if (!check_cpu_reference()) ok = 0;
+
+    printf("\n  -- persistencia --\n");
+    if (!write_blob("corpus_blocks.bin", g_cmp, sizeof(g_cmp))) return 0;
+    if (!write_blob("corpus_cpu_ref.bin", g_cpu, sizeof(g_cpu))) return 0;
+    printf("    corpus_blocks.bin %zu B, corpus_cpu_ref.bin %zu B\n",
+           sizeof(g_cmp), sizeof(g_cpu));
+
+    return ok;
+}
+
+/* ------------------------------------------------------------------------- */
+/* PHASE B -- real Vulkan, real headers, real GPU                              */
+/* ------------------------------------------------------------------------- */
+
+#define CHK(expr, what)                                                        \
+    do {                                                                       \
+        VkResult _r = (expr);                                                  \
+        if (_r != VK_SUCCESS) {                                                \
+            fprintf(stderr, "    ERROR: %s -> VkResult %d\n", (what), (int)_r); \
+            goto cleanup;                                                      \
+        }                                                                      \
     } while (0)
 
-static int phase_b(corpus_t *c, const char *spv_path)
+static uint32_t find_memory_type(const VkPhysicalDeviceMemoryProperties *mp,
+                                 uint32_t type_bits, VkMemoryPropertyFlags want)
 {
-    VkInstance inst = VK_NULL_HANDLE;
-    VkPhysicalDevice *phys = NULL, target = VK_NULL_HANDLE;
-    VkDevice dev = VK_NULL_HANDLE;
-    VkQueue queue = VK_NULL_HANDLE;
-    VkCommandPool pool = VK_NULL_HANDLE;
-    VkCommandBuffer cmd = VK_NULL_HANDLE;
-    VkBuffer b_in = VK_NULL_HANDLE, b_out = VK_NULL_HANDLE;
-    VkDeviceMemory m_in = VK_NULL_HANDLE, m_out = VK_NULL_HANDLE;
-    VkShaderModule mod = VK_NULL_HANDLE;
-    VkDescriptorSetLayout dsl = VK_NULL_HANDLE;
-    VkPipelineLayout playout = VK_NULL_HANDLE;
-    VkPipeline pipe = VK_NULL_HANDLE;
-    VkDescriptorPool dpool = VK_NULL_HANDLE;
-    VkDescriptorSet dset = VK_NULL_HANDLE;
-    VkFence fence = VK_NULL_HANDLE;
-    uint32_t *code = NULL;
-    void *map_in = NULL, *map_out = NULL;
-    uint32_t *gpu = NULL;
-    size_t spv_bytes = 0;
-    uint32_t count = 0, i, qfam = 0, qcount;
-    uint32_t nblocks = NUM_BLOCKS;   /* push constant, ver la nota en el submit */
-    int have_q = 0, differ = 0, shown = 0, verdict = 0;
-
-    printf("\n=== FASE B: dispatch en la RX 550 ===\n\n");
-
-    if (!load_vulkan()) { printf("\nRESULT: FASE B NO EJECUTADA (cargador)\n"); return 0; }
-
-    /* ---- instance ---- */
-    {
-        VkApplicationInfo app;
-        memset(&app, 0, sizeof app);
-        app.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-        VkInstanceCreateInfo ici;
-        memset(&ici, 0, sizeof ici);
-        ici.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-
-        app.pApplicationName = "test_decompress";
-        app.applicationVersion = 1;
-        app.pEngineName = "rx550-investigacion";
-        app.engineVersion = 1;
-        app.apiVersion = VK_API_VERSION_1_1;
-        ici.pApplicationInfo = &app;
-
-        TRY(pvkCreateInstance(&ici, NULL, &inst), "vkCreateInstance");
-    }
-    printf("  [ OK ] vkCreateInstance (API 1.1 solicitada; cabeceras VK_HEADER_VERSION %u)\n",
-           VK_HEADER_VERSION);
-
-    /* ---- device by PCI identity ---- */
-    TRY(pvkEnumeratePhysicalDevices(inst, &count, NULL), "vkEnumeratePhysicalDevices (count)");
-    if (count == 0) { fprintf(stderr, "  [FAIL] sin dispositivos fisicos\n"); goto out; }
-    phys = calloc(count, sizeof *phys);
-    if (!phys) { fprintf(stderr, "  [FAIL] sin memoria\n"); goto out; }
-    TRY(pvkEnumeratePhysicalDevices(inst, &count, phys), "vkEnumeratePhysicalDevices");
-
-    printf("  Dispositivos (%u):\n", count);
-    for (i = 0; i < count; i++) {
-        VkPhysicalDeviceProperties p;
-        pvkGetPhysicalDeviceProperties(phys[i], &p);
-        printf("    [%u] %04x:%04x  %s\n", i, p.vendorID, p.deviceID, p.deviceName);
-        if (p.vendorID == RX550_VENDOR && p.deviceID == RX550_DEVICE) {
-            target = phys[i];
-            printf("         ^ OBJETIVO, por PCI identity (no por indice)\n");
-        }
-    }
-    if (!target) {
-        fprintf(stderr, "  [FAIL] no hay dispositivo %04x:%04x.\n"
-                        "         No se sustituye por otro: llvmpipe aceptaria el\n"
-                        "         dispatch y el resultado seria sobre otro hardware.\n",
-                RX550_VENDOR, RX550_DEVICE);
-        goto out;
-    }
-
-    /* ---- logical device ---- */
-    {
-        VkQueueFamilyProperties qf[8];
-        uint32_t nqf = 8, q;
-        VkDeviceQueueCreateInfo dq;
-        memset(&dq, 0, sizeof dq);
-        dq.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        VkDeviceCreateInfo dc;
-        memset(&dc, 0, sizeof dc);
-        dc.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-
-        pvkGetPhysicalDeviceQueueFamilyProperties(target, &nqf, qf);
-        for (q = 0; q < nqf; q++)
-            if (qf[q].queueFlags & VK_QUEUE_COMPUTE_BIT) { qfam = q; have_q = 1; break; }
-        if (!have_q) { fprintf(stderr, "  [FAIL] ninguna familia de colas compute\n"); goto out; }
-
-        dq.queueFamilyIndex = qfam; dq.queueCount = 1;
-        dc.queueCreateInfoCount = 1; dc.pQueueCreateInfos = &dq;
-
-        TRY(pvkCreateDevice(target, &dc, NULL, &dev), "vkCreateDevice");
-    }
-    pvkGetDeviceQueue(dev, qfam, 0, &queue);
-    printf("  [ OK ] vkCreateDevice, familia de colas compute %u\n", qfam);
-
-    /* ---- SPIR-V ---- */
-    code = read_spv(spv_path, &spv_bytes);
-    if (!code) goto out;
-    printf("  [ OK ] %s: %zu B, %zu palabras\n", spv_path, spv_bytes, spv_bytes / 4u);
-
-    {
-        VkShaderModuleCreateInfo smi;
-        memset(&smi, 0, sizeof smi);
-        smi.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-        smi.codeSize = spv_bytes; smi.pCode = code;
-        TRY(pvkCreateShaderModule(dev, &smi, NULL, &mod), "vkCreateShaderModule");
-    }
-    printf("  [ OK ] vkCreateShaderModule -- el driver ACEPTÓ el modulo\n");
-
-    /* ---- buffers ---- */
-    {
-        VkBufferCreateInfo bci;
-        memset(&bci, 0, sizeof bci);
-        bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        VkMemoryAllocateInfo mai;
-        memset(&mai, 0, sizeof mai);
-        mai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        int t;
-
-        bci.size = BYTES_BLOCKS; bci.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-        TRY(pvkCreateBuffer(dev, &bci, NULL, &b_in), "vkCreateBuffer entrada");
-        bci.size = BYTES_PIXELS;
-        TRY(pvkCreateBuffer(dev, &bci, NULL, &b_out), "vkCreateBuffer salida");
-
-        t = find_host_coherent_type(target);
-        if (t < 0) { fprintf(stderr, "  [FAIL] sin memoria HOST_VISIBLE|HOST_COHERENT\n"); goto out; }
-
-        mai.allocationSize = BYTES_BLOCKS; mai.memoryTypeIndex = (uint32_t)t;
-        TRY(pvkAllocateMemory(dev, &mai, NULL, &m_in), "vkAllocateMemory entrada");
-        TRY(pvkBindBufferMemory(dev, b_in, m_in, 0), "vkBindBufferMemory entrada");
-        mai.allocationSize = BYTES_PIXELS;
-        TRY(pvkAllocateMemory(dev, &mai, NULL, &m_out), "vkAllocateMemory salida");
-        TRY(pvkBindBufferMemory(dev, b_out, m_out, 0), "vkBindBufferMemory salida");
-
-        TRY(pvkMapMemory(dev, m_in, 0, BYTES_BLOCKS, 0, &map_in), "vkMapMemory entrada");
-        memcpy(map_in, c->blocks, BYTES_BLOCKS);
-        pvkUnmapMemory(dev, m_in); map_in = NULL;
-
-        TRY(pvkMapMemory(dev, m_out, 0, BYTES_PIXELS, 0, &map_out), "vkMapMemory salida");
-        memset(map_out, 0, BYTES_PIXELS);   /* zeros: the "nothing written" case */
-    }
-    printf("  [ OK ] buffers y memoria mapeada\n");
-
-    /* ---- pipeline ---- */
-    {
-        VkDescriptorSetLayoutBinding bnd[2];
-        VkDescriptorSetLayoutCreateInfo dslc;
-        memset(&dslc, 0, sizeof dslc);
-        dslc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        VkPipelineLayoutCreateInfo plc;
-        memset(&plc, 0, sizeof plc);
-        plc.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        VkPushConstantRange pcr;
-        VkDescriptorPoolSize psz;
-        VkDescriptorPoolCreateInfo dpoc;
-        memset(&dpoc, 0, sizeof dpoc);
-        dpoc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        VkDescriptorSetAllocateInfo dsai;
-        VkWriteDescriptorSet wds[2];
-        VkDescriptorBufferInfo dbi[2];
-        VkPipelineShaderStageCreateInfo stg;
-        memset(&stg, 0, sizeof stg);
-        stg.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        VkComputePipelineCreateInfo cpc;
-        memset(&cpc, 0, sizeof cpc);
-        cpc.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-        VkPipelineCache cache = VK_NULL_HANDLE;
-
-        memset(bnd, 0, sizeof bnd);
-        bnd[0].binding = 0; bnd[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        bnd[0].descriptorCount = 1; bnd[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-        bnd[1] = bnd[0]; bnd[1].binding = 1;
-        dslc.bindingCount = 2; dslc.pBindings = bnd;
-        TRY(pvkCreateDescriptorSetLayout(dev, &dslc, NULL, &dsl), "vkCreateDescriptorSetLayout");
-
-        pcr.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT; pcr.offset = 0; pcr.size = 4;
-        plc.setLayoutCount = 1; plc.pSetLayouts = &dsl;
-        plc.pushConstantRangeCount = 1; plc.pPushConstantRanges = &pcr;
-        TRY(pvkCreatePipelineLayout(dev, &plc, NULL, &playout), "vkCreatePipelineLayout");
-
-        psz.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER; psz.descriptorCount = 2;
-        dpoc.maxSets = 1; dpoc.poolSizeCount = 1; dpoc.pPoolSizes = &psz;
-        TRY(pvkCreateDescriptorPool(dev, &dpoc, NULL, &dpool), "vkCreateDescriptorPool");
-
-        memset(&dsai, 0, sizeof dsai);
-        dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        dsai.descriptorPool = dpool; dsai.descriptorSetCount = 1; dsai.pSetLayouts = &dsl;
-        TRY(pvkAllocateDescriptorSets(dev, &dsai, &dset), "vkAllocateDescriptorSets");
-
-        dbi[0].buffer = b_in; dbi[0].offset = 0; dbi[0].range = VK_WHOLE_SIZE;
-        dbi[1].buffer = b_out; dbi[1].offset = 0; dbi[1].range = VK_WHOLE_SIZE;
-        memset(wds, 0, sizeof wds);
-        for (i = 0; i < 2; i++) {
-            wds[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            wds[i].dstSet = dset; wds[i].dstBinding = i; wds[i].descriptorCount = 1;
-            wds[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            wds[i].pBufferInfo = &dbi[i];
-        }
-        pvkUpdateDescriptorSets(dev, 2, wds, 0, NULL);
-
-        stg.stage = VK_SHADER_STAGE_COMPUTE_BIT; stg.module = mod; stg.pName = "main";
-        cpc.stage = stg; cpc.layout = playout;
-        TRY(pvkCreateComputePipelines(dev, cache, 1, &cpc, NULL, &pipe), "vkCreateComputePipelines");
-    }
-    printf("  [ OK ] pipeline de compute creado\n");
-
-    /* ---- record and submit ---- */
-    {
-        VkCommandPoolCreateInfo cpc;
-        memset(&cpc, 0, sizeof cpc);
-        cpc.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-        VkCommandBufferAllocateInfo cbai;
-        memset(&cbai, 0, sizeof cbai);
-        cbai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        VkCommandBufferBeginInfo cbbi;
-        memset(&cbbi, 0, sizeof cbbi);
-        cbbi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        VkFenceCreateInfo fci;
-        memset(&fci, 0, sizeof fci);
-        fci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-        VkSubmitInfo si;
-        memset(&si, 0, sizeof si);
-        si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-        cpc.queueFamilyIndex = qfam;
-        TRY(pvkCreateCommandPool(dev, &cpc, NULL, &pool), "vkCreateCommandPool");
-        cbai.commandPool = pool; cbai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        cbai.commandBufferCount = 1;
-        TRY(pvkAllocateCommandBuffers(dev, &cbai, &cmd), "vkAllocateCommandBuffers");
-        TRY(pvkBeginCommandBuffer(cmd, &cbbi), "vkBeginCommandBuffer");
-
-        pvkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipe);
-        pvkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, playout,
-                                 0, 1, &dset, 0, NULL);
-
-        /* PUSH CONSTANT -- this call was MISSING until 2026-09-29.
-         *
-         * The pipeline layout declared a 4-byte push-constant range and
-         * decompress_bc3.comp reads params.num_blocks to bound the dispatch,
-         * but no vkCmdPushConstants was ever issued. The shader therefore read
-         * uninitialised memory. When that garbage happened to be >= NUM_BLOCKS,
-         * all 256 invocations took the early return and wrote nothing, leaving
-         * the output buffer as the zeros it was initialised with -- which the
-         * pre-comparison validation correctly reported as "the shader did not
-         * write". When the garbage happened to be < NUM_BLOCKS, the shader ran
-         * and wrote, which is how the first GPU run produced 3197 wrong bytes
-         * instead of none.
-         *
-         * A shader whose behaviour depends on uninitialised memory is not
-         * exercised, it is gambled on. The first GPU result was reported as
-         * OBSERVED on the strength of a run that only executed by luck.
-         */
-        pvkCmdPushConstants(cmd, playout, VK_SHADER_STAGE_COMPUTE_BIT, 0, 4, &nblocks);
-
-        pvkCmdDispatch(cmd, DISPATCHES, 1, 1);
-        TRY(pvkEndCommandBuffer(cmd), "vkEndCommandBuffer");
-
-        TRY(pvkCreateFence(dev, &fci, NULL, &fence), "vkCreateFence");
-        si.commandBufferCount = 1; si.pCommandBuffers = &cmd;
-        TRY(pvkQueueSubmit(queue, 1, &si, fence), "vkQueueSubmit");
-        qcount = 0;
-        TRY(pvkWaitForFences(dev, 1, &fence, VK_TRUE, TIMEOUT_NS), "vkWaitForFences");
-        TRY(pvkQueueWaitIdle(queue), "vkQueueWaitIdle");
-        (void)qcount;
-    }
-    printf("  [ OK ] vkCmdDispatch(%u,1,1) = %u invocaciones, submit y fence completados\n",
-           DISPATCHES, DISPATCHES * GROUPSIZE);
-    printf("  *** La GPU ha ejecutado el shader. Esto ya no es aritmetica simulada. ***\n");
-
-    /* ======================================================================
-     * VALIDATION BEFORE COMPARISON -- read the file's header for why.
-     * ====================================================================== */
-    printf("\n  Validacion de la salida (ANTES de comparar):\n");
-
-    gpu = malloc(BYTES_PIXELS);
-    if (!gpu) { fprintf(stderr, "  [FAIL] sin memoria\n"); goto out; }
-    memcpy(gpu, map_out, BYTES_PIXELS);
-
-    {
-        size_t nz = 0, b;
-        for (i = 0; i < BYTES_PIXELS; i++) if (((uint8_t *)gpu)[i]) nz++;
-        if (nz == 0) {
-            fprintf(stderr, "  [FAIL] la salida es TODA CERO. El shader no escribio.\n"
-                            "         Causas probables: dispatch no submitted, pipeline mal\n"
-                            "         construido, o buffer no enlazado. Comparar ahora daria\n"
-                            "         0 discrepancias y PASS, que no probaria nada.\n");
-            goto out;
-        }
-        printf("    [ OK ] %zu de %zu bytes distintos de cero\n", nz, BYTES_PIXELS);
-        (void)b;
-    }
-
-    {
-        size_t words = BYTES_PIXELS / 4u;
-        size_t poison = 0;
-        for (i = 0; i < words; i++) if (gpu[i] == POISON) poison++;
-        if (poison) {
-            fprintf(stderr, "  [FAIL] %zu palabras siguen con el patron veneno (0x%08X):\n"
-                            "         el shader no escribio esa region.\n", poison, POISON);
-            goto out;
-        }
-        printf("    [ OK ] ninguna palabra conserva el patron veneno 0x%08X\n", POISON);
-    }
-
-    /* ---- only now: compare ---- */
-    printf("\n  Comparacion byte a byte GPU vs CPU:\n");
-    for (i = 0; i < NUM_BLOCKS; i++) {
-        int p, bd = 0;
-        for (p = 0; p < 64; p++) {
-            uint8_t g = ((uint8_t *)gpu)[i * 64 + p];
-            uint8_t r = c->cpu[i].px[p];
-            if (g != r) {
-                if (shown < 8)
-                    printf("    bloque %2d pixel %2d canal %d: GPU=%3u CPU=%3u (diff %d)\n",
-                           i, p / 4, p % 4, g, r, (int)g - (int)r);
-                shown++;
-                bd++;
-            }
-        }
-        if (bd) { differ++; if (differ <= 6) printf("      bloque %2d: %d de 64 bytes difieren\n", i, bd); }
-    }
-
-    printf("\n  bloques discrepantes : %d de %d\n", differ, NUM_BLOCKS);
-    printf("  bytes discrepantes   : %d de %zu\n", shown, BYTES_PIXELS);
-    printf("  cobertura del corpus : %d bloques a0<=a1, %d bloques a0>a1\n", c->n_six, c->n_eight);
-
-    if (differ == 0) {
-        printf("\nRESULT: GPU == CPU. El shader en la RX 550 produce exactamente lo que\n"
-               "        produce el decodificador de referencia.\n");
-        verdict = 1;
-    } else {
-        printf("\nRESULT: GPU != CPU. %d de %d bloques difieren.\n", differ, NUM_BLOCKS);
-    }
-
-out:
-    if (map_out) pvkUnmapMemory(dev, m_out);
-    if (fence)  pvkDestroyFence(dev, fence, NULL);
-    if (pool)   pvkDestroyCommandPool(dev, pool, NULL);
-    if (dpool)  pvkDestroyDescriptorPool(dev, dpool, NULL);
-    if (pipe)   pvkDestroyPipeline(dev, pipe, NULL);
-    if (playout) pvkDestroyPipelineLayout(dev, playout, NULL);
-    if (dsl)    pvkDestroyDescriptorSetLayout(dev, dsl, NULL);
-    if (mod)    pvkDestroyShaderModule(dev, mod, NULL);
-    if (b_in)   pvkDestroyBuffer(dev, b_in, NULL);
-    if (b_out)  pvkDestroyBuffer(dev, b_out, NULL);
-    if (m_in)   pvkFreeMemory(dev, m_in, NULL);
-    if (m_out)  pvkFreeMemory(dev, m_out, NULL);
-    if (dev)    pvkDestroyDevice(dev, NULL);
-    if (inst)   pvkDestroyInstance(inst, NULL);
-    free(phys); free(code); free(gpu);
-    return verdict;
+    for (uint32_t i = 0; i < mp->memoryTypeCount; i++)
+        if ((type_bits & (1u << i)) &&
+            (mp->memoryTypes[i].propertyFlags & want) == want)
+            return i;
+    return UINT32_MAX;
 }
 
-/* ==========================================================================
- */
+static int phase_b_gpu_execution(void)
+{
+    VkInstance       instance = VK_NULL_HANDLE;
+    VkPhysicalDevice phys     = VK_NULL_HANDLE;
+    VkDevice         dev      = VK_NULL_HANDLE;
+    VkQueue          queue    = VK_NULL_HANDLE;
+    VkShaderModule   shader   = VK_NULL_HANDLE;
+    VkDescriptorSetLayout dsl  = VK_NULL_HANDLE;
+    VkPipelineLayout playout  = VK_NULL_HANDLE;
+    VkPipeline       pipe     = VK_NULL_HANDLE;
+    VkDescriptorPool dpool    = VK_NULL_HANDLE;
+    VkDescriptorSet  dset     = VK_NULL_HANDLE;
+    VkBuffer         inbuf = VK_NULL_HANDLE, outbuf = VK_NULL_HANDLE;
+    VkDeviceMemory   inmem = VK_NULL_HANDLE, outmem = VK_NULL_HANDLE;
+    VkCommandPool    cpool   = VK_NULL_HANDLE;
+    VkCommandBuffer  cbuf    = VK_NULL_HANDLE;
+    uint32_t         qfam    = UINT32_MAX;
+    VkPhysicalDeviceMemoryProperties memprops;
+    VkMemoryRequirements inreq, outreq;
+    VkDeviceSize in_size  = NUM_BLOCKS * RX550_BLOCK_BYTES;
+    VkDeviceSize out_size = GPU_OUT_BYTES;
+    int coherent = 1;
+    void *mapped = NULL;
+    uint32_t *spv = NULL;
+    size_t spv_bytes = 0;
+    /* Every declaration precedes the first goto: a goto over an initialised
+     * declaration leaves the value indeterminate, and the return at cleanup
+     * reads it. */
+    int discrepancies = 0;
+    int ran_ok = 0;
+    int agree = 0;
+    int i;
+
+    printf("\n=== FASE B: ejecucion en la RX 550 ===\n\n");
+
+    VkApplicationInfo app = {
+        .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+        .pApplicationName = "test_decompress",
+        .applicationVersion = VK_MAKE_VERSION(1,0,0),
+        .pEngineName = "rx550",
+        .engineVersion = VK_MAKE_VERSION(1,0,0),
+        .apiVersion = VK_API_VERSION_1_0
+    };
+    VkInstanceCreateInfo ici = {
+        .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO, .pApplicationInfo = &app
+    };
+    CHK(vkCreateInstance(&ici, NULL, &instance), "vkCreateInstance");
+    printf("  instancia Vulkan creada\n");
+
+    uint32_t ndev = 0;
+    CHK(vkEnumeratePhysicalDevices(instance, &ndev, NULL), "vkEnumeratePhysicalDevices(1)");
+    if (ndev == 0) { fprintf(stderr, "    ERROR: sin dispositivos Vulkan\n"); goto cleanup; }
+    VkPhysicalDevice *devs = calloc(ndev, sizeof(*devs));
+    if (!devs) { fprintf(stderr, "    ERROR: sin memoria\n"); goto cleanup; }
+    CHK(vkEnumeratePhysicalDevices(instance, &ndev, devs), "vkEnumeratePhysicalDevices(2)");
+
+    printf("  dispositivos Vulkan expuestos: %u\n", ndev);
+    for (i = 0; (uint32_t)i < ndev; i++) {
+        VkPhysicalDeviceProperties p;
+        vkGetPhysicalDeviceProperties(devs[i], &p);
+        printf("    [%d] %04x:%04x  %s\n", i, p.vendorID, p.deviceID, p.deviceName);
+        if (p.vendorID == RX550_VENDOR_ID && p.deviceID == RX550_DEVICE_ID && phys == VK_NULL_HANDLE)
+            phys = devs[i];
+    }
+    free(devs);
+    if (phys == VK_NULL_HANDLE) {
+        fprintf(stderr, "    ERROR: no se encontro %04x:%04x por identidad PCI\n",
+                RX550_VENDOR_ID, RX550_DEVICE_ID);
+        goto cleanup;
+    }
+    printf("  OK: RX 550 identificada por PCI, no por indice\n");
+
+    uint32_t nqf = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(phys, &nqf, NULL);
+    VkQueueFamilyProperties *qfs = calloc(nqf ? nqf : 1, sizeof(*qfs));
+    if (!qfs) { fprintf(stderr, "    ERROR: sin memoria\n"); goto cleanup; }
+    vkGetPhysicalDeviceQueueFamilyProperties(phys, &nqf, qfs);
+    for (i = 0; (uint32_t)i < nqf; i++)
+        if (qfs[i].queueFlags & VK_QUEUE_COMPUTE_BIT) { qfam = (uint32_t)i; break; }
+    free(qfs);
+    if (qfam == UINT32_MAX) {
+        fprintf(stderr, "    ERROR: ninguna queue family con compute\n"); goto cleanup;
+    }
+    printf("  queue family de compute: %u\n", qfam);
+
+    float prio = 1.0f;
+    VkDeviceQueueCreateInfo qci = {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+        .queueFamilyIndex = qfam, .queueCount = 1, .pQueuePriorities = &prio
+    };
+    VkDeviceCreateInfo dci = {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .queueCreateInfoCount = 1, .pQueueCreateInfos = &qci
+    };
+    CHK(vkCreateDevice(phys, &dci, NULL, &dev), "vkCreateDevice");
+    vkGetDeviceQueue(dev, qfam, 0, &queue);
+    vkGetPhysicalDeviceMemoryProperties(phys, &memprops);
+    printf("  dispositivo logico creado\n");
+
+    FILE *sf = fopen("decompress_bc3.spv", "rb");
+    if (!sf) { fprintf(stderr, "    ERROR: no se pudo abrir el .spv\n"); goto cleanup; }
+    fseek(sf, 0, SEEK_END); spv_bytes = (size_t)ftell(sf); fseek(sf, 0, SEEK_SET);
+    spv = malloc(spv_bytes);
+    if (!spv || fread(spv, 1, spv_bytes, sf) != spv_bytes) {
+        fprintf(stderr, "    ERROR: lectura del .spv incompleta\n"); fclose(sf); goto cleanup;
+    }
+    fclose(sf);
+
+    VkShaderModuleCreateInfo smci = {
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .codeSize = spv_bytes, .pCode = spv
+    };
+    CHK(vkCreateShaderModule(dev, &smci, NULL, &shader), "vkCreateShaderModule");
+    free(spv); spv = NULL;
+    printf("  shader module creado (%zu B de SPIR-V)\n", spv_bytes);
+
+    VkDescriptorSetLayoutBinding binds[2] = {0};
+    for (i = 0; i < 2; i++) {
+        binds[i].binding = (uint32_t)i;
+        binds[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        binds[i].descriptorCount = 1;
+        binds[i].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    }
+    VkDescriptorSetLayoutCreateInfo dslci = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .bindingCount = 2, .pBindings = binds
+    };
+    CHK(vkCreateDescriptorSetLayout(dev, &dslci, NULL, &dsl), "vkCreateDescriptorSetLayout");
+
+    /* The shader reads params.num_blocks, so the range must exist... */
+    VkPushConstantRange pcr = {
+        .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT, .offset = 0, .size = sizeof(uint32_t)
+    };
+    VkPipelineLayoutCreateInfo plci = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = 1, .pSetLayouts = &dsl,
+        .pushConstantRangeCount = 1, .pPushConstantRanges = &pcr
+    };
+    CHK(vkCreatePipelineLayout(dev, &plci, NULL, &playout), "vkCreatePipelineLayout");
+    printf("  pipeline layout con push constant (offset 0, %zu B)\n", sizeof(uint32_t));
+
+    VkComputePipelineCreateInfo cpci = {
+        .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+        .stage = { .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                   .stage = VK_SHADER_STAGE_COMPUTE_BIT, .module = shader, .pName = "main" },
+        .layout = playout
+    };
+    CHK(vkCreateComputePipelines(dev, VK_NULL_HANDLE, 1, &cpci, NULL, &pipe),
+        "vkCreateComputePipelines");
+    printf("  compute pipeline creado\n");
+
+    VkBufferCreateInfo bci = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = in_size, .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE
+    };
+    CHK(vkCreateBuffer(dev, &bci, NULL, &inbuf), "vkCreateBuffer(input)");
+    bci.size = out_size;
+    CHK(vkCreateBuffer(dev, &bci, NULL, &outbuf), "vkCreateBuffer(output)");
+
+    vkGetBufferMemoryRequirements(dev, inbuf, &inreq);
+    vkGetBufferMemoryRequirements(dev, outbuf, &outreq);
+
+    uint32_t it = find_memory_type(&memprops, inreq.memoryTypeBits,
+                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    if (it == UINT32_MAX) {
+        it = find_memory_type(&memprops, inreq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        coherent = 0;
+        printf("  AVISO: no hay HOST_COHERENT; se usara flush/invalidate explicitos\n");
+    }
+    VkMemoryAllocateInfo mai = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = inreq.size, .memoryTypeIndex = it
+    };
+    CHK(vkAllocateMemory(dev, &mai, NULL, &inmem), "vkAllocateMemory(input)");
+    mai.allocationSize = outreq.size;
+    mai.memoryTypeIndex = find_memory_type(&memprops, outreq.memoryTypeBits,
+              coherent ? (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+                       :  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+    CHK(vkAllocateMemory(dev, &mai, NULL, &outmem), "vkAllocateMemory(output)");
+    vkBindBufferMemory(dev, inbuf, inmem, 0);
+    vkBindBufferMemory(dev, outbuf, outmem, 0);
+    printf("  memoria asignada y ligada\n");
+
+    CHK(vkMapMemory(dev, inmem, 0, in_size, 0, &mapped), "vkMapMemory(input)");
+    memcpy(mapped, g_cmp, in_size);
+    if (!coherent) {
+        VkMappedMemoryRange r = { .sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+                                 .memory = inmem, .offset = 0, .size = VK_WHOLE_SIZE };
+        vkFlushMappedMemoryRanges(dev, 1, &r);
+    }
+    vkUnmapMemory(dev, inmem);
+    printf("  corpus subido a la GPU: %d bloques, %zu B\n", NUM_BLOCKS, in_size);
+
+    VkDescriptorPoolSize dps = { .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, .descriptorCount = 2 };
+    VkDescriptorPoolCreateInfo dpci = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .maxSets = 1, .poolSizeCount = 1, .pPoolSizes = &dps
+    };
+    CHK(vkCreateDescriptorPool(dev, &dpci, NULL, &dpool), "vkCreateDescriptorPool");
+
+    VkDescriptorSetAllocateInfo dsai = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = dpool, .descriptorSetCount = 1, .pSetLayouts = &dsl
+    };
+    CHK(vkAllocateDescriptorSets(dev, &dsai, &dset), "vkAllocateDescriptorSets");
+
+    VkDescriptorBufferInfo dbi_in  = { .buffer = inbuf,  .offset = 0, .range = in_size };
+    VkDescriptorBufferInfo dbi_out = { .buffer = outbuf, .offset = 0, .range = out_size };
+    VkWriteDescriptorSet w[2] = {0};
+    for (i = 0; i < 2; i++) {
+        w[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        w[i].dstSet = dset; w[i].dstBinding = (uint32_t)i; w[i].descriptorCount = 1;
+        w[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        w[i].pBufferInfo = (i == 0) ? &dbi_in : &dbi_out;
+    }
+    vkUpdateDescriptorSets(dev, 2, w, 0, NULL);
+
+    VkCommandPoolCreateInfo cpool_ci = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, .queueFamilyIndex = qfam
+    };
+    CHK(vkCreateCommandPool(dev, &cpool_ci, NULL, &cpool), "vkCreateCommandPool");
+
+    VkCommandBufferAllocateInfo cbai = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = cpool, .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1
+    };
+    CHK(vkAllocateCommandBuffers(dev, &cbai, &cbuf), "vkAllocateCommandBuffers");
+
+    VkCommandBufferBeginInfo cbbi = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+    };
+    CHK(vkBeginCommandBuffer(cbuf, &cbbi), "vkBeginCommandBuffer");
+    vkCmdBindPipeline(cbuf, VK_PIPELINE_BIND_POINT_COMPUTE, pipe);
+    vkCmdBindDescriptorSets(cbuf, VK_PIPELINE_BIND_POINT_COMPUTE, playout, 0, 1, &dset, 0, NULL);
+
+    /* Declaring the push constant range is not enough: it must be pushed, or the
+     * shader's own bounds check reads an uninitialised num_blocks and the
+     * output buffer stays zero. */
+    uint32_t num_blocks = NUM_BLOCKS;
+    vkCmdPushConstants(cbuf, playout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
+                       sizeof(num_blocks), &num_blocks);
+
+    /* ceil(NUM_BLOCKS / 16), not NUM_BLOCKS and not NUM_BLOCKS/256. */
+    vkCmdDispatch(cbuf, DISPATCH_GROUPS, 1, 1);
+    CHK(vkEndCommandBuffer(cbuf), "vkEndCommandBuffer");
+
+    VkSubmitInfo si = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .commandBufferCount = 1, .pCommandBuffers = &cbuf
+    };
+    CHK(vkQueueSubmit(queue, 1, &si, VK_NULL_HANDLE), "vkQueueSubmit");
+    CHK(vkQueueWaitIdle(queue), "vkQueueWaitIdle");
+    ran_ok = 1;
+    printf("  dispatch: %u workgroups x %u hilos = %u hilos, %u bloques por wg -> %u bloques\n",
+           DISPATCH_GROUPS, SHADER_LOCAL_SIZE_X, TOTAL_THREADS, SHADER_BLOCKS_PER_WG,
+           DISPATCH_GROUPS * SHADER_BLOCKS_PER_WG);
+    printf("  shader ejecutado y esperado en la cola\n");
+
+    CHK(vkMapMemory(dev, outmem, 0, out_size, 0, &mapped), "vkMapMemory(output)");
+    if (!coherent) {
+        VkMappedMemoryRange r = { .sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+                                 .memory = outmem, .offset = 0, .size = VK_WHOLE_SIZE };
+        vkInvalidateMappedMemoryRanges(dev, 1, &r);
+    }
+    memcpy(g_gpu, mapped, out_size);
+    vkUnmapMemory(dev, outmem);
+
+    /* ---- VALIDATION BEFORE COMPARISON. See header. ----
+     * An all-zero readback compares equal to a zero reference and yields a
+     * clean "0 discrepancies". Refuse that, and make it a failure. */
+    printf("\n  -- validacion de datos ANTES de comparar --\n");
+    {
+        int nonzero = 0, varies = 0;
+        for (i = 0; i < GPU_OUT_BYTES; i++) if (g_gpu[i]) nonzero++;
+        printf("    bytes no nulos en la salida: %d de %d\n", nonzero, GPU_OUT_BYTES);
+        if (nonzero == 0) {
+            fprintf(stderr, "    ERROR: la salida es TODA CERO; el shader no escribio.\n");
+            fprintf(stderr, "    Comparar ahora daria 0 discrepancias y PASS, que no probaria nada.\n");
+            fprintf(stderr, "    Causas probables: push constant no empujado, dispatch no enviado,\n");
+            fprintf(stderr, "    pipeline mal construido o buffer no enlazado.\n");
+            goto cleanup;
+        }
+        for (i = 1; i < GPU_OUT_BYTES; i++) if (g_gpu[i] != g_gpu[0]) { varies = 1; break; }
+        printf("    la salida varia entre pixeles: %s\n", varies ? "si" : "NO");
+        if (!varies) {
+            fprintf(stderr, "    ERROR: salida constante; el shader no esta decodificando.\n");
+            goto cleanup;
+        }
+    }
+
+    printf("\n  -- comparacion byte a byte GPU vs CPU --\n");
+    {
+        int a_bad = 0, rgb_bad = 0, a_blocks = 0, rgb_blocks = 0;
+        for (i = 0; i < NUM_BLOCKS; i++) {
+            int ja = 0, jr = 0, px, ch;
+            for (px = 0; px < 16; px++) {
+                for (ch = 0; ch < 4; ch++) {
+                    uint8_t g = g_gpu[i * RX550_INPUT_BLOCK_BYTES + px * 4 + ch];
+                    uint8_t c = g_cpu[i].px[px * 4 + ch];
+                    if (g != c) {
+                        discrepancies++;
+                        if (ch == 3) ja++; else jr++;
+                        if (discrepancies <= 8)
+                            fprintf(stderr, "      bloque %d px %d canal %d: GPU=%3u CPU=%3u\n",
+                                    i, px, ch, g, c);
+                    }
+                }
+            }
+            a_bad += ja; rgb_bad += jr;
+            if (ja) a_blocks++;
+            if (jr) rgb_blocks++;
+        }
+        printf("    discrepancias totales : %d de %d canales\n", discrepancies, GPU_OUT_BYTES);
+        printf("      canal alfa (A)    : %d  en %d bloques\n", a_bad, a_blocks);
+        printf("      canales RGB        : %d  en %d bloques\n", rgb_bad, rgb_blocks);
+        printf("    cobertura: %d bloques modo 4 valores, %d modo 6 (a0==a1), %d a mano (a0>a1)\n",
+               g_blocks_4val, g_blocks_6val, g_six_hand);
+        agree = (discrepancies == 0);
+    }
+
+cleanup:
+    if (cpool)   vkDestroyCommandPool(dev, cpool, NULL);
+    if (dpool)   vkDestroyDescriptorPool(dev, dpool, NULL);
+    if (pipe)    vkDestroyPipeline(dev, pipe, NULL);
+    if (playout) vkDestroyPipelineLayout(dev, playout, NULL);
+    if (dsl)     vkDestroyDescriptorSetLayout(dev, dsl, NULL);
+    if (shader)  vkDestroyShaderModule(dev, shader, NULL);
+    if (inbuf)   vkDestroyBuffer(dev, inbuf, NULL);
+    if (outbuf)  vkDestroyBuffer(dev, outbuf, NULL);
+    if (inmem)   vkFreeMemory(dev, inmem, NULL);
+    if (outmem)  vkFreeMemory(dev, outmem, NULL);
+    if (dev)     vkDestroyDevice(dev, NULL);
+    if (instance) vkDestroyInstance(instance, NULL);
+    free(spv);
+
+    if (!ran_ok) {
+        fprintf(stderr, "\n  FASE B: no se llego a ejecutar el shader\n");
+        return 0;
+    }
+    /* Exit 0 must mean the GPU output equals the CPU output. An earlier revision
+     * printed [FAIL] to stderr and returned 0, so make and CI would have read a
+     * failing test as a passing one. */
+    printf("\n  VEREDICTO: %s (%d discrepancias)\n",
+           agree ? "GPU == CPU, agreement test PASADO"
+                 : "GPU != CPU, agreement test FALLIDO",
+           discrepancies);
+    return agree;
+}
 
 int main(int argc, char **argv)
 {
-    corpus_t *c;
-    int want_gpu = 0, a, ok = 1;
+    printf("=== Agreement test GPU vs CPU para decompress_bc3.comp ===\n");
+    printf("    encoder : ../compressor, BC3 conforme a la spec Microsoft (AD-11)\n");
+    printf("    shader  : decompress_bc3.comp -> decompress_bc3.spv\n");
+    printf("    objetivo: el GLSL en la RX 550 produce lo que produce el C\n\n");
 
-    for (a = 1; a < argc; a++)
-        if (strcmp(argv[a], "--gpu") == 0) want_gpu = 1;
-
-    printf("=== Agreement test: shader GCN vs decodificador C ===\n\n");
-    printf("Fase A: artefacto y corpus, sin GPU.\n");
-    printf("Fase B: dispatch real en la RX 550, solo con --gpu.\n\n");
-
-    c = calloc(1, sizeof *c);
-    if (!c) { fprintf(stderr, "sin memoria\n"); return 1; }
-
-    /* ---- Fase A ---- */
-    {
-        struct stat spv, comp;
-        printf("1. Artefacto:\n");
-        if (stat("decompress_bc3.comp", &comp) != 0) {
-            fprintf(stderr, "  [FAIL] decompress_bc3.comp no existe\n"); ok = 0;
-        }
-        if (stat("decompress_bc3.spv", &spv) != 0) {
-            fprintf(stderr, "  [FAIL] decompress_bc3.spv no existe. make decompress_bc3.spv\n");
-            ok = 0;
-        } else {
-            if (spv.st_mtime < comp.st_mtime) {
-                fprintf(stderr, "  [FAIL] el .spv es mas viejo que el .comp; puede no\n"
-                                "         corresponder al fuente. make decompress_bc3.spv\n");
-                ok = 0;
-            } else {
-                printf("  [ OK ] .spv (%zu B) no mas viejo que .comp\n", (size_t)spv.st_size);
-            }
-        }
-
-        printf("\n2. Corpus (LCG semilla 12345):\n");
-        corpus_build(c);
-        printf("  [ OK ] %d bloques\n", NUM_BLOCKS);
-        printf("  [ OK ] modo 6 valores (a0<=a1): %d   modo 8 valores (a0>a1): %d\n",
-               c->n_six, c->n_eight);
-        if (c->n_six == 0 || c->n_eight == 0) {
-            fprintf(stderr, "  [FAIL] el corpus no cubre las dos ramas de la rampa:\n"
-                            "         un shader con una rama equivocada pasaria.\n");
-            ok = 0;
-        } else {
-            printf("  [ OK ] ambas ramas cubiertas\n");
-        }
-
-        {
-            size_t nz = 0, b, p;
-            for (b = 0; b < NUM_BLOCKS; b++)
-                for (p = 0; p < 64; p++)
-                    if (c->cpu[b].px[p]) nz++;
-            if (!nz) { fprintf(stderr, "  [FAIL] referencia CPU degenerada\n"); ok = 0; }
-            else printf("  [ OK ] referencia CPU no trivial: %zu de %zu bytes\n", nz, BYTES_PIXELS);
-        }
-        printf("  [ OK ] dispatch previsto: %u grupos de %u = %u invocaciones\n",
-               DISPATCHES, GROUPSIZE, DISPATCHES * GROUPSIZE);
-    }
-
-    if (!ok) {
-        printf("\nRESULT: FASE A FALLO\n");
-        free(c);
+    if (!phase_a_preparation()) {
+        printf("\nRESULTADO: FASE A FALLIDA\n");
         return 1;
     }
-    printf("\nFASE A OK.\n");
+    printf("\nRESULTADO: FASE A OK\n");
 
-    if (!want_gpu) {
-        printf("\nFase B omitida. Usa --gpu, o: make test-gpu\n");
-        free(c);
-        return 0;
-    }
+    if (argc > 1 && strcmp(argv[1], "--gpu") == 0)
+        return phase_b_gpu_execution() ? 0 : 1;
 
-    /* phase_b returns 1 on agreement, 0 on any disagreement or failure.
-     * Propagate it: the first real GPU run reported 3197 of 4096 bytes
-     * different and this program still exited 0, so a caller -- make, CI, a
-     * human reading only the return code -- could not tell a failing test from
-     * a passing one. Exit 0 must mean the GPU output equals the CPU output. */
-    {
-        int agree = phase_b(c, "decompress_bc3.spv");
-        free(c);
-        return agree ? 0 : 1;
-    }
+    printf("\nFase B omitida. Usa --gpu (autorizado por AD-7).\n");
+    printf("Estado del enlace shader<->C: NO ESTABLECIDO hasta que corra.\n");
+    return 0;
 }
