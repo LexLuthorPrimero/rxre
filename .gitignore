@@ -71,6 +71,13 @@ RESEARCH/
 04-IMPLEMENTACION/compressor/test_alpha_ramp
 04-IMPLEMENTACION/compressor/test_alpha_ramp.mut
 
+# Pipeline de integracion F1 -> F2: binarios y artefactos de corrida.
+# Los .bc3 y los .rgba caen por *.bin solo a medias; *.rgba no estaba cubierto
+# y ensuciaba git status con el corpus de cada corrida.
+04-IMPLEMENTACION/bin/
+04-IMPLEMENTACION/work/
+*.rgba
+
 # Artefacto SIN procedencia establecida (HUMAN_POLICY 2026-09-28: no versionar).
 # decompress_bc3.spv carries el nombre anterior al renombrado a RX550_BC4X, y
 # glslangValidator no esta instalado en este host, asi que nada en el repositorio

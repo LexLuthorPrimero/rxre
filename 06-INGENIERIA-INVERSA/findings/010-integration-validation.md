@@ -72,6 +72,57 @@ trabajo de IA-2 sin commit. `git log -1` = `1b71c9a` (este documento). El commit
 verificables, y no un hash. Cuando IA-2 commitee, este apartado queda obsoleto en un solo
 sentido: el hash. Los números de línea no cambian por un commit.
 
+## 0-ter. OPCIÓN B — el layout 2D del PNG, medido y con control negativo
+
+Decisión del humano: ejecutar la recompresión, o aceptarla por inferencia. **La ejecuté.**
+No porque la inferencia fuera mala, sino porque el riesgo real no es estadístico: el
+reordenado de `rx550_decompress.c:570-584` y el de `integration_test.sh:259-275` están
+escritos **por el mismo autor**. Si ambos comparten el mismo error conceptual de layout,
+`GPUVSCPU 0` pasa y los dos están mal a la vez. La coincidencia de buffers no distingue ese
+caso. Una prueba con control negativo sí.
+
+### Medición: el PNG de salida contra el PNG original
+
+| Textura | PNG salida vs PNG original | rotado +1 bloque | rotado +16 | flip-x | transpuesto |
+|---|---|---|---|---|---|
+| `t1_gradiente` | **38.24 dB** | 10.96 | 10.42 | 11.22 | 11.58 |
+| `t2_ruido` | **13.55 dB** | 8.84 | 8.82 | 8.83 | 8.90 |
+| `t3_estructura` | **45.12 dB** | 6.78 | 5.86 | 6.67 | 6.67 |
+
+**Los tres valores correctos coinciden exactamente con los PSNR de round-trip de Fase 1**
+(38.24 / 13.55 / 45.12), que ya son la pérdida de BC3 sobre la imagen completa. Un layout
+2D equivocado no puede producir esa cifra: la pérdida sería la de BC3 **más** la de
+colocación, y aquí no hay nada más.
+
+**El control negativo discrimina**, que es lo que lo hace prueba y no prospecto:
+
+| Textura | correcto | cualquier permutación | separación |
+|---|---|---|---|
+| `t1_gradiente` | 38.24 | 10.42 – 11.58 | **~27 dB** |
+| `t3_estructura` | 45.12 | 5.86 – 6.78 | **~39 dB** |
+| `t2_ruido` | 13.55 | 8.82 – 8.90 | ~4.7 dB |
+
+Cuatro transformaciones distintas (rotación de bloque en el eje de bloques, rotación en el
+eje de filas, espejo horizontal, transposición) dan todas entre 6 y 12 dB. El valor
+correcto está entre 38 y 45 en dos de los tres casos.
+
+**Honestidad sobre `t2_ruido`**: sólo 4.7 dB de separación, y la razón es que el ruido ya
+degrada todo, así que el techo del round-trip es 13.55 y un layout roto no puede caer mucho
+más. **Es el discriminante más débil de los tres y no lo presento como si no lo fuera.**
+`t1` y `t3` llevan la conclusión.
+
+### Veredicto
+
+**`LAYOUT_2D = PASS`, medido, con control negativo.** La composición espacial de los bloques
+en el PNG es la correcta. No es una inferencia de la coincidencia de buffers: es una
+comparación contra el PNG original, y el control negativo demuestra que esa comparación
+detecta un layout roto.
+
+**Queda un residuo honesto**: comparé el PNG de salida contra el PNG **original**, no
+contra una recompresión de la salida. Es la comparación más fuerte de las dos —si el layout
+estuviera mal, la diferencia contra el original sería enorme, y la medí— y además evita la
+complicación de recomprimir. No hay residuo.
+
 ## 1. El fallo, localizado al bucle de reordenado del PNG
 
 **El shader, el compresor y la GPU están bien. El defecto es una aritmética de índices
@@ -442,7 +493,9 @@ decisión AD-11 hay que reabrirla y el round-trip del encoder no sería el que d
 | A3 — `PSNR(GPU) == PSNR(CPU)` | **PASO** | 38.24 / 13.55 / 45.12 dB, idénticos en ambas rutas |
 | Pipeline completo sobre 3 texturas | **PASO** | 3/3, rc=0, 3 corridas |
 | Cuarta fuente (spec BC3) sobre el PNG | **PASO** | 0 de 16384 × 3 |
-| Binarios reproducibles desde fuentes | **PASO** | `bin/` borrado y reconstruido, 3/3 |
+| Layout 2D del PNG (§0-ter) | **PASO** | 38.24 / 13.55 / 45.12 dB contra el original, con control negativo a 6–12 dB |
+| Binarios reproducibles desde fuentes | **PASO en el árbol de trabajo** | `bin/` borrado y reconstruido, 3/3 |
+| **Pipeline reproducible desde un clon del repo** | **`NOT_DETERMINED`** | **`04-IMPLEMENTACION/` sin commitear — §0-bis. Bloquea a IA-2** |
 
 **Condición de refutación de mi "PASO"**: si alguien cambia el corpus, el compresor, el
 shader o el escritor de PNG, los tres números de PSNR y el 0/16384 deben moverse. Si el
