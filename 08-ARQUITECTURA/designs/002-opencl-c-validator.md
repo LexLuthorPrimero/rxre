@@ -33,7 +33,8 @@ clang -target amdgcn -mcpu=gfx803 -x cl -cl-std=CL2.0 -O2 -c d.cl -o d.o
 | ISA emitida | `s_mov_b32 s36, lit(0x0)` … (desensamblado real, no placeholder) |
 
 **Y el hallazgo que cambia el diseño de la 4A**: `.rel.text` existe y trae reubicaciones
-**sin resolver** contra tres símbolos:
+**sin resolver**. Con un kernel de decodificación son **6**; con un kernel que usa LDS y
+atómicos, **22**:
 
 ```
 OFFSET  TYPE                    VALOR
@@ -45,10 +46,26 @@ OFFSET  TYPE                    VALOR
 0598    R_AMDGPU_REL32_HI       _Z13get_global_idj
 ```
 
-**El objeto NO es cargable tal cual.** Un driver tiene que resolver esas seis reubicaciones
-antes de escribirlo en el ring. Dos de ellas apuntan a **scratch** (`SCRATCH_RSRC_DWORD0/1`),
-que es memoria privada que el driver debe asignar y rellenar. Las otras cuatro son
-`get_global_id`, un *builtin* sin dirección fija.
+| Símbolo reubicado | Veces en el kernel con LDS+atómicos |
+|---|---|
+| `SCRATCH_RSRC_DWORD0` | 2 |
+| `SCRATCH_RSRC_DWORD1` | 2 |
+| `_Z13get_global_idj` (`get_global_id`) | 2 |
+| `_Z12get_local_idj` (`get_local_id`) | 2 |
+| `_Z7barrierj` (`barrier`) | 2 |
+| `_Z10atomic_addPU3AS1Vjj` | 2 |
+| `_Z9atomic_orPU3AS1Vjj` | 2 |
+| … | 22 entradas en total |
+
+**El objeto NO es cargable tal cual.** Un driver tiene que resolver esas reubicaciones antes de
+escribirlo en el ring, y **el conjunto depende del kernel**. Medido: el decodificador da 6, un
+kernel con LDS y atómicos da 22. Los `SCRATCH_RSRC_DWORD*` son scratch privado que el driver
+debe asignar; los builtins (`get_global_id`, `barrier`, `atomic_*`) no tienen dirección fija.
+
+**Consecuencia para V4**: la comprobación **no puede ser «el conjunto es exactamente este»**,
+porque el conjunto varía con el kernel. Tiene que ser **«todo símbolo reubicado pertenece al
+conjunto conocido y cada uno está resuelto»**. Es una diferencia de fondo, y la versión que
+tenía redactada era incorrecta.
 
 **Consecuencia para la 4A**: "volcar PM4 a memoria para inspección" **subestima el trabajo**.
 El paso de objeto ELF a código ejecutable es un **procesador de reubicaciones**, y eso es
@@ -111,8 +128,8 @@ Comprobaciones, todas contra el artefacto real, ninguna inventada:
 | V1 | magic ELF, clase 64, máquina `EM_AMDGPU` | no es otro ELF por error |
 | V2 | `.text` existe y tiene tamaño > 0 | un `.text` vacío compila igual |
 | V3 | `.AMDGPU.config` existe y no está vacío | el hardware la necesita |
-| V4 | `.rel.text`: **exactamente** las reubicaciones esperadas | un cambio en el conjunto indica cambio en el kernel |
-| V5 | toda reubicación apunta a un símbolo **conocido** | un símbolo desconocido no se puede resolver |
+| V4 | `.rel.text`: **todo** símbolo reubicado ∈ conjunto conocido | conjunto medido: 6 (decodificador) … 22 (con LDS/atomicos) |
+| V5 | toda reubicación está **resoluble** y a 32 bits | un símbolo desconocido no se puede resolver |
 | V6 | desensamblado de una muestra de `.text` | que sea ISA, no datos |
 
 **V4 es la comprobación fuerte.** El conjunto de símbolos reubicados es una huella del kernel:

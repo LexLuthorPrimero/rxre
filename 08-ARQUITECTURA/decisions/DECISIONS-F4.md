@@ -249,3 +249,32 @@ registro se apoya en `lsof`, `fuser` ni en un escaneo parcial de `/proc`.
 - **Riesgo declarado**: el artefacto de Fase 2 se validó **en la RX 550**; el de 4A no se
   validará en hardware hasta 4B. **No son resultados equivalentes** y no deben citarse como
   tales.
+
+
+## F4-AD-18 — El conjunto de reubicaciones NO es fijo; V4 era incorrecta
+
+- **Fecha**: 2026-09-29 · **Estado**: `DECIDIDO` (medido)
+- **Medición**: dos kernels, mismo compilador:
+  - decodificador BC3 en OpenCL C → **6** reubicaciones
+  - kernel con LDS + `barrier` + `atomic_add` + `atomic_or` → **22** reubicaciones
+- **Símbolos que aparecen solo en el segundo**: `get_local_id`, `barrier`, `atomic_add`,
+  `atomic_or`. `SCRATCH_RSRC_DWORD0/1` y `get_global_id` aparecen en ambos.
+- **Consecuencia**: la comprobación V4 del validador **no puede ser «el conjunto es exactamente
+  este»**. Debe ser **«todo símbolo reubicado pertenece al conjunto conocido, y cada uno está
+  resuelto»**. Es comprobación de pertenencia, no de igualdad.
+- **Autocorrección**: la versión de V4 que redacté en Ronda 4 era incorrecta. Queda corregida en
+  `002-opencl-c-validator.md`.
+- **Qué NO afirmo**: cuál es el conjunto completo que espera el hardware. Medido es el conjunto
+  que *emite clang*, que no tiene por qué ser el que el hardware necesita. `PENDIENTE-IA-1`
+  (`P-6`, punto 3).
+
+## F4-AD-19 — `clang -target amdgcn` NO acepta `--amdhsa`
+
+- **Fecha**: 2026-09-29 · **Estado**: `DECIDIDO` (medido)
+- **Medición**: `clang -target amdgcn --amdhsa` → `unknown argument: '--amdhsa'`. Con este
+  clang (22.1.8) el flag no existe en el driver AMDGPU de compilación directa.
+- **Consecuencia**: la variante que HADCODE líneas de shader para el runtime HSA no es accesible
+  por esta vía. El artefacto es un objeto ELF con reubicaciones, tal como ya documenta
+  `F4-AD-16`.
+- **Comprobado también**: `--help` no lista ninguna bandera equivalente en este target. No lo
+  doy por definitivo para otras versiones de clang; solo para la medida.
