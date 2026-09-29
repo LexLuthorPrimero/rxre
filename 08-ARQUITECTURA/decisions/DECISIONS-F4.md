@@ -317,3 +317,43 @@ registro se apoya en `lsof`, `fuser` ni en un escaneo parcial de `/proc`.
   bloques) alimentan ambas fases.
 - **Conexión que NO existe**: Fase 3 **no necesita nada de Fase 4** para ejecutarse. La
   dependencia es unidireccional: Fase 4B ← Fase 3.
+
+
+## F4-AD-22 — REGLA DE OPERACIÓN: medir antes de aceptar la premisa
+
+- **Fecha**: 2026-09-29 · **Estado**: `DECIDIDO`
+- **Regla**: toda afirmación sobre capacidades del hardware, del toolchain o del estado del
+  sistema debe verificarse empíricamente —con un comando o un script— **antes** de aceptarse como
+  base del diseño. Las premisas teóricas son **puntos de partida para la medición**, no
+  conclusiones.
+- **Origen**: tres casos en este proyecto, todos con enunciado razonable y todos con la decisión
+  cambiada por la medición:
+
+  | Ronda | Premisa | Medición | Decisión que cambió |
+  |---|---|---|---|
+  | 2 | «clang mitiga el riesgo del GAR» | `clang -x spirv` y `-x hlsl` **rechazados**, `spirv-cross` ausente | `F4-AD-9`: la vía está **bloqueada** |
+  | 4 | «son 6 reubicaciones» | un kernel con LDS y atómicos da **22** | `F4-AD-18`: V4 pasó a ser de **pertenencia**, no de igualdad |
+  | 5 | «Fase 3 está bloqueada por `unbind`» | `vkcube --gpu_number 1` y `DRI_PRIME=1 glxgears` funcionan | `F4-AD-20`: `AD-12` **no** está bloqueada |
+
+- **Por qué importa, y no es desconfianza**: en este proyecto las premisas **heredadas** se
+  vuelven obsoletas cuando el entorno cambia —se instaló `vulkan-headers`, apareció una segunda IAS
+  con un tree distinto—. Un diseño construido sobre una premisa no verificada hereda el error
+  aunque la premisa pareciera sólida cuando se escribió.
+- **Corolario práctico**: si la medición **no** se puede hacer, el estado correcto es
+  `NOT_DETERMINED` **explícito**, no asumir el valor más plausible. Aplicado ya a `V4`
+  (`P-6` sin respuesta) y a `PGM_RSRC1`.
+- **Corolario para revisión**: cuando un documento afirme una capacidad, la revisión debe exigir
+  el comando que la demuestra. Una afirmación sin comando reproducible es una hipótesis.
+
+## F4-AD-23 — El probe de capacidad debe abortar, no continuar con otro dispositivo
+
+- **Fecha**: 2026-09-29 · **Estado**: `DECIDIDO`
+- **Decisión**: el probe F1 **aborta** si no encuentra `1002:699f`. No continúa con el primer
+  dispositivo disponible.
+- **Por qué**: esta host expone iGPU, AMD y **llvmpipe**. llvmpipe implementa BC3 en software y
+  reportaría `SAMPLED_IMAGE`, produciendo un **falso positivo** que invalidaría la medición de
+  `AD-12` sin ningún síntoma visible.
+- **Segunda barrera**: `V-A`..`V-D` en `004-fallback-sin-rasterizador.md` §4, incluido un chequeo
+  explícito de que el dispositivo **no** es llvmpipe.
+- **Precedente**: el agreement test de la Fase 2 ya identifica por PCI identity por el mismo
+  motivo, y lo documentó en su salida.

@@ -156,6 +156,18 @@ rechaza, hay que cambiar de estrategia a `vkGetPhysicalDeviceFormatProperties` +
 `optimalTilingFeatures`. Si no incluye `SAMPLED_IMAGE`, el resto del diseño no aplica y hay que
 replantear.
 
+**La especificación completa del probe, con valores exactos, algoritmo paso a paso, autovalidación
+y plan de replanteo, está en `004-fallback-sin-rasterizador.md`.** Puntos que quedaron fijados ahí:
+
+- **Selección por PCI identity, con aborto**: `vendorID == 0x1002 && deviceID == 0x699f`. Esta host
+  expone iGPU, AMD y **llvmpipe**; llvmpipe reportaría `SAMPLED_IMAGE` porque decodifica BC3 en
+  software. Elegir por índice de enumeración daría un **falso positivo** (`F4-AD-23`).
+- **Valores de fuente primaria** (`vulkan_core.h`, Vulkan 1.4.341):
+  `VK_FORMAT_BC3_UNORM_BLOCK = 137`, `VK_FORMAT_BC3_SRGB_BLOCK = 138`,
+  `VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT = 0x00000001`.
+- **Nunca `BC3_SRGB`**: aplicaría una transformación sRGB al decodificar y contaminaría la
+  medición.
+
 ## 5. Autovalidación: obligatoria, y con qué objetivo
 
 Sin esto, el fallo es el de la Fase 2 en otra forma: salida vacía leída como resultado.
