@@ -1,6 +1,6 @@
 # Cierre Formal: Compresor/Descompresor BC3/DXT5 para RX 550
 
-**Fecha de cierre**: $(date +%Y-%m-%d)
+**Fecha de cierre**: 2026-09-29
 **Tag**: v1.0-fase2-completa
 **Estado**: COMPLETO con evidencia de hardware
 
@@ -33,7 +33,9 @@ El proyecto implementó un compresor BC3/DXT5 en CPU (Fase 1) y un descompresor 
 - **Driver**: RADV POLARIS12
 - **Bugs corregidos**: 3 (índice de color, push constants, dispatch calculation)
 - **Control negativo**: Shader roto da 894/4096 discrepancias (test discrimina)
-- **Commits clave**: edd434b (agreement test), 7ed1eca (documentación)
+- **Commits clave**: edd434b (agreement test), 7ed1eca (documentación),
+  b65636a (agreement test verificado, `DISPATCHES=4`), 5b1996a (AD-15: control negativo
+  y corrección de la causal de AD-13.1)
 
 ## Decisiones arquitectónicas clave
 
