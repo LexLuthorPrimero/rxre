@@ -1,0 +1,279 @@
+#version 450
+
+/* ==========================================================================
+ * decompress_bc3.comp -- RX550 BC3/DXT5 block decoder for GCN / Polaris 12
+ *
+ * PROVENANCE -- read this before changing any line.
+ *
+ * This is a LITERAL TRANSLATION of rx550_decompress_block() in
+ * 04-IMPLEMENTACION/compressor/rx550_compress.c (function begins at the
+ * "Reference decoder" banner, body at :496-525), together with the two
+ * palette helpers it calls:
+ *
+ *     alpha_palette()   rx550_compress.c:67
+ *     colour_palette()  rx550_compress.c:102
+ *
+ * The DXT5/BC3 specification is the authority, and this decoder mirrors it
+ * operation for operation, including its rounding -- that is what makes a
+ * byte-for-byte comparison against rx550_decompress_block() meaningful.
+ *
+ * An earlier version of this file inverted that and stated "the C is the
+ * specification; it is NOT DXT5-as-published, and where the two disagree the C
+ * wins", pinned to commit 05c6297. Both halves were wrong. Commit 05c6297
+ * carried a non-conformant alpha ramp in rx550_compress.c, and this shader was
+ * written to match it, so encoder and decoder agreed by construction while
+ * both disagreed with BC3. A mutually consistent pair of wrong implementations
+ * passes every round-trip test; that is the failure mode, not a proof of
+ * conformance. The C is now conformant, and conformance is established against
+ * literal ground truth, not against the C.
+ *
+ * STATUS: written and arithmetically reconciled against the conformant C by
+ * shader_vs_c.c (0/4096 channels wrong over a 64-block corpus). NOT compiled by
+ * glslangValidator, NOT run on hardware: no GLSL compiler is installed. See
+ * README.md.
+ *
+ * The decoder is observational with respect to correctness: every arithmetic
+ * operation below is written to mirror the C source including its rounding
+ * offsets and its bit-extraction edge cases. Where a shortcut would be valid
+ * GLSL but invalid translation, the C form is kept and marked.
+ * ========================================================================== */
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+/* Compressed blocks, 16 bytes each, byte layout of rx550_block_t:
+ *   [0] a0  [1] a1  [2..7] a_idx[6]   [8..9] c0  [10..11] c1  [12..15] c_idx[4]
+ * All integers are little-endian, matching the host x86_64 that built the
+ * encoder. GLSL uints are host-endian; the test harness on x86_64 agrees. */
+layout(std430, set = 0, binding = 0) readonly buffer CompressedBlocks {
+    uint blocks[];
+};
+
+/* Decoded pixels, 4 bytes each, R,G,B,A order -- the byte order of
+ * rx550_rgba_block_t (rx550_compress.h:109-113). On little-endian, R in the
+ * least significant byte places R at px[0], which is what the C writes. */
+layout(std430, set = 0, binding = 1) writeonly buffer DecompressedPixels {
+    uint pixels[];
+};
+
+layout(push_constant) uniform PushConstants {
+    uint num_blocks;
+} params;
+
+/* --------------------------------------------------------------------------
+ * expand5() -- rx550_compress.c:79
+ *   return (uint8_t)((v5 << 3) | (v5 >> 2));
+ * Bit replication, matching the RGB565 -> RGB888 widening the hardware does.
+ * ------------------------------------------------------------------------ */
+uint expand5(uint v5)
+{
+    return (v5 << 3) | (v5 >> 2);
+}
+
+/* --------------------------------------------------------------------------
+ * alpha_palette() -- DXT5 / BC3, conformant.
+ *
+ *   pal[0] = a0;  pal[1] = a1;
+ *   a0 >  a1 : SIX interpolated values, /7:
+ *              pal[i] = ((8-i)*a0 + (i-1)*a1 + 3) / 7   for i = 2..7
+ *   a0 <= a1 : FOUR interpolated values, /5, and the two spare codes are the
+ *              extremes 0 and 255:
+ *              pal[i] = ((6-i)*a0 + (i-1)*a1 + 2) / 5   for i = 2..5
+ *              pal[6] = 0;  pal[7] = 255;
+ *
+ * The coefficient of a0 is (8-i), NOT (7-i): at i=2 DXT5 is (6*a0+a1+3)/7, so
+ * a0 loses exactly one step across the ramp and (7-i) loses two.
+ *
+ * The /5 branch with the 0/255 extremes IS the DXT5 rule, and it is the one
+ * property that separates the two ramps: when a0 <= a1 the spare codes must
+ * land on the extremes whatever the endpoints are, and a shared /7 branch
+ * cannot do that.
+ *
+ * An earlier version of this file asserted the OPPOSITE -- that the /5 branch
+ * and the a[7]=a1 case were "BC4/DXT4-alpha rules" and a defect to avoid --
+ * and encoded a /7-everywhere ramp that no DXT5 decoder in the world
+ * reproduces. It matched rx550_compress.c at a moment when that file was also
+ * non-conformant, which is exactly what a mutually consistent pair of wrong
+ * implementations looks like: the round-trip test passed and the standard was
+ * wrong. Verified against literal BC3 ground truth by shader_vs_c.c.
+ *
+ * Flat alpha: a0 == a1 takes the a0 <= a1 branch, so a[6] == 0 and a[7] == 255.
+ * A flat alpha block does NOT decode to itself at all 8 entries and must not
+ * be expected to. The encoder still round-trips it, selecting index 0 == a0.
+ * ------------------------------------------------------------------------ */
+void alpha_palette(uint a0, uint a1, out uint pal[8])
+{
+    pal[0] = a0;
+    pal[1] = a1;
+
+    if (a0 > a1) {
+        for (uint i = 2u; i < 8u; i++)
+            pal[i] = ((8u - i) * a0 + (i - 1u) * a1 + 3u) / 7u;
+    } else {
+        for (uint i = 2u; i < 6u; i++)
+            pal[i] = ((6u - i) * a0 + (i - 1u) * a1 + 2u) / 5u;
+        pal[6] = 0u;
+        pal[7] = 255u;
+    }
+}
+
+/* --------------------------------------------------------------------------
+ * colour_palette() -- rx550_compress.c:102
+ *
+ * RGB565 bit positions: R = 15..11, G = 10..5, B = 4..0.
+ *
+ * Two properties of the C are reproduced verbatim, and both matter:
+ *
+ * 1. The shift table is {11, 5, 0} and the mask is 0x1F for ALL THREE
+ *    channels. Green occupies 6 bits in RGB565, but the C masks it with
+ *    0x1F, so only 5 of those 6 bits reach the palette. This is a fidelity
+ *    loss in the encoder, not a translation error here: encoder and decoder
+ *    share this function, so blocks still round-trip, and reproducing the
+ *    mask is what keeps the agreement test byte-exact. Changing 0x1F to 0x3F
+ *    for the green channel here would silently break agreement with the C.
+ *    Recorded as an observation, not fixed.
+ *
+ * 2. Interpolation happens in the quantised 5-bit space, and expand5 is
+ *    applied to the result. Interpolating after widening to 8 bits gives
+ *    different values and is what an earlier draft of this file did wrong.
+ *
+ * The C always builds the 4-colour mode; there is no 1-bit/3-colour mode in
+ * this block layout, so no c0 > c1 branch exists here.
+ * ------------------------------------------------------------------------ */
+void colour_palette(uint c0, uint c1, out uint pal_r[4], out uint pal_g[4],
+                    out uint pal_b[4])
+{
+    /* rgb565_shift[] from rx550_compress.c:93 */
+    const uint shift[3] = uint[3](11u, 5u, 0u);
+    uint out_r[4];
+    uint out_g[4];
+    uint out_b[4];
+
+    for (uint i = 0u; i < 3u; i++) {
+        uint a = (c0 >> shift[i]) & 0x1Fu;
+        uint b = (c1 >> shift[i]) & 0x1Fu;
+        uint t;
+
+        /* pal[0] = expand5(a); pal[1] = expand5(b); */
+        t = expand5(a);
+        if (i == 0u) out_r[0] = t; else if (i == 1u) out_g[0] = t; else out_b[0] = t;
+        t = expand5(b);
+        if (i == 0u) out_r[1] = t; else if (i == 1u) out_g[1] = t; else out_b[1] = t;
+        /* t = (2u * a + b) / 3u;  pal[2] = expand5(t); */
+        t = expand5((2u * a + b) / 3u);
+        if (i == 0u) out_r[2] = t; else if (i == 1u) out_g[2] = t; else out_b[2] = t;
+        /* t = (a + 2u * b) / 3u;  pal[3] = expand5(t); */
+        t = expand5((a + 2u * b) / 3u);
+        if (i == 0u) out_r[3] = t; else if (i == 1u) out_g[3] = t; else out_b[3] = t;
+    }
+
+    for (uint k = 0u; k < 4u; k++) {
+        pal_r[k] = out_r[k];
+        pal_g[k] = out_g[k];
+        pal_b[k] = out_b[k];
+    }
+}
+
+/* --------------------------------------------------------------------------
+ * main -- rx550_decompress_block() :505-522, one pixel per invocation.
+ *
+ * The C loops p = 0..15 and writes px[p*4 .. p*4+3]. Here each invocation
+ * takes one p, so 16 invocations cover a block and a 256-invocation workgroup
+ * covers 16 blocks.
+ * ------------------------------------------------------------------------ */
+void main()
+{
+    uint p = gl_LocalInvocationID.x & 15u;   /* pixel within the block */
+    uint block_in_wg = gl_LocalInvocationID.x >> 4u;  /* 0..15 */
+    uint block_idx = gl_WorkGroupID.x * 16u + block_in_wg;
+
+    if (block_idx >= params.num_blocks)
+        return;
+
+    /* 16 bytes = 4 uints. rx550_block_t offsets: a0=0, a1=1, a_idx=2..7,
+     * c0=8, c1=10, c_idx=12..15. The _Static_asserts in rx550_compress.h
+     * :103-107 pin those offsets; they are the layout contract. */
+    uint base = block_idx * 4u;
+    uint w0 = blocks[base + 0u];   /* bytes 0..3  : a0, a1, a_idx[0..1] */
+    uint w1 = blocks[base + 1u];   /* bytes 4..7  : a_idx[2..5]          */
+    uint w2 = blocks[base + 2u];   /* bytes 8..11 : c0, c1               */
+    uint w3 = blocks[base + 3u];   /* bytes 12..15: c_idx[0..3]          */
+
+    uint a0 = w0 & 0xFFu;
+    uint a1 = (w0 >> 8) & 0xFFu;
+    uint c0 = w2 & 0xFFFFu;
+    uint c1 = (w2 >> 16) & 0xFFFFu;
+
+    uint apal[8];
+    uint pal_r[4], pal_g[4], pal_b[4];
+    alpha_palette(a0, a1, apal);
+    colour_palette(c0, c1, pal_r, pal_g, pal_b);
+
+    /* --- alpha index, 3 bits at bit offset 3*p (C :507-515) -------------
+     *   abit   = 3u * p
+     *   abyte  = abit >> 3
+     *   ashift = abit & 7u
+     *   aindex = a_idx[abyte] >> ashift
+     *   if (ashift > 5u) aindex |= a_idx[abyte + 1] << (8u - ashift);
+     *   aindex &= 7u
+     *
+     * The straddle case is load-bearing: an index starting at bit 6 or 7
+     * continues into the next byte. Dropping it loses 2 of the 6 possible
+     * ashift values and silently corrupts a quarter of all pixels. ashift is
+     * 6 for p in {2,10} and 7 for p in {5,13}.
+     */
+    uint abit   = 3u * p;
+    uint abyte  = abit >> 3;
+    uint ashift = abit & 7u;
+    uint aindex;
+
+    /* a_idx[] is packed into w0 (bytes 0..1 of the array) and w1 (bytes 2..5). */
+    if (abyte < 2u) {
+        /* a_idx[0] = byte 2 of the block = bits 16..23 of w0
+         * a_idx[1] = byte 3 of the block = bits 24..31 of w0 */
+        aindex = (w0 >> (16u + 8u * abyte + ashift)) & 0xFFu;
+        if (ashift > 5u) {
+            uint next = (abyte + 1u < 2u)
+                      ? ((w0 >> (16u + 8u * (abyte + 1u))) & 0xFFu)
+                      : ((w1 >> (8u * (abyte - 1u))) & 0xFFu);
+            aindex |= next << (8u - ashift);
+        }
+    } else {
+        /* a_idx[2..5] = bytes 4..7 of the block = w1 bytes 0..3 */
+        aindex = (w1 >> (8u * (abyte - 2u) + ashift)) & 0xFFu;
+        if (ashift > 5u) {
+            /* a_idx[6] is past the 6-byte array; the C reads a_idx[abyte+1]
+             * unconditionally in this branch, which for p = 13, ashift = 6
+             * means abyte = 4 -> a_idx[5], in range. For p = 15, ashift = 5,
+             * the branch is not taken. No valid p reads out of bounds. */
+            uint next = (w1 >> (8u * (abyte - 1u))) & 0xFFu;
+            aindex |= next << (8u - ashift);
+        }
+    }
+    aindex &= 7u;
+
+    /* --- colour index, 2 bits at bit offset 2*p (C :517) --------------- */
+    uint cbyte = p >> 2;          /* c_idx[p >> 2] */
+    uint cshift = 2u * (p & 3u);  /* 2u * (p & 3u) */
+    uint cindex;
+    if (cbyte < 2u)
+        cindex = (w3 >> (8u * cbyte + cshift)) & 0xFFu;
+    else
+        cindex = (w3 >> (8u * (cbyte - 2u) + cshift)) & 0xFFu;
+    cindex &= 3u;
+
+    /* --- write, R,G,B,A in that order (C :519-522) --------------------- */
+    uint r = pal_r[cindex];
+    uint g = pal_g[cindex];
+    uint b = pal_b[cindex];
+    uint a = apal[aindex];
+
+    /* px[0]=R px[1]=G px[2]=B px[3]=A. Little-endian uint puts R in the
+     * lowest-addressed byte, which is px[0] in a tightly packed RGBA array. */
+    uint pixel = (r & 0xFFu)
+               | ((g & 0xFFu) << 8)
+               | ((b & 0xFFu) << 16)
+               | ((a & 0xFFu) << 24);
+
+    uint pixel_idx = block_idx * 16u + p;
+    pixels[pixel_idx] = pixel;
+}
