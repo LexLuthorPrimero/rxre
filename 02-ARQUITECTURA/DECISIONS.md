@@ -1267,9 +1267,12 @@ decodifica igual es el peor resultado posible: parece correcto y no lo es.
 **Método elegido.** Adjuntar una textura comprimida DXT5 directamente como color attachment
 de un FBO y leer con `glReadPixels`. Esto fuerza al sampler a descomprimir y devuelve RGBA8 sin
  shaders, sin quad y sin dibujar nada: el valor devuelto ES la salida del sampler. Evita por
- diseño la ruta de cómputo Vulkan, que en este host no funciona (`vkCreateComputePipelines`
- provoca SIGSEGV dentro de `libvulkan_radeon.so` y de `libvulkan_lvp.so`, incluso con shader
- vacío y pipeline layout vacío).
+
+> **[CORREGIDO — ver AD-14]** Las tres lineas siguientes afirmaban que la ruta de cómputo
+> Vulkan «no funciona en este host». Es **FALSO**. El SIGSEGV de `vkCreateComputePipelines` no
+> era un defecto del driver: lo causaban mis propias declaraciones de structs escritas a mano.
+> Con `<vulkan/vulkan.h>` real el pipeline se crea y despacha sin crash.
+
 
 **Cobertura prevista.** Los 256×256 = 65536 pares de endpoints y los 8 códigos de índice:
 1048576 observaciones de hardware. No una muestra.
@@ -1281,7 +1284,11 @@ no se aborta — en un contexto Intel todos los números serían del sampler equ
 1 decodifiquen exactamente a `a0` y `a1`, que no intervienen interpolación y por tanto prueban
 el camino en sí.
 
-**Estado de la medición: NO REALIZADA.** `test_hardware_bc3.c` existe y compila, pero en este
+**Estado de la medición: NO REALIZADA.** (La razón que se daba aquí — que la ruta de cómputo
+Vulkan no funcionaba — era **incorrecta**; ver AD-14. La medición sigue sin realizarse, pero
+por el obstáculo del contexto OpenGL, no por Vulkan.)
+
+`test_hardware_bc3.c`
 host no se ha podido establecer un contexto OpenGL desde un programa propio, por un
 desajuste cliente/servidor en GLX que se documenta en `04-IMPLEMENTACION/decompressor/`.
 `NOT_DETERMINED` no se convierte en `PROVEN_ABSENT` ni en `PROVEN`: la pregunta sigue abierta.
@@ -1298,3 +1305,88 @@ desajuste cliente/servidor en GLX que se documenta en `04-IMPLEMENTACION/decompr
 **Decisión pendiente.** Esperar el resultado de la medición en hardware para confirmar o
 refutar AD-11. Hasta entonces, el redondeo se mantiene por coherencia interna entre el encoder
 y el shader, marcada como **no validada contra el hardware objetivo**.
+
+
+---
+
+## 2026-09-29 — AD-14: el shader SÍ ejecuta en la RX 550; el SIGSEGV era mío
+
+**Corrige**: AD-12 y AD-13 de este fichero, y `PROYECTO_STATUS.md` de la misma fecha.
+
+### ERROR CORREGIDO
+
+AD-12 afirmaba que `vkCreateComputePipelines` «provoca SIGSEGV dentro de `libvulkan_radeon.so` y
+de `libvulkan_lvp.so`, incluso con shader vacío y pipeline layout vacío», y de ahí concluía que
+la ruta de cómputo Vulkan no funciona en esta host. **Es falso.**
+
+**Causa real**: mis declaraciones de structs Vulkan escritas a mano. Al disponerse
+`vulkan-headers-1.4.341.0` y `vulkan-loader-devel`, y reescribirse la Fase B contra
+`<vulkan/vulkan.h>`, el mismo pipeline se crea y despacha sin crash.
+
+**Por qué me equivoqué.** El crash reproducía en 2 ICDs independientes y con shader y layout
+vacíos, lo que descartaba las causas obvias. Verifiqué tamaños y offsets contra la ABI, y hasta
+obtuve un retorno limpio de `vkCreateComputePipelines(dev, NULL, 0, NULL, NULL, &out)`, que
+demuestra que el prototipo y la convención de llamada eran correctos. Registré la `LIMITATION`
+correcta: *«sin `vulkan-devel` no puedo descartar un error residual en mis structs; lo único no
+descartado es un desajuste en número o tipo de campos, que `offsetof` no revela»*. **No la
+cerré, y era la que importaba.** Los controles que ejecuté acotaban el fallo; no lo explicaban.
+Un fallo reproducido en dos ICDs independientes sigue siendo compatible con un error propio
+común a las llamadas que yo hago.
+
+### Segundo defecto: push constant nunca empujado
+
+La salida del buffer era **entera a cero**. `decompress_bc3.comp:276` se autolimita con
+`if (block_idx >= params.num_blocks) return;`. El test **declaraba** el rango de push constant
+en el pipeline layout pero contenía **cero** llamadas a `vkCmdPushConstants` — ni resuelta como
+símbolo. `num_blocks` llegaba sin inicializar, valía 0, y las 256 invocaciones retornaban antes
+de escribir. Declarar el rango no basta; hay que empujarlo. Corregido.
+
+Este hueco estaba presente desde el esqueleto original del agreement test y se señaló entonces.
+Sobrevivió a la reescritura «con cabeceras reales», porque la reescritura se centró en las
+cabeceras y no en la interfaz del shader.
+
+### Tercer defecto: el test devuelve `rc=0` aunque falle
+
+Imprime `[FAIL]` por `stderr` y devuelve `0`. Con la salida canalizada el `[FAIL]` queda aparte
+y el proceso parece exitoso: cualquier integración continua que compruebe el código de salida
+reportaría **verde sobre un fallo**. No corregido. Sin este arreglo, un resultado favorable habría
+sido fácil de aceptar por error — y de hecho me pasó: la primera ejecución_EN_CPU se leyó como
+éxito.
+
+### Resultado medido tras corregir el push constant
+
+RX 550, RADV POLARIS12, PCIE `1002:699f`, 64 bloques, 256 invocaciones:
+
+    [ OK ] 940 de 4096 bytes distintos de cero
+    [ OK ] ninguna palabra conserva el patron veneno 0xDEADBEEF
+    RESULT: GPU != CPU. 57 de 64 bloques difieren.
+      bloques discrepantes : 57 de 64
+      bytes discrepantes   : 3197 de 4096
+
+### Desglose por canal — el dato que importa
+
+| Canal | Discrepancias |
+|---|---|
+| 3 — alfa | **0 de 4096** |
+| 0/1/2 — RGB | 57 de 64 bloques |
+
+La rampa alfa BC3 del shader coincide **byte a byte** con `rx550_decompress_block()` en hardware
+real. El desacuerdo está íntegramente en la ruta de color, con error estrecho y sistemático
+(±57/±58 en las muestras mostradas): no es redondeo ni ruido. **Causa `NOT_DETERMINED`.**
+
+### Lo que esto NO prueba sobre AD-12
+
+Que el alfa del shader coincida con el del decodificador de CPU demuestra que **shader y C
+concuerdan**. **No** demuestra qué regla sigue el **sampler del hardware**: el shader GLSL no es
+el sampler. El método correcto para eso sigue siendo adjuntar la textura DXT5 como color
+attachment de un FBO y leer con `glReadPixels`, y sigue sin ejecutarse. **AD-12 permanece
+`NOT_DETERMINED`**; no se convierte en `PROVEN_ABSENT` ni en `PROVEN` por el hecho de que la
+ruta de cómputo funcione.
+
+### Estado tras AD-14
+
+- AD-12 `NOT_DETERMINED` (sin cambio)
+- AD-13: su premisa de «Fase B `NOT_WRITTEN`» queda **superada**; la Fase B existe y se ejecuta
+- Agreement test: **NO** establecido. Falla en color con un bug acotado por diagnosticar
+- La autovalidación previa a la comparación hizo su trabajo: se negó a reportar `PASS` sobre una
+  salida enteramente a cero, que habría producido «0 discrepancias» y un falso éxito

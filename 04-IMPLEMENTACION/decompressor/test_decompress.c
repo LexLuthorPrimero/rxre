@@ -199,6 +199,7 @@ VKF(vkCreateCommandPool);     VKF(vkDestroyCommandPool);
 VKF(vkAllocateCommandBuffers); VKF(vkFreeCommandBuffers);
 VKF(vkBeginCommandBuffer);    VKF(vkEndCommandBuffer);
 VKF(vkCmdBindPipeline);       VKF(vkCmdBindDescriptorSets);  VKF(vkCmdDispatch);
+VKF(vkCmdPushConstants);
 VKF(vkQueueSubmit);           VKF(vkQueueWaitIdle);
 VKF(vkCreateFence);           VKF(vkWaitForFences);  VKF(vkDestroyFence);
 
@@ -267,6 +268,7 @@ static int load_vulkan(void)
     SYM(vkCmdBindPipeline, "vkCmdBindPipeline");
     SYM(vkCmdBindDescriptorSets, "vkCmdBindDescriptorSets");
     SYM(vkCmdDispatch, "vkCmdDispatch");
+    SYM(vkCmdPushConstants, "vkCmdPushConstants");
     SYM(vkQueueSubmit, "vkQueueSubmit");
     SYM(vkQueueWaitIdle, "vkQueueWaitIdle");
     SYM(vkCreateFence, "vkCreateFence");
@@ -606,6 +608,14 @@ static int phase_b(corpus_t *c, const char *spv_path)
         pvkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipe);
         pvkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, playout,
                                  0, 1, &dset, 0, NULL);
+        /* El shader se autolimita con params.num_blocks
+         * (decompress_bc3.comp:276). El rango se declara en el pipeline layout,
+         * pero sin UNA LLAMADA a vkCmdPushConstants el valor llega sin inicializar:
+         * num_blocks = 0 -> las 256 invocaciones retornan antes de escribir y el
+         * buffer de salida queda entero a cero. Declarar el rango no basta. */
+        {   uint32_t nblocks = NUM_BLOCKS;
+            pvkCmdPushConstants(cmd, playout, VK_SHADER_STAGE_COMPUTE_BIT, 0, 4, &nblocks);
+        }
         pvkCmdDispatch(cmd, DISPATCHES, 1, 1);
         TRY(pvkEndCommandBuffer(cmd), "vkEndCommandBuffer");
 

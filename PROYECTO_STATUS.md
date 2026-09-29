@@ -1,7 +1,7 @@
 # Estado del Proyecto: Compresor BC3/DXT5 para RX 550 (Polaris 12)
 
 **Fecha**: 2026-09-29
-**Estado global**: **PARCIAL** — Fase 1 completa, Fase 2 parcial.
+**Estado global**: **Fase 1 completa. Fase 2: el shader SE EJECUTA en la RX 550, el alfa coincide byte a byte, y el agreement test FALLA en color.**
 
 > Todas las cifras de este documento fueron **medidas en esta host el 2026-09-29** con los
 > targets del `Makefile`. Las que no pude medir están marcadas como `NOT_DETERMINED`, no
@@ -72,7 +72,8 @@ independiente de la implementación y el resultado `CONFORMA` significa algo.
 ## Fase 2: Descompresor (GPU) — PARCIAL
 
 **Estado**: `PARTIAL`. Código escrito y validado aritméticamente en CPU.
-**Ejecución en GPU**: `NOT_RUN`. **Nunca se ha ejecutado en la RX 550.**
+**Ejecución en GPU**: `RUN`. El shader se ejecutó en la RX 550 (RADV POLARIS12).
+**Agreement GPU vs CPU**: **NO establecido** — 57 de 64 bloques difieren, todos en color.
 
 ### Completado
 
@@ -84,44 +85,37 @@ independiente de la implementación y el resultado `CONFORMA` significa algo.
   (`decompress_bc3.comp` toma `c0`/`c1` de `w2`, bytes 8..11).
 - Sincronizado con el C tras AD-11: shader y `alpha_palette()` llevan ambos `+3`/`+2`.
 
-### Bloqueado
+### Lo que se midio, y lo que falla
 
-Fase B (agreement test GPU vs CPU) no se completa. Dos obstáculos **del entorno**, ninguno del
-código:
+**El shader ejecuta en la RX 550.** Pipeline creado, `vkCmdDispatch(1,1,1)`, fence completado:
+No es aritmética simulada.
 
-**1. `vkCreateComputePipelines` provoca SIGSEGV en este host.**
+```
+[ OK ] 940 de 4096 bytes distintos de cero
+[ OK ] ninguna palabra conserva el patron veneno 0xDEADBEEF
+RESULT: GPU != CPU. 57 de 64 bloques difieren.
+  bloques discrepantes : 57 de 64
+  bytes discrepantes   : 3197 de 4096
+```
 
-- **STATE**: `OBSERVED` (no `NOT_DETERMINED`)
-- Reproduce en **2 ICDs independientes** — `libvulkan_radeon.so` (POLARIS12) y
-  `libvulkan_lvp.so` (llvmpipe) — con un shader **vacío** (`void main(){}`, 280 B) y un
-  pipeline layout **vacío**. El `backtrace` cae íntegro dentro del ICD.
-- Independiente de: el contenido del SPIR-V (5 variantes, incluida `--target-env vulkan1.3`),
-  el valor de `sType` (1 y 17), y el entorno (`MESA_SHADER_CACHE_DISABLE`, `LP_NUM_THREADS`,
-  `VK_LOADER_DISABLE_SELECT`, `VK_INSTANCE_LAYERS`, `VK_LAYER_PATH`).
-- Controles que descartan variasilogue causalidades: `sizeof(VkComputePipelineCreateInfo)=96`
-  con offsets 24/72/88 coinciden con la ABI; `vkCreateComputePipelines(dev, NULL, 0, NULL,
-  NULL, &out)` devuelve `VK_SUCCESS` limpio; `vkcube` crea pipelines **gráficos** en las 3
-  ICD sin problema; `llvmpipe` OpenGL 4.6 JITEa bien; los paquetes Mesa/loader/LLVM son del
-  mismo build FC44 y misma fecha.
-- **LIMITATION**: sin `vulkan-devel` **no** puedo descartar un error residual en mis structs
-  declarados a mano. Lo único no descartado es un desajuste en número o tipo de campos, que
-  `offsetof` no revela.
-- Reproductor mínimo: `04-IMPLEMENTACION/decompressor/vk_pipeline_min.c`
+**Alfa: 0 discrepancias de 4096.** La rampa BC3 del shader coincide byte a byte con
+`rx550_decompress_block()` en hardware real.
 
-**2. No se puede establecer un contexto OpenGL desde un programa propio.**
+**RGB: 57 de 64 bloques.** Error estrecho y sistemático (±57/±58), no redondeo ni ruido.
+Causa `NOT_DETERMINED`.
 
-- **STATE**: `NOT_DETERMINED`
-- `glXChooseVisual` devuelve un visual válido (`visualid 0x1ef`, depth 24, TrueColor) — idéntico
-  con y sin `DRI_PRIME`. Sobre él, `glXCreateContext` devuelve `NULL` en 4 listas de atributos,
-  directo e indirecto.
-- `glXChooseFBConfig` devuelve 208 configs, pero `glXGetVisualFromFBConfig` provoke
-  `GLXBadFBConfig`: los IDs del cliente no valen para el GLX del servidor X, que pertenece al
-  iGPU Intel que posee la pantalla física.
-- EGL surfaceless no ofrece configs OpenGL (`eglChooseConfig` → `n=0`).
-- `/usr/bin/glxgears` con `DRI_PRIME=1` **sí** crea contexto y rinde sobre
-  `radeonsi, polaris12`. No aislé la diferencia.
-- Test preparado: `04-IMPLEMENTACION/decompressor/test_hardware_bc3.c` — compila (`rc=0`), no
-  ejecuta.
+### Corrección de un diagnóstico anterior (AD-14)
+
+Mi informe previo atribuyo el SIGSEGV de `vkCreateComputePipelines` como defecto del driver.
+**Era falso: era mío.** Mis declaraciones de structs Vulkan escritas a mano. Con
+`<vulkan/vulkan.h>` real (vulkan-headers 1.4.341.0) el pipeline se crea sin crash.
+
+La autovalidación previa a la comparación hizo su trabajo: se negó a reportar `PASS` sobre una
+salida **entera a cero**, que habría producido «0 discrepancias» y un falso éxito.
+
+**Defecto abierto y peligroso**: el test imprime `[FAIL]` por `stderr` y devuelve `rc=0`.
+Con la salida canalizada parece exitoso. Cualquier CI que compruebe el código de salida
+reportaría **verde sobre un fallo**. No corregido.
 
 ### Detalle importante sobre AD-11
 
@@ -167,10 +161,10 @@ marcado como **no validado contra el hardware objetivo**.
 
 ## Limitaciones conocidas
 
-1. **La Fase B nunca se ejecutó.** No hay evidencia de que el shader corra en la RX 550.
+1. **El agreement test NO pasa.** El shader corre, pero 57 de 64 bloques difieren en color.
 2. **La interpolación del hardware es `NOT_DETERMINED`** (AD-12).
-3. **Los structs Vulkan declarados a mano no están validados contra cabeceras reales.** El
-   crash de cómputo no se pudo atribuir con certeza al driver ni a mis declaraciones.
+3. **El test devuelve `rc=0` aunque imprima `[FAIL]`.** Un CI reportaría verde sobre un
+   fallo. No corregido.
 4. `test_decompress.c` fue borrado del disco a mitad de la ronda de trabajo y reconstruido
    después por otra sesión de este mismo proyecto.
 
