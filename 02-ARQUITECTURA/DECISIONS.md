@@ -1169,12 +1169,18 @@ rondas de revisión, oscilando entre spec y truncamiento según quién escribier
 
 ### Los tres defectos, y por qué ninguno era visible desde el CPU
 
-1. **Índice de color, `decompress_bc3.comp`.** Leía `& 0xFFu` (8 bits) donde el C lee 2. El
-   `cindex &= 3u` posterior recortaba a los dos bits **altos** del byte en lugar de los bajos:
-   correcto sólo cuando `(p & 3)` es 0 o 1, y los píxeles 2 y 3 de cada grupo de 4 tomaban el
-   índice de otro píxel. De ahí el patrón de pares transpuestos con diferencia constante. La
-   rama `else` estaba copiada de la extracción del índice alfa — cuyo array de 6 bytes sí abarca
-   dos palabras — pero `c_idx` son 4 bytes, exactamente una: para `p = 8..15` leía fuera del bloque.
+1. **Índice de color, `decompress_bc3.comp`.** La rama `else` de la extracción del índice de
+   color rebasaba el offset con `8u * (cbyte - 2u)`: para `p = 8..15` leía el inicio de `w3` en
+   lugar de los bytes de `c_idx`. `c_idx` son 4 bytes, exactamente un `uint`, luego ese `else`
+   no puede aplicarse a un bloque real de 16 bytes. Venía copiada de la extracción del índice
+   alfa — cuyo array de 6 bytes sí abarca dos palabras —, de ahí el patrón de pares transpuestos
+   con diferencia constante.
+
+   **Corrección 2026-09-29 (AD-15)**: este punto atribuía además el fallo a la máscara `& 0xFFu`,
+   leída donde el C lee 2 bits, y describía un recorte a los dos bits altos. **Esa parte es
+   falsa.** `cindex &= 3u`, en la línea siguiente, ya recorta a dos bits, luego
+   `(x & 0xFFu) & 3u` es idéntico a `x & 3u`. Aislado el cambio —corregida sólo la máscara,
+   intacto el `else`— el resultado fue el mismo: 894 de 4096. La causa única es el `else`.
 
 2. **Faltaba `vkCmdPushConstants`, `test_decompress.c`.** El layout declaraba un rango de 4 bytes
    y el shader lee `params.num_blocks` para acotar el dispatch, pero nunca se emitió la llamada.
@@ -1211,8 +1217,12 @@ lo que ofrece. El enlace shader↔C sólo se valida ejecutando en la GPU.
   (5 bloques en modo de 6 valores, 59 en modo de 8). Es una guarda de regresión, no una prueba
   sobre todos los bloques posibles.
 - Un solo dispatch no dice nada sobre rendimiento.
-- La validación de esquema SPIR-V sigue `NOT_AVAILABLE`: `spirv-val` no está instalado. Que el
-  driver acepte el módulo es evidencia sobre ese driver, no sobre la especificación.
+- La validación de esquema SPIR-V **sí está hecha**: `spirv-val --target-env vulkan1.1` sobre
+  `decompress_bc3.spv` da `rc=0` con SPIRV-Tools v2026.1. Una versión anterior de esta entrada
+  decía `NOT_AVAILABLE` porque `spirv-val` no está instalado; **esa comprobación nunca se hizo**.
+  Se buscó `vulkan-devel`, que sí faltaba, y se extrapoló a `spirv-tools`, que sí estaba. Es el
+    mismo error que se cometio con `git commit`: afirmar un estado de ausencia a partir de
+  una búsqueda que no lo cubría.
 - El dispositivo se identificó por PCI identity, nunca por índice de enumeración. Este host expone
   iGPU, AMD y **llvmpipe**, y llvmpipe habría aceptado el dispatch.
 
@@ -1221,3 +1231,92 @@ lo que ofrece. El enlace shader↔C sólo se valida ejecutando en la GPU.
 `main()` descartaba el valor de retorno de `phase_b()` y salía con 0 aunque hubiera discrepancias:
 un Makefile o un CI no distinguía un test que falla de uno que pasa. `rc = 0` significa ahora
 `GPU == CPU`, y nada más.
+
+## 2026-09-29 — AD-15: control negativo del agreement test, y correccion de AD-13.1
+
+**Esta entrada no sustituye a AD-13.** La confirma con un control que a AD-13 le faltaba, y corrige
+una atribucion causal de AD-13.1 que la medicion desmiente.
+
+### El control negativo: lo que faltaba para que `PASS` significara algo
+
+AD-13 registra `0 de 4096` con el shader corregido. Eso demuestra que el camino feliz funciona. No
+demuestra que el test sea **capaz de fallar**. Se reinserto el defecto y se ejecuto el mismo test
+sobre el mismo corpus:
+
+| Shader | Discrepancias | Bloques | Alfa | RGB | `rc` |
+|---|---|---|---|---|---|
+| correcto | **0 de 4096** | 0 de 64 | 0 | 0 | **0** |
+| defectuoso (defecto reinsertado) | **894 de 4096** | 48 de 64 | **0** | 894 | **1** |
+
+RX 550 `1002:699f`, RADV POLARIS12, `make test-gpu`. El defecto reinsertado produce 894
+discrepancias y `rc = 1`. **El test discrimina.**
+
+La firma —**0 en alfa, todas en color**— coincide con la que AD-13.1 ya leyo en la primera corrida
+de GPU y con la firma de `DISPATCHES = 1` (48 bloques discrepantes, 16 correctos): los bloques
+16..63 nunca se escriben en ninguno de los dos casos, asi que la coincidencia del recuento **no
+distingue una causa de la otra**. Lo que si distingue es el canal: aqui es 100 % RGB con alfa
+intacto, lo que acota el defecto a la ruta de indice de color y descarta un problema de rampa alfa.
+
+### Correccion de AD-13.1: el defecto 1 son dos causas/alli una, y la mascara no era ninguna
+
+AD-13.1, punto 1, atribuye el fallo del shader a dos cosas: la mascara `& 0xFFu` leida donde el C
+lee 2 bits, y la rama `else` copiada del indice alfa. **La primera es un no-op y queda descartada
+por medicion.**
+
+`cindex &= 3u`, en la linea inmediatamente posterior, ya recorta a dos bits. Por tanto
+`(x & 0xFFu) & 3u` es identico a `x & 3u`. Se comprobó aislando el cambio: se corrigio **solo** la
+mascara, dejando el `else` intacto, y el resultado fue **exactamente el mismo, 894 de 4096**. Solo
+eliminar el `else` lleva a 0.
+
+La causa unica es el `else`, que rebasaba el offset con `8u * (cbyte - 2u)`: para `p = 8..15` leia
+el inicio de `w3` en lugar de los bytes de `c_idx`. `c_idx` son 4 bytes, exactamente un `uint`,
+luego ese `else` no puede aplicarse a un bloque real de 16 bytes. La observacion de AD-13.1 sobre
+su origen —copiado de la extraccion del indice alfa, cuyo array de 6 bytes si cruza dos
+palabras— es correcta y se mantiene.
+
+El comentario del shader recogia esa atribucion falsa; fue corregido antes de commitear para que
+no quedara versionada como causal.
+
+### `DISPATCHES = ceil(NUM_BLOCKS/16) = 4`, no 64 ni 1
+
+AD-13.1, punto 3, ya diagnostico esto desde el lado del test. Se confirma y se anade una defensa
+estructural: `check_dispatch_geometry()` relee el shader en tiempo de ejecucion y **aborta** si
+`local_size_x = 256`, `>> 4u` o `* 16u` dejan de coincidir con las constantes del test. Los tres
+valores erroneos vistos en este trabajo —64, 1 y 4— son el mismo error con denominador distinto;
+ninguno puede volver a colarse sin que el test se niegue a arrancar.
+
+### Dos fallos de proceso, registrados porque son el patron real
+
+1. **Un `.spv` obsoleto llego hasta el umbral de la GPU.** El `.comp` se habia modificado a las
+   01:11 y el `.spv` era de las 00:43. Al recompilar, el modulo mide **11672 B, no los 11984 B**
+   que constaban en el `Makefile` y en la evidencia previa: la cifra de 11984 pertenecía a un
+   shader anterior. Solo la comparacion de mtimes de Fase A lo impidio.
+2. **`vulkan-devel` no era el paquete que faltaba**, y el enlace no pedia `-lvulkan`. Las cabeceras
+   las aporta `vulkan-headers` 1.4.341, ya instalado. La regla del `Makefile` enlazaba la Fase A
+   limpiamente contra un binario que no podia ejecutar la Fase B.
+
+### Colision de escritura entre dos sesiones
+
+`test_decompress.c` fue sobrescrito por otra sesion mientras este trabajo lo ejecutaba, y su
+version fallaba con `rc = 1` por `DISPATCHES = 1`. La version verificada se reconstruyo sobre el
+estado actual, conservando la validacion previa a la comparar de la otra sesion —que es mejor que
+la mia: rechazaba la salida a cero con `rc = 1`— y su enlace directo con `-lvulkan`. Copia del
+codigo sustituido en `~/opencode-backups/20260929-colision/`.
+
+Se deja constancia porque el resultado de un test depende de que el fichero que se ejecuta sea el
+fichero que se ha medido. Una afirmacion de conformidad sin hash del binario ejecutado no es
+reproducible.
+
+### Procedencia y limites
+
+`SHADER_LINK = ESTABLISHED` para el par shader GLSL / `rx550_decompress_block()`, ahora con control
+negativo. No se extiende a:
+
+- **AD-12, que permanece `NOT_DETERMINED`.** Que el shader concuerde con el decodificador de CPU
+  demuestra que shader y C concuerdan. No demuestra que regla sigue el **sampler del hardware**:
+  el shader no es el sampler. El metodo para eso —adjuntar la textura DXT5 como color attachment de
+  un FBO y leer con `glReadPixels`— sigue sin ejecutarse.
+- La validacion de esquema SPIR-V, que sigue `NOT_AVAILABLE` sin `spirv-val`.
+- Rendimiento: un dispatch no mide throughput.
+- Exhaustividad: el corpus es determinista y sintetico. Guarda de regresion en hardware real, no
+  prueba sobre todos los bloques posibles.
