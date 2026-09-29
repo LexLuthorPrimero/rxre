@@ -159,3 +159,57 @@ registro se apoya en `lsof`, `fuser` ni en un escaneo parcial de `/proc`.
 - **Limite honesto de 4A**: validar la estructura de un paquete **no** prueba que el hardware
   lo ejecute. Es el patron que hundio las Fases 1 y 2: un validador que confirma la forma sin
   ejecutar. Por eso 4B no es opcional, y el criterio 6 se mantiene vivo.
+
+
+## F4-AD-12 — Formato definitivo del shader: OpenCL C
+
+- **Fecha**: 2026-09-29 · **Estado**: `DECIDIDO`
+- **Decisión**: el shader de Fase 4 se escribe en **OpenCL C** y se compila con
+  `clang -target amdgcn -mcpu=gfx803 -x cl`, produciendo un objeto ELF con `.text` y
+  `.AMDGPU.config`.
+- **Base**: medido en esta host (`F4-AD-9`). Es la **única** vía verificada que llega a ISA sin
+  `amdgpu.ko`.
+- **Consecuencia asumida y explícita**: `decompress_bc3.spv` **deja de ser el artefacto**. El
+  agreement test de la Fase 2 (`test_decompress.c`) **no aplica** al formato nuevo. El criterio
+  de éxito 6 queda **sin cobertura** hasta que exista un test equivalente para OpenCL C.
+- **Qué se conserva**: el **algoritmo** (la decodificación BC3 verificada, 0/4096 con RADV) y el
+  **corpus**. No el artefacto binario ni la interfaz.
+- **Riesgo nuevo**: OpenCL C no tiene push constants. `num_blocks` pasa a argumento de kernel.
+  Eso **cambia la firma** y obliga a un validador nuevo, escrito desde cero, que no existe.
+- **Anti-patrón a evitar**: un validador nuevo escrito rápido y validado solo contra sí mismo es
+  exactamente el fallo de `shader_vs_c` (F4-AD-7). Necesita control negativo desde el primer día.
+
+## F4-AD-13 — Firmware: carga desde userspace (Opción A)
+
+- **Fecha**: 2026-09-29 · **Estado**: `DECIDIDO`
+- **Decisión**: `librx550` lee el blob `polaris12_smc.bin` (`amdgpu_cgs.c:325-332`) y lo pasa al
+  kernel por ioctl. `rx550.ko` **no** llama a `amdgpu.ko` para nada.
+- **Por qué**: es la única opción **compatible con `F4-AD-3`**. La Opción B contradice `F4-AD-3`
+  por definición, no por dificultad.
+- **Pendiente IA-1**: formato del blob, secuencia exacta de carga, y si el estado inicial del
+  hardware exige algo más. `PENDIENTE-IA-1`.
+- **Nota**: extraer y analizar el blob es **independiente** del shader. No tiene por qué esperar
+  a `F4-AD-12`.
+
+## F4-AD-14 — `spirv-cross` no está disponible; no es una opción
+
+- **Fecha**: 2026-09-29 · **Estado**: `DECIDIDO` (dato)
+- **Medición**: `dnf list --available spirv-cross` → **no hay paquete** en los repos activos.
+  El paquete `spirv-tools` sí existe, pero es validación y desensamblado, **no conversión**.
+- **Consecuencia**: la alternativa "instalar spirv-cross y no reescribir el shader" queda
+  cerrada por indisponibilidad, no por preferencia. Habría que compilarlo desde fuente, lo que
+  no está autorizado.
+- **Corrección de un dato mío anterior**: en la ronda anterior reporté `spirv-val` como
+  **ausente**. **Es falso**: `/usr/bin/spirv-val` (SPIRV-Tools v2026.1) está instalado y valida
+  `decompress_bc3.spv` con `rc=0`. La limitación que escribí en `PROYECTO_STATUS.md` ("Esquema
+  SPIR-V: NOT_AVAILABLE, falta spirv-val") es incorrecta y debe corregirse.
+
+## F4-AD-15 — Orden de fases: el shader va antes que `unbind`
+
+- **Fecha**: 2026-09-29 · **Estado**: `DECIDIDO`
+- **Decisión**: no solicitar autorización de `unbind` hasta que exista un shader en formato
+  definitivo y validado.
+- **Por qué**: con `F4-AD-9` bloqueado, el criterio 6 es inalcanzable de todos modos. Autorizar
+  `unbind` ahora compra **riesgo de sistema** a cambio de un objetivo que sigue fuera de
+  alcance.
+- **Orden**: 1) formato del shader, 2) validarlo, 3) **entonces** pedir `unbind` para 4B.

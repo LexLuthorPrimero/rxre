@@ -102,6 +102,11 @@ El SPIR-V es el de Fase 2, ya compilado y verificado:
 `clang` está instalado y el target `amdgcn` existe. Lo que falta es el **front-end** que
 convierta nuestro SPIR-V. `F4-AD-9` documenta esto.
 
+**DECIDIDO en Ronda 3 (`F4-AD-12`)**: el shader de Fase 4 se escribe en **OpenCL C** y se
+compila con `clang -target amdgcn -mcpu=gfx803 -x cl`. Es la única vía verificada que llega a
+ISA sin `amdgpu.ko`. `spirv-cross` **no está en los repos** (`F4-AD-14`), así que la alternativa
+de convertir el SPIR-V queda cerrada por indisponibilidad.
+
 **Dos consecuencias que cambian el plan**:
 
 1. `decompress_bc3.spv` **no es reutilizable tal cual**. Habría que reescribir el shader en

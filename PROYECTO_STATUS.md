@@ -101,7 +101,7 @@ Ninguno era visible desde el lado CPU. `shader_vs_c` dio **0/4096** con los tres
 
 1. **Índice de color** (`decompress_bc3.comp`): `& 0xFFu` donde el C lee 2 bits; el `& 3u`
    posterior recortaba a los dos bits **altos** del byte. Los píxeles 2 y 3 de cada grupo de 4
-   tomaban el índice de otro píxel — de ahí los pares transpuestos con diferencia constante ±58.
+  tomaban el índice de otro píxel — de ahí los pares transpuestos con diferencia constante ±58.
    Además la rama `else` leía fuera del bloque para `p = 8..15`: `c_idx` son 4 bytes, una sola
    palabra, no dos como el array de 6 bytes del alfa.
 2. **Faltaba `vkCmdPushConstants`**: el shader acotaba el dispatch con `params.num_blocks` leído
@@ -117,8 +117,10 @@ Ver AD-13 en `DECISIONS.md` para el detalle y para lo que este test **no** estab
 ### Límites
 
 - `GFX_HWIP` sigue `NOT_DETERMINED`: este test no consulta la generación gfx ni la infiere.
-- Validación de esquema SPIR-V: `NOT_AVAILABLE`, sin `spirv-val`. Que el driver acepte el módulo
-  es evidencia sobre ese driver.
+- Validación de esquema SPIR-V: **CORREGIDO** — `spirv-val` **sí** está instalado
+  (`/usr/bin/spirv-val`, SPIRV-Tools v2026.1) y valida `decompress_bc3.spv` con `rc=0`.
+    Escribí que faltaba; era falso. Queda pendiente únicamente que el driver acepte el
+    módulo, que es evidencia sobre ese driver.
 - El corpus es determinista y sintético: es una guarda de regresión, no una prueba exhaustiva.
 - Un dispatch no mide rendimiento.
 
@@ -149,7 +151,7 @@ marcado como **no validado contra el hardware objetivo**.
 
 | ID | Decisión |
 |---|---|
-| AD-10 | `RX550_ALPHA_INSET_STEPS 0` — mismo PSNR (±0.01 dB), 2.8× más rápido |
+  | AD-10 | `RX550_ALPHA_INSET_STEPS 0` — mismo PSNR (±0.01 dB), 2.8× más rápido |
 | AD-11 | Interpolación BC3 con redondeo `+3`/`+2` según especificación Microsoft D3D9 |
 | AD-12 | Rampa del hardware Polaris 12: `NOT_DETERMINED` |
 | AD-13 | Fase 2 `COMPLETE`: agreement test GPU==CPU, 0/4096, tres defectos corregidos |
