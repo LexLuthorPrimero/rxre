@@ -2,11 +2,11 @@
 
 **Status:** Phase R-3 documentary novelty audit (DOCUMENTAL ONLY, no implementation).
 
-**Idea:** Build a *closed-loop quality governor* for the RX 550: a controller that, based on **read-only** signals (power draw / `power1_input`, DPM clocks, GPU busy/radeontop, memory, frametime, kalm telemetry), adjusts a *quality actuator* (render resolution scale / quality level) to hold a target frametime — the same loop consoles and game engines ship, but driven **without hardware counters and without any sysfs write**.
+**Idea:** Build a *closed-loop quality governor* for the RX 550: a controller that, based on **read-only** signals (`W_SMU`/`power1_input`, DPM clocks, GPU busy/radeontop, memory, frametime, kalm telemetry), adjusts a *quality actuator* (render resolution scale / quality level) to hold a target frametime — the same loop consoles and game engines ship, but driven **without hardware counters and without any sysfs write**.
 
 ## DEFINITIONS (used everywhere in this project)
 - **CONTROL VARIABLE (CV):** the quality knob the loop moves (render resolution scale factor, e.g. 0.5×–1.0×; or quality level).
-- **FEEDBACK SIGNAL (measured output):** what the loop observes — frametime (ms), GPU busy %, power (W), clock states (read-only).
+- **FEEDBACK SIGNAL (measured output):** what the loop observes — frametime (ms), GPU busy %, `W_SMU`, clock states (read-only).
 - **SETPOINT:** the target frametime (e.g. 16.7 ms @60 fps) the loop tries to hold.
 - **ACTUATOR:** the mechanism that changes the CV (viewport/dynamic-resolution scale inside a renderer; NOT DPM/clock writes — those are prohibited).
 - **SAMPLE RATE / CONTROL PERIOD:** how often the controller reads the feedback and recomputes the CV (per-frame vs. per-control-window).
@@ -17,7 +17,7 @@
 - **GOVERNMENT-FREE:** no sysfs write (no cap/DPM/SCLK/MCLK writes). Permanent rule, decisions.md DN-12.
 
 ## KEY FACTS ABOUT THE HARDWARE TARGET
-RX 550 = Polaris12: 8 CUs (512 SP), ~1.2 TFLOPs FP32, 16 ROPs, 512 KB L2, 112 GB/s (128-bit GDDR5), GCN4, ~50 W TBP. Telemetry that exists read-only: `power1_input`, `pp_dpm_sclk`/`pp_dpm_mclk` (read), `mem_info_*`, GPU busy (radeontop/amdgpu_top), frametime from an app or from `fdinfo`/`perf`. No GFX8 hardware counters available without programming (prohibited).
+RX 550 = Polaris12: 8 CUs (512 SP), ~1.2 TFLOPs FP32, 16 ROPs, 512 KB L2, 96–112 GB/s nominal/estimado (real `UNKNOWN`; 128-bit GDDR5), GCN4, ~50 W TBP. Telemetry that exists read-only: `power1_input`/`W_SMU`, `pp_dpm_sclk`/`pp_dpm_mclk` (read), `mem_info_*`, GPU busy (radeontop/amdgpu_top), frametime from an app or from `fdinfo`/`perf`. No GFX8 hardware counters available without programming (prohibited).
 
 ## CRITICAL PREMISE CHECK (the one thing to NOT assume)
 A governor needs an **actuator** — something that changes quality. On a locked driver:

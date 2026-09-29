@@ -117,8 +117,9 @@ evidence. Without them, defect 2 would have produced an empty `PASS`.
 ### What a pass does not establish
 
 - `GFX_HWIP` remains `NOT_DETERMINED`; this test neither queries nor infers the gfx generation.
-- Schema validity of the SPIR-V is `NOT_AVAILABLE` — `spirv-val` is not installed. A driver
-  accepting a module is evidence about that driver.
+- Schema validity is **verified**: `spirv-val --target-env vulkan1.1` gives `rc=0`
+  (SPIRV-Tools v2026.1), and `make check-spirv` runs it as part of the build. An earlier
+  revision of this file claimed the tool was absent; that claim was never checked.
 - The corpus is deterministic and synthetic: a regression guard, not an exhaustive proof.
 - One dispatch measures no performance.
 

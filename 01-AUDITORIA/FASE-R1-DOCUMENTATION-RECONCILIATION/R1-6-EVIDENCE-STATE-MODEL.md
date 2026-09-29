@@ -3,6 +3,10 @@
 > **Tarea R-1.6** — FASE R-1 — 2026-09-22 — SOLO DOCUMENTAL
 > Define el vocabulario único de estados de evidencia usado por toda la documentación A–R-1, para que cada
 > afirmación sea tasable y comparable. Los informes deben declarar el estado de cada resultado.
+>
+> **Reconciliación 2026-09-24:** la presencia de un catálogo externo no es validación runtime.
+> GFX8, MCLK, RGP/SQTT y ACEs se clasifican como `PARTIALLY_RECONCILED`/`UNKNOWN` salvo
+> medición local explícita.
 
 ---
 
@@ -10,12 +14,12 @@
 
 | Estado | Nombre | Definición | Usar cuando | Prohibido como base de diseño experimental |
 |---|---|---|---|---|
-| **[VERIFICADO]** | Verificado | La afirmación tiene fuente primaria/medible y fue confirmada por cross-check independiente | datos primarios reproducidos (GPUPerfAPI v3.11.1; ac_perfcounter.c; telemetría reconstruida) | sí parcial |
+| **[VERIFICADO]** | Verificado | La afirmación tiene fuente primaria/medible y fue confirmada por cross-check independiente | catálogos source-level (GPUPerfAPI v3.17/v3.11.1); datos primarios reproducidos (telemetría) | sí parcial |
 | **[REPRODUCIBLE]** | Reproducible | El resultado experimental se repitió ≥2 veces de forma idéntica con el mismo método | contraste A/B×3; soak; escalado | no |
 | **[OBSERVADO]** | Observado | Dato sensor directo en un evento único (no repetido) | telemetría de una sola corrida | — |
 | **[HIPÓTESIS]** | Hipótesis | Conjetura explicativa NO confirmada por experimento | causas de discrepancia de conteos etc. | SÍ |
 | **[DOCUMENTADO]** | Documentado | La afirmación es textual de una fuente (drivers, archivos .reg, whitepapers) pero no medida aquí | offsets, campos, semántica de registros | parcial |
-| **[PARTIALLY_RECONCILED]** | Parcialmente reconciliado | Dos fuentes difieren en conteo/alcance pero el mecanismo está explicado y las semánticas válidas coinciden | CB 396 vs 405; SQ 299 vs 273; MC 33 vs 22 | parcial |
+| **[PARTIALLY_RECONCILED]** | Parcialmente reconciliado | Dos fuentes difieren en conteo/alcance; la estructura puede documentarse, pero la semántica/ASIC puede quedar `UNKNOWN` | catálogos GFX8; no habilita programación |
 | **[UNRESOLVED]** | No resuelto | No hay fuente suficiente; no se puede decidir | semántica/unidad de eventos MC | SÍ |
 | **[CONTRADICTED]** | Contradicho | Dos fuentes afirman cosas incompatibles y no se puede resolver | (ninguna actual) | SÍ |
 | **[NO REPRODUCIBLE]** | No reproducible | Resultado histórico que no se pudo reconstruir (método/condiciones perdidas) | régimen 17/09 | SÍ |
@@ -51,16 +55,17 @@ TEXTO DE LA AFIRMACIÓN
 2. `[HIPÓTESIS]`/`[UNRESOLVED]`/`[CONTRADICTED]`/`[NO REPRODUCIBLE]` → **prohibido** como base de diseño hasta
    alcanzar `[VERIFICADO]`/`[REPRODUCIBLE]`/`[DOCUMENTADO]` con cross-check.
 3. Al cambiar un documento de estado se registra en su sección de adenda/changelog (historial intacto).
-4. `[PARTIALLY_RECONCILED]` desbloquea el uso de la intersección de rangos (R1-1: CB 0..395, SQ 0..272, MC 0..21).
+4. `[PARTIALLY_RECONCILED]` no desbloquea programación ni rangos seguros; requiere una tupla
+   evento/ASIC/instancia y autorización específica.
 
 ## 5. Aplicación a resultados actuales (ejemplos)
 
-- GRBM GUI_ACTIVE=2 para GFX8 → **[VERIFICADO]** (GPUPerfAPI v3.11.1, constante `GRBM_PERF_SEL_GUI_ACTIVE`).
-- SQ WAVES=4 para GFX8 → **[VERIFICADO]** (idem, `SQ*_PERF_SEL_WAVES` en 8 sub-bloques).
-- Potencia A 22.25 vs B 15.78 W → **[REPRODUCIBLE]** (6 corridas intercaladas, ratio 1.41).
+- GRBM GUI_ACTIVE=2 para GFX8 → **[PARTIALLY_RECONCILED / CATALOG ONLY]** (GPUPerfAPI; no ASIC/runtime).
+- SQ WAVES=4 para GFX8 → **[PARTIALLY_RECONCILED / CATALOG ONLY]** (idem; no validación ASIC).
+- `W_SMU` A 22.25 vs B 15.78 W → **[OBSERVADO/REPRODUCIBLE según protocolo]** (6 corridas; correlación, no causalidad).
 - Lectura SPI_CSQ=0 → **[VERIFICADO]** valor; **[DOCUMENTADO]** semántica snapshot-por-cola sin SELECT.
 - Régimen histórico 17/09 → **[NO REPRODUCIBLE]**.
-- Conteos CB/SQ/MC → **[PARTIALLY_RECONCILED]** (R1-1).
+- Conteos CB/SQ/MC → **[PARTIALLY_RECONCILED]** (R1-1; 19/23, 4 discrepancias; no rango seguro).
 - Unidad de eventos MC → **[UNRESOLVED]**.
 
 ---

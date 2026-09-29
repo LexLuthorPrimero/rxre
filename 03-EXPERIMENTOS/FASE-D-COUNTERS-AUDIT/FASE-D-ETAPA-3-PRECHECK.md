@@ -29,7 +29,7 @@
 | Falts y resets | `dmesg_restrict = 1`; **journal accessible** (grupo `systemd-journal`): 0 resets en 24 h; 26 líneas de **VM fault** agrupadas en 06:40–06:41 (sep 20), leídas desde TC1/TC2/TC3, vmid 7, pasid 3624/3626; ninguna en las últimas horas | `journalctl -k` |
 | Debugfs DRM | `/sys/kernel/debug/dri/` → Permission denied (sin root en sesión) | `ls` |
 | UMR en vivo | **NO posible en esta sesión**: UMR exige root (`[ERROR]: UMR was not invoked as root.`); `sudo` pide contraseña (sin NOPASSWD). Lecturas en vivo delegadas al operador (§Apéndice A). | `umr -i 0 -r …` |
-| radeontop sudo-net | **Funciona sin root**: idle = gpu/ee/vgt/ta/sx/sh/spi/sc/pa/db/cb **0.00 %**, VRAM 5.32 MB, mclk 0.300 GHz, sclk 0.214 GHz → dump `/tmp/opencode/rt_idle.csv` | radeontop live |
+| radeontop sudo-net | **Funciona sin root**: idle = gpu/ee/vgt/ta/sx/sh/spi/sc/pa/db/cb **0.00 %**, VRAM 5.32 MB, mclk 0.300 GHz, sclk 0.214 GHz → dump `/tmp/opencode/rt_idle.csv` (**PERDIDO / NO VERIFICABLE**) | radeontop live |
 
 **Baseline de errores GPU para Etapa 3 (a comparar DURANTE):** únicamente el burst de VM fault del 20 sep 06:40–06:41 (26 líneas kernel, 0 RLC/ring timeouts, 0 resets, sin recovery). Un exceso de faults nuevos sobre este baseline durante una futura corrida debe disparar aborto (§7).
 
@@ -225,8 +225,8 @@ sudo umr -i 1 -r "gmc810.mmMC_ARB_PERFCOUNTER_RSLT_CNTL"
 sudo umr -i 1 -r "gmc810.mmMC_CITF_PERFCOUNTER0_CFG"
 
 # Snapshot para restauración (§6)
-sudo umr -i 1 -lr gfx800 > /home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-D-COUNTERS-AUDIT/runs/snapshot-gfx800-PRECHECK.txt
-sudo umr -i 1 -lr gmc810 > /home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-D-COUNTERS-AUDIT/runs/snapshot-gmc810-PRECHECK.txt
+sudo umr -i 1 -lr gfx800 > /home/lucas/Escritorio/RX550-INVESTIGACION/03-EXPERIMENTOS/FASE-D-COUNTERS-AUDIT/runs/snapshot-gfx800-PRECHECK.txt
+sudo umr -i 1 -lr gmc810 > /home/lucas/Escritorio/RX550-INVESTIGACION/03-EXPERIMENTOS/FASE-D-COUNTERS-AUDIT/runs/snapshot-gmc810-PRECHECK.txt
 ```
 
 **NO ejecutar** `-w` con ninguno de estos registros; ningún registro requiere escritura para este PRECHECK.
@@ -236,4 +236,4 @@ sudo umr -i 1 -lr gmc810 > /home/lucas/Escritorio/RX550_Iterative_Research/exper
 - Offsets/bitfields: `/usr/share/umr/database/ip/gfx_8_0_0.reg`, `/usr/share/umr/database/ip/gmc_8_1_0.reg` (incluidas por `polaris12.asic`, UMR 1.8.5 instalado en host).
 - Clasificación windowed/por-instancia e intro de eventos: `src/amd/common/ac_perfcounter.c` (tablas `cik_*`) — fragmento obtenido por websearch (fossies.org/linux/mesa); fichero completo no recuperable en red esta sesión (gitlab Anubis, sources.debian.org, raw.githubusercontent.com 404) → pendiente para L2.
 - Lecturas en vivo archival: `runs/umr-counters-muestras.txt` (Etapa 1) y `runs/etapa2/A1/umr_samples.csv` (Etapa 2).
-- Idle en vivo esta sesión: radeontop (dump `/tmp/opencode/rt_idle.csv`), sysfs (`power1_input`, clocks, busy).
+- Idle en vivo esta sesión: radeontop (dump `/tmp/opencode/rt_idle.csv` — **PERDIDO / NO VERIFICABLE**), sysfs (`power1_input`, clocks, busy).

@@ -2,6 +2,9 @@
 
 > **Tarea R-1.5** — FASE R-1 DOCUMENTATION RECONCILIATION & MASTER CONSOLIDATION — 2026-09-22 — SOLO DOCUMENTAL
 > Estado de cada documento, versión, estado, dependencias, contradicciones conocidas y resoluciones.
+>
+> **Reconciliación 2026-09-24:** este mapa conserva el estado histórico; los claims GFX8
+> actuales son `PARTIALLY_RECONCILED / CATALOG ONLY`, no verificaciones runtime.
 
 ---
 
@@ -9,8 +12,8 @@
 
 | Documento | Versión | Estado | Depende de | Contradicciones conocidas (resueltas en R-1) |
 |---|---|---|---|---|
-| `MASTER-PLAN.md` | v? (§A-§Q + Capa Transversal) | ACTUALIZADO (recibe §FASE R-1 en R-1.13) | nada | §FASE M «GRBM=2 BLOQUEADO» → anulado por R-0.1/R-1.1 (pendiente de reflejar en R-1.13) |
-| `MASTER-RESEARCH-STATUS.md` | v2.5 | RECONCILIADO (R-1.4) | MASTER-PLAN | Conclusión B antigua de FASE D → adenda en PRÓXIMA ACCIÓN INMEDIATA; nota ‹GRBM BLOQUEADO› → VERIFICADO doc. |
+| `MASTER-PLAN.md` | reconciliación 2026-09-24 | DOCUMENTAL | nada | FASE M: claims GFX8 `CATALOG ONLY`; no runtime |
+| `MASTER-RESEARCH-STATUS.md` | reconciliación 2026-09-24 | RECONCILIADO (D6) | MASTER-PLAN | snapshots pre-D6 conservados; claims GFX8 source-level |
 | `experiments_proposed.md` | ? | ? | ? | revisado |
 
 ## 2. FASE A — Discriminación (`fase-a-discriminacion-*`)
@@ -25,7 +28,7 @@
 |---|---|---|---|
 | `RESULTADOS-FASE-B.md`, `EP08-*` | ? | COMPLETADA | cap 25 W no liga SCLK; 1071 MHz libre |
 | `POLARIS12-MAP/*` | ? | COMPLETADA | subsistemas A–AJ |
-| `UNVERIFIED-CLAIMS.md` | ? | COMPLETADA | «GPUPerfAPI soporta GFX8» NO VERIFICADO → **RESUELTO[VERIFICADO] por R-0.1** (GPUPerfAPI v3.11.1 SÍ soporta GFX8) |
+| `UNVERIFIED-CLAIMS.md` | ? | **PARTIALLY_RECONCILED** | Claim de soporte GFX8: catálogo externo documentado, runtime/ASIC `UNKNOWN` |
 
 ## 4. EP-05 / EP-06 / M1 / AUDIT-001 / SUPERPOSITION-DISSECTION
 
@@ -47,20 +50,20 @@
 | `FASE-D-ETAPA-2-PLAN.md` | ? | COMPLETADA | — | — |
 | `FASE-D-ETAPA-2-RESULTADOS.md` | v? | CORREGIDO (R-1.3) | tabla radeontop §4 mezcla métodos; SPI «3306» ≠ 8408 | §12 Correcciones post-auditoría |
 | `FASE-D-ETAPA-2-AUDIT.md` | ? | COMPLETADA | errores objetivos detectados | aplicado en R-1.3 |
-| `FASE-D-ETAPA-3-PLAN.md` (v1.5) | v1.5 | DISEÑADA, NO EJECUTADA | 12 slots requieren mapa eventos VI | mapa obtenido en R-0; ejecución sigue NO AUTORIZADA |
+| `FASE-D-ETAPA-3-PLAN.md` (v1.5) | v1.5 | DISEÑADA, NO EJECUTADA | 12 slots requieren mapa eventos VI | catálogo source-level no habilita ejecución; NO AUTORIZADA |
 | `FASE-D-ETAPA-3-PRECHECK.md` | ? | COMPLETADA | — | — |
-| `FASE-D-ETAPA-3-EVENTS.md` | ? | COMPLETADA | §H primera escritura GRBM=2 BLOQUEADA; mayoría IDs NO VERIFICADO | §H pasa a «mapa verificado, ejecución NO autorizada» (R-1.2/R1-1) |
+| `FASE-D-ETAPA-3-EVENTS.md` | ? | COMPLETADA | GRBM=2/SQ=4 `CATALOG ONLY`; primera escritura bloqueada | ejecución NO AUTORIZADA |
 | `FASE-D-GFX8-EVENT-ID-AUDIT.md` | ? | COMPLETADA + §14 adenda (R-1.2) | Resultado B «no verificable con locales» | adenda §14 Resultado B — Revisión post R-0 |
 
 ## 6. FASE R-0 — EXTERNAL KNOWLEDGE (`FASE-R0-EXTERNAL-KNOWLEDGE/`)
 
 | Documento | Versión | Estado |
 |---|---|---|
-| `R0-1-GFX8-EVENT-IDS.md` + `R0-1-GFX8-EVENT-ID-REFERENCE.txt` | ? | COMPLETADA (2304 contadores) |
-| `R0-2-MCLK-POLARIS-MEMORY.md` | ? | COMPLETADA |
-| `R0-3-MESA-GFX8-WORKAROUNDS.md` | ? | COMPLETADA |
-| `R0-4-LEXA-POLARIS12-SPECS.md` | ? | COMPLETADA |
-| `R0-5-RX550-EXTERNAL-BENCHMARKS.md` | ? | COMPLETADA |
+| `R0-1-GFX8-EVENT-IDS.md` + reference | ? | **PARTIALLY_RECONCILED**; 2304 filas de catálogo, no eventos validados |
+| `R0-2-POWERPLAY-MCLK-SMU7.md` | ? | COMPLETADA |
+| `R0-3-MESA-WORKAROUNDS-POLARIS12.md` | ? | COMPLETADA |
+| `R0-4-ARCHITECTURE-LEXA-POLARIS12.md` | ? | COMPLETADA |
+| `R0-5-BENCHMARKS-EXTERNOS-RX550.md` | ? | COMPLETADA |
 | `R0-6-HERRAMIENTAS-HISTORICAS-GFX8.md` | ? | COMPLETADA |
 | `FASE-R0-EXTERNAL-KNOWLEDGE-FINAL-REPORT.md` | ? | COMPLETADA |
 

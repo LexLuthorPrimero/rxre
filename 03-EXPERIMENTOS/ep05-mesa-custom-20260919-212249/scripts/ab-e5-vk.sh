@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 set +e
+# HISTÓRICO / NO VERIFICABLE: /tmp/opencode/ep05_base.txt ya no existe (artefacto
+# volátil no preservado; no reconstruido). EP05 queda vacío → este script ya no es
+# reejecutable tal cual. No sustituir por una ruta inventada.
 EP05=$(cat /tmp/opencode/ep05_base.txt)
 SCR="$EP05/scripts"
 CUSTOM=/opt/mesa-26.2.2-rx550-haswell

@@ -4,8 +4,15 @@
 > **Fase:** FASE R-2 — COMPLETE PROJECT DOCUMENTATION & ECOSYSTEM ARCHITECTURE (R-2.5)
 > **Fecha:** 2026-09-22 — Modo SOLO DOCUMENTAL (DISEÑO; NO ejecutado)
 > **Clasificación:** [DISEÑADO] — modelo conceptual + experimentos diseñados; nada ejecutado.
-> **Línea relacionada:** proyecto `GHOST` (`projects/GHOST/GHOST-CACHE-DESIGN.md`) se deriva de esta fase
+> **Línea relacionada:** proyecto `GHOST` (`04-IMPLEMENTACION/projects/GHOST/GHOST-CACHE-DESIGN.md`) se deriva de esta fase
 > como investigación de prefetch/localidad; "Ghost/Ghost Cache" NO es tecnología validada (ver R-2.15).
+>
+> **RECONCILIACIÓN R-4A (2026-09-24):** este diseño conserva el modelo conceptual, pero
+> no hereda cifras pré-R-4A. La fuente vigente es
+> `03-EXPERIMENTOS/FASE-R4A-BANDWIDTH-REAL/EXP-F3-A-BANDWIDTH-REAL.md`: 2 GiB VRAM total,
+> 256 MiB VIS y ~6,2 GB GTT son capacidades observadas; **bandwidth real = `UNKNOWN`**.
+> Las cifras 96–112 GB/s son estimaciones condicionadas al módulo/VBIOS,
+> no mediciones locales. `mem_busy_percent` y `power1_input` no son bandwidth ni vatímetro.
 
 ---
 
@@ -23,10 +30,10 @@ Diseñar la investigación del **camino de memoria** entre la GPU y los sistemas
  [GPU CACHES] (L0/L1 per-CU → L2 shared → vGPRs/TCI)   ← hit = sin tráfico externo
         │ miss
         ▼
- [VRAM (GDDR5 128-bit)] local a la GPU   ← MEMORY LOCAL, alta BW, 4 GB (2 GB efectivos)
+ [VRAM (GDDR5 128-bit)] local a la GPU   ← 2 GiB total; bandwidth nominal/estimado 96–112 GB/s según módulo; real UNKNOWN
         │ si status ≠ DEVICE_LOCAL o si eviction
         ▼
- [GTT (tak a host RAM via PCIe)]   ← "stolen"/mapped; latencia y BW limitadas por PCIe
+ [GTT (tak a host RAM via PCIe)]   ← "stolen"/mapped; la latencia/BW y su dependencia de PCIe son hipótesis, no causalidad medida
         │ miss GTT
         ▼
  [SYSTEM RAM (host)] ← reservar/migrar vía TTM/amdgpu (page tables, io-mmu)
@@ -39,10 +46,10 @@ Componentes y su nivel de certeza:
 
 | Componente | Qué se sabe (nivel) | Fuente |
 |---|---|---|
-| VRAM física 2 GB (501 GB/s teórico GDDR5 128-bit) | [VERIFICADO] spec | R0-4 / BUILD_SPEC |
+| VRAM física 2 GiB; bandwidth nominal/estimado 96–112 GB/s según módulo/VBIOS; bandwidth real UNKNOWN | [CAPACIDAD OBSERVADA + ESTIMACIÓN] | R-4A / R0-4 / BUILD_SPEC |
 | GTT = asignación de host RAM por TTM/amdgpu, accesible por la GPU vía PCIe | [VERIFICADO conceptual] Open-code amdgpu TTM manual | kernel docs / local dev knowledge |
 | `mem_busy` (sysfs) ≈ actividad SMU de memoria, NO es % de ancho de banda | [VERIFICADO] METRICS-DEFINITIONS y FASE D | radeontop/sysfs doc |
-| MCLK sube a 1500 solo con presión real (superposition)  | [OBSERVADO/REPRODUCIBLE] MCLK policy smu7 (R0-2) | R0-2, R-15 |
+| MCLK 1500 observado en algunos workloads; el trigger local y su relación con `mem_busy_percent` no están cerrados | [OBSERVADO] + [UNKNOWN] | R0-2, R-4B, WORKLOAD-SINTETICO |
 | fetching granulosgado (ES-01/F2) → frametime ∝ fetches, power cte | [OBSERVADO/REPRODUCIBLE] | ES-01, F2 |
 | `mem_busy` NO escala con power (B>A, A más potente) | [OBSERVADO] FASE D etapa 2 | FASE D |
 | VBO/IBO streaming desde host (GTT) → BW PCIe/DRAM | [HIPÓTESIS] diseño candidato GEO-03 | este diseño |
@@ -87,8 +94,9 @@ Nunca se promueve un INFERRED a OBSERVED por una única métrica; ver modelo de 
   complejo en Matriz J.
 
 ### G-M4: Relación `mem_busy` ↔ BW real (G-4)
-- Cross-check `mem_busy` (SMU) con un patrón memorístico conocido (solo sintético read-heavy) y comparar
-  vs teórico 128-bit/501 GB/s. **Sin contadores HW**, al menos equipara la escala, no la exactitud.
+- **Cross-check `mem_busy` (SMU) con un patrón memorístico conocido (solo sintético read-heavy) y comparar
+  vs la escala nominal/estimada de 96–112 GB/s. **Sin contadores HW**, al menos equipara la escala,
+  no la exactitud; el bandwidth real permanece `UNKNOWN`.**
 
 ### G-M5: ¿fetch-latency = camino GTT? (G-5)
 - Diseñado para interaccionar con ES-01/F2: variar el **alojamiento** de la textura (GTT vs VRAM) a igual

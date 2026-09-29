@@ -51,8 +51,8 @@
 
 | Fuente | Qué aporta | Dónde se discute |
 |---|---|---|
-| RGP 2.x (RDNA-only) vs RGP 1.x-era / CodeXL (GCN) | viewer SQTT para GCN = puedo/verificar | R-3 I-05; FUSION-04 |
-| RADV `MESA_VK_TRACE=rgp` (SQTT); rgp-inspect; GPUVis; RenderDoc; gfxreconstruct; api_dump; GPUPerfAPI v3.11.1 (GFX8 tables; CB 0..395, SQ 0..272, MC 0..21) | infra de captura ATG; tooling de frame | R-3 I-05; FUSION-04 |
+| RGP 2.x (RDNA-only) vs RGP 1.x-era / CodeXL (GCN) | viewer SQTT GCN **UNKNOWN**; no soporte runtime local | R-3 I-05; FUSION-04 |
+| RADV `MESA_VK_TRACE=rgp` (source-level SQTT); rgp-inspect (gfx1201); GPUVis; RenderDoc; gfxreconstruct; api_dump; GPUPerfAPI v3.17/v3.11.1 (catalog) | infra de captura ATG; runtime GFX8 y catálogo ASIC `UNKNOWN` | R-3 I-05; FUSION-04 |
 | SPM (gfx9+/RDNA) — **no confirmado gfx8** | contadores por stream | FUSION-04 |
 | Otterness & Anderson RTSS'21 (ACE/HWS scheduling) | concurrencia async GCN/RDNA | R-3 I-10; FUSION-06 |
 | Otterness. DagsterSchedule | scheduling (cita de soporte) | FUSION-06 |

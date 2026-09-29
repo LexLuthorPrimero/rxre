@@ -17,13 +17,20 @@ R-06..R-09 y el diseño multiopción quedan en `DESIGN-GRAPHICS.md`. Ningún exp
 de esta fase fue ejecutado; NO se modificó código, kalm, Mesa ni amdgpu (regla del
 proyecto).
 
+**RECONCILIACIÓN 2026-09-24:** `power1_input` se expresa como `W_SMU`/potencia estimada
+SMU, no vatímetro. `mem_busy_percent` es proxy y no bandwidth. La política source-level
+`mclk_activity=20`, `up=5`, `down=16` no prueba el trigger local ni una equivalencia
+`mem_busy ≥20 → MCLK 1500`; el readout local R-4A `3/16/20` tampoco está reconciliado
+con el valor upstream. Las frases históricas de este archivo se conservan como
+observaciones, no como causalidad o capacidad actual.
+
 ---
 
 ## R-01 — Especificación de Polaris12 / Radeon RX 550
 
 ### 1. Pregunta
 ¿Qué capacidad real de cómputo, memoria y potencia tiene la RX 550 (Polaris12) para
-diseñar un workload que eleve el draw por encima de ~27 W con cap=35 W?
+diseñar un workload que eleve la `W_SMU` por encima de ~27 W con cap=35 W?
 
 ### 2. Fecha
 2026-09-20/21.
@@ -44,7 +51,7 @@ diseñar un workload que eleve el draw por encima de ~27 W con cap=35 W?
   igor'sLAB especifica P12 = 512 KB → se adopta 512 KB para P12 (fuente con medición).
 
 ### 4. Fuentes (URLs y aporte)
-- https://www.techpowerup.com/gpu-specs/radeon-rx-550.c2947 — specs base: GCN 4, 512 SP, 32 TMU, 16 ROP, 2 GB GDDR5 128-bit, 112 GB/s, boost 1183 MHz.
+- https://www.techpowerup.com/gpu-specs/radeon-rx-550.c2947 — specs base: GCN 4, 512 SP, 32 TMU, 16 ROP, 2 GB GDDR5 128-bit, 96–112 GB/s nominal/estimado, boost 1183 MHz; bandwidth real local `UNKNOWN`.
 - https://videocardz.net/amd-radeon-rx-550 — Lexa PRO P12, 101 mm², 2.2 B transistores, 50 W, fillrates (18.9 GPix/s, 37.9 GTex/s).
 - https://www.igorslab.de/en/performance-benchmark-power-consumption-rx550-polaris/ — P12 con 512 KB L2 (vs 1 MB), medición física: juego ~47 W (picos 59 W filtrados), stress <50 W con SCLK reducido a ~820 MHz por Power Tune.
 - https://www.relaxedtech.com/reviews/amd/radeon-rx-550/1 — tabla completa (base 1100, boost 1183 MHz, 1.126 GFLOPs FP32, TDP 50 W, PCIe 3.0 x8).
@@ -53,17 +60,17 @@ diseñar un workload que eleve el draw por encima de ~27 W con cap=35 W?
 
 ### 5. Hechos VERIFICADOS
 - RX 550 = Polaris12 "Lexa PRO", GCN 4.0, 14 nm FinFET, 101 mm², 2.2 B transistores, 50 W TDP/board power.
-- 512 SP en 8 CUs (de 10; 2 CU deshabilitadas), 32 TMU, 16 ROP; buses 128-bit y 7 Gb/s GDDR5 → 112 GB/s; 512 KB L2 (P12).
+- 512 SP en 8 CUs (de 10; 2 CU deshabilitadas), 32 TMU, 16 ROP; buses 128-bit y 7 Gb/s GDDR5 → 96–112 GB/s nominal/estimado; 512 KB L2 (P12). Bandwidth real `UNKNOWN`.
 - Clocks spec: base 1100 MHz, boost 1183 MHz (1203 MHz en algunas variantes OEM); 1.126 GFLOPs FP32.
 - Con cap de potencia ~50 W y carga extrema sostenida, el Power Tune bajó SCLK a ~820 MHz (la placa se limita por potencia, no por clock) — igor'sLAB, medición física.
 
 ### 6. Hipótesis planteadas
 - Un workload de cómputo "puro" (ALU) con la GPU a 100 % busy subirá la potencia apreciablemente.
-- La presión de memoria/bandwidth o el llenado de VRAM deberían activar MCLK/GDDR5 y añadir draw.
+- La presión de memoria/bandwidth o el llenado de VRAM podrían activar MCLK/GDDR5 y aumentar `W_SMU`; es una hipótesis.
 
 ### 7. Estado de hipótesis
 - Abiertas (nunca confirmadas con datos de esta placa → evaluadas en E-01/E-02: ver resultados).
-- El Power Tune a 35 W no actúa con draw observado < 14 W [VERIFICADO en este sistema].
+- El Power Tune a 35 W no actúa con `W_SMU` observada < 14 W [OBSERVADO en este sistema].
 
 ### 8..13. (Aplica E-01/E-02 para lo experimental)
 Remisión a registros E-01/E-02. Decisión técnica de esta investigación (2026-09-20):
@@ -98,13 +105,16 @@ los modos DPM que usa nuestra telemetría? ¿Qué limita realmente el draw en es
 
 ### 5. Hechos VERIFICADOS
 - `power1_input`/`power1_average` = estimador del firmware SMU en microWatts (no un vatímetro físico); en dGPU representa la GPU, pero NO incluye CPU.
-- `power1_cap` limita draw total de la GPU; en este sistema `power1_cap_max = 35 W` y el valor observado en idle es 3.3–3.7 W.
+- `power1_cap` limita el objetivo/presupuesto de potencia de la GPU; la lectura `power1_input`
+  se expresa como `W_SMU`, no vatímetro. En este sistema `power1_cap_max = 35 W` y el valor
+  observado en idle es 3.3–3.7 W `W_SMU`.
 - `gpu_busy_percent`/`mem_busy_percent` = % de actividad calculado por SMU; `mem_busy` correlaciona con actividad del controlador de memoria (VRAM), presente solo en dGPU.
 - `scale_factor` implícito: telemetría usa archivos planos de texto; frecuencias se leen por el nivel marcado `*` en `pp_dpm_sclk/mclk`.
 - DPM auto en carga sostenida de este workload: SCLK 1071 MHz dominante; MCLK 300 MHz (piso) [VERIFICADO en E-01/E-02].
 
 ### 6..7. Hipótesis
-- (planteada) `power1_input` leído a 10 Hz con ventana estable refleja la potencia real durante el run.
+- (planteada) `power1_input` leído a 10 Hz representa **W_SMU**, potencia estimada por
+  sensor SMU; no es vatímetro independiente.
 - (estado) Confirmada operativamente: en E-01/E-02 los valores quedan por debajo del cap y no plainean en 35 W; el cap NO liga en estas cargas.
 
 ### 8..13.
@@ -134,7 +144,9 @@ los modos DPM que usa nuestra telemetría? ¿Qué limita realmente el draw en es
   POLARIS12) vendor=0x1002 device=0x699F`) [VERIFICADO].
 
 ### 4. Fuentes (URLs y aporte)
-- https://docs.mesa3d.org/drivers/radv.html — RADV = driver Vulkan UMD que trabaja con el KMD amdgpu vía libdrm/uAPI DRM; invocación shader = CU SIMD; subgroup = wave de 64 o 32 lanes; colas GFX (PM4) y ACE; sección de performance (env overrides, meta paths) y compat GFX6-7 (GCN 1-2 no por defecto en amdgpu).
+- https://docs.mesa3d.org/drivers/radv.html — RADV = driver Vulkan UMD sobre amdgpu;
+  la documentación/sourceLevel describe colas GFX/compute, pero no prueba el número de
+  ACEs, scheduling overlap o capacidad local. Las capacidades se auditan.
 - https://www.phoronix.com/review/radv-amdvlp-pro — contexto histórico: RADV vs AMDVLK vs AMDGPU-PRO en Polaris/Vega (LLVM vs propio).
 - Observación propia del sistema: `vulkaninfo` y salida del prototipo confirman RADV para `1002:699f` (gfx804) [VERIFICADO].
 
@@ -159,7 +171,7 @@ los modos DPM que usa nuestra telemetría? ¿Qué limita realmente el draw en es
 
 ### 1. Pregunta
 ¿Qué patrón de carga (compute ALU, fill-rate/overdraw + MSAA, texture sampling)
-eleva el draw de la RX 550, y por qué?
+eleva la `W_SMU` de la RX 550, y por qué?
 
 ### 2. Fecha
 2026-09-20/21.
@@ -222,7 +234,7 @@ eleva el draw de la RX 550, y por qué?
 - Consultas: `L2 cache Polaris12 size`; `mem_busy_percent low despite large vram buffer`.
 
 ### 4. Fuentes (URLs y aporte)
-- `experiments/WORKLOAD-SINTETICO/src/compute.comp` (líneas 16-28) — evidencia del `& 0xFFFF` (límite 256 KB).
+- `03-EXPERIMENTOS/WORKLOAD-SINTETICO/src/compute.comp` (líneas 16-28) — evidencia del `& 0xFFFF` (límite 256 KB).
 - https://www.igorslab.de/en/performance-benchmark-power-consumption-rx550-polaris/ — 512 KB L2 P12.
 - https://docs.kernel.org/gpu/amdgpu/thermal.html y https://dri.freedesktop.org/docs/drm/gpu/amdgpu.html — dominios de memoria (VRAM local, GTT sistema) y mem_busy por SMU.
 - Datos propios E-01/E-02 (telemetría) — MCLK 300 MHz todo el run, mem_busy ≤7 %, VRAM 0.51 GB.
@@ -277,7 +289,8 @@ Internas: MASTER-PLAN §J (gates), `src/main.cpp`, `src/compute.comp`, `runs/exp
 
 ### 8. Metodología experimental
 - Hardware/software: RX 550 (Polaris12, 1002:699f, card1, amdgpu, RADV/Mesa), display Intel (seguridad); kernel/DRM del sistema; binario `main` (build -O2).
-- Config/env: `VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/radeon_icd.x86_64.json MESA_VK_DEVICE_SELECT=1002:699f ./main --duration 20 --vram 268435456 --iterations 512 --stride 16 --seed 42`.
+- Config/env (snapshot histórico): `VK_ICD_FILENAMES=...`; el selector numérico era
+  opcional y la verificación de `0x699f` era obligatoria.
 - Parámetros workload: workgroups=4096, local_size=256, iterations=512, stride=16, seed=42, vram=256 MiB (w/s efectivo 256 KB por `& 0xFFFF`).
 - Comandos/procedimiento: pre-flight (cap/control/dpm/vendor/idle) → telemetría 10 Hz en paralelo → ejecución → post-flight → revisión journal → archivos en `runs/exploratorio-01/`.
 - Variables medidas: potencia (µW), temp, busy, mem_busy, VRAM/GTT, SCLK/MCLK.
@@ -460,25 +473,29 @@ siempre en piso?
   https://lists.freedesktop.org/archives/amd-gfx/2020-September/053984.html — ajusta parámetros DPM
   de MCLK en smu7_hwmgr por ancho de bus: para **VRAM 128-bit** (RX 460/550 y afines):
   `mclk_activity = 20`, `mclk_up_hyst = 5`, `mclk_down_hyst = 16`; para 192-bit (RX 470/570):
-  `mclk_up_hyst = 10`. La subida de MCLK se decide por actividad de memoria sostenida en ese umbral.
+  `mclk_up_hyst = 10`. El código upstream usa ese parámetro para la transición; no
+  demuestra el trigger local ni su equivalencia con `mem_busy_percent`.
 
-### 5. Hechos VERIFICADOS
-- La política DPM de MCLK en Polaris (smu7) eleva MCLK cuando la **actividad de memoria supera ~20 %
-  de forma sostenida** (`mclk_activity=20`, caso 128-bit de nuestra placa), con histéresis de subida
-  (up_hyst) y bajada (down_hyst). [VERIFICADO, parche upstream]
-- Nuestra RX 550 (128-bit) entra exactamente en el caso `mclk_activity=20`.
-- Compatible con E-01/E-02: mem_busy 3–7 % < 20 % → MCLK sin incentivo de subir. [VERIFICADO]
+### 5. Hechos VERIFICADOS a nivel source-level
+- La política DPM de MCLK en Polaris (smu7) documenta `mclk_activity=20`, `up_hyst=5` y
+  `down_hyst=16` para el bus de 128 bits. [VERIFICADO upstream]
+- Nuestra RX 550 (128-bit) coincide con el **caso de fuente**, pero el firmware/BIOS
+  local que decide el nivel efectivo y la relación con `mem_busy_percent` no están
+  demostrados aquí.
+- E-01/E-02 observan MCLK en el piso con `mem_busy` 3–7 %; eso es una observación
+  correlacionada, no una demostración de un threshold local `20 %`.
 
 ### 6..7. Hipótesis
-- H-MCLK-umbral: sostener `mem_busy` ≥ ~20 % elevará MCLK por encima del piso (hasta 1500).
-  [HIPÓTESIS, soportada por la política DPM; no medida aún]
-- Estado: abierta. Es EL mecanismo central para convertir "tráfico DRAM" en draw de MCLK.
+- H-MCLK-umbral: un mecanismo local podría elevar MCLK con actividad de memoria
+  sostenida; el valor `20` **no se transfiere** automáticamente a `mem_busy_percent`.
+  [HIPÓTESIS; requiere capability audit/experiment]
+- Estado: abierta. No se usa para afirmar causalidad ni para activar escrituras.
 
 ### 8..13.
-- Método propuesto: cualquier diseño que active banda debe medir mem_busy y nivel MCLK (telemetría
-  actual ya registra ambos) y verificar la salida del piso durante la fase activa.
-- Decisión técnica: el criterio de validez "presión DRAM real" se define por `mem_busy ≥ 20 %`
-  sostenido y/o MCLK > piso (ver DESIGN-GRAPHICS, criterios).
+- Método propuesto: medir `mem_busy_percent`, MCLK reportada y clocks juntos; separar
+  policy source-level de telemetría local.
+- Decisión técnica: no definir “presión DRAM real” por `mem_busy ≥20 %`; requiere una
+  métrica/endpoint independiente.
 - Alternativas descartadas: forcing de MCLK/`profile_min_mclk` (vetado por regla del proyecto).
 
 ---
@@ -533,11 +550,11 @@ RADV/GFX8 al diseño del render target, y cómo se hace un fullscreen draw sin b
 
 ---
 
-## R-09 — Qué subsistemas activa cada pipeline: evidencia de draw (gráfica vs compute)
+## R-09 — Qué subsistemas activa cada pipeline: evidencia de `W_SMU` (gráfica vs compute)
 
 ### 1. Pregunta
 ¿Qué unidades adicionales activa un pipeline gráfico frente al compute del prototipo, y qué
-evidencia (local y externa) hay de que eso produce más draw en esta placa?
+evidencia (local y externa) hay de que eso produce mayor `W_SMU` en esta placa?
 
 ### 2. Fecha
 2026-09-21.
@@ -549,9 +566,8 @@ evidencia (local y externa) hay de que eso produce más draw en esta placa?
 - Consultas: sin nuevas; se consolida lo ya investigado y medido en el sistema.
 
 ### 4. Fuentes (URLs y aporte)
-- MASTER-PLAN.md (§_histórico, línea 122): régimen actual observado: **Superposition motor
-  18.8–23.7 W** (1600x900/Medium, sin reset) y **GravityMark 12.4–14.8 W**; compute propio E-01/E-02
-  13.2/12.4 W.
+- MASTER-PLAN.md y evidencia: **W_SMU** observado de Superposition 18.8–23.7 W;
+  esto no identifica por sí solo la causa de la diferencia.
 - evidence.md: "Clocks en carga: SCLK 1071, MCLK 625 (picos 1500 transitorios); MCLK idle 300".
 - R-04 (computergraphics.SE): la ventaja de fragment vs compute es de coherencia de empaquetado, no
   de HW distinto; fill-rate/overdraw/MSAA estresan el render back-end (Geeks3D).
@@ -559,23 +575,23 @@ evidencia (local y externa) hay de que eso produce más draw en esta placa?
   tráfico L2); el render back-end comprime color (R-06).
 
 ### 5. Hechos VERIFICADOS
-- Sobre ESTA placa, el draw máximo de la sesión actual provino de un benchmark GRÁFICO
-  (Superposition: pico 23.7 W) muy por encima de compute propio (13.2 W) y de GL ligero (14.8 W).
-  [VERIFICADO, MASTER-PLAN]
+- Sobre ESTA placa, el `W_SMU` máximo observado en la sesión provino de un benchmark gráfico
+  (Superposition: pico 23.7 W), por encima de compute propio (13.2 W) y GL ligero (14.8 W).
+  La diferencia es una **observación correlacionada**, no causalidad aislada.
 - El compute puro satura SCLK 1071 pero no presiona memoria (MCLK piso) ni render back-end
   (E-01/E-02). [VERIFICADO]
-- Diferencia estructural: fragment/ROPs/texturas (ruta gráfica) son exactamente los subsistemas que
-  Superposition ejercita y que produjeron el draw más alto registrado en esta placa. [VERIFICADO por
-  correlación; no por causa aislada]
+- Diferencia estructural: fragment/ROPs/texturas (ruta gráfica) son hipótesis compatibles
+  con la asociación observada; no se ha aislado el subsistema causal.
 
 ### 6..7. Hipótesis
 - H-gfx: un pipeline gráfico con fragment pesado + CB de alta entropía + texturas grandes > L2 +
-  overdraw/MSAA podría sostener draw ≥ 27 W con cap=35 W activando SCLK (1071) Y memoria (1500).
+  overdraw/MSAA podría sostener `W_SMU` ≥ 27 W con cap=35 W activando SCLK (1071) Y memoria (1500).
   [HIPÓTESIS central de diseño; NO garantizada]
 - Tope conocido: la mejor carga "real" (Superposition) alcanzó ~23.7 W pico; el objetivo 27 W
   sostenido exige superar ese techo con sobrecarga determinista (overdraw/MSAA/entropía de CB).
   El régimen histórico [NO REPRODUCIBLE] llegó a 25–31 W con MCLK 1250–1500 y SCLK bajo; con SCLK
-  1071 y MCLK 1500 simultáneos el draw resultado es incierto pero plausiblemente dentro del rango.
+  1071 y MCLK 1500 simultáneos la `W_SMU` resultante es incierta pero plausiblemente
+  dentro del rango.
 - Estado: abierta.
 
 ### 8..13.
@@ -601,7 +617,7 @@ la RX 550, crea recursos dentro del presupuesto VRAM y termina sin device lost /
   `glslangValidator -V --target-env vulkan1.1` (vertex/fragment/gen: validan sin error).
 - Smoke run controlado (config mínima de desarrollo, NO la exploratoria): `main-graphics
   --width 640 --height 480 --tex-size 512 --warmup 1 --duration 1` con
-  `VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/radeon_icd.x86_64.json MESA_VK_DEVICE_SELECT=1002:699f`.
+  `VK_ICD_FILENAMES=...` + verificación de `0x699f`; el selector numérico era opcional.
 
 ### 4. Fuentes (URLs y aporte)
 - Ninguna consulta externa nueva; verificación empírica local del propio binario.
@@ -652,7 +668,8 @@ deterministas de amdgpu en la RX 550, y cómo eliminar el riesgo sin tocar la co
 - Bisección con flags de depuración del binario: `--skip-gen` (solo fragment) y `--skip-frag` (solo
   generación), correlacionando con `journalctl` (grep `GPU fault|VM fault`).
 - Variantes de codegen del generador: descriptor array corregido (binding 0, count=4),
-  `RADV_DEBUG=nodcc`, y driconf temporal en HOME aislado (`/tmp/opencode/fakehome/.drirc`) con
+  `RADV_DEBUG=nodcc`, y driconf temporal en HOME aislado (`/tmp/opencode/fakehome/.drirc` —
+  **PERDIDO / NO VERIFICABLE**, artefacto volátil no preservado) con
   `radv_disable_shrink_image_store=true` y `radv_wait_for_vm_map_updates=true` (opciones documentadas
   en `/usr/share/drirc.d/00-radv-defaults.conf`).
 
@@ -709,7 +726,7 @@ busy, DPM, VRAM) para discriminar 35 W vs 30 W?
   EJECUCIÓN_VÁLIDA` PERO con VM faults en `journalctl` → clasificada REQUIERE CORRECCIÓN.
 - Investigación y corrección del generador (ver R-11) y re-ejecución de la MISMA configuración base con
   `main-graphics` corregido (sin tocar ningún parámetro).
-- Telemetría `experiments/EXPLORATORIO-GravityMark/telemetria.sh` (10 Hz, 32 s) + pre/post-flight
+- Telemetría `03-EXPERIMENTOS/EXPLORATORIO-GravityMark/telemetria.sh` (10 Hz, 32 s) + pre/post-flight
   (DPM sclk/mclk, busy, vram/gtt, power, temp) + journal. Artefactos en
   `runs/exploratorio-03-corrected/{stdout.txt,stderr.txt,telemetria.csv,pre_flight.txt,post_flight.txt,journal_pres.txt}`;
   corrida tainted en `runs/exploratorio-03/` (evidencia conservada).
@@ -727,17 +744,20 @@ busy, DPM, VRAM) para discriminar 35 W vs 30 W?
   vram=5.4 MB, gtt=11.2 MB), sin resets ni timeouts. [VERIFICADO]
 
 ### 6..7. Hipótesis
-- H-gfx: el fragment (CB de alta entropía + sampleo incoherente de 4×64 MiB de texturas + overdraw 4x)
-  es la fuente de presión; sostiene SCLK 1071 y activa MCLK 1500 con mem_busy 36–49 % en régimen.
-  [SUSTENTADA]
-- H-draw: el techo gráfico de esta placa con cap 35 W sigue siendo ~18.8/23.7 W (Superposition); este
-  workload llega a 13.4 W avg / 15.8 W pico → AÚN NO discrimina 35 vs 30 W. [VERIFICADO como límite]
+- H-gfx: el fragment (CB de alta entropía + sampleo incoherente de 4×64 MiB de texturas
+  + overdraw 4x) es una **hipótesis compatible** con la presión observada; sostiene SCLK
+  1071 y coincidió con MCLK 1500 y `mem_busy` 36–49 % en esta corrida, sin causalidad aislada.
+  [OBSERVADA / HIPÓTES]
+- H-draw: el techo gráfico observado de esta placa con cap 35 W fue ~18.8/23.7 W
+  (Superposition); este workload llegó a 13.4 W avg / 15.8 W pico `W_SMU` → aún no discrimina
+  35 vs 30 W. [OBSERVADO, no límite general]
 - Estado: el workload queda VÁLIDO para exploración de parámetros futura (en otra fase autorizada);
   el rol EXPLORATORIO actual (UNA corrida) queda cumplido y cerrado.
 
 ### 10. Limitaciones / qué NO puede concluirse
 - Causa raíz EXACTA del fault de RADV (archivo de kernel) no identificada; se circunvaló por diseño.
-- La presión DRAM real (w/s ≥ 112 GB/s) todavía no se midió; mem_busy 36–49 % no implica saturación.
+- La presión DRAM real (w/s ≥ 96–112 GB/s nominal/estimado) todavía no se midió;
+  `mem_busy` 36–49 % no implica saturación.
 - gtt_used 232 MB corresponde al staging host (fuera de la ventana de rendimiento, pero parte del draw).
 
 ### 11/12. Decisión técnica y por qué
@@ -789,7 +809,7 @@ para aumentar la demanda real de la RX 550 (presión DRAM/ROP/ALU) y en qué ord
   bajo (ocultamiento de latencia); depende del cuello de botella real. [HIPÓTESIS]
 - TEX-SIZE: el patrón de muestreo es uniforme-aleatorio normalizado; el footprint por frame es
   proporcional al nº de texels distintos tocados → con 4×8192² (1.07 GiB) el footprint crece 4×
-  respecto de 4096² (57 MiB vs 14 MB a 112 GB/s de banda disponible); el L2 de 512 KB no retiene el
+  respecto de 4096² (57 MiB vs 14 MB; 96–112 GB/s es banda nominal/estimada, no bandwidth real medido); el L2 de 512 KB no retiene el
   working set. Si el muestreo es determinista, la SET tocada es la misma cada frame → estimulo de
   cache/DRAM limitado a la "barrida" por frame. [HIPÓTESIS]
 - MSAA 8x: SHS=1 (fragment no cambia) pero CCS=8 → ROP escribe 8 muestras/píxel al CB; RADV sin DCC
@@ -801,7 +821,8 @@ para aumentar la demanda real de la RX 550 (presión DRAM/ROP/ALU) y en qué ord
 - Orden de prueba (una variable por corrida, config BASE fija): A) layers 8→16; B) fma-iters 8→16
   (48→96 FMA); C) tex-size 6144→8192 (footprint de 4 tex); D) msaa 4→8. Luego solo COMBINAR el eje
   que más mueva power/mem_busy.
-- Objetivo de screening: identificar el eje que más sube `power_avg`/`mem_busy`/MCLK sostenido, NO
+- Objetivo de screening: identificar el eje que más sube `W_SMU`/`mem_busy_percent`/MCLK
+  observado, sin convertirlo en causalidad; NO
   significancia estadística (1 corrida por configuración).
 
 ### 8..13.
@@ -826,22 +847,27 @@ régimen)? Objetivo: elegir UNA configuración prometedora para una segunda fase
 ### 3. Metodología de investigación
 - 10 corridas UNA-sola-vez por configuración (screening, sin significancia; regla del dueño),
   misma resolución 1920×1080, warmup 5 s, duration 20 s, selección explícita RX 550.
-- Runner reutilizable `/tmp/opencode/run_variant.sh` (pre/post-flight DPM, telemetría 10 Hz 34 s,
-  journal `GPU fault|VM fault`); artefactos en `runs/escalado-01/<variante>/`; resumen completo en
-  `ESCALADO-E03.md`.
+- Runner reutilizable `/tmp/opencode/run_variant.sh` — **PERDIDO / NO VERIFICABLE**
+  (artefacto volátil no preservado; no reconstruido). La especificación histórica
+  era: pre/post-flight DPM, telemetría 10 Hz durante 34 s y journal
+  `GPU fault|VM fault`; los artefactos conservados están en
+  `runs/escalado-01/<variante>/` y el resumen en `ESCALADO-E03.md`.
 - Indicador: régimen estable = filas con `gpu_busy ≥ 95`, SCLK nivel 7 (1071) y MCLK 1500; se
   compara power_avg/max, mem_busy, fps, frametime, vram.
 - Control de deriva térmica: se re-ejecutó BASE al FINAL de la sesión (A0-base-reeval) → deriva
-  ambiental medida: BASE inicio 15.75 W vs BASE final 16.08 W = ±0.33 W que enmascara Δ < ~0.4 W.
+  ambiental medida: BASE inicio 15.75 W `W_SMU` vs BASE final 16.08 W `W_SMU` = ±0.33 W que
+  enmascara Δ < ~0.4 W.
 
 ### 4. Fuentes (URLs y aporte)
 - Ver R-12 (Anexo A, URLs 29–32) y R-06/R-07/R-11: MSAA SHS=1/CCS=N, RADV sin DCC para MSAA,
-  DPM MCLK ≥20 % de actividad, colección de faults storage-image.
+  DPM MCLK `5/16/20` **source-level**; el trigger local y `mem_busy_percent` quedan `UNKNOWN`;
+  colección de faults storage-image.
 
 ### 5. Hechos VERIFICADOS (régimen estable)
 - BASE (inicio) 15.75 W; A1 layers8 15.76 W (fps 4.50, frametime 222.8 ms); A2 layers16 15.78 W
   (fps 2.30, frametime 442.5 ms): overdraw escala el frametime EXACTAMENTE lineal (1×/2×/4×) PERO no
-  sube potencia (el GPU ya está al 100 % busy con SCLK 1071 fijo → work/s constante → W constante).
+  sube la `W_SMU` (el GPU ya está al 100 % busy con SCLK 1071 fijo → work/s constante
+  → `W_SMU` similar).
 - B1 FMA48 15.94 W / B2 FMA96 16.18 W: fps TRUNCADO a 8.95 (el bucle de FMA, con dependencias
   largas, queda oculto tras la latencia de sampleo) y Δ dentro de la deriva térmica. SIN EFECTO.
 - C1 tex6144 16.01 W / C2 tex8192 16.09 W: fps 8.95 sin cambio y mem_busy clavada 35.9 % (el
@@ -1021,9 +1047,9 @@ sube `power_avg`/`mem_busy` vs E1? Protocolo: E1 (baseline intacto, `fragment.fr
   viene del reloj fijo (SCLK 1071/MCLK 1500) + actividad DRAM moderada (36 %) — no de "más trabajo".
   [SUSTENTADA por todos los runs: B (ALU libre), D (CB libre), F2 (memoria autopacada)]
 - CONCLUSIÓN FASE 2: con DPM en auto y sin forzar clocks (regla del proyecto), este diseño de
-  workload no puede subir la potencia sostenida por encima de ~16 W; la palanca de potencia real de
-  la placa (clocks más altos / más unidades activas a la vez) no es alcanzable por la estructura del
-  fragment. NO se agrega más complejidad (regla del dueño): se documenta y DETIENE.
+  workload no subió la `W_SMU` sostenida por encima de ~16 W en el régimen probado; la
+  palanca física de potencia (clocks más altos / más unidades activas) sigue `UNKNOWN`.
+  NO se agrega más complejidad (regla del dueño): se documenta y DETIENE.
 
 ### 8..13.
 - Decisión técnica: quedarse con E1/BASE para cualquier uso posterior; `fragment2.frag` queda como
@@ -1073,15 +1099,19 @@ sube `power_avg`/`mem_busy` vs E1? Protocolo: E1 (baseline intacto, `fragment.fr
 
 ## Anexo B — Clasificación resumen
 
-- [VERIFICADO] Specs P12 (512 SP/8 CU, 32 TMU, 16 ROP, 128-bit, 112 GB/s, 512 KB L2, 50 W).
+- [DOCUMENTADO] Specs P12 (512 SP/8 CU, 32 TMU, 16 ROP, 128-bit, 96–112 GB/s nominal/estimado, 512 KB L2, 50 W); bandwidth real `UNKNOWN`.
 - [VERIFICADO] `power1_input`/`power1_average` en µW (SMU); `gpu_busy/mem_busy` por firmware; `power1_cap`=35 W máx en este sistema.
 - [VERIFICADO] DPM auto → SCLK 1071 / MCLK 300 piso en E-01/E-02.
 - [VERIFICADO] Compute ALU puro: 13.2 W (E-01) y ALU+memoria nominal: 12.4 W (E-02); ambos ≪ 27 W, sin presión DRAM real (w/s 256 KB).
 - [VERIFICADO] El techo del shader actual es la ejecución interna (SCLK 1071, mem_busy bajo); MCLK nunca se activó.
 - [HIPÓTESIS] H-frag (fragment/overdraw/MSAA satura render back-end, más draw), H-tex (sampleo incoherente + w/s > L2 eleva DRAM/draw), H-band (memoria-bound solo si se satura DRAM real).
 - [VERIFICADO] Pipeline gráfico: los RBs escriben el color final fuera de la L2 en GCN1 (Tahiti) y el CB/DB no usa L2 en GFX6-8 (mesa-dev); DCC comprime CB (pico 8:1) y RADV lo habilita por defecto excepto con storage/linear/scanout.
-- [VERIFICADO] Política DPM MCLK smu7 para bus 128-bit: `mclk_activity=20`, `up_hyst=5`, `down_hyst=16` → MCLK sube con actividad de memoria sostenida ≥ ~20 % (explica E-01/E-02 con mem_busy 3–7 %).
-- [VERIFICADO] En esta placa el draw máximo de la sesión actual fue GRÁFICO: Superposition 18.8/23.7 W ≫ GravityMark 12.4/14.8 W ≫ compute E-01/E-02 13.2/12.4 W.
+- [VERIFICADO source-level] Política DPM MCLK smu7 para bus 128-bit:
+  `mclk_activity=20`, `up_hyst=5`, `down_hyst=16`; no equivale a un trigger local
+  `mem_busy_percent ≥20 %` ni prueba causalidad de MCLK.
+- [OBSERVADO] En esta placa la `W_SMU` máxima de la sesión fue GRÁFICA: Superposition
+  18.8/23.7 W frente a GravityMark 12.4/14.8 W y compute E-01/E-02 13.2/12.4 W; la
+  atribución causal permanece abierta.
 - [VERIFICADO] Límites RADV/GFX8 (POLARIS10): imagen 16384 px, 2048 capas, 256 B push constants; fullscreen triangle bufferless válido; sample counts de color hasta 8 (verificar en runtime).
 - [VERIFICADO R-11] En GFX8/RADV los imageStore a storage IMAGE producen VM faults deterministas
   (páginas fijas 774082/482455, lecturas TC 4/8 B); los storage BUFFER no; los driconf
@@ -1104,15 +1134,15 @@ sube `power_avg`/`mem_busy` vs E1? Protocolo: E1 (baseline intacto, `fragment.fr
 - [DESCARTADO como vía] Overdraw, FMA, tex-size y MSAA (sin per-sample shading) para subir W dentro de
   este diseño de shader. Nueva hipótesis fase 2: reestructurar el fragment (throughput ALU: acumuladores
   independientes; más fetches/fragmento; per-sample shading con valor por muestra).
-- [VERIFICADO R-13/F2] El cuello del workload gráfico es el camino FETCH→uso (latencia de memoria,
-  miss L1/L2 ~350 ciclos; fetchs por segundo constantes): duplicar los fetchs por fragmento duplica el
-  frametime (112→222 ms, 1.97×) con mem_busy y potencia invariantes (15.76 vs 16.13 W). El GPU se
-  autolimita al equilibrio del reloj (SCLK 1071/MCLK 1500); las unidades ociosas de GFX8 están clock-
-  gateadas y NO suman consumo → más trabajo por frame = menos fps, no más W.
+- [VERIFICADO R-13/F2] El resultado es consistente con un límite FETCH→uso (latencia de
+  memoria; fetchs por segundo relativamente constante): duplicar los fetchs por fragmento
+  duplicó el frametime (112→222 ms, 1.97×) con `mem_busy` y `W_SMU` invariantes
+  (15.76 vs 16.13 W). Las unidades ociosas y el clock-gating no se midieron directamente;
+  no se concluye que no consuman.
 - [VERIFICADO R-13/F2] RADV soporta sampleRateShading/per-sample shading en GFX8
   (`ps_iter_samples = rasterizationSamples × minSampleShading`), pero multiplicar invocaciones daría el
   mismo resultado clase-SIN-CAMBIO que overdraw; NO se implementó (documentado como hipótesis futura).
-- [DESCONOCIDO] Costo real de banda/VRAM en esta placa; contribución de GTT al draw; si el CB de Polaris efectivamente bypassa L2 (documentado en GCN1); sample counts exactos de P12 (DB: hasta 64 para POLARIS10).
+- [DESCONOCIDO] Costo real de banda/VRAM en esta placa; contribución de GTT a la `W_SMU`; si el CB de Polaris efectivamente bypassa L2 (documentado en GCN1); sample counts exactos de P12 (DB: hasta 64 para POLARIS10).
 - Lo que NO puede concluirse: nada sobre el coste de DRAM en la RX 550 (ningún run saturó DRAM); nada sobre pipeline gráfica/textura (no ejecutadas).
 
 Regla anti-sobrescritura (DN-13): cualquier futuro hallazgo que contradiga estas

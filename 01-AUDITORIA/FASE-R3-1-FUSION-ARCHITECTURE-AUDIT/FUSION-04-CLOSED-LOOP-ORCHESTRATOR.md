@@ -10,21 +10,22 @@
 
 ## 1. Auditado: qué contadores pueden medirse en GFX8
 
-Datos locales R-0/R-1 (VERIFICADO documental): GPUPerfAPI v3.11.1 tiene tablas GFX8 (2304 eventos; GRBM
-GUI_ACTIVE=2, SQ WAVES=4 VALIDADOS); rango seguro CB 0..395, SQ 0..272, MC 0..21 (MC semántica UNRESOLVED).
-CodeXL/PerfStudio: solo GCN; GPUPerfAPI = API de contadores por frame del era GCN.
+Datos locales R-0/R-1 (reconciliación 2026-09-24): GPUPerfAPI v3.17 contiene un
+catálogo GFX8 genérico y v3.11.1 conserva la extracción histórica; 2304 filas no
+equivalen a 2304 eventos validados para `1002:699f`. GRBM=2/SQ=4 son entradas de
+catálogo, no validación ASIC; no existe rango semánticamente seguro.
 
 **Punto crítico conservado: R-0 Event IDs ≠ autorización de programación.** Documentar contador ≠ permitido
 programarlo. D-3 counter-programming sigue **NO AUTORIZADO**; esta fase solo audita viabilidad.
 
 | Capacidad | Estado | Nota |
 |---|---|---|
-| Contadores GFX8 (GPUPerfAPI v3.11.1) | PARTIALLY VERIFIED | tablas disponibles; per-frame vs acumulado = PLAUSIBLE |
+| Contadores GFX8 (GPUPerfAPI v3.17; v3.11.1 histórico) | **PARTIALLY RECONCILED / CATALOG ONLY** | no valida ASIC, semántica ni programación |
 | Resolución temporal / por frame | PARTIALLY VERIFIED | PerfStudio/CodeXL mostraba per-draw y per-kernel timelines a ~60fps (legacy) |
 | Reset/segmentación | PLAUSIBLE | requieren readouts frecuentes y ventanas de reset alineadas a frame (no verificado GFX8) |
 | SPM (Streaming Performance Monitor) | **UNKNOWN** | referencias SPM son gfx9+/RDNA; NO confirmar SPM en Polaris12 |
-| SQTT (thread trace) | PARTIALLY VERIFIED | existe en GCN; captura en RGP 1.x era; ROCm thread-trace NO lista gfx8 |
-| RGP soporte Polaris12 | PARTIALLY VERIFIED | RGP 2.x = RDNA-only; **RGP 1.x/CodeXL soportaban GCN (incl. Polaris)** |
+| SQTT (thread trace) | **UNKNOWN / REQUIRES CAPABILITY AUDIT** | existen rutas source-level; captura real GFX8 no confirmada |
+| RGP soporte Polaris12 | **UNKNOWN** | RGP 2.x = RDNA-only; compatibilidad GCN histórica no implica runtime local |
 | Interfaz read-only (frametime/power/clocks/kalm/radeontop) | VERIFIED | es la telemetría disponible HOY |
 
 ## 2. Separar telemetría / profiling / control loop

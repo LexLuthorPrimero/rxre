@@ -1,10 +1,23 @@
 # UNVERIFIED-CLAIMS.md — Afirmaciones Sin Evidencia Verificada
 
-**Fecha:** 2026-09-21  
-**Versión:** 1.0  
+**Fecha:** 2026-09-21
+**Versión:** 1.0
 **Propósito:** Registrar todas las afirmaciones técnicas que aparecen en documentación, foros, whitepapers o conversaciones pero que **no han sido verificadas experimentalmente en nuestra RX 550** ni corroboradas con fuentes primarias cruzadas.
 
-**Regla:** Nada de esto se usa para diseñar experimentos hasta ser verificado. Cada entrada debe resolverse como **VERIFICADO**, **REFUTADO** o **DESCONOCIDO** antes de usarse.
+**Regla:** Nada de esto se usa para diseñar experimentos hasta ser verificado. Cada entrada debe resolverse como **VERIFICADO**, **PARTIALLY_VERIFIED**, **REFUTADO** o **DESCONOCIDO** antes de usarse.
+
+> **RECONCILIACIÓN 2026-09-24:** los claims de fuente (MCLK policy, GPUPerfAPI,
+> ACE/queues) se separan de la capacidad runtime local. `mclk_activity=20` es policy
+> source-level; no equivale a `mem_busy_percent ≥20`. GPUPerfAPI v3.17/v3.11.1 es
+> catálogo, no validación ASIC. El número de ACEs y la reserva de CUs siguen `UNKNOWN`.
+
+> **ADDENDA DE COUNTERS 2026-09-24:** para las filas AJ, la afirmación vigente por
+> capa es: catálogo GFX8 `SUPPORTED`; API RADV `VK_KHR_performance_query` GFX8
+> `NOT_AVAILABLE`; radeonsi GFX8 `SUPPORTED` sólo en source; PMU mainline GFX8
+> `NOT_AVAILABLE` como PMU confirmado; selectores, runtime y validación física
+> `UNKNOWN`. Las filas históricas que dicen “UMR/radeontop funcionales” o “GPUPerfAPI
+> soporta GFX8” se conservan como evidencia de la afirmación original, pero se
+> interpretan según §AJ y la addenda canónica; no son prueba de counters válidos.
 
 ---
 
@@ -98,9 +111,9 @@
 
 | Claim | Fuente | Estado | Evidencia Necesaria | Prioridad |
 |---|---|---|---|---|
-| "MCLK DPM policy 128-bit: mclk_activity=20, up_hyst=5, down_hyst=16" | amd-gfx list 2020-09 | **VERIFICADO** (fuente primaria) | `pp_dpm_mclk` behavior vs policy | ALTA |
+| "MCLK DPM policy 128-bit: mclk_activity=20, up_hyst=5, down_hyst=16" | amd-gfx list 2020-09 | **VERIFICADO source-level**; runtime local `UNKNOWN` | pp_dpm_mclk behavior vs policy | ALTA |
 | "MCLK up threshold: actividad memoria sostenida ≥ ~20%" | amd-gfx list 2020-09 | **DOCUMENTADO** | Workload con mem_busy controlado | ALTA |
-| "VRAM 2 GB GDDR5 128-bit 7 Gbps = 112 GB/s" | TechPowerUp, igor'sLAB | **VERIFICADO** | `lspci`, `radeontop` | ALTA |
+| "VRAM 2 GB GDDR5 128-bit 7 Gbps = 96–112 GB/s" | TechPowerUp, igor'sLAB | **DOCUMENTADO/ESTIMADO**; real `UNKNOWN` | R-4A/lectura de fuente ASIC | ALTA |
 | "Polaris12 L2 = 512 KB (P10/P11 = 1 MB)" | igor'sLAB | **VERIFICADO** | `umr --read-config` | ALTA |
 
 ### Z. PowerPlay/DPM
@@ -124,11 +137,11 @@
 
 | Claim | Fuente | Estado | Evidencia Necesaria | Prioridad |
 |---|---|---|---|---|
-| "UMR funciona en GFX8/Polaris para leer contadores" | UMR docs, ROCm | **NO VERIFICADO** | Instalar UMR + `umr --list-counters` | **ALTA** |
-| "GPUPerfAPI soporta GFX8" | GPA docs | **NO VERIFICADO** | Instalar GPA + test | MEDIA |
-| "radeontop --list-counters expone contadores HW" | radeontop source | **NO VERIFICADO** | `radeontop --list-counters` | ALTA |
-| "perf + amdgpu PMU expone eventos GFX8" | Kernel config | **NO VERIFICADO** | `perf list | grep amdgpu` | ALTA |
-| "RADV_DEBUG=perfcounters expone contadores" | Mesa source | **NO VERIFICADO** | `RADV_DEBUG=perfcounters` + vulkan app | MEDIA |
+| "UMR funciona en GFX8/Polaris para leer contadores" | UMR docs, ROCm | **NO VERIFICADO / REQUIRES AUTHORIZATION** | No instalar ni ejecutar aquí; capability audit separada | **ALTA** |
+| "GPUPerfAPI soporta GFX8" | GPA docs | **PARTIALLY RECONCILED / CATALOG ONLY** | v3.17/v3.11.1 catálogo; runtime/ASIC `UNKNOWN` | MEDIA |
+| "radeontop --list-counters expone contadores HW" | radeontop source | **NO VERIFICADO** | Capability audit READ-ONLY; no contadores | ALTA |
+| "perf + amdgpu PMU expone eventos GFX8" | Kernel config | **NO VERIFICADO** | Capability audit READ-ONLY; no programación | ALTA |
+| "RADV_DEBUG=perfcounters expone contadores" | Mesa source | **NO VERIFICADO** | Capability audit READ-ONLY; no aplicación de contadores | MEDIA |
 
 ---
 
@@ -162,7 +175,7 @@
 |---|---|---|
 | "Kalm limitó a 25W" | Régimen 25W ocurrió SIN kalm (17/09) | ERRATUM-001 |
 | "Cap 25W liga SCLK" | Fase B + EP-06: cap 25W con 1071 MHz | ERRATUM-001 |
-| "power1_input = potencia real" | EP-06: draw real 13.6W vs power1_input 25W | ERRATUM-002 |
+| "power1_input = potencia real" | EP-06: `W_SMU` 13.6W vs power1_input 25W | ERRATUM-002 |
 | "Mesa CUSTOM causó E5" | EP-05 A/B: CUSTOM = STOCK | ERRATUM-003 |
 | "E1/E3 midieron iGPU" | EP-08: mem_info_* solo en amdgpu | ERRATUM-005 |
 | "Métricas comparables sin etiquetar" | E-03: 13.40W (full) vs 15.75W (steady) | ERRATUM-004 |
@@ -194,9 +207,30 @@ Al encontrar un nuevo claim técnico:
 ## Regla de Uso
 
 > **Ningún claim en estado NO VERIFICADO o EN INVESTIGACIÓN se usa para diseñar experimentos.**
-> 
+>
 > Solo claims **VERIFICADO** (fuente primaria + evidencia en nuestro sistema) o **DOCUMENTADO** (fuente primaria creíble, coherente con arquitectura) pueden usarse como base de diseño experimental.
-> 
+>
 > Claims **INFERIDOS** requieren validación experimental antes de usarse.
-> 
+>
 > Claims **REFUTADOS** se mueven a ERRATA y NO se usan.
+
+---
+
+## Addenda de trazabilidad — reconciliación ASIC/counters (2026-09-24)
+
+Esta addenda corrige la interpretación, no elimina las filas históricas. La matriz
+`GPU → counters → telemetry → workload → bottleneck` y el ranking A–K están en
+[`../COUNTERS-ASIC-TELEMETRY-KNOWLEDGE-ADDENDUM-2026-09-24.md`](../COUNTERS-ASIC-TELEMETRY-KNOWLEDGE-ADDENDUM-2026-09-24.md).
+
+| Afirmación previa | Estado vigente | Qué se conserva | Qué no se puede inferir |
+|---|---|---|---|
+| UMR + radeontop “funcionan” en GFX8 | `SUPPORTED` sólo como operación/tooling histórico; validación de counters `UNKNOWN` | Evidencia de instalación/lectura histórica, si existe | Selector ASIC, unidad o causalidad |
+| GPUPerfAPI “soporta GFX8” | `SUPPORTED` como catálogo | Filas, nombres y catálogo genérico | `1002:699f`, `gfx804` físico o equivalencia Baffin |
+| `GRBM=2` / `SQ=4` | `SUPPORTED` como entradas de catálogo; aplicabilidad `UNKNOWN` | Entradas documentadas y generation tags | Programación, semántica o lectura runtime |
+| `perf`/PMU expone GFX8 | `NOT_AVAILABLE` como PMU mainline confirmado | Resultado de source audit | Que no exista backport/out-of-tree no inspeccionado |
+| RADV performance query GFX8 | `NOT_AVAILABLE` como feature pública comparada | Gate/source de Mesa | Que no exista otra API privada o diagnóstica |
+| radeonsi GFX8 performance monitor | `SUPPORTED` source-level; runtime `UNKNOWN` | Path `groups_VI`/`GL_AMD_performance_monitor` | Que el driver local pueda leer un evento concreto |
+
+Las definiciones de catálogo no se convierten en selectores; los proxies SMU no se
+convierten en bandwidth; y la telemetría no se convierte en bottleneck sin workload,
+alcance y unidades defendibles. La programación de counters permanece bloqueada.

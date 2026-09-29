@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 set +e
+# HISTÓRICO / NO VERIFICABLE: /tmp/opencode/fase_b_base.txt ya no existe (artefacto
+# volátil no preservado; no reconstruido). BASE queda vacío → este script ya no es
+# reejecutable tal cual. No sustituir por una ruta inventada.
 BASE=$(cat /tmp/opencode/fase_b_base.txt)
 SCRIPTS=$BASE/scripts
 H=/sys/class/drm/card1/device/hwmon/hwmon2

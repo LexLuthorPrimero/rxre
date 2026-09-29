@@ -1,5 +1,8 @@
 # RESULTADO — EXPLORATORIO-03 (Diseño B, configuración base) — VÁLIDA
 
+> **SNAPSHOT HISTÓRICO (reconciliación 2026-09-24):** `VÁLIDA` describe esta corrida
+> y sus gates, no una capacidade general. `power1_input` es `W_SMU`; la política
+> `mclk_activity=20` es source-level y no prueba causalidad con `mem_busy_percent`.
 Fecha: 2026-09-21.
 Binario: `main-graphics` (corrección del generador aplicada, ver R-11 / enmienda An.
 A de DESIGN-GRAPHICS.md). La corrida previa (tainted) quedó en `runs/exploratorio-03/`.
@@ -47,11 +50,12 @@ A de DESIGN-GRAPHICS.md). La corrida previa (tainted) quedó en `runs/explorator
 
 ## Interpretación
 
-- El mecanismo buscado SE ACTIVÓ: MCLK pasó del piso 300 MHz a 1500 MHz durante toda la fase
-  activa (R-07: `mem_busy ≥ ~20 %` sostenido sube MCLK) — primera vez en esta sesión.
-- draw: 13.4 W avg / 15.8 W pico; por debajo del techo gráfico de la placa (Superposition
-  18.8/23.7 W). NO discrimina aún 35 vs 30 W → la corrida es VÁLIDA (no discriminatoria) y queda
-  cerrado el objetivo exploratorio de UNA corrida controlada.
+- El mecanismo observado se activó: MCLK pasó del piso 300 MHz a 1500 MHz durante la fase
+  activa. La asociación con `mem_busy` 28.6 % es una observación de esta corrida; no demuestra
+  que el policy value 20 sea el trigger local ni una causalidad general.
+- `W_SMU`: 13.4 W avg / 15.8 W pico; por debajo del techo gráfico observado de la placa
+  (Superposition 18.8/23.7 W). No discrimina 35 vs 30 W; la corrida es válida para su alcance
+  y no un resultado global.
 
 ## Clasificación final
 

@@ -56,8 +56,9 @@ def _kalm_status():
     return out
 
 
-def _mesa_status():
-    out = {"glxinfo": None, "glxinfo_prime": None, "vulkan_devices": [],
+def _mesa_status(target_pci=DEFAULT_TARGET_PCI, target_bdf=None):
+    out = {"glxinfo": None, "glxinfo_prime": None,
+           "glxinfo_prime_selector": None, "vulkan_devices": [],
            "custom_mesa_path": "/opt/mesa-26.2.2-rx550-haswell",
            "custom_mesa_exists": None}
     out["custom_mesa_exists"] = os.path.isdir(out["custom_mesa_path"])
@@ -94,13 +95,19 @@ def _mesa_status():
         return info
 
     out["glxinfo"] = glxinfo()
-    # Selección GL de la RX 550 por vendor:device (Mesa DRI_PRIME); fallback a índice 1.
-    prime = glxinfo({"DRI_PRIME": "1002:699f"}, libgl_debug=True)
-    if not prime or (out["glxinfo"] and prime.get("renderer") == out["glxinfo"].get("renderer")):
-        alt = glxinfo({"DRI_PRIME": "1"}, libgl_debug=True)
-        if alt:
-            prime = alt
-    out["glxinfo_prime"] = prime
+    # `DRI_PRIME=1` significa "primer dispositivo" en Mesa y puede seleccionar la
+    # Intel.  No es un alias estable para la RX 550: solo usamos vendor:device y,
+    # como alternativa, el BDF detectado. Que el renderer por defecto ya sea AMD
+    # no invalida la selección explícita.
+    selectors = [target_pci]
+    if target_bdf:
+        selectors.append("pci-" + target_bdf.replace(":", "_").replace(".", "_"))
+    for selector in selectors:
+        prime = glxinfo({"DRI_PRIME": selector}, libgl_debug=True)
+        if prime:
+            out["glxinfo_prime"] = prime
+            out["glxinfo_prime_selector"] = selector
+            break
 
     try:
         r = subprocess.run(["vulkaninfo", "--summary"], capture_output=True, text=True, timeout=20)
@@ -199,7 +206,7 @@ def capture(gpu, target_pci=DEFAULT_TARGET_PCI):
         "intel_connectors": _connectors(gpu, "intel"),
         "target_connectors": _connectors(gpu, "target"),
         "kalm": _kalm_status(),
-        "mesa": _mesa_status(),
+        "mesa": _mesa_status(target_pci=t["pci"], target_bdf=t.get("bdf")),
         "restorable": restorable,
         "capture": capture,
     }

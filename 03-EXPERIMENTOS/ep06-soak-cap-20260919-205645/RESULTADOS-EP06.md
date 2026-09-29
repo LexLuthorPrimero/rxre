@@ -1,5 +1,9 @@
 # EP-06 — Soak térmico y réplica del régimen E1/E3 (cap 25 W, caliente)
 
+> **SNAPSHOT HISTÓRICO (reconciliación 2026-09-24):** las cifras de `power1_input`
+> se expresan como `W_SMU`/potencia estimada por sensor SMU, no como vatímetro. Este
+> informe conserva la corrida y su write histórico; no autoriza repetirlo.
+
 Fecha: 2026-09-19 · GPU: RX 550 Polaris12 (card1, amdgpu) · Display: Intel HD 4600 (card0) — condición de seguridad registrada en `seguridad-display.txt` y respetada.
 
 ## Pregunta
@@ -24,7 +28,7 @@ Fecha: 2026-09-19 · GPU: RX 550 Polaris12 (card1, amdgpu) · Display: Intel HD 
 **A 25 W de cap y a 70-71 °C la tarjeta sigue en SCLK 1071 MHz y ~10-11.5 W: NO pinza el cap, NO baja los relojes.** El régimen E1/E3 (350-390 MHz / power1≈cap / 74-79 °C) **no se reproduce** ni frío (Fase B), ni caliente, ni con escenas ligeras, ni con escenas pesadas, ni a 640p, ni a 1080p.
 
 ### Máximo consumo observable hoy
-13.6 W (2560x1440 texturizado, cap 35 W). **Ninguna escena disponible hace demandar >13.6 W** a la tarjeta. Para llegar a 25 W de draw real se necesitaría un workload ~2× más pesado (como el que produjo E5: 28-31 W a 1080p con la Mesa CUSTOM + MCLK ~1300).
+13.6 W `W_SMU` (2560x1440 texturizado, cap 35 W). **Ninguna escena disponible hace demandar >13.6 W** a la tarjeta. Para llegar a 25 W de `W_SMU` se necesitaría un workload ~2× más pesado (como el que produjo E5: 28-31 W a 1080p con la Mesa CUSTOM + MCLK ~1300).
 
 ## Auditoría de diferenciales de estado (kalm / servicio)
 - `kalm-gpu.service` (systemd): **enabled, inactive**, murió TERM el 18/09 14:34; ese servicio NUNCA corrió el 17/09 (0 eventos en journal) — día de E1/E3/E5.
@@ -35,7 +39,7 @@ Fecha: 2026-09-19 · GPU: RX 550 Polaris12 (card1, amdgpu) · Display: Intel HD 
 
 ## Conclusiones
 1. EP-06 cierra el intento de reproducción por **estado térmico/cap**: el régimen E1/E3 no es reproducible bajo las condiciones autorizadas (cap 25 W + escenas actuales + stock Mesa + DPM auto), ni siquiera entrando a 70-71 °C.
-2. El "power1≈25 W" de E1/E3 era un **estimado SMU en estado de regulación** (power_target), no un draw real de la tarjeta: hoy el draw real máximo medido es 13.6 W.
+2. El "power1≈25 W" de E1/E3 era un **estimado SMU en estado de regulación** (power_target), no una medición física independiente: hoy la `W_SMU` máxima observada es 13.6 W.
 3. Los FPS de E1 siguen sin ser coherentes con su propia telemetría (phong 1285 @ 365 MHz vs 407 hoy @ 1071 MHz). **El linaje de datos de E1 es no fiable** (runner sin script, FPS de ventana/superficie ajena).
 4. **Diferenciador restante del E5 (única fuente de 25-31 W reales)**: Mesa CUSTOM `/opt/mesa-26.2.2-rx550-haswell` + 1080p, que sostiene MCLK ~1250-1500 y 74-92 °C sostenidos. Está sin testear hoy (nuestros runs usaron Mesa stock). → EP-05 propone replicar la línea E5 a 1080p con esa Mesa para cerrar O5 y explicar el consumo alto.
 

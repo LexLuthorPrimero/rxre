@@ -35,11 +35,12 @@ Documentary/measurement-only plan. Goal: measure whether a compute-written targe
 Audit (read-only, per project rules) which L2 counters exist for GFX8:
 - Try GPUOpen RCP `CacheHit`/`L1CacheHit`/`L2CacheHit` blocks on Polaris12 (SPM).
 - Try `AMD_performance_monitor`/Gallium HUD L2 selectors on radeonsi/RADV.
-- Cross-check GPUPerfAPI v3.11.1 GFX8 hardware block tables already catalogued in the project (`FASE-R0…/R0-1…REFERENCE.txt`).
+- Cross-check GPUPerfAPI v3.17 catalog tables and the historical v3.11.1 extract
+  (`R0-1…REFERENCE.txt`); neither proves L2 runtime support.
 - **If none available:** record "no L2 hit/miss insight on GFX8" as a finding; Tests B/C then rely on per-pass timing + DRAM PMU alone (weaker but valid signatures).
 
 ## 6. METRICS / PASS/FAIL GATES
-- Per-pass time (µs) @ fixed SCLK (DPM auto, uncontrolled fan, cooldown antes de cada run → droso: usar rx550-torneo).
+- Per-pass time (µs) @ fixed SCLK (DPM auto, uncontrolled fan, cooldown antes de cada run → usar rx550-torneo).
 - DRAM read/write bytes (perf/amdgpu PMU) and V$/L2 proxy counters if they appear.
 - FLAT = per-read cost constant across M (DRAM-resident). SUBLINEAR = L2 residency (≤230 KB target, no contention).
 - PASS (for the sub-claim) = sublinear signature at ≤230 KB **and** survival under contention ≥50%.

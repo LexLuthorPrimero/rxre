@@ -1,6 +1,6 @@
 # BERRETA — Documento de Diseño del Proyecto
 
-> **Archivo:** `projects/BERRETA/BERRETA-DESIGN.md`
+> **Archivo:** `04-IMPLEMENTACION/projects/BERRETA/BERRETA-DESIGN.md`
 > **Fase:** FASE R-2 — COMPLETE PROJECT DOCUMENTATION & ECOSYSTEM ARCHITECTURE (R-2.14)
 > **Fecha:** 2026-09-22 — Modo SOLO DOCUMENTAL (DISEÑO; NO implementado)
 > **Clasificación:** [DISEÑO/IDEA]. **PROVISIONAL** — no es tecnología consolidada.

@@ -7,7 +7,7 @@
 
 > Informe final de FASE R-4C / EXP-F1-A. Documenta **solamente resultados observados**, generados por el
 > harness Vulkan ejecutado bajo autorización explícita, con las condiciones del mandato R-4C (todo local en
-> `experiments/FASE-R4C-JITTER-OBSERVABILITY/harness/` y `results/`, drivers RADV real + lavapipe, capa vía
+> `03-EXPERIMENTOS/FASE-R4C-JITTER-OBSERVABILITY/harness/` y `results/`, drivers RADV real + lavapipe, capa vía
 > `VK_LAYER_PATH` local, CERO modificaciones al sistema, CERO benchmarks de rendimiento, jitter ≠ motion vector).
 
 ---
@@ -149,7 +149,7 @@ Notas NIVEL B:
 ## 8. Archivos de evidencia
 
 ```
-experiments/FASE-R4C-JITTER-OBSERVABILITY/
+03-EXPERIMENTOS/FASE-R4C-JITTER-OBSERVABILITY/
 ├── harness/                      # fuente del harness (perframe, jittergen, app, layer, glsl, scripts, CMakeLists)
 │   ├── build/                    # binario jitter_harness, _gen/*.spv, layer/libjitter_layer.so + manifest
 │   ├── layer/layer.c             # capa observadora (con correcciones §7)

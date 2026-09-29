@@ -96,7 +96,7 @@ Ver §5 del EXPERIMENT-DESIGN. Se exige (mandato R-4C): ±, solo X, solo Y, X+Y,
 4. Khronos Vulkan vkspec 1.3 — semántica API general (contexto). VERIFIED.
 5. VIL (Vulkan Introspection Layer) — precedente de capa de introspección. ESTIMATED (conocimiento público; no verificado localmente).
 6. RenderDoc — precedente de captura por capa. ESTIMATED.
-7. Yang, Liu & Salvi "Temporal AA — A Survey" (2020); Playdead (Karis). ESTIMATED (citados en projects/JITTER-REPROJECTION/PRIOR-ART.md, revisados en R-3).
+7. Yang, Liu & Salvi "Temporal AA — A Survey" (2020); Playdead (Karis). ESTIMATED (citados en `04-IMPLEMENTACION/projects/JITTER-REPROJECTION/PRIOR-ART.md`, revisados en R-3).
 8. FSR2/AMD — regla "nunca vector nulo (0,0)". VERIFIED (§3).
 
 **Hallazgo principal:** la observación del jitter es viable SOLO si el offset viaja por (a) push constants, o (b) buffers host-visible mapeados, o (c) se reconstruye de la matriz de proyección. Ninguno de los tres altera el sistema ni la GPU: son puros contratos host-Vulkan de la aplicación de prueba.

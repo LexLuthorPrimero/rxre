@@ -2,12 +2,17 @@
 # ANÁLISIS DE VIABILIDAD EN POLARIS12 (RX 550 / GCN4)
 
 Target: RX 550, Polaris 12 / Lexa.
+
+> **RECONCILIACIÓN 2026-09-24:** una `VK_QUEUE_COMPUTE_BIT` describe una cola lógica;
+> no prueba reserva física de CUs, número de ACEs ni overlap real. Esos puntos requieren
+> capability audit y medición local. La conclusión de viabilidad es `UNKNOWN`, no un beneficio
+> confirmado.
 **Confirmed specs (primary/aggregate: AMD RX 550 page, TechPowerUp, AIDA/aggregates):**
 - 8 CUs × 64 shaders = **512 stream processors**; 32 TMUs; **16 ROPs**; L2 **512 KB**; L1 V$ 16 KB/CU
-- **2 ACE** en arquitectura GCN4 low-end (Polaris10 tenía 4; los modelos pequeños implementan ~2 ACE +
-  1 HWS — **sin ficha oficial pública de Lexa**: asumimos 2 ACE como rangos inferiores Google, se
-  declara como supuesto, no dato oficial)
-- 128-bit GDDR5 @ 112 GB/s; boost ~1183 MHz
+- El número de ACEs de Polaris12 es **UNKNOWN**; la familia GCN4 documenta ACEs/HWS, pero no
+  hay una fuente local que cierre el recuento de esta unidad.
+- 128-bit GDDR5; bandwidth nominal/estimado 96–112 GB/s según módulo/VBIOS; real `UNKNOWN`.
+  Boost ~1183 MHz.
 - Vulkan 1.4 via RADV (GFX8); soporte de cola compute/async + timeline semáforos
 - Sources: https://www.amd.com/en/products/graphics/radeon-rx-550 ; https://www.techpowerup.com/gpu-specs/radeon-rx-550.c2947 ; https://docs.mesa3d.org/drivers/radv.html
 
@@ -26,9 +31,9 @@ Target: RX 550, Polaris 12 / Lexa.
   compute masivo.
 
 ## 2. SOPORTE MECÁNICO (lo que NO es bloqueante)
-- Vulkan 1.4 (RADV) en GFX8: cola compute + GFX en el mismo device; fork-join con semáforos binarios
-  o timeline. El patrón async hardware está **disponible** (al contrario de I-06, aquí la API sí
-  existe).
+- Vulkan/RADV describe colas compute y GFX en el mismo device a nivel API; la existencia de
+  una cola no confirma scheduling overlap, número de ACEs ni comportamiento efectivo en esta
+  placa. El patrón fork-join queda `REQUIRES CAPABILITY AUDIT`.
 - Coste de sync: crear 2 colas + semáforos en cada frame tiene coste real en un chip pequeño
   (menos trabajo absoluto → el overhead de fences pesa más). Division2/Frostbite ya miden el costo
   del "sync at end". En un IMR de 8 CUs esto es **proporcionalmente caro**.
@@ -53,12 +58,13 @@ añadir trabajo async solo redistribuye el mismo power/tile budget). El resultad
 2. **Beneficio esperado en Polaris12: BAJO-MEDIO** — por (a) 8 CUs compartidos saturados por el
    flujo GFX, (b) cuello real del sintético = memoria compartida → un auxiliar *compute+BW* compite,
    no solapa, (c) power cap (E3/E5) que distribuye el mismo budget.
-3. **La única variante con sentido de "renderer auxiliar":** pasos async *sin dependencia del frame
-   actual y sin BW adicional* (luces estáticas anticipadas, pre-passes de post que trabajan en
-   huecos de *latencia*), ejecutados en cola ACE de frames anteriores y **fork-join** al final.
+3. **La única variante con sentido de "renderer auxiliar":** es una hipótesis de diseño:
+   trabajo sin dependencia del frame actual y sin BW adicional, en una cola compute de
+   frames anteriores con fork-join. La cola y su beneficio deben auditarse; no se presupone
+   una cola ACE física ni reserva de CUs.
 4. **Contradicción vs I-04:** NO es compute-renderer sustituyendo a la GFX (eso ya es
    CONTRADICTED). Es **co-programación**.
 
-**Verdict:** TÉCNICamente plausible y API-soportado, **pero la ganancia cuantificable dependerá de
-medir el hueco real de ocupación** — exactamente el trabajo que ASY-01/BERRETA ya diseñó. Como
-concepto, **KNOWN VARIANT**; como medición local, gap documental. → **RECOMMENDED STATUS: C**.
+**Verdict:** la API sugiere un camino de diseño, pero la capacidad real y la ganancia
+cuantificable son `UNKNOWN` hasta capability audit/medición. Como concepto, **KNOWN
+VARIANT**; como medición local, gap documental. → **RECOMMENDED STATUS: C**.

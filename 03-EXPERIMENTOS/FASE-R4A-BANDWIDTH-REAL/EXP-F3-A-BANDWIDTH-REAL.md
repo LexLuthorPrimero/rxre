@@ -44,18 +44,18 @@ Interfaces consultadas (todas de **solo lectura**; ninguna escritura):
 | Power instantáneo (ocio) | 3672000 µW ≈ **3.7 W** | `hwmon2/power1_input` |
 | DPM MCLK (estados) | 300 / 625 / **1500 MHz** (ocio en 300) | `pp_dpm_mclk` |
 | DPM SCLK (estados, 8) | hasta **1071 MHz** | `pp_dpm_sclk` |
-| Perfil de potencia | `3D_FULL_SCREEN *` (MCLK up/down hyst 3/16/20) | `pp_power_profile_mode` |
+| Perfil de potencia | `3D_FULL_SCREEN *`; readout local de MCLK `3/16/20`; el mapping de campo/perfil frente al valor upstream `5/16/20` queda `UNRESOLVED` | `pp_power_profile_mode` |
 
-**Lectura clave del enlace:** la tarjeta es **capaz de Gen3×8**, pero el **root port del sistema está
-limitado a Gen2** (5.0 GT/s). El enlace negociado = Gen2×4 = el máximo que permite la plataforma de este
-host. No hay "downshift por mal cableado": es un techo HW de la placa madre/PCH.
+**Lectura clave del enlace:** el endpoint declara capacidad máxima Gen3×8, pero la
+plataforma de este host tiene un techo negotiated Gen2; el enlace efectivo observado es
+Gen2×4. Esto distingue capacidad del endpoint, negociación local y ancho efectivo.
 
 ## 2. Resultados DERIVED (aritmética sobre VERIFIED)
 
 | Cifra | Cálculo | Valor |
 |---|---|---|
 | Clocks Gen2 ×4 teórico, por dirección | 5.0 GT/s × 4 = 20 GT/s ÷ 10 (8b/10b) | **2.0 GB/s por sentido** |
-| PCIe Gen2 ×4 agregado | 2 × 2.0 GB/s (duplex) | **4.0 GB/s ida+yvuelta teórico-max** |
+| PCIe Gen2 ×4 agregado | 2 × 2.0 GB/s (duplex) | **4.0 GB/s ida+vuelta teórico-max** |
 | VRAM teórica (SI: factor GDDR5 mclk×4, 128-bit) | 1500 MHz × 4 = 6.0 GT/s × 16 B | **96 GB/s** (ver ESTIMATED, §3) |
 | Ratio enlace vs VRAM | 2.0 / 96 | **≈ ×48** el VRAM es más rápido que el enlace |
 
@@ -85,13 +85,14 @@ host. No hay "downshift por mal cableado": es un techo HW de la placa madre/PCH.
 
 ## 5. Incertidumbres de FUSION-03: resueltas vs restantes
 
-**Resueltas (ahora con evidencia VERIFIED/DERIVED):**
-- El enlace real es **Gen2 ×4 (no Gen3)**: el techo lo impone el root port del sistema (5.0 GT/s), no la
-  tarjeta. → la hipótesis PCIe-dominante del camino host se **confirma estructuralmente** (2 GB/s vs 96+ GB/s).
-- El ratio PCIe-vs-VRAM **no es ×24–32 sino ≈×48+** (con 96 GB/s). El modelo de FUSION-03 se mantiene pero la
-  magnitud de la brecha es **mayor** y se corrige.
-- GTT "6.2 GB" VERIFIED como total (5.77 GiB); VIS-VRAM 256 MiB VERIFIED.
-- magnitud de brecha confirmada aún si el payload real fuera 1.4 GB/s (×50+).
+**Resueltas (ahora con evidencia VERIFIED/DERIVED/ESTIMATED):**
+- El enlace real observado es **Gen2×4**; la capacidad máxima declarada del endpoint
+  (Gen3×8) no equivale al modo negociado de esta plataforma.
+- El ratio PCIe-vs-VRAM nominal/estimado es aproximadamente ×48–80; no representa
+  bandwidth VRAM real ni una atribución causal universal.
+- GTT "6.2 GB" y VIS-VRAM 256 MiB son capacidades observadas, no bandwidth.
+- La magnitud de brecha sigue siendo una estimación; el payload PCIe real permanece
+  `UNKNOWN`.
 
 **Restantes (no cerradas en R-4A):**
 - Payload efectivo PCIe real (necesita medición) → ESTIMATED, no VERIFIED.

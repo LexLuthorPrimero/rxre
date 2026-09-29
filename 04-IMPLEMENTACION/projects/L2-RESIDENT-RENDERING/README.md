@@ -1,6 +1,6 @@
 # IDEA I-09 — L2-RESIDENT INTERNAL RESOLUTION (RX 550 / Polaris12)
 
-> **Archivo:** `projects/L2-RESIDENT-RENDERING/README.md`
+> **Archivo:** `04-IMPLEMENTACION/projects/L2-RESIDENT-RENDERING/README.md`
 > **Fase:** FASE R-2 — COMPLETE PROJECT DOCUMENTATION & ECOSYSTEM ARCHITECTURE
 > **Fecha:** 2026-09-22 — Modo SOLO DOCUMENTAL (sin código, sin benchmarks, sin instalaciones)
 > **Clasificación:** [DISEÑO/IDEA]. **PROVISIONAL** — no es tecnología consolidada.
@@ -41,7 +41,7 @@ reducida se mantenga en L2 con 512 KB de capacidad? ¿Qué papel juega DCC?
   verificación queda como un "unknown empirico".
 
 ## 4. ESTADO DE NOVEDAD (resumen; detalle en PRIOR-ART.md)
-- Headline: **CONTRADICTED BY PRIOR ART** (residents-in-L2 de framebuffer =硬件 imposible en CB/RB
+- Headline: **CONTRADICTED BY PRIOR ART** (residents-in-L2 de framebuffer = hardware imposible en CB/RB
   GFX8; academic prior art sobre cache-residency aplica a LLC moderno o HW con L2 expuesto;
   Polaris12 no expone control de L2 residency).
 - Sub-claim "compute image store + L2 re-use across passes": **RELATED PRIOR ART** (NVIDIA L2

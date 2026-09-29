@@ -80,7 +80,7 @@ Campos de auditoría: `timestamp`, `pci_id`, `drm_card`, `bdf`, `path`,
 ## Runbook de la prueba real (root)
 
 ```bash
-cd ~/Escritorio/RX550_Iterative_Research/rx550-torneo
+cd ~/Escritorio/RX550-INVESTIGACION/04-IMPLEMENTACION/rx550-torneo
 sudo ./rx550-torneo state-write-test --confirm --json
 ```
 

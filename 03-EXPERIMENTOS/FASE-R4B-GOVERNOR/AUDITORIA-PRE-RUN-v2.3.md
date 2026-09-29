@@ -1,5 +1,12 @@
 # AUDITORÍA PRE-RUN — PROTOCOLO v2.3 (EXP-F4-A)
 
+> **ADDENDA DE ESTADO D6 (2026-09-23):** este archivo es un **snapshot histórico
+> pre-run**. Sus frases «no ejecutado» describen el estado antes de la corrida y no son
+> el estado vigente. Después de la autorización, **S1-v2.3 fue EJECUTADA/COMPLETADA** y
+> **S2-v2.3 quedó PARADA D** antes de Phase 2; el veredicto es **INCONCLUSO /
+> INCONCLUSIVE**, nunca `SUPPORTED`. La fuente canónica posterior es
+> `EXP-F4-A-RESULTADOS-v2.3.md`.
+
 **Fecha:** 2026-09-23 · **Modo:** 100 % read-only (cero escrituras GPU/sistema/Mesa/
 kernel/sysfs/contadores; únicos archivos creados: documentación + orquestador v23
 no ejecutado). **Resultado global: INVARIANTES INTACTOS — PENDIENTE de confirmación

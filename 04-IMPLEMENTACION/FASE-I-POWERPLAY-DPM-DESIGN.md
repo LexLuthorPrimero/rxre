@@ -43,12 +43,15 @@ terreno de FASE L (RX550-Tuner) y (c) saber qué interfaces existen y qué riesg
 
 - **E3/E5/E5b:** cap 25 W atrapa SCLK en 330-535 de 1071; con cap 35 W alcanza 600-750 (régimen térmico)
   → el techo es el presupuesto de potencia (proximal), no señal térmica.
-- **R0-2 (kernel):** MCLK de Polaris12 (bus 128-bit) usa `up_hyst=5 / down_hyst=16 / activity=20`
-  (gate `chip_id >= CHIP_POLARIS10`) → MCLK 1500 solo con actividad sostenida (~20 %).
-- **R-15 (Superposition):** MCLK 300→1500 con presión real de memoria; sintéticos quedan en 625 tras
-  picos transitorios.
-- **MCLK policy R-07/R0-2:** comportamiento esperado coherente con lo medido (rumbo para no atribuir a
-  "bug" lo que es política DPM).
+- **R0-2 (kernel, source-level):** MCLK de Polaris12 (bus 128-bit) documenta
+  `up_hyst=5 / down_hyst=16 / activity=20` (gate `chip_id >= CHIP_POLARIS10`).
+  Esto no prueba el trigger local ni equivale a `mem_busy_percent=20`; R-4A registró
+  `3/16/20` y el mapping de campo/perfil frente a `5/16/20` queda `UNRESOLVED`.
+  La relación con MCLK reportada sigue `UNKNOWN`.
+- **R-15 (Superposition):** MCLK 300→1500 coincidió con presión de memoria; sintéticos
+  quedan en 625 tras picos transitorios. Es una asociación, no causalidad.
+- **MCLK policy R-07/R0-2:** sirve como hipótesis source-level; no se atribuye causalidad
+  al policy sin capability audit/observación local.
 
 ## 5. Experimentos diseñados (FASE I/L)
 
@@ -83,7 +86,8 @@ terreno de FASE L (RX550-Tuner) y (c) saber qué interfaces existen y qué riesg
   FASE I la mantiene viva sin ejecutar nada.
 
 ## 7. Conclusión del diseño
-FASE I queda **DISEÑADA** y **PENDIENTE**: 5 experimentos (I-1.read-only, I-2..I-5.requieren
-autorización/ejecución FASE L). La política MCLK 5/16/20 (R0-2, [VERIFICADO]) se integra como
-**conocimiento explicativo** (no como cambio). **Ninguna escritura de PowerPlay se ejecutó ni se
-ejecutará sin la autorización y el frame de rollback de FASE L.**
+FASE I queda **DISEÑADA** y **PENDIENTE**: I-1 es read-only; I-2..I-5 son candidatos
+futuros cuya ejecución/autorización pertenece a un frame L separado, no una dependencia
+de orden para diseñar I. La política MCLK 5/16/20 es **source-level** (R0-2), no un
+trigger local. **Ninguna escritura de PowerPlay se ejecutó ni se ejecutará sin
+autorización y rollback.**

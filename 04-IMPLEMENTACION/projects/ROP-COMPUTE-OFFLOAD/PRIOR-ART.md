@@ -11,7 +11,7 @@ Novelty status per item tracked. Sources ranked: primary (papers, vendor docs, o
 On GCN4 (Polaris12) the premise breaks down as stated:
 - ROP (render backend) work is *downstream* of fragment shading. Pixel shaders are exported to the render backends *after* shading (ChipsAndCheese GCN analysis). CUs are already toiling on fragment work before the ROPs see a byte. ROP saturation implies the CU array already delivered huge amounts of shading work — the CUs are NOT idle.
 - Per Beyond3D community analysis (GCN-era, thread "ROPs and GCN cores"): "If your rendering shader is ROP bound you can for example use the remaining CU resources by running a compute shader simultaneously (asynchronous compute)." That is the *correct* framing — the offload opportunity is during ROP-bound *draws* with complementary work (async compute), not by moving ROP work into compute.
-- CU/ROP balance on Polaris12 (RX 550): 8 CUs (512 shaders) / 16 ROPs (2 render backends) / 32 TMUs / 512 KB L2 / 128-bit GDDR5 (~112 GB/s). Render-backend color caches and depth caches are ~16 KB/4 KB per RBE tier on GCN and bypass L2 (ChipsAndCheese; GCN whitepaper).
+- CU/ROP balance on Polaris12 (RX 550): 8 CUs (512 shaders) / 16 ROPs (2 render backends) / 32 TMUs / 512 KB L2 / 128-bit GDDR5 (96–112 GB/s nominal/estimado; real `UNKNOWN`). Render-backend color caches and depth caches are ~16 KB/4 KB per RBE tier on GCN and bypass L2 (ChipsAndCheese; GCN whitepaper).
 
 **Actual throughput relationship (GCN, from primary/authoritative sources):**
 - Tahiti-class GCN: 1 rasterizer per 16 CUs; each CU ~1 wave of 64 lanes needed per SIMD (4 SIMDs/CU) for full throughput. Small chips (8 CUs) have very little fork to give any engine extra work — occupancy is the floor, not the ceiling. (ChipsAndCheese)
@@ -102,5 +102,7 @@ On GCN4 (Polaris12) the premise breaks down as stated:
 - **Conclusion — memory bandwidth is NOT better in compute.** Hardware path: O(fragment) DCC'd RBE writes, no L2 involvement. Compute path: O(fragment) atomic RMW to a DRAM vis buffer + O(pixel) resolve read + O(pixel) dedup/interp. That's ≥2× the memory traffic.
 
 ### Async-compute-device reality (Polaris12-specific)
-- Polaris has ACEs + graphics command processor dispatching simultaneously to the same shader array (Polaris whitepaper, wccftech slide deck for Polaris10: 4 ACEs + 2 HWS; Polaris12 architecturally same family). CU reservation exists (Polaris whitepaper: compute unit reservation, Quick Response Queue) → the *supported* offload mechanism is reservation/scheduling, not ROP bypass.
+- Polaris-family sources describe ACEs/HWS and scheduling to a shared shader array. Para
+  Polaris12 el número de ACEs y la reserva de CUs por Vulkan no están confirmados localmente;
+  no se declara un mecanismo de offload soportado. La ruta async queda `UNKNOWN`.
 - Polaris whitepaper (Kanter): "Polaris emphasizes efficiency and focuses on improving control logic and fixed-function graphics hardware to make the best use of the available compute units." i.e., AMD already optimized where CU vs FF work belongs.

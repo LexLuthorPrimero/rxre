@@ -1,14 +1,27 @@
 # EXP-F4-A — PROPUESTA DE PROTOCOLO v2.3 (CONTROL TÉRMICO DE PHASE 2)
 
-**Estado:** PROPUESTA — NO EJECUTADA. Pendiente de autorización explícita para S2.
+> **ADDENDA DE ESTADO D6 (2026-09-23):** este archivo conserva la **propuesta
+> pre-ejecución** y su redacción histórica («NO EJECUTADA»). La corrida posterior sí
+> inició S1 y S2: **S1-v2.3 EJECUTADA/COMPLETADA; S2-v2.3 PARADA D** antes de Phase 2;
+> veredicto **INCONCLUSO / INCONCLUSIVE**, nunca `SUPPORTED`. Para el estado vigente y la
+> trazabilidad de los artefactos temporales, ver `EXP-F4-A-RESULTADOS-v2.3.md`.
+
+**Estado:** PROPUESTA HISTÓRICA — NO NORMATIVA PARA EL ESTADO ACTUAL. La corrida posterior
+S1-v2.3 fue EJECUTADA/COMPLETADA y S2-v2.3 fue INICIADA/PARADA D; el veredicto es
+INCONCLUSO/INCONCLUSIVE. No se reintenta S2-v2.3.
 **Fecha:** 2026-09-23 · **Base:** S1-v2.2 (GATEs Fase 1 TODOS PASS, FREEZE T=9.168 ms / s\*=0.75 / sha256 `6b6d6952…`).
 **Regla superior (invariante):** la única modificación permitida es **CONTROL TÉRMICO PROCEDIMENTAL**.
+La `P` de este documento es `W_SMU` (`power1_input`), no vatímetro independiente.
 T, s\*, escalas, threshold banda [0.90,1.10]·T, R1–R7, F1–F6, workload, réplicas, criterios
 estadísticos, governor.py, harness y analyze.py **NO cambian**.
 
 ---
 
 ## 0. Síntesis (para decisión rápida)
+
+> **Marcador de umbral:** cualquier entrada `≤35 °C` mencionada en §3.5/§7.3 es una
+> opción histórica de esta propuesta, no un gate ejecutado ni una vía vigente. La
+> corrida D6 ejecutó la entrada uniforme `≤50 °C`; no se reintenta ninguna variante.
 
 Phase 2 de S1-v2.2 está **contaminada por temperatura acumulada**, NO por la duración de los
 trials per se: la GPU entró en Phase 2 a 84 °C (calor residual de Fase 1, sin cooldown
@@ -314,13 +327,16 @@ forma de reducirlo sin escrituras (ventilador) o carga ajena al protocolo.
   medición íntegras en régimen 1071 (solo fixed1 conserva v0–v1 limpias).
 - **Fase 1 de S1-v2.2 (FREEZE): VERIFIED/DERIVED según RESULTADOS §1C — se conserva íntegra**
   (térmicamente válida: 15/15 bloques a 1071, histéresis 0.26 %, T_max 86 °C).
-- **Sin veredicto global. S2 NO iniciada.**
+- **Estado posterior D6:** S1-v2.3 fue EJECUTADA/COMPLETADA; S2-v2.3 fue INICIADA y quedó
+  PARADA D antes de Phase 2. El veredicto global es INCONCLUSO/INCONCLUSIVE. La frase
+  «S2 NO iniciada» de la propuesta es únicamente un snapshot pre-run.
 
 ## 12. Archivos y estado
 
-- Este documento: `EXP-F4-A-PROTOCOL-v2.3-PROPUESTA.md` (propuesta, NO ejecutada).
+- Este documento: `EXP-F4-A-PROTOCOL-v2.3-PROPUESTA.md` (propuesta histórica, no normativa).
 - Datos S1-v2.2: `results/session1-v22/` (íntegros e inmutables).
 - Análisis: `/tmp/opencode/audit_p2_thermal.py` (duraciones/cronología térmica por trial),
   `/tmp/opencode/audit_power_win.py` (potencia por ventana).
-- Pendiente de decisión del usuario: (a) opción DIST (7.3-A / 7.3-B / 7.3-C); (b) autorización
-  para ejecutar S2 bajo v2.3; (c) si 7.3-B, autorización del mini-test read-only previo.
+  **Ambos PERDIDOS / NO VERIFICABLES** (artefactos volátiles no preservados; no reconstruidos).
+- **No queda pendiente reintentar S2-v2.3.** Cualquier réplica futura es un protocolo
+  nuevo y requiere autorización nueva; no se reactiva esta propuesta histórica.

@@ -173,7 +173,27 @@ def read_bytes(path, limit=65536):
         return {"status": "ERROR", "error": f"{type(exc).__name__}: {exc}"}
 
 
+def read_text_status(path, limit=65536):
+    """Read a file and PRESERVE the read outcome.
+
+    Returns the ``read_bytes`` dict unchanged, so ``status`` (``OK`` /
+    anything else) and ``error`` survive.  Use this for any read whose
+    outcome carries evidence: a failure here is a READ_ERROR, not an empty
+    value.
+    """
+    return read_bytes(path, limit)
+
+
 def read_text(path, limit=65536):
+    """Read an OPTIONAL file, degrading a read failure to "".
+
+    HAZARD, named on purpose: "" is returned both for a genuinely empty file
+    and for a failed read, so a caller cannot tell them apart.  This helper is
+    therefore only valid where the absence of content is itself the
+    observation.  Evidence-bearing reads must use ``read_text_status`` (or
+    ``read_bytes``); ``test_ownership_criterion_contract.py`` enforces that
+    the DRM fdinfo path does not use this helper.
+    """
     result = read_bytes(path, limit)
     return result.get("value", "") if result.get("status") == "OK" else ""
 
@@ -1014,13 +1034,22 @@ def proc_meta(pid, proc_root=DEFAULT_PROC_ROOT):
     result["wchan"] = read_text(base / "wchan", 4096).strip()
     result["cgroup"] = read_text(base / "cgroup", 16384)
     result["namespaces"] = {}
+    # The cause of a namespace read failure, kept beside -- not instead of --
+    # the sentinel.  read_link() already carries the reason; discarding it
+    # made every failure mode look like a permission denial, which is a fact
+    # about isolation that a vanished PID does not support.  The existing
+    # classifier is reused, so no second taxonomy is introduced.
+    result["namespace_errors"] = {}
     for namespace in ("mnt", "pid", "user", "net", "cgroup", "uts", "ipc"):
         link = read_link(base / "ns" / namespace)
         result["namespaces"][namespace] = link.get("value", "UNAVAILABLE")
+        if link.get("status") != "OK":
+            result["namespace_errors"][namespace] = classify_proc_error(
+                link.get("error", "")
+            )
     return result
 
 
-DRM_ATTRIBUTION_FIELDS = ("drm-client-id", "drm-pdev", "pasid")
 # fdinfo field name -> counter name in scan_fds()["attribution"].
 DRM_ATTRIBUTION_COUNTERS = {
     "drm-client-id": "drm_client_id",
@@ -1029,17 +1058,35 @@ DRM_ATTRIBUTION_COUNTERS = {
 }
 
 
-def fdinfo_attribution(fdinfo_text):
-    """Which per-client attribution fields a DRM fdinfo actually carries.
+# The three DRM fdinfo keys this collector reads, enumerated so the extractor can
+# loop over them.  This is a list of NAMES, not a property: each key is counted
+# and reported on its own, and nothing downstream may treat the three as one.
+_FDINFO_KEYS = ("drm-client-id", "drm-pdev", "pasid")
 
-    Presence only, never a value.  A field that is absent is reported absent:
-    the caller decides what that means, and nothing here invents availability.
-    ``drm-client-id`` and ``drm-pdev`` are emitted by the DRM core for a DRM
-    file descriptor.  ``pasid`` is amdgpu-specific, so its absence is only
-    meaningful once the matched node has been proven to be the amdgpu device.
+
+def fdinfo_field_present(fdinfo_text, field):
+    """Whether ONE named DRM fdinfo key is present.  Presence only, never a value.
+
+    STEP 2 GAP CLOSURE.  The old ``fdinfo_attribution`` returned a dict over the
+    three keys at once, and its caller folded that dict into a single boolean
+    with any(), which is how three relations from three domains became one
+    property.  One key in, one answer out.
+
+    ``drm-client-id`` and ``drm-pdev`` are emitted by the DRM core for a DRM file
+    descriptor.  ``pasid`` is amdgpu-specific, so its absence means nothing until
+    the matched node has been proven to be the amdgpu device.
     """
-    text = fdinfo_text or ""
-    return {name: (name + ":") in text for name in DRM_ATTRIBUTION_FIELDS}
+    return (field + ":") in (fdinfo_text or "")
+
+
+def fdinfo_attribution(fdinfo_text):
+    """Per-key presence for the three DRM fdinfo keys.
+
+    Kept as a REPORT, not a predicate: it returns one boolean per key and the
+    caller must read them separately.  Nothing may collapse it with any()/all()
+    into a single value -- that is the composite this change removes.
+    """
+    return {name: fdinfo_field_present(fdinfo_text, name) for name in _FDINFO_KEYS}
 
 
 def scan_fds(pid, devices, proc_root=DEFAULT_PROC_ROOT):
@@ -1133,11 +1180,10 @@ def scan_fds(pid, devices, proc_root=DEFAULT_PROC_ROOT):
             result["attribution"]["drm_fds_found"] += 1
             if fdinfo.get("status") == "OK":
                 result["attribution"]["fdinfo_read"] += 1
-                present = fdinfo_attribution(fdinfo.get("value", ""))
-                for field, seen in present.items():
-                    if seen:
-                        counter = DRM_ATTRIBUTION_COUNTERS[field]
-                        result["attribution"][counter] += 1
+                text = fdinfo.get("value", "")
+                for field in _FDINFO_KEYS:
+                    if fdinfo_field_present(text, field):
+                        result["attribution"][DRM_ATTRIBUTION_COUNTERS[field]] += 1
             result["matched"].append(
                 {
                     "fd": int(name),
@@ -1540,22 +1586,29 @@ def add_record(records, gap, observed, required, status, source, command, classi
 
 
 # --------------------------------------------------------------------------
-# GAP 9 -- the AGENTS.md 11-condition matrix is the only ownership verdict.
+# GAP 9 -- the AGENTS.md ownership criterion matrix is the only ownership
+# verdict.  Row count is OWNERSHIP_CRITERION_ROWS; do not hardcode a number
+# here: test_ownership_criterion_contract.py enforces docstring==len(rows).
 # The legacy boolean is kept for continuity and is explicitly non-authoritative.
 # --------------------------------------------------------------------------
 OWNERSHIP_CRITERION_ROWS = (
-    ("card_node_complete", "DRM card node FD table complete and attributable"),
-    ("render_node_complete", "DRM render node FD table complete and attributable"),
+    ("card_node_complete", "DRM card node FD table complete (coverage only)"),
+    ("render_node_complete", "DRM render node FD table complete (coverage only)"),
     ("user_namespaces_covered", "user namespaces of relevant processes covered"),
     ("root_namespaces_covered", "root namespaces of relevant processes covered"),
-    ("drm_fds_enumerated", "DRM file descriptors enumerated with drm-client-id/pasid"),
+    ("drm_fds_enumerated", "DRM file descriptors enumerated; per-node tables and fdinfo read"),
     ("writers_resolved", "governor, IRQ, scheduler, read-ahead and storage writers resolved"),
     ("agents_absent", "no active writer/agent during the window"),
     ("pm_observed", "PM state observed for the proven device"),
     ("guard_and_restore", "guard and restore proven"),
     ("btrfs_identity", "Btrfs identity matched in the same window"),
-    ("clients_pasid_attributable", "DRM clients and PASID attributable per process"),
 )
+# RETIRED 20260926: "clients_pasid_attributable" was an AGENT_FORMALIZATION with no
+# antecedent in AGENTS.md, and it named three relations from three domains (a DRM
+# client, a PCI device, a PASID) as one property.  Its evidence is now reported
+# per property by the node rows.  The debugfs reader that fed it is kept, because
+# it is a read-only observation of its own.
+#
 # Rows this collector structurally cannot decide.  They are R2 and R3.
 OWNERSHIP_EXTERNAL_ROWS = {
     "writers_resolved": ("NOT_EVALUATED", "R2", "writer audit is a separate route; not performed here"),
@@ -1563,45 +1616,95 @@ OWNERSHIP_EXTERNAL_ROWS = {
 }
 
 
+def node_field_presence_counts(gpu_clients, nodes):
+    """One count per DRM fdinfo key, per node.  No aggregation.
+
+    STEP 2 GAP CLOSURE.  The producer used to keep a single per-node count fed by
+    any(fdinfo_attribution(...).values()) over a three-key tuple, which fused a
+    DRM client, a PCI device and a PASID into one property.  Each key is now
+    counted on its own and the result is keyed BY KEY, so no caller can read one
+    domain's presence as another's.  Unit is FD: one drm_file can be reached
+    through several FDs, so none of these counts is a client count.
+    """
+    # Every number in this block is PER NODE.  The *_seen counters are
+    # POOLED instead, so the scope is emitted here as data too: a consumer
+    # reading only the per-node block must not mistake it for the pooled one.
+    counts = {"drm_fds": {n: 0 for n in nodes},
+              "fd_presence_scope": "PER_NODE_FD_UNIT"}
+    for key in ("drm-client-id", "drm-pdev", "pasid"):
+        counts[key] = {n: 0 for n in nodes}
+    for client in gpu_clients:
+        target = client["resource"]
+        if target not in counts["drm_fds"]:
+            continue
+        counts["drm_fds"][target] += 1
+        text = client["fdinfo"] or ""
+        for key in ("drm-client-id", "drm-pdev", "pasid"):
+            if (key + ":") in text:
+                counts[key][target] += 1
+    return counts
+
+
+def node_coverage_complete(root_visibility_complete):
+    """Node completeness, and nothing else.
+
+    STEP 2 GAP CLOSURE.  Coverage is a property of the sweep and of the device,
+    so it is legitimately one shared term.  It reads no fdinfo key: no
+    drm-client-id, no drm-pdev and no pasid can move it.  That independence is the
+    point of the wrapper -- it makes the absence of any fdinfo term explicit at
+    the call site instead of leaving it to be read off a conjunction.
+    """
+    return bool(root_visibility_complete)
+
+
 def drm_fd_enumeration_state(coverage, gpu_proven):
-    """Decide drm_fds_enumerated from per-client DRM attribution facts.
+    """Decide the DRM FD enumeration property (RT-1) from enumeration facts only.
 
-    The row used to be scored on ``fd_error_count == 0``, a global error proxy
-    that could not tell "this host has no DRM client" from "twelve clients were
-    found and none could be attributed", and that turned a /proc race
-    into a FAIL.  It is now scored on what was actually enumerated:
+    STEP 1 REPAIR.  This row now scores **enumeration and observability of DRM file
+    descriptors, and nothing else**.  The evidence it consumes is exactly:
 
-    A. whether the relevant universe could be enumerated at all;
-    B. whether any DRM FD was found;
-    C. whether each found FD's fdinfo was read;
-    D. whether ``drm-client-id`` was observed;
-    E. whether ``pasid`` was observed;
-    F. whether any of the above could not be established;
-    G. whether a vanished PID's absence of a DRM resource is *proven* or only
-       assumed from its disappearance.  It is only the former, and a
-       disappearance on its own yields UNKNOWN, never PASS.
+      * ``total_pids``               -- width of the swept process universe;
+      * ``drm_fds_found``            -- DRM FDs whose symlink resolved to a node;
+      * ``drm_fdinfo_read``          -- how many of those had their fdinfo read;
+      * ``fd_universe_blocked_pids`` -- PIDs whose FD table could not be read;
+      * ``fd_race_pids``             -- PIDs that vanished mid-sweep;
+      * ``fd_absence_proven_pids``   -- vanished PIDs whose lack of a DRM resource is
+                                        *demonstrated* rather than assumed.
 
-    Returns ``(state, reason)``.  Absence of a field is never counted as
-    success: a client whose attribution field is missing is PARTIAL, and a
-    universe that could not be enumerated is PARTIAL or UNKNOWN, never PASS.
+    Attribution evidence is deliberately NOT consumed here.  ``drm-client-id``
+    (``drm_client_id_seen``), ``drm-pdev`` (``drm_pdev_seen``) and ``pasid``
+    (``drm_pasid_seen``) belong to other properties and a missing one must never
+    change this verdict.  This function used to require all three for PASS and
+    reported "all attributed"; that made the row a container for several
+    properties, which is what the separation removed.
+
+    A DRM FD whose fdinfo could not be read is still *enumerated* -- the symlink
+    resolved -- but it is not fully characterised, so it keeps the row off PASS.
+    Whether "enumerated" should tolerate an unread fdinfo is NOT_ESTABLISHED; the
+    conservative reading is kept and named as such rather than decided here.
+
+    A PID that vanishes is a race only when its absence of a DRM resource is also
+    demonstrated.  A disappearance on its own yields UNKNOWN, never PASS, and a
+    complete sweep that found no DRM FD is a real observation, not an absence.
+
+    Returns ``(state, reason)``.  The reason names FD counts, never client counts:
+    this row cannot distinguish two FDs of one ``drm_file`` from two
+    ``drm_file``, so it does not count clients.
     """
     if not gpu_proven:
         return "NOT_EVALUATED", "GPU identity not proven"
 
     found = int(coverage.get("drm_fds_found", 0))
     read = int(coverage.get("drm_fdinfo_read", 0))
-    client_id = int(coverage.get("drm_client_id_seen", 0))
-    pdev = int(coverage.get("drm_pdev_seen", 0))
-    pasid = int(coverage.get("drm_pasid_seen", 0))
     blocked = int(coverage.get("fd_universe_blocked_pids", 0))
     races = int(coverage.get("fd_race_pids", 0))
-    # The only discharge for a vanished PID whose client set is unknown.  A
+    # The only discharge for a vanished PID whose FD set is unknown.  A
     # disappearance is a race only when its absence of the resource is also
     # demonstrated; without this counter the count of races could be read as
     # proof of an empty universe, which it is not.
     absent = int(coverage.get("fd_absence_proven_pids", 0))
     # The swept PID universe is part of the reason: without it the row would
-    # report a client count with no indication of how wide the sweep was, and
+    # report an FD count with no indication of how wide the sweep was, and
     # coverage["total_pids"] would stop being read by the matrix at all.
     # Read strictly, not with .get(): DEFECT-04 established that a missing
     # total_pids must be a loud failure, and a default of 0 would render it as
@@ -1615,12 +1718,12 @@ def drm_fd_enumeration_state(coverage, gpu_proven):
         return "; %d PID(s) vanished mid-sweep, counted as diagnosis only" % races
 
     if blocked:
-        # Those PIDs' FDs are unknown and any of them could have been the client,
-        # so the universe is not established.  With no client in hand there is
-        # nothing to characterise either, which is UNKNOWN rather than PARTIAL.
+        # Those PIDs' FDs are unknown and any of them could have been a DRM FD, so
+        # the universe is not established.  With no FD in hand there is nothing to
+        # characterise either, which is UNKNOWN rather than PARTIAL.
         if found == 0:
-            return "UNKNOWN", "universe not enumerable (%d pid(s) unreadable, 0 clients seen%s)" % (blocked, universe)
-        return "PARTIAL", "universe not enumerable (%d pid(s) unreadable, %d client(s) seen%s)" % (
+            return "UNKNOWN", "universe not enumerable (%d pid(s) unreadable, 0 DRM fds seen%s)" % (blocked, universe)
+        return "PARTIAL", "universe not enumerable (%d pid(s) unreadable, %d DRM fd(s) seen%s)" % (
             blocked, found, universe,
         )
 
@@ -1628,13 +1731,13 @@ def drm_fd_enumeration_state(coverage, gpu_proven):
         # A complete sweep that found no DRM FD is a real observation -- but only
         # when no PID vanished without its absence being demonstrated.  A
         # disappearance alone cannot certify the empty universe: the vanished
-        # PID's FDs are unknown, so it may have held the client.  fd_universe_
+        # PID's FDs are unknown, so it may have held one.  fd_universe_
         # blocked_pids already routes that case above; this branch is the
         # defensive equivalent for a coverage dict that reports the loss
         # nowhere else.
         if races > absent:
             return "UNKNOWN", (
-                "universe not established%s; %d PID(s) vanished, 0 clients seen, "
+                "universe not established%s; %d PID(s) vanished, 0 DRM fds seen, "
                 "absence NOT proven for %d of them"
                 % (universe, races, races - absent)
             )
@@ -1646,33 +1749,232 @@ def drm_fd_enumeration_state(coverage, gpu_proven):
             if races else "",
         )
 
-    missing = []
+    # Observability only: an FD whose fdinfo could not be read is enumerated but
+    # not fully characterised.  No attribution field is consulted.
     if read < found:
-        missing.append("fdinfo unreadable on %d/%d" % (found - read, found))
-    if client_id < read:
-        missing.append("drm-client-id absent on %d/%d" % (read - client_id, read))
-    if pdev < read:
-        missing.append("drm-pdev absent on %d/%d" % (read - pdev, read))
-    if pasid < read:
-        missing.append("pasid absent on %d/%d" % (read - pasid, read))
-
-    if missing:
-        return "PARTIAL", "%d DRM fd(s) found%s; %s%s" % (
+        return "PARTIAL", "%d DRM fd(s) found%s; fdinfo unreadable on %d/%d%s" % (
             found,
             universe,
-            "; ".join(missing),
+            found - read,
+            found,
             vanished_note(),
         )
 
-    return "PASS", "%d DRM fd(s) all attributed (drm-client-id, drm-pdev, pasid)%s%s" % (
+    return "PASS", "%d DRM fd(s) enumerated and fdinfo read%s%s" % (
         found,
         universe,
         vanished_note(),
     )
 
 
+# --------------------------------------------------------------------------
+# BLK-02 · separation block.  Emission-only: it adds declarative structure
+# and never decides a normative population.  PROCESS_SCOPE stays
+# UNDEFINED_BY_REQUIREMENT and the completeness denominator stays
+# NOT_AVAILABLE until a human states the population; the pair counts below are
+# explicitly over PROCESS_SWEEP so they cannot be read as that denominator.
+# Units are declared per field.  Nothing here changes a verdict or a counter.
+# --------------------------------------------------------------------------
+MINOR_TYPE_BY_LOCATOR = {"card": "PRIMARY", "controlD": "CONTROL",
+                         "renderD": "RENDER", "accel": "ACCEL"}
+PROJECT_SCOPE_MINOR_TYPES = ("PRIMARY", "RENDER")   # AGENTS.md:279
+
+
+DETERMINED_ABSENT = "DETERMINED_ABSENT"
+NOT_DETERMINED = "NOT_DETERMINED"
+
+
+def classify_fd_absence(fd_status, fd_errors, unresolved_target_count,
+                        drm_fds_found, liveness_state):
+    """Can this observation prove that the process held no DRM resource?
+
+    Pure: every input is passed in, nothing is read from a closure.  Returns
+    (state, reason).
+
+    DETERMINED_ABSENT requires ALL of:
+      * the FD table was read            (fd_status == "OK")
+      * no FD produced an error          (no fd_errors)
+      * every FD target resolved         (unresolved_target_count == 0)
+      * no DRM FD was seen               (drm_fds_found == 0)
+      * the process was then observed GONE, so anything it opened after the
+        sweep died with it (liveness_state == "GONE")
+
+    Any single failure is NOT_DETERMINED.  In particular an unreadable table, a
+    vanished process, an unresolved target, a liveness recheck that is merely
+    ALIVE or UNKNOWN, or a DRM FD seen anywhere: none of them proves absence.
+
+    Scope limit, deliberate and conservative: drm_fds_found is counted over the
+    whole PID, not per node, so a process holding a DRM FD to a different device
+    is NOT_DETERMINED here even though absence toward this node might be
+    provable.  Narrowing that would need per-node target evidence, which this
+    classifier does not have and does not assume.
+    """
+    if fd_status != "OK":
+        return NOT_DETERMINED, "FD_TABLE_UNREADABLE"
+    if fd_errors:
+        return NOT_DETERMINED, "FD_ERROR_PRESENT"
+    if int(unresolved_target_count or 0) != 0:
+        return NOT_DETERMINED, "FD_TARGET_UNRESOLVED"
+    if int(drm_fds_found or 0) != 0:
+        return NOT_DETERMINED, "DRM_FD_PRESENT"
+    if liveness_state == "UNKNOWN":
+        return NOT_DETERMINED, "LIVENESS_UNKNOWN"
+    if liveness_state != "GONE":
+        return NOT_DETERMINED, "LIVENESS_%s_CLAIMS_NOTHING" % (liveness_state,)
+    return DETERMINED_ABSENT, "TABLE_READ_TARGETS_RESOLVED_NO_DRM_FD_THEN_GONE"
+
+def minor_type_from_locator(locator):
+    """DRM minor type implied by a /dev/dri locator.  FACT-based: the kernel
+    exposes PRIMARY as cardN, CONTROL as controlDN, RENDER as renderDN and ACCEL
+    as accel*.  Returns UNKNOWN rather than guessing.  A locator says which kind
+    of node it names, never which device it belongs to."""
+    if not locator:
+        return "UNKNOWN"
+    base = os.path.basename(str(locator))
+    for key, mtype in MINOR_TYPE_BY_LOCATOR.items():
+        if base.startswith(key):
+            return mtype
+    return "UNKNOWN"
+
+
+def locator_matches(left, right):
+    """Exact basename equality between two DRM node locators.
+
+    Never a prefix, never a substring, never a numeric compare: card0 must not
+    satisfy card01 and renderD128 must not satisfy renderD129.  A path and a bare
+    name compare equal because a locator may be reported either way; nothing else
+    is normalised."""
+    if not left or not right:
+        return False
+    return os.path.basename(str(left)) == os.path.basename(str(right))
+
+
+def node_in_project_scope(bdf, minor_type, target_bdf):
+    """AGENTS.md:279 -- the RX550's own card and render nodes, by PCI identity.
+
+    Both conditions are required: minor type PRIMARY or RENDER, and the BDF of
+    the target device.  A foreign device's PRIMARY node is out of scope, and an
+    unresolved type is never silently admitted."""
+    return (minor_type in PROJECT_SCOPE_MINOR_TYPES
+            and bdf is not None and bdf == target_bdf)
+
+
+def process_node_observation_block(gpu, root_coverage, root_fd_error_count,
+                                   root_fd_permission_denied, root_fd_disappeared,
+                                   root_fd_other_errors, root_fd_errors,
+                                   current_run_unreadable, current_run_permission_denied,
+                                   current_run_disappeared, gpu_clients):
+    """Build the separated observation block. Pure: no I/O, no policy."""
+    nodes = []
+
+    target_bdf = gpu.get("target", {}).get("bdf")
+
+    def add_node(bdf, locator, pdev_reported=None):
+        if not locator:
+            return
+        mtype = minor_type_from_locator(locator)
+        in_scope = node_in_project_scope(bdf, mtype, target_bdf)
+        nodes.append({
+            "bdf": bdf,
+            "minor_type": mtype or "UNKNOWN",
+            "locator": locator,
+            "in_project_scope": in_scope,
+            "scope_basis": "AGENTS.md:279",
+            "drm_pdev_reported": pdev_reported,
+            "identity_basis": "PCI BDF; locator is not the identity",
+        })
+
+    add_node(gpu.get("target", {}).get("bdf"), gpu.get("drm_card"))
+    add_node(gpu.get("target", {}).get("bdf"), gpu.get("render_node"))
+    add_node(gpu.get("intel_pci"), gpu.get("intel", {}).get("card"))
+    in_scope = [n for n in nodes if n["in_project_scope"]]
+    holders = {}
+    locator_forms = set()
+    for entry in gpu_clients:
+        raw = str(entry.get("node") or entry.get("dev") or "")
+        base = os.path.basename(raw)
+        if not base or base == "None":
+            continue
+        locator_forms.add(base)
+        # Exact basename equality.  Never a prefix, never a substring: that
+        # would let card0 satisfy card01 and renderD128 satisfy renderD129.  A
+        # locator is matched here and never used as an identity.
+        for node in in_scope:
+            if locator_matches(node["locator"], base):
+                holders.setdefault(node["locator"], set()).add(int(entry["pid"]))
+    not_determined = set(current_run_unreadable) | set(current_run_permission_denied)
+    return {
+        "MODEL_VERSION": "PROCESS_NODE_SEPARATION_1",
+        "HISTORICAL_ALIAS": {
+            "drm_fds_enumerated": "retired as a substitute for the properties below",
+            "DRM_NODE_COMPLETENESS": "ALIAS_ONLY; unit was and is process x DRM node",
+        },
+        "node_scope": {
+            "basis": "REQUIREMENT AGENTS.md:279 (RX550 card and render nodes, by PCI identity)",
+            "minor_type_by_locator": MINOR_TYPE_BY_LOCATOR,
+            "nodes": nodes,
+            "categories_not_observed": [t for t in MINOR_TYPE_BY_LOCATOR.values()
+                                        if t not in {n["minor_type"] for n in nodes}],
+        },
+        "process_sweep": {
+            "unit": "PROCESS",
+            "total_pids": root_coverage.get("total_pids"),
+            "root_pids": root_coverage.get("root_pids"),
+            "user_pids": root_coverage.get("user_pids"),
+            "uid_unknown_pids": root_coverage.get("uid_unknown_pids"),
+            "late_observed_pids": root_coverage.get("late_observed_pids"),
+        },
+        "process_scope": {
+            "status": "UNDEFINED_BY_REQUIREMENT",
+            "count": None, "criterion": None,
+            "note": "PROCESS_SWEEP is an observation and is NOT promoted to scope",
+        },
+        "fd_table_readability": {
+            "unit": "PID for the pid rows, FD_ERROR_EVENTS for the event rows",
+            "pids_unreadable": len(current_run_unreadable),
+            "pids_permission_denied": len(current_run_permission_denied),
+            "pids_disappeared": len(current_run_disappeared),
+            "fd_error_events": root_fd_error_count,
+            "fd_error_events_by_cause": {
+                "PERMISSION_DENIED": root_fd_permission_denied,
+                "PROCESS_DISAPPEARED": root_fd_disappeared,
+                "OTHER": root_fd_other_errors,
+            },
+            "fd_error_events_sample": root_fd_errors[:256],
+        },
+        "pairs": {
+            "unit": "PAIR_PROCESS_X_DRM_MINOR",
+            "over_population": "PROCESS_SWEEP",
+            "is_completeness_denominator": False,
+            "node_count": len(in_scope),
+            "determined_present": sum(len(v) for v in holders.values()),
+            "not_determined": len(not_determined),
+            "determined_absent": None,
+            "determined_absent_status": "NOT_AVAILABLE: the collector counts absence proofs "
+                                        "but does not retain which pids they covered",
+            "observed_locator_forms": sorted(locator_forms),
+            "matching_rule": "exact basename equality; a locator is never an identity",
+        },
+        "determinations": [
+            {"locator": n["locator"], "minor_type": n["minor_type"],
+             "bdf": n["bdf"], "unit": "PID",
+             "pids_with_fd": sorted(holders.get(n["locator"], ())),
+             "pids_not_determined": sorted(int(p) for p in not_determined)}
+            for n in in_scope
+        ],
+        "denominator": {
+            "status": "NOT_AVAILABLE",
+            "blocked_by": "PROCESS_SCOPE",
+            "formula": "|PROCESS_SCOPE| x |DRM_NODE_SCOPE|",
+        },
+    }
+
+
 def ownership_matrix(context):
-    """Return the 11 rows of the AGENTS.md criterion, plus the aggregate state.
+    """Return the rows of the AGENTS.md criterion, plus the aggregate state.
+
+    The row count is len(OWNERSHIP_CRITERION_ROWS); it is deliberately not
+    spelled out in prose so the two cannot drift apart.
 
     The aggregate can never be FULL while an external row stays NOT_EVALUATED,
     which is the intended behaviour: this collector does not audit writers and
@@ -1703,20 +2005,47 @@ def ownership_matrix(context):
         "agents_absent": "PASS" if context["active_agents"] == 0 else "FAIL",
         "pm_observed": "PASS" if context["pm_status"] == "READ" else "UNKNOWN",
         "btrfs_identity": "NOT_APPLICABLE" if context["btrfs_status"] != "PRESENT" else "UNKNOWN",
-        "clients_pasid_attributable": {
-            "PROVEN": "PASS", "NOT_AVAILABLE": "UNKNOWN", "OBSERVED": "PASS"
-        }.get(debugfs.get("DEBUGFS_CLIENT_ATTRIBUTION"), "UNKNOWN"),
     }
     evidence = {
-        "card_node_complete": f"{card_node} / {context['card_clients']} attributable client(s)",
-        "render_node_complete": f"{render_node} / {context['render_clients']} attributable client(s)",
-        "user_namespaces_covered": f"{coverage['user_namespace_ok']}/{coverage['user_namespace_total']} readable",
-        "root_namespaces_covered": f"{coverage['root_namespace_ok']}/{coverage['root_namespace_total']} readable",
+        # Three separate clauses, one per property, per node.  None is combined
+        # with the others: no any(), no all(), and no clause standing in for
+        # another.  The three key counts below are PRESENCE-OF-KEY-PER-FD
+        # observations, not coverage and not client counts: they are printed
+        # so each domain is visible on its own, and the STATE of both rows stays
+        # coverage alone.  The word "present" is load-bearing.  The STATE of both rows remains coverage alone; these counts are
+        # reported so the reader can see each domain on its own.  The unit is FD
+        # and is written as "fd(s)": a drm_file can be reached through several
+        # FDs, so none of these numbers is a client count.
+        "card_node_complete": (
+            f"{card_node} / coverage={'COMPLETE' if coverage['card_complete'] else 'INCOMPLETE'}"
+            f" / basis=key-presence-per-fd (NOT coverage, NOT client counts)"
+            f" / drm-client-id: {coverage['card_drm_client_id_fds']} fd(s)"
+            f" / drm-pdev: {coverage['card_drm_pdev_fds']} fd(s)"
+            f" / pasid: {coverage['card_pasid_fds']} fd(s)"
+        ),
+        "render_node_complete": (
+            f"{render_node} / coverage={'COMPLETE' if coverage['render_complete'] else 'INCOMPLETE'}"
+            f" / basis=key-presence-per-fd (NOT coverage, NOT client counts)"
+            f" / drm-client-id: {coverage['render_drm_client_id_fds']} fd(s)"
+            f" / drm-pdev: {coverage['render_drm_pdev_fds']} fd(s)"
+            f" / pasid: {coverage['render_pasid_fds']} fd(s)"
+        ),
+        "user_namespaces_covered": "{} ok / {} disappeared / {} denied / {} total".format(
+            coverage.get("user_namespace_ok", 0),
+            coverage.get("user_namespace_disappeared", 0),
+            coverage.get("user_namespace_denied", 0),
+            coverage.get("user_namespace_total", 0),
+        ),
+        "root_namespaces_covered": "{} ok / {} disappeared / {} denied / {} total".format(
+            coverage.get("root_namespace_ok", 0),
+            coverage.get("root_namespace_disappeared", 0),
+            coverage.get("root_namespace_denied", 0),
+            coverage.get("root_namespace_total", 0),
+        ),
         "drm_fds_enumerated": drm_fd_reason,
         "agents_absent": f"{context['active_agents']} active service row(s)",
         "pm_observed": f"PM_METRICS={context['pm_status']}",
         "btrfs_identity": f"btrfs lines observed={context['btrfs_status']}",
-        "clients_pasid_attributable": f"{debugfs.get('DEBUGFS_CLIENT_ATTRIBUTION')} ({debugfs.get('reason')})",
     }
     sources = {
         "card_node_complete": "/proc/*/fd on the BDF-proven card node",
@@ -1727,7 +2056,6 @@ def ownership_matrix(context):
         "agents_absent": "systemctl show (read-only)",
         "pm_observed": "read(2) of the proven device sysfs",
         "btrfs_identity": "/proc/self/mountinfo",
-        "clients_pasid_attributable": f"{debugfs.get('clients_path') or 'debugfs clients'}",
     }
 
     rows = []
@@ -1987,7 +2315,7 @@ def assess_parent_bundle(parent, current_host, current_kernel):
         result["PRIOR_EVIDENCE_STATUS"] = "REJECTED_HOST_MISMATCH"
         result["reason"] = (
             f"parent bundle was collected on host {observed_host!r}, this run is on "
-            f"{current_host!r}; its PIDs, clients and errors describe a different host"
+            f"{current_host!r}; its PIDs, GPU DRM FDs and errors describe a different host"
         )
         return result
     if not observed_kernel:
@@ -2242,9 +2570,13 @@ def main():
         "maps_error": 0,
         "root_namespace_ok": 0,
         "root_namespace_denied": 0,
+        # A PID whose namespaces could not be read because it vanished.  Named
+        # for the cause, like fd_disappeared_pids: it is NOT a RACE verdict.
+        "root_namespace_disappeared": 0,
         "root_namespace_total": 0,
         "user_namespace_ok": 0,
         "user_namespace_denied": 0,
+        "user_namespace_disappeared": 0,
         "user_namespace_total": 0,
         # Per-client DRM attribution, accumulated from scan_fds()["attribution"].
         # These exist so drm_fds_enumerated can distinguish "no DRM client",
@@ -2252,6 +2584,13 @@ def main():
         # attributable", instead of collapsing all three into fd_error_count.
         "drm_fds_found": 0,
         "drm_fdinfo_read": 0,
+        # *_seen are POOLED across nodes: they count FDs, not drm_file, and not
+        # per-node populations.  SCOPE_* states that explicitly for consumers.
+        # The three *_seen counters are POOLED across DRM nodes and their unit
+        # is the FD that carried the key, NOT a drm_file and not a client.  A
+        # consumer must be able to read that from the artifact instead of
+        # inferring it, so the scope is emitted as data.
+        "fd_presence_scope": "POOLED_ACROSS_NODES_FD_UNIT",
         "drm_client_id_seen": 0,
         "drm_pdev_seen": 0,
         "drm_pasid_seen": 0,
@@ -2356,11 +2695,24 @@ def main():
         ):
             liveness = pid_gone(pid, proc_root)
             item["liveness_recheck"] = liveness
-            if liveness["state"] == "GONE":
-                coverage["fd_absence_proven_pids"] += 1
-                coverage["fd_race_pids"] += 1
-            elif liveness["state"] == "UNKNOWN":
-                coverage["fd_universe_blocked_pids"] += 1
+            liveness_state = liveness["state"]
+        else:
+            # No re-check: something already prevents a proof.  The classifier
+            # still runs so NOT_DETERMINED carries a reason rather than a gap.
+            liveness_state = None
+        absence_state, absence_reason = classify_fd_absence(
+            fd.get("status"), fd.get("errors") or [],
+            fd.get("unresolved_target_count"),
+            attribution.get("drm_fds_found", 0), liveness_state)
+        item["absence_classification"] = {
+            "state": absence_state, "reason": absence_reason}
+        # Counters keep their exact previous meaning, now derived from the same
+        # classification: ABSENT -> absence+race, LIVENESS_UNKNOWN -> blocked.
+        if absence_state == DETERMINED_ABSENT:
+            coverage["fd_absence_proven_pids"] += 1
+            coverage["fd_race_pids"] += 1
+        elif absence_reason == "LIVENESS_UNKNOWN":
+            coverage["fd_universe_blocked_pids"] += 1
         for error in fd.get("errors", []):
             root_fd_errors.append({"pid": pid, **error})
             # CORRECTION 4: a vanished process is a race, not an isolation fact.
@@ -2386,14 +2738,34 @@ def main():
             coverage["maps_error"] += 1
 
         namespaces = meta.get("namespaces", {})
-        namespace_ok = bool(namespaces) and all(
+        namespace_errors = meta.get("namespace_errors") or {}
+        # Fail-closed, and now reason-aware.  An unreadable namespace is still
+        # never covered; the recorded cause only decides which counter
+        # receives it.  A PID that vanished is COVERAGE_LOSS here, not RACE:
+        # the second fact V3 requires -- evidence it held no qualifying
+        # resource -- is unreachable, because its namespaces were never read.
+        # It therefore counts against completeness like any other loss.
+        namespace_ok = bool(namespaces) and not namespace_errors and all(
             value != "UNAVAILABLE" for value in namespaces.values()
         )
+        if not namespace_ok:
+            # Reuse the set comparison main() already applies to /proc read
+            # failures.  With no recorded cause the failure is unattributed
+            # and stays in the denied bucket, which is the fail-closed side.
+            reasons = set(namespace_errors.values()) or {"UNAVAILABLE"}
+            namespace_lost = (
+                "namespace_disappeared"
+                if reasons <= {"PROCESS_DISAPPEARED", "PROCESS_DISAPPEARED_OR_EMPTY"}
+                else "namespace_denied"
+            )
         uid = meta.get("uid")
         if uid == 0:
             coverage["root_pids"] += 1
             coverage["root_namespace_total"] += 1
-            coverage["root_namespace_ok" if namespace_ok else "root_namespace_denied"] += 1
+            if namespace_ok:
+                coverage["root_namespace_ok"] += 1
+            else:
+                coverage["root_%s" % namespace_lost] += 1
         elif uid is None:
             # uid unreadable: the population is unknown, so the PID belongs to
             # neither namespace population and is reported on its own.
@@ -2401,7 +2773,10 @@ def main():
         else:
             coverage["user_pids"] += 1
             coverage["user_namespace_total"] += 1
-            coverage["user_namespace_ok" if namespace_ok else "user_namespace_denied"] += 1
+            if namespace_ok:
+                coverage["user_namespace_ok"] += 1
+            else:
+                coverage["user_%s" % namespace_lost] += 1
 
         for match in fd.get("matched", []):
             client = {
@@ -2695,13 +3070,40 @@ def main():
     active_agents = len(active_service_rows)
     # Legacy P0 gate.  Retained verbatim for continuity and explicitly NOT
     # authoritative: it is a conjunction of four counters, not the AGENTS.md
-    # 11-condition ownership criterion.  See AGENTS_OWNERSHIP_MATRIX.
+    # AGENTS.md ownership criterion.  See AGENTS_OWNERSHIP_MATRIX.
     ownership_full = bool(
         root_visibility_complete
         and active_gpu == 0
         and storage_no_clients
         and active_agents == 0
     )
+    # Per-node FD attribution, derived from the client list this sweep already
+    # built.  The two node rows are *named* as a conjunction -- "DRM card node
+    # FD table complete and attributable" (OWNERSHIP_CRITERION_ROWS) -- but
+    # were scored on sweep readability alone, so they could not differ and a
+    # client whose fdinfo was unreadable left both of them PASS while
+    # drm_fds_enumerated reported that same client as un-attributable.
+    #
+    # Completeness deliberately stays the shared flag: node identity comes only
+    # from the symlink target of an FD that was read, and the collector never
+    # opens a DRM node, so a sweep in which no readlink failed cannot have
+    # missed a reference to a proven node.  The shared flag is therefore a
+    # sufficient condition for both nodes' completeness, not a leak.
+    # Attributability is a per-node fact and is counted per node here, with the
+    # collector's own definition (fdinfo_attribution).  No new notion of
+    # "attributable" is introduced, and no field is added to the model.
+    #
+    # An unproven identity leaves GPU_CARD_NODE/GPU_RENDER_NODE as None, so both
+    # keys collapse onto the same "/dev/dri/None" path, both counts are 0, the
+    # comparison is 0 == 0, and the rows keep their previous value.
+    # ownership_matrix gates both rows on gpu_proven regardless.
+    card_target = f"/dev/dri/{gpu_identity['GPU_CARD_NODE']}"
+    render_target = f"/dev/dri/{gpu_identity['GPU_RENDER_NODE']}"
+    # STEP 2 GAP CLOSURE.  Three independent per-node counts, one per domain:
+    # the DRM client, the PCI device address, and the PASID.  None is aggregated
+    # and none is conjured into the completeness term below.
+    node_presence = node_field_presence_counts(gpu_clients, (card_target, render_target))
+    node_fd_count = node_presence["drm_fds"]
     # Root/user coverage split.  HIGH-3: each population is compared only with
     # its own denominator, so ROOT_NAMESPACE_COMPLETE cannot depend on the
     # number of user processes, or vice versa.  An empty population is not
@@ -2735,9 +3137,11 @@ def main():
         ),
         "root_namespace_ok": coverage["root_namespace_ok"],
         "root_namespace_denied": coverage["root_namespace_denied"],
+        "root_namespace_disappeared": coverage["root_namespace_disappeared"],
         "root_namespace_total": coverage["root_namespace_total"],
         "user_namespace_ok": coverage["user_namespace_ok"],
         "user_namespace_denied": coverage["user_namespace_denied"],
+        "user_namespace_disappeared": coverage["user_namespace_disappeared"],
         "user_namespace_total": coverage["user_namespace_total"],
         "root_namespace_complete": (
             coverage["root_namespace_total"] > 0
@@ -2747,17 +3151,31 @@ def main():
             coverage["user_namespace_total"] > 0
             and coverage["user_namespace_ok"] == coverage["user_namespace_total"]
         ),
-        "card_complete": root_visibility_complete,
-        "render_complete": root_visibility_complete,
+        # The attributability conjunct the row names promise.  root_visibility
+        # complete remains the common completeness term, unchanged.
+        # Inlined on purpose: the producer literal must not close over a new
+        # main() local, or the contract test that names those locals stops
+        # being able to evaluate it.  node_coverage_complete reads no fdinfo key.
+        "card_complete": node_coverage_complete(root_visibility_complete),
+        "render_complete": node_coverage_complete(root_visibility_complete),
         "fd_error_count": root_fd_error_count,
         # Exported because drm_fds_enumerated is scored from them.  Before this
         # the matrix could only see fd_error_count, so the row could not tell
         # "no DRM client" from "client not attributable".
         "drm_fds_found": coverage["drm_fds_found"],
         "drm_fdinfo_read": coverage["drm_fdinfo_read"],
+        "fd_presence_scope": coverage["fd_presence_scope"],
         "drm_client_id_seen": coverage["drm_client_id_seen"],
         "drm_pdev_seen": coverage["drm_pdev_seen"],
         "drm_pasid_seen": coverage["drm_pasid_seen"],
+        # Per-node, per-domain.  Reported side by side and never conjoined, so a
+        # reader can see which domain is present and which is not.
+        "card_drm_client_id_fds": node_presence["drm-client-id"][card_target],
+        "render_drm_client_id_fds": node_presence["drm-client-id"][render_target],
+        "card_drm_pdev_fds": node_presence["drm-pdev"][card_target],
+        "render_drm_pdev_fds": node_presence["drm-pdev"][render_target],
+        "card_pasid_fds": node_presence["pasid"][card_target],
+        "render_pasid_fds": node_presence["pasid"][render_target],
         "fd_universe_blocked_pids": coverage["fd_universe_blocked_pids"],
         "fd_race_pids": coverage["fd_race_pids"],
         "fd_absence_proven_pids": coverage["fd_absence_proven_pids"],
@@ -2770,8 +3188,15 @@ def main():
         "btrfs_status": "PRESENT" if btrfs_mounts else "ABSENT",
         "active_agents": active_agents,
         "pm_status": pm.get("PM_METRICS"),
-        "card_clients": sum(1 for item in gpu_clients if item["resource"] == f"/dev/dri/{gpu_identity['GPU_CARD_NODE']}"),
-        "render_clients": sum(1 for item in gpu_clients if item["resource"] == f"/dev/dri/{gpu_identity['GPU_RENDER_NODE']}"),
+        # These two feed the EVIDENCE string, which says "attributable".  They
+        # must therefore count FDs that really are attributable, not every FD
+        # pointing at the node: gpu_clients keeps a client whose fdinfo read
+        # failed, with fdinfo == "", and counting that one made the evidence
+        # overstate the very row it was supposed to support.
+        # node_fd_count holds the total; see OPEN ITEMS for the remaining gap
+        # of not showing both numbers in the string.
+        "card_drm_client_id_fds": node_presence["drm-client-id"][card_target],
+        "render_drm_client_id_fds": node_presence["drm-client-id"][render_target],
     }
     ownership_matrix_result = ownership_matrix(matrix_context)
     g01 = "PASS" if ownership_full else "FAIL"
@@ -2826,6 +3251,29 @@ def main():
         "root_fd_permission_denied_count": root_fd_permission_denied,
         "root_fd_disappeared_count": root_fd_disappeared,
         "root_fd_other_error_count": root_fd_other_errors,
+        # UNIT DECLARATION for the two visibility-counter families.  They are not
+        # interchangeable and their names do not say so: the root_fd_* family
+        # counts FD-level error events, the current_run_* family counts PIDs.
+        # Comparing them directly makes a reproducible disappearance look like an
+        # irreproducible one, because the PID-side list is empty by design for a
+        # mid-sweep vanishing (collector:2671-2676, and the NOT_APPLICABLE
+        # classification emitted above).  Declared as data so no consumer infers
+        # the unit from the name.  Purely additive: no counter, verdict or
+        # evidence string changes.
+        "fd_visibility_counter_units": {
+            "root_fd_permission_denied_count": "FD_ERROR_EVENTS",
+            "root_fd_disappeared_count": "FD_ERROR_EVENTS",
+            "root_fd_other_error_count": "FD_ERROR_EVENTS",
+            "root_fd_visibility_error_count": "FD_ERROR_EVENTS",
+            "current_run_permission_denied_count": "PIDS",
+            "current_run_disappeared_count": "PIDS",
+            "current_run_unreadable_count": "PIDS",
+        },
+        "blok02_observation": process_node_observation_block(
+            gpu, root_coverage, root_fd_error_count, root_fd_permission_denied,
+            root_fd_disappeared, root_fd_other_errors, root_fd_errors,
+            current_run_unreadable, current_run_permission_denied,
+            current_run_disappeared, gpu_clients),
         "gpu_delta_status": gpu_delta_status,
         "prior_error_pids": len(prior_pids),
         "prior_error_pids_resolved": len(resolved_prior),
@@ -2901,7 +3349,7 @@ def main():
         records,
         "G-01",
         {
-            "active_gpu_clients": active_gpu,
+            "active_gpu_drm_fds": active_gpu,
             "active_storage_clients": active_storage if storage_proven else "NOT_EVALUATED",
             "storage_client_evidence": storage_client_evidence,
             "storage_identity_status": storage_identity["STORAGE_IDENTITY_STATUS"],
@@ -3054,7 +3502,7 @@ def main():
     gap_results = {
         "G-01": {
             "status": g01,
-            "summary": f"active_gpu_clients={active_gpu}; active_storage_clients={active_storage if storage_proven else 'NOT_EVALUATED'}; ownership_full(legacy, NON_AUTHORITATIVE)={ownership_full}",
+            "summary": f"active_gpu_drm_fds={active_gpu}; active_storage_clients={active_storage if storage_proven else 'NOT_EVALUATED'}; ownership_full(legacy, NON_AUTHORITATIVE)={ownership_full}",
         },
         "G-02": {
             "status": g02,
@@ -3131,7 +3579,7 @@ def main():
             "CLASSIFICATION": "NON_AUTHORITATIVE",
             "value": ownership_full,
             "definition": "root_visibility_complete and active_gpu==0 and active_storage==0 and active_agents==0",
-            "reason": "P0 gate on four counters; not the AGENTS.md 11-condition ownership criterion",
+            "reason": "P0 gate on four counters; not the AGENTS.md ownership criterion",
         },
         "CAPABILITY_MATRIX": list(CAPABILITY_MATRIX),
         "ownership": ownership,

@@ -44,6 +44,56 @@ def functions() -> dict:
 # ==========================================================================
 # MED-2  namespace failure reason collapse
 # ==========================================================================
+def node_world(gpu_proven=True, **coverage):
+    """A minimal, EXPLICIT world for ownership_matrix.
+
+    Written out rather than inherited from a shared helper, so each test states
+    the world it needs.  A key the consumer reads but this omits raises
+    KeyError: that is the point -- a missing contract key must fail loudly and
+    must never be defaulted.
+    """
+    ctx = {
+        "gpu_identity": {
+            "GPU_IDENTITY_STATUS": "PROVEN" if gpu_proven else "NOT_PROVEN",
+            "GPU_CARD_NODE": 1, "GPU_RENDER_NODE": 129,
+        },
+        "root_coverage": {
+            "total_pids": 283,
+    "card_drm_client_id_fds": 0,
+    "render_drm_client_id_fds": 0,
+    "card_drm_pdev_fds": 0,
+    "render_drm_pdev_fds": 0,
+    "card_pasid_fds": 0,
+    "render_pasid_fds": 0, "fd_error_count": 0,
+            "card_complete": True, "render_complete": True,
+            "card_drm_client_id_fds": 0,
+            "render_drm_client_id_fds": 0,
+            "card_drm_pdev_fds": 0,
+            "render_drm_pdev_fds": 0,
+            "card_pasid_fds": 0,
+            "render_pasid_fds": 0,
+            "root_namespace_complete": True, "user_namespace_complete": True,
+            "drm_fds_found": 12, "drm_fdinfo_read": 12,
+            "drm_client_id_seen": 12, "drm_pdev_seen": 12, "drm_pasid_seen": 12,
+            "fd_universe_blocked_pids": 0, "fd_race_pids": 0,
+            "fd_absence_proven_pids": 0,
+            # Per-node, per-domain.  Zero for every node and every domain, so a
+            # test that cares about one of them must say so explicitly; the
+            # builder never supplies a presence nobody declared.
+            "card_drm_client_id_fds": 0, "render_drm_client_id_fds": 0,
+            "card_drm_pdev_fds": 0, "render_drm_pdev_fds": 0,
+            "card_pasid_fds": 0, "render_pasid_fds": 0,
+        },
+        "debugfs": {"DEBUGFS_CLIENT_ATTRIBUTION": "PROVEN", "reason": "ok",
+                    "clients_path": "/stub"},
+        "btrfs_observation": {}, "btrfs_status": "ABSENT",
+        "active_agents": 0, "pm_status": "READ",
+        "card_drm_client_id_fds": 12, "render_drm_client_id_fds": 0,
+    }
+    ctx["root_coverage"].update(coverage)
+    return ctx
+
+
 class Med2NamespaceReview(unittest.TestCase):
     """The namespace reason string is discarded, but the verdict is fail-closed."""
 
@@ -87,10 +137,32 @@ class Med2NamespaceReview(unittest.TestCase):
         self.assertNotEqual(f"{180}/{199}", f"{199}/{199}")
 
     def test_the_permissive_direction_is_the_only_unsafe_one_and_it_is_closed(self):
-        """The unsafe direction is a denied read counting as covered.  Closed."""
-        observe = ast.unparse(functions()["main"])
-        self.assertIn("value != 'UNAVAILABLE'", observe)
-        self.assertIn("bool(namespaces) and all(", observe.replace("\n", " "))
+        """REPLACES a SOURCE_TEXT_TEST.  Behaviour, not source text.
+
+        The unsafe direction is a denied or unreadable namespace counting as
+        covered.  Executed over the whole population: a population with any
+        denied member, or an empty population, must never report the namespace
+        row as covered.  The producer-side rule (a namespace is covered only
+        when every member of its population was read) is exercised separately by
+        test_partial_coverage_is_reported_as_a_ratio_not_a_pass; this test closes
+        the direction that would let a denial pass unnoticed.
+        """
+        # Real worlds only: ok == total and denied > 0 cannot both hold, so that
+        # combination is not a world and is not tested.
+        for denied, total, ok in ((1, 3, 2), (3, 3, 0), (0, 0, 0), (1, 2, 1)):
+            complete = total > 0 and ok == total
+            ctx = node_world(
+                root_namespace_denied=denied, root_namespace_total=total,
+                root_namespace_ok=ok, root_namespace_complete=complete,
+            )
+            row = next(r for r in collector.ownership_matrix(ctx)["conditions"]
+                       if r["condition"] == "root_namespaces_covered")
+            if denied or total == 0:
+                self.assertNotEqual(row["STATE"], "PASS",
+                                    "denied=%d total=%d ok=%d read as covered"
+                                    % (denied, total, ok))
+            else:
+                self.assertEqual(row["STATE"], "PASS")
 
     def test_namespace_rows_cannot_contribute_to_full(self):
         context = self._context()
@@ -109,6 +181,12 @@ class Med2NamespaceReview(unittest.TestCase):
                              "GPU_RENDER_NODE": "renderD129"},
             "root_coverage": {
                 "card_complete": True, "render_complete": True,
+                "card_drm_client_id_fds": 0,
+                "render_drm_client_id_fds": 0,
+                "card_drm_pdev_fds": 0,
+                "render_drm_pdev_fds": 0,
+                "card_pasid_fds": 0,
+                "render_pasid_fds": 0,
                 "user_namespace_complete": True, "root_namespace_complete": True,
                 "fd_error_count": 0, "user_namespace_ok": 84, "user_namespace_total": 84,
                 "root_namespace_ok": 199, "root_namespace_total": 199, "total_pids": 283,
@@ -116,7 +194,7 @@ class Med2NamespaceReview(unittest.TestCase):
             "debugfs": {"DEBUGFS_CLIENT_ATTRIBUTION": "PROVEN", "reason": "OK",
                         "clients_path": "/sys/kernel/debug/dri/129/clients"},
             "btrfs_observation": {}, "btrfs_status": "ABSENT", "active_agents": 0,
-            "pm_status": "READ", "card_clients": 0, "render_clients": 0,
+            "pm_status": "READ", "card_drm_client_id_fds": 0, "render_drm_client_id_fds": 0,
         }
         ctx.update(kw)
         return ctx
@@ -130,11 +208,31 @@ class Med3CompletenessReview(unittest.TestCase):
     boolean is a *sufficient* condition for each of them, or a leak."""
 
     def test_the_shared_input_is_defined_once_and_is_whole_system(self):
-        self.assertIn("root_fd_permission_denied == 0", SOURCE)
-        self.assertIn("root_fd_other_errors == 0", SOURCE)
-        self.assertIn("and not current_run_permission_denied", SOURCE)
-        self.assertIn('"card_complete": root_visibility_complete,', SOURCE)
-        self.assertIn('"render_complete": root_visibility_complete,', SOURCE)
+        """REPLACES a SOURCE_TEXT_TEST.  Behaviour, not source text.
+
+        The coverage input is whole-system, so a system-wide fact must move BOTH
+        node rows together and there must be no per-node gate that reaches only
+        one of them.  Executed: with the two node completeness terms held equal,
+        no system-wide perturbation may separate the rows, and an unproven GPU
+        identity must take both to NOT_EVALUATED rather than failing one.
+        """
+        for card, render in ((True, True), (False, False)):
+            for proven in (True, False):
+                ctx = node_world(gpu_proven=proven,
+                                 card_complete=card, render_complete=render)
+                by_key = {r["condition"]: r for r in
+                          collector.ownership_matrix(ctx)["conditions"]}
+                self.assertEqual(
+                    by_key["card_node_complete"]["STATE"],
+                    by_key["render_node_complete"]["STATE"],
+                    "equal per-node terms plus a system-wide input must not "
+                    "separate the rows",
+                )
+                if not proven:
+                    self.assertEqual(by_key["card_node_complete"]["STATE"],
+                                     "NOT_EVALUATED")
+                    self.assertEqual(by_key["render_node_complete"]["STATE"],
+                                     "NOT_EVALUATED")
 
     def test_error_count_covers_both_failure_modes_of_an_fd_table(self):
         scan = ast.unparse(functions()["scan_fds"])
@@ -181,10 +279,36 @@ class Med3CompletenessReview(unittest.TestCase):
         self.assertLess(sweep, lsof)
         self.assertLess(sweep, fuser)
 
-    def test_the_two_rows_cannot_differ_today_this_is_the_limitation(self):
-        # the shared assignment is literal, so the two states are always equal
-        self.assertEqual(SOURCE.count('"card_complete": root_visibility_complete,'), 1)
-        self.assertEqual(SOURCE.count('"render_complete": root_visibility_complete,'), 1)
+    def test_each_node_row_has_its_own_completeness_term(self):
+        """REPLACES a pin that asserted a limitation the per-node term removed.
+
+        The old test asserted the two rows could never differ, because coverage
+        was assigned from the shared flag alone.  Each node row now carries its
+        own completeness term, so all four combinations are reachable.  None of
+        them is invented here: the consumer reads one key per row, so the keys
+        are independent by construction.  What this does NOT settle is what the
+        per-node term should MEAN -- that is a normative decision, recorded as
+        REQUIREMENT_UNRESOLVED, and PROJECT_MAPPING stays NOT_ATTEMPTED.
+        """
+        expected = {
+            (True, True): ("PASS", "PASS"),
+            (True, False): ("PASS", "FAIL"),
+            (False, True): ("FAIL", "PASS"),
+            (False, False): ("FAIL", "FAIL"),
+        }
+        for (card, render), (card_state, render_state) in expected.items():
+            ctx = node_world(card_complete=card, render_complete=render)
+            by_key = {r["condition"]: r for r in
+                      collector.ownership_matrix(ctx)["conditions"]}
+            self.assertEqual(by_key["card_node_complete"]["STATE"], card_state,
+                             "card_complete=%s" % card)
+            self.assertEqual(by_key["render_node_complete"]["STATE"], render_state,
+                             "render_complete=%s" % render)
+            self.assertNotEqual(
+                by_key["card_node_complete"]["EVIDENCE"],
+                by_key["render_node_complete"]["EVIDENCE"],
+                "the two rows must stay distinguishable even when equal",
+            )
 
     def test_per_node_evidence_is_still_distinct(self):
         """The shared STATE is compensated by per-node EVIDENCE strings."""
@@ -216,6 +340,12 @@ class Med3CompletenessReview(unittest.TestCase):
                              "GPU_RENDER_NODE": "renderD129"},
             "root_coverage": {
                 "card_complete": True, "render_complete": True,
+                "card_drm_client_id_fds": 0,
+                "render_drm_client_id_fds": 0,
+                "card_drm_pdev_fds": 0,
+                "render_drm_pdev_fds": 0,
+                "card_pasid_fds": 0,
+                "render_pasid_fds": 0,
                 "user_namespace_complete": True, "root_namespace_complete": True,
                 "fd_error_count": 0, "user_namespace_ok": 84, "user_namespace_total": 84,
                 "root_namespace_ok": 199, "root_namespace_total": 199, "total_pids": 283,
@@ -223,7 +353,7 @@ class Med3CompletenessReview(unittest.TestCase):
             "debugfs": {"DEBUGFS_CLIENT_ATTRIBUTION": "PROVEN", "reason": "OK",
                         "clients_path": "/sys/kernel/debug/dri/129/clients"},
             "btrfs_observation": {}, "btrfs_status": "ABSENT", "active_agents": 0,
-            "pm_status": "READ", "card_clients": 0, "render_clients": 0,
+            "pm_status": "READ", "card_drm_client_id_fds": 0, "render_drm_client_id_fds": 0,
         }
         ctx.update(kw)
         return ctx
@@ -313,6 +443,12 @@ class Med4MapsCapReview(unittest.TestCase):
                              "GPU_RENDER_NODE": "renderD129"},
             "root_coverage": {
                 "card_complete": True, "render_complete": True,
+                "card_drm_client_id_fds": 0,
+                "render_drm_client_id_fds": 0,
+                "card_drm_pdev_fds": 0,
+                "render_drm_pdev_fds": 0,
+                "card_pasid_fds": 0,
+                "render_pasid_fds": 0,
                 "user_namespace_complete": True, "root_namespace_complete": True,
                 "fd_error_count": 0, "user_namespace_ok": 84, "user_namespace_total": 84,
                 "root_namespace_ok": 199, "root_namespace_total": 199, "total_pids": 283,
@@ -320,7 +456,7 @@ class Med4MapsCapReview(unittest.TestCase):
             "debugfs": {"DEBUGFS_CLIENT_ATTRIBUTION": "PROVEN", "reason": "OK",
                         "clients_path": "/sys/kernel/debug/dri/129/clients"},
             "btrfs_observation": {}, "btrfs_status": "ABSENT", "active_agents": 0,
-            "pm_status": "READ", "card_clients": 0, "render_clients": 0,
+            "pm_status": "READ", "card_drm_client_id_fds": 0, "render_drm_client_id_fds": 0,
         }
         baseline = collector.ownership_matrix(ctx)
         # no key a maps result could populate changes a single row
@@ -345,6 +481,12 @@ class NoBadConclusionTests(unittest.TestCase):
                          "GPU_RENDER_NODE": "renderD129"},
         "root_coverage": {
             "card_complete": True, "render_complete": True,
+            "card_drm_client_id_fds": 0,
+            "render_drm_client_id_fds": 0,
+            "card_drm_pdev_fds": 0,
+            "render_drm_pdev_fds": 0,
+            "card_pasid_fds": 0,
+            "render_pasid_fds": 0,
             "user_namespace_complete": True, "root_namespace_complete": True,
             "fd_error_count": 0, "user_namespace_ok": 84, "user_namespace_total": 84,
             "root_namespace_ok": 199, "root_namespace_total": 199, "total_pids": 283,
@@ -352,7 +494,7 @@ class NoBadConclusionTests(unittest.TestCase):
         "debugfs": {"DEBUGFS_CLIENT_ATTRIBUTION": "PROVEN", "reason": "OK",
                     "clients_path": "/sys/kernel/debug/dri/129/clients"},
         "btrfs_observation": {}, "btrfs_status": "ABSENT", "active_agents": 0,
-        "pm_status": "READ", "card_clients": 0, "render_clients": 0,
+        "pm_status": "READ", "card_drm_client_id_fds": 0, "render_drm_client_id_fds": 0,
     }
 
     def test_full_is_unreachable_across_the_whole_input_space(self):
@@ -377,7 +519,7 @@ class NoBadConclusionTests(unittest.TestCase):
                 "btrfs_status": assignment["btrfs_status"],
                 "active_agents": assignment["active_agents"],
                 "pm_status": assignment["pm_status"],
-                "card_clients": 0, "render_clients": 0,
+                "card_drm_client_id_fds": 0, "render_drm_client_id_fds": 0,
             }
             for attribution in ("PROVEN", "NOT_AVAILABLE", "OBSERVED"):
                 ctx["debugfs"] = dict(self.BASE["debugfs"],
@@ -395,7 +537,8 @@ class NoBadConclusionTests(unittest.TestCase):
                                                DEBUGFS_CLIENT_ATTRIBUTION=attribution))
             result = collector.ownership_matrix(ctx)
             by_key = {r["condition"]: r for r in result["conditions"]}
-            self.assertNotEqual(by_key["clients_pasid_attributable"]["STATE"], "PASS")
+            # The row is retired: a formalisation naming three domains at once.
+            self.assertNotIn("clients_pasid_attributable", by_key)
 
     def test_gpu_identity_not_proven_forces_not_evaluated_not_pass(self):
         ctx = dict(self.BASE, gpu_identity={"GPU_IDENTITY_STATUS": "NOT_PROVEN",

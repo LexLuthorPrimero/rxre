@@ -1,0 +1,311 @@
+{
+  "schema": "rx550-ownership-closure-attempt-hostc-1",
+  "generated_at": "20260925T232522Z",
+  "mode": "READ_ONLY_EVIDENCE",
+  "attempts_to_reach": "OWNERSHIP=FULL",
+  "outcome": "NOT_REACHABLE_WITHOUT_PRIVILEGE",
+  "writes_to_system": false,
+  "privileges_used": "none (no sudo)",
+  "package_installs": 0,
+  "service_changes": 0,
+  "sysfs_writes": 0,
+  "processes_terminated": 0,
+  "processes_suspended": 0,
+  "processes_namespaces_entered": 0,
+  "patches_applied": 0,
+  "c1_executed": false,
+  "benchmarks_executed": false,
+  "host": {
+    "scope": "HOST-C",
+    "scope_basis": "DECLARED",
+    "os": "Nobara Linux 44 (KDE Plasma Desktop Edition)",
+    "kernel_running": "7.1.3-200.nobara.fc44.x86_64",
+    "head_commit": "c6146788e0d4fb12d9b0ec1209fa2840692de0c5"
+  },
+  "prior_evidence_preserved": [
+    "01-AUDITORIA/OWNERSHIP-AUDIT-HOST-C/OWNERSHIP-AUDIT-HOST-C-20260925T231635Z.{json,md}",
+    "01-AUDITORIA/FINAL-VALIDATION/FINAL-VALIDATION-20260925T231128Z.{json,md}",
+    "01-AUDITORIA/HOST-C-DIAGNOSTIC-RECONCILIATION/HOST-C-DIAGNOSTIC-RECONCILIATION-20260925T232146Z.{json,md}"
+  ],
+  "A_drm_visibility": {
+    "question": "Does any unprivileged source enumerate card1 and renderD129 clients?",
+    "oracles_tried": [
+      {
+        "oracle": "/proc/<pid>/fd symlinks",
+        "result": "PARTIAL",
+        "classification": "OBSERVED",
+        "detail": "enumerates only PIDs whose fd dir is readable to uid 1000"
+      },
+      {
+        "oracle": "/proc/<pid>/fdinfo drm-* fields",
+        "result": "PARTIAL",
+        "classification": "OBSERVED",
+        "detail": "available only where the fd is readable; gave client-id 71 / pdev 0000:01:00.0 for Xwayland"
+      },
+      {
+        "oracle": "/sys/class/drm/{card0,card1,renderD128,renderD129}/device/*",
+        "result": "NONE",
+        "classification": "NOT_AVAILABLE",
+        "detail": "83 attributes enumerated per card; NONE is a client/pasid/fd counter"
+      },
+      {
+        "oracle": "/sys/bus/pci/devices/0000:01:00.0/resourceN/clients",
+        "result": "BLOCKED",
+        "classification": "NOT_AVAILABLE",
+        "detail": "resource0 is mode 0600 root:root and is NOT a directory; the DRM 'clients' debugfs-style file is not exposed here"
+      },
+      {
+        "oracle": "/sys/kernel/debug/dri/1/",
+        "result": "BLOCKED",
+        "classification": "NOT_AVAILABLE",
+        "detail": "debugfs is mounted (type debugfs) but /sys/kernel/debug is drwx------ root:root"
+      },
+      {
+        "oracle": "/sys/bus/pci/devices/0000:01:00.0/{gpu_busy_percent,mem_busy_percent}",
+        "result": "EMPTY",
+        "classification": "NOT_AVAILABLE",
+        "detail": "read returns empty; not a client oracle"
+      },
+      {
+        "oracle": "systemctl show --property MainPID kwin_wayland.service",
+        "result": "NOT_FOUND",
+        "classification": "NOT_AVAILABLE",
+        "detail": "returns 0 / unit not resolved by that name"
+      }
+    ],
+    "conclusion": "Every DRM client-enumeration path outside /proc requires root. No unprivileged substitute exists on this host.",
+    "classification": "OBSERVED"
+  },
+  "aggregate_allocation_evidence": {
+    "question": "Can unattributed memory prove or disprove an unseen client?",
+    "readings": {
+      "mem_info_vram_used": "5439488",
+      "mem_info_vis_vram_used": "5439488",
+      "mem_info_vram_total": "2147483648",
+      "mem_info_gtt_used": "12226560"
+    },
+    "known_client_accounting": {
+      "who": "Xwayland PID 1923 fd13",
+      "drm_memory_vram": "0 KiB",
+      "drm_memory_gtt": "2184 KiB",
+      "amd_requested_vram": "136 KiB"
+    },
+    "interpretation": "Xwayland accounts 2184 KiB GTT + 136 KiB VRAM. Aggregate VRAM in use is 5439488 B (~5308 KiB) and aggregate GTT is 12226560 B (~11940 KiB), so a substantial part of the allocation is NOT attributed to any observed client.",
+    "what_this_proves": "SUPPORTED — memory is allocated on the RX550 beyond what the single observed client accounts for.",
+    "what_this_does_NOT_prove": "UNKNOWN — aggregate counters carry no per-client attribution. The unattributed remainder is consistent with a privileged or unreadable client (kwin_wayland is the obvious candidate) but does NOT demonstrate one. Absence of per-client counters means this evidence can neither confirm nor exclude.",
+    "classification": "SUPPORTED (existence of unattributed allocation) / UNKNOWN (its owner)",
+    "explicitly_not_inferred": "The unattributed VRAM/GTT is NOT attributed to kwin_wayland. Attributing it would be exactly the inference the task forbids."
+  },
+  "B_kwin_1825": {
+    "question": "Can kwin_wayland's relationship to 0000:01:00.0 be established unprivileged?",
+    "observable_without_privilege": {
+      "comm": "kwin_wayland",
+      "cmdline": "/usr/bin/kwin_wayland --wayland-fd 7 --socket wayland-0 --xwayland-fd 8 --xwayland-fd 9 --xwayland-display :0 --xwayland-xauthority /run/user/1000/xauth_UCbGrT --xwayland",
+      "status_readable": true,
+      "stat_readable": true,
+      "threads": "28",
+      "uid": "1000",
+      "ppid": "1817",
+      "CapEff": "0000000000800000",
+      "NoNewPrivs": 0,
+      "Seccomp": 0
+    },
+    "blocked_without_privilege": [
+      "/proc/1825/fd",
+      "/proc/1825/maps",
+      "/proc/1825/io",
+      "/proc/1825/cwd",
+      "/proc/1825/root",
+      "/proc/1825/ns/{mnt,pid,net,user,uts,ipc,cgroup}"
+    ],
+    "capability_decoding": {
+      "CapEff": "0x800000",
+      "bit_set": 23,
+      "capability": "CAP_SYS_NICE",
+      "significance": "Proves a privileged origin: the process is uid 1000 but retains a capability a normal user process cannot hold. It is NOT a DRM capability.",
+      "does_not_explain_denial": "CAP_SYS_NICE does not itself gate /proc/<pid>/fd. The denial mechanism is not identified. Yama ptrace_scope=0 is NOT the cause."
+    },
+    "parent_exploration": {
+      "pid": "1817",
+      "comm": "kwin_wayland_wr",
+      "fd_readable": true,
+      "drm_fds_found": "NONE",
+      "drm_fdinfo_found": "NONE",
+      "significance": "The wrapper holds no DRM node. The FDs it passes to kwin (--wayland-fd 7, --xwayland-fd 8/9) are Wayland/X11 sockets, not DRM nodes. The DRM fd, if any, is opened by kwin_wayland itself and is unobservable."
+    },
+    "KWIN_RELATION": "UNKNOWN",
+    "classification": "UNKNOWN",
+    "explicitly_not_inferred": "kwin_wayland is the compositor of the active session, and the project's HOST-A evidence recorded it holding card1 and renderD129. NONE of that is transferred. Being the compositor does not demonstrate use of the RX550: the host has an Intel HD 4600 that owns the display connectors (card1-DVI-D-1, card1-HDMI-A-2 connector names are on card0). Its relationship to 0000:01:00.0 is not demonstrable without reading its fd table."
+  },
+  "C_root_coverage": {
+    "root_owned_pids": 199,
+    "unprivileged_oracles_for_root_clients": [
+      {
+        "oracle": "/proc/<pid>/fd (uid 0)",
+        "result": "BLOCKED"
+      },
+      {
+        "oracle": "fdinfo drm-* (uid 0)",
+        "result": "BLOCKED"
+      },
+      {
+        "oracle": "systemctl show MainPID per unit",
+        "result": "INCOMPLETE",
+        "detail": "resolves some units but not a client list, and returned 0 for kwin_wayland.service"
+      },
+      {
+        "oracle": "aggregate amdgpu counters",
+        "result": "NO_PER_CLIENT_ATTRIBUTION"
+      }
+    ],
+    "conclusion": "No unprivileged source enumerates DRM clients held by root-owned processes. The barrier is structural, not a matter of trying harder.",
+    "ROOT_COVERAGE": "NOT_AVAILABLE",
+    "classification": "OBSERVED (the limitation) / NOT_AVAILABLE (the evidence)"
+  },
+  "D_namespace_coverage": {
+    "observation": "Of 283 PIDs, 215 have an unreadable /proc/<pid>/fd: 199 root-owned, 5 uid-1000 (sd-pam, kwin_wayland, polkit-kde-auth, ssh-agent, fusermount3), and 11 belonging to other uids.",
+    "uid1000_restricted_case": "kwin_wayland (1825) is uid 1000 yet its fd, maps, io, cwd, root and all 7 namespace links are denied, while its parent (1817, same uid) is fully readable. The differentiator was not identified: not Yama (ptrace_scope=0), not seccomp (0), not NoNewPrivs (0). No bypass was attempted.",
+    "namespaces_entered": 0,
+    "namespaces_modified": 0,
+    "NAMESPACE_COVERAGE": "PARTIAL",
+    "classification": "OBSERVED"
+  },
+  "E_criterion_evaluation": {
+    "source": "AGENTS.md section Ownership (unchanged; not modified to reach FULL)",
+    "conditions": [
+      {
+        "condition": "card1 complete evidence",
+        "result": "FAIL",
+        "classification": "OBSERVED",
+        "reason": "kwin_wayland fd unreadable; 199 root PIDs uncovered"
+      },
+      {
+        "condition": "renderD129 complete evidence",
+        "result": "FAIL",
+        "classification": "OBSERVED",
+        "reason": "0 readable clients is not evidence of 0 actual clients; compositor unreadable"
+      },
+      {
+        "condition": "user namespaces covered",
+        "result": "FAIL",
+        "classification": "OBSERVED",
+        "reason": "kwin_wayland is in the user session and is unreadable; Xwayland is a child of it (ppid 1825)"
+      },
+      {
+        "condition": "root namespaces covered",
+        "result": "FAIL",
+        "classification": "OBSERVED",
+        "reason": "199 root-owned PIDs, no unprivileged oracle"
+      },
+      {
+        "condition": "DRM FDs enumerated",
+        "result": "PARTIAL",
+        "classification": "OBSERVED",
+        "reason": "8 FDs / 6 PIDs readable; full set not enumerable"
+      },
+      {
+        "condition": "writers resolved (governor, IRQ, scheduler, read-ahead, storage)",
+        "result": "NOT_EVALUATED",
+        "classification": "NOT_AVAILABLE",
+        "reason": "outside a client-FD audit; belongs to the storage/IRQ layer"
+      },
+      {
+        "condition": "agents absent",
+        "result": "PASS",
+        "classification": "OBSERVED",
+        "reason": "kalm*, system-autopilot, sys-tuned all not-found (BLK-02); irqbalance present and enabled"
+      },
+      {
+        "condition": "PM state",
+        "result": "PASS",
+        "classification": "OBSERVED",
+        "reason": "power/control=auto, runtime_status observed; BLK-02"
+      },
+      {
+        "condition": "guard and restore validated",
+        "result": "FAIL",
+        "classification": "OBSERVED",
+        "reason": "RESTORE_EXECUTED=NO, RESTORE_VALIDATED=NO (C1 design doc); no runtime allowed"
+      },
+      {
+        "condition": "Btrfs identity",
+        "result": "NOT_APPLICABLE",
+        "classification": "OBSERVED",
+        "reason": "host root is /dev/sdb3 ext4, not Btrfs; HOST-A Btrfs claims do not transfer"
+      }
+    ],
+    "conditions_total": 11,
+    "conditions_pass": 3,
+    "conditions_fail": 6,
+    "conditions_partial": 1,
+    "conditions_not_evaluated": 1,
+    "OWNERSHIP_CRITERION": "COMPLETE_AS_DEFINED"
+  },
+  "closure_routes": [
+    {
+      "route_id": "R1",
+      "REQUIRED_EVIDENCE": "/proc/<pid>/fd + fdinfo for every process holding a RX550 DRM node, including uid 0 and including kwin_wayland",
+      "WHY_CURRENT_ACCESS_CANNOT_OBTAIN_IT": "Kernel gates those paths on privilege; uid 1000 without CAP_SYS_PTRACE-equivalent cannot read them. ptrace_scope=0 does not help because the restriction is not Yama.",
+      "MINIMAL_NEXT_ACTION": "A single privileged READ-ONLY collection run, equivalent to the project's own privileged_read_collector.py, as a separately authorized step",
+      "RISK": "LOW for the collection itself (read-only); it does NOT authorise C1 or isolation",
+      "REVERSIBILITY": "NOT_APPLICABLE — no state change",
+      "would_resolve": [
+        "card1",
+        "renderD129",
+        "root namespaces",
+        "user namespaces",
+        "DRM FDs"
+      ],
+      "would_NOT_resolve": [
+        "writers",
+        "guard/restore"
+      ],
+      "classification": "SUPPORTED"
+    },
+    {
+      "route_id": "R2",
+      "REQUIRED_EVIDENCE": "Writer attribution for governor, IRQ affinity, scheduler, read-ahead, storage on the RX550 and the root filesystem during a measurement window",
+      "WHY_CURRENT_ACCESS_CANNOT_OBTAIN_IT": "Requires /proc/<pid>/fd of root agents and /sys/kernel/debug or per-CPU irq affinity reads; no unprivileged equivalent",
+      "MINIMAL_NEXT_ACTION": "Documented as a separate read-only audit; NOT executed here",
+      "RISK": "LOW if read-only",
+      "REVERSIBILITY": "NOT_APPLICABLE",
+      "would_resolve": [
+        "writers"
+      ],
+      "would_NOT_resolve": [
+        "card1",
+        "renderD129",
+        "guard/restore"
+      ],
+      "classification": "SUPPORTED"
+    },
+    {
+      "route_id": "R3",
+      "REQUIRED_EVIDENCE": "A validated, independent recovery path (TTY/console/session) and a verified restore, before any isolation could ever be considered",
+      "WHY_CURRENT_ACCESS_CANNOT_OBTAIN_IT": "Requires runtime execution; C1 execution is prohibited and PREVIOUS_RECOVERY=FAIL on HOST-A",
+      "MINIMAL_NEXT_ACTION": "None within current authorization",
+      "RISK": "HIGH",
+      "REVERSIBILITY": "MANDATORY",
+      "would_resolve": [
+        "guard/restore"
+      ],
+      "would_NOT_resolve": [
+        "card1",
+        "renderD129",
+        "root namespaces",
+        "writers"
+      ],
+      "classification": "SUPPORTED"
+    }
+  ],
+  "conclusion": {
+    "OWNERSHIP": "PARTIAL",
+    "OWNERSHIP_BLOCKER": "DOCUMENTED_ACCESS_LIMITATION",
+    "BLK_01": "NOT_CLOSED",
+    "G1": "OPEN",
+    "barriers_reduced_this_stage": "NONE",
+    "barriers_newly_quantified": "The kwin_wayland denial is NOT Yama, NOT seccomp, NOT NoNewPrivs; the mechanism was not identified. 5 uid-1000 processes are affected, not 1.",
+    "conditions_that_new_evidence_did_satisfy": "NONE. This stage produced no condition change; it produced a documented proof that the remaining conditions are unreachable without privilege.",
+    "absence_not_converted": "The absence of visible renderD129 clients and the absence of Kalm were NOT converted into evidence of absence or into ownership FULL."
+  }
+}

@@ -12,7 +12,7 @@ decisiones T/s*/GATEs/R1–R7/F1–F6 del protocolo.
 
 1. **Build** del harness Diseño B (`harness/app_vulkan.c` + shaders → SPIR-V via glslangValidator,
    ninja). OK.
-2. **Smoke test inicial** (logs descartados en `/tmp/opencode/f4a-smoke/`, fuera de `results/`):
+2. **Smoke test inicial** (logs descartados en `/tmp/opencode/f4a-smoke/` — **PERDIDO / NO VERIFICABLE**; fuera de `results/`):
    `governor_harness --mode fixed --scale 1.00 --warm 2 --duration 4`.
    → **P99(1.00) ≈ 3.8 ms** (n=1057).
 3. **El primer workload NO superó el GATE de calibración** `P99(1.00) ∈ [5,200] ms` (3.8 < 5).
@@ -24,7 +24,7 @@ decisiones T/s*/GATEs/R1–R7/F1–F6 del protocolo.
    - **INTACTO (fijado por protocolo/DESIGN-GRAPHICS §Diseño B):** W×H=1920×1080, N=4 capas
      (eje 1–8 solo para disturbio), 4 texturas 4096², blending aditivo, viewport+scissor por
      render-scale, push constants scale_w/scale_h/layer/seed, salida de alta varianza (derrota DCC).
-5. **Smoke test post-recalibración** (logs descartados en `/tmp/opencode/f4a-s/`, duración 4 s por
+5. **Smoke test post-recalibración** (logs descartados en `/tmp/opencode/f4a-s/` — **PERDIDO / NO VERIFICABLE**; duración 4 s por
    escala, 1 corrida/escala): curva **preliminar** de calibración
 
    | s | P99 [ms] preliminar |

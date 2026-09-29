@@ -42,6 +42,11 @@ ASMFLAGS := -mavx2
 #   make GLSLANG=/path/to/glslangValidator decompress_bc3.spv
 GLSLANG ?= /home/lucas/glslang/build/StandAlone/glslangValidator
 
+# spirv-tools 2026.1 is installed on this host (/usr/bin/spirv-val). An earlier
+# revision of this file and of README.md claimed it was absent; that was wrong --
+# the check had never been run.
+SPIRV_VAL ?= spirv-val
+
 COMP    := ../compressor
 C_SRC   := shader_vs_c.c
 C_OBJS  := $(COMP)/rx550_compress.o $(COMP)/rx550_compress_avx2.o
@@ -119,9 +124,14 @@ check-spirv: $(SPV)
 	@echo "  palabras: $$(expr $$(stat -c%s $(SPV)) / 4)"
 	@od -An -tx4 -N4 $(SPV) | grep -q 07230203 \
 	  || { echo "  ERROR: no es un modulo SPIR-V"; exit 1; }
-	@echo "  OK: modulo SPIR-V con cabecera valida"
-	@echo "  ATENCION: esto NO es validacion de esquema. Requiere spirv-val,"
-	@echo "  que no esta instalado en este host (NOT_AVAILABLE)."
+	@echo "  OK: cabecera SPIR-V valida"
+	@command -v $(SPIRV_VAL) >/dev/null 2>&1 \
+	  || { echo "  ATENCION: $(SPIRV_VAL) no instalado; validacion de esquema NO_AVAILABLE"; exit 0; }
+	@echo "  $(SPIRV_VAL): $$( $(SPIRV_VAL) --version 2>&1 | head -1 )"
+	@$(SPIRV_VAL) --target-env vulkan1.1 $(SPV) \
+	  || { echo "  ERROR: el modulo no valida contra el esquema SPIR-V"; exit 1; }
+	@echo "  OK: valida contra el esquema SPIR-V para Vulkan 1.1"
+	@echo "  ATENCION: validacion de esquema NO es ejecucion. Para eso, make test-gpu."
 
 clean:
 	rm -f shader_vs_c test_decompress $(SPV)

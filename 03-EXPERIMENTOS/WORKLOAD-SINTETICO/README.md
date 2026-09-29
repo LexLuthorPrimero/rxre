@@ -1,8 +1,10 @@
 # Workload sintético GPU (prototipo mínimo, #[HIPÓTESIS]/DISEÑO PENDIENTE)
 
-Rama §J del MASTER-PLAN. Prototipo mínimo de un workload Vulkan **compute** para
-la RX 550 (Polaris12/RADV). Pendiente de validación (NO ejecutado aún por
-instrucción; NO es candidato M2 hasta pasar los gates de §J).
+Rama §J del MASTER-PLAN. Este README describe tanto el **prototipo histórico**
+(E-01/E-02/E-03/ES-01/F2 ya preservados) como el **diseño modular futuro** de un
+workload Vulkan para la RX 550 (Polaris12/RADV). El prototipo histórico no se reejecuta
+ni se convierte en capacidad actual; el diseño modular sigue pendiente de validación
+y no es candidato M2 hasta pasar sus gates.
 
 ## Propósito de este prototipo
 
@@ -39,7 +41,7 @@ Ambiente recomendado (igual que M1/exploratorios):
 
 ```bash
 VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/radeon_icd.x86_64.json \
-MESA_VK_DEVICE_SELECT=1002:699f \
+# MESA_VK_DEVICE_SELECT=1002:699f  # opcional; no sustituye la verificación
 ./main ...
 ```
 
@@ -81,5 +83,5 @@ make main-graphics        # el binario `main` de E-01/E-02 NO se recompila
 6. Sin crashes/reset/hang/OOM (por validar con telemetría + journal).
 7. Temperatura estable (por validar).
 8. Consumo reproducible (por validar).
-9. ≥27 W sostenidos con cap=35 W (objetivo, NO garantizado).
+9. ≥27 W `W_SMU` sostenidos con cap=35 W (objetivo, no garantizado; no es vatímetro).
 10. Repetibilidad para A/B (por validar).

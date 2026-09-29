@@ -1,6 +1,11 @@
 # IDEA I-07 — ASYNC OPTICAL FLOW FRAME GENERATION: POLARIS12 FEASIBILITY
 
-RX550 target facts: 8 CUs / 512 SP / ~1.2 TFLOPs FP32 / 512 KB L2 / 112 GB/s / 16 ROPs / GCN4 (ACE+HWS).
+RX550 target facts: 8 CUs / 512 SP / ~1.2 TFLOPs FP32 / 512 KB L2 / 16 ROPs / GCN4.
+Bandwidth nominal/estimado 96–112 GB/s según módulo/VBIOS; bandwidth real `UNKNOWN`.
+
+> **RECONCILIACIÓN 2026-09-24:** la familia GCN4 documenta ACEs/HWS, pero el número de
+> ACEs de Polaris12 y cualquier reserva de CUs por Vulkan son `UNKNOWN`. Las extrapolaciones
+> de coste de FSR3 no son mediciones locales y no prueban inviabilidad.
 
 ## 1. HOW MANY CUs WOULD OPTICAL FLOW NEED? (scaled from the FidelityFX reference)
 
@@ -12,14 +17,19 @@ Reference algorithm (FFX Optical Flow, GPUOpen primary doc): 7 iterations of [se
 
 **Extrapolated cost from FSR3's own tables (async OFF, PIX), normalized to RX550:**
 - RX 5700 XT (36 CUs → 9.75 TFLOPs): FG at 1080p NativeAA ≈ **2.2 ms**, 4K Native AA ≈ 8.0 ms; Upscale ≈ 4.7 ms@4K.
-- Effective RX550/US reckoning: RX550 ≈ 1.21 TFLOPs. Scaled (TFLOPs ratio ≈ 8×; absolute ceilings even lower due to 112 GB/s vs 448): **1080p OF+FI ≈ 8–20 ms**, 720p ≈ 4–10 ms, 540p ≈ 2–5 ms.
+- Effective RX550/US reckoning: RX550 ≈ 1.21 TFLOPs. Scaling (TFLOPs ratio ≈ 8×;
+  ceilings depend on 96–112 GB/s nominal/estimado, real bandwidth `UNKNOWN`):
+  **1080p OF+FI ≈ 8–20 ms**, 720p ≈ 4–10 ms, 540p ≈ 2–5 ms.
 - At 60-fps real, the RX550 has ~16.7 ms to generate one interpolated frame; extrapolation lands on or above that → **frame generation at 1080p consumes most or all of the available gap** even before game load. This is why AMD only lists RX 5000+ / RTX2000+ as recommended.
 
-**Can it fit in async ACEs without hurting the graphics queue?** On GCN the ACEs dispatch to the *same* 8 CUs. There is no separate shader block. Real answer: the flow competes in the CU scheduler; AMD GDC17/Division2: same GPR/LDS/cache; any GPU-bound game is hurt ≈ flow cost. Only ROP/geometry-bound, CU-lane-idle passes (shadow maps, depth prepass) provide genuine hide — exactly the narrow window AMD's async guidance describes (GPUOpen). With CU reservation you can carve CUs for flow, but on a 4-SIMD/CU machine reserving 1 CU = losing 12.5% of total compute to the game.
+**Can it fit in async ACEs without hurting the graphics queue?** La familia GCN4
+documenta queues/ACEs y posiblemente comparte la shader array; el número de ACEs y la
+semántica de scheduling/overlap de esta unidad son `UNKNOWN`. No se presupone una API de
+reserva de CUs. El impacto debe medirse.
 
 ## 2. MEMORY BANDWIDTH COST
 Flow chain traffic ≈ per pair of frames: luma pyramids (7 levels × 2 buffers), 7 search passes each reading prev luma (256 candidates × up to ~2 kB neighborhood traffic core + block reuse), flow buffers (R16G16 at W/8,H/8 per level), scene-change histograms; interpolation adds: estimate depth pass, 2 MV fields + inpaint pyramids, disocclusion, interp, inpaint — all reading/writing at ~full-res.
-- Estimate: ≥ 4–6 full-frame read passes + ~2–3 writes ≈ **35–60 MB per generated frame** at 1080p. Against 112 GB/s → **~0.3–0.5 ms/generated frame of pure DRAM time**, but note this is *extra* traffic stacked on the real frame's rendering traffic (game already uses ~most of 112 GB/s at GPU-bound 60 fps). Adding 0.4–1 ms/frame bandwidth + the flow ALU time → realistic 8–20 ms total as above.
+- Estimate: ≥ 4–6 full-frame read passes + ~2–3 writes ≈ **35–60 MB por frame generado** a 1080p (estimación, no medición). Contra 96–112 GB/s nominal/estimado, el tiempo puro de bandwidth y el impacto real son `UNKNOWN`; no se concluye inviabilidad.
 - On 2 GB VRAM RX550 SKUs: FSR3-style working set (+100–170 MB at 1080p, or more in async mode w/ double buffering) plus luma/flow surfaces is defensible at 720p/540p but tight at 1080p on the 2 GB cards.
 
 ## 3. LATENCY BUDGET
@@ -43,6 +53,10 @@ Frame generation inherently waits for *two real frames* (prev + next) → interp
 Rule: GENERATED FPS = REAL FPS × 2 only while REAL FPS itself doesn't drop from the flow stealing CUs/bandwidth; on RX550 the flow eats the CU budget that would otherwise keep REAL FPS up. Realistically: this GPU should use FG only at ≤720p with an already-frame-time-light scene, and the *honest* win is smoothness at very low resolution — never a throughput gain.
 
 ## 7. VERDICT
-- **Technically plausible?** Yes — the algorithmic machinery is public, portable (Vulkan/async-queue, SM6.2 / GLSL4.50+wave), and demonstrated end-to-end in FFX SDK and lsfg-vk. **On RX550 specifically: practically disfavored.** The 8-CU/112 GB/s envelope puts 1080p OF+FI at ~8–20 ms/generated frame, latency +20–30 ms+, artifacts above the AMD-recommended floor unless base fps≥60 (circular on this hardware), working-set pressure on 2 GB SKUs.
-- **Novelty:** KNOWN VARIANT (reference implementation shipped by the same vendor, open SDK, plus community layer ports). The RX550/Polaris12 target platform is the only delta → PARTIALLY NOVEL strictly in the "port to lowest-GCN4 tier" sense; premise "CUs free" CONTRADICTED BY PRIOR ART at this GPU tier.
-- Recommended path if pursued at all: measurement-first at 540p/720p mirroring FFX OF pass-for-pass.
+- **Technically plausible?** La maquinaria algorítmica es pública, pero la capacidad local,
+  overlap, bandwidth efectivo y beneficio en RX550 son `UNKNOWN`; las extrapolaciones FSR3
+  no sustituyen una medición.
+- **Novelty:** `KNOWN VARIANT` como algoritmo; la aplicabilidad/impacto en Polaris12 es
+  `REQUIRES CAPABILITY AUDIT` y `REQUIRES EXPERIMENT`.
+- Recommended path: measurement-first, sin declarar inviabilidad ni viabilidad antes de
+  evidencia local.

@@ -7,8 +7,9 @@ Fase 1). **NO modifica** workload, T, s*, render-scales, thresholds, criterios R
 cantidad de bloques, ni ninguna condición que pueda favorecer artificialmente al governor.
 **Motivo:** la sesión 1 v2.1 terminó por **PARADA D** (histéresis asc↔desc = 58.3 % >15 %, §14-D) por
 **throttling térmico** del workload (die ~92 °C, SCLK 1071→551 MHz), diagnosticado con la investigación
-read-only `experiments/FASE-R4B-THERMAL-TEST/` (auditoría Kalm: no intervino; ramp 0.31 °C/s,
-recuperación a ≤50 °C en 255–270 s medida; power 23.5 W < cap 35 W → throttling puramente térmico).
+read-only `03-EXPERIMENTOS/FASE-R4B-THERMAL-TEST/` (auditoría Kalm: no intervino; ramp 0.31 °C/s,
+recuperación a ≤50 °C en 255–270 s medida; `W_SMU` 23.5 W < cap 35 W → asociación térmica,
+sin afirmar causalidad "puramente térmica").
 
 ---
 
@@ -32,9 +33,9 @@ p1 (asc 1.00→0.50)  →  COOLDOWN_1  →  p2 (desc 0.50→1.00)  →  COOLDOWN
   durísimo de 3600 s para evitar deadlock; si se excede → parada D + reporte).
 - Si la condición se cumple antes → proseguir; **se registra el tiempo real** de cada cooldown
   (`fase1/cooldown{1,2}.tsv` y log).
-- Justificación de 50 °C: DN-07 (decisions.md) fija cooldown a ≤50 °C para iniciar experimentos;
-  margen de 42–47 °C bajo el punto de degradación sostenida observado (≥92 °C) y garantiza
-  re-entrada en régimen pleno SCLK 1071 MHz.
+- Justificación histórica de 50 °C: DN-07 fijaba esa condición de entrada; el margen
+  observado no garantiza reentrada general en SCLK 1071 MHz. La reentrada se verifica por
+  telemetría y gates de cada corrida.
 
 ## 2. Todo lo demás (sin cambios respecto a v2.1)
 

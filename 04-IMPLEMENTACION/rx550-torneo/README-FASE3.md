@@ -141,7 +141,7 @@ Campos de auditoría: los de Fase 2 más `field`, `limits`, `original_int`,
 ## Runbook propuesto (NO ejecutar todavía)
 
 ```bash
-cd ~/Escritorio/RX550_Iterative_Research/rx550-torneo
+cd ~/Escritorio/RX550-INVESTIGACION/04-IMPLEMENTACION/rx550-torneo
 ./rx550-torneo cap-write-test                 # ver valor propuesto (read-only)
 sudo ./rx550-torneo cap-write-test --confirm --json
 ```

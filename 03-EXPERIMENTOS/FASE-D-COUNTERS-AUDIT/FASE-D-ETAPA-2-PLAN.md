@@ -12,10 +12,12 @@
 
 Determinar qué actividad de hardware (por bloque GFX y por memoria) diferencia:
 
-- **Superposition 1.1 High** (OpenGL/radeonsi): `power_avg_steady ≈ 22.31 W`, SCLK 1071 MHz, MCLK 1500 MHz, `gpu_busy ≈ 100 %`, `mem_busy ≈ 24.6 %`, VRAM ≈ 1.55 GB.
+- **Superposition 1.1 `1600×900/Medium`** (OpenGL/radeonsi): `W_SMU` steady ≈ 22.31 W, SCLK 1071 MHz, MCLK 1500 MHz, `gpu_busy ≈ 100 %`, `mem_busy ≈ 24.6 %`, VRAM ≈ 1.55 GB.
 - **WORKLOAD-SINTETICO E-03** (Diseño B, Vulkan/RADV): `power_avg_steady ≈ 15.75 W`, SCLK/MCLK según evidencia histórica (`power_avg_full 13.40`, steady 15.75), con **clock gating observado en FASE D etapa 1** (gpu ~19 %, MCLK 300 MHz, sclk ~433 MHz durante la medida E-03 en diagnóstico puntual).
 
-Pregunta rectora: **¿qué contadores de clase A (lectura pura, validados en FASE D etapa 1) muestran actividad interna distinta** —texels, wavefronts activos, raster/fill, presión de memoria— que explique +6.5 W steady (22.31 vs 15.75)?
+Pregunta rectora: **¿qué señales de clase A (lectura pura, auditadas en FASE D etapa 1)
+muestran actividad interna distinta** —texels, wavefronts activos, raster/fill, presión de
+memoria— que correlacione con la `W_SMU` observada (+6.5 W; 22.31 vs 15.75)?
 
 La comparación **conserva el comportamiento natural** de cada workload. **No** se fuerzan frecuencias ni se igualan clocks (prohibido).
 
@@ -25,7 +27,7 @@ La comparación **conserva el comportamiento natural** de cada workload. **No** 
 
 | Variable | Niveles | Nota |
 |---|---|---|
-| Workload | **A = Superposition High (DGL, unigine)** / **B = E-03 base (Diseño B)** | Configuración inmutada (reglas 8 y 9) |
+| Workload | **A = Superposition `1600×900/Medium` (OpenGL/radeonsi)** / **B = E-03 base (Diseño B)** | Configuración efectiva histórica conservada; no reejecutar |
 | Orden de corridas | Intercalado **A B A B A B** (3 réplicas c/u) | Mitiga deriva térmica y de PowerPlay |
 | Pausa inter-runs | 30 s idle (misma workload) / 60 s idle (cambio de workload) | Vuelve clocks a piso y estabiliza térmico |
 
@@ -210,11 +212,11 @@ Regla de no-confirmación: ninguna hipótesis se marca `VERIFICADA`; solo `APOYA
 
 ## 13. Comandos exactos que se ejecutarían (PLAN — NO EJECUTADOS)
 
-> Comandos para **una réplica**. Directorios: `WORK=/home/lucas/Escritorio/RX550_Iterative_Research`; runs en `${WORK}/experiments/FASE-D-COUNTERS-AUDIT/runs/etapa2/<A|B><n>/`.
+> Comandos para **una réplica**. Directorios: `WORK=/home/lucas/Escritorio/RX550-INVESTIGACION`; runs en `${WORK}/03-EXPERIMENTOS/FASE-D-COUNTERS-AUDIT/runs/etapa2/<A|B><n>/`.
 
 ```bash
 # ===== PRE-FLIGHT (workload-idnetico; no se escribe nada a sysfs) =====
-RUN=${WORK}/experiments/FASE-D-COUNTERS-AUDIT/runs/etapa2/A1
+RUN=${WORK}/03-EXPERIMENTOS/FASE-D-COUNTERS-AUDIT/runs/etapa2/A1
 mkdir -p "$RUN"                                   # crea directorio de artefactos (no sistema)
 
 DEV=/sys/class/drm/card1/device
@@ -226,7 +228,7 @@ HWMON=$DEV/hwmon/hwmon2
 
 # ===== SAMPLERS (read-only) =====
 # 1) telemetría sysfs 10 Hz (script existente, read-only):
-$WORK/experiments/EXPLORATORIO-GravityMark/telemetria.sh 260 "$RUN/telemetria.csv" &  # A; para B: 40
+$WORK/03-EXPERIMENTOS/EXPLORATORIO-GravityMark/telemetria.sh 260 "$RUN/telemetria.csv" &  # A; para B: 40
 
 # 2) radeontop dump 1 Hz durante toda la ventana (solo lee vía ioctls libdrm):
 sudo radeontop -p /dev/dri/renderD129 -d "$RUN/radeontop.csv" -l 260 -i 1 &          # A; para B: -l 40
@@ -240,13 +242,15 @@ sudo radeontop -p /dev/dri/renderD129 -d "$RUN/radeontop.csv" -l 260 -i 1 &     
     printf "%s;%s;%s;%s\n" "$TS" "$(echo $SPI | tr -s ' ' ';')" "$(echo $RLC)" "$GRBM" >> "$RUN/umr_samples.csv"
     sleep 1; i=$((i+1)); done ) &
 
-# ===== WORKLOAD A (Superposition — flags idénticos a R-14; sin modificar su config) =====
+# ===== WORKLOAD A (snapshot histórico; no ejecutar aquí) =====
+# La corrida observada en R-14 fue 1600x900/Medium; la petición High/1920
+# no es la configuración efectiva y no debe copiarse como gate.
 cd /home/lucas/Escritorio/berchmark/instalados/Unigine_Superposition-1.1/bin
 DRI_PRIME=1002:699f ./superposition \
   -project_name "Superposition" -video_mode=-1 \
   -console_command "world_load superposition/superposition" \
-  -video_app opengl -quality high -mode default -iterations 1 \
-  -sound 0 -fullscreen 0 -resolution 1920x1080 \
+  -video_app opengl -quality medium -mode default -iterations 1 \
+  -sound 0 -fullscreen 0 -resolution 1600x900 \
   -log_csv "$RUN/superposition.csv" -log_txt "$RUN/superposition.txt" \
   > "$RUN/superposition.log" 2>&1 &
 SP_PID=$!
@@ -254,7 +258,7 @@ SP_PID=$!
 # ===== POST-FLIGHT ===== (idéntico al pre_flight -> $RUN/post_flight.txt)
 
 # ===== WORKLOAD B (E-03 base Diseño B; config = defaults canónicos) =====
-cd $WORK/experiments/WORKLOAD-SINTETICO
+cd $WORK/03-EXPERIMENTOS/WORKLOAD-SINTETICO
 DRI_PRIME=1002:699f ./main-graphics --width 1920 --height 1080 --layers 4 --textures 4 --tex-size 4096 --fma-iters 4 --msaa 1 --seed 0x13579BDF --seed-extra 0x2468ACE0 --warmup 5 --duration 20 > "$RUN/stdout.txt" 2> "$RUN/stderr.txt"
 # pre_flight/post_flight + fault check ~igual que E-03 (journal_pres.txt con journalctl)
 ```
@@ -282,7 +286,7 @@ Conforme a la regla "Etapa 2 = SOLO lecturas", el **único** "writing" es a **ar
 - Instalación de paquetes → **NO** (regla FASE D; herramientas ya presentes/validadas).
 - Modificación de configs de Superposition / E-03 / Mesa / kernel / PowerPlay / Kalm / rx550-torneo → **NO**.
 
-Con esto, toda la Etapa 2 es read-only a nivel de GPU/sistema; únicamente se generan ficheros de artefactos en `experiments/FASE-D-COUNTERS-AUDIT/runs/etapa2/`.
+Con esto, toda la Etapa 2 es read-only a nivel de GPU/sistema; únicamente se generan ficheros de artefactos en `03-EXPERIMENTOS/FASE-D-COUNTERS-AUDIT/runs/etapa2/`.
 
 ---
 

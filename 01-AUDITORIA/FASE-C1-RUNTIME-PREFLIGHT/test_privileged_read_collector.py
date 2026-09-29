@@ -151,6 +151,12 @@ def matrix_context(**overrides):
             "root_namespace_ok": 283,
             "root_namespace_total": 283,
             "total_pids": 283,
+    "card_drm_client_id_fds": 0,
+    "render_drm_client_id_fds": 0,
+    "card_drm_pdev_fds": 0,
+    "render_drm_pdev_fds": 0,
+    "card_pasid_fds": 0,
+    "render_pasid_fds": 0,
         },
         "debugfs": {
             "DEBUGFS_CLIENT_ATTRIBUTION": "PROVEN",
@@ -161,8 +167,8 @@ def matrix_context(**overrides):
         "btrfs_status": "ABSENT",
         "active_agents": 0,
         "pm_status": "READ",
-        "card_clients": 0,
-        "render_clients": 0,
+        "card_drm_client_id_fds": 0,
+        "render_drm_client_id_fds": 0,
     }
     context.update(overrides)
     return context
@@ -516,14 +522,15 @@ class DebugfsAbsenceTests(unittest.TestCase):
 
 
 # ==========================================================================
-# 15  the ownership boolean never replaces the 11-condition matrix
+# 15  the ownership boolean never replaces the criterion matrix (10 rows now
+#     after clients_pasid_attributable was retired as an agent formalisation)
 # ==========================================================================
 class OwnershipAuthorityTests(unittest.TestCase):
     def test_15_boolean_true_does_not_yield_full(self):
         """Legacy boolean would be True; the matrix must still refuse FULL."""
         result = collector.ownership_matrix(matrix_context())
         self.assertEqual(result["COLLECTOR_OWNERSHIP_BOOLEAN"], "NON_AUTHORITATIVE")
-        self.assertEqual(len(result["conditions"]), 11)
+        self.assertEqual(len(result["conditions"]), 10)
         by_key = {row["condition"]: row for row in result["conditions"]}
         self.assertEqual(by_key["writers_resolved"]["STATE"], "NOT_EVALUATED")
         self.assertEqual(by_key["writers_resolved"]["ROUTE"], "R2")
@@ -546,7 +553,7 @@ class OwnershipAuthorityTests(unittest.TestCase):
             [row["STATE"] for row in good["conditions"]],
             [row["STATE"] for row in bad["conditions"]],
         )
-        self.assertEqual(len(bad["conditions"]), 11)
+        self.assertEqual(len(bad["conditions"]), 10)
         self.assertEqual(bad["OWNERSHIP_CRITERION_STATE"], "PARTIAL")
         by_key = {row["condition"]: row for row in bad["conditions"]}
         self.assertEqual(by_key["card_node_complete"]["STATE"], "FAIL")
@@ -572,7 +579,9 @@ class OwnershipAuthorityTests(unittest.TestCase):
         )
         result = collector.ownership_matrix(context)
         by_key = {row["condition"]: row for row in result["conditions"]}
-        self.assertEqual(by_key["clients_pasid_attributable"]["STATE"], "UNKNOWN")
+        # The row is retired; its absence must not raise, and NOT_AVAILABLE
+        # can no longer buy a PASS by any route.
+        self.assertNotIn("clients_pasid_attributable", by_key)
         self.assertEqual(result["OWNERSHIP_CRITERION_STATE"], "PARTIAL")
 
     def test_15d_abort_payload_has_no_ownership_evidence(self):
@@ -619,8 +628,8 @@ class CompositorAndCapabilityTests(unittest.TestCase):
             for key in ("capability", "source", "dynamic_identity", "privilege", "limitation"):
                 self.assertIn(key, row)
 
-    def test_criterion_rows_are_exactly_eleven_and_two_are_external(self):
-        self.assertEqual(len(collector.OWNERSHIP_CRITERION_ROWS), 11)
+    def test_criterion_rows_are_exactly_ten_and_two_are_external(self):
+        self.assertEqual(len(collector.OWNERSHIP_CRITERION_ROWS), 10)
         self.assertEqual(len(collector.OWNERSHIP_EXTERNAL_ROWS), 2)
         self.assertEqual(
             sorted(collector.OWNERSHIP_EXTERNAL_ROWS), ["guard_and_restore", "writers_resolved"]

@@ -4,7 +4,7 @@
 > **Fase:** FASE R-2 — COMPLETE PROJECT DOCUMENTATION & ECOSYSTEM ARCHITECTURE (R-2.4)
 > **Fecha:** 2026-09-22 — Modo SOLO DOCUMENTAL (DISEÑO; NO ejecutado)
 > **Clasificación:** [DISEÑADO] — protocolos completos por candidato GEO-01..08.
-> **Estado global:** **PENDIENTE de ejecución**. Fuente de candidatos: `experiments/POLARIS12-MAP/EXPERIMENT-CANDIDATES.md` (v1.0, 2026-09-21).
+> **Estado global:** **PENDIENTE de ejecución**. Fuente de candidatos: `02-ARQUITECTURA/POLARIS12-MAP/EXPERIMENT-CANDIDATES.md` (v1.0, 2026-09-21).
 
 ---
 

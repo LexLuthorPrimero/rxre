@@ -3,6 +3,10 @@
 > **Fecha:** 2026-09-21
 > **Metodo:** solo fuentes locales (codigo Mesa en backup local, base de datos UMR, artefactos FASE D). Sin web, sin sudo, sin lecturas en vivo, sin registros.
 > **Estado del encargo:** eventos investigados; programación NO autorizada.
+>
+> **Reconciliación 2026-09-24:** este documento conserva la investigación local
+> pre-R-0. La catalogación externa posterior no valida GRBM/SQ para GFX8; ambos siguen
+> `NO VERIFICADOS` para el ASIC y la escritura continúa bloqueada.
 
 ---
 
@@ -65,7 +69,7 @@ Columnas: Pregunta → Hipótesis → Bloque → Contador(es) → Registro → E
 
 † La marca «†» señala offsets no verificados numéricamente aquí; la fila **no** es lista para programar y **no** se completan offsets por inferencia.
 
-**Lectura de la tabla:** El único evento con ID numérico y semántica conocida por fuente local es **GRBM GUI_ACTIVE (PERF_SEL=2)** y en solitario **SQ WAVES (PERF_SEL=4)**. Todo lo demás queda NO VERIFICADO o NO UTILIZABLE para la etapa mínima.
+**Lectura de la tabla:** Los únicos IDs numéricos visibles en el source local son **GRBM GUI_ACTIVE (PERF_SEL=2)** y **SQ WAVES (PERF_SEL=4)**; su semántica y aplicabilidad al ASIC GFX8 local no están validadas. La catalogación externa posterior los mantiene como entradas de catálogo, no como selectores runtime. Todo lo demás queda NO VERIFICADO o NO UTILIZABLE para la etapa mínima.
 
 ---
 

@@ -10,10 +10,13 @@ a benign /proc race look like an isolation failure:
     0 errors, 12 DRM fds, all fully attributed    -> PASS
     1 vanished process mid-sweep                   -> FAIL
 
-The row is now scored on per-client DRM attribution facts exported by
-``root_coverage``.  These tests drive the real decision function and the real
-``ownership_matrix``, and they assert on the state *and* the reason, because a
-state without a discriminating reason is exactly the defect being fixed.
+STEP 1 REPAIR: the row is now scored on **DRM FD enumeration and observability
+only**.  ``drm-client-id``, ``drm-pdev`` and ``pasid`` belong to other properties
+and a missing one must not change this verdict; the row used to require all three
+for PASS and to say "all attributed", which made it a container.  These tests
+drive the real decision function and the real ``ownership_matrix``, and they
+assert on the state *and* the reason, because a state without a discriminating
+reason is exactly the defect being fixed.
 """
 
 import importlib.util
@@ -32,6 +35,12 @@ RENDER = "/dev/dri/renderD129"
 # A complete sweep with nothing found and nothing wrong.
 QUIET = {
     "drm_fds_found": 0,
+    "card_drm_client_id_fds": 0,
+    "render_drm_client_id_fds": 0,
+    "card_drm_pdev_fds": 0,
+    "render_drm_pdev_fds": 0,
+    "card_pasid_fds": 0,
+    "render_pasid_fds": 0,
     "drm_fdinfo_read": 0,
     "drm_client_id_seen": 0,
     "drm_pdev_seen": 0,
@@ -40,8 +49,8 @@ QUIET = {
     "fd_race_pids": 0,
 }
 
-# A sweep in which every DRM fd is read and fully attributed.
-FULLY_ATTRIBUTED = dict(
+# A sweep in which every DRM fd was found and its fdinfo read.
+FULLY_READ = dict(
     QUIET,
     drm_fds_found=12,
     drm_fdinfo_read=12,
@@ -139,22 +148,23 @@ class RequiredCasesTests(unittest.TestCase):
         self.assertEqual(state, "PASS")
         self.assertIn("0 DRM fds found", reason)
 
-    def test_2_complete_sweep_with_attributed_clients_is_pass(self):
-        state, reason = score(**FULLY_ATTRIBUTED)
+    def test_2_complete_sweep_with_read_fdinfo_is_pass(self):
+        state, reason = score(**FULLY_READ)
         self.assertEqual(state, "PASS")
-        self.assertIn("12 DRM fd(s) all attributed", reason)
+        self.assertIn("12 DRM fd(s) enumerated and fdinfo read", reason)
+        self.assertNotIn("attribut", reason)
 
     def test_3_clients_found_but_fdinfo_unreadable_is_partial(self):
         state, reason = score(**dict(QUIET, drm_fds_found=12, drm_fdinfo_read=0))
         self.assertEqual(state, "PARTIAL")
         self.assertIn("fdinfo unreadable on 12/12", reason)
 
-    def test_4_fdinfo_read_without_attribution_fields_is_partial(self):
+    def test_4_absent_attribution_fields_do_not_affect_enumeration(self):
+        """Every field absent, every fdinfo read: enumeration is still complete."""
         state, reason = score(**dict(QUIET, drm_fds_found=12, drm_fdinfo_read=12))
-        self.assertEqual(state, "PARTIAL")
-        self.assertIn("drm-client-id absent on 12/12", reason)
-        self.assertIn("drm-pdev absent on 12/12", reason)
-        self.assertIn("pasid absent on 12/12", reason)
+        self.assertEqual(state, "PASS")
+        for field in ("drm-client-id", "drm-pdev", "pasid"):
+            self.assertNotIn(field, reason)
 
     def test_5_a_vanished_process_does_not_by_itself_break_the_row(self):
         """A vanished PID alongside fully attributed clients stays PASS.
@@ -165,7 +175,7 @@ class RequiredCasesTests(unittest.TestCase):
         row makes no claim about it either way.
         """
         state, reason = score(
-            **dict(FULLY_ATTRIBUTED, fd_race_pids=1, fd_error_count=1)
+            **dict(FULLY_READ, fd_race_pids=1, fd_error_count=1)
         )
         self.assertEqual(state, "PASS")
         self.assertIn("1 PID(s) vanished", reason)
@@ -174,18 +184,19 @@ class RequiredCasesTests(unittest.TestCase):
 
     def test_6_a_permission_error_is_partial_when_clients_were_seen(self):
         state, reason = score(
-            **dict(FULLY_ATTRIBUTED, fd_universe_blocked_pids=1, fd_error_count=1)
+            **dict(FULLY_READ, fd_universe_blocked_pids=1, fd_error_count=1)
         )
         self.assertEqual(state, "PARTIAL")
         self.assertIn("universe not enumerable", reason)
 
-    def test_7_a_mixture_of_attributed_and_incomplete_is_partial(self):
+    def test_7_a_mixture_of_read_and_unread_fdinfo_is_partial(self):
+        """Partial fdinfo coverage keeps the row off PASS; fields are irrelevant."""
         state, reason = score(
-            **dict(QUIET, drm_fds_found=12, drm_fdinfo_read=12, drm_client_id_seen=10,
-                   drm_pdev_seen=12, drm_pasid_seen=12)
+            **dict(QUIET, drm_fds_found=12, drm_fdinfo_read=10,
+                   drm_client_id_seen=10, drm_pdev_seen=12, drm_pasid_seen=12)
         )
         self.assertEqual(state, "PARTIAL")
-        self.assertIn("drm-client-id absent on 2/12", reason)
+        self.assertIn("fdinfo unreadable on 2/12", reason)
 
 
 class DiscriminationTests(unittest.TestCase):
@@ -209,45 +220,71 @@ class DiscriminationTests(unittest.TestCase):
         verdicts = {}
         cases = {
             "none": QUIET,
-            "full": FULLY_ATTRIBUTED,
+            "full": FULLY_READ,
             "no_fdinfo": dict(QUIET, drm_fds_found=12, drm_fdinfo_read=0),
-            "no_fields": dict(QUIET, drm_fds_found=12, drm_fdinfo_read=12),
-            "race": dict(FULLY_ATTRIBUTED, fd_race_pids=1),
-            "denied": dict(FULLY_ATTRIBUTED, fd_universe_blocked_pids=1),
-            "mixed": dict(QUIET, drm_fds_found=12, drm_fdinfo_read=12, drm_client_id_seen=10,
-                          drm_pdev_seen=12, drm_pasid_seen=12),
+            "partial_fdinfo": dict(QUIET, drm_fds_found=12, drm_fdinfo_read=10),
+            "race": dict(FULLY_READ, fd_race_pids=1),
+            "race_unproven": dict(QUIET, fd_race_pids=1),
+            "denied": dict(FULLY_READ, fd_universe_blocked_pids=1),
         }
         for name, coverage in cases.items():
             verdicts[name] = row(**coverage)["EVIDENCE"]
         self.assertEqual(len(set(verdicts.values())), len(verdicts), verdicts)
 
 
-class PasidHandlingTests(unittest.TestCase):
-    """PASID absence is reported, never converted into success."""
+class AttributionSeparationTests(unittest.TestCase):
+    """STEP 1: attribution fields do not belong to the enumeration row.
 
-    def test_pasid_absent_alone_downgrades_to_partial(self):
+    The premise of the previous ``PasidHandlingTests`` was the opposite: a missing
+    ``pasid`` had to downgrade the row.  After the separation a missing field must
+    change **nothing** here, and the row must not even name the field.  These
+    tests exist to fail if the compound behaviour returns.
+    """
+
+    def test_pasid_absent_does_not_downgrade_enumeration(self):
         state, reason = score(
             **dict(QUIET, drm_fds_found=4, drm_fdinfo_read=4,
                    drm_client_id_seen=4, drm_pdev_seen=4, drm_pasid_seen=0)
         )
-        self.assertEqual(state, "PARTIAL")
-        self.assertIn("pasid absent on 4/4", reason)
+        self.assertEqual(state, "PASS")
+        self.assertNotIn("pasid", reason)
 
-    def test_pasid_present_on_some_but_not_all_is_partial(self):
+    def test_pasid_partial_does_not_downgrade_enumeration(self):
         state, reason = score(
             **dict(QUIET, drm_fds_found=4, drm_fdinfo_read=4,
                    drm_client_id_seen=4, drm_pdev_seen=4, drm_pasid_seen=3)
         )
-        self.assertEqual(state, "PARTIAL")
-        self.assertIn("pasid absent on 1/4", reason)
+        self.assertEqual(state, "PASS")
+        self.assertNotIn("pasid", reason)
 
-    def test_a_missing_pdev_is_also_reported(self):
+    def test_missing_pdev_does_not_downgrade_enumeration(self):
         state, reason = score(
             **dict(QUIET, drm_fds_found=2, drm_fdinfo_read=2,
                    drm_client_id_seen=2, drm_pdev_seen=0, drm_pasid_seen=2)
         )
-        self.assertEqual(state, "PARTIAL")
-        self.assertIn("drm-pdev absent on 2/2", reason)
+        self.assertEqual(state, "PASS")
+        self.assertNotIn("pdev", reason)
+
+    def test_no_verdict_or_reason_depends_on_any_attribution_field(self):
+        """Falsifiable separation: 0 vs all fields present, all four combinations."""
+        verdicts = set()
+        for client_id in (0, 4):
+            for pdev in (0, 4):
+                for pasid in (0, 4):
+                    state, reason = score(
+                        **dict(QUIET, drm_fds_found=4, drm_fdinfo_read=4,
+                               drm_client_id_seen=client_id, drm_pdev_seen=pdev,
+                               drm_pasid_seen=pasid)
+                    )
+                    verdicts.add((state, reason))
+        self.assertEqual(len(verdicts), 1, verdicts)
+        self.assertEqual(verdicts.pop()[0], "PASS")
+
+    def test_the_row_never_reports_a_client_count(self):
+        """The unit is FD.  A reason calling them clients is a mislabelling."""
+        _, reason = score(**FULLY_READ)
+        for word in ("client", "attribut"):
+            self.assertNotIn(word, reason.lower())
 
 
 class UnobservableCasesTests(unittest.TestCase):
@@ -293,33 +330,54 @@ class RowIntegrationTests(unittest.TestCase):
         result = row(**dict(QUIET, drm_fds_found=3, drm_fdinfo_read=3,
                             drm_client_id_seen=3, drm_pdev_seen=3, drm_pasid_seen=3))
         self.assertEqual(result["STATE"], "PASS")
-        self.assertIn("3 DRM fd(s) all attributed", result["EVIDENCE"])
+        self.assertIn("3 DRM fd(s) enumerated and fdinfo read", result["EVIDENCE"])
 
     def test_the_row_keeps_its_route_and_source(self):
         result = row(**QUIET)
         self.assertEqual(result["ROUTE"], "R1")
         self.assertEqual(result["SOURCE"], "/proc/<pid>/fdinfo")
 
-    def test_the_criterion_row_and_its_description_are_unchanged(self):
-        rows = dict(COLLECTOR.OWNERSHIP_CRITERION_ROWS)
-        self.assertEqual(len(COLLECTOR.OWNERSHIP_CRITERION_ROWS), 11)
-        self.assertEqual(
-            rows["drm_fds_enumerated"],
-            "DRM file descriptors enumerated with drm-client-id/pasid",
-        )
+    def test_the_declared_row_count_excludes_the_retired_row(self):
+        # This method previously shared its name with the matrix-count test
+        # below, so Python shadowed it and its assertion never ran.  Renamed so
+        # both checks execute; the count below is the second guard.
+        # 10, not 11: clients_pasid_attributable was retired.  Pinned so a
+        # re-added row cannot pass unnoticed.
+        self.assertEqual(len(COLLECTOR.OWNERSHIP_CRITERION_ROWS), 10)
 
-    def test_clients_pasid_attributable_was_not_touched(self):
-        """This fix must not leak into the neighbouring row."""
+    def test_the_row_description_matches_what_the_row_scores(self):
+        """The description must not promise attribution the expression ignores.
+
+        The old description read "enumerated with drm-client-id/pasid" while the
+        expression is now enumeration-only.  A description naming a field the row
+        does not consume is the name/description-vs-expression defect, so it is
+        pinned here from the other side.
+        """
+        rows = dict(COLLECTOR.OWNERSHIP_CRITERION_ROWS)
+        description = rows["drm_fds_enumerated"]
+        for field in ("drm-client-id", "drm-pdev", "pasid", "attribut"):
+            self.assertNotIn(field, description)
+
+    def test_the_retired_row_is_absent_and_does_not_leak(self):
+        """clients_pasid_attributable was RETIRED: it had no antecedent in
+        AGENTS.md and fused three relations into one property.
+
+        The original guard asserted the neighbouring row kept its own STATE and
+        EVIDENCE, i.e. that this fix did not leak into it.  With the neighbour
+        retired that check is vacuous, so the same intent is now expressed in its
+        strongest available form: the retired row must not reappear and its name
+        must appear in no other row.
+        """
         result = COLLECTOR.ownership_matrix(context(dict(base_coverage(), **QUIET)))
-        neighbour = next(
-            c for c in result["conditions"] if c["condition"] == "clients_pasid_attributable"
-        )
-        self.assertEqual(neighbour["STATE"], "PASS")
-        self.assertIn("MINOR_DERIVED_AND_DRIVER_CONFIRMED", neighbour["EVIDENCE"])
+        names = [c["condition"] for c in result["conditions"]]
+        self.assertNotIn("clients_pasid_attributable", names)
+        self.assertNotIn("clients_pasid_attributable",
+                         [r[0] for r in COLLECTOR.OWNERSHIP_CRITERION_ROWS])
 
     def test_the_row_count_is_unchanged(self):
         result = COLLECTOR.ownership_matrix(context(dict(base_coverage(), **QUIET)))
-        self.assertEqual(len(result["conditions"]), 11)
+        self.assertEqual(len(result["conditions"]),
+                         len(COLLECTOR.OWNERSHIP_CRITERION_ROWS))
 
 
 class ExportTests(unittest.TestCase):
@@ -713,7 +771,7 @@ class VanishedAbsenceContractTests(unittest.TestCase):
         for coverage in (
             dict(QUIET, fd_race_pids=1),
             dict(QUIET, fd_race_pids=1, fd_absence_proven_pids=1),
-            dict(FULLY_ATTRIBUTED, fd_race_pids=1),
+            dict(FULLY_READ, fd_race_pids=1),
             dict(QUIET, drm_fds_found=1, drm_fdinfo_read=0, fd_race_pids=1),
         ):
             with self.subTest(coverage=sorted(coverage.items())):

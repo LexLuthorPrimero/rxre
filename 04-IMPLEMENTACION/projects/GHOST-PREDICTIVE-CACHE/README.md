@@ -4,7 +4,7 @@
 > **Fase:** FASE R-3 — Documentary novelty audit (SOLO DOCUMENTAL; no code, no system changes, no benchmarks, no installs)
 > **Fecha:** 2026-09-22
 > **Modo:** DOCUMENTAL ONLY
-> **Archivo principal:** `projects/GHOST-PREDICTIVE-CACHE/`
+> **Archivo principal:** `04-IMPLEMENTACION/projects/GHOST-PREDICTIVE-CACHE/`
 > **Archivos:** `README.md`, `PRIOR-ART.md`, `POLARIS12-FEASIBILITY.md`, `EXPERIMENT-DESIGN.md`
 
 ---

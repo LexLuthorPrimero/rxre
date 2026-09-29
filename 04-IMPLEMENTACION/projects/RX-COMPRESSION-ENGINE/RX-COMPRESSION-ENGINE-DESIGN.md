@@ -1,6 +1,6 @@
 # RX COMPRESSION ENGINE — Documento de Diseño del Proyecto
 
-> **Archivo:** `projects/RX-COMPRESSION-ENGINE/RX-COMPRESSION-ENGINE-DESIGN.md`
+> **Archivo:** `04-IMPLEMENTACION/projects/RX-COMPRESSION-ENGINE/RX-COMPRESSION-ENGINE-DESIGN.md`
 > **Fase:** FASE R-2 — COMPLETE PROJECT DOCUMENTATION & ECOSYSTEM ARCHITECTURE (R-2.16)
 > **Fecha:** 2026-09-22 — Modo SOLO DOCUMENTAL (DISEÑO; NO implementado)
 > **Clasificación:** [IDEA]. **PROVISIONAL RESEARCH PROJECT** — hipótesis de optimización de memoria.

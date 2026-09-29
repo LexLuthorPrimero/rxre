@@ -3,7 +3,7 @@
 # Requiere root (2 escrituras privilegiadas por corrida: SET + RESTORE).
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../../rx550-torneo" && pwd)"
+ROOT="$(cd "$HERE/../../04-IMPLEMENTACION/rx550-torneo" && pwd)"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 # shellcheck disable=SC2034  # usado en el comando real (comentado hasta autorización)
 OUT="$HERE/runs/$STAMP"

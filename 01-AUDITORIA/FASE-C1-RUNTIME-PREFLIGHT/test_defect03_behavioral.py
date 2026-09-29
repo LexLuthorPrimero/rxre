@@ -175,6 +175,14 @@ def _build_globals():
         # namespace must carry it for the signature to resolve.  The value is
         # never read: _stubs() replaces pid_gone, so no real /proc is touched.
         "DEFAULT_PROC_ROOT": Path("/proc"),
+        # observe() classifies absence through a module-level pure function.
+        # This namespace is built explicitly instead of being seeded from the
+        # collector module, so the dependency is supplied here exactly as
+        # DEFAULT_PROC_ROOT is: the reference must resolve; behaviour is not
+        # changed by this harness.
+        "classify_fd_absence": collector.classify_fd_absence,
+        "DETERMINED_ABSENT": collector.DETERMINED_ABSENT,
+        "NOT_DETERMINED": collector.NOT_DETERMINED,
     }
     g.update(_stubs())
     return g

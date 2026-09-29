@@ -1,8 +1,11 @@
 # IMPLEMENTATION-READINESS-AUDIT.md — Auditoría de madurez de implementación (RX 550)
 
 **Fecha:** 2026-09-23 · **Modo:** SOLO LECTURA (ningún archivo, sysfs, registro ni resultado modificado)
-**Estado del proyecto:** EXP-F4-A v2.3 queda **INCONCLUSO** según su informe (`FASE-R4B-GOVERNOR/EXP-F4-A-RESULTADOS-v2.3.md`). S2-v2.3 se conserva como evidencia de interferencia externa.
+**Estado del proyecto:** EXP-F4-A v2.3 queda **INCONCLUSO** según su informe (`FASE-R4B-GOVERNOR/EXP-F4-A-RESULTADOS-v2.3.md`). S2-v2.3 fue **INICIADA y PARADA D** antes de Phase 2; la correlación con carga externa es una causa probable no verificada, no una causa raíz. No se reintenta S2-v2.3.
 **Condición de parada:** esta auditoría NO implementa nada, NO toca la GPU, NO modifica el sistema y NO ejecuta el roadmap. Termina con el reporte A–G (§16).
+
+> **Notación:** en las tablas y gates resumidos, `P` significa `W_SMU` leído de
+> `power1_input`; no es vatímetro independiente.
 
 ---
 
@@ -59,93 +62,104 @@ Tres niveles de riesgo (no equivalentes), priorizando software/config primero:
 | FASE A | `fase-a-discriminacion-…/` | Cap 25 W no liga hoy; selector VK numérico roto; GL 640p no SCLK-bound |
 | FASE B (cap-probe) | `fase-b-cap-probe-…/` | Curva de cap PLANA 25→35 W; EP-08 confirma RX 550 real en E1/E3 |
 | EP-05 / EP-06 | `ep05-mesa-custom…/`, `ep06-soak…/` | Mesa CUSTOM==STOCK; régimen E1/E3 no reproducible ni caliente |
-| M1 | `M1-cap-35-30/` | Cap 35/30 W NO DISCRIMINATIVO (draw 12.27 W < 27 W) |
+| M1 | `M1-cap-35-30/` | Cap 35/30 W NO DISCRIMINATIVO (W_SMU 12.27 W < 27 W) |
 | WORKLOAD-SINTETICO | `WORKLOAD-SINTETICO/` | E-03 15.75 W steady + MCLK 1500; escalado y F2 sin efecto en potencia; techo ~16 W |
-| FASE C | `R-14-SUPERPOSITION-DISSECTION/` | Superposition 22.31 W steady / 24.71 W pico; geométrica/vertex real |
+| FASE C | `R-14-SUPERPOSITION-DISSECTION/` | Superposition 22.31 W steady / 24.71 W pico (`W_SMU`); correlación direccional, no causalidad geométrica |
 | GravityMark | `EXPLORATORIO-GravityMark/` | GravityMark 200k NO DISCRIMINATIVO (12.4 W); 4m = OOM |
 | FASE D | `FASE-D-COUNTERS-AUDIT/` | Catálogo contadores GFX8; etapa 2 A/B (22.25 vs 15.78 W); etapa 3 NO AUTORIZADA |
 | POLARIS12-MAP | `POLARIS12-MAP/` | Mapa A–AJ; GEO/SHD/MEM/FRAAG/PWR solo PLANEADOS |
-| R-0 | `FASE-R0-EXTERNAL-KNOWLEDGE/` | GPUPerfAPI v3.11.1 (2304 event IDs); política MCLK 5/16/20; workarounds Mesa |
-| R-1 | `FASE-R1-DOCUMENTATION-RECONCILIATION/` | Rangos seguros CB 0..395/SQ 0..272/MC 0..21; MC UNRESOLVED |
+| R-0 | `FASE-R0-EXTERNAL-KNOWLEDGE/` | GPUPerfAPI v3.17 catálogo GFX8; v3.11.1 histórico; 2304 filas no eventos validados; política MCLK 5/16/20 source-level |
+| R-1 | `FASE-R1-DOCUMENTATION-RECONCILIATION/` | Reconciliación de catálogos: 19/23; rangos no semánticamente seguros; MC `UNRESOLVED` |
 | R-2 / R-3 / R-3.1 | `FASE-R2-…/`, `FASE-R3-…/`, `FASE-R3-1-…/` | Fases E–Q diseñadas, ninguna ejecutada; FUSION-04 READY; 0 PROVEN NOVEL |
 | R-4A | `FASE-R4A-BANDWIDTH-REAL/` | PCIe Gen2×4 por techo HW; 2.0 GB/s por sentido; GTT 6.2 GB; VIS 256 MiB |
-| R-4B | `FASE-R4B-GOVERNOR/` + `FASE-R4B-THERMAL-TEST/` | Governor converge (R1 3/3, Δ−18.5 % n=3); INCONCLUSO; térmico t90≈136–172 s |
+| R-4B | `FASE-R4B-GOVERNOR/` + `FASE-R4B-THERMAL-TEST/` | S1-v2.3 EJECUTADA/COMPLETADA; S2-v2.3 PARADA_D; observación diagnóstica R1/R3 3/3; R1–R6 no evaluables formalmente; t90 depende de condición/experimento |
 | R-4C | `FASE-R4C-JITTER-OBSERVABILITY/` | Jitter observable (MAE 3.66×10⁻¹⁰ px) — herramienta, no optimización |
 | Torneo | `rx550-torneo/` | Fases 1–3 + M1 (65/55/56/112 checks); whitelist 2 nodos; rollback verificado |
 
 ## 5. Hallazgos por fase (resumen de evidencia)
 
 ### 5.1 FASE A/B (régimen de potencia y cap)
-- Con los workloads disponibles el draw real es **9.4–13.6 W** y el cap (25–35 W) **no liga**: el SMU no baja SCLK
+- Con los workloads disponibles la potencia estimada por sensor SMU (`W_SMU`) es **9.4–13.6 W** y el cap (25–35 W) **no liga**: el SMU no baja SCLK
   por un cap no alcanzado (Fase B: 25→35 W plano, SCLK 1071, P 10.7–11.6 W; M1: ΔFPS=ΔSCLK=0, ΔP IC95%
   (−0.103, +0.060) W).
-- EP-06: a 70–71 °C con cap 25 W sigue SCLK 1071 y P 9.6–11.5 W → el régimen E1/E3 (25 W clavado / SCLK 350–390)
-  **no se reproduce** ni frío ni caliente. Draw máximo medido hoy: **13.6 W** (EP-06) y **23.7 W pico** (Superposition).
+- EP-06: a 70–71 °C con cap 25 W sigue SCLK 1071 y `W_SMU` 9.6–11.5 W → el régimen E1/E3 (25 W clavado / SCLK 350–390)
+  **no se reproduce** ni frío ni caliente. `W_SMU` máximo observado: **13.6 W** (EP-06) y **23.7 W pico** (Superposition).
 - `MESA_VK_DEVICE_SELECT=1002:699f` selecciona hoy la **iGPU 0x412** (3/3); seleccionar por **ICD**
   (`VK_ICD_FILENAMES=…/radeon_icd.x86_64.json`) o por **nombre** da 0x699F de forma determinística.
 
 ### 5.2 FASE C y WORKLOAD-SINTETICO (potencia y bottleneck)
-- Superposition (OpenGL/radeonsi, geometría real): **22.31 W steady (N=1987), 24.71 W pico, mem_busy 24.6 %,
-  VRAM 1554 MB, score 804** — rompe el patrón de los sintéticos (15.75–16.18 W) con **mem_busy menor**.
+- Superposition (OpenGL/radeonsi, geometría): **22.31 W steady `W_SMU` (N=1987), 24.71 W pico, `mem_busy` 24.6 %,
+  VRAM 1554 MB, score 804** — rompe el patrón de los sintéticos (15.75–16.18 W) con **mem_busy menor**; la explicación causal sigue abierta.
 - Sintéticos Vulkan: **fetch-latency bound**; escalar overdraw/FMA/texturas/MSAA/fetches NO sube potencia
   (ES-01 plano 15.75–16.18 W, deriva ±0.33 W; F2: frametime 2× con potencia invariante 15.76 vs 16.13 W).
-- E-03 corregida: primera activación real de **MCLK 1500 (220/277 muestras)** con mem_busy 36–49 % (política
-  smu7 128-bit 5/16/20), pero 15.75 W steady → “más memoria” no significa “más potencia”.
+- E-03 corregida: MCLK 1500 observado (220/277 muestras) con `mem_busy` 36–49 %; la
+  política upstream 5/16/20 no prueba que `mem_busy` sea el trigger local. R-4A mostró
+  readout local 3/16/20; el mapping de campo/perfil queda `UNRESOLVED`. `W_SMU`
+  steady ≈15.75 W; “más memoria” no equivale causalmente a “más potencia”.
 
 ### 5.3 FASE D / Polaris12-MAP (contadores y rutas)
-- Programación de contadores: **NO AUTORIZADA** (invariante R-0/R-1/R-2/R-4B). Mapa preparado: 12 slots
-  (GRBM×2, GRBMSE×2, SX×1, TCC×2, TCA×1, CB×1, DB×1, MC_ARB×2); **GRBM PERF_SEL=2 y SQ=4 VERIFICADOS GFX8**
-  (GPUPerfAPI v3.11.1 vs Mesa local); rangos seguros CB 0..395, SQ 0..272, MC 0..21; **semántica MC UNRESOLVED**.
+- Programación de contadores: **NO AUTORIZADA** (invariante R-0/R-1/R-2/R-4B). Mapa preparado:
+  12 slots (GRBM×2, GRBMSE×2, SX×1, TCC×2, TCA×1, CB×1, DB×1, MC_ARB×2).
+  GRBM=2 y SQ=4 son entradas de catálogo, no validación para `1002:699f`; los rangos
+  son índices de catálogo, no rangos semánticamente seguros; semántica MC `UNRESOLVED`.
 - Registros por bloque: GRBM 2, SX/TCC/TCA/CB/DB/TCP/MC_ARB 4, SQ 16, SPI 6, TA/TD 2. Sin PMU amdgpu para
   `perf`; UMR (2633 regs) sin enums de evento; radeontop solo heurísticas (gpu_busy/mem_busy).
-- Etapa 2: A=22.25 W vs B=15.78 W (ratio 1.41); vgt/pa/sh y sx (1.51–1.60) correlacionan → la diferencia de
-  potencia mira al pipeline de **geometría/vertex/export**, no a ROPs ni DRAM (mem_busy NO escala con potencia).
+- Etapa 2: A=22.25 W `W_SMU` vs B=15.78 W (ratio 1.41); vgt/pa/sh y sx (1.51–1.60)
+  correlacionan. Esto orienta la hipótesis hacia geometría/vertex/export, pero no
+  demuestra causalidad ni excluye ROP/DRAM (`mem_busy` es proxy).
 - GEO/SHD/FRAG/MEM/PWR: **PLANEADOS (sin ejecución)**.
 
 ### 5.4 R-0/R-1 (conocimiento externo)
-- Política DPM MCLK smu7 128-bit: `mclk_up_hyst=5, down_hyst=16, activity=20` (`smu7_hwmgr.c`, gate
-  `chip_id ≥ POLARIS10`) — [VERIFICADO]; coherente con R-07 local y con E-03.
+- Política DPM MCLK smu7 128-bit: upstream `mclk_up_hyst=5`, `down_hyst=16`,
+  `activity=20` (`smu7_hwmgr.c`, gate `chip_id ≥ POLARIS10`) — **VERIFICADO
+  source-level**; R-4A registró local `3/16/20`, mapping `UNRESOLVED`; no prueba
+  el trigger local ni la equivalencia con `mem_busy_percent`.
 - Workarounds radeonsi activos por familia: `has_msaa_sample_loc_bug` (POLARIS10..12), `LINE_FILTER_DISABLE
   (family ≤ POLARIS12)`, driconf `radeonsi_clear_db_cache_before_clear` (bug #96908, fix d938b8c) — [VERIFICADO];
   **efecto real sin medir** (GAP-11).
 - Overdrive: `ppfeaturemask` actual `0xfff7bfff` no contiene 0x4000 → OD no disponible; `pp_od_clk_voltage` no
   autorizado.
-- GPUPerfAPI **v3.11.1** = única fuente abierta con tablas GFX8 (v4.0+ eliminó GCN). Regla: usar el tag, nunca
-  v4.x/main.
+- GPUPerfAPI `v3.17` es la referencia operativa recomendada para tablas GFX8; `v3.11.1`
+  queda como extracción histórica. v4.0+ eliminó GCN. La presencia de catálogo no prueba
+  runtime, ASIC ni seguridad de programación.
 
 ### 5.5 R-4A (bandwidth)
 - Enlace negociado **Gen2×4 = 2.0 GB/s por sentido (DERIVED)**; techo real = root port 00:01.0 (5.0 GT/s);
-  el endpoint es capaz de Gen3×8 pero la plataforma no. Payload 1.4–1.9 GB/s泝 (ESTIMATED). VRAM 96–112 GB/s
+  el endpoint es capaz de Gen3×8 pero la plataforma no. Payload 1.4–1.9 GB/s (ESTIMATED). VRAM 96–112 GB/s
   (ESTIMATED). GTT 6.2 GB, VIS-VRAM 256 MiB (VERIFIED). Ratio enlace/VRAM **×48–80** (corrección oficial vs ×24–32).
 - Bandwidth REAL medido: **UNKNOWN** (amdgpu_benchmark denegado por permisos; su `.write` ejecutaría benchmarks).
 - Compresión para “competir con VRAM”: **CONTRADICTED** (DCC no ahorra PCIe); “render pequeño → VIS 256 MiB”:
   viable (sub-producto útil).
 
-### 5.6 R-4B (governor, T, s*, térmico) — ver §5.6a
-- Protocolo: escalas {1.00, 0.87, 0.75, 0.62, 0.50}; T=9.168 ms congelado v2.2 (v2.3 manifest T=9.153 ms,
-  ±0.16 % inter-sesión aceptado); s\*=0.75; banda [0.90, 1.10]·T = [8.251, 10.085] ms; ventana 20 s; fixed 60 s
-  (3 ventanas), gov 120 s (6 ventanas), dist 200 s (10 ventanas); cooldown DN-07 `≤50 °C s30 ∧ SCLK nv0 ∧ P<4 W`;
-  anti-deadlock 3600 s; abort ≥96 °C.
-- S1-v2.3 Fase 2 (n=3 diagnóstico): **R1 3/3** (r=1.0194/1.0197/1.0197); **R2 FAIL** (overshoot 65.7–70.38 %);
-  **R3 3/3** (0 reversiones); **R4 FAIL** (convergencia ventana 5); R5 NO COMPUTABLE; **R6 FAIL** (settle 0.87 vs
-  s\*=0.75, Δ=1 paso); R7 NOT FOR VERDICT (opción 3 + confound). **Δ rel gov vs fixed ≈ −18.5 %** (9.33 vs
-  11.45 ms, consistente en 3 pares).
-- Térmico (N=2): rampa 0.315/0.310 °C/s; 90 °C a 169/136 s; recuperación ≤50 °C 255–270 s; power_max 23.5 W.
-- Mini-test 7.3-B (N=2, governor activo): rampa 0.246–0.252 °C/s; **T_max=92 °C antes de completar los 200 s**
-  en ambas réplicas → **DIST 200 s NO cabe desde ≤50 °C**; desde ≤35 °C sí (t90≈221 s>200 s, opción 7.3-A).
-  Ventanas 4–6 del dist con lays=8: p99 ≈ 18.6 ms (cola de frames, NO colapso térmico).
-- S1-v2.3: **dist1 CONFOUNDED v5–v9, dist2 v6–v9** (T>90 °C: 91–92 °C; SCLK 734→551 MHz); t90 ≈ t0+100–120 s.
-  fixed1–3 y gov1–3 **limpias** (T_max 66–90 °C, SCLK 1071 sostenido) → las ventanas sí habrían sido elegibles.
-- S2-v2.3: **PARADA D (rc=9)** — cooldown p2→p3 con T=49 °C pero **sclk=7 (1071 MHz) y P=6.395 W** nunca
-  convergió en 3600 s. Testigo independiente (logger read-only `micro12`): patrón sostenido desde ~03:45
-  `gpu_busy=100 % · SCLK 1071 · mclk 300 · mem_busy 0 · P≈6.4 W`; clientes amdgpu de 0000:01:00.0: Xwayland
-  (pid 2721, card1) y gpu-process de ChatGPT (pid 3722793, renderD129) — ambos ajenos al experimento.
+### 5.6 R-4B (governor, T, s*, térmico) — reconciliación D6
+- Protocolo: escalas {1.00, 0.87, 0.75, 0.62, 0.50}; T de referencia v2.2 = 9.168 ms;
+  el manifest de la corrida v2.3 contiene `T_run=9.153 ms` (Δ 0.16 %, aceptado); s*=0.75;
+  banda [0.90, 1.10]·T; fixed 60 s, gov 120 s, dist 200 s; cooldown DN-07
+  `≤50 °C s30 ∧ SCLK nv0 ∧ P<4 W`; anti-deadlock 3600 s; abort ≥96 °C.
+- **S1-v2.3:** `EXECUTED/COMPLETADA` (15/15 bloques; 8/8 trials). La Fase 2 de S1 es
+  evidencia diagnóstica: R1 y R3 muestran 3/3 observaciones, pero R1–R6 **no son
+  evaluables formalmente** porque falta la unión 6+6; los valores de R2/R4/R6 son
+  observaciones que no cumplen sus literales, no PASS/FAIL global. R7 es
+  `INCONCLUSIVE / NOT FOR VERDICT` por diseño y confound térmico.
+- **S2-v2.3:** `INICIADA / PARADA_D` (rc=9) durante cooldown p2→p3; 10/15 bloques de
+  Fase 1 y 0 trials de Phase 2. La no convergencia (`T=49 °C`, SCLK nivel 7,
+  `W_SMU=6.395 W`) es compatible con carga externa; la identidad del cliente y la causa
+  raíz no están verificadas. El logger externo está `PERDIDO / NO VERIFICABLE`.
+- **Térmico:** no existe un `t90` universal. Test térmico N=2: 90 °C a 169/136 s
+  desde sus condiciones iniciales; mini-test 7.3-B N=2: 171.9/134.8 s alineados a
+  `m0`; S1-v2.3: aproximadamente `t0+100–120 s` en DIST, con ventanas posterior
+  confounded. `t90≈221 s` desde ≤35 °C es extrapolación lineal histórica, no
+  evidencia operacional; ≤35 °C queda opción no verificada.
+- **Veredicto global:** `INCONCLUSO / INCONCLUSIVE`; nunca `SUPPORTED`; no reintentar S2-v2.3.
+- La ausencia de convergencia del cooldown no demuestra por sí sola carga externa,
+  fallo HW ni causalidad de un proceso concreto.
 
 ### 5.7 rx550-torneo (estado de infraestructura)
 - Verificación GPU dual (0x1002:699f objetivo / 0x8086:0412 Intel NO-display); 6 nodos RESTORABLE_FIELDS
   (`power/control`, `power1_cap`, `power_dpm_force_performance_level`, `pp_dpm_sclk`, `pp_dpm_mclk`,
   `pp_power_profile_mode`); máx 2 escrituras por nodo + readback + rollback 1 intento; `guard_no_sys_write`
-  whitelist; abort 90 °C / cooldown 45 °C·30 s en M1; detector de reset vía journalctl; 65/55/56/112 checks OK.
+  whitelist; 90 °C es confound y 96 °C es el abort configurado (M1 histórico usaba
+  90 °C como regla de corrida); detector de reset vía journalctl; 65/55/56/112 checks OK.
 - Gaps: no hay función governor; el presupuesto térmico no está modelado; bandwidth/contadores bloqueados.
 
 ---
@@ -159,22 +173,22 @@ Tres niveles de riesgo (no equivalentes), priorizando software/config primero:
 |---|---|---|---|---|
 | A-01 | SEL-01 — selección VK determinística de la RX 550 | I | **A** | `1002:699f`→0x412 roto; ICD/nombre→0x699F 3/3 |
 | A-02 | TOR-OBS — telemetría read-only del governor en rx550-torneo | I | **A** | harness v2.3 ya read-only; física térmica N=2 reproducible |
-| A-03 | THERM-OBS — T_max/SCLK_min por ventana + presupuesto t90 | I | **A** | confound §6.3 solo post-hoc hoy; t90 136–172 s (N=2) |
+| A-03 | THERM-OBS — T_max/SCLK_min por ventana + presupuesto t90 | I | **A** | confound §6.3 post-hoc; t90 se reporta por condición (134.8–171.9 s en mini-test), sin valor universal |
 | A-04 | ENV-01 — precondición de exclusividad GPU + diagnóstico de cooldown | I | **A** | S2-v2.3 PARADA D documentada (sclk=7, P=6.395 W) |
 | A-05 | TOR-CD — cooldown alineado a DN-07 (≤50 °C ∧ nv0 ∧ P<4 W) | D | **A** | condición verificada operativamente (8/8 S1, 345 s S2) |
 | A-06 | MES-AB — regla de control del sample-loc-bug/MSAA en A/B | I | **A** | R0-3 [VERIFICADO]; GAP-11 mide efecto |
 | A-07 | GPU-ID — verificación dual + RESTORABLE_FIELDS como baseline | I | **A** | gpu_finder + spec §29; 6 nodos; 112 checks M1 |
-| A-08 | R0-POL — política GPUPerfAPI v3.11.1 + rangos CB/SQ/MC | I | **A** | R0-1/R1-1 [VERIFICADO/PARTIALLY_RECONCILED] |
+| A-08 | R0-POL — reconciliación de catálogo GPUPerfAPI v3.17 + índice histórico v3.11.1 | I | **A** | R0-1/R1-1 [PARTIALLY_RECONCILED / CATALOG ONLY]; no programación |
 | A-09 | R4A-CON — constraint PCIe Gen2×4 en planificación | I | **A** | root port 5.0 GT/s; 2.0 GB/s por sentido DERIVED |
-| A-10 | DOC-REC — reconciliar docs heredadas (Gen3×8, 501 GB/s, ×24–32) | I | **A** | discrepancias R-4A vs POLARIS12-MAP/FASE-G |
-| B-01 | GOV-01 — detención en primer escalón en banda (0.87) / escalón 0.93 | S | **B** | R1 3/3; settle 9.33 ms; R6 FAIL Δ=1 paso; n=3 |
-| B-02 | GOV-02 — ventana de decisión 30–60 s o EMA | S | **B** | R4 FAIL (ventana 5); ventanas 20 s con cola de frames |
-| B-03 | GOV-03 — grilla de escalas intermedias (0.93/0.86/0.80) | S | **B** | R2 overshoot 65–70 % en paso 1.00→0.87 |
-| B-04 | T-01 — DIST acotado por presupuesto térmico (≤120 s activos o cap) | D | **B** | t90 DIST≈100–120 s < 200 s; mini-test N=2 92 °C |
+| A-10 | DOC-REC — reconciliar documentos heredados (Gen3×8, 501 GB/s, ×24–32) | I | **A** | cifras 501/Gen3×8 y ratios antiguos quedan **REJECTED**; R-4A/UNKNOWN y 96–112 estimado |
+| B-01 | GOV-01 — detención en primer escalón en banda (0.87) / escalón 0.93 | S | **B** | R1/R3 3/3 como observaciones diagnósticas; R1–R6 no evaluables formalmente; n=3 |
+| B-02 | GOV-02 — ventana de decisión 30–60 s o EMA | S | **B** | R4 no cumple literal en S1 (ventana 5); diagnóstico, no veredicto formal |
+| B-03 | GOV-03 — grilla de escalas intermedias (0.93/0.86/0.80) | S | **B** | R2 overshoot 65–70 % en S1; observado, no PASS/FAIL formal |
+| B-04 | T-01 — DIST acotado por presupuesto térmico (≤120 s activos o cap) | D | **B** | t90 por condición: 134.8–171.9 s en mini-test; no valor universal; 200 s no demostrada desde ≤50 °C |
 | B-05 | R4A-02 — política de alojamiento GTT vs VRAM (hot set) | S | **B** | versión débil PARTIALLY VERIFIED; requiere A/B |
 | B-06 | R4A-04 — buffer VIS-VRAM 256 MiB (render pequeño→VIS) | S | **B** | VIS 256 MiB VERIFIED; sub-producto viable |
-| B-07 | MCLK-AB — encarrilamiento MCLK 1500 (pp_dpm_mclk) | D | **B** | política 5/16/20 [VERIFICADO]; MCLK 1500 reactivo; requiere FASE I/L |
-| C-01 | CNT-12 — instrumentación de contadores GFX8 (12 slots) | F | **C** | mapa listo; GRBM/SQ verificados; ejecución NO autorizada |
+| B-07 | MCLK-AB — encarrilamiento MCLK 1500 (pp_dpm_mclk) | D | **B** | política 5/16/20 **source-level**; MCLK 1500 reactivo no prueba causalidad; requiere FASE I/L |
+| C-01 | CNT-12 — instrumentación de contadores GFX8 (12 slots) | F | **C** | catálogo GFX8 `PARTIALLY_RECONCILED`; GRBM/SQ no validados para ASIC; ejecución NO autorizada |
 | C-02 | R4A-01 — medición de bandwidth real | I | **C** | amdgpu_benchmark denegado; real UNKNOWN |
 | C-03 | R4A-03 — compresión delta en aplicación | S | **C** | fuerte CONTRADICTED; débil sin medir coste descompresión |
 | C-04 | R4A-06 — identificación de módulo GDDR5 (6 vs 7 Gbps) | I | **C** | 96 vs 112 GB/s sin resolver |
@@ -186,8 +200,8 @@ Tres niveles de riesgo (no equivalentes), priorizando software/config primero:
 | C-10 | SHD-01 — Wave32 vs Wave64 | S | **C** | soporte GFX8 sin documentar; FASE Q |
 | C-11 | PWR-01 — power profile modes | D | **C** | efecto SMU7/Polaris12 desconocido; write requiere L |
 | C-12 | MEM-01/MEM-03 — VRAM pressure / sparse | S | **C** | MEM-01 riesgo OOM (Matriz J BAJA); MEM-03 sin diseño |
-| C-13 | DIST35 — DIST con entrada ≤35 °C (opción 7.3-A) | D | **C** | t90≈221 s > 200 s (modelo); NO medido aún |
-| C-14 | ASY-01/BERRETA — async compute overlaps | S | **C** | ACE+HWS GCN4 VERIFIED (externo); nº ACEs Lexa UNKNOWN |
+| C-13 | DIST35 — DIST con entrada ≤35 °C (opción histórica 7.3-A) | D | **C** | `t90≈221 s` es extrapolación lineal; no se midió un trial completo a 35 °C; no se declara viable |
+| C-14 | ASY-01/BERRETA — async compute overlaps | S | **C** | ACE/HWS family-level documentado; nº ACEs, overlap y runtime local `UNKNOWN` |
 | C-15 | I-05 — GFX8 frame recorder (herramienta) | I | **C** | PARTIALLY NOVEL; gap SQTT-GFX8 NO VERIFICADO |
 | C-16 | SP-PRESET-01 — preset/resolución superior de Superposition | I | **C** | requiere licencia/XML; opción sin autorizar |
 | C-17 | OVD-01 — Overdrive (ppfeaturemask 0x4000) | D | **C** | mask no contiene 0x4000; OD no disponible |
@@ -202,7 +216,7 @@ Tres niveles de riesgo (no equivalentes), priorizando software/config primero:
 | D-09 | DIST-200 — DIST 200 s desde ≤50 °C | D | **D** | mini-test N=2: T_max 92 °C pre-final |
 | E-01 | GOV-TORNEO — governor como función permanente de torneo | S | **E** | EXP-F4-A INCONCLUSO; n=3; R2/R4/R6 no cumplen |
 | E-02 | REG17 — régimen 17/09 + “phong 1285 fps” | I | **E** | NO REPRODUCIBLE; linaje no fiable (O3) |
-| E-03 | R2R4R6 — literales R2/R4/R6 + F1–F6 | I | **E** | overshoot 67 %, ventana 5, Δ=1 paso; F1–F6 no computados |
+| E-03 | R2R4R6 — literales R2/R4/R6 + F1–F6 | I | **E** | R1–R6 no evaluables formalmente por muestra incompleta; F1–F6 no computados |
 
 **Conteo:** A=10 · B=7 · C=17 · D=9 · E=3 · **Total = 46** (45 candidatos + E-03 como enunciado; se reportan
 como **45 candidatos auditados**, con E-03 incluido). *Nota de conteo: E-03 es el mismo enunciado de los
@@ -242,7 +256,7 @@ de los criterios de veredicto.*
 |---|---|
 | **Optimización propuesta** | Extender el runner con modelo `t90 ≈ (90 − T_entrada) / rampa` y emitir alerta antes de cruzar 90/92 °C; registrar T_max/SCLK_min por ventana en `metrics.json`. |
 | **Mecanismo técnico** | Rampa medida (0.31 °C/s sin governor; 0.246–0.252 °C/s con governor); margen 49→90 °C = ~100–172 s para la carga DIST. |
-| **Evidencia local** | `FASE-R4B-THERMAL-TEST/RESULTADOS-TEST-TERMICO.md` (N=2: 90 °C a 169/136 s, recuperación 255–270 s); `RESULTADOS-MINITEST-7.3-B.md` (t90 desde ≤50 °C ≈ 160 s; desde ≤35 °C ≈ 221 s); S1-v2.3 cruce a t0+100–120 s. |
+| **Evidencia local** | `FASE-R4B-THERMAL-TEST/RESULTADOS-TEST-TERMICO.md` (N=2: 90 °C a 169/136 s, recuperación 255–270 s); `RESULTADOS-MINITEST-7.3-B.md` (t90 alineado a m0: 171.9/134.8 s; no hay resultado completo desde 35 °C); S1-v2.3: t0+100–120 s en ventanas DIST confounded. |
 | **Variable que modifica** | Ninguna (alerta/salida del runner). |
 | **Componente que toca** | Sampler M1 (read-only). |
 | **Riesgo** | Nulo. |
@@ -250,7 +264,7 @@ de los criterios de veredicto.*
 | **Cómo medirla** | Comparar predicción t90 vs cruce real en trials ya guardados. |
 | **Baseline requerido** | Entrada térmica registrada (≤50 °C). |
 | **Métrica primaria** | T_max por ventana vs 90 °C (y 96 °C abort). |
-| **Métricas secundarias** | SCLK_min/under_pct, power_avg_steady. |
+| **Métricas secundarias** | SCLK_min/under_pct, `W_SMU` steady. |
 | **Criterio PASS** | Predice cruce ±15 s en datos S1 (dist1 v5, dist2 v6). |
 | **Criterio FAIL** | Error >30 s o falso negativo (cruce sin aviso). |
 | **Categoría** | **A** (como aviso; NO como garantía) |
@@ -263,7 +277,7 @@ de los criterios de veredicto.*
 | Campo | Valor |
 |---|---|
 | **Optimización propuesta** | En preflight y en cada cooldown: inventariar clientes de `renderD129`/`card1` (lsof/fuser) y abortar con diagnóstico explícito si `SCLK nv0 ∧ P<4 W` no converge en plazo corto, en vez de esperar 3600 s a ciegas. |
-| **Mecanismo técnico** | La condición de cooldown es un sensor de exclusividad; cooldown no convergente con T≤50 °C = carga externa, no fallo HW. |
+| **Mecanismo técnico** | La no convergencia con `T≤50 °C` es compatible con carga externa; no demuestra por sí sola carga externa ni fallo HW. La causa raíz permanece `UNKNOWN`. |
 | **Evidencia local** | `results/logs/session2-v23.log` (T=49 °C, sclk=7, P=6.395 W, timeout 3600 s → rc=9); patrón externo 100 %/1071/~6.4 W desde ~03:45 (logger micro12); pre_flight S2 con P=3.281 W y T=65 °C. |
 | **Variable que modifica** | Gates de arranque/cooldown del runner (sin tocar GPU). |
 | **Componente que toca** | `run_all_v23.sh`/preflight de experimentos; preflight de torneo. |
@@ -369,13 +383,13 @@ de los criterios de veredicto.*
 | **Dependencias** | Ninguna. |
 | **¿rx550-torneo?** | Sí — ya existe (C8/C9). |
 
-### A-08 · R0-POL — Política de fuente única de event IDs y rangos seguros
+### A-08 · R0-POL — Política de catálogo de event IDs (sin rango semántico seguro)
 
 | Campo | Valor |
 |---|---|
-| **Optimización propuesta** | Regla del proyecto: event IDs SOLO desde GPUPerfAPI **tag v3.11.1** (nunca v4+/main); usar intersección de rangos CB 0..395, SQ 0..272, MC 0..21 para cualquier diseño; no programar contadores. |
-| **Mecanismo técnico** | Catálogo 2304 filas extraído y verificado; v4.0+ eliminó GCN; UMR/radeontop no son fuente de eventos. |
-| **Evidencia local** | `R0-1-GFX8-EVENT-ID-REFERENCE.txt` (2304 filas); R1-1 (20/22 bloques exactos); R1-6. |
+| **Optimización propuesta** | Regla del proyecto: citar GPUPerfAPI v3.17 como catálogo de referencia y v3.11.1 como historial; no usar rangos como garantía semántica; no programar contadores. |
+| **Mecanismo técnico** | 2304 filas de catálogo no equivalen a eventos validados; v4.0+ eliminó GCN; UMR/radeontop no son fuente de eventos. |
+| **Evidencia local** | `R0-1-GFX8-EVENT-ID-REFERENCE.txt` (2304 filas); R1-1 (19/23); semántica/aplicabilidad `UNKNOWN`. |
 | **Evidencia externa** | README/RELEASE_NOTES GPUPerfAPI (fuente citada en R0-6). |
 | **Variable que modifica** | Flujo de trabajo documental. |
 | **Componente que toca** | Documentación/diseño (sin sistema). |
@@ -428,15 +442,15 @@ de los criterios de veredicto.*
 | **Riesgo** | Bajo (paramétrico, sin sysfs nuevo). |
 | **Reversibilidad** | Total (config). |
 | **Cómo medirla** | R1–R4 (r en banda, overshoot, reversiones, convergencia) con muestra completa n=6. |
-| **Baseline requerido** | S2 autorizado con entrada ≤50 °C y GPU sin clientes; T congelada (9.168/9.153 ms). |
+| **Baseline requerido** | No se reintenta S2-v2.3. Una futura A/B requiere un protocolo nuevo, T_run explícita y autorización nueva. |
 | **Métrica primaria** | r = p99_settle / T ∈ [0.90, 1.10]. |
 | **Métricas secundarias** | Δ% vs FIXED; overshoot %; nº reversiones; convergencia. |
 | **Criterio PASS** | R1 ≥5/6 + R3 ≥5/6 + converge ≤4 ventanas + Δ vs fixed ≤ −10 %. |
 | **Criterio FAIL** | r fuera de banda >1 ventana o reversiones sostenidas. |
 | **Categoría** | **B** |
 | **UNKNOWNs restantes** | Comportamiento de 0.93 nunca medido en este repo; estabilidad del settle con paso menor. |
-| **Dependencias** | Autorización S2; ENV-01 (exclusividad); A-02/A-03 (telemetría). |
-| **¿rx550-torneo?** | Alta: loop de governor por ventana = subcomando `governor` reutilizando `gpu_finder`/`state_manager`/`failsafe`; extiende autorización de escritura solo a `pp_dpm_sclk`/`power1_cap` con patrón `verify_authorized`. |
+| **Dependencias** | No se reintenta S2-v2.3. Futura réplica: protocolo/autorización nuevos, ENV-01 y telemetría A-02/A-03. |
+| **¿rx550-torneo?** | Alta: loop de governor por ventana = subcomando `governor` reutilizando `gpu_finder`/`state_manager`/`failsafe`; cualquier escritura requiere autorización separada. |
 
 ### B-02 · GOV-02 — Ventana de decisión 30–60 s o EMA multi-ventana
 
@@ -444,7 +458,7 @@ de los criterios de veredicto.*
 |---|---|
 | **Optimización propuesta** | Sustituir decisión por ventana única de 20 s por ventanas de 30–60 s o EMA del p99. |
 | **Mecanismo técnico** | La ventana de 20 s contiene la cola de frames del cambio de escala (lays 4→8); mayor ventana separa transitorio de estado estacionario. |
-| **Evidencia local** | R4 FAIL (convergencia ventana 5); S1-v2.2 settle gov en v5–v6 (27.3–27.5 ms); dist v4–v5 p99≈18.6 ms (cola, no térmico). (n=3). |
+| **Evidencia local** | R4 no cumple literal en S1 (convergencia en ventana 5); diagnóstico n=3, no PASS/FAIL formal. |
 | **Variable que modifica** | `WINDOW_S` en harness/analyze/gov loop (software). |
 | **Riesgo** | Bajo (paramétrico; aumenta latencia de reacción y acerca a t90). |
 | **Reversibilidad** | Total. |
@@ -484,12 +498,14 @@ de los criterios de veredicto.*
 
 | Campo | Valor |
 |---|---|
-| **Optimización propuesta** | (a) Acortar la fase `dist` a ≤120 s de carga activa, o (b) fijar `power1_cap` ~25–28 W durante `dist`, o (c) micropausas de 10 s para mantener T<90 °C. |
-| **Mecanismo técnico** | t90(35 W) = 136–172 s (N=2) y cruce observado a t0+100–120 s → un trial de 200 s es inmedible a 35 W con entrada ≤50 °C. |
+| **Optimización propuesta** | (a) Acortar `dist` a ≤120 s, o (b) mantener un cap declarado ~25–28 W,
+  o (c) diseñar pausas; todas son alternativas de diseño y requieren protocolo/autorización. |
+| **Mecanismo técnico** | No existe `t90(35 W)` universal. Las réplicas alineadas a `m0` mostraron 171.9 s (T(m0)=44 °C) y 134.8 s (T(m0)=55 °C); con entrada ≤50 °C el DIST de 200 s no se demostró íntegro. La opción ≤35 °C es histórica y no verificada. |
 | **Evidencia local** | dist1 CONFOUNDED v5–v9, dist2 v6–v9 (S1); `RESULTADOS-TEST-TERMICO.md` (N=2); mini-test 7.3-B (N=2: 92 °C pre-final). R7 NOT FOR VERDICT. |
 | **Variable que modifica** | `RUN_DURATION_DIST` y/o `power1_cap` por trial (D — sysfs con protocolo M1/FASE3 ya validado). |
 | **Componente que toca** | Harness/runner; cap por trial. |
-| **Riesgo** | Bajo con el patrón SET→workload→RESTORE de `cap_run.py` (abort 90/96 °C, guard SIGKILL). |
+| **Riesgo** | Bajo solo con el patrón SET→workload→RESTORE; 90 °C es confound y 96 °C
+  es el abort configurado; no se ejecuta aquí. |
 | **Reversibilidad** | Total (parámetros + restore readback). |
 | **Cómo medirla** | T_max y SCLK_min por ventana con la nueva configuración; reclasificar con §6.3. |
 | **Baseline requerido** | Entrada ≤50 °C; GPU sin clientes. |
@@ -546,8 +562,8 @@ de los criterios de veredicto.*
 | Campo | Valor |
 |---|---|
 | **Optimización propuesta** | A/B controlado de forzar MCLK al nivel 2 (`pp_dpm_mclk`) bajo protocolo FASE I/L (snapshot→write→readback→restore→readback) para medir impacto real en frametime/potencia de cargas de memoria. |
-| **Mecanismo técnico** | Política smu7 128-bit 5/16/20 y `EnabledForActivity=1` (el 1500 MHz se activa por actividad); forzar elimina la dependencia del umbral. |
-| **Evidencia local** | E-03: MCLK 1500 con mem_busy 36–49 %; E-01/E-02: 300 con 3–7 %. R-07 + R0-2 [VERIFICADO] política. |
+| **Mecanismo técnico** | La política smu7 128-bit 5/16/20 es **source-level**; `EnabledForActivity=1` aparece en la fuente, pero el trigger local y el mapeo de `mem_busy` son `UNKNOWN`. Forzar sería una acción de escritura separada, no una eliminación demostrada de un umbral local. |
+| **Evidencia local** | E-03: MCLK 1500 con `mem_busy` 36–49 %; E-01/E-02: 300 con 3–7 %. Son observaciones correlacionales; R-07 + R0-2 documentan la política, no validan el ASIC. |
 | **Evidencia externa** | `smu7_hwmgr.c` (commits 8d89b96…, 7d892ca…) vía R0-2. |
 | **Variable que modifica** | `pp_dpm_mclk` (sysfs — D, NO AUTORIZADO hoy). |
 | **Componente que toca** | PowerPlay/SMU7. |
@@ -572,14 +588,14 @@ de los criterios de veredicto.*
 
 | Campo | Valor |
 |---|---|
-| **Optimización propuesta** | Atribuir potencia/bottleneck con contadores HW (12 slots: GRBM×2, GRBMSE×2, SX×1, TCC×2, TCA×1, CB×1, DB×1, MC_ARB×2). |
-| **Mecanismo técnico** | Escritura de `*_PERFCOUNTERn_SELECT` con PERF_SEL dentro de rangos verificados; ventana vía CP (`V_028A90 START/STOP/SAMPLE=23/24/27`, `CP_PERFMON_CNTL`); restauración SELECT=0, CTRL=0. |
-| **Evidencia local** | Mapa de registros (FASE-D-ETAPA-3-EVENTS/PRECHECK); GRBM=2 y SQ=4 [VERIFICADO GFX8] (R0-1/R1-1); 20/22 bloques reconciliados; MC UNRESOLVED. |
-| **Evidencia externa** | GPUPerfAPI v3.11.1 (2304 eventos). |
+| **Optimización propuesta** | Atribuir potencia/bottleneck con contadores HW (12 slots: GRBM×2, GRBMSE×2, SX×1, TCC×2, TCA×1, CB×1, DB×1, MC_ARB×2); solo diseño, no autorización. |
+| **Mecanismo técnico** | Escritura de `*_PERFCOUNTERn_SELECT` requeriría una tupla evento/ASIC/instancia verificada; no se asumen rangos ni semántica; ventana CP y restauración quedarían subjects a protocolo separado. |
+| **Evidencia local** | Mapa de registros (FASE-D-ETAPA-3-EVENTS/PRECHECK); GRBM=2/SQ=4 `CATALOG ONLY`; 19/23; MC/aplicabilidad `UNKNOWN`. |
+| **Evidencia externa** | GPUPerfAPI v3.17 catálogo; v3.11.1 histórico; 2304 filas no eventos validados. |
 | **Variable que modifica** | Registros MMIO PERF_SEL (F — NO AUTORIZADO). |
 | **Riesgo** | Medio-alto (perturbación de la carga K8; requiere root); bloqueado por autorización. |
 | **Reversibilidad** | Protocolo snapshot→write→readback→restore. |
-| **Cómo medirla** | A/B idéntico a etapa 2 (22.25 vs 15.78 W) con contadores. |
+| **Cómo medirla** | A/B idéntico a etapa 2 (`W_SMU` 22.25 vs 15.78 W) con contadores; no causalidad automática. |
 | **Categoría** | **C** |
 | **UNKNOWNs restantes** | Instancias por fuses (GAP-08); semántica MC (GAP-09); equivalencia `index=PERF_SEL` Media-Alta (deducida). |
 | **Dependencias** | Autorización explícita + PRE read-only + sanity idle (R1-10 §A). |
@@ -625,9 +641,9 @@ de los criterios de veredicto.*
 
 | Campo | Valor |
 |---|---|
-| **Optimización propuesta** | Llegar a draw ≥20 W (camino hacia discriminar 35 vs 30 W): E-03 logró 15.75 W stead + MCLK 1500. |
-| **Mecanismo técnico** | CB con entropía, texturas 4×4096² > L2, política 5/16/20; techo observado ~16 W con DPM auto. |
-| **Evidencia local** | E-03 (13.4/15.75 W); ES-01 y F2 planos; Superposition (22.31 W) sugiere que la geometría real es la vía. |
+| **Optimización propuesta** | Llegar a `W_SMU` ≥20 W (camino hacia discriminar 35 vs 30 W): E-03 logró 15.75 W steady + MCLK 1500. |
+| **Mecanismo técnico** | CB con entropía, texturas 4×4096² > L2, política 5/16/20 **source-level**; techo observado ~16 W con DPM auto. |
+| **Evidencia local** | E-03 (`W_SMU` 13.4/15.75 W); ES-01 y F2 planos; Superposition (22.31 W) es una asociación que no prueba que la geometría sea la causa. |
 | **Variable que modifica** | Carga (software); WORKLOAD-SINTETICO CONGELADO. |
 | **Riesgo** | Bajo (0 faults tras fix R-11); VM faults si storage images. |
 | **Categoría** | **C** |
@@ -703,9 +719,9 @@ de los criterios de veredicto.*
 
 | Campo | Valor |
 |---|---|
-| **Optimización propuesta** | Ejecutar DIST de 200 s partiendo de ≤35 °C (t90 modelo ≈ 221 s > 200 s). |
+| **Optimización propuesta** | Diseño histórico de DIST desde ≤35 °C (t90 modelo ≈ 221 s); **no ejecutar ni reintentar** bajo el estado D6. |
 | **Evidencia local** | Mini-test 7.3-B: desde ≤50 °C no cabe (92 °C pre-final); modelo 7.3-A (t90 221 s) NO medido aún. |
-| **Riesgo** | Térmico medio (entrada ≤35 °C no garantizada en este chasis). |
+| **Riesgo** | Alto: entrada ≤35 °C no garantizada; 90 °C es confound y 96 °C abort de un protocolo autorizado. |
 | **Categoría** | **C** (requiere prueba autorizada; si falla → D) |
 | **¿rx550-torneo?** | No hoy. |
 
@@ -714,14 +730,14 @@ de los criterios de veredicto.*
 | Campo | Valor |
 |---|---|
 | **Optimización propuesta** | Aprovechar ACE/HWS con compute async (Overlap de present/filtros). |
-| **Evidencia local** | ACE+HWS GCN4 VERIFIED (whitepaper Polaris + Otterness & Anderson RTSS'21 — externo); nº ACEs Lexa **UNKNOWN**; BERRETA sin señal experimental (grafo R-2.21). |
+| **Evidencia local** | ACE/HWS family-level documentado (whitepaper + fuentes de scheduling); nº ACEs Lexa, overlap y runtime local **UNKNOWN**; BERRETA sin señal experimental. |
 | **Categoría** | **C** (bloqueado por falta de señal F/G/H/I) |
 
 ### C-15 · I-05 — GFX8 frame recorder (herramienta)
 
 | Campo | Valor |
 |---|---|
-| **Optimización propuesta** | Build de un viewer SQTT GFX8 (gap real de tooling). |
+| **Optimización propuesta** | Evaluar un viewer SQTT GFX8; la existencia del gap/runtime es `UNKNOWN` y requiere capability audit, no build asumido. |
 | **Evidencia local** | R3-NOVELTY-MATRIX: PARTIALLY NOVEL; gap SQTT-GFX8 vs RGP NO VERIFICADO. |
 | **Categoría** | **C** |
 
@@ -729,7 +745,7 @@ de los criterios de veredicto.*
 
 | Campo | Valor |
 |---|---|
-| **Optimización propuesta** | Intentar 1080p/High (necesita `~/.Superposition/license` o flags engine) para acercarse a 27 W. |
+| **Optimización propuesta** | La configuración histórica efectiva `1600×900/Medium` queda cerrada; cualquier preset `1080p/High` sería otro workload y requiere autorización nueva. |
 | **Evidencia local** | Config efectiva 1600x900/Medium (fase activa 18.8 W media/23.7 W máx); VRAM 1.63 GiB “sin presión”. |
 | **Riesgo** | Bajo; ejecución NO autorizada (R1-10 §B). |
 | **Categoría** | **C** |
@@ -749,15 +765,15 @@ de los criterios de veredicto.*
 
 | ID | Candidato | Evidencia refutatoria (con número) |
 |---|---|---|
-| D-01 | **CAP-01** — power1_cap 25–35 W como palanca | Fase B: curva plana 25→35 W (SCLK 1071, P 10.7–11.6 W); M1: ΔFPS=ΔSCLK=0, ΔP IC95% (−0.103, +0.060) W, draw 12.27 W < 27 W. Aclaración M1: NO significa “30 W = 35 W para cualquier workload” — descartado probado para los workloads disponibles. |
+| D-01 | **CAP-01** — power1_cap 25–35 W como palanca | Fase B: curva plana 25→35 W (SCLK 1071, `W_SMU` 10.7–11.6 W); M1: ΔFPS=ΔSCLK=0, ΔP IC95% (−0.103, +0.060) W, `W_SMU` 12.27 W < 27 W. Aclaración M1: NO significa “30 W = 35 W para cualquier workload” — descartado probado para los workloads disponibles. |
 | D-02 | **MES-01** — Mesa CUSTOM como optimización | EP-05: CUSTOM==STOCK (ΔFPS ≤1 %, ΔP ≤0.3 W, mismo SCLK/MCLK); nunca 25–31 W ni 88–92 °C. |
 | D-03 | **SOAK-01** — soak térmico para reproducir E1/E3 | EP-06: 70–71 °C cap 25 W → SCLK 1071, 9.6–11.5 W; no reproduce ni frío ni caliente. |
 | D-04 | **KALM-01** — kalm como palanca | EP-06: con kalm activo régimen libre; sin kalm (17/09) régimen regulatorio → dirección opuesta; kalm descartado como causa. |
 | D-05 | **WL-SCALE-01** — escalado overdraw/FMA/tex/MSAA/combo | ES-01: todas variantes 15.75–16.18 W (deriva ±0.33 W); MSAA 8× sin efecto en frametime (~112.5 vs 112.1 ms). |
-| D-06 | **WL-FRAG-01** — 8 fetchs de fragment | F2: frametime 2× (112→222 ms) pero power 15.76 vs 16.13 W (−0.4 W) y mem_busy 36 % idéntica → H-F2 RECHAZADA. |
-| D-07 | **WL-COMPUTE-01** — compute ALU puro | E-01 13.23 W → E-02 12.38 W (−0.85 W); MCLK 300; mem_busy 3–7 %; gate 27 W NO superado. |
-| D-08 | **GM-01** — GravityMark 200k como workload M2 | 12.4 W media / 14.8 W máx; VRAM 2.10/2.00 GB (98 %); `-asteroids 4m` = device lost/OOM (2.86 GB > 2 GB). |
-| D-09 | **DIST-200** — DIST 200 s desde ≤50 °C como diseño de trial | Mini-test 7.3-B (N=2): T_max=92 °C en ambas réplicas antes de completar los 200 s; S1: dist1/2 CONFOUNDED v5–v9/v6–v9. Descarte solo para entrada ≤50 °C; opción ≤35 °C = C-13. |
+| D-06 | **WL-FRAG-01** — 8 fetchs de fragment | F2: frametime 2× (112→222 ms) pero `W_SMU` 15.76 vs 16.13 W (−0.4 W) y `mem_busy` 36 % idéntica → H-F2 RECHAZADA. |
+| D-07 | **WL-COMPUTE-01** — compute ALU puro | E-01 `W_SMU` 13.23 W → E-02 12.38 W (−0.85 W); MCLK 300; `mem_busy` 3–7 %; gate 27 W NO superado. |
+| D-08 | **GM-01** — GravityMark 200k como workload M2 | `W_SMU` 12.4 W media / 14.8 W máx; VRAM 2.10/2.00 GB (98 %); `-asteroids 4m` = device lost/OOM (2.86 GB > 2 GB). |
+| D-09 | **DIST-200** — DIST 200 s desde ≤50 °C como diseño de trial | Mini-test 7.3-B (N=2): T_max=92 °C antes de completar 200 s; S1: dist1/2 CONFOUNDED. Descarte para entrada ≤50 °C; la opción ≤35 °C queda histórica/no verificada (C-13), no se reintenta. |
 
 ---
 
@@ -781,26 +797,27 @@ permanente provocado.
 |---|---|---|---|---|---|---|---|---|---|
 | A-02 TOR-OBS (telemetría governor) | SÍ (read-only) | Ninguno nuevo | CSV/audit + state.json | N/A | `gpu_finder` 0x699F | `TARGET_IS_DISPLAY`/`INTEL_NOT_DISPLAY` | lee `power/control` (FASE2) | registro T_max/SCLK_min por ventana | Sin writes: imposible |
 | A-03 THERM-OBS (presupuesto t90) | SÍ como aviso; NO como garantía | Modelo t90 + alerta | CSV | N/A | idem | idem | idem | Alerta antes de 90/96 °C | Sin writes |
-| A-04 ENV-01 (exclusividad) | SÍ (S2 documentado) | lsof/fuser de renderD129/card1 en preflight | audit.json | N/A | idem | idem | idem | Cooldown hasta ≤50 °C + nv0 + P<4 W | Sin inicio con GPU activa |
-| A-05 TOR-CD (cooldown alineado) | SÍ (8/8 S1; 345 s S2) | Criterio `≤50 °C s30 ∧ nv0 ∧ P<4 W` | cooldown tsv | Restore M1 | idem | idem | idem | Alinear a DN-07 | Criterio más estricto que 45 °C actual |
-| B-01 GOV-01 (escala de render) | NO (veredicto INCONCLUSO; n=3) — requiere S2 | Governor por ventana, T congelada, sin clientes | state + control_scale | clears por frame (software) | idem | idem | sin cambio | Presupuesto t90 en ventanas | Reversible por config; solo SOFTWARE |
-| B-04 T-01 (DIST y cap) | PARCIAL (térmica N=2) | cap por trial SET/RESTORE (patrón M1) | audit + telemetría | RESTORE + readback (cap_run) | idem | idem | sin cambio | abort 90 °C, cooldown 45 °C/30 s | Guard SIGKILL + restore_needed |
+| A-04 ENV-01 (exclusividad) | SÍ (S2 documentado) | lsof/fuser de renderD129/card1 en preflight | audit.json | N/A | idem | idem | idem | Cooldown hasta ≤50 °C + nv0 + `W_SMU` <4 W | Sin inicio con GPU activa |
+| A-05 TOR-CD (cooldown alineado) | SÍ (8/8 S1; 345 s S2) | Criterio `≤50 °C s30 ∧ nv0 ∧ W_SMU<4 W` | cooldown tsv | Restore M1 | idem | idem | idem | Alinear a DN-07 | Criterio más estricto que 45 °C actual |
+| B-01 GOV-01 (escala de render) | NO (veredicto INCONCLUSO; n=3) — no se reintenta S2 | Governor por ventana, T_run explícita, sin clientes | state + control_scale | clears por frame (software) | idem | idem | sin cambio | Presupuesto t90 documentado por condición | Reversible por config; solo SOFTWARE |
+| B-04 T-01 (DIST y cap) | PARCIAL (térmica N=2) | cap por trial SET/RESTORE (patrón M1) | audit + telemetría | RESTORE + readback (cap_run) | idem | idem | sin cambio | 90 °C confound; 96 °C abort; cooldown 45 °C/30 s | Guard SIGKILL + restore_needed |
 | B-07 MCLK-AB (pp_dpm_mclk) | PARCIAL (política VERIFICADA; efecto sin medir) | snapshot→write→readback→restore→readback; FASE I/L | 6 nodos RESTORABLE_FIELDS | 1 intento + readback | idem | idem | sin cambio | Presupuesto t90 | Extiende whitelist SOLO con autorización |
 
 **Punto crítico:** ninguna integración de governor como *función de render* es autorizable hoy porque el
-EXP-F4-A es INCONCLUSO; B-01 solo puede integrarse como **A/B experimental** con S2 autorizado. Los
-prerrequisitos read-only (A-02…A-05) SÍ pueden integrarse ya.
+EXP-F4-A es INCONCLUSO. B-01 queda como candidato future A/B, no como S2 autorizado; cualquier réplica
+requiere un protocolo y autorización nuevos. Los prerrequisitos read-only (A-02…A-05) quedan documentados; no se integran ni ejecutan
+en esta fase.
 
 ---
 
-## 13. Interferencia externa de S2 — clasificación documental
+## 13. Firma de GPU no idle durante S2 — clasificación documental
 
 **Hechos registrados (evidencia):**
 - `results/logs/session2-v23.log`: cooldown p2→p3 con T=49 °C (≤50 OK) pero **sclk nivel 7 (1071 MHz) y
   P=6.395 W** → condición `nv0 ∧ P<4 W` nunca anidada → timeout 3600 s → PARADA D (rc=9).
 - `results/v23/session2/fase1/cooldown1.tsv`: el cooldown p1→p2 SÍ convergió en 345 s (retorno 49.0 °C, nivel 0,
   3.367 W).
-- Logger independiente read-only (`/tmp/opencode/micro12/vkmark30-telemetry.csv`, activo desde 18/09; líneas
+- Logger independiente read-only (`/tmp/opencode/micro12/vkmark30-telemetry.csv`, activo desde 18/09; **PERDIDO / NO VERIFICABLE, no reconstruido**; líneas
   ~25732+): patrón sostenido `gpu_busy=100 % · SCLK 1071 · mclk 300 · mem_busy 0 · ~11.5 W` (y ≈6.4 W registrado
   en el contexto), desde las ~03:45 hasta el final.
 - Clientes amdgpu de `0000:01:00.0` identificados en monitoreo en vivo: Xwayland (pid 2721, `/dev/dri/card1`) y
@@ -812,7 +829,7 @@ prerrequisitos read-only (A-02…A-05) SÍ pueden integrarse ya.
 **Clasificación:**
 | Estado | ¿Se puede afirmar? | Justificación |
 |---|---|---|
-| **Observado** | SÍ | La carga externa sostenida (busy 100 %, SCLK 1071, P≈6.4–11.5 W, mem_busy 0) durante el cooldown p2→p3 y posteriores, con el protocolo read-only cumpliendo su anti-deadlock. |
+| **Observado** | SÍ | Se observó una firma de GPU no idle (busy 100 %, SCLK 1071, P≈6.4–11.5 W, mem_busy 0) durante el cooldown p2→p3 y posteriores; el protocolo read-only cumplió su anti-deadlock. |
 | **Correlacionado** | SÍ | Hay coincidencia temporal (~03:45 en adelante) entre la carga persistente y el fallo del cooldown; también pre_flight de S2 ya mostraba GPU no-idle (P=3.281 W, T=65 °C). |
 | **Causalidad demostrada** | NO | No hay evidencia que demuestre cuál de los clientes (Xwayland, ChatGPT gpu-process, u otro) generó la carga. “gpu_busy=100 % con mem_busy=0 y ~6.4 W” es compatible con presentación/2D, pero no identifica al actor. |
 | **Causalidad desconocida** | SÍ (parcial) | Por qué el estado se mantuvo horas (redraw loop de Xwayland vs canvas de ChatGPT vs otro) es UNKNOWN; tampoco se verificó si Xwayland sostiene card1 por ser el nodo de presentación aun sin conector activo. |
@@ -841,7 +858,8 @@ prerrequisitos read-only (A-02…A-05) SÍ pueden integrarse ya.
 - **A-05 TOR-CD** — cooldown alineado a DN-07. Evidencia: 8/8 cooldowns 150–341 s; S2 cooldown1 345 s.
 - **A-06 MES-AB** — regla de control del sample-loc-bug/MSAA en A/B. Evidencia: R0-3 [VERIFICADO].
 - **A-07 GPU-ID** — verificación dual + RESTORABLE_FIELDS como baseline. Evidencia: 65/55/56/112 checks; rollback 10/10.
-- **A-08 R0-POL** — política GPUPerfAPI v3.11.1 y rangos seguros. Evidencia: R0-1/R1-1.
+- **A-08 R0-POL** — reconciliación de catálogo GPUPerfAPI v3.17 / v3.11.1 histórico;
+  no hay rango semánticamente seguro ni autorización de programación. Evidencia: R0-1/R1-1.
 - **A-09 R4A-CON** — constraint PCIe Gen2×4. Evidencia: root port 5.0 GT/s (VERIFIED).
 - **A-10 DOC-REC** — reconciliar documentación heredada (requiere decisión del usuario).
 
@@ -904,25 +922,26 @@ B-06 (R4A-04), B-07 (MCLK-AB).
 real de la unidad (VBIOS/pptable) y atribución del cliente dGPU en S2 (empate de prioridad; se listan 5, con la
 nota de que (5) tiene dos componentes).
 
-**F. Primer experimento de implementación reversible según la evidencia:** **GOV-A/B: “detención del governor
-en el primer escalón dentro de banda + ventana de decisión + escalón intermedio” (B-01+B-02+B-03) sobre una S2
-autorizada**, precedido por la integración read-only de A-02/A-03/A-04/A-05 en rx550-torneo como prerrequisito de
-medición. Es de nivel SOFTWARE (render-scale reversible por configuración), no toca sysfs nuevos, y es el único
-candidato de cambio de comportamiento con tres piezas de evidencia de dirección: R1 3/3 en banda, Δ rel −18.5 %
-frente a FIXED (n=3) y curva congelada monotónica.
+**F. Candidato future de implementación reversible (NO EJECUTAR AHORA):** **GOV-A/B: “detención del governor
+en el primer escalón dentro de banda + ventana de decisión + escalón intermedio” (B-01+B-02+B-03)**. No se
+reintenta S2-v2.3; cualquier réplica debe ser un protocolo nuevo con autorización nueva. La integración
+read-only de A-02/A-03/A-04/A-05 puede precederla. Las piezas R1 3/3, Δ rel −18.5 % y curva
+congelada son evidencia diagnóstica direccional de n=3, no un veredicto de implementación.
 
 **G. Evidencia concreta que lo justifica:**
 1. `FASE-R4B-GOVERNOR/results/v23/session1/fase2/metrics.json` + `EXP-F4-A-RESULTADOS-v2.3.md` §A: gov settle
-   p99 ≈ 9.33 ms, r=1.0194–1.0197 (3/3 en banda [8.251, 10.085] ms), 0 reversiones, convergencia ventana 5;
-   comparación pareada gov 9.33 vs fixed 11.45 ms → Δ ≈ −18.5 % (3 pares).
+   p99 ≈ 9.33 ms, r=1.0194–1.0197 (3/3 en banda [8.251, 10.085] ms), 0 reversiones y convergencia
+   en ventana 5; son observaciones diagnósticas de S1, no gates formales. Comparación pareada
+   gov 9.33 vs fixed 11.45 ms → Δ ≈ −18.5 % (3 pares).
 2. Curva de Fase 1 congelada (v2.3 manifest): 11.441 / 9.337 / 7.037 / 4.897 / 2.848 ms (monótona, gates PASS y
    histéresis ≤0.41 %).
-3. Presupuesto térmico (N=2 test térmico + N=2 mini-test): t90 ≈ 136–172 s; DIST 200 s inmedible desde ≤50 °C;
-   cooldown DN-07 verificado 8/8 (150–341 s) → el harness puede sostener la medición con exclusividad (ENV-01).
-4. El mismo candidato NO es clasificable A porque el veredicto global es INCONCLUSO (n=3, S2 sin datos,
-   R2/R4/R6 fuera de literal): por eso se clasifica **B** y se ejecuta como A/B, no como configuración permanente.
+3. Presupuesto térmico: no hay un `t90` universal; las réplicas alineadas a `m0` muestran
+   171.9/134.8 s y el DIST de 200 s no se demostró íntegro desde ≤50 °C. El cooldown DN-07
+   fue observado 8/8 en S1; no equivale a exclusive environment proof.
+4. El mismo candidato NO es clasificable A porque el veredicto global es INCONCLUSO y S2
+   quedó PARADA_D; queda B solo para un A/B future, no como configuración permanente.
 
 ---
 
 *Fin de la auditoría. No se implementó nada: no se modificó la GPU, no se modificó el sistema, no se ejecutó el
-roadmap. Documentos auxiliares: `IMPLEMENTATION-ROADMAP.md`, `IMPLEMENTATION-SAFETY-RULES.md` (misma carpeta).*
+roadmap. Documentos auxiliares canónicos: `04-IMPLEMENTACION/IMPLEMENTATION-ROADMAP.md` y `04-IMPLEMENTACION/IMPLEMENTATION-SAFETY-RULES.md` (no se duplican en esta carpeta).*

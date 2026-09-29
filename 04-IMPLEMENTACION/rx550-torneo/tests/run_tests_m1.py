@@ -561,9 +561,28 @@ def _parse_writes(trace_text):
     return events
 
 
+def t_workload_radv_icd_selector():
+    env = cap_run.workload_env({
+        "MESA_VK_DEVICE_SELECT": "Intel",
+        "VK_DRIVER_FILES": "/tmp/intel.json",
+        "LD_LIBRARY_PATH": "/tmp/custom",
+    })
+    check("G2: DRI_PRIME estable por vendor:device",
+          env.get("DRI_PRIME") == "1002:699f", env.get("DRI_PRIME"))
+    check("G3: ICD RADV forzado",
+          env.get("VK_ICD_FILENAMES", "").endswith("radeon_icd.x86_64.json"),
+          env.get("VK_ICD_FILENAMES"))
+    check("G4: selector Mesa numérico/no confiable eliminado",
+          "MESA_VK_DEVICE_SELECT" not in env, env.get("MESA_VK_DEVICE_SELECT"))
+    check("G5: VK_DRIVER_FILES heredado eliminado",
+          "VK_DRIVER_FILES" not in env, env.get("VK_DRIVER_FILES"))
+    check("G6: LD_LIBRARY_PATH custom eliminado",
+          "LD_LIBRARY_PATH" not in env, env.get("LD_LIBRARY_PATH"))
+
+
 def t_strace():
     if not shutil.which("strace"):
-        check("M: strace disponible", False, "strace ausente")
+        print("[SKIP] M: strace no instalado; no se instala ni se trata como PASS")
         return
     tmp = tmpdir()
     cap = os.path.join(tmp, "fake-power1-cap")
@@ -648,7 +667,7 @@ def main():
         t_gpu_reset, t_gpu_reset_unavailable_is_not_reset, t_schedule_aborts_on_gpu_reset,
         t_benign_prt_history, t_isolated_vm_fault, t_new_ring_timeout_critical,
         t_new_gpu_reset_critical, t_incompatible_log_format, t_empty_journal_window,
-        t_workload_home_nonroot,
+        t_workload_home_nonroot, t_workload_radv_icd_selector,
         t_strace, t_guard_kill,
         lambda: t_precondition("power_control", "auto", "power/control!=on"),
         lambda: t_precondition("power_dpm_force_performance_level", "high", "DPM!=auto"),

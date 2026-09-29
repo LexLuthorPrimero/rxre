@@ -1,6 +1,6 @@
 # ORQUESTADOR FINAL — Documento de Diseño del Proyecto
 
-> **Archivo:** `projects/ORCHESTRATOR/FINAL-ORCHESTRATOR-DESIGN.md`
+> **Archivo:** `04-IMPLEMENTACION/projects/ORCHESTRATOR/FINAL-ORCHESTRATOR-DESIGN.md`
 > **Fase:** FASE R-2 — COMPLETE PROJECT DOCUMENTATION & ECOSYSTEM ARCHITECTURE (R-2.17)
 > **Fecha:** 2026-09-22 — Modo SOLO DOCUMENTAL (DISEÑO; NO implementado)
 > **Clasificación:** [DISEÑADO] — arquitectura de control del ecosistema. NO se ejecutó ni se escribió

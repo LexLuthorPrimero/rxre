@@ -1,9 +1,13 @@
 # RESULTADOS-M1 — Efecto de power1_cap 35 W vs 30 W
 
 > **ESTADO: COMPLETADO** (2026-09-20). Cierre autorizado. Artefactos crudos intactos.
+>
+> **Nota de reconciliación 2026-09-24:** M1 es un snapshot histórico; su regla de
+>abort a 90 °C no reemplaza la taxonomía vigente (90 °C = confound, 96 °C = abort
+> configurado). `power1_input` es `W_SMU`, no vatímetro.
 
 - Fecha de ejecución: 2026-09-20 00:00–00:13 (-03:00)
-- Directorio: `experiments/M1-cap-35-30/runs/20260919-235939`
+- Directorio: `03-EXPERIMENTOS/M1-cap-35-30/runs/20260919-235939`
 - GPU: RX 550 Polaris12 (card1, amdgpu, `1002:699f`) · Display: Intel HD 4600 (card0, i915)
 - Workload: `vkmark -p immediate -s 1920x1080 -b shading:shading=phong:duration=25`
 - Mesa: STOCK · 5 bloques pareados (10 corridas) · ventana de análisis [5 s, 25 s] · telemetría 10 Hz
@@ -109,7 +113,7 @@
 
 > Aclaración obligatoria: **"NO DISCRIMINATIVO" NO significa "30 W = 35 W para cualquier workload".**
 > Significa que **este workload no alcanzó una demanda suficiente para que el cap de potencia pudiera ligar**
-> (draw real ≈12.27 W, muy por debajo del cap de 30 W). No se declara "sin efecto" sobre otros workloads.
+> (W_SMU ≈12.27 W, muy por debajo del cap de 30 W). No se declara "sin efecto" sobre otros workloads.
 
 ## 9. Preservación de artefactos (sha256)
 

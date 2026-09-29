@@ -25,7 +25,7 @@
 | ROPs | 16 | igual a P11 |
 | L2 | 512 KiB (reportado; distinto de P11? validar con SI_* ) | — |
 | TMUs | 32 | — |
-| Memoria | GDDR5 7 Gbps 128-bit → ~112 GB/s teórico | — |
+| Memoria | GDDR5 7 Gbps 128-bit → 96–112 GB/s nominal/estimado; real local `UNKNOWN` | — |
 | TDP | ~50 W (sin conector aux) | P11 ~50 W |
 
 **Conclusión arquitectónica externa (coincide con R-01 local):** Polaris12 es un chip de
@@ -48,7 +48,7 @@ ratio entre A/B).
 ## 4. Referencias de potencia observadas externamente (para contraste)
 
 - TDP nominal 50 W; mediciones gaming ~47 W peor caso en reviews (Tom's Hardware e Igor'sLab).
-- En el proyecto la unidad funciona en régimen cap a 35 W con draw real actual ~13 W (época
+- En el proyecto la unidad funciona en régimen cap a 35 W con `W_SMU` observada ~13 W (época
   post-torneo); las mediciones externas se citan solo como referencia asintótica superior (no son
   comparables 1:1 por cap/VRAM/refrigeración).
 

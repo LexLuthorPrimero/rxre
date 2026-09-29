@@ -4,6 +4,9 @@
 > **Modo:** SOLO READ-ONLY. Sin escrituras, sin UMR -w, sin sudo, sin benchmarks, sin programar contadores, sin modificar GPU/sysfs/PowerPlay/Mesa/Kalm/rx550-torneo.
 > **Objetivo:** determinar si existen fuentes locales suficientes para verificar los IDs de eventos (PERF_SEL) de los performance counters de GFX8 / Polaris12 (RX 550, PCI 01:00.0, device 0x699f).
 > **Regla principal respetada:** NO inferir event IDs de otra generación.
+>
+> **Reconciliación 2026-09-24:** este Resultado B conserva el hallazgo de fuentes
+> locales; el catálogo externo posterior es `CATALOG ONLY` y no valida `1002:699f`.
 
 ---
 
@@ -125,7 +128,7 @@ Evidencia de la mecánica (compartida por SI/CIK/VI en código, aunque los IDs n
 
 ## 11. Fuente primaria faltante
 
-La tabla de eventos PERF_SEL **del bloque VGT/GRBM/GRBMSE/SX/SQ/SPI/CB/DB/TCC/TCA/TA/TD/TCP/MC para VI/GFX8** (Polaris12 = gfx803). Vive en material de AMD no presente localmente:
+La tabla de eventos PERF_SEL **del bloque VGT/GRBM/GRBMSE/SX/SQ/SPI/CB/DB/TCC/TCA/TA/TD/TCP/MC para VI/GFX8** (la placa local se mantiene como Polaris12/GFX8; no se fuerza una equivalencia comercial `gfx803/gfx804`). Vive en material de AMD no presente localmente:
 
 1. **GPUPerfAPI** (`perfgeneration.h`, enums `GPA_HW_EXPORTED_COUNTER_*` por chip/generation; paquete offline, licencia AMD, no instalado).
 2. **CodeXL / RGP — "Hardware Performance Counters"** para Polaris (listados `CONSOLE_EVENT_*`).
@@ -165,27 +168,30 @@ Conclusión: los tokens buscados no aportan event IDs para GFX8/Polaris12; todo 
 
 ## 14. Resultado B — Revisión posterior a FASE R-0 (2026-09-22)
 
+> **RECONCILIACIÓN 2026-09-23:** la revisión posterior queda limitada a evidencia de catálogo.
+> `v3.11.1` es extracción histórica y `v3.17` la referencia operativa de tablas; 2304 son
+> filas expuestas, no eventos únicos/validados. GRBM=2 y SQ=4 son entradas nombradas del
+> catálogo GFX8, no validación para `1002:699f`. La programación continúa congelada.
+
 > **Adenda de FASE R-1 (reconciliación documental).** La conclusión histórica del **Resultado B** (§1) —
 > «los IDs de eventos GFX8 no pueden verificarse mediante las fuentes locales disponibles» — **sigue siendo
 > correcta para las fuentes LOCALES** y **no se elimina ni se reescribe**. Lo que añade esta revisión es que
 > R-0 encontró la **fuente externa oficial verificable** que la §11 («Fuente primaria faltante», punto 1:
 > GPUPerfAPI) anticipaba como candidata.
 
-**Novedades aportadas por FASE R-0 (ver `experiments/FASE-R0-EXTERNAL-KNOWLEDGE/`):**
+**Novedades aportadas por FASE R-0 (ver `05-FUENTES-EXTERNAS/FASE-R0-EXTERNAL-KNOWLEDGE/`):**
 
-1. **GPUPerfAPI `v3.11.1` SÍ contiene tablas completas de event IDs GFX8** (documento `R0-1-GFX8-EVENT-IDS.md`
-   [VERIFICADO]): catálogos autogenerados `gpa_hw_counter_gfx8.cc/.h`, `gpa_hw_exposed_counters_gfx8.cc`,
-   `public_counter_names_vk_gfx8{,_baffin,_ellesmere}.txt`. Referencia consolidada de 2304 contadores expuestos
-   en `R0-1-GFX8-EVENT-ID-REFERENCE.txt`.
-2. **GRBM GUI_ACTIVE = 2 VALIDADO para GFX8** (`GRBM_PERF_SEL_GUI_ACTIVE = 2` en catálogo AMD). La constante RADV
-   «2» deja de ser «no probada en GFX8»: queda refrendada por la tabla AMD GFX8. Revierte el bloqueo científico de
-   §§7/8/10 sobre la primera escritura `GRBM_PERFCOUNTER0_SELECT=0x2`.
-3. **SQ WAVES = 4 VALIDADO para GFX8** («`SQ*_PERF_SEL_WAVES = 4`» en los 8 sub-bloques SQ). Contra-evidencia GFX11
-   (0x14) sigue siendo válida como aviso de no-portabilidad entre generaciones, pero ya no bloquea GFX8.
-4. **GPUPerfAPI v4.0+ eliminó GCN (GFX8/GFX9)** → cualquier recuperación futura debe usar el tag `v3.11.1`.
+1. **GPUPerfAPI v3.17 contiene tablas GFX8 genéricas**; `v3.11.1` conserva la extracción
+   histórica. La referencia consolidada contiene **2304 filas expuestas**, no 2304 eventos
+   únicos ni validados para Polaris12.
+2. **GRBM GUI_ACTIVE = 2** y **SQ WAVES = 4** aparecen como entradas de catálogo GFX8.
+   Esto no valida el ASIC `1002:699f`, la semántica ni la programación; la ejecución
+   permanece NO AUTORIZADA.
+3. **GPUPerfAPI v4.0+ eliminó GCN (GFX8/GFX9)**. Para referencia actual de tablas usar
+   `v3.17`; `v3.11.1` queda como historial, no como prueba de runtime.
 
 **Discrepancias de conteo detectadas y estado de reconciliación** (análisis detallado en
-`experiments/FASE-R1-DOCUMENTATION-RECONCILIATION/R1-1-GFX8-EVENT-RECONCILIATION.md`):
+`01-AUDITORIA/FASE-R1-DOCUMENTATION-RECONCILIATION/R1-1-GFX8-EVENT-RECONCILIATION.md`):
 
 | Bloque | Local (§5/§E EVENTS) | GPUPerfAPI | Estado |
 |---|---|---|---|
@@ -193,13 +199,61 @@ Conclusión: los tokens buscados no aportan event IDs para GFX8/Polaris12; todo 
 | SQ | 273 selectors (máx. clase VI) | 299 event IDs (0..298) | **PARTIALLY_RECONCILED** (idem; SQ WAVES=4 coherente en ambas) |
 | MC | 22 selectors (máx. clase VI) | 33 event IDs (0..32) | **PARTIALLY_RECONCILED** en conteo · semántica/unidad MC **UNRESOLVED** |
 
-**Efecto sobre las conclusiones previas de este documento (NO las borra, las contextualiza):**
-- §7 bloqueo de la primera escritura: cambia de «sin verificación posible» a «**verificado documentalmente**;
-  la ejecución sigue NO autorizada» (la autorización es condición separada).
-- §8 (§8 GRBM=2) y §9 (§9 SQ=4): «NO VERIFICADO para GFX8» → **[VERIFICADO] documentalmente para GFX8**.
-- §§1/2/3/4/5/6: permanecen tal cual (validez del método de auditoría local y de «ninguna fuente local»).
-- **La programación de contadores sigue NO autorizada**; nada de esta adenda habilita escritura.
+**Efecto sobre las conclusiones previas (no las borra; las limita):**
+- La fuente externa permite citar una entrada de catálogo, pero no verifica el ASIC,
+  la semántica ni la seguridad de una escritura.
+- La primera escritura continúa bloqueada hasta una tupla de evento + ASIC + verificación
+  separada; la autorización de ejecución es otra condición.
+- La programación de contadores sigue **NO AUTORIZADA**.
 
 **Traceabilidad:** sección creada por FASE R-1 (tarea R-1.2) sin modificar el historial anterior; cruza
 `R0-1-GFX8-EVENT-IDS.md`, `R0-6-HERRAMIENTAS-HISTORICAS-GFX8.md`, `R1-1-GFX8-EVENT-RECONCILIATION.md` y
 `MASTER-RESEARCH-STATUS.md` (v2.5).
+
+---
+
+## 15. Addenda ASIC/counters — reconciliación posterior (2026-09-24)
+
+Esta sección incorpora la investigación específica posterior sin reescribir el Resultado B
+ni convertir una fuente de catálogo en evidencia runtime. La síntesis canónica y el ranking
+por valor informacional están en
+`02-ARQUITECTURA/COUNTERS-ASIC-TELEMETRY-KNOWLEDGE-ADDENDUM-2026-09-24.md`.
+
+### 15.1 Capas de evidencia
+
+| Capa | Resultado | Estado |
+|---|---|---|
+| Identidad | PCI `1002:699f`; `device_info` = `GDT_GFX8_0_4`/`gfx804`; Mesa = `CHIP_POLARIS12`/GFX8 | `CONFIRMED` local |
+| Catálogo | GPUPerfAPI contiene definitions/counters GFX8 genéricos y selects `gfx8_baffin` | `SUPPORTED` como catálogo |
+| API RADV | `VK_KHR_performance_query` no anunciado para GFX8 en el source comparado | `NOT_AVAILABLE` como feature pública |
+| API radeonsi | Path source-level `groups_VI`/`GL_AMD_performance_monitor` | `SUPPORTED` source-level |
+| PMU | `amdgpu_pmu_init()` mainline no registra GFX8/Polaris12 en los tags inspeccionados | `NOT_AVAILABLE` como PMU confirmado |
+| Runtime/selector | No se debe inferir un selector válido para `1002:699f` | `UNKNOWN` |
+| Validación física | No existe validación local de lectura programable en esta placa | `UNKNOWN` |
+
+### 15.2 Telemetría que no es PMU
+
+- `gpu_busy_percent`: `SUPPORTED` como proxy/telemetría SMU; no es selector programable.
+- `mem_busy_percent`: `SUPPORTED` como proxy; no es bandwidth ni bytes/s.
+- `pcie_bw`: `SUPPORTED` como estimación/accounting PCIe; no es PMU programable.
+- UAPI sensors/timestamps: `SUPPORTED` como consultas; no equivalen a eventos físicos.
+- UMR `0x699F/polaris12.asic`: `SUPPORTED` como database/debug, no tabla de eventos
+  validada.
+- RGP actual: `NOT_AVAILABLE` como soporte GFX8 documentado.
+- Perfetto `gpu.counters`: `SUPPORTED` como framework/producer, no como PMU.
+
+### 15.3 Cadena de atribución
+
+```text
+GPU/ASIC → source/catalog → API exposure → runtime capability
+        → physical counter validation → telemetry → workload phase → bottleneck
+```
+
+Un catálogo no sustituye API; una API source-level no sustituye runtime; un proxy SMU
+no identifica por sí solo el bottleneck. La programación de cualquier selector GFX8
+permanece bloqueada y no se ejecutó ningún experimento de counters en esta addenda.
+
+**Trazabilidad de correcciones:** “UMR + radeontop funcionales” queda limitado a
+observación/tooling histórico; “GPUPerfAPI soporta GFX8” queda limitado a catálogo;
+“GRBM=2/SQ=4” queda limitado a entradas de catálogo. Ninguna de esas formulaciones
+originales se borra, pero ninguna autoriza una escritura.

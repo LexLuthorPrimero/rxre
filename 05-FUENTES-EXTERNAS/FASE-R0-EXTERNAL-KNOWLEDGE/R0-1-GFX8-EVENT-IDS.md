@@ -1,29 +1,44 @@
-# R0-1 — Event IDs de Performance Counters GFX8 (Polaris12): GPUPerfAPI v3.11.1
+# R0-1 — Catálogo de Performance Counters GFX8 (Polaris12): GPUPerfAPI v3.17 / v3.11.1 histórico
 
 > **Archivo:** `R0-1-GFX8-EVENT-IDS.md` (referencia completa: `R0-1-GFX8-EVENT-ID-REFERENCE.txt`)
 > **Fase:** FASE R-0 — EXTERNAL KNOWLEDGE RECOVERY / RESOLUCIÓN DE GAP R-0.1 (crítico FASE M)
 > **Fecha:** 2026-09-22 — Modo SOLO DOCUMENTAL (read-only; descarga en /tmp, sin instalación)
-> **Clasificación:** [VERIFICADO] — evento → valor PERF_SEL confirmado por fuente primaria AMD
-> (catalogo autogenerado del repo oficial de eventos).
+> **Clasificación:** [PARTIALLY_RECONCILED / CATALOG ONLY] — filas y nombres genéricos
+> extraídos de fuente primaria; no prueban evento, semántica ni seguridad en `1002:699f`.
+>
+> **RECONCILIACIÓN DE FUENTES (2026-09-24):** `v3.11.1` queda como extracción
+> histórica; la referencia operativa de tablas GFX8 es `v3.17` (la rama v4 eliminó
+> GFX8/GFX9). `2304` significa filas expuestas por el catálogo, no eventos únicos ni
+> validados para `1002:699f`. Las tablas son genéricas GFX8; la aplicabilidad al ASIC
+> Polaris12 y la equivalencia nominal `gfx803/gfx804` no están resueltas. Un rango
+> `0..N-1` es un índice de catálogo, no una garantía semántica de seguridad.
+> Fuentes upstream:
+> - https://github.com/GPUOpen-Tools/gpu_performance_api/tree/v3.17
+> - https://github.com/GPUOpen-Tools/gpu_performance_api/tree/v3.11.1
+> - https://github.com/GPUOpen-Tools/gpu_performance_api/releases/tag/v4.0.0
 
 ---
 
-## 1. Conclusión operativa
+## 1. Conclusión operativa reconciliada
 
-**El gap R-0.1 queda RESUELTO:** la fuente `GPUOpen-Tools/gpu_performance_api` en su **tag
-`v3.11.1`** contiene las tablas completas de contadores HW de GFX8 (compatible con GCN 4.º /
-`gfx803` → Polaris12 / RX 550 `1002:699f`), con **nombres de evento reales y valores numéricos
-exactos** que se escriben en los registros `*_PERFCOUNTERn_SELECT` (campo PERF_SEL).
+**El gap R-0.1 queda parcialmente acotado, no resuelto para el ASIC:** la fuente
+`GPUOpen-Tools/gpu_performance_api` en `v3.17` contiene tablas GFX8 genéricas y
+`v3.11.1` conserva la extracción histórica. La presencia de una fila o un nombre no
+acredita que el evento exista, tenga semántica conocida o sea programable en la RX550
+`1002:699f`. El ASIC se documenta de forma neutral como `Polaris12/GFX8`; no se
+promueven equivalencias `gfx803/gfx804`.
 
-- En `gpa_hw_counter_gfx8.cc` (7,83 MB) los **índices contiguos por bloque son los event IDs
-  completos** (0..N-1) — el índice = valor PERF_SEL.
+- En `gpa_hw_counter_gfx8.cc` (7,83 MB) los arrays usan **índices contiguos por bloque**
+  (0..N-1) como `counter_index_in_group`/PERF_SEL a nivel source-level; esto no valida
+  la existencia o seguridad de cada evento en el ASIC.
 - En `gpa_hw_exposed_counters_gfx8.cc` y `public_counter_names_vk_gfx8*.txt` residen los **nombres
   canónicos** (ej: `GRBM_PERF_SEL_GUI_ACTIVE`).
 - `public_counter_names_vk_gfx8_baffin.txt` e `_ellesmere.txt` son idénticos (diff vacío):
-  los nombres de evento expuestos son **genéricos GFX8**, no ASIC-specific (no hay tabla
-  específica "polaris12" separada; gfx803 queda cubierto por la tabla GFX8 base).
-- **GPUPerfAPI v4.0+ eliminó el soporte GCN (GFX8 y GFX9)** → FASE M: usar exclusivamente tag
-  v3.11.1; la rama main/master NO aporta.
+  los nombres expuestos son **genéricos GFX8**, no ASIC-specific; la aplicabilidad a
+  Polaris12 queda `UNKNOWN`.
+- **GPUPerfAPI v4.0+ eliminó el soporte GCN (GFX8 y GFX9)**. Para una referencia actual
+  de tablas GFX8 usar `v3.17`; `v3.11.1` queda como historial de extracción y no como
+  prueba de runtime.
 
 ### 1.1 Estructura del evento (confirmada por código)
 
@@ -31,8 +46,9 @@ exactos** que se escriben en los registros `*_PERFCOUNTERn_SELECT` (campo PERF_S
   `counter_index_in_group` (= `block_event_id` = valor de PERF_SEL).
 - `gpa_counter_generator_base.cc` (líneas ~347-458): parses tokens `block, instance, event id,
   alternate_name`; resolución `GetIndex(gpa_hardware_block, block_instance, block_event_id, …)`.
-- Un bloque+instancia+event_id identifica de forma inequívoca qué contador programar. El parent
-  expuesto mapea a los nombres reales en la referencia.
+- Un bloque+instancia+event_id identifica una entrada de catálogo; no basta para
+  programar ni para probar que exista en `1002:699f`. El nombre expuesto es evidencia
+  de catálogo, no de runtime.
 
 ---
 
@@ -56,7 +72,8 @@ exactos** que se escriben en los registros `*_PERFCOUNTERn_SELECT` (campo PERF_S
 | **TCP** (64) | 1/inst → 64 | `TCP0_PERF_SEL_TCP_TA_DATA_STALL_CYCLES=3` |
 | **VGT** (4) | 6/inst → 24 | — |
 
-**Total extraído: 2304 filas** → `R0-1-GFX8-EVENT-ID-REFERENCE.txt` (tabla evento/nombre/grupo).
+**Total de filas expuestas: 2304** → `R0-1-GFX8-EVENT-ID-REFERENCE.txt` (tabla evento/nombre/grupo).
+No equivale a 2304 eventos únicos ni a 2304 eventos validados para Polaris12.
 
 ### 2.2 Catálogos internos por bloque (índice contiguo = event IDs disponibles)
 
@@ -94,9 +111,10 @@ bloque/instancia) — memoria de los archivos consultados:
 | Vgt | 4 | 147 | — |
 | Wd | 1 | 37 | — |
 
-**Importante:** los catálogos internos definen el **rango de event IDs válidos** (0..N-1) por
-bloque, con o sin nombre expuesto. Estos rangos son la referencia para validar cualquier selector
-que se quiera programar (p.ej. `GRBM PERF_SEL < 34` siempre válido; `SQ PERF_SEL < 299`).
+**Importante:** los arrays internos definen un rango de índices (`0..N-1`) por bloque.
+Ese rango no prueba que cada índice tenga semántica conocida, que exista en el ASIC
+concreto o que sea seguro programarlo. La aplicabilidad individual requiere nombre
+canónico, backend/API, ASIC/family y generación; la programación sigue congelada.
 
 ### 2.3 Discrepancias vs documentación local (a registrar en matriz)
 
@@ -114,19 +132,14 @@ reseñan por transparencia.
 
 ## 3. Validación cruzada con investigación local
 
-1. **FASE-D (Resultado B)** decía "no hay tabla local de eventos GFX8" → **confirmado**: ninguna
-   fuente local la tiene. Pero **existe fuente externa verificable sin need de escribir
-   hardware**, y ahora está disponible de forma read-only. **Resultado B se actualiza**: los IDs
-   GFX8 ya NO dependen de inferencia; pueden citarse desde GPUPerfAPI v3.11.1.
-2. **GRBM GUI_ACTIVE = 2 →⁠ VALIDADO para GFX8** (línea 152 `FASE-D-ETAPA-3-EVENTS.md` y FASE M:
-   `GRBM_PERFCOUNTER0_SELECT=0x2`). La constante RADV "2" queda ahora refrendada por el catálogo
-   AMD GFX8 explícito (`GRBM_PERF_SEL_GUI_ACTIVE = 2`).
-3. **SQ WAVES = 4 → VALIDADO para GFX8** (`SQ*_PERF_SEL_WAVES = 4` en los 8 bloques SQ). Ya no se
-   trata como "no probado en GFX8".
-4. **SPI_CSQ / SPI busy**: SPI `CSG_BUSY=58`, `CSN_BUSY=64` — ofrece alternativa de lectura de
-   ocupación de shader por SPI (existe el registro fixed `SPI_CSQ_WF_ACTIVE_COUNT` leído en la
-   Etapa 2, pero como evento programable hay ID válido).
-5. **PA_SC / PA_SU**: disponibles los IDs reales para contadores de culling/primitives.
+1. **FASE-D (Resultado B)** decía "no hay tabla local de eventos GFX8" → confirmado para las
+   fuentes locales auditadas. La fuente externa permite documentar entradas de catálogo,
+   pero no valida el ASIC concreto ni el runtime.
+2. **GRBM GUI_ACTIVE = 2** y **SQ WAVES = 4** quedan como *entradas nombradas en catálogos
+   GFX8*, no como eventos validados para `1002:699f`. La ejecución/programación sigue
+   `NO AUTORIZADA`.
+3. **SPI_CSQ / SPI busy** y PA_SC/PA_SU son referencias de catálogo; la aplicabilidad al
+   ASIC, la semántica y la seguridad de programación son `UNKNOWN`.
 
 ---
 
@@ -134,8 +147,10 @@ reseñan por transparencia.
 
 - **SOLO REFERENCIA DOCUMENTAL.** Sigue **prohibido** programar contadores, escribir MMIO/sysfs o
   ejecutar experimentos que escriban en la GPU.
-- La lectura del catálogo es válida (descarga a `/tmp/opencode/gpa311/`, artifact en
-  `FASE-R0-EXTERNAL-KNOWLEDGE/R0-1-GFX8-EVENT-ID-REFERENCE.txt`).
+- La lectura del catálogo es evidencia de fuente, no de runtime. La extracción local
+  `/tmp/opencode/gpa311/` está `PERDIDA / NO VERIFICABLE`; solo sobrevive el extracto
+  `R0-1-GFX8-EVENT-ID-REFERENCE.txt`. La referencia upstream actual es `v3.17`; `v3.11.1`
+  queda como historial.
 - **No asumir que Polaris12 tiene presente todas las instancias catalogadas** (p.ej. TA 64
   instancias, TCC 16, Mc 32): la tabla es a nivel de familia GFX8; la unidad concreta expone las
   que tenga habilitadas por fuses (asunto de FASE polígono A→AJ del mapa P12). El **event ID es
@@ -143,7 +158,7 @@ reseñan por transparencia.
 
 ---
 
-## 5. Archivos de trabajo (en `/tmp/opencode/gpa311/`, referencia, NO instalados)
+## 5. Archivos de trabajo (en `/tmp/opencode/gpa311/`, referencia, NO instalados — **PERDIDO / NO VERIFICABLE**; recuperación parcial: `R0-1-GFX8-EVENT-ID-REFERENCE.txt`)
 
 `gpa_hw_counter_gfx8.cc/.h`, `gpa_hw_counter_gfx8_baffin.cc/.h`, `gpa_hw_counter_gfx8_ellesmere.cc/.h`,
 `gpa_hw_exposed_counters_gfx8.cc/.h`, `public_counter_names_vk_gfx8.txt`,
@@ -152,15 +167,14 @@ reseñan por transparencia.
 `graphics_counter_tables_gfx8.rst`, `compute_counter_tables_gfx8.rst`, `gpa_counter.h`,
 `gpa_counter_generator_base.cc`, `gpa_counter_generator_vk_base.cc`.
 
-Fuente: https://github.com/GPUOpen-Tools/gpu_performance_api (tag v3.11.1). Licencia MIT.
+Fuente: https://github.com/GPUOpen-Tools/gpu_performance_api (tags v3.17 y v3.11.1). Licencia MIT.
 
 ---
 
 ## 6. Confianza
 
-- **Alta (VERIFICADO):** presencia y contenido del catálogo AMD GFX8 (repositorio oficial del
-  fabricante, tag fijo). Confirmación extra vía `gpa_tree.json` (verificado por API del árbol git
-  que estos archivos existen en v3.11.1 y NO en v4.x/master).
+- **Alta (VERIFICADO):** presencia y contenido del catálogo AMD GFX8 en los tags upstream
+  revisados; la presencia de una fila no implica validación para Polaris12.
 - **Media-Alta:** equivalencia `counter_index_in_group = block_event_id = PERF_SEL` (deducida del
   código `gpa_counter_generator_base.cc` + estructura `GpaHardwareCounterDesc`; no es una
   declaración literal "event_id" en el JSON, pero es la única lectura coherente).

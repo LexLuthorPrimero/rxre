@@ -2,9 +2,11 @@
 
 **Estado:** EJECUTADO (N=2, 2026-09-23 01:19–01:39) — resultados en
 `RESULTADOS-MINITEST-7.3-B.md`. Conclusión: NO cabe DIST íntegro desde ≤50 °C
-(ramp medida 0.246–0.252 °C/s); entrada ≤35 °C lo haría viable (7.3-A).
-**S2/veredicto:** NO autorizados. Este mini-test NO forma parte de S2 y sus resultados
-NO entran en T, s\*, R1–R7 ni en el veredicto de R-4B.
+(ramp medida 0.246–0.252 °C/s). La entrada ≤35 °C es una opción histórica no verificada;
+no se declara viable.
+**S2/veredicto:** este mini-test NO forma parte de S2 ni del veredicto R-4B. La corrida
+posterior S2-v2.3 fue INICIADA/PARADA D; no se reintenta. Sus resultados no entran en T,
+s\*, R1–R7 ni en el veredicto.
 **Base:** S1-v2.2 íntegra e inmutable (`results/session1-v22/`).
 
 ---
@@ -104,7 +106,7 @@ Basado en la evidencia de AMBAS réplicas:
 - Datos: `results/minitest-ramp-gov/rep1/`, `rep2/` (telemetry.csv, frames.tsv, m0.txt,
   governor_trace.tsv, control_scale.txt, harness.log, monitor_carga.tsv, pre/post.txt,
   initial_state.txt, cooldown_prev/post.tsv, timings.txt, log.txt).
-- Análisis: script read-only en `/tmp/opencode/analyze_minitest_ramp.py`.
+- Análisis: script read-only en `/tmp/opencode/analyze_minitest_ramp.py` — **PERDIDO / NO VERIFICABLE**.
 - Documento: `RESULTADOS-MINITEST-7.3-B.md` (clasificación según §7).
 - Verificación read-only pre/post (DPM/kalm/cap) y actualización SOLO de la documentación
-  del mini-test (+ estado en MASTER). S2 NO se ejecuta sin autorización explícita.
+  del mini-test (+ estado en MASTER). S2-v2.3 posterior quedó PARADA_D y no se reintenta.

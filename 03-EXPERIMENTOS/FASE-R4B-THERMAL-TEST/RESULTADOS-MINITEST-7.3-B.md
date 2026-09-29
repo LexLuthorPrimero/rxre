@@ -1,6 +1,9 @@
 # RESULTADOS — MINI-TEST 7.3-B: RAMP CON GOVERNOR ACTIVO (N=2)
 
 **Fecha:** 2026-09-23 (01:19–01:39) · **Estado:** COMPLETADO (N=2 réplicas, 0 aborts)
+>
+> **Nota de reconciliación 2026-09-24:** `P` en las tablas es `W_SMU` leído de
+> `power1_input`, no vatímetro. Este mini-test no forma parte de S2 ni del veredicto.
 **Plan/diseño:** `EXP-F4-A-MINITEST-RAMP-GOV-PLAN.md`
 **Datos:** `runs/minitest-ramp-gov/rep1/`, `rep2/`
 **Alcance:** investigativo, **NO forma parte de S2**. Resultados NO entran en T, s\*, R1–R7,
@@ -18,15 +21,15 @@ ni en el veredicto de R-4B. S1-v2.2 permanece íntegra e inmutable.
 |---|---|---|
 | Harness | `--mode dist --warm 5 --duration 200` seed `0x5EED0000` | steps N:4→8→4 internos a t=+60/+120 s |
 | Governor | `governor.py` T=9.168 ms, banda [8.251, 10.085] ms, ventana 20 s | binario y reglas sin tocar |
-| entrada térmica (DN-07) | `temp ≤50 °C s30s ∧ SCLK nv0 ∧ P<4 W` | cooldown previo 30 s (GPU ya fría) |
+| entrada térmica (DN-07) | `temp ≤50 °C s30s ∧ SCLK nv0 ∧ W_SMU<4 W` | cooldown previo 30 s (GPU ya fría) |
 | telemetría | `telemetria.sh` 10 Hz, 260 s | read-only |
 | aborto de seguridad | temp ≥ 96 °C → SIGTERM | **0 activaciones** |
 | verificación read-only | pre/post DPM+kalm | **idénticas en ambas réplicas (`ff9e8280bd`)** |
 
 Entrada térmica real: **REP1 = 33 °C** (GPU venía del análisis previo), **REP2 = 45–46 °C**
-(retorno DN-07 real). SCLK/MCLK iniciales 214/300 MHz nivel 0, P < 4 W (requisito cumplido).
+(retorno DN-07 real). SCLK/MCLK iniciales 214/300 MHz nivel 0, `W_SMU` < 4 W (requisito cumplido).
 
-## 2. Semántica temporal (respuesta a la pregunta C) — VERIFIED
+## 2. Semántica temporal (respuesta a la pregunta C) — VERIFICADO
 
 Los pasos de carga caen EXACTAMENTE en las ventanas esperadas, en ambas réplicas:
 
@@ -110,9 +113,16 @@ Con la ramp medida, el presupuesto térmico (lineal, margen a 90 °C) es:
 ```
 t_90 ≈ (90 − T_entrada) / 0.249  °C/s
   desde ≤50 °C  → ~160 s   (< 200 s → NO cabe; confunde el final)
-  desde ≤40 °C  → ~201 s   (≈ el borde; último ~1 s roza, sin margen)
-  desde ≤35 °C  → ~221 s   (cabe con 20 s de margen)
+  desde ≤40 °C  → ~201 s   (extrapolación lineal histórica; no verificada)
+  desde ≤35 °C  → ~221 s   (extrapolación lineal histórica; no verificada)
 ```
+
+> **Corrección D6/F12 (2026-09-23):** las cifras `≈201 s` y `≈221 s` anteriores son
+> **extrapolaciones lineales históricas, no mediciones verificadas**. La rampa real es
+> no lineal y el warm-up altera el punto de partida; los datos alineados registrados
+> dan `t90≈171.9 s` (REP1, entrada 33 °C) y `t90≈134.8 s` (REP2, entrada 45 °C). Por
+> tanto no se conserva `221 s` como hecho operativo: DIST desde ≤50 °C no se demostró
+> íntegro, y 7.3-A/7.3-C siguen siendo opciones condicionadas, no un resultado VALID.
 
 ---
 
@@ -125,24 +135,26 @@ confusor térmico nuevo.** Por lo tanto, **NO se prepara una v2.3-final con 7.3-
 1. **R7 íntegro SIN segmentar y desde entrada ≤50 °C → NO demostrado.** En ambas réplicas
    el trial se degrada antes de la ventana 10 (REP1 v9, REP2 v7–v9). Una entrada ≤50 °C
    estándar NO basta para 200 s con la ramp medida.
-2. **R7 con condición de entrada térmica especial → VIABLE, ahora cuantificado (7.3-A).**
-   Con ramp medida 0.246–0.252 °C/s, **entrada ≤35 °C** deja hueco real (t_90 ≈ 221 s >
-   200 s); **entrada ≤40 °C** queda en el filo (t_90 ≈ 201 s, sin margen). Consecuencias:
-   cooldown previo a 35 °C (tramo 50→35 °C no medido; el cooldown post alcanzó 49 °C en
-   ~260–280 s; el tramo final 49→35 °C tarda más, a registrarse en tiempo real con
-   anti-deadlock 60 min); riesgo de no alcanzar ≤35 °C por ventilación ambiente → caer a 7.3-C
-   con causa documentada (decisión pre-registrada).
-3. **R7 requiere una modificación procedimental → NO ENCONTRADA NECESARIA.** El governor
-   responde correctamente en régimen 1071; el único factor es el presupuesto térmico del
-   trial de 200 s → se controla con la condición de entrada (procedimental, sin tocar código).
-4. **R7 no medible limpiamente con el diseño actual → FALSO con la entrada adecuada.** El
-   controlador funciona y la semántica es íntegra; el problema es puramente de presupuesto
-   térmico del tramo final, resoluble con 7.3-A.
+2. **R7 con condición de entrada térmica especial → NO VERIFICADO; 7.3-A queda como
+   opción condicionada.** Las cifras `t_90≈221 s` y `≈201 s` son extrapolaciones
+   lineales históricas, no mediciones. El tramo 50→35 °C no está medido y la rampa
+   real es no lineal; por ello no se afirma que 7.3-A sea viable ni se usan esas
+   cifras como gate. El resultado primario es que DIST desde ≤50 °C no se demostró
+   íntegro y que 7.3-C permanece como red de seguridad. El cooldown previo a 35 °C
+   y el tiempo final 49→35 °C deben registrarse en una ejecución futura autorizada,
+   con anti-deadlock; no se ejecuta aquí.
+3. **R7 no se declara FALSO por la entrada especial.** El governor responde
+   correctamente en régimen 1071; la evidencia solo permite afirmar que el diseño
+   actual no tiene una entrada especial verificada para un DIST de 200 s.
+4. **No hay una nueva modificación procedimental probada en este mini-test.** La
+   fuente canónica permanece el resultado v2.3 y su veredicto INCONCLUSO; no se
+   prepara un v2.3-final ni se modifica código.
 
-**Recomendación (con datos, sin ejecutar nada más):** adoptar **7.3-A con entrada ≤35 °C**
-(no ≤40 °C, que queda sin margen según la ramp medida) para DIST₁/DIST₂, manteniendo la
-regla de validación por ventana (T>90 °C o SCLK<1071 → `THERMALLY CONFOUNDED`) como red de
-seguridad, y **7.3-C** como plan B pre-registrado si la entrada ≤35 °C es inalcanzable.
+**Recomendación (con datos, sin ejecutar nada más):** no declarar viable ninguna
+variante de entrada especial. Mantener **7.3-A** y **7.3-C** únicamente como opciones
+pre-registradas, con la regla de validación por ventana (T>90 °C o SCLK<1071 →
+`THERMALLY CONFOUNDED`) como red de seguridad. La fuente canónica sigue siendo
+`EXP-F4-A-RESULTADOS-v2.3.md`; no se prepara v2.3-final ni se ejecuta S2.
 
 ---
 
@@ -160,6 +172,9 @@ seguridad, y **7.3-C** como plan B pre-registrado si la entrada ≤35 °C es ina
 - `runs/minitest-ramp-gov/rep{1,2}/`: telemetry.csv, frames.tsv, m0.txt, governor_trace.tsv,
   control_scale.txt, harness.log, governor.log, monitor_carga.tsv, pre/post.txt,
   initial_state.txt, cooldown_prev/post.tsv, timings.txt, log.txt.
-- Análisis: `/tmp/opencode/analyze_minitest_ramp.py` (read-only).
-- **Pendiente de decisión del usuario:** (a) elegir DIST 7.3-A (≤35 °C) / 7.3-C / combinación;
-  (b) autorizar la ejecución de S2 bajo v2.3 con esa elección.
+- Análisis: `/tmp/opencode/analyze_minitest_ramp.py` (read-only) — **PERDIDO / NO VERIFICABLE**
+  (artefacto volátil no preservado; no reconstruido).
+- **Estado posterior D6:** la autorización y la frase «S2 pendiente» son un snapshot
+  anterior a la corrida. S1-v2.3 fue EJECUTADA/COMPLETADA; S2-v2.3 fue INICIADA y quedó
+  PARADA D antes de Phase 2. No se reintenta S2-v2.3; cualquier réplica futura requiere
+  protocolo y autorización nuevos.

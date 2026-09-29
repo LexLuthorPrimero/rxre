@@ -1,7 +1,12 @@
 # IDEA I-05 — GPU FRAME RECORDER FOR GFX8: CAPABILITIES
 
 > **Fase:** FASE R-3 — DOCUMENTARY NOVELTY AUDIT (SOLO DOCUMENTAL, no implementación)
-> Target: RX 550 = Polaris12 (GFX8 / GCN 4.0): 8 CUs / 512 SP / ~1.2 TFLOPs / 16 ROPs / 512 KB L2 / 128-bit GDDR5 112 GB/s.
+>
+> **RECONCILIACIÓN 2026-09-23:** la ruta RADV source-level auditada es
+> `radv_device_init_rgp()` → `radv_sqtt_init()`. La presencia de `ac_sqtt.c` no prueba
+> una captura real en Polaris12. `si_init_sqtt()` es RadeonSI y no evidencia RADV/GFX8.
+> `rgp-inspect` upstream está orientado a `gfx1201`; no se asume soporte GFX8.
+> Target: RX 550 = Polaris12 (GFX8 / GCN 4.0): 8 CUs / 512 SP / ~1.2 TFLOPs / 16 ROPs / 512 KB L2 / 128-bit GDDR5 96–112 GB/s nominal/estimado; real `UNKNOWN`.
 
 What the RX550 triangle (app − RADV/Mesa − kernel/amdgpu) can actually deliver for "recording a frame" in 2026, categorized by capture tier. All statements are documentary (verified from source or flagged).
 
@@ -21,9 +26,9 @@ Key kernel tracepoints (verified): `gpu_scheduler` stable uAPI (`drm_sched_job_q
 
 | Tier | Tool | Status on GFX8 | Gate |
 |---|---|---|---|
-| SQTT capture (write side) | RADV `MESA_VK_TRACE=rgp` | Present in source (`ac_sqtt.c` gfx8 regs; `ac_rgp.c` GFXIP_8 → SQTT_VERSION_2_2; `si_init_sqtt` gfx_level≥GFX8) | Requires `profile_peak` sysfs write → **DN-12 authorization needed** (permanent rule: any sysfs write requires authorization + snapshot/readback/restore) |
-| SQTT view/analyze (GFX8) | RGP 2.x / RDP / rgp-inspect | RGP 2.x = RDNA-only; RDP = RDNA; rgp-inspect targets gfx1201 | **GAP** — decoder for SQTT_VERSION_2_2 not present in any open tool |
-| Hardware counters (GFX8) | GPUPerfAPI v3.11.1 | Tables present (~2304 rows), verified; v4.0+ removed GCN | Programming PERF_SEL requires MMIO writes → **NOT AUTHORIZED** (FASE M/D, DN-12) |
+| SQTT capture (write side) | RADV `MESA_VK_TRACE=rgp` | Source-level path `radv_device_init_rgp()` → `radv_sqtt_init()`; runtime GFX8 no confirmado | `REQUIRES CAPABILITY AUDIT`; cualquier ajuste externo de perfil sería autorización separada |
+| SQTT view/analyze (GFX8) | RGP 2.x / RDP / rgp-inspect | RGP 2.x/RDP = RDNA; `rgp-inspect` upstream orientado a `gfx1201` | **UNKNOWN/GAP**: no se confirma decoder GFX8 |
+| Hardware counters (GFX8) | GPUPerfAPI `v3.17` / `v3.11.1` histórico | 2304 filas de catálogo, no eventos validados para `1002:699f` | Programación PERF_SEL: **NO AUTORIZADA** |
 
 ## 3. ABSENT / NOT VIABLE
 
@@ -34,6 +39,7 @@ Key kernel tracepoints (verified): `gpu_scheduler` stable uAPI (`drm_sched_job_q
 
 ## 4. IMPLICATION FOR THE PROJECT
 
-The physically-available "recorder" on this machine, within the project's no-write/no-programming constraints, is the **API + kernel tier** (RenderDoc, api_dump, gfxreconstruct, GPUVis/ftrace). The SQTT tier (real wavefront traces) is available only if `profile_peak` is authorized, and even then there is **no open GFX8 SQTT viewer**: the trace can be captured, but not analyzed with existing open tooling. Closing that viewer/analyzer gap is exactly what I-05 would have to own.
-
-The RGP interop path (RenderDoc → embed `.rgp` → viewer) is validated on newer hardware; on GFX8 the writer exists in Mesa but the consumer (viewer) is what's missing. Confirmed fragily: RGP historically crashed loading radv captures (issue #98, fixed later) → format interop is real but version-sensitive.
+The physically-available recorder within the project's no-write/no-programming constraints is
+the **API + kernel tier**. SQTT remains `REQUIRES CAPABILITY AUDIT`: source code suggests a
+possible route, but no real GFX8 capture or open decoder is confirmed. A hypothetical viewer
+gap is not a runtime capability claim.

@@ -30,7 +30,8 @@ runs unmodified.  Both sides of the contract are therefore live code.
 
 Resulting discrimination, all obtained by execution:
   * pre-fix producer shape  -> KeyError('total_pids')
-  * post-fix producer shape -> 11 criteria, OWNERSHIP_CRITERION_STATE=PARTIAL
+  * post-fix producer shape -> 10 criteria (clients_pasid_attributable retired),
+    OWNERSHIP_CRITERION_STATE=PARTIAL
   * drop "total_pids"       -> KeyError('total_pids')
   * drop "TOTAL_PIDS"       -> emitted-schema contract broken, caught by
                                the producer contract assertion
@@ -52,11 +53,27 @@ CONSUMER_NAME = "ownership_matrix"
 # Keys whose removal is a distinct, separately-detectable regression.
 UPPERCASE_RECORD_KEY = "TOTAL_PIDS"
 LOWERCASE_CONTRACT_KEY = "total_pids"
+# R1: scope of the POOLED fd-presence counters, emitted as data so a
+# consumer can read it instead of inferring it.  Added 2026-09-26.
+FD_PRESENCE_SCOPE_KEY = "fd_presence_scope"
 
 # The exact free names the real producer literal closes over.  Kept explicit so
 # that if the producer ever starts depending on a new main() local, the guard
 # test fails loudly instead of the evaluation silently binding nothing.
-PRODUCER_FREE_NAMES = {"coverage", "root_fd_error_count", "root_visibility_complete"}
+#
+# card_attributable and render_attributable were added by the card-render
+# attribution correction: each row is now the shared completeness term conjoined
+# with the attributability of its own node.  This guard did its job -- it named
+# the two new dependencies instead of letting them bind silently -- so the set is
+# widened here rather than the guard weakened.
+# The per-node attribution term is gone: the composite that produced
+# card_attributable/render_attributable mixed three relations from three domains
+# into one predicate.  Completeness is now the sweep term alone, and the three
+# fdinfo keys are counted per key.  Widened here rather than the guard weakened.
+PRODUCER_FREE_NAMES = {
+    "coverage", "root_fd_error_count", "root_visibility_complete",
+    "node_presence", "node_coverage_complete", "card_target", "render_target",
+}
 
 # Representative live-sweep accumulators, shaped exactly like the accumulator
 # literal main() builds at its own definition site.  Two distinct values are
@@ -84,12 +101,15 @@ ACCUMULATORS = {
         "user_namespace_denied": 0,
         "drm_fds_found": 12,
         "drm_fdinfo_read": 11,
+        "fd_presence_scope": "POOLED_ACROSS_NODES_FD_UNIT",
         "drm_client_id_seen": 11,
         "drm_pdev_seen": 11,
         "drm_pasid_seen": 11,
         "fd_universe_blocked_pids": 0,
         "fd_race_pids": 1,
         "fd_absence_proven_pids": 0,
+        "root_namespace_disappeared": 0,
+        "user_namespace_disappeared": 0,
         "user_namespace_total": 80,
     },
     "secondary": {
@@ -114,12 +134,15 @@ ACCUMULATORS = {
         "user_namespace_denied": 0,
         "drm_fds_found": 12,
         "drm_fdinfo_read": 11,
+        "fd_presence_scope": "POOLED_ACROSS_NODES_FD_UNIT",
         "drm_client_id_seen": 11,
         "drm_pdev_seen": 11,
         "drm_pasid_seen": 11,
         "fd_universe_blocked_pids": 0,
         "fd_race_pids": 1,
         "fd_absence_proven_pids": 0,
+        "root_namespace_disappeared": 0,
+        "user_namespace_disappeared": 0,
         "user_namespace_total": 4,
     },
 }
@@ -225,6 +248,20 @@ def produce(accumulator, drop=()):
         ACCUMULATOR_NAME: accumulator,
         "root_fd_error_count": fd_error_count,
         "root_visibility_complete": False,
+        # Per-node, per-key counts.  Keyed BY KEY on purpose: a caller that could
+        # read one domain's presence as another's would take a single value, and
+        # this mapping makes that impossible without an explicit lookup.
+        "node_presence": {
+            "drm_fds": {"/dev/dri/card1": 12, "/dev/dri/renderD129": 0},
+            "drm-client-id": {"/dev/dri/card1": 12, "/dev/dri/renderD129": 0},
+            "drm-pdev": {"/dev/dri/card1": 12, "/dev/dri/renderD129": 0},
+            "pasid": {"/dev/dri/card1": 12, "/dev/dri/renderD129": 0},
+        },
+        # The real function, so the producer literal is evaluated against
+        # production behaviour and not against a stand-in.
+        "node_coverage_complete": CONSUMER.node_coverage_complete,
+        "card_target": "/dev/dri/card1",
+        "render_target": "/dev/dri/renderD129",
     }
     built = eval(compile(ast.Expression(PRODUCER.value), "<producer>", "eval"), {}, namespace)
     for key in drop:
@@ -251,8 +288,8 @@ def matrix_context(root_coverage):
         "btrfs_status": "ABSENT",
         "active_agents": 0,
         "pm_status": "READ",
-        "card_clients": 0,
-        "render_clients": 0,
+        "card_drm_client_id_fds": 0,
+        "render_drm_client_id_fds": 0,
     }
 
 
@@ -330,7 +367,7 @@ class PreFixReproductionTests(unittest.TestCase):
     def test_pre_fix_producer_shape_raises_keyerror(self):
         with self.assertRaises(KeyError) as caught:
             CONSUMER.ownership_matrix(
-                matrix_context(produce(ACCUMULATORS["primary"], drop=(LOWERCASE_CONTRACT_KEY,)))
+                matrix_context(produce(ACCUMULATORS["primary"], drop=(LOWERCASE_CONTRACT_KEY, FD_PRESENCE_SCOPE_KEY)))
             )
         self.assertEqual(caught.exception.args[0], LOWERCASE_CONTRACT_KEY)
 
@@ -345,9 +382,14 @@ class PreFixReproductionTests(unittest.TestCase):
 
         fd_absence_proven_pids joined that block for
         AGENTS_V3_RACE_STRICTER_THAN_COLLECTOR: a vanished PID discharges its
-        lost coverage only when its absence of a DRM resource is proven, so the
-        block it belongs to is the same one.  It is counted here so that the
-        pre-fix shape stays 20 keys and the DEFECT-04 invariant is unchanged.
+        lost coverage only when its absence of a DRM resource is proven.  The two
+        *_namespace_disappeared counters joined it for MED-2: they separate a
+        vanished PID from a denied read, and are dropped here for the same
+        reason -- both are post-DEFECT-04 additions, so the pre-fix shape stays
+        20 keys and the DEFECT-04 invariant is unchanged.
+
+        This is the drop-reconstruction set, NOT the DRM attribution set of
+        ExportTests.REQUIRED, which is deliberately left at seven keys.
         """
         post = _literal_keys(PRODUCER)
         attribution = {
@@ -359,14 +401,27 @@ class PreFixReproductionTests(unittest.TestCase):
             "fd_universe_blocked_pids",
             "fd_race_pids",
             "fd_absence_proven_pids",
+            "root_namespace_disappeared",
+            "user_namespace_disappeared",
         }
         self.assertTrue(attribution.issubset(post), "attribution block disappeared")
-        self.assertEqual(len(post), 29)
-        pre = post - attribution - {LOWERCASE_CONTRACT_KEY}
+        # Six keys more than before: the three fdinfo domains, per node.  The
+        # count is asserted from the names that must have appeared, so the pin
+        # says WHY the shape changed instead of just freezing a number.
+        for node in ("card", "render"):
+            self.assertIn("%s_drm_client_id_fds" % node, post)
+            self.assertIn("%s_drm_pdev_fds" % node, post)
+            self.assertIn("%s_pasid_fds" % node, post)
+        self.assertEqual(len(post), 38)
+        per_node = {"%s_%s_fds" % (node, domain)
+                    for node in ("card", "render")
+                    for domain in ("drm_client_id", "drm_pdev", "pasid")}
+        pre = post - attribution - per_node - {LOWERCASE_CONTRACT_KEY, FD_PRESENCE_SCOPE_KEY}
         self.assertEqual(len(pre), 20, "pre-DEFECT-04 shape was 20 keys")
         self.assertNotIn(LOWERCASE_CONTRACT_KEY, pre)
         dropped = produce(
-            ACCUMULATORS["primary"], drop=(LOWERCASE_CONTRACT_KEY,) + tuple(attribution)
+            ACCUMULATORS["primary"],
+            drop=(LOWERCASE_CONTRACT_KEY, FD_PRESENCE_SCOPE_KEY) + tuple(attribution) + tuple(per_node)
         )
         self.assertEqual(set(dropped), pre)
 
@@ -378,7 +433,7 @@ class ConsumerExecutionTests(unittest.TestCase):
         for label, accumulator in ACCUMULATORS.items():
             with self.subTest(accumulator=label):
                 result = CONSUMER.ownership_matrix(matrix_context(produce(accumulator)))
-                self.assertEqual(len(result["conditions"]), 11)
+                self.assertEqual(len(result["conditions"]), 10)
                 self.assertIn("OWNERSHIP_CRITERION_STATE", result)
 
     def test_the_counted_total_reaches_the_evidence_field(self):
@@ -394,7 +449,7 @@ class RegressionDiscriminationTests(unittest.TestCase):
     """Removing either key must be caught, each by its own assertion."""
 
     def test_removing_the_lowercase_contract_key_is_caught(self):
-        broken = produce(ACCUMULATORS["primary"], drop=(LOWERCASE_CONTRACT_KEY,))
+        broken = produce(ACCUMULATORS["primary"], drop=(LOWERCASE_CONTRACT_KEY, FD_PRESENCE_SCOPE_KEY))
         required = _consumer_required_keys(CONSUMER_FUNCTION)
         self.assertNotEqual(required - set(broken), set())
         with self.assertRaises(KeyError):

@@ -1,7 +1,14 @@
 # EXPERIMENT-CANDIDATES.md — Experimentos Candidatos Derivados del Mapa
 
-**Fecha:** 2026-09-21  
-**Versión:** 1.0  
+> **IDEAS DEL USUARIO (fuera de alcance de este documento):** 184 ideas
+> originales del usuario (`R-NEW-*`, `METH-NEW-*`, `N-INT-*`) están
+> clasificadas y trazadas en `../../IDEA-REGISTER.md`. Este documento sigue
+> siendo exclusivamente el registro de **candidatos de experimento** con
+> checklist de 8 preguntas. Las ideas no se convierten en candidatos aquí sin
+> pasar el checklist.
+
+**Fecha:** 2026-09-21
+**Versión:** 1.0
 **Regla:** NO ejecutar. Solo documentar. Cada candidato debe responder al checklist de 8 preguntas (Regla 19).
 
 ---
@@ -287,8 +294,8 @@ Si alguna respuesta es NO → **DESCARTAR** o marcar como **DESCONOCIDO**.
 - **Variable**: Workload intensity + artificial heating (furmark) hasta 90°C
 - **Constantes**: Monitoreo continuo temp, SCLK, MCLK, FPS
 - **Métrica**: Temp threshold, SCLK/MCLK drop point, FPS cliff
-- **Riesgos**: **Thermal risk** — abort si > 90°C
-- **Estado**: **CONGELADO** — solo si autorizado con cooling extra
+- **Riesgos**: **Thermal risk** — 90 °C marca confound; 96 °C es el abort configurado
+- **Estado**: **CONGELADO** — heating artificial y cualquier pause requieren autorización
 
 ---
 

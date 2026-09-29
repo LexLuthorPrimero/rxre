@@ -6,7 +6,7 @@ Fecha: 2026-09-21. Binario: `main-graphics` (con `--msaa` añadido; BASE E-03 in
 ## 1. Metodología (común a toda variante)
 
 - Misma resolución 1920×1080, warmup 5 s, duration 20 s, selección explícita RX 550
-  (`MESA_VK_DEVICE_SELECT=1002:699f` + verificación en código).
+  (ICD + verificación de `0x699f`; `MESA_VK_DEVICE_SELECT` era opcional).
 - Telemetría 10 Hz (34 s) con pre/post-flight de DPM (sclk/mclk/busy/vram/gtt/power/temp)
   y filtrado de `journalctl` (`GPU fault|VM fault`).
 - UNA corrida por configuración (screening; sin significancia estadística).
@@ -75,8 +75,8 @@ clasifica INESTABLE ni DESCARTADA por fallo.
 ## 6. Decisión de fase 2 (configuración más prometedora / candidatas)
 
 - Ningún eje del espacio A–D mueve la potencia sostenida: la placa opera en un **equilibrio de
-  latencia**, no de throughput (SCLK 1071 fijo + mem_busy 35.9 % + MCLK 1500). El draw estable
-  (~16 W en régimen) no responde a overdraw/FMA/tamaño-de-textura/MSAA en una sola corrida.
+  latencia**, no de throughput (SCLK 1071 fijo + `mem_busy` 35.9 % + MCLK 1500). La `W_SMU`
+  estable (~16 W en régimen) no responde a overdraw/FMA/tamaño-de-textura/MSAA en una sola corrida.
 - **Configuración elegida para profundizar en fase 2**: **FMA 96 + tex 8192 + MSAA 8x** (la
   central tendencia más alta, 16.17 W, aunque dentro del ruido) **más una hipótesis nueva**: el
   escalado de potencia requiere cambiar la ESTRUCTURA del fragment, no sus parámetros:
@@ -154,7 +154,7 @@ el frametime ~2× de forma exacta (detección del modelo fetch-bound).
 - Clasificación: **AUMENTO REAL DE CARGA (de cómputo por fragmento) y SIN CAMBIO en potencia/mem_busy**
   → para el objetivo del proyecto: **SIN CAMBIO (no discrimina)**. El GPU se autolimita al equilibrio
   de reloj; las unidades ociosas de GFX8 (clock gating) no suman consumo: trabaje o no el fragment,
-  el draw sostenido es ~16 W con DPM en auto.
+  la `W_SMU` sostenida es ~16 W con DPM en auto.
 - Regla del dueño aplicada: **el cambio no movió la potencia → NO se agrega más complejidad**;
   se documenta y DETIENE. No hay VM fault/reset/device lost/OOM.
 

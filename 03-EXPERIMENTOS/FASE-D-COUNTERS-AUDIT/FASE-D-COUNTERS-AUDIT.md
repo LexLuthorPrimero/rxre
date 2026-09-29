@@ -5,6 +5,18 @@
 **GPU auditada:** AMD Radeon RX 550 / RX 550 Series = **Polaris12 / GFX8 (asia = polaris12)**, PCI `1002:699f`, instancia UMR 1, `card1`, renderD129
 **Contexto de la fase:** Explicar la brecha Superposition **22.31 W steady / 24.71 W pico** vs E-03 **13.40 W full / 15.75 W steady**, con SCLK 1071 y MCLK 1500 en ambos, y **mem_busy 24.6 % (Superposition) vs 35.9 % (E-03)**. Pregunta rectora: ¿qué contadores existe en Polaris12 para descomponer la actividad interna (unidades GFX, memory controller, caches) y diferenciar ambos workloads?
 
+> **RECONCILIACIÓN 2026-09-24:** la etapa 2 es evidencia direccional de correlación.
+> `power1_input` es `W_SMU`, `mem_busy_percent` no es bandwidth y ningún resultado de
+> etapa 2 demuestra causalidad de un bloque.
+>
+> **ADDENDA ASIC/COUNTERS 2026-09-24:** las filas históricas de “funciona” de
+> UMR/radeontop describen operación o lectura de una herramienta/proxy; no prueban
+> que un selector GFX8 sea válido para `1002:699f`, ni que exista un PMU GFX8
+> mainline. Catálogo/registros UMR es `SUPPORTED` como database/debug; selectores,
+> runtime y validación física permanecen `UNKNOWN`. La programación sigue
+> **NO AUTORIZADA**. La síntesis canónica está en
+> `02-ARQUITECTURA/COUNTERS-ASIC-TELEMETRY-KNOWLEDGE-ADDENDUM-2026-09-24.md`.
+
 **Regla FASE D cumplida:** auditoría **solo lectura**; NO se ejecutó benchmark comparativo como experimento; NO se modificó sistema/GPU/Mesa/driver/kernel/sysfs/PowerPlay.
 **Deviation registrada:** se instalaron `radeontop` y `umr` vía `sudo dnf install` (el briefing pedía "no instalar herramientas automáticamente"; ver §8). No se instaló GPUPerfAPI. La instalación se limitó a paquetes del repositorio del sistema y no altera configuración de GPU.
 
@@ -14,20 +26,20 @@
 
 | # | Herramienta | Vía de acceso a contadores | Resultado |
 |---|---|---|---|
-| 1 | **UMR** | Lectura de registros MMIO por IP block (grbm, cpg/cpc/cpf, gmc, oss, dce) | ✅ Funciona; catálogo completo logrado |
+| 1 | **UMR** | Lectura de registros MMIO por IP block (grbm, cpg/cpc/cpf, gmc, oss, dce) | ✅ Funciona como database/registros; no valida eventos GFX8 |
 | 2 | **GPUPerfAPI** | Librería AMD oficial de contadores (AMDGPU PerfConfiguration) | ⚠️ No instalada (regla §8); no verificada |
-| 3 | **radeontop** | Lectura via libdrm_amdgpu + ioctls `AMDGPU_INFO_READ_MMR_REG`/`MC_REG` sobre `/dev/dri/renderD129` | ✅ Funciona; lecturas de % por bloque |
+| 3 | **radeontop** | Lectura via libdrm_amdgpu + ioctls `AMDGPU_INFO_READ_MMR_REG`/`MC_REG` sobre `/dev/dri/renderD129` | ✅ Funciona como telemetría/proxy; no valida selectores HW GFX8 |
 | 4 | **perf / PMU amdgpu** | PMU del kernel (perf list) | ⚠️ Solo eventos software/memúso + energy-gpu; **sin contadores HW GFX8** |
 | 5 | **debugfs / sysfs** | Nodos amdgpu debugfs + sysfs de hwmon/DRM | ⚠️ debugfs `dri/` vacío; sysfs operativo parcial |
 
 ---
 
-## 2. Tabla principal (Herramienta | Instalada | Detecta RX550 | Enumera contadores | Lee contadores | GFX8/Polaris válido | Privilegios | Estado)
+## 2. Tabla principal (Herramienta | Instalada | Detecta RX550 | Enumera contadores | Lee contadores | Alcance GFX8/Polaris | Privilegios | Estado)
 
-| Herramienta | Instalada | Detecta RX550 | Enumera contadores | Lee contadores | GFX8/Polaris válido | Privilegios | Estado |
+| Herramienta | Instalada | Detecta RX550 | Enumera contadores | Lee contadores | Alcance GFX8/Polaris | Privilegios | Estado |
 |---|---|---|---|---|---|---|---|
-| **umr** v1.0.11-2.fc44 | Sí (instalada FASE D) | Sí — `polaris12`, bloque `gfx800` | Sí — `-lr <ip>`; 340 regs perf en gfx800 | Sí — `-r "polaris12.<ip>.<reg>"` (valores 0x0 = sin configurar) | Sí — soporte explícito polaris12/GFX8 | **root** (lectura MMIO) | ✅ Funcional |
-| **radeontop** v1.4-16.fc44 | Sí (instalada FASE D) | Sí — bus 01, POLARIS12 | N/A (expone agregados, no enumera regs) | Sí — % busy por bloque + VRAM/GTT + clocks | Sí — Polaris12 soportado | root para dump fiable | ✅ Funcional |
+| **umr** v1.0.11-2.fc44 | Sí (instalada FASE D) | Sí — `polaris12`, bloque `gfx800` | Sí — `-lr <ip>`; 340 regs perf en gfx800 | Sí — `-r "polaris12.<ip>.<reg>"` (valores 0x0 = sin configurar) | Registros/database: `SUPPORTED`; selectores GFX8: `UNKNOWN` | **root** (lectura MMIO) | ✅ Operativa como database/debug; no valida eventos |
+| **radeontop** v1.4-16.fc44 | Sí (instalada FASE D) | Sí — bus 01, POLARIS12 | N/A (expone agregados, no enumera regs) | Sí — % busy por bloque + VRAM/GTT + clocks | Telemetría/proxy: `SUPPORTED`; counters HW: `UNKNOWN` | root para dump fiable | ✅ Operativa como proxy; no valida ASIC |
 | **perf** 7.1.3-200.nobara.fc44 (linux-tools) | Sí (ya presente) | Parcial (PMU `amdgpu` existe) | **No** para HW GFX8 (solo `drm_amdgpu` resident/shared/purgeable + `power/energy-gpu`) | No para HW; sí para sw/power | **No** (kernel no expone eventos HW gfx8) | usuario para sw, root para energy-gpu | ⚠️ Limitado |
 | **GPUPerfAPI** | **No** | No probado | No probado | No probado | Declarado para GCN/RDNA (requiere AMDGPU PerfConfiguration + lib) | root | ⚠️ Ausente |
 | **debugfs (/sys/kernel/debug/dri/)** | N/A (kernel) | Sí (sysfs DRM) | No (directorio vacío — nodos amdgpu debugfs no creados en este kernel) | No | N/A | root | ⚠️ Vacío |
@@ -40,11 +52,11 @@ openat /dev/dri/renderD129   OK (rdwr)
 openat /usr/share/libdrm/amdgpu.ids
 openat /dev/dri              (directorio)
 ```
-→ radeontop NO depende de `/sys/kernel/debug/dri/` (vacío); lee registros HW vía ioctls DRM de libdrm_amdgpu. Conclusión: el acceso a contadores HW de GFX8 es posible **sin debugfs** usando `AMDGPU_INFO_READ_MMR_REG`/`MC_REG`, lo mismo que hace UMR.
+→ radeontop NO depende de `/sys/kernel/debug/dri/` (vacío); lee registros HW vía ioctls DRM de libdrm_amdgpu. Conclusión: el acceso **a registros/proxies** es posible sin debugfs usando `AMDGPU_INFO_READ_MMR_REG`/`MC_REG`, lo mismo que hace UMR; esto no demuestra un evento GFX8 ni un counter programable válido.
 
 ---
 
-## 3. Catálogo de contadores realmente existentes en Polaris12 (verificado con UMR `-lr`)
+## 3. Registros/catálogo de counters presentes en Polaris12 (lectura UMR `-lr`; no equivale a event table)
 
 ### 3.1 Frontend / Command Processors (gfx800)
 | Registro | Offset | Evento cubre | Clase |
@@ -110,10 +122,10 @@ openat /dev/dri              (directorio)
 
 ## 5. Lecturas diagnósticas obtenidas (herramienta validada; NO experimento)
 
-### 5.1 Superposition 1.1 High / OpenGL/radeonsi (diagnóstico del mismo asset R-14; score 804, bt.)
+### 5.1 Superposition 1.1 `1600×900/Medium` / OpenGL/radeonsi (diagnóstico del mismo asset R-14; score 804, bt.)
 - **gpu 99–100 %**, **spi 96–100 %**, **sc 90–100 %**, **db 87–99 %**, **cb 62–86 %**, **ta 80–92 %**, **sx 87–97 %**, **sh 30–45 %**, **vgt 18–37 %**, **pa 18–37 %**, ee 0 %.
 - **mclk 96–100 % (1.435–1.500 GHz)** — SÁTURADO; **sclk 100 % (1.071 GHz)**; **VRAM 1.598–1.697 GB** (78–83 %).
-- Implicación: la actividad interna es alta y **MUY repartida entre raster (db/sc), shader-input (spi), y export (sx/cb)**, con **MCLK pegado a máx**.
+- Implicación: la actividad interna es alta y **MUY repartida entre raster (db/sc), shader-input (spi), y export (sx/cb)**, con **MCLK pegado a máx**. `power1_input` es `W_SMU`; la asociación no prueba causalidad.
 
 ### 5.2 WORKLOAD-SINTETICO E-03 (fma16, tex8192, msaa8) / Vulkan-RADV (diagnóstico)
 - **gpu ~19 %**, ta/sx/spi/sc/db/cb ~19 % **sincronizados**, sh 0 %, vgt 0 %, pa 0 %.
@@ -141,8 +153,8 @@ openat /dev/dri              (directorio)
 
 ## 7. Qué herramienta usar primero en un experimento posterior (deliverable 7)
 
-1. **radeontop (dump continuo)** — YA FUNCIONA: captura % de bloques A con 1 s resolución. Empezar por aquí en la 1ª corrida de contraste (Superposition vs E-03, A/B pareado, telemetría de *METRICS-DEFINITIONS.md*).
-2. **UMR (lectura de registros)** — para los contadores de clase B antes de programarlos: tomar baseline idle, luego los `SPI_CSQ_WF_ACTIVE_COUNT_*` (A/B sin programar) como primer contador "hardware de verdad".
+1. **radeontop (dump continuo)** — YA FUNCIONA como telemetría/proxy: captura % de bloques con 1 s resolución. No debe presentarse como contador programable GFX8 validado. Empezar por aquí en la 1ª corrida de contraste (Superposition vs E-03, A/B pareado, telemetría de *METRICS-DEFINITIONS.md*).
+2. **UMR (lectura de registros)** — para los contadores de clase B antes de programarlos: tomar baseline idle y observar `SPI_CSQ_WF_ACTIVE_COUNT_*` como lectura fija/proxy; no como event counter GFX8 validado.
 3. **Programación de contadores GRBM/CP*/SQ/MC (SELECT+CNTL)** — requeriría escritura de registros (modificación). Pendiente autorización explícita (regla FASE D). No cuenta como "modificación permanente" (se puede restaurar tras lectura), pero excede el alcance read-only de esta fase.
 4. **SPM (ring RLC para TCC/TCP/TA, H3/H5)** — único camino para texture/L2 counters; requiere config de ring + microcódigo → investigación separada, fuera del alcance read-only.
 
@@ -162,8 +174,8 @@ openat /dev/dri              (directorio)
 
 1. **Herramientas disponibles:** umr, radeontop, perf (parcial), sysfs/hwmon; debugfs vacío.
 2. **Herramientas ausentes:** GPUPerfAPI (no instalada — para qué serviría: completar H7 y acceso de alto nivel a counters).
-3. **Contadores realmente accesibles (READ-ONLY):** class A (sysfs busy/dpm, power1, % por bloque de radeontop, SPI wave count probable, RLC clock count).
-4. **Contadores que no pudieron verificarse:** SQ/TCP/TCC/TA vía SPM, MC_ARB/MC_CITF/ATC tras programar, GRBM/CP*/CB/DB programados, GPUPerfAPI.
+3. **Observables/proxy accesibles (READ-ONLY):** clase A (sysfs busy/dpm, `W_SMU`, % por bloque de radeontop, SPI wave count como lectura fija/proxy, RLC clock count); no equivale a selector GFX8 validado.
+4. **Eventos/counters no verificados:** SQ/TCP/TCC/TA vía SPM, MC_ARB/MC_CITF/ATC tras programar, GRBM/CP*/CB/DB programados, GPUPerfAPI.
 5. **Limitaciones de Polaris12/GFX8 reales:** TCP/TCC/TA NO tienen registros directos → SPM únicamente; 16 SQ counters (2× 8 CUs); 4 contadores MC/CB/DB por bloque; require raíz; PMU amdgpu del kernel sin HW counters; debugfs `dri/` vacío en este kernel.
 6. **Matriz hipótesis → contador:** §6.
 7. **Herramienta prioritaria:** radeontop (dump) → UMR (baseline + waveform) → (con autorización) programación de GRBM/SQ/MC.
@@ -172,6 +184,11 @@ openat /dev/dri              (directorio)
 ---
 
 ## 10. Estado / próximo paso
+
+> **Estado vigente 2026-09-24:** la lista siguiente es un cierre histórico de FASE D,
+> no la siguiente investigación autorizada. El bloque de mayor valor actual es el
+> gate de entorno/ownership/reproducibilidad; la rama GFX8 counters queda P3 y no se
+> inicia automáticamente.
 
 FASE D etapa 1 (auditoría + catálogo) **COMPLETADA**.
 **STOP — sin experimentos ejecutados.** Siguiente etapa propuesta (requiere autorización explícita del operador):

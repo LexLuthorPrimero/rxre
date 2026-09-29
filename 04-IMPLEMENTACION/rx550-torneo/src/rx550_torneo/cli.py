@@ -418,8 +418,17 @@ def _m1_out_dir(args):
     return os.path.join(_state_dir_from_env(), "m1", f"{args.name}-{stamp}")
 
 
-def _m1_dry_run(gpu, node, target):
-    session = cap_run.CapRunSession(gpu, node, target, out_dir=None, enable_guard=False)
+def _m1_test_session_kwargs():
+    return {
+        "aux_reader": cap_run.read_aux_test,
+        "limits_reader": cap_run.read_limits_test,
+    }
+
+
+def _m1_dry_run(gpu, node, target, test_mode=False):
+    extra = _m1_test_session_kwargs() if test_mode else {}
+    session = cap_run.CapRunSession(gpu, node, target, out_dir=None, enable_guard=False,
+                                   **extra)
     original = session.preflight()
     return session, original
 
@@ -430,7 +439,7 @@ def cmd_m1_run(args):
     target = args.target
     if not args.confirm:
         try:
-            session, original = _m1_dry_run(gpu, node, target)
+            session, original = _m1_dry_run(gpu, node, target, test_mode=test_mode)
         except write_test.WriteTestError as exc:
             _print({"ok": False, "dry_run": True, "no_write": True,
                     "error": exc.code, "message": exc.message,
@@ -451,10 +460,16 @@ def cmd_m1_run(args):
         return 0
 
     out_dir = _m1_out_dir(args)
+    session_kwargs = {
+        "workload_user": uid,
+        "workload_group": gid,
+        "workload_env": _workload_environment(uid, gid) if uid is not None else None,
+    }
+    if test_mode:
+        session_kwargs.update(_m1_test_session_kwargs())
     session = cap_run.CapRunSession(
         gpu, node, target, workload_cmd=workload_cmd, out_dir=out_dir,
-        duration_s=args.duration, workload_user=uid, workload_group=gid,
-        workload_env=_workload_environment(uid, gid) if uid is not None else None)
+        duration_s=args.duration, **session_kwargs)
     audit = session.run()
     audit_path = session.save()
     ok = audit["result"] == "OK"
@@ -484,7 +499,7 @@ def cmd_m1_schedule(args):
     gpu, node, workload_cmd, uid, gid, test_mode = _m1_context(args)
     if not args.confirm:
         try:
-            session, original = _m1_dry_run(gpu, node, args.arms[1])
+            session, original = _m1_dry_run(gpu, node, args.arms[1], test_mode=test_mode)
         except write_test.WriteTestError as exc:
             _print({"ok": False, "dry_run": True, "no_write": True, "error": exc.code,
                     "message": exc.message,
@@ -506,6 +521,7 @@ def cmd_m1_schedule(args):
         session_kwargs["workload_env"] = _workload_environment(uid, gid)
     if test_mode:
         session_kwargs["enable_guard"] = True
+        session_kwargs.update(_m1_test_session_kwargs())
     cooldown_fn = None if args.no_cooldown else (lambda: cap_run.cooldown(gpu))
     audits = cap_run.run_schedule(
         gpu, node, workload_cmd=workload_cmd, out_dir=out_dir, blocks=args.blocks,

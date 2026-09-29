@@ -38,4 +38,4 @@ Registro de decisiones de la investigación (resumen final).
      descartadas.
   4. Si aparece evidencia que contradice una conclusión anterior, NO se sobrescribe silenciosamente la
      conclusión vieja: se documenta la contradicción, la nueva evidencia y por qué cambió el criterio.
-  Fuente de registro de la investigación: `experiments/WORKLOAD-SINTETICO/RESEARCH.md`.
+  Fuente de registro de la investigación: `03-EXPERIMENTOS/WORKLOAD-SINTETICO/RESEARCH.md`.

@@ -489,6 +489,12 @@ class OwnershipBooleanRegressionTests(unittest.TestCase):
                 "user_namespace_ok": 84, "user_namespace_total": 84,
                 "root_namespace_ok": 199, "root_namespace_total": 199,
                 "total_pids": 283,
+                "card_drm_client_id_fds": 0,
+                "render_drm_client_id_fds": 0,
+                "card_drm_pdev_fds": 0,
+                "render_drm_pdev_fds": 0,
+                "card_pasid_fds": 0,
+                "render_pasid_fds": 0,
             },
             "debugfs": {
                 "DEBUGFS_CLIENT_ATTRIBUTION": "PROVEN",
@@ -499,8 +505,8 @@ class OwnershipBooleanRegressionTests(unittest.TestCase):
             "btrfs_status": "ABSENT",
             "active_agents": 0,
             "pm_status": "READ",
-            "card_clients": 0,
-            "render_clients": 0,
+            "card_drm_client_id_fds": 0,
+            "render_drm_client_id_fds": 0,
         }
         context.update(overrides)
         return context

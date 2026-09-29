@@ -405,6 +405,12 @@ class Defect02ParentBundleTests(unittest.TestCase):
                              "GPU_RENDER_NODE": "renderD129"},
             "root_coverage": {
                 "card_complete": True, "render_complete": True,
+                "card_drm_client_id_fds": 0,
+                "render_drm_client_id_fds": 0,
+                "card_drm_pdev_fds": 0,
+                "render_drm_pdev_fds": 0,
+                "card_pasid_fds": 0,
+                "render_pasid_fds": 0,
                 "user_namespace_complete": True, "root_namespace_complete": True,
                 "fd_error_count": 0, "user_namespace_ok": 84, "user_namespace_total": 84,
                 "root_namespace_ok": 199, "root_namespace_total": 199, "total_pids": 283,
@@ -412,7 +418,7 @@ class Defect02ParentBundleTests(unittest.TestCase):
             "debugfs": {"DEBUGFS_CLIENT_ATTRIBUTION": "PROVEN", "reason": "OK",
                         "clients_path": "/x"},
             "btrfs_observation": {}, "btrfs_status": "ABSENT", "active_agents": 0,
-            "pm_status": "READ", "card_clients": 0, "render_clients": 0,
+            "pm_status": "READ", "card_drm_client_id_fds": 0, "render_drm_client_id_fds": 0,
         }
         result = collector.ownership_matrix(ctx)
         self.assertNotEqual(result["OWNERSHIP_CRITERION_STATE"], "FULL")

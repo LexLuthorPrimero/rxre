@@ -34,10 +34,10 @@ Cifras de rendimiento puro (FPS) en juegos concretos NO se transcriben aquí por
 ## 3. Contexto para el proyecto
 
 - Externamente el "régimen de referencia" del RX550 (50 W, boost alto) está lejos del régimen
-  observado en la unidad (cap 35 W, SCLK 1071, draw ~13 W actual): el proyecto NO mide problemas
+  observado en la unidad (cap 35 W, SCLK 1071, `W_SMU` ~13 W actual): el proyecto NO mide problemas
   de potencia sino una configuracion muy restringida.
 - VCore/boost externo (1141–1164 MHz gaming, bajas a 820 MHz en pila de estrés) explica parte de
-  por qué el draw máximo medido en Superposition (23.7 W pico) es sensiblemente menor al TDP
+  por qué la `W_SMU` observada en Superposition (23.7 W pico) es sensiblemente menor al TDP
   nominal (50 W): es el mismo ASIC con throttling térmico/eléctrico y política DPM de fábrica.
 - No se identifica contradicción entre estos datos y las hipótesis R-07 (MCLK) ni con FASE C
   (Superposition) → compatibilidad documental lograda.

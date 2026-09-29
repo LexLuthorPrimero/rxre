@@ -6,6 +6,10 @@
 > **Clasificación:** [DISEÑADO]. Nombre/modulo provisionales ↔ consolidados se distinguen explícitamente.
 > **Estado global:** **PLANIFICADA (DOCUMENTAL)**.
 
+> **Reconciliación 2026-09-24:** la fila de counters es `CATALOG ONLY`; v3.17 es
+> referencia de tablas, v3.11.1 histórica. No se afirma runtime, rango seguro ni
+> programación.
+
 ---
 
 ## 1. Objetivo
@@ -31,7 +35,7 @@ nombres. **Las fases E–Q siguen intactas.** No se implementa nada aquí.
 | **PolarisDiagnose** | Clasificador de estado del sistema (DPM, cap, estado Kalm/ownership) | Diagnóstico | sysfs, estado | CONCEPTO | pre/post-flight y validación (K6) | PROVISIONAL | NO |
 | **PolarisLens** | Visor/explorador de eventos de contadores GFX8 (catálogo de FASE M) | Herramienta de contadores | R-0.1/R-1 (REFERENCE), FASE M | DISEÑADA (FASE M, M-E) | presenta el catálogo; NO programa (sin autorización) | PROVISIONAL | NO |
 | **RX550-Tuner** (FASE L) | Búsqueda experimental de perfiles PowerPlay/DPM | Motor de tuning | FASE K, FASE I, sysfs | PLANIFICADA (diseño R-2.11) | evalua socrades a rx550-torneo; NO lo reemplaza | NO | NO (diseño) |
-| **GFX8 Counter Research** (FASE M) | Conocimiento y catálogo de contadores GFX8 | Línea de investigación | R-0/R-1, GPUPerfAPI v3.11.1 | DOCUMENTADA + DISEÑADA | abastece a PolarisLens y D-3 | NO | parcial (catálogo sí; tool no) |
+| **GFX8 Counter Research** (FASE M) | Conocimiento y catálogo de contadores GFX8 | Línea de investigación | R-0/R-1, GPUPerfAPI v3.17/v3.11.1 | **PARTIALLY_RECONCILED / CATALOG ONLY** | abastece a PolarisLens y D-3 | NO | parcial (catálogo; runtime/tool no) |
 | **Polaris Knowledge Base** | Base de conocimiento (knowledge.md y docs consolidados) | Capa de conocimiento | raíz + R-0/R-1 + mapa R-2.2 | EXISTE (documental) | es la capa base de todas | NO | SÍ (documentación) |
 | **Ghost** | Investigación de prefetch/localidad de memoria (hipótesis de los costes de fetch) | Proyecto de investigación | FASE G, memory model | IDEA→HIPÓTESIS (diseño R-2.15) | depende de que G-M1/G-M5 prueben el costo | PROVISIONAL | NO |
 | **Ghost Cache** | Mecanismo (HYPOTÉTICO) de cache de accesos de memoria | Sub-proyecto | Ghost, driver? | HIPÓTESIS sin validar | es el "si Ghost tiene evidencia" | PROVISIONAL (junto a Ghost) | NO |

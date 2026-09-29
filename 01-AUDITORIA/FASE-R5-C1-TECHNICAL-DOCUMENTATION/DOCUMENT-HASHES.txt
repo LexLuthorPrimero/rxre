@@ -1,0 +1,19 @@
+# Hashes de documentos nuevos — FASE R5
+# Calculado después de la redacción; no modifica sidecars ni hashes existentes.
+# Este manifiesto no incluye su propio hash para evitar una referencia circular.
+
+README.md=b043151aef0670c064af0465a2fe9281e46187eca75bb04ef6e14c286c9ac956
+C1-TECHNICAL-RECORD.md=9eb63e8b4b04e2f84c22b691d8c993d6dfeeb8b56c7b5549c8f00323c981fdf4
+
+# Hashes de provenance functional ya existentes, preservados sin edición:
+# main-graphics=f278f48c320f3f14edb5d796c75b3df8358e6ca2daf6b9d7d119aa86e0c65e81
+# graphics.cpp=7f1bf813d577a456d485a55ae01bd684bd746e9a3e03a084db2edcab57943615
+# c1_observer.py=0ddae72a65f9c687550be1d491858802c6c133a06b75fa29cc0d30725bd030c1
+# build_id=c18acae12e6a4ead407ba15c2bed66e057c2676a
+# git=c6146788e0d4fb12d9b0ec1209fa2840692de0c5
+# automatizer=fd61816bbcc2aa18b6a769312818baa074bcaeaee7affda4c9475047703d1049
+# tests=1a03c784ac65c977750ee111853ec36e6c973818338a4144dfcedb56135b5d08
+# C1-ISOLATION-AUTOMATOR.md=cdc593848f145fc4b396c50031fb54f16792900409bed5700b833c56a1b88ed4
+# residual_state=f368fa91d050267b9fe30fb2e331e87a8a82e43f16f439470cc4b53d167bf99c
+# residual_events=8e7ffbe3693545144037d07727d834422bbb7c8fab81665bc6b7c123bc5d422d
+# residual_CURRENT=a06971fcfef0f3fb2f843ed836a7ffc5517a600e345c4838714eb52ab319f31f

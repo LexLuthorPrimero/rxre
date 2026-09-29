@@ -6,7 +6,10 @@
 
 ## 2. PERFORMANCE RISKS
 - **Flow ALU density:** 7-iteration, 256-candidate SAD chain at ≥2–20 ms/generated frame on this silicon (extrapolated from FSR3's own 5700XT numbers). Even 540p may miss the 60-fps latch budget.
-- **Memory:** luma pyramids + flow + interp surfaces + double-buffering in async mode ≈ +100–170 MB @1080p (FSR3 tables) on a 2 GB VRAM SKU with ~112 GB/s → cache/DRAM thrash spikes, hitching, fan.
+- **Memory:** luma pyramids + flow + interp surfaces + double-buffering in async mode
+  ≈ +100–170 MB @1080p (FSR3 tables) on a 2 GB VRAM SKU; bandwidth nominal/estimado
+  96–112 GB/s (real `UNKNOWN`) → cache/DRAM thrash, hitching y fan son riesgos, no
+  resultados medidos.
 - **CPU/pacing:** interpolation needs frame pacing; FSR3/swapchain "busy-wait" pacing on low-end drivers can itself hitch (TechPowerUp Forspoken = pacing issues list).
 
 ## 3. LATENCY RISKS
@@ -19,7 +22,8 @@
 
 ## 5. HARDWARE / PLATFORM RISKS
 - **GCN4 + Linux + Vulkan edge cases:** LucidRaster notes AMD-Windows-Vulkan subgroup slowness (2–3×); RADV path should be used; D3D12 experiments risk wasting time on driver-side regressions.
-- **CU reservation on 8 CUs** may not even be materially usable (reserving 1 CU = −12.5% for the game). Wave limiting APIs may not exist for Polaris12-class RADV → the "two ACE" capability is real (GCN whitepaper: multiple ACEs, HIWS) but practical partitioning is coarse.
+- **CU reservation on 8 CUs** no está confirmada por la API Vulkan auditada. Wave limiting
+  y el número de ACEs también son `UNKNOWN`; no se presupone partitioning físico.
 - **No VK_NV_optical_flow** on AMD → FFmpeg/`fruc` cross-check impossible; must rely on SW reference (FFX).
 
 ## 6. COST / SCOPE RISKS

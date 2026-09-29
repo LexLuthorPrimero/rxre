@@ -1,14 +1,36 @@
 # BENCHMARK-INVENTORY.md — Benchmarks GPU Linux para selección de workload M2
 
-Fecha: 2026-09-20. Estado: **instalación autorizada para la prueba exploratoria M2 completada** (solo extracción en `~/Escritorio/berchmark/instalados/`, sin lanzar benchmarks ni cargar la GPU). La FECHA de estado instalado corresponde a la sesión 2026-09-20; se registró rutas, versiones y CLI de los 4 instaladores. NO se ejecutó ninguna carga sostenida ni comando de modificación de GPU/Mesa/amdgpu.
+Fecha de registro: 2026-09-20. **Estado de este documento:** inventario documental; no certifica por sí solo las instalaciones externas ni autoriza nuevas ejecuciones. La instalación fuera del repositorio y las corridas históricas se separan por estado y fuente.
+
+## Estado canónico por benchmark — CUATRO CONCEPTOS DISTINTOS (no confundir)
+
+**Hay cuatro estados distintos y no intercambiables:** (1) descargado dentro del repositorio,
+(2) instalado fuera del repositorio, (3) ejecutado con resultado histórico y (4) elegible para M2.
+La presencia de un instalador, una instalación externa o una corrida histórica no autoriza una
+nueva ejecución. Este inventario no certifica el contenido de rutas externas.
+
+| Benchmark | 1) Instalado fuera del repo | 2) Descargado en el repo | 3) Ejecutado con resultado | 4) Elegible para M2 | ESTADO CANÓNICO |
+|---|---|---|---|---|---|
+| **GravityMark 1.89** | **Observado externamente; no certificado por este inventario** | Sí — `official-downloads/gravitymark/GravityMark_1.89.run` (completo) | Sí, histórico — `03-EXPERIMENTOS/EXPLORATORIO-GravityMark/runs/RESULTADO.md` | **NO** — resultado no discriminativo | **HISTÓRICO / NO DISCRIMINATIVO** |
+| **UNIGINE Superposition 1.1** | **Observado externamente; no certificado por este inventario** | Parcial — `cancelled-downloads/Unigine_Superposition-1.1.run.partial` | Sí, histórico — `RESULTADO-Superposition.md` (score 804; <27 W en configuración probada) | **NO** — no volver a ejecutar sin autorización nueva | **INCONCLUSO** |
+| **UNIGINE Heaven 4.0** | **Observado externamente; no certificado por este inventario** | No | No | **NO** | **NO VERIFICADO** |
+| **UNIGINE Valley 1.0** | **Observado externamente; no certificado por este inventario** | No | No | **NO** | **NO VERIFICADO** |
+
+Nota: «descargado en el repo» ≠ «instalado fuera del repo» ≠ «ejecutado» ≠ «elegible para M2».
+Este documento conserva evidencia histórica y la registra sin convertirla en autorización.
+El estado de descargas dentro del repo está en `README.md` y `docs/SOURCES-AND-EXECUTION.md`.
+La existencia de `/home/lucas/Escritorio/berchmark/instalados/` es una observación externa
+no certificable desde este repositorio.
 
 Contexto experimental de destino:
 
 - **RX 550 Polaris12/GFX8, PCI `1002:699f`, amdgpu** como GPU de render secundaria; **Intel HD 4600 (card0) es la GPU de display**.
-- Objetivo M2: encontrar una carga GPU-bound reproducible que lleve el draw real desde **~12.3 W (M1)** hacia **>27 W con cap=35 W**, para que la comparación 35 W vs 30 W sea discriminativa.
+- Objetivo M2: encontrar una carga GPU-bound reproducible que lleve la potencia estimada por sensor SMU (`W_SMU`) desde **~12.3 W (M1)** hacia **>27 W con cap=35 W**, para que la comparación 35 W vs 30 W sea discriminativa.
 - Selección de GPU por proceso (no toca display):
   - OpenGL: `DRI_PRIME=1` (o `1002:699f` / `pci-0000_01_00_0` con guiones bajos) + verificar renderer `radeonsi polaris12`.
-  - Vulkan: `VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/radeon_icd.x86_64.json` + `MESA_VK_DEVICE_SELECT=1002:699f` + verificar device `AMD Radeon RX 550` / `0x699f`. Sin selector, Vulkan cae en Intel.
+  - Vulkan: `VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/radeon_icd.x86_64.json` + verificación
+    explícita del device `AMD Radeon RX 550` / `0x699f`. `MESA_VK_DEVICE_SELECT=1002:699f`
+    es opcional y no se acepta sin esa verificación; la evidencia de selección es divergente.
 - La métrica de éxito es FPS/frametime; potencia es variable explicativa.
 
 **Convención de estado:** [VERIFICADO] disponible/confirmado hoy · [REPRODUCIBLE] comportamiento estable · [OBSERVADO] reportado por fuentes externas · [NO REPRODUCIBLE] histórico no confirmado · [HIPÓTESIS] · [DESCARTADO] · [DESCONOCIDO].
@@ -17,19 +39,19 @@ Contexto experimental de destino:
 
 ## 1. Objetivo del inventario
 
-Seleccionar candidatos de workload reproducible que una fase posterior pueda **instalar con autorización**, ejecutar por terminal, fijar a la RX 550, y medir (FPS/frame time + telemetría del runner) para determinar si la demanda de potencia alcanza el régimen en que el power cap liga (>27 W). También documentar alternativas para caracterizar cuello de botella (BERRETA/Ghost Cache).
+Seleccionar candidatos de workload reproducible que una fase posterior pueda **instalar con autorización**, ejecutar por terminal, fijar a la RX 550, y medir (FPS/frame time + telemetría del runner) para determinar si la `W_SMU` observada alcanza el régimen en que el power cap liga (>27 W). También documentar alternativas para caracterizar cuello de botella (BERRETA/Ghost Cache).
 
 ## 2. Estado del hardware relevante
 
 - RX 550 `1002:699f` (card1, amdgpu, renderD129): 512 shaders / 8 CU, GDDR5 128-bit, SCLK 214–1071 MHz, MCLK 300/625/1500 MHz, power1_cap default=max=35 W.
 - Intel HD 4600 `8086:0412` (card0, i915): display/compositor; NO tiene hwmon ni se usa para benchmark.
-- Draw real medido hoy: 9.4–13.6 W; máx 13.6 W @2560×1440 texturizado (EP-06). **Ningún workload disponible ha alcanzado >27 W**.
+- Potencia estimada por sensor SMU (`W_SMU`) observada hoy: 9.4–13.6 W; máximo 13.6 W @2560×1440 texturizado (EP-06). **Ningún workload disponible ha alcanzado >27 W**.
 - Mesa STOCK 26.2.2 (radeonsi/RADV, ACO); Mesa CUSTOM `/opt/mesa-26.2.2-rx550-haswell` presente (== STOCK en las pruebas EP-05).
 
 ## 3. M1 como contexto (completado)
 
 - Workload M1: `vkmark -p immediate -s 1920x1080 -b shading:shading=phong:duration=25`.
-- Resultado: `media(power1_input@35 W)` = **12.27 W** → compuerta `<27 W` → **NO DISCRIMINATIVO** (cap 30 W no liga). ΔFPS=ΔSCLK=0 pareados.
+- Resultado: `media(power1_input@35 W)` = **12.27 W** (`W_SMU`, no vatímetro) → compuerta `<27 W` → **NO DISCRIMINATIVO** (cap 30 W no liga). ΔFPS=ΔSCLK=0 pareados.
 - Lección: un workload ligero no discrimina el cap; M2 necesita carga sostenida sensiblemente más costosa.
 
 ---
@@ -37,7 +59,7 @@ Seleccionar candidatos de workload reproducible que una fase posterior pueda **i
 ## 4. Categorías
 
 - **A. Benchmarks GPU reales:** renderizan escenas 3D con contexto gráfico completo (escena/geometría/shaders). Más cercanos a uso real.
-- **B. Stress tests térmicos/gráficos:** cargas extremas sostenidas orientadas a exigir la GPU al máximo (potencia/temperatura).
+- **B. Stress tests térmicos/gráficos:** cargas extremas sostenidas orientadas a exigir la GPU al máximo (W_SMU/temperatura).
 - **C. Benchmarks sintéticos:** micro-benchmarks de un recurso acotado (ALU, memoria, cómputo).
 - **D. Herramientas de diagnóstico:** información/lectura del estado de la GPU (no cargan).
 - **E. Suites de benchmarks:** agregan y orquestan múltiples tests (instalan binarios propios).
@@ -45,6 +67,11 @@ Seleccionar candidatos de workload reproducible que una fase posterior pueda **i
 ---
 
 ## 5. Candidatos documentados
+
+> Las líneas `instalados/`, `ejecutado` y comandos de esta sección son provenance histórica
+> externa. No certifican el estado externo, no autorizan acciones y no seleccionan un candidato M2;
+> cualquier comando que contenga `MESA_VK_DEVICE_SELECT` es referencia y debe sustituirse por
+> ICD + verificación de `0x699f` antes de cualquier uso autorizado. La tabla superior manda.
 
 Formato por candidato (orden fijo):
 ① Fuente oficial · ② API · ③ Ejecución por terminal · ④ Headless/offscreen · ⑤ Resolución · ⑥ Duración · ⑦ Reproducibilidad · ⑧ Selección de escena · ⑨ Métrica · ⑩ Carga sostenida · ⑪ Probabilidad de acercar RX 550 al límite · ⑫ Compatibilidad Polaris12/RADV/radeonsi · ⑬ Dependencias · ⑭ Disponibilidad Fedora/Nobara 44 · ⑮ Descarga externa · ⑯ Gratuito · ⑰ Riesgo crash/reset · ⑱ Adecuación M2 · ⑲ Comando instalación (referencia) · ⑳ Comando ejecución (referencia).
@@ -59,19 +86,19 @@ Formato por candidato (orden fijo):
 #### A2. glmark2 (GL)
 ① github.com/glmark2/glmark2. · ② OpenGL. · ③ `glmark2 -s <WxH> -b <escena>:duration=N`; patrón FPS en stdout. · ④ `--off-screen`, `--run-forever`, `-l/--list-scenes`, `-f/--benchmark-file`. · ⑤ Configurable. · ⑥ `:duration=` por escena. · ⑦ [REPRODUCIBLE] escenas fijas (jellyfish/desktop/conditionals…). · ⑧ `-b` por escena + `--validate`. · ⑨ FPS; `--results fps,cpu,shader`; `--results-file`. · ⑩ Ligera–moderada (jelly 640p 1228–1250 FPS a ~10.8 W; no SCLK-bound). · ⑪ BAJA. · ⑫ Sí (radeonsi). · ⑬ mesa GL + glx. · ⑭ **Sí (`glmark2`)**. · ⑮ No. · ⑯ Sí (GPLv3). · ⑰ Bajo. · ⑱ Bajo para M2 (bottleneck no shader). · ⑲ `sudo dnf install glmark2` (REFERENCIA). · ⑳ `DRI_PRIME=1002:699f glmark2 -s 1920x1080 -b jellyfish:duration=25 -b build:duration=25` (REFERENCIA).
 
-#### A3. GravityMark (Vulkan/OpenGL) — INSTALADO `instalados/GravityMark_1.89`
-① gravitymark.tellusim.com (autor). · ② Vulkan y OpenGL (escena delegada a la GPU, evita cuello CPU). · ③ **[VERIFICADO] CLI completa** en los `run_*.sh` (binario `bin/GravityMark.x64`; sin `--help`, `-h` imprime build). · ④ Ventana/manual automatizable; paraderos `-benchmark 0/1 -close 0/1 -count <N> -times <file>`. · ⑤ `-width W -height H -fullscreen 0/1 -fulldesktop 0/1 -mode <name>`. · ⑥ `-benchmark 1 -count <N>` (pasadas) y `-close 1` cierra al finalizar; frame times con `-times <file>`. · ⑦ [HIPÓTESIS] repetibilidad escena 100% GPU declarada; frame-time exportable. · ⑧ Presets/parámetros por línea de comando (asteroids/lod/raster/meshlet/raytracing). · ⑨ FPS (+`-fps 1 -sensors 1`) y frame time (`-times`). · ⑩ Potencialmente ALTA (delegación total a GPU). · ⑪ **ALTA**. · ⑫ Sí (RADV/radeonsi via `-vk`/`-opengl`). · ⑬ Vulkan/GL libs; instalador. · ⑭ **No** (no en repos). · ⑮ DESCARGADO (`~/Escritorio/berchmark/GravityMark_1.89.run`, sha256 `de090c7b…2e005`) e INSTALADO. · ⑯ Freeware (propietario), EULA Evaluation aceptada al instalar (click-through). · ⑰ Moderado. · ⑱ **CANDIDATO PRIORITARIO M2**. · ⑲ `sh GravityMark_1.89.run --nox11 --noexec --keep --target <instalados>/GravityMark_1.89` (ejecutado; aceptar EULA con `y`). · ⑳ `VK_ICD_FILENAMES=... MESA_VK_DEVICE_SELECT=1002:699f <instalados>/GravityMark_1.89/bin/GravityMark.x64 -vk -benchmark 1 -count N -close 1 -width 1920 -height 1080 -fullscreen 1 -device <idx> -times out.times` (CONFIRMAR device al ejecutar).
+#### A3. GravityMark (Vulkan/OpenGL) — instalación externa observada, no certificada por el repo
+① gravitymark.tellusim.com (autor). · ② Vulkan y OpenGL (escena delegada a la GPU, evita cuello CPU). · ③ **[VERIFICADO] CLI completa** en los `run_*.sh` (binario `bin/GravityMark.x64`; sin `--help`, `-h` imprime build). · ④ Ventana/manual automatizable; paraderos `-benchmark 0/1 -close 0/1 -count <N> -times <file>`. · ⑤ `-width W -height H -fullscreen 0/1 -fulldesktop 0/1 -mode <name>`. · ⑥ `-benchmark 1 -count <N>` (pasadas) y `-close 1` cierra al finalizar; frame times con `-times <file>`. · ⑦ [HIPÓTESIS] repetibilidad escena 100% GPU declarada; frame-time exportable. · ⑧ Presets/parámetros por línea de comando (asteroids/lod/raster/meshlet/raytracing). · ⑨ FPS (+`-fps 1 -sensors 1`) y frame time (`-times`). · ⑩ Potencialmente ALTA (delegación total a GPU). · ⑪ **ALTA**. · ⑫ Sí (RADV/radeonsi via `-vk`/`-opengl`). · ⑬ Vulkan/GL libs; instalador. · ⑭ **No** (no en repos). · ⑮ DESCARGADO dentro del repo (`official-downloads/gravitymark/GravityMark_1.89.run`); la instalación externa se observa, no se certifica aquí. · ⑯ Freeware (propietario), EULA Evaluation aceptada al instalar (click-through). · ⑰ Moderado. · ⑱ **NO CANDIDATO M2 según el resultado histórico**; cualquier reconsideration requiere autorización nueva. · ⑲ `sh GravityMark_1.89.run --nox11 --noexec --keep --target <instalados>/GravityMark_1.89` (ejecutado; aceptar EULA con `y`). · ⑳ `VK_ICD_FILENAMES=... MESA_VK_DEVICE_SELECT=1002:699f <instalados>/GravityMark_1.89/bin/GravityMark.x64 -vk -benchmark 1 -count N -close 1 -width 1920 -height 1080 -fullscreen 1 -device <idx> -times out.times` (CONFIRMAR device al ejecutar).
 
-#### A4. UNIGINE Heaven 4.0 (GL) — INSTALADO `instalados/Unigine_Heaven-4.0`
-① benchmark.unigine.com/heaven. · ② OpenGL (Motor UNIGINE 2.52; libs x64 en `bin/`). · ③ La automatización CLI/CSV corresponde a **ediciones extendidas (Advanced/Pro)**; la versión libre usa launcher `browser_x64`. · ④ Interactiva; CLI limitada en la edición gratis. · ⑤ 640–4K (vía launcher, presets gratis). · ⑥ Preset/clique manual. · ⑦ [HIPÓTESIS] repetible en edición extendida; la libre es interactiva. · ⑧ Presets gratis. · ⑨ FPS/score en pantalla + HTML. · ⑩ Media–alta. · ⑪ MEDIA. · ⑫ Sí (OpenGL sobre radeonsi). · ⑬ Instalador propietario. · ⑭ **No**. · ⑮ DESCARGADO (`Unigine_Heaven-4.0.run`) e INSTALADO. · ⑯ Freeware propietario. · ⑰ Moderado. · ⑱ Bajo–medio como CLI (ed. gratis interactiva); útil como carga exploratoria con launcher. · ⑲ `sh Unigine_Heaven-4.0.run --accept --nox11 --noexec --keep --target <instalados>/Unigine_Heaven-4.0` (ejecutado). · ⑳ `DRI_PRIME=1002:699f <instalados>/Unigine_Heaven-4.0/heaven` (launcher GUI; REFERENCIA).
+#### A4. UNIGINE Heaven 4.0 (GL) — instalación externa observada, no certificada por el repo
+① benchmark.unigine.com/heaven. · ② OpenGL (Motor UNIGINE 2.52; libs x64 en `bin/`). · ③ La automatización CLI/CSV corresponde a **ediciones extendidas (Advanced/Pro)**; la versión libre usa launcher `browser_x64`. · ④ Interactiva; CLI limitada en la edición gratis. · ⑤ 640–4K (vía launcher, presets gratis). · ⑥ Preset/clique manual. · ⑦ [HIPÓTESIS] repetible en edición extendida; la libre es interactiva. · ⑧ Presets gratis. · ⑨ FPS/score en pantalla + HTML. · ⑩ Media–alta. · ⑪ MEDIA. · ⑫ Sí (OpenGL sobre radeonsi). · ⑬ Instalador propietario. · ⑭ **No**. · ⑮ No descargado dentro del repo; instalación externa observada, no certificada. · ⑯ Freeware propietario. · ⑰ Moderado. · ⑱ Bajo–medio como CLI (ed. gratis interactiva); útil como carga exploratoria con launcher. · ⑲ `sh Unigine_Heaven-4.0.run --accept --nox11 --noexec --keep --target <instalados>/Unigine_Heaven-4.0` (ejecutado). · ⑳ `DRI_PRIME=1002:699f <instalados>/Unigine_Heaven-4.0/heaven` (launcher GUI; REFERENCIA).
 
-#### A5. UNIGINE Valley 1.0 (GL) — INSTALADO `instalados/Unigine_Valley-1.0`
-Igual estructura que Heaven (motor UNIGINE 2.52; `valley` → `browser_x64`), CLI/CSV solo edición Pro. DESCARGADO (`Unigine_Valley-1.0.run`) e INSTALADO en `instalados/Unigine_Valley-1.0`. Ejecución: `DRI_PRIME=1002:699f <instalados>/Unigine_Valley-1.0/valley` (REFERENCIA).
+#### A5. UNIGINE Valley 1.0 (GL) — instalación externa observada, no certificada por el repo
+Igual estructura que Heaven (motor UNIGINE 2.52; `valley` → `browser_x64`), CLI/CSV solo edición Pro. No descargado dentro del repo; instalación externa observada, no certificada. Ejecución: referencia, no autorizada.
 
-#### A6. UNIGINE Superposition (GL) — INSTALADO `instalados/Unigine_Superposition-1.1` (**CORRECCIÓN: NO DESCARTADO**)
-① benchmark.unigine.com/superposition. · ② OpenGL (y DirectX 11 en Windows; en Linux `-api opengl`). · ③ **[VERIFICADO]** CLI robusta y documentada en el User Manual del instalador: `bin/superposition_cli` con `-api`, `-resolution [WxH]`, `-fullscreen [0/1/2]`, `-quality [low/medium/high/extreme/4K_Optimized/8K_Optimized]`, `-textures`, `-dof`, `-motion_blur`, `-sound`, `-mode [default/frame/scene]`, `-mode_duration [min]`, `-iterations [0..99999]`, `-log_csv "file.csv"`, `-log_csv_step [float]`, `-log_txt "file.txt"`, `-xml "routine.xml"`; también `-preset N -batch 1` en cadenas internas. → **La afirmación previa «edición gratis sin CLI reproducible» era INCORRECTA**. · ④ Sí (CLI; `-mode default` sin interacción final; `-log_csv/-log_txt` generan reportes). · ⑤ `-resolution WxH` explícito. · ⑥ `-iterations N` + `-mode_duration` (minutos) + `-log_csv_step`. · ⑦ [HIPÓTESIS] alta (pases e iteraciones deterministas; CSV por frame). · ⑧ Quality presets completos. · ⑨ FPS/score en `-log_txt` (stats generales) + CSV per-frame (`-log_csv`). · ⑩ MUY ALTA (SSRTGI, shader-heavy). · ⑪ **ALTA** (uno de los más exigentes). · ⑫ Sí (GL sobre radeonsi; verificar device con `DRI_PRIME`). · ⑬ Instalador 1.64 GB. · ⑭ **No**. · ⑮ DESCARGADO (`Unigine_Superposition-1.1.run`, sha256 `7494e1…0f8`) e INSTALADO (`version` file = `1.1`). · ⑯ Freeware propietario. · ⑰ Moderado. · ⑱ **CANDIDATO M2 con CLI totalmente reproducible** (reemplaza la clasificación previa). · ⑲ `sh Unigine_Superposition-1.1.run --accept --nox11 --noexec --keep --target <instalados>/Unigine_Superposition-1.1` (ejecutado). · ⑳ `DRI_PRIME=1002:699f <instalados>/Unigine_Superposition-1.1/bin/superposition_cli -api opengl -resolution 1920x1080 -quality high -mode default -iterations 3 -sound 0 -fullscreen 0 -log_csv <out>.csv -log_txt <out>.txt` (REFERENCIA; verificar device).
+#### A6. UNIGINE Superposition (GL) — INSTALADO `instalados/Unigine_Superposition-1.1` (**resultado histórico INCONCLUSO; no repetir**)
+① benchmark.unigine.com/superposition. · ② OpenGL (y DirectX 11 en Windows; en Linux `-api opengl`). · ③ **[VERIFICADO]** CLI robusta y documentada en el User Manual del instalador: `bin/superposition_cli` con `-api`, `-resolution [WxH]`, `-fullscreen [0/1/2]`, `-quality [low/medium/high/extreme/4K_Optimized/8K_Optimized]`, `-textures`, `-dof`, `-motion_blur`, `-sound`, `-mode [default/frame/scene]`, `-mode_duration [min]`, `-iterations [0..99999]`, `-log_csv "file.csv"`, `-log_csv_step [float]`, `-log_txt "file.txt"`, `-xml "routine.xml"`; también `-preset N -batch 1` en cadenas internas. → **La afirmación previa «edición gratis sin CLI reproducible» era INCORRECTA**. · ④ Sí (CLI; `-mode default` sin interacción final; `-log_csv/-log_txt` generan reportes). · ⑤ `-resolution WxH` explícito. · ⑥ `-iterations N` + `-mode_duration` (minutos) + `-log_csv_step`. · ⑦ [HIPÓTESIS] alta (pases e iteraciones deterministas; CSV por frame). · ⑧ Quality presets completos. · ⑨ FPS/score en `-log_txt` (stats generales) + CSV per-frame (`-log_csv`). · ⑩ MUY ALTA (SSRTGI, shader-heavy). · ⑪ **ALTA** (uno de los más exigentes). · ⑫ Sí (GL sobre radeonsi; verificar device con `DRI_PRIME`). · ⑬ Instalador 1.64 GB. · ⑭ **No**. · ⑮ DESCARGADO (`Unigine_Superposition-1.1.run`, sha256 `7494e1…0f8`) e INSTALADO (`version` file = `1.1`). · ⑯ Freeware propietario. · ⑰ Moderado. · ⑱ **HISTÓRICO / INCONCLUSO; no candidato M2 vigente**. · ⑲ `sh ...` (ejecución histórica; no repetir). · ⑳ Comando de referencia; la corrida observada fue `1600×900/Medium` y exige verificar device.
 
-#### A7. GravityMark 1.89 — ver A3 (candidato prioritario).
+#### A7. GravityMark 1.89 — ver A3 (resultado histórico NO DISCRIMINATIVO; no candidato M2 vigente).
 
 #### A8. Juegos con modo benchmark/autostart (Workloads reales)
 ① fuentes oficiales de cada título. · ② GL/Vulkan según juego. · ③ Replay/autostart por CLI (SuperTuxKart `--benchmark`, 0 A.D. `--autostart`+mapas demo, Xonotic, vkQuake timedemo, OpenArena). · ④ Requieren sesión gráfica (compositor activo). · ⑤ Configurable. · ⑥ Per replay/demo fija. · ⑦ [HIPÓTESIS] alta si el replay es determinista; el framerate depende de la carga del mapa. · ⑧ Mapas/mods fijos. · ⑨ FPS/timedemo. · ⑩ MEDIA-ALTA según escena/población. · ⑪ MEDIA-ALTA (escenas densas de SuperTuxKart salto-through / 0 A.D. megafights). · ⑫ Sí (GL/VK sobre Mesa). · ⑬ Paquetes juego. · ⑭ **Sí** (`supertuxkart`, `0ad`, `xonotic`, `vkquake`, `openarena` en Fedora). · ⑮ No. · ⑯ Sí (GPL/FLOSS). · ⑰ Bajo-moderado. · ⑱ MEDIO (probar como backup a GravityMark). · ⑲ `sudo dnf install supertuxtkart 0ad` (REFERENCIA). · ⑳ e.g. `DRI_PRIME=1002:699f supertuxkart --benchmark --benchmark-file=<replay>` (REFERENCIA).
@@ -79,7 +106,7 @@ Igual estructura que Heaven (motor UNIGINE 2.52; `valley` → `browser_x64`), CL
 ### B. Stress tests
 
 #### B1. FurMark 2 (GL y Vulkan, Geeks3D) — sucesor del GpuTest/FurMark investigado
-① geeks3d.com/furmark (oficial). · ② OpenGL y Vulkan (GeeXLab). · ③ CLI robusta y documentada: `furmark --p1080 --benchmark --duration-ms N --max-time S`, `--vsync`, `--gpu-index`, `--no-score-box`, `--log-gpu-data`. · ④ Ventana/presentación; útil interactivo. · ⑤ Presets 1080/1440/2160/3440. · ⑥ `--duration-ms`/`--max-time`/`--max-frames`. · ⑦ [HIPÓTESIS] alta (demos repetibles, benchmark con duration). · ⑧ Presets y demos (`--demo`, `--demolist`). · ⑨ FPS/score; `--print-render-speed`; log CSV de datos. · ⑩ MUY ALTA (es stress test). · ⑪ **MUY ALTA** (>27 W plausible; exige al máximo). · ⑫ Sí. · ⑬ Instalador. · ⑭ **No** (no en repos). · ⑮ Sí; v2.10.2 linux64 (16 MB, 7zip); [HIPÓTESIS] no se bajó en esta fase por ser instalador propietario a revisar. · ⑯ Freeware propietario. · ⑰ **ALTO** (stress): riesgo de reset térmico; reportes de crashes de kernel en GpuTest histórico; el runner aborta ≥90 °C. · ⑱ **CANDIDATO PRIORITARIO** para M2 (mayor poder de carga), con control de duración y cooldown. · ⑲ descarga manual geeks3d.com/furmark/downloads + extraer (REFERENCIA). · ⑳ `furmark --p1080 --benchmark --duration-ms 30000 --no-score-box` (REFERENCIA; probar selección RX550 con `--gpu-index`/env VK).
+① geeks3d.com/furmark (oficial). · ② OpenGL y Vulkan (GeeXLab). · ③ CLI robusta y documentada: `furmark --p1080 --benchmark --duration-ms N --max-time S`, `--vsync`, `--gpu-index`, `--no-score-box`, `--log-gpu-data`. · ④ Ventana/presentación; útil interactivo. · ⑤ Presets 1080/1440/2160/3440. · ⑥ `--duration-ms`/`--max-time`/`--max-frames`. · ⑦ [HIPÓTESIS] alta (demos repetibles, benchmark con duration). · ⑧ Presets y demos (`--demo`, `--demolist`). · ⑨ FPS/score; `--print-render-speed`; log CSV de datos. · ⑩ MUY ALTA (es stress test). · ⑪ **MUY ALTA** (`W_SMU` >27 W plausible (hipótesis); exige al máximo). · ⑫ Sí. · ⑬ Instalador. · ⑭ **No** (no en repos). · ⑮ Sí; v2.10.2 linux64 (16 MB, 7zip); [HIPÓTESIS] no se bajó en esta fase por ser instalador propietario a revisar. · ⑯ Freeware propietario. · ⑰ **ALTO** (stress): riesgo de reset térmico; reportes de crashes de kernel en GpuTest histórico; 90 °C es confound; 96 °C es abort. · ⑱ **HISTÓRICO / REQUIRES AUTHORIZATION** para M2 (no candidato vigente), con control de duración y cooldown. · ⑲ descarga manual geeks3d.com/furmark/downloads + extraer (REFERENCIA). · ⑳ `furmark --p1080 --benchmark --duration-ms 30000 --no-score-box` (REFERENCIA; probar selección RX550 con `--gpu-index`/env VK).
 
 #### B2. stress-ng --gpu (GL/EGL)
 ① github.com/ColinIanKing/stress-ng. · ② EGL/GBM (GPU compute/texture). · ③ `stress-ng --gpu N --gpu-frag --gpu-tex-size --gpu-upload --gpu-xsize --gpu-ysize --gpu-ops N`; devnode con `--gpu-devnode`. · ④ OFFSCREEN nativo (sin display) → no molesta al compositor. · ⑤ Interna. · ⑥ `--timeout`. · ⑦ [HIPÓTESIS] determinista por ops/timeout. · ⑧ Opciones internas. · ⑨ Ops/s, exit rc. · ⑩ ALTA (tensor/textura continua). · ⑪ ALTA-MEDIA. · ⑫ Necesita verificación de selección de device via EGL/GBM (DRI_PRIME). · ⑬ Mesa EGL. · ⑭ **Sí (`stress-ng`)**. · ⑮ No. · ⑯ Sí (GPLv2). · ⑰ Moderado. · ⑱ MEDIO (offscreen puede simplificar pruebas; requiere validar device). · ⑲ `sudo dnf install stress-ng` (REFERENCIA). · ⑳ `DRI_PRIME=1002:699f stress-ng --gpu 1 --gpu-frag --gpu-tex-size 4096 --timeout 30s --metrics-brief` (REFERENCIA).
@@ -119,7 +146,7 @@ Igual estructura que Heaven (motor UNIGINE 2.52; `valley` → `browser_x64`), CL
 | **Repos Fedora/Nobara 44** [VERIFICADO por repoquery] | `vkmark`, `glmark2`, `phoronix-test-suite`, `stress-ng`, `clpeak`, `clinfo`, `vulkan-tools`, `glx-utils`, `supertuxkart`, `0ad`, `xonotic`, `vkquake`, `openarena`, `blender`, `hashcat`, `radeontop`, `amdgpu_top`, `igt-gpu-tools`, `f3d`, `teeworlds` |
 | **Descarga externa** (instalados 2026-09-20 en `~/Escritorio/berchmark/instalados/`) | **GravityMark 1.89** ✅, **UNIGINE Heaven 4.0** ✅, **UNIGINE Valley 1.0** ✅, **UNIGINE Superposition 1.1** ✅ (originales `.run` intactos en `~/Escritorio/berchmark/`); FurMark 2 (NO bajado; revisar), vkpeak (source) |
 | **No en repos / no verificado** | `gputest`, `unigine-*` (ya instalado), `gravitymark` (ya instalado), `vkpeak`, `basemark`, `gpu-burn`, `nexuiz`, `warfork`, `amber` |
-| **Descartado con evidencia** | — (Superposition REINSTAURADO por CLI verificada en `superposition_cli`) |
+| **Descartado con evidencia** | — (Superposition tiene resultado histórico INCONCLUSO; la CLI fue verificada, pero no autoriza repetir) |
 
 ## 7. Requisitos/licencias
 
@@ -131,7 +158,7 @@ Igual estructura que Heaven (motor UNIGINE 2.52; `valley` → `browser_x64`), CL
 
 ## 8. Riesgo asociado (alto → bajo)
 
-FurMark 2 > SuperTuxKart/0 A.D. escenas densas > GravityMark > stress-ng --gpu > UNIGINE > vkmark/glmark2/clpeak/vkpeak (bajo). El runner aborta ≥90 °C y detecta reset/hang por `journalctl`; display siempre en Intel (red de seguridad).
+FurMark 2 > SuperTuxKart/0 A.D. escenas densas > GravityMark > stress-ng --gpu > UNIGINE > vkmark/glmark2/clpeak/vkpeak (bajo). **90 °C es solo confound de ventana; 96 °C es el abort configurado** en un protocolo autorizado. El runner detecta reset/hang por `journalctl`; display siempre en Intel.
 
 ## 9. Reproducibilidad estimada
 
@@ -144,7 +171,7 @@ FurMark 2 > SuperTuxKart/0 A.D. escenas densas > GravityMark > stress-ng --gpu >
 | Candidato | API | Potencial de carga |
 |---|---|---|
 | FurMark 2 (`--p1080 --duration-ms`) | GL/VK | **Muy alto** (diseñado para stress) |
-| UNIGINE Superposition (ed. extendida) | GL/VK | Muy alto (descartado por ed. gratis) |
+| UNIGINE Superposition (ed. gratuita) | GL/VK | Potencial histórico alto; ejecución observada no extrapolable y no se repite |
 | GravityMark preset alto | VK/GL | **Alto** (escena 100% GPU) |
 | stress-ng --gpu pesado | EGL/GBM | Alto |
 | clpeak / vkpeak cómputo | CL/VK | Alto (acotado) |
@@ -156,7 +183,7 @@ Ningún valor >27 W está [VERIFICADO] aún; requiere la prueba exploratoria.
 ## 11. Selección explícita de la RX 550 (resumen práctico)
 
 - **GL (juegos/glmark2/SuperTuxKart/0 A.D.):** `DRI_PRIME=1002:699f` (o `DRI_PRIME=1`) antes del comando; verificar renderer con `glxinfo -B`.
-- **Vulkan (GravityMark/FurMark VK/vkmark):** `VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/radeon_icd.x86_64.json` + `MESA_VK_DEVICE_SELECT=1002:699f`; verificar con `vulkaninfo --summary` y, de ser posible, `--gpu-index`/device id.
+- **Vulkan (GravityMark/FurMark VK/vkmark):** `VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/radeon_icd.x86_64.json` + verificar device con `vulkaninfo --summary` y, de ser posible, `--gpu-index`/device id. `MESA_VK_DEVICE_SELECT=1002:699f` es opcional y no sustituye la verificación.
 - **EGL/GBM (stress-ng):** `DRI_PRIME=1` + `--gpu-devnode` apuntando al render node de la RX 550.
 - **OpenCL (clpeak):** seleccionar el device de clpeak correspondiente a la RX 550 tras `clinfo`.
 
@@ -174,16 +201,16 @@ Ningún valor >27 W está [VERIFICADO] aún; requiere la prueba exploratoria.
 | clpeak | CL/VK | dnf | sí (headless) | Alta (acotada) | Alta | por test | device id (clinfo) | Bajo | Media |
 | vkpeak | VK | source | sí (headless) | Alta (acotada) | Alta | por escenario | env VK+id | Bajo | Media |
 | UNIGINE Heaven/Valley | GL | externa (**instalados 2026-09-20**) | limitada (ed. gratis) | Media-alta | Media | preset | DRI_PRIME | Moderado | Baja |
-| UNIGINE Superposition | GL | externa (**instalado 1.1**) | **sí (CLI `superposition_cli` + XML/CSV)** | Muy alta | Alta (HIERRO) | `-iterations/-mode_duration` | DRI_PRIME | Moderado | **ALTA (reinstalado)** |
+| UNIGINE Superposition | GL | externa (**instalado 1.1**) | **sí (CLI `superposition_cli` + XML/CSV)** | Muy alta | Alta (HIERRO) | `-iterations/-mode_duration` | DRI_PRIME | Moderado | **HISTÓRICO (instalado externo; no repetir)** |
 | vkmark (phong 1080p) | VK | dnf | sí | Baja (12.3 W) | Alta (M1) | sí | env VK IC | Bajo | **Referencia M1** |
 | glmark2 | GL | dnf | sí | Baja-med | Alta | sí | DRI_PRIME | Bajo | Baja |
 | PTS (suite) | multi | dnf | sí | Varía (≥ alta) | Media-alta | por test | por test | Moderado | Media |
 
 ---
 
-## 12b. Registro de instalación autorizada (2026-09-20) — sin ejecutar cargas
+## 12b. Registro de instalación externa observada (2026-09-20) — no certificado por el repo
 
-Los 4 instaladores permanecen **intactos** en `~/Escritorio/berchmark/` (SHA256 re-verificados: `de090c…e005`, `52db2e…e397`, `2fb47a…f7ef`, `7494e…f80f`). Extracción con makeself `--nox11 --noexec --keep --target` (sin lanzar post-install y sin escribir fuera de `instalados/`). No se ejecutó ningún benchmark de carga; solo ayudas `-help/-h` y verificación binaria.
+Los 4 instaladores permanecen **intactos** en `~/Escritorio/berchmark/` (SHA256 registrados en la observación externa: `de090c…e005`, `52db2e…e397`, `2fb47a…f7ef`, `7494e…f80f`). Extracción con makeself `--nox11 --noexec --keep --target` (sin lanzar post-install y sin escribir fuera de `instalados/`). No se ejecutó ningún benchmark de carga; solo ayudas `-help/-h` y verificación binaria.
 
 | Benchmark | Ruta instalada | Versión verif. | Binario principal | `--help`/ayuda | Método de ejecución (REFERENCIA aún, sin carga) |
 |---|---|---|---|---|---|
@@ -192,48 +219,67 @@ Los 4 instaladores permanecen **intactos** en `~/Escritorio/berchmark/` (SHA256 
 | **UNIGINE Heaven 4.0** | `~/Escritorio/berchmark/instalados/Unigine_Heaven-4.0/` | file `data/heaven-version` = `4.0` | `bin/heaven_x64` (engine core), `bin/browser_x64` (launcher) | Manual `documentation/User_Manual.pdf`; CLI/automatización solo ediciones extendidas | `cd instalados/Unigine_Heaven-4.0 && DRI_PRIME=1002:699f ./heaven` (launcher GUI; REFERENCIA) |
 | **UNIGINE Valley 1.0** | `~/Escritorio/berchmark/instalados/Unigine_Valley-1.0/` | file `data/valley-version` = `1.0` | `bin/valley_x64`, `bin/browser_x64` | Manual `documentation/User_Manual.pdf`; automatización solo ediciones extendidas | `cd instalados/Unigine_Valley-1.0 && DRI_PRIME=1002:699f ./valley` (launcher GUI; REFERENCIA) |
 
-**Resultado exploratorio Superposition 1.1 (2026-09-20): NO supera 27 W en config por defecto (ejecuta OK).** El motor `superposition` (con `-console_command world_load`) corre y da score 804, pero con preset por defecto **1600x900/Medium/OpenGL** (el `superposition_cli` traduce `-quality/-resolution` a XML pero requiere `~/.Superposition/license` y sale rc=0 sin ejecutar). Potencia fase activa: media 18.8 W, **máx 23.7 W < 27 W**; VRAM 1.63 GiB sin presión; sin reset/hang; estado final OK. Por criterio D: no se auto-incrementó la carga → **pendiente de autorización** para preset mayor (1080p/high) si se desea. Detalle: `experiments/EXPLORATORIO-GravityMark/runs/RESULTADO-Superposition.md`.
+**Resultado exploratorio Superposition 1.1 (2026-09-20): NO supera 27 W en config por
+defecto (ejecuta OK).** El motor `superposition` (con `-console_command world_load`) corre
+y da score 804, pero con preset por defecto **1600x900/Medium/OpenGL** (el
+`superposition_cli` traduce `-quality/-resolution` a XML pero requiere
+`~/.Superposition/license` y sale rc=0 sin ejecutar). `W_SMU` fase activa: media 18.8 W,
+**máx 23.7 W < 27 W**; VRAM 1.63 GiB sin presión; sin reset/hang; estado final OK.
+No se repite ni se auto-incrementa la carga; cualquier preset mayor requiere un encargo y
+autorización nuevos. Detalle: `03-EXPERIMENTOS/EXPLORATORIO-GravityMark/runs/RESULTADO-Superposition.md`.
 
-**Resultado de la prueba exploratoria GravityMark (2026-09-20): NO DISCRIMINATIVO para M2.** Intento 1: `-asteroids 4m` → device lost/OOM (2.86 GB > 2 GB), incidente de ejecución, sin medición (detalle abajo). Intento 2 (200k, 1080p Vulkan): carga válida (busy 100 %, temp máx 59 °C, sclk 1071 MHz) pero **potencia media 12.4 W / máx 14.8 W — claramente <27 W**; además **presión de VRAM 2.10 GB/2.00 GB** → por regla no se probó 1m. GravityMark descartado como candidato M2 (techo real ~15 W sobre RX 550 2 GB). Estado final OK: cap 35 W, sin reset/hang. Detalle en `experiments/EXPLORATORIO-GravityMark/runs/RESULTADO.md`.
+**Resultado de la prueba exploratoria GravityMark (2026-09-20): NO DISCRIMINATIVO para M2.** Intento 1: `-asteroids 4m` → device lost/OOM (2.86 GB > 2 GB), incidente de ejecución, sin medición (detalle abajo). Intento 2 (200k, 1080p Vulkan): carga válida (busy 100 %, temp máx 59 °C, sclk 1071 MHz) pero **`W_SMU` media 12.4 W / máx 14.8 W — claramente <27 W**; además **presión de VRAM 2.10 GB/2.00 GB** → por regla no se probó 1m. GravityMark descartado como candidato M2 (techo real ~15 W sobre RX 550 2 GB). Estado final OK: cap 35 W, sin reset/hang. Detalle en `03-EXPERIMENTOS/EXPLORATORIO-GravityMark/runs/RESULTADO.md`.
 
 Notas de la instalación:
 - **Superposition: NO se ejecuta el postinstall** (`postinstall.sh` escribía `Superposition.desktop`, iconos y `~/.local/share/...`, y borraba archivos del target). El `--noexec` de makeself lo impidió, dejando todo el contenido en `instalados/`. `version`=1.1 (que el postinstall habría borrado) quedó intacto.
 - **GravityMark: EULA Evaluation** se aceptó durante la instalación (respuesta `y`, equivalía al "I AGREE" del lanzador). Al ejecutar `--help` el binario compiló su diálogo GTK en `~/.tellusim/dialogs_*` (efecto colateral del binario, no del instalador; NO se modificó Mesa/amdgpu/kalm).
-- **Selección RX 550 verificada por documento (no por benchmark corrido):** Vulkan → `VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/radeon_icd.x86_64.json` + `MESA_VK_DEVICE_SELECT=1002:699f` + `-device <idx>` en GravityMark; OpenGL → `DRI_PRIME=1002:699f` (o `=1`). Confirmar el device/renderer en el reporte de cada herramienta antes de confiar.
+- **Selección RX 550 verificada por documento (no por benchmark corrido):** Vulkan →
+  `VK_ICD_FILENAMES=...` + device/report check; `MESA_VK_DEVICE_SELECT` es opcional y
+  no sustituye la verificación. OpenGL → `DRI_PRIME=1002:699f` (o `=1`). Confirmar
+  device/renderer en el reporte de cada herramienta antes de confiar.
 - **Duración:** GravityMark `-count N` + `-close 1`; Superposition `-iterations N` y `-mode_duration N` (min); Heaven/Valley ed. gratis = duración/lazo manual (necesitarían timeout externo si se usaran).
 - **FPS/resultados:** GravityMark `-times <file>` (frame times) y `-fps 1`; Superposition `-log_csv` (per-frame) y `-log_txt` (score); Heaven/Valley score en pantalla (+HTML en la ed. ext.).
 
 ---
 
-## 13. CANDIDATOS PRIORITARIOS PARA M2
+## 13. CANDIDATOS HISTÓRICOS / FUTUROS (no autoriza repetir)
+
+> Esta sección conserva el análisis de selección. El estado canónico superior manda:
+> no hay candidato M2 vigente; cualquier reconsideration requiere autorización nueva.
 
 La prioridad responde únicamente a: **"¿Qué candidato tiene mayor utilidad experimental para producir una carga GPU reproducible que pueda llevar la RX 550 desde ~12.3 W hacia >27 W con cap=35 W, permitiendo luego comparar 35 W vs 30 W?"**. No es ranking de rendimiento.
 
 ### 1. FurMark 2 (Geeks3D, GL y Vulkan)
-- **Por qué podría superar a M1:** es un stress test de propósito general con presets (1080p/1440p) y duración exacta (`--duration-ms`), pensado para llevar la GPU al límite térmico/potencia; mucho más costoso que `vkmark shading:phong` (12.3 W).
+- **Por qué podría superar a M1:** es un stress test de propósito general con presets (1080p/1440p) y duración exacta (`--duration-ms`), pensado para llevar la GPU al límite térmico/`W_SMU`; mucho más costoso que `vkmark shading:phong` (12.3 W `W_SMU`).
 - **API:** Vulkan o OpenGL (GeeXLab); elegir Vulkan con ICD RADV para el camino ya validado del runner.
-- **Cómo fijar RX 550:** Vulkan → `VK_ICD_FILENAMES=... + MESA_VK_DEVICE_SELECT=1002:699f`, y si `--gpu-index` lo soporta, fijar el índice; verificar device en reporte. OpenGL → `DRI_PRIME=1`.
+- **Cómo fijar RX 550:** Vulkan → `VK_ICD_FILENAMES=...` + verificación del device en el
+  reporte; `MESA_VK_DEVICE_SELECT` solo si la comprobación pasa. OpenGL → `DRI_PRIME=1`.
 - **Carga reproducible:** preset fijo + `--duration-ms 25000` + `--no-score-box`; benchmark termina al tiempo y devuelve el shell (CLI documentada por Geeks3D).
 - **Métrica:** FPS/score del stderr/stdout de FurMark; el runner ya parsea `FPS:` y agrega telemetría sysfs.
-- **Riesgos:** ALTO (stress) → usar cooldown ≤45 °C, duración acotada, aborto ≥90 °C del runner, detector 7d de reset/hang; revisar licencia antes de instalar; reportes históricos de inestabilidad del kernel con el FurMark/GpuTest legado → valorar más la variante Vulkan moderna.
+- **Riesgos:** ALTO (stress) → solo con protocolo/autorización; 90 °C es confound y 96 °C
+  es el abort configurado; cooldown, duración y detector de reset/hang deben quedar
+  definidos por ese protocolo. No se ejecuta aquí. Revisar licencia antes de instalar.
 - **Runner actual:** compatible sin cambios de código (el runner solo cambia el workload/duración; requiere sesión gráfica activa). Necesita instalar el binario.
 
 ### 2. GravityMark 1.89 (Tellusim)
-- **Por qué podría superar a M1:** escena full-GPU (sin cuello de CPU), compleja y con presets; la doc oficial destaca CLI/automatización y es exactamente la carga "GPU-bound" que M1 no fue.
+- **Por qué se evaluó históricamente:** escena full-GPU (sin cuello de CPU), compleja y con presets; la doc oficial destaca CLI/automatización. El resultado histórico no fue discriminativo; no es candidato vigente.
 - **API:** Vulkan (recomendado) y OpenGL.
 - **Cómo fijar RX 550:** Vulkan env VK (ICD+selector) + verificar con el informe del propio tool/`vulkaninfo`.
 - **Carga reproducible:** preset alto + parámetros/presets de automatización (confirmar `--help` tras instalación), duración/presets deterministas.
 - **Métrica:** FPS/score de salida; runner parsea y añade telemetría.
 - **Riesgos:** moderados (instalador propietario .run, licencia; bajo riesgo de reset).
-- **Runner actual:** compatible; **ya está descargado** (`official-downloads/gravitymark/`, sha256 registrado) → es el camino más corto a una prueba exploratoria (solo falta instalación autorizada + licencia).
+- **Runner actual:** compatible; la descarga en repo está registrada, pero cualquier
+  instalación/ejecución requiere autorización nueva y licencia.
 
-### 3. UNIGINE Superposition 1.1 (GL; **REINSTALADO** tras corrección de la CLI)
-- **Por qué:** su `bin/superposition_cli` tiene CLI robusta y documentada (User Manual del propio instalador): `-api opengl`, `-resolution WxH`, `-quality low/medium/high/extreme/4K_Optimized/8K_Optimized`, `-mode default/frame/scene`, `-mode_duration Nmin`, `-iterations N`, `-log_csv file.csv` (per-frame), `-log_txt file.txt` (score/stats), `-xml routine.xml` (pases). La afirmación previa «ed. gratis sin CLI reproducible» quedó **invalidada por verificación directa** (strings + pdf manual).
+### 3. UNIGINE Superposition 1.1 (GL; resultado histórico INCONCLUSO)
+- **Estado:** la CLI fue verificada, pero la corrida histórica efectiva `1600×900/Medium`
+  no superó el gate; no es candidato M2 vigente ni se repite sin autorización.
 - **API:** OpenGL (`-api opengl`) en Linux. Para la RX 550: `DRI_PRIME=1002:699f`.
 - **Cómo fijar RX 550:** `DRI_PRIME=1002:699f` (GL) + verificar device en el reporte.
-- **Carga reproducible:** `superposition_cli -api opengl -resolution 1920x1080 -quality <pq> -mode default -iterations N -sound 0 -fullscreen 0 -log_csv <out>.csv -log_txt <out>.txt`; duración acotada por `-iterations`/`-mode_duration`.
+- **Carga reproducible histórica:** `superposition_cli -api opengl -resolution 1600x900 -quality medium -mode default ...`; cualquier variación requiere protocolo/autorización.
 - **Métrica:** CSV per-frame (FPS/frametime) + TXT con score → parselable por el runner sin cambios.
-- **Riesgos:** moderados (instalador propietario, heavy shaders con SSRTGI); runner aborta ≥90 °C.
+- **Riesgos:** moderados (instalador propietario, heavy shaders con SSRTGI); 90 °C
+  marca confound y 96 °C es el abort de un protocolo autorizado.
 - **Runner actual:** compatible; el runner solo cambia el workload/duración.
 
 ### 4. Phoronix Test Suite (como salvaguarda de carga extrema)
@@ -249,7 +295,9 @@ La prioridad responde únicamente a: **"¿Qué candidato tiene mayor utilidad ex
 ### No apto / descartado
 - vkmark/glmark2 en configuraciones de referencia (ya demostrado <27 W).
 
-> **No se selecciona todavía el workload definitivo de M2.** Queda como **candidato a prueba exploratoria posterior**: medir draw/FPS/temp/resets de cada prioritario con cap=35 W, y solo el que alcance ≥27 W repetible será la carga de M2.
+> **No se selecciona todavía el workload definitivo de M2.** No hay candidato vigente:
+> cualquier prueba exploratoria futura requiere un encargo/autorización nuevos y no
+> reutiliza automáticamente las corridas históricas.
 
 ## 14. Lo que debe verificarse antes de usar un candidato (prueba exploratoria)
 
@@ -258,7 +306,7 @@ La prioridad responde únicamente a: **"¿Qué candidato tiene mayor utilidad ex
 3. Workload con la selección de RX 550 correcta (ver §11) y renderer/device verificado en el reporte.
 4. Dry-run del runner (read-only) antes de cualquier corrida con writes.
 5. Métrica de ventana estable (mismo esquema M1: [5 s, 25 s]); térmico dentro de rango; sin reset/hang en `journalctl`.
-6. decidido tras los datos: si draw <27 W → descartar y pasar al siguiente candidato.
+6. decidido tras los datos: si `W_SMU <27 W` → descartar y pasar al siguiente candidato.
 
 ---
 

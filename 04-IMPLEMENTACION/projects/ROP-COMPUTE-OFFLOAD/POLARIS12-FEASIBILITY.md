@@ -4,8 +4,9 @@ Target: RX 550, Polaris 12 / Lexa.
 **Confirmed specs (primary/aggregate sources: AMD RX 550 page, TechPowerUp DB, VideoCardz):**
 - 8 CUs × 64 shaders = **512 stream processors**; 32 TMUs; **16 ROPs** (2 render backends)
 - L2 = **512 KB**; L1D (V$) = **16 KB/CU**; scalar (K$) 16 KB/4CUs; I$ 32 KB/4CUs
-- 128-bit GDDR5 @ 7 Gbps → **~112 GB/s**; boost ~1183 MHz → ~1.2 TFLOPs FP32
-- 4th-gen GCN, ACEs + HWS + Quick Response Queue + **compute unit reservation** (Polaris whitepaper)
+- 128-bit GDDR5; bandwidth nominal/estimado 96–112 GB/s según módulo/VBIOS; bandwidth real `UNKNOWN`.
+- 4th-gen GCN documenta ACEs/HWS/queues en la familia, pero el número de ACEs de Polaris12 y
+  cualquier mecanismo de reserva de CUs en la API Vulkan auditada son `UNKNOWN`.
 - Sources: https://www.amd.com/en/products/graphics/radeon-rx-550 ; https://www.techpowerup.com/gpu-specs/radeon-rx-550.c2947 ; https://videocardz.com/68830/amd-launches-radeon-rx-550-for-79-usd ; https://sysrqmts.com/en/gpus/amd/polaris/radeon-rx-550
 
 ---
@@ -18,7 +19,10 @@ Target: RX 550, Polaris 12 / Lexa.
 - Rasterizer feed: on GCN, one rasterizer per ~16 CUs; Polaris12 has 1 rasterizer. Pixel waves launch at 1 wave/4 cycles top; each CU needs 4+ resident waves to hide latency (AMD GDC17). With 8 CUs the entire GPU can hold ~32 resident pixel waves → the machine saturates fast and the rasterizer *stalls* on shading, not on ROPs.
 - **Ratio check:** CUs(512 shaders) : ROPs(16) = 32 SP per ROP. High-end Tahiti: 2048:32 = 64 SP/ROP. Vega: 8-16 SP/ROP (as loads shrank per ROP). Polaris12 therefore sits at the *shader-heavy, ROP-light* end — exactly backwards for "ROPs saturated, CUs free." If ROPs ever approach saturation, the CUs are already at full tilt, not idle.
 
-**CU-availability conclusion:** "ROPs saturated + CUs free = compute faster" is **contradicted for Polaris12**. The scenario requires either (a) trivial pixel-shaders at huge overdraw (RBE-bound) — where the CUs *would* be cheap — or (b) genuinely complementary workloads (the AMD-recommended async-compute use). In case (a) the whole game scene is trivial and a compute rasterizer still pays 2–10× (CuRast/Laine numbers); in case (b) the hardware rx for that is async compute + CU reservation, which Polaris12 already exposes natively.
+**CU-availability conclusion:** no se ha identificado en la API Vulkan auditada un mecanismo
+estándar/AMD de reserva individual de CUs. Una cola compute separada no equivale a reserva
+física. La hipótesis «ROPs saturated + CUs free = compute faster» permanece **no
+verificada**, no contradicha por una medición local.
 
 ## 2. OVERHEAD BREAKDOWN IF YOU DID IT IN COMPUTE (values scaled from known references)
 
@@ -46,17 +50,18 @@ References: https://research.nvidia.com/sites/default/files/pubs/2011-08_High-Pe
 - Blend: RBE alpha-blend is fire-and-forget, in hardware, with DCC. Compute blend at 64-bit atomic footprint per pixel on 2M lines on 8 CUs — the exact hotspot the RBE design exists to avoid.
 - Deferred-style "shade from vis buffer": on RX 550 the vis buffer route also loses alpha-tested/coarse geometry savings that FreePipe/CuRast exploit *only* at pixel-sized triangles, which aren't what 1080p console-style scenes look like.
 
-## 5. THE SUPPORTED OFFLOAD MECHANISM ALREADY EXISTS
+## 5. Async-compute y colas: capability no confirmada
 
-- Polaris whitepaper documents **CU reservation** and **Quick Response Queue**: an ACE compute queue can reserve specific CUs and get prioritized — the sanctioned way to co-schedule compute wiggle work next to ROP/geometry-heavy passes. It does not move ROP work into compute; it moves *independent compute* next to ROP-bound work.
-- GPUOpen guidance (nBodyGravity, async queues, Division2): populate the compute gap with *memory-hit or ALU work with no dependency*, not with more visibility work.
+- La familia Polaris/GCN4 documenta ACEs y queues, pero el número de ACEs de esta unidad y
+  la semántica de scheduling overlap son `UNKNOWN`.
+- No se ha identificado una API Vulkan auditada para reservar CUs individualmente. Una
+  `VK_QUEUE_COMPUTE_BIT` demuestra una cola lógica, no reserva física.
+- GPUOpen guidance puede orientar trabajo complementario, pero no prueba benefit local.
 
 ## 6. FEASIBILITY VERDICT
 
-- Technically implementable (references existing, APIs VLK12/DX12 expose both compute + fixed path), but **not beneficial on Polaris12**:
-  1. CU/ROP balance is wrong (32 SP/ROP).
-  2. Every published comparison (Laine 2–8×; CuRast 10× worse on game-like scenes; LucidRaster 3× on blend) puts software rasterization **slower** than hardware on typical-geometry scenes.
-  3. The premise of "free CUs" is contradicted: ROP busy → CUs already delivered the fragments.
-  4. Bandwidth is strictly worse (L1→L2→vis→resolve vs RBE bypass + DCC).
-  5. Async-compute + CU reservation already provides the legitimately *winning* version of the same instinct at ~15% (AMD nBody, Fury X; bigger on polaris-class with complementary workloads).
-- Possible narrow *novel experimental* value: a pure-compute rasterizer on Polaris12 as a **measurement rig** for "how bad is L2-atomic visibility on GCN4-low-end" — but as a performance feature on this chip it is classified **CONTRADICTED BY PRIOR ART**. As research the idea is KNOWN VARIANT (well-established technique, novel only in target-hardware platforming).
+- La viabilidad técnica y el beneficio local son `UNKNOWN`; no se ejecutó una medición.
+  Las comparaciones externas no se pueden trasladar como resultado de este target local. La async-compute requiere capability
+  audit y no implica reserva de CUs.
+- Posible valor de investigación: medir el efecto de una cola compute y del fixed-function path, sin
+  convertir comparaciones externas en un veredicto Polaris12.

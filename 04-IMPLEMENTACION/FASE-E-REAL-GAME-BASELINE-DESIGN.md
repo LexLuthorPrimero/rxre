@@ -28,7 +28,7 @@ la misma base el comportamiento de potencia/relojes/memoria que ya caracterizan 
 
 - **E2/E2-report:** candidatos descartados por no ser reproducibles localmente (Steam KOF XV = menú sin
   xdotool/wtype; resto online con login). → No existe aún ninguna corrida formal de FASE E.
-- **R-15/Superposition** (`experiments/R-14-SUPERPOSITION-DISSECTION/`) mostró que un load real-geometría
+- **R-15/Superposition** (`03-EXPERIMENTOS/R-14-SUPERPOSITION-DISSECTION/`) mostró que un load real-geometría
   **OpenGL** produce 22.31 W steady / 24.71 W pico (no VK). FASE E quiere ver lo mismo en un **motor real
   reiterable** (escena fija, mismo input, sin intervención manual).
 
@@ -41,8 +41,9 @@ la misma base el comportamiento de potencia/relojes/memoria que ya caracterizan 
 4. **CPU razonable**: el sistema es i7-4790 (4C/8T); el juego no debe quedar CPU-bound a la resolución de
    trabajo (si lo queda, marcar como confounder observado, no descartar).
 5. **≥ 30 s de régimen estable** por repetición (mínimo para estadística de régimen).
-6. **RX 550 explícita**: selección de GPU explícita (para Vulkan: `MESA_VK_DEVICE_SELECT=1002:699f`;
-   GL: verificar con `glxinfo` que el contexto usa `DRI_PRIME=1` o esa GPU).
+6. **RX 550 explícita**: para Vulkan usar ICD RADV y verificar el device `0x699f`;
+   `MESA_VK_DEVICE_SELECT=1002:699f` es opcional y no se acepta sin verificación. Para GL,
+   verificar con `glxinfo` que el contexto usa `DRI_PRIME=1` o la RX 550.
 7. **Sin DRM/licencias**: trabajo local, sin microtransacciones, sin DRM online.
 8. **Coste cero / de catálogo open source** preferido (ej. `supertuxkart` tiene demo con track fijo);
    cualquier instalación estará sujeta a autorización y a revisión de licencia.
@@ -98,8 +99,9 @@ verificar con `state_final.txt` + readback. Regla: **WRITE-SUCCESS ≠ STATE-CHA
 
 ## 6. Hipótesis que FASE E puede discriminar (no afirmar sin ejecutar)
 
-- H-E1: un juego real reproducible supera el draw de los VK sintéticos (¿> 22.3 W?) confirmando que la
-  diferencia entre Superposition (GL) y sintéticos (VK) se debe al **tipo de carga** y no solo a la API.
+- H-E1: un juego real reproducible supera la `W_SMU` de los VK sintéticos (¿> 22.3 W?); una
+  correlación posterior podría contrastar el **tipo de carga**, pero no confirmaría causalidad
+  ni aislaría la API.
 - H-E2: el régimen estable de MCLK 1500 se sostiene en un motor real que presiona memoria/texturas.
 - H-E3: la relación SCLK:MCLK (documentada en E5b) se manifiesta en un motor real (costes de
   muestreo/geometría visibles a 1080 en lugar de enmascarados).

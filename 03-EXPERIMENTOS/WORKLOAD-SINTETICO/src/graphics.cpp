@@ -6,8 +6,8 @@
 // Emisión determinista al stdout (para correlación del runner externo):
 //   device, vendor/device, resolution, format, msaa, layers, textures, tex_size,
 //   fma_per_fragment, seed, warmup_s, duration_s, start_wall_ns, end_wall_ns,
-//   warmup_frames, frames, fps, frametime_ns (min/avg/max/p50), vram (heap/images),
-//   sample_counts_cb, result, error.
+//   warmup_frames, frames, fps, frametime_ns (min/avg/max/p50/p95/p99), vram (heap/images),
+//   sample_counts_cb, result, error, markers monotónicos y timeline por frame.
 #include <vulkan/vulkan.h>
 #include <shaderc/shaderc.hpp>
 
@@ -16,9 +16,12 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
 #include <fstream>
+#include <limits.h>
 #include <sstream>
 #include <string>
+#include <unistd.h>
 #include <vector>
 
 static constexpr uint32_t VENDOR_RX550   = 0x1002;
@@ -40,35 +43,79 @@ struct Config {
     bool     requireRx550 = true;
     bool     skipGen  = false; // depuración: no generar texturas (contenido indefinido)
     bool     skipFrag = false; // depuración: solo generación, sin loop de fragment
-    std::string shaderDir = "src";
+    std::string shaderDir;        // vacío => directorio src relativo al ejecutable
     std::string fragFile  = "fragment.frag"; // shader de fragmento (E1 o F2 experimental)
 };
 
-static void fatal(const char* what) {
-    std::fprintf(stderr, "ERROR: %s\n", what);
+static uint64_t monotonicNs() {
+    struct timespec ts {};
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
+        std::fprintf(stderr, "ERROR: clock_gettime(CLOCK_MONOTONIC) falló\n");
+        std::exit(1);
+    }
+    return static_cast<uint64_t>(ts.tv_sec) * 1000000000ull +
+           static_cast<uint64_t>(ts.tv_nsec);
+}
+
+static void emitMarker(const char* type, uint64_t eventNs,
+                       const std::string& detail = std::string()) {
+    std::printf("marker: %s t_event_mono_ns=%llu", type,
+                static_cast<unsigned long long>(eventNs));
+    if (!detail.empty()) std::printf(" detail=%s", detail.c_str());
+    std::putchar('\n');
+    std::fflush(stdout);
+}
+
+[[noreturn]] static void fatal(const std::string& what) {
+    emitMarker("error", monotonicNs(), what);
+    std::fprintf(stderr, "ERROR: %s\n", what.c_str());
     std::exit(1);
 }
 
 static void check(VkResult r, const char* what) {
     if (r == VK_SUCCESS) return;
     if (r == VK_ERROR_DEVICE_LOST) {
+        emitMarker("error", monotonicNs(), std::string("ERROR_DEVICE_LOST: ") + what);
         std::fprintf(stderr, "ERROR_DEVICE_LOST: %s\n", what);
         std::exit(2);
     }
     if (r == VK_ERROR_OUT_OF_HOST_MEMORY || r == VK_ERROR_OUT_OF_DEVICE_MEMORY) {
+        emitMarker("error", monotonicNs(), std::string("ERROR_OOM: ") + what);
         std::fprintf(stderr, "ERROR_OOM: %s (code=%d)\n", what, (int)r);
         std::exit(4);
     }
+    emitMarker("error", monotonicNs(),
+               std::string("VULKAN_ERROR: ") + std::to_string(static_cast<int>(r)) +
+                   ": " + what);
     std::fprintf(stderr, "ERROR %d en %s\n", (int)r, what);
     std::exit(1);
 }
 
+static std::string executableDir() {
+    char path[PATH_MAX];
+    const ssize_t n = readlink("/proc/self/exe", path, sizeof(path) - 1);
+    if (n <= 0) fatal("no se puede resolver /proc/self/exe");
+    path[n] = '\0';
+    const std::string full(path, static_cast<size_t>(n));
+    const size_t slash = full.find_last_of('/');
+    if (slash == std::string::npos) fatal("ruta de ejecutable sin directorio");
+    return full.substr(0, slash);
+}
+
+static std::string resolveShaderDir(const std::string& requested) {
+    if (requested.empty()) return executableDir() + "/src";
+    if (requested.front() == '/') return requested;
+    return executableDir() + "/" + requested;
+}
+
+static std::string resolveShaderPath(const std::string& dir, const std::string& file) {
+    if (!file.empty() && file.front() == '/') return file;
+    return dir + "/" + file;
+}
+
 static std::string readFile(const std::string& path) {
     std::ifstream f(path, std::ios::binary);
-    if (!f.is_open()) {
-        std::fprintf(stderr, "ERROR: no se puede abrir %s\n", path.c_str());
-        std::exit(1);
-    }
+    if (!f.is_open()) fatal("no se puede abrir " + path);
     std::ostringstream ss;
     ss << f.rdbuf();
     return ss.str();
@@ -84,8 +131,7 @@ static VkShaderModule compileShader(VkDevice dev, const std::string& glsl,
     shaderc::SpvCompilationResult res =
         compiler.CompileGlslToSpv(glsl.data(), glsl.size(), kind, name, options);
     if (res.GetCompilationStatus() != shaderc_compilation_status_success) {
-        std::fprintf(stderr, "ERROR shader %s:\n%s\n", name, res.GetErrorMessage().c_str());
-        std::exit(1);
+        fatal("shader " + std::string(name) + ": " + res.GetErrorMessage());
     }
     std::vector<uint32_t> spv(res.cbegin(), res.cend());
     VkShaderModuleCreateInfo ci{};
@@ -189,12 +235,40 @@ struct PCFrag {
     uint32_t resX, resY, seed0, seed1, layer, numTextures, fmaIters;
 };
 
+struct FrameRecord {
+    uint64_t frameId;
+    uint64_t frameBeginNs;
+    uint64_t recordEndNs;
+    uint64_t submitNs;
+    uint64_t fenceWaitStartNs;
+    uint64_t fenceNs;
+    uint64_t frameEndNs;
+};
+
+// Percentil sobre el vector YA ORDENADO de frametimes medidos.
+// No interpola y no usa warm-up: index=floor(n*p), acotado a n-1.
+// Para p50 conserva exactamente el índice legacy sorted[n/2].
+static uint64_t percentileSorted(const std::vector<uint64_t>& sorted,
+                                 uint64_t numerator, uint64_t denominator) {
+    if (sorted.empty()) return 0;
+    const uint64_t n = static_cast<uint64_t>(sorted.size());
+    uint64_t index = (n * numerator) / denominator;
+    if (index >= n) index = n - 1;
+    return sorted[static_cast<size_t>(index)];
+}
+
 int main(int argc, char** argv) {
+    const uint64_t runStartMonoNs = monotonicNs();
+    std::printf("marker: run_start t_event_mono_ns=%llu t_run_start_mono_ns=%llu\n",
+                static_cast<unsigned long long>(runStartMonoNs),
+                static_cast<unsigned long long>(runStartMonoNs));
+    std::fflush(stdout);
+
     Config C;
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
         auto next = [&](const char* name) -> const char* {
-            if (i + 1 >= argc) { std::fprintf(stderr, "falta valor para %s\n", name); std::exit(1); }
+            if (i + 1 >= argc) fatal(std::string("falta valor para ") + name);
             return argv[++i];
         };
         if      (a == "--duration")   C.durationSec = (uint32_t)std::strtoul(next("--duration"), nullptr, 10);
@@ -220,7 +294,7 @@ int main(int argc, char** argv) {
                 "      [--seed HEX] [--seed-extra HEX] [--shader-dir PATH] [--frag FILE]\n"
                 "      [--any-gpu] [--skip-gen] [--skip-frag]   (solo depuración de faults)\n",
                 argv[0]);
-            return 1;
+            fatal("argumento desconocido: " + a);
         }
     }
     if (C.numTex != 4) C.numTex = 4; // shader fijo samplea tex[0..3]
@@ -228,7 +302,12 @@ int main(int argc, char** argv) {
     if (C.texSize > 8192) C.texSize = 8192;
     if (C.texSize % 8) C.texSize = (C.texSize / 8 + 1) * 8; // alineación múltiplo de 8 (copy/format)
 
-    using clock = std::chrono::steady_clock;
+    C.shaderDir = resolveShaderDir(C.shaderDir);
+    const std::string vertexShaderPath = resolveShaderPath(C.shaderDir, "vertex.vert");
+    const std::string fragmentShaderPath = resolveShaderPath(C.shaderDir, C.fragFile);
+    std::printf("shader_dir: %s\nvertex_shader: %s\nfragment_shader: %s\n",
+                C.shaderDir.c_str(), vertexShaderPath.c_str(), fragmentShaderPath.c_str());
+    std::fflush(stdout);
 
     VkApplicationInfo app{};
     app.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -314,6 +393,9 @@ int main(int argc, char** argv) {
                 &totalVram, &cb, msaaFlag);
 
     if (totalVram > heapSize) { // asignación imposible -> aborto limpio
+        const std::string detail = "presupuesto VRAM " + std::to_string(totalVram) +
+                                   " > heap " + std::to_string(heapSize);
+        emitMarker("error", monotonicNs(), detail);
         std::fprintf(stderr, "ERROR: presupuesto VRAM %llu > heap %llu\n",
                      (unsigned long long)totalVram, (unsigned long long)heapSize);
         std::exit(5);
@@ -347,7 +429,11 @@ int main(int argc, char** argv) {
         si.pCommandBuffers    = &cbk;
         check(vkQueueSubmit(queue, 1, &si, fence), "vkQueueSubmit(setup)");
         VkResult wr = vkWaitForFences(dev, 1, &fence, VK_TRUE, FENCE_TIMEOUT_NS);
-        if (wr == VK_TIMEOUT) { std::fprintf(stderr, "ERROR: hang de GPU en setup (fence timeout)\n"); std::exit(3); }
+        if (wr == VK_TIMEOUT) {
+            emitMarker("error", monotonicNs(), "GPU hang en setup (fence timeout)");
+            std::fprintf(stderr, "ERROR: hang de GPU en setup (fence timeout)\n");
+            std::exit(3);
+        }
         check(wr, "vkWaitForFences(setup)");
         vkDestroyFence(dev, fence, nullptr);
     };
@@ -562,8 +648,8 @@ int main(int argc, char** argv) {
     VkFramebuffer fb;
     check(vkCreateFramebuffer(dev, &fbc, nullptr, &fb), "vkCreateFramebuffer");
 
-    std::string vertSrc = readFile(C.shaderDir + "/vertex.vert");
-    std::string fragSrc = readFile(C.shaderDir + "/" + C.fragFile);
+    std::string vertSrc = readFile(vertexShaderPath);
+    std::string fragSrc = readFile(fragmentShaderPath);
     VkShaderModule vertMod = compileShader(dev, vertSrc, "vertex.vert", shaderc_vertex_shader);
     VkShaderModule fragMod = compileShader(dev, fragSrc, C.fragFile.c_str(), shaderc_fragment_shader);
 
@@ -675,70 +761,125 @@ int main(int argc, char** argv) {
     uint32_t frames       = 0;
     uint64_t totalNs      = 0, minNs = 0, maxNs = 0;
     std::vector<uint64_t> frameTimes;
+    std::vector<FrameRecord> frameRecords;
 
+    // Wall clock sólo para provenance; todos los claims de timing usan CLOCK_MONOTONIC.
     using wall = std::chrono::system_clock;
     auto wallNs = []() -> int64_t {
         return std::chrono::duration_cast<std::chrono::nanoseconds>(wall::now().time_since_epoch()).count();
     };
 
+    uint64_t measureStartMonoNs = 0;
+    uint64_t measureEndMonoNs = 0;
     VkFence fence = VK_NULL_HANDLE;
-    if (!C.skipFrag) {
-    VkFenceCreateInfo fenceCi{};
-    fenceCi.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    check(vkCreateFence(dev, &fenceCi, nullptr, &fence), "vkCreateFence(loop)");
-    auto submitWait = [&] {
-        VkSubmitInfo si{};
-        si.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        si.commandBufferCount = 1;
-        si.pCommandBuffers    = &frameCb;
-        check(vkQueueSubmit(queue, 1, &si, fence), "vkQueueSubmit(loop)");
-        VkResult wr = vkWaitForFences(dev, 1, &fence, VK_TRUE, FENCE_TIMEOUT_NS);
-        if (wr == VK_TIMEOUT) {
-            std::fprintf(stderr, "ERROR: hang de GPU en loop (fence timeout)\n");
-            std::exit(3);
-        }
-        check(wr, "vkWaitForFences(loop)");
-        check(vkResetFences(dev, 1, &fence), "vkResetFences");
-    };
+    const uint64_t warmupStartMonoNs = monotonicNs();
+    std::printf("marker: warmup_start t_event_mono_ns=%llu t_warmup_start_mono_ns=%llu\n",
+                static_cast<unsigned long long>(warmupStartMonoNs),
+                static_cast<unsigned long long>(warmupStartMonoNs));
+    std::fflush(stdout);
 
-    {
-        auto w0 = clock::now();
+    if (!C.skipFrag) {
+        VkFenceCreateInfo fenceCi{};
+        fenceCi.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        check(vkCreateFence(dev, &fenceCi, nullptr, &fence), "vkCreateFence(loop)");
+        auto submitWait = [&](uint64_t& tSubmit, uint64_t& tFenceWaitStart,
+                              uint64_t& tFence) {
+            VkSubmitInfo si{};
+            si.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+            si.commandBufferCount = 1;
+            si.pCommandBuffers    = &frameCb;
+            tSubmit = monotonicNs();
+            check(vkQueueSubmit(queue, 1, &si, fence), "vkQueueSubmit(loop)");
+            tFenceWaitStart = monotonicNs();
+            VkResult wr = vkWaitForFences(dev, 1, &fence, VK_TRUE, FENCE_TIMEOUT_NS);
+            if (wr == VK_TIMEOUT) {
+                emitMarker("error", monotonicNs(), "GPU hang en loop (fence timeout)");
+                std::fprintf(stderr, "ERROR: hang de GPU en loop (fence timeout)\n");
+                std::exit(3);
+            }
+            check(wr, "vkWaitForFences(loop)");
+            tFence = monotonicNs();
+            check(vkResetFences(dev, 1, &fence), "vkResetFences");
+        };
+
+        const uint64_t w0 = monotonicNs();
         while (true) {
             recordFrame(0);
-            submitWait();
-            auto t1 = clock::now();
+            uint64_t ignoredSubmit = 0, ignoredFenceWaitStart = 0, ignoredFence = 0;
+            submitWait(ignoredSubmit, ignoredFenceWaitStart, ignoredFence);
             warmupFrames++;
-            if (std::chrono::duration_cast<std::chrono::seconds>(t1 - w0).count()
-                    >= (int64_t)C.warmupSec)
-                break;
+            const uint64_t elapsedNs = monotonicNs() - w0;
+            if (elapsedNs / 1000000000ull >= C.warmupSec) break;
         }
-    }
 
-    startWallNs = (uint64_t)wallNs();
-    {
-        auto m0 = clock::now();
-        uint64_t elapsedSec = 0;
-        while (elapsedSec < C.durationSec) {
+        measureStartMonoNs = monotonicNs();
+        std::printf("marker: measure_start t_event_mono_ns=%llu t_measure_start_mono_ns=%llu\n",
+                    static_cast<unsigned long long>(measureStartMonoNs),
+                    static_cast<unsigned long long>(measureStartMonoNs));
+        std::fflush(stdout);
+        startWallNs = (uint64_t)wallNs();
+        const uint64_t m0 = monotonicNs();
+        uint64_t frameId = 1;
+        while (true) {
+            const uint64_t frameBeginNs = monotonicNs();
             recordFrame(0);
-            auto t0 = clock::now();
-            submitWait();
-            auto t1 = clock::now();
-            uint64_t ft = (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
+            const uint64_t recordEndNs = monotonicNs();
+            uint64_t submitNs = 0, fenceWaitStartNs = 0, fenceNs = 0;
+            submitWait(submitNs, fenceWaitStartNs, fenceNs);
+            const uint64_t frameEndNs = monotonicNs();
+            // Conserva la métrica histórica: frametime begins después de recordFrame.
+            const uint64_t ft = frameEndNs - recordEndNs;
             frameTimes.push_back(ft);
+            frameRecords.push_back({frameId, frameBeginNs, recordEndNs, submitNs,
+                                    fenceWaitStartNs, fenceNs, frameEndNs});
             totalNs += ft;
             if (!frames || ft > maxNs) maxNs = ft;
             if (!frames || ft < minNs) minNs = ft;
             frames++;
-            elapsedSec = (uint64_t)std::chrono::duration_cast<std::chrono::seconds>(
-                             clock::now() - m0).count();
+            frameId++;
+            const uint64_t elapsedNs = monotonicNs() - m0;
+            if (elapsedNs / 1000000000ull >= C.durationSec) break;
         }
+        measureEndMonoNs = monotonicNs();
+        endWallNs = (uint64_t)wallNs();
+    } else {
+        measureStartMonoNs = monotonicNs();
+        std::printf("marker: measure_start t_event_mono_ns=%llu t_measure_start_mono_ns=%llu\n",
+                    static_cast<unsigned long long>(measureStartMonoNs),
+                    static_cast<unsigned long long>(measureStartMonoNs));
+        std::fflush(stdout);
+        startWallNs = (uint64_t)wallNs();
+        measureEndMonoNs = monotonicNs();
         endWallNs = (uint64_t)wallNs();
     }
+
+    // Se emite después del loop para no introducir stdout por frame durante T_measure.
+    for (const FrameRecord& frame : frameRecords) {
+        std::printf("frame_marker: frame_id=%llu t_event_mono_ns=%llu "
+                    "t_frame_begin_mono_ns=%llu t_record_end_mono_ns=%llu "
+                    "t_submit_mono_ns=%llu t_fence_wait_start_mono_ns=%llu "
+                    "t_fence_mono_ns=%llu t_frame_end_mono_ns=%llu\n",
+                    static_cast<unsigned long long>(frame.frameId),
+                    static_cast<unsigned long long>(frame.frameEndNs),
+                    static_cast<unsigned long long>(frame.frameBeginNs),
+                    static_cast<unsigned long long>(frame.recordEndNs),
+                    static_cast<unsigned long long>(frame.submitNs),
+                    static_cast<unsigned long long>(frame.fenceWaitStartNs),
+                    static_cast<unsigned long long>(frame.fenceNs),
+                    static_cast<unsigned long long>(frame.frameEndNs));
     }
-    uint64_t p50 = 0;
+    std::fflush(stdout);
+    std::printf("marker: measure_end t_event_mono_ns=%llu t_measure_end_mono_ns=%llu\n",
+                static_cast<unsigned long long>(measureEndMonoNs),
+                static_cast<unsigned long long>(measureEndMonoNs));
+    std::fflush(stdout);
+
+    uint64_t p50 = 0, p95 = 0, p99 = 0;
     if (!frameTimes.empty()) {
         std::sort(frameTimes.begin(), frameTimes.end());
-        p50 = frameTimes[frameTimes.size() / 2];
+        p50 = percentileSorted(frameTimes, 50, 100);
+        p95 = percentileSorted(frameTimes, 95, 100);
+        p99 = percentileSorted(frameTimes, 99, 100);
     }
 
     std::printf("result: EJECUCIÓN_VÁLIDA\n"); // solo si llegamos aquí sin abortar
@@ -749,14 +890,19 @@ int main(int argc, char** argv) {
     std::printf("fma_per_fragment: %u\n", C.fmaIters * 6);
     std::printf("seed: 0x%08X 0x%08X\n", C.seed0, C.seed1);
     std::printf("warmup_s: %u duration_s: %u\n", C.warmupSec, C.durationSec);
+    std::printf("timing_clock: CLOCK_MONOTONIC\n");
+    std::printf("percentile_method: floor_rank_no_interpolation_p50_legacy\n");
     std::printf("start_wall_ns: %llu\n", (unsigned long long)startWallNs);
     std::printf("end_wall_ns: %llu\n", (unsigned long long)endWallNs);
     std::printf("frames: warmup=%u measure=%u\n", warmupFrames, frames);
     std::printf("fps: %.3f\n", frames ? (double)frames / (double)C.durationSec : 0.0);
-    std::printf("frametime_ns: min=%llu avg=%llu max=%llu p50=%llu\n",
+    std::printf("frametime_ns: min=%llu avg=%llu max=%llu p50=%llu p95=%llu p99=%llu\n",
                 (unsigned long long)minNs,
                 frames ? (unsigned long long)(totalNs / frames) : 0ull,
-                (unsigned long long)maxNs, (unsigned long long)p50);
+                (unsigned long long)maxNs,
+                (unsigned long long)p50,
+                (unsigned long long)p95,
+                (unsigned long long)p99);
     std::printf("vram: heap_bytes=%llu images_bytes=%llu\n",
                 (unsigned long long)heapSize, (unsigned long long)totalVram);
     std::printf("sample_counts_cb: %u (soporta hasta MSAA 8x)\n", ifp.sampleCounts);
@@ -786,5 +932,9 @@ int main(int argc, char** argv) {
     vkFreeMemory(dev, cb.memory, nullptr);
     vkDestroyDevice(dev, nullptr);
     vkDestroyInstance(inst, nullptr);
+    const uint64_t runEndMonoNs = monotonicNs();
+    std::printf("marker: run_end t_event_mono_ns=%llu\n",
+                static_cast<unsigned long long>(runEndMonoNs));
+    std::fflush(stdout);
     return 0;
 }

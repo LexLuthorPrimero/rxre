@@ -4,7 +4,7 @@
 > **Fase:** FASE R-3 — Documentary novelty audit (SOLO DOCUMENTAL; no code, no system changes, no benchmarks, no installs)
 > **Fecha:** 2026-09-22
 > **Modo:** DOCUMENTAL ONLY
-> **Archivo principal:** `projects/TEMPORAL-TILE-REUSE/`
+> **Archivo principal:** `04-IMPLEMENTACION/projects/TEMPORAL-TILE-REUSE/`
 > **Archivos:** `README.md`, `PRIOR-ART.md`, `POLARIS12-FEASIBILITY.md`, `EXPERIMENT-DESIGN.md`
 
 ---

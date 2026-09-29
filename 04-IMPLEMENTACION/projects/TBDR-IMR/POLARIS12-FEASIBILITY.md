@@ -2,7 +2,8 @@
 
 Target: RX 550, Polaris12/GFX8 (PCI 1002:699f).
 **Confirmed specs (verified locally + aggregate primary sources):**
-- 8 CUs × 64 shaders = **512 SP**; 16 ROPs (2 RBs); 32 TMUs; 1 GB DDR5 128-bit (~112 GB/s)
+- 8 CUs × 64 shaders = **512 SP**; 16 ROPs (2 RBs); 32 TMUs; 1 GB DDR5 128-bit
+  (**96–112 GB/s nominal/estimado; real `UNKNOWN`**)
 - **L2 = 512 KB** (2 slices × 256 KB), 16-way, 64 B lines, write-back/write-allocate; V$ = 16 KB/CU; K$ 16 KB/4 CUs; I$ 32 KB/4 CUs
 - **L2 clients on GFX8 = shaders ONLY.** RB, Copy Engine, CP bypass L2 and go directly to the memory controller (GCN whitepaper §cache hierarchy; Mesa-dev 2019: "GFX6-8: L2 used by shaders only. GFX9-10: used by everything"; GPUOpen RDNA presentation on cache evolution)
 - Fixed-function framebuffer path already tiled in HW: RBE tile color cache (~16 KB tier) + depth cache (~4 KB) + **DCC** (delta color compression) + **HTILE** in the RB (radeonsi TC-compatible HTILE, Marek Olšák 2016; GPUOpen DCC overview 2016).

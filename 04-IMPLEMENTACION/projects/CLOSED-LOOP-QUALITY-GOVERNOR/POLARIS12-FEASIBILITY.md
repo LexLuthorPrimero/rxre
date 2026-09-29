@@ -1,6 +1,6 @@
 # IDEA I-08 — CLOSED-LOOP QUALITY GOVERNOR: POLARIS12 FEASIBILITY
 
-RX550 facts: 8 CUs / 512 SP / ~1.2 TFLOPs / 512 KB L2 / 112 GB/s / 16 ROPs / GCN4, ~50 W TBP. Counter programming not authorized (FASE D/M), any sysfs write not authorized (DN-12) — actuator must be app render-scale only.
+RX550 facts: 8 CUs / 512 SP / ~1.2 TFLOPs / 512 KB L2 / 96–112 GB/s nominal/estimado (real `UNKNOWN`) / 16 ROPs / GCN4, ~50 W TBP. Counter programming not authorized (FASE D/M), any sysfs write not authorized (DN-12) — actuator must be app render-scale only.
 
 ## 1. WHAT THE LOOP CAN ACTUALLY CONTROL (the binding constraint)
 
@@ -40,7 +40,7 @@ Adopt the shipped pattern (Unity HDRP §review ← primary docs):
 - **Power-vs-quality coupling on GCN4:** DPM scales SCLK with load; lowering resolution lowers load → SMU may also drop the clock → frametime may not improve proportionally (clocks chase utilization). The loop controller must be robust to *non-monotonic* actuation gains — **test on RX550, do not assume linear scaling.** This is the genuinely interesting measurement.
 
 ## 5. RESOLUTION / QUALITY LEVERAGE ON THIS CHIP (drives whether DRS is worth it)
-- Per-pixel costs dominate modern renders; 1080p→720p (0.66×) ≈ halves pixel count; but Polaris12 is also **partially ROP/L2-bandwidth limited** (16 ROPs, 512 KB L2, 112 GB/s). Pixel-count scaling is therefore *less* than 1:1 on frametime here (unlike a fill-bound part). Expect: at 60 fps target, 0.75× scale buys a few ms of headroom, not the full Intel/console 2× — **hypothesis to measure** ([] `[HIPÓTESIS]`).
+- Per-pixel costs dominate modern renders; 1080p→720p (0.66×) ≈ halves pixel count; but Polaris12 is also **possibly partially ROP/L2-bandwidth limited** (16 ROPs, 512 KB L2, 96–112 GB/s nominal/estimado; real bandwidth `UNKNOWN`). Pixel-count scaling is therefore *less* than 1:1 on frametime here (unlike a fill-bound part). Expect: at 60 fps target, 0.75× scale buys a few ms of headroom, not the full Intel/console 2× — **hypothesis to measure** (`[HIPÓTESIS]`).
 
 ## 6. VERDICT
 - **Technically plausible?** Yes — but only as **the app-side dynamic-resolution governor** (actuator = render scale), with frametime as the primary loop signal, hysteresis from shipped designs, and all observables read-only. The hardware-counter DVFS/governor class (what most of the future-work literature optimizes) is *excluded by project rules*, which makes this a **reduced-authority governor** — worth building to *measure* the GCN4-specific behavior (non-monotonic clock coupling in §4), not to demonstrate novel control theory.

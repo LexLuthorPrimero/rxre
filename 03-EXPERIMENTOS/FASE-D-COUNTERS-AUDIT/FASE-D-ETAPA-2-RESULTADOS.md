@@ -4,21 +4,31 @@
 **Autorización:** Ejecución explícita otorgada por operador (post-plan). SOLO lecturas.
 **Estado FASE D:** Etapa 2 EJECUTADA; 6/6 corridas válidas. Resultados directos → informar; Etapa 3 NO iniciada (requiere autorización).
 
+> **Reconciliación 2026-09-24:** Superposition A usa la configuración efectiva
+> `1600×900/Medium`; no se describe como High/1920. `power_*` significa `W_SMU`
+> (power1_input), no vatímetro.
+
 ---
 
 ## 1. Resumen ejecutivo
 
-Se ejecutaron **6 corridas intercaladas A B A B A B** (3 réplicas de Superposition 1.1 High OpenGL = **A**, 3 réplicas de E-03 Vulkan Diseño B = **B**) con muestreo read-only por réplica: telemetría sysfs 10 Hz, dump radeontop 1 Hz y sondeo UMR ~1 Hz de `SPI_CSQ_WF_ACTIVE_COUNT_0..7`, `RLC_GPU_CLOCK_COUNT` y `GRBM_PERFCOUNTER0_LO` (baseline de no-programación).
+Se ejecutaron **6 corridas intercaladas A B A B A B** (3 réplicas de Superposition 1.1
+con configuración efectiva `1600×900/Medium` OpenGL = **A**, 3 réplicas de E-03 Vulkan
+Diseño B = **B**) con muestreo read-only por réplica: telemetría sysfs 10 Hz, dump
+radeontop 1 Hz y sondeo UMR ~1 Hz de `SPI_CSQ_WF_ACTIVE_COUNT_0..7`, `RLC_GPU_CLOCK_COUNT`
+y `GRBM_PERFCOUNTER0_LO` (baseline de no-programación).
 
 **Resultado central (ventana steady, n=3):**
 
 | Métrica | A (Superposition) | B (E-03) |
 |---|---|---|
-| `power_avg_steady` [W] | **22.25** (22.12 / 22.30 / 22.34) | **15.78** (15.82 / 15.79 / 15.72) |
-| `power_max_steady` [W] | **23.62** (23.46 / 23.68 / 23.73) | **15.84** (15.91 / 15.80 / 15.80) |
-| Ratio potencia A/B (steady) | — | **1.41** (1.398 / 1.412 / 1.421) |
+| `W_SMU` steady [W] | **22.25** (22.12 / 22.30 / 22.34) | **15.78** (15.82 / 15.79 / 15.72) |
+| `W_SMU` máximo [W] | **23.62** (23.46 / 23.68 / 23.73) | **15.84** (15.91 / 15.80 / 15.80) |
+| Ratio `W_SMU` A/B (steady) | — | **1.41** (1.398 / 1.412 / 1.421) |
 
-Reproduce el baseline de FASE-0 (A ≈ 22.31 W, B ≈ 15.75 W). **A consume ~41 % más potencia steady que B**, con `gpu_busy ≈ 100 %` en **ambos** (difieren el `mem_busy` y la ocupación por bloque, ver §3–§5).
+Reproduce el baseline de FASE-0 (A ≈ 22.31 W `W_SMU`, B ≈ 15.75 W `W_SMU`). **A muestra
+~41 % más `W_SMU` steady que B**, con `gpu_busy ≈ 100 %` en ambos; la diferencia es
+correlacional y no una atribución causal (ver §3–§5).
 
 Mi rendimiento en señales por hipótesis: H1 (roster/vertex) **APOYADA**, H2 (fill/raster) **PENDIENTE/ambigua**, H3 (texels) **DEBILITADA**, H4 (ocupación shader real) **DEBILITADA + SPI_CSQ no informativo**, H8 (clock gating) **CORREGIDA** (ver §6: en Etapa 2 con muestreo de 260 s, A y B mantienen SCLK 1071 / MCLK 1500; el clock gating del diagnóstico previo fue un artefacto de muestreo de 1 instante).
 

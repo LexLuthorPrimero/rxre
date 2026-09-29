@@ -56,12 +56,35 @@ AUX_NODES = {
 STRICT_AUX = ("power_control", "power_dpm_force_performance_level", "pp_power_profile_mode")
 NORMALIZED_AUX = ("pp_dpm_sclk", "pp_dpm_mclk")
 
-# Entorno del workload: Mesa STOCK, RX 550 forzada.
+TEST_AUX = {
+    "power_control": "on",
+    "power_dpm_force_performance_level": "auto",
+    "pp_dpm_sclk": "0: 214Mhz\n1: 1071Mhz *",
+    "pp_dpm_mclk": "0: 300Mhz *\n1: 625Mhz",
+    "pp_power_profile_mode": "1 3D_FULL_SCREEN *:",
+    "runtime_status": "active",
+}
+
+
+def read_aux_test(_gpu):
+    """Estado sintético para CLI test-mode; nunca lee ni escribe la GPU real."""
+    return dict(TEST_AUX)
+
+
+def read_limits_test(_gpu):
+    return {"min": 0, "max": EXPECTED_ORIGINAL}
+
+# Entorno del workload: Mesa STOCK y RADV aislado por ICD.
+# `MESA_VK_DEVICE_SELECT` no es un selector fiable en Mesa 25.3; el índice
+# numérico tampoco es estable. La ICD fija evita cargar Intel/llvmpipe.
 WORKLOAD_ENV_OVERRIDES = {
-    "MESA_VK_DEVICE_SELECT": "1002:699f",
+    "DRI_PRIME": "1002:699f",
     "VK_ICD_FILENAMES": "/usr/share/vulkan/icd.d/radeon_icd.x86_64.json",
 }
-WORKLOAD_ENV_UNSET = ("MESA_CUSTOM", "LD_LIBRARY_PATH", "LIBGL_DRIVERS_PATH")
+WORKLOAD_ENV_UNSET = (
+    "MESA_CUSTOM", "LD_LIBRARY_PATH", "LIBGL_DRIVERS_PATH",
+    "MESA_VK_DEVICE_SELECT", "VK_DRIVER_FILES",
+)
 
 
 def default_workload_command(duration_s=DEFAULT_DURATION_S):

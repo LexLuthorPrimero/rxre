@@ -1,8 +1,17 @@
 # SOFTWARE-CAPABILITIES.md — Capacidades Expuestas por Capa de Software
 
-**Fecha:** 2026-09-21  
-**Versión:** 1.0  
+**Fecha:** 2026-09-21
+**Versión:** 1.0
 **Alcance:** Qué capacidades de hardware Polaris12/GFX8 son expuestas/utilizables desde cada capa de la pila de software
+
+> **ADDENDA 2026-09-24 — capas de evidencia:** `source/catalog support`, `API exposure`,
+> `runtime capability` y `physical counter validation` son estados distintos. La
+> matriz histórica se conserva, pero para AJ la lectura vigente es:
+> catálogo GFX8 `SUPPORTED`; RADV `VK_KHR_performance_query` GFX8 `NOT_AVAILABLE`;
+> radeonsi GFX8 `SUPPORTED` sólo source-level; PMU mainline GFX8 `NOT_AVAILABLE`;
+> runtime/selectores/validación física `UNKNOWN`. UMR es database/debug y
+> radeontop es telemetría/proxy; no prueban un counter programable válido.
+> Ver `../COUNTERS-ASIC-TELEMETRY-KNOWLEDGE-ADDENDUM-2026-09-24.md`.
 
 ---
 
@@ -31,7 +40,7 @@
 | **GTT** | GART management | Buffer allocation | `VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT` | N/A | `mem_info_gtt_used` |
 | **PCIe** | `amdgpu_pcie.c`, ASPM | N/A | N/A | N/A | `lspci -vvv` |
 | **SDMA** | `amdgpu_sdma.c` | `glCopyBuffer` | `VkCmdCopyBuffer/Image` | N/A | dmesg |
-| **ACE/Async Compute** | HWS, CU reservation | Limitado | `VK_QUEUE_COMPUTE_BIT`, `VkQueueSubmit` | — | vulkaninfo queues |
+| **ACE/Async Compute** | HWS/family-level; ACE count `UNKNOWN`; no CU reservation API confirmed | Limitado | `VK_QUEUE_COMPUTE_BIT` (logical queue) | — | `vulkaninfo` + capability audit |
 | **PowerPlay/DPM** | `pp_dpm_sclk/mclk`, `power1_input`, `power_dpm_force_performance_level` | N/A | N/A | N/A | sysfs, radeontop |
 | **Clock Gating** | Hardware-only | N/A | N/A | N/A | N/A |
 | **Voltage/Freq** | `ppfeaturemask`, SPPT | N/A | N/A | N/A | `ppfeaturemask`, dmesg |
@@ -42,7 +51,7 @@
 | **Cache Behavior** | Flush/inv registers | `glFlush` | `radv_flush_caches` | — | `RADV_DEBUG=flush` |
 | **Sync/Barriers** | Fence, semaphore | `glFenceSync` | `VkFence`, `VkSemaphore`, `VkEvent`, `VkCmdPipelineBarrier` | — | `VK_QUEUE_*` |
 | **Pipeline Stats** | N/A | `GL_ARB_pipeline_statistics_query` | `VkQueryPool` pipeline statistics | N/A | `VkQueryPool` |
-| **HW Perf Counters** | PMU, `amdgpu` PMU | N/A | `RADV_DEBUG=perfcounters` | N/A | UMR, radeontop, perf |
+| **HW Perf Counters** | PMU mainline GFX8: `NOT_AVAILABLE` como PMU confirmado | `groups_VI`/`GL_AMD_performance_monitor`: `SUPPORTED` source-level; runtime `UNKNOWN` | `RADV_DEBUG=perfcounters`: `NOT_AVAILABLE` como feature GFX8 | N/A | UMR: database/debug; radeontop: proxy; perf: sin PMU GFX8 confirmado |
 
 ---
 
@@ -54,7 +63,7 @@
 | **Memory Management** | `glBufferData` implícito | `VkBuffer` + `VkDeviceMemory` explícito | Vulkan: control total |
 | **Synchronization** | `glFenceSync` (coarse) | `VkFence`, `VkSemaphore`, `VkEvent`, `VkCmdPipelineBarrier` (fine) | Vulkan: control granular |
 | **Descriptor Management** | `glBind*` (bind point) | Descriptor Sets + Push Constants (explícito) | Vulkan: menos bind overhead |
-| **Async Compute** | Muy limitado | `VK_QUEUE_COMPUTE_BIT` + ACE queues | Vulkan: overlap real |
+| **Async Compute** | Muy limitado | `VK_QUEUE_COMPUTE_BIT` + queue family; ACE/overlap `UNKNOWN` | Vulkan: capability audit required |
 | **Sparse Resources** | `GL_ARB_sparse_texture` | `VK_EXT_sparse_resource` (más completo) | Vulkan: más control |
 | **DCC Control** | Implícito | `radv_disable_dcc`, `radv_disable_dcc_stores` | Vulkan: control explícito |
 | **Sample Shading** | `glEnable(GL_SAMPLE_SHADING)` | `sampleShadingEnable` + `minSampleShading` | Igual hardware |
@@ -101,7 +110,7 @@
 | `RADV_PERFTEST=sample_rate_shading` | Force sample shading | No |
 | `RADV_FORCE_WAVE64=0/1` | Force wave size | No |
 | `RADV_DEBUG=startup,info` | Startup info | No |
-| `MESA_VK_DEVICE_SELECT=1002:699f` | Device selection | **Sí** (obligatorio) |
+| `MESA_VK_DEVICE_SELECT=1002:699f` | Device selection | **Opcional; no fiable sin verificar `0x699f`** |
 | `VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/radeon_icd.x86_64.json` | ICD selection | **Sí** (obligatorio) |
 
 ---
@@ -135,7 +144,7 @@
 | **Offscreen Rendering** | `VkRenderPass` + `VkFramebuffer` | Vulkan | ✅ |
 | **Offline Texture Upload** | `vkCmdCopyBufferToImage` | Vulkan | ✅ |
 | **MSAA 1x/4x/8x** | `--msaa` | Vulkan | ✅ |
-| **Device Selection** | `MESA_VK_DEVICE_SELECT` | Vulkan | ✅ |
+| **Device Selection** | ICD + verificación de `0x699f`; `MESA_VK_DEVICE_SELECT` opcional | Vulkan | **Parcial/verificar** |
 | **Pipeline Statistics** | No | — | — |
 | **Async Compute** | No | — | — |
 | **Sample Shading** | No | — | — |
@@ -156,7 +165,7 @@
 | **GEO-07 (Geometric Overdraw)** | Depth + multiple layers | ✅ Vulkan | Depth attachment + layers |
 | **GEO-08 (Vertex+Fragment)** | Simultaneous heavy VS+FS | ✅ Vulkan | Both shaders heavy |
 | **Sample Shading** | `sampleShadingEnable` + `minSampleShading=1.0` | ✅ Vulkan | `VkPipelineMultisampleStateCreateInfo` |
-| **Async Compute** | `VK_QUEUE_COMPUTE_BIT` + ACE | ✅ Vulkan | Separate compute queue |
+| **Async Compute** | `VK_QUEUE_COMPUTE_BIT` (queue logical; ACE/overlap `UNKNOWN`) | **REQUIRES CAPABILITY AUDIT** | Capability audit; separate queue does not prove hardware overlap |
 | **Sparse Resources** | `VK_EXT_sparse_resource` | ✅ Vulkan | `VK_BUFFER_CREATE_SPARSE_BINDING_BIT` |
 | **Pipeline Statistics** | `VkQueryPool` | ✅ Vulkan | `VK_QUERY_TYPE_PIPELINE_STATISTICS` |
 | **HW Perf Counters** | UMR/perf | **VERIFICAR** | Instalar UMR, configurar perf |
@@ -169,7 +178,7 @@
 |---|---|---|
 | Pipeline state (Vulkan) | GPU busy % (radeontop) | Clock gating |
 | Descriptor sets / push constants | VRAM/GTT usage (sysfs/radeontop) | Clock gating per-block |
-| Render pass / framebuffer | Power draw (power1_input) | Voltage curves |
+| Render pass / framebuffer | `W_SMU` (power1_input) | Voltage curves |
 | MSAA / Sample shading | Temperature (temp1_input) | Voltage/Freq curves (VBIOS) |
 | Async compute queues | SCLK/MCLK DPM states (sysfs) | L2 partitioning |
 | Sample shading | GPU busy % (radeontop) | Per-SIMD clock |
@@ -190,11 +199,11 @@
 - Offscreen rendering (VkRenderPass + VkFramebuffer)
 - MSAA 1x/4x/8x (validado contra `sample_counts_cb`)
 - Texture upload via `vkCmdCopyBufferToImage` (host → GPU)
-- Device selection (`MESA_VK_DEVICE_SELECT` + `VK_ICD_FILENAMES`)
+- Device selection (`VK_ICD_FILENAMES` + verificación de `0x699f`; el selector es opcional)
 
 **Lo que NO usamos (pero podríamos):**
 - Sample shading (requiere `sampleShadingEnable` + `minSampleShading=1.0`)
-- Async compute (ACE queues)
+- Async compute (queue logical; ACE/overlap `UNKNOWN`)
 - Pipeline statistics (overdraw measurement)
 - Sparse resources
 - Pipeline cache

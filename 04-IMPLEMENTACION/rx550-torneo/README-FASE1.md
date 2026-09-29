@@ -1,6 +1,6 @@
 # rx550-torneo — Fase 1 (READ-ONLY)
 
-Implementación del núcleo de la Fase 1 de acuerdo a `../RX550_BUILD_SPECIFICATION.txt`
+Implementación del núcleo de la Fase 1 de acuerdo a `../../02-ARQUITECTURA/RX550_BUILD_SPECIFICATION.txt`
 (§17-20, §29, §34-35). **No escribe nada en sysfs.** No ejecuta benchmarks,
 no instala paquetes ni usa privilegios.
 
@@ -174,8 +174,9 @@ PRIME providers en `xrandr --listproviders` (0 bajo Xwayland) **no** impide
   presenta a través de Xwayland/Intel. No altera kwin ni KMS.
 - Vulkan: para forzar inequívocamente la RX 550 usar
   `VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/radeon_icd.x86_64.json vulkaninfo --summary`.
-  `MESA_VK_DEVICE_SELECT=1002:699f` deja la RX 550 **primera** en la lista
-  (observado 09-19; la nota previa de que seleccionaba Intel no se reprodujo).
+  `MESA_VK_DEVICE_SELECT=1002:699f` **no es una garantía**: la observación del
+  09-19 lo dejó en primera posición, pero otros entornos seleccionaron Intel. La
+  verificación del device `0x699f` en `vulkaninfo` es obligatoria.
 
 ## Procedencia de `power/control` (Fase 1.1)
 

@@ -1,7 +1,12 @@
 # IDEA I-05 — GPU FRAME RECORDER FOR GFX8: MINIMAL PROTOTYPE DESIGN
 
 > **Fase:** FASE R-3 — DOCUMENTARY NOVELTY AUDIT (SOLO DOCUMENTAL; diseño, NO implementación; ninguna ejecución hasta autorización).
-> Target: RX 550 = Polaris12 (GFX8): 8 CUs / 16 ROPs / 512 KB L2 / 112 GB/s.
+> Target: RX 550 = Polaris12 (GFX8): 8 CUs / 16 ROPs / 512 KB L2 / bandwidth
+> nominal/estimado 96–112 GB/s; real `UNKNOWN`.
+>
+> **RECONCILIACIÓN 2026-09-23:** no se debe afirmar que RADV emita SQTT GFX8 en esta
+> placa por la sola existencia de código. `rgp-inspect` no es una ruta Rust/Linux GFX8
+> confirmada. Este diseño permanece una hipótesis documental.
 
 The minimal *experiment* that would prove (or kill) the I-05 core claim — i.e. that a GFX8 SQTT viewer is both needed and buildable — with the least effort and zero permanent system changes.
 
@@ -28,13 +33,15 @@ Answer, with evidence, the four open questions in ARCHITECTURE §7. Every step i
 ### Phase B — AUTHORIZATION-GATED (needs DN-12 approval for `profile_peak`)
 4. Capture a small synthetic Vulkan workload (own workload or a tiny VK sample) with:
    - `MESA_VK_TRACE=rgp` and a small, fixed number of frames (not the whole benchmark).
-   - Right before capture, write `profile_peak` (this is the ONE gated sysfs write — with snapshot/readback/restore + GPU-not-display failsafe).
+   - Right before capture, cualquier ajuste externo de perfil sería una escritura separada
+     (no incluida en este documento); requiere autorización, snapshot/readback/restore y
+     GPU-not-display failsafe.
 5. Verify the `.rgp` file is non-empty and parseable by inspecting headers (hexdump/documented offsets from RGP manual + Mesa writer), WITHOUT relying on AMD's GUI.
 
 ### Phase C — VIEWER EVALUATION
 6. Feed the captured `.rgp` to:
    - RGP 2.x GUI (if obtainable for Linux/Windows-Wine) → does it load or refuse?
-   - `rgp-inspect` (build from source for the installed Rust toolchain) → note the exact error/section recognized; classify how far it gets.
+   - `rgp-inspect` u otra herramienta upstream; no se presupone build Rust/Linux ni soporte GFX8.
 7. If `rgp-inspect` fails only at SQTT decodeword level: estimate the diff to add v2.2 support (= build route R1, low risk). If it fails structurally (container version): classify as R2.
 
 ## 3. PASS / FAIL / ABORT CRITERIA
@@ -50,7 +57,8 @@ Answer, with evidence, the four open questions in ARCHITECTURE §7. Every step i
 ## 4. RESOURCES NEEDED
 - Installed kernel + Mesa version matrix (already available from MASTER-PLAN §A).
 - A small deterministic Vulkan workload (reuse existing in `WORKLOAD-SINTETICO` or a 10-line VK triangle; must support `MESA_VK_TRACE` env).
-- Rust toolchain to build `rgp-inspect` (or read-only static analysis of its source if build is not desired) — checking tool availability is part of Phase A, no install of the Mesa system, no permanent changes.
+- Runtime/tool availability is part of a future capability audit; no se asume `rgp-inspect`
+  ni un decoder GFX8.
 - RGP 2.x installer (only for evaluation; may require WINE/Vulkan — evaluate feasibility first; do not run if it cannot identify a display-independent RX550).
 
 ## 5. DELIVERABLE (regardless of outcome)

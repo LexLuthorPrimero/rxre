@@ -25,13 +25,14 @@ Close the loop with the policy module (hysteresis parameters), setpoint = 60 fps
 - Metrics: scale(t), frametime p50/p99, power(t), sclk(t) — same CSV schema.
 
 ## 4. TEST C — POWER-FEEDBACK CONTRAST (H4) [read-only, comparative]
-Same loop but drive it from power1_input (sampled 10 Hz, averaged over windows) instead of frametime. Compare setpoint hold (σ frametime, count of dropped frames) vs TEST B.
+Same loop but drive it from `power1_input`/`W_SMU` (sampled 10 Hz, averaged over windows) instead of frametime. Compare setpoint hold (σ frametime, count of dropped frames) vs TEST B.
 - Judgment: if power-driven hold is worse, H4 supported → frametime-primary is correct design choice (and matches shipped engines' choice).
-- Caveat documented: power1_input is board-power, also includes DCLK/display-lite/controller overhead noise → structural disadvantage on this card. Record it to justify the choice.
+- Caveat documented: `power1_input`/`W_SMU` is an SMU estimate, not independent board power; DCLK/display/controller overhead and noise may be included. Physical power remains `UNKNOWN`. Record it to justify the choice.
 
 ## 5. TEST D — CONFOUNDER / REGIME GUARDS (validation of measurements)
 - Record pp_dpm_sclk/mclk along all runs → identify power-limited vs clock-limited vs compute-bound regimes (E1/E3/E5 lesson: never assume the regime). Tag each run by regime.
-- Record temp; abort/cool if >90 °C (DN-07 thermal policy).
+- Record temp; ≥90 °C is a confound marker, not an abort or safety limit. The configured
+  abort threshold is 96 °C, subject to the active authorized protocol.
 - Check mem_info_vram/GTT: 2 GB SKU; if VRAM pressure appears, tag run (may invalidate frametime comparisons).
 - Verify GPU identity (PCI 1002:699f) and display-on-Intel condition per MASTER-PLAN failsafe before any run.
 

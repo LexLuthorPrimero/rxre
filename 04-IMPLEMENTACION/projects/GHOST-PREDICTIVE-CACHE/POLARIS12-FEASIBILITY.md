@@ -5,8 +5,9 @@ Target: RX 550, Polaris 12 / Lexa.
 **Confirmed specs (primary/aggregate sources: AMD RX 550 page, TechPowerUp DB, VideoCardz):**
 - 8 CUs × 64 shaders = **512 stream processors**; 32 TMUs; **16 ROPs** (2 render backends)
 - L2 = **512 KB**; L1D (V$) = **16 KB/CU** (texture vector cache); scalar K$ 16 KB/4 CUs; instruction cache
-- 128-bit GDDR5 @ 7 Gbps → **~112 GB/s**; boost ~1183 MHz → ~1.2 TFLOPs FP32
-- 4th-gen GCN: ACEs + HWS + Quick Response Queue + compute unit reservation (Polaris whitepaper)
+- 128-bit GDDR5 @ 7 Gbps → **96–112 GB/s nominal/estimado**; bandwidth real local `UNKNOWN`; boost ~1183 MHz → ~1.2 TFLOPs FP32
+- 4th-gen GCN: ACE/HWS/CU-reservation aparecen en fuentes de familia; count, overlap y
+  reserva local por Vulkan son `UNKNOWN` (Polaris whitepaper)
 - Sources: https://www.amd.com/en/products/graphics/radeon-rx-550 ; https://www.techpowerup.com/gpu-specs/radeon-rx-550.c2947 ; https://videocardz.com/68830/amd-launches-radeon-rx-550-for-79-usd
 
 ---
@@ -23,7 +24,7 @@ are.
 |---|---|---|
 | L1 V$ (texture) | 16 KB per CU × 8 CUs = 128 KB total | the *fast* tier the predictor wants to hit |
 | L2 | 512 KB total | tiles that miss → L2; the partition point |
-| VRAM | 2 GB GDDR5 @ 112 GB/s | the *resident* tier |
+| VRAM | 2 GB GDDR5, 96–112 GB/s nominal/estimado; real `UNKNOWN` | the *resident* tier |
 | GTT/system | PCIe | worst case ES-01 lives here |
 
 ## 2. THE HARDWARE/CONTROL PROBLEM (why "hardware ghost cache" is contradicted)
@@ -65,9 +66,10 @@ are.
 - Texture working set in HE level (Hakura & Gupta'97; n-body style): individual texture working
   sets fit in 16 KB; the *composite* scene working set is what exceeds L1. A "ghost warm-up" that
   wins p99 must **already reside in L2** (512 KB) when the frame starts, or be fetched *before*
-  the stall. At 112 GB/s, a 1 MB texture = ~9 µs VRAM→L2 → one full frame (16.6 ms) of slack if the
-  touch happens 1+ frames ahead. The time budget for prediction slack is essentially free; the
-  question is *accuracy + pollution*.
+  the stall. A 1 MB texture would take ~9 µs at a 96–112 GB/s nominal/estimado (real
+  bandwidth `UNKNOWN`), leaving nominal frame slack if touched early; this is an
+  illustrative bound, not a measurement. The time budget for prediction slack is
+  essentially free; the question is *accuracy + pollution*.
 - **Pollution risk quantification:** prefetching text that *won't be used* evicts valid L1/L2 lines.
   From prefetch-policy literature (ARC/Bypass/IPDPS): a ≥2× on accuracy is typically needed for
   wins. Dumont'03 showed perceptually-guided *prediction camera* accuracy is scene-dependent;

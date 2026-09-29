@@ -1,7 +1,15 @@
 # PROTOCOLO v2.3 — FASE R-4B / EXP-F4-A: CONTROL TÉRMICO DE PHASE 2
 
-**Fecha de documentación:** 2026-09-23 · **Estado:** DOCUMENTADO — PENDIENTE DE
-AUDITORÍA PRE-RUN Y CONFIRMACIÓN DEL USUARIO (no se ha ejecutado ninguna trial).
+**Fecha de documentación:** 2026-09-23 · **Estado del documento:** **SNAPSHOT
+PRE-EJECUCIÓN — HISTÓRICO**. No refleja por sí solo la corrida posterior; las
+afirmaciones de este documento sobre trials no ejecutadas se conservan como instantánea
+previa.
+
+> **ADDENDA POST-EJECUCIÓN D6 (2026-09-23):** S1-v2.3 **EJECUTADA/COMPLETADA**;
+> S2-v2.3 **INICIADA y PARADA D** durante el cooldown p2→p3, sin Phase 2; veredicto
+> global **INCONCLUSO / INCONCLUSIVE**, nunca `SUPPORTED`. La fuente canónica del
+> resultado y el inventario de artefactos perdidos es
+> `EXP-F4-A-RESULTADOS-v2.3.md`.
 
 **Base normativa (fuentes de verdad, en orden):**
 1. `EXP-F4-A-PROTOCOL.md` — protocolo v2.1: Fase 1 open-loop, GATEs (§6), orden de
@@ -29,7 +37,7 @@ de trial** y registro del tiempo real de cada cooldown.**
 | Cooldown antes de cada trial de Phase 2 | **no** | **no (defecto)** | **SÍ, antes de cada uno** |
 | Entrada FIXED/GOV | libre | libre | **≤50 °C + DN-07** |
 | Entrada DIST | libre | libre | **≤50 °C + DN-07** (antes: ≤35 °C según 7.3-A; **revocado por el usuario 2026-09-23**, ver §1.1) |
-| Estatus DIST en el veredicto | — | — | **DIAGNOSTIC / NOT FOR VERDICT** (opción 3 autorizada); R7 NO se evalúa |
+| Estatus DIST en el veredicto | — | — | **DIAGNOSTIC / NOT FOR VERDICT** (opción 3 histórica; no vigente); R7 NO se evalúa |
 | Registro de cooldown | no | fase1/cooldown{1,2}.tsv | **fase2/cool{idx}.tsv por trial** |
 | Abort térmico ≥96 °C | — | — | **sí (monitor read-only)** |
 | Todo lo demás (workload, T, s*, escalas, thresholds, R1–R7, F1–F6, orden de trials, duraciones, lógica temporal DIST, análisis) | — | — | **INVARIANTE (sin cambios)** |
@@ -70,15 +78,18 @@ de trial** y registro del tiempo real de cada cooldown.**
 Cada trial de Phase 2 (el 1º y los 7 restantes) requiere **antes de arrancar**:
 
 ```
-ENTRADA OK ⟺  T ≤ UMBRAL   ∧   SCLK activo = nivel 0   ∧   P < 4 W
+ENTRADA OK ⟺  T ≤ UMBRAL   ∧   SCLK activo = nivel 0   ∧   W_SMU < 4 W
              (sostenido ≥30 s, muestras consecutivas de 5 s)
+
 ```
+
+> `W_SMU` es el valor leído de `power1_input`; no es vatímetro independiente.
 
 - **FIXED (60 s):** UMBRAL = **50 °C** (como v2.2).
 - **GOV (120 s):** UMBRAL = **50 °C**.
-- **DIST (200 s):** UMBRAL = **50 °C** (revisado por el usuario el 2026-09-23 tras el
-  hallazgo térmico; sustituye la entrada ≤35 °C de 7.3-A, cuyo único propósito era
-  sanear R7, hoy NOT FOR VERDICT — ver §1.1).
+- **DIST (200 s):** UMBRAL = **50 °C** (uniforme para la corrida v2.3 ejecutada).
+  La entrada especial ≤35 °C pertenece a la opción histórica 7.3-A, fue revocada
+  para la opción 3 y no se ejecutó como gate de esta corrida.
 - Se registra en `fase2/cool{idx}.tsv`: label, inicio/fin (mono ns), `dur_ms`,
   `dur_s`, `ret_temp_mC`, `ret_sclk_nivel`, `ret_power_uW` (formato idéntico a
   `fase1/cooldown*.tsv` de v2.2).
@@ -111,8 +122,9 @@ Orden de trials:
 - **S1-v2.3** (sesión 1): `FIXED₁ GOV₁ FIXED₂ GOV₂ FIXED₃ GOV₃ DIST₁ DIST₂`
 - **S2-v2.3** (sesión 2, contrabalanceo): `GOV₁ FIXED₁ GOV₂ FIXED₂ GOV₃ FIXED₃ DIST₁ DIST₂`
 
-Cooldowns por sesión: 8 (uno antes de cada trial). El COOL 6 (antes de DIST₁) usa
-umbral 35 °C; el COOL 7 (antes de DIST₂) también.
+Cooldowns por sesión: 8 (uno antes de cada trial). Los ocho cooldowns de la corrida v2.3
+ejecutada usan el umbral uniforme de **50 °C** junto con SCLK nivel 0 y `W_SMU<4 W`.
+La entrada especial ≤35 °C pertenece a la opción histórica 7.3-A y no describe esta corrida.
 
 ---
 
@@ -136,7 +148,7 @@ y `pp_dpm_sclk`. **El monitor NUNCA escribe sysfs ni interviene en el governor.*
 - **R5** CV ≤10 %; mediana S2-v2.3 vs S1-v2.3 difiere ≤15 %; dirección predicha ≥90 %.
 - **R6** permanencia/Δ sin re-incursiones en stabilize/settle.
 - **R7** 4/4 DIST con latencies LOW/RAISE/re-incorporación ≤2 ventanas.
-  **PERO en v2.3 (opción 3 autorizada) los DIST son DIAGNOSTIC / NOT FOR VERDICT:
+  **PERO en v2.3 (opción 3 histórica; no vigente) los DIST son DIAGNOSTIC / NOT FOR VERDICT:
   R7 NO se evalúa para el veredicto, se reporta por separado como INCONCLUSIVE /
   NOT FOR VERDICT y NUNCA se usa para declarar PASS.**
 - Settle: últimas 2 ventanas (GOV v5–v6; FIXED 2 de 3). Ventanas 20 s ancladas a t0.
@@ -204,10 +216,11 @@ Verificado contra los **datos crudos** `runs/minitest-ramp-gov/rep{1,2}` (teleme
 
 ### 9.1 Consecuencias para v2.3 (presupuesto corregido)
 
-- La extrapolación lineal "t90≈221 s desde ≤35 °C" **NO es válida**: ignora el tramo
-  inicial rápido (~0.58 °C/s) y el salto cooldown→m0. Con dato alineado a m0,
-  **t90(desde 35 °C) ≈ (90 − ~46) / 0.26…0.33 ≈ 130…170 s, es decir MENOR que 200 s
-  en el escenario peor y marginal/borde en el mejor.**
+- **[EXTRAPOLACIÓN NO VALIDADA]** La cifra lineal `t90≈221 s desde ≤35 °C` no es un
+  resultado operacional: ignora el tramo inicial rápido (~0.58 °C/s) y el salto
+  cooldown→m0. El mini-test no midió un trial completo desde 35 °C. Los valores
+  alineados a `m0` observados en sus dos réplicas fueron 171,9 s y 134,8 s, con
+  condiciones iniciales distintas.
 - Consecuencia en v2.3 real (con entrada ≤50 °C para los DIST, según decisión opción
   3): **el DIST de 200 s cruza T>90 °C / SCLK<1071 más temprano aún** (parte de
   ~61 °C en m0 en lugar de ~46 °C), por lo que las últimas 2–4 ventanas pueden
@@ -221,10 +234,10 @@ Verificado contra los **datos crudos** `runs/minitest-ramp-gov/rep{1,2}` (teleme
   el único factor limitante es el presupuesto térmico del tramo final → manejado por
   la regla por ventana (no por cambios de código).
 
-### 9.2 Estado de este anexo — DECISIÓN DEL USUARIO (opción 3, 2026-09-23)
-El hallazgo **no cambia los invariantes** y fue presentado al usuario como parte de
-la auditoría pre-run (item 11 de la autorización). El usuario autorizó la **opción
-3**: R1–R6 con los 6 GOV + 6 FIXED (entrada ≤50 °C), y los 4 DIST como
-DIAGNOSTIC / NOT FOR VERDICT con R7 INCONCLUSIVE — sin uso de los DIST para PASS
-de R7, sin modificar ventanas ni duración. Con ello, **S1-v2.3 y S2-v2.3 quedan
-autorizados para ejecutarse** conforme a este protocolo y a `run_all_v23.sh`.
+### 9.2 Registro histórico de autorización — NO VIGENTE
+
+La opción 3 se decidió antes de la corrida y queda registrada para trazabilidad. No
+constituye una autorización actual. El resultado posterior es D6: S1-v2.3 fue
+EJECUTADA/COMPLETADA; S2-v2.3 fue INICIADA y quedó PARADA D antes de Phase 2; el
+veredicto global es INCONCLUSO/INCONCLUSIVE. No se reintenta S2-v2.3 y cualquier
+réplica futura requiere un protocolo y autorización nuevos.

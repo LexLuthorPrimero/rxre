@@ -12,7 +12,7 @@ Estado de los experimentos candidatos tras el cierre de la investigación de rep
 - **M1** (cap sostenido 35 W vs 30 W, `vkmark shading:phong` 1080p, 5 bloques pareados, autorizado)
   — **COMPLETADO (2026-09-20)**. 10/10 OK, 5×35 W + 5×30 W; `power1_input @35 W` = 12.27 W;
   compuerta `<27 W` activada → **NO DISCRIMINATIVO** (el cap no liga con este workload).
-  ΔFPS = [0,0,0,0,0], ΔSCLK = [0,0,0,0,0]. Ver `experiments/M1-cap-35-30/RESULTADOS-M1.md`.
+  ΔFPS = [0,0,0,0,0], ΔSCLK = [0,0,0,0,0]. Ver `03-EXPERIMENTOS/M1-cap-35-30/RESULTADOS-M1.md`.
 
 ## BLOQUEADO (no ejecutar sin nueva autorización explícita)
 - **FASE C / EP-09 — Exp perfil experimental (forcing SCLK/MCLK)**: El único camino restante para explorar
@@ -22,6 +22,20 @@ Estado de los experimentos candidatos tras el cierre de la investigación de rep
   experimentos después de EP-05. Conservar como futuro.
 - **EP-03** (perf stat CPU-side sobre GL 640p): read-only; pausado hasta nueva autorización.
 - Cualquier write adicional a `power1_cap` idem.
+- **E1 + E2** (L1 REPRESENTACIÓN: instancing vs geometría duplicada; granularidad de
+  command buffer y de submission) — **BLOQUEADO por `B-09`**, precheck 2026-09-28 sobre
+  `HOST-C`. El discriminante es de herramienta, no de método ni de dispositivo:
+  no hay compilador C++ (`g++`/`c++`/`clang++` ausentes), no hay
+  `/usr/include/vulkan/vulkan.h` (`pkg-config vulkan` → `NO`), no hay compilador de
+  shaders (`glslangValidator`/`glslc`/`spirv-as` ausentes) y no hay capas de validación.
+  `c1_observer.py:555-558` sólo admite `main-graphics` (`C1_BINARY_OUTSIDE_ALLOWLIST`),
+  y `main-graphics` no expone draws, instancing, command buffers ni submissions
+  (`src/graphics.cpp`: 1 `vkCmdDraw`, 0 `vkCmdDrawInstanced`, `instanceCount` 0 veces).
+  El dispositivo **sí** es alcanzable: `main-graphics` inicializa Vulkan y emite
+  `run_start`. `NOISE = NOT_DETERMINED`, luego ningún tamaño de efecto sería
+  interpretable. Diseño de controles y discriminadores ya registrados en
+  `02-ARQUITECTURA/RESEARCH-LINES.md` §10.1 para que la ronda que levante `B-09` no los
+  reinvente. `NOT_RUN` — estado, nunca resultado negativo.
 
 ## Traspaso a la especificación de rx550-torneo
 - Las preguntas de O-BOT/O-MCLK/O-PHY quedan modeladas como casos de uso del perfil `experimental`

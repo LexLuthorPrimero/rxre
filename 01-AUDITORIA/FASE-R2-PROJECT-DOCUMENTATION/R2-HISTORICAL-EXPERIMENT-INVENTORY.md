@@ -35,7 +35,7 @@ Representan la **base de datos histórica mayormente NO REPRODUCIBLE**.
 
 ### Familia 2 — Workload Sintético (repo iterativo, 19-20/09/2026)
 Experimentos **E-01 / E-02 / E-03** (README.md + `runs/exploratorio-01|02|03-corrected/`) y los ejes de
-**ES-01** (`runs/escalado-01/`, ejes A0..D2, E1, F2) del proyecto `experiments/WORKLOAD-SINTETICO/`.
+**ES-01** (`runs/escalado-01/`, ejes A0..D2, E1, F2) del proyecto `03-EXPERIMENTOS/WORKLOAD-SINTETICO/`.
 Esta familia es **REPRODUCIBLE** (workload Vulkan autónomo, telemetría sysfs).
 
 > **Convención para todo el resto de R-2:** cuando se hable de "E1/E3/E5" se refiere a la Familia 1
@@ -51,7 +51,7 @@ Esta familia es **REPRODUCIBLE** (workload Vulkan autónomo, telemetría sysfs).
 - **Estado: NOT FOUND** como experimento nombrado "E0". No existe ningún directorio ni reporte llamado
   `E0*` en el backup ni en el repo.
 - **Dónde se buscó:**
-  - `find` sobre `/home/lucas/RX550_Modo_Torneo_Backup_2026-09-19_0836/experiments/` y subdirectorios
+  - `find` sobre `/home/lucas/Escritorio/RX550_Modo_Torneo_Backup_2026-09-19_0836/experiments/` y subdirectorios
     con patrón `*E0*` / `*e0*` → sin coincidencias.
   - Grep por tokens `E0` en todos los `.md`/`.txt` del backup → solo 2 referencias textuales (ver abajo).
 - **Evidencia textual de su existencia (2 referencias):**
@@ -109,7 +109,7 @@ Esta familia es **REPRODUCIBLE** (workload Vulkan autónomo, telemetría sysfs).
     framebuffer/profundidad** como cuello más probable; geometría secundaria. Confianza: PROBABLE para
     "no-ALU / no-bandwidth", POSIBLE para "ROP/DB concreto".
 - **Contenido `m1/raw/`:** estudio de régimen (marker 1) de la propia sesión — **NO confundir** con el
-  experimento **M1 autorizado** de 2026-09-20 (`experiments/M1-cap-35-30/`, vkmark 35/30 W,
+  experimento **M1 autorizado** de 2026-09-20 (`03-EXPERIMENTOS/M1-cap-35-30/`, vkmark 35/30 W,
   112/112 checks). El `m1/` del backup es anterior y distinto.
 
 ### E4 — Separar POWER-LIMIT de UNIT-LIMIT (17/09/2026) — **EXISTE**
@@ -161,11 +161,11 @@ Esta familia es **REPRODUCIBLE** (workload Vulkan autónomo, telemetría sysfs).
 
 | ID | Ruta | Contenido | Estado |
 |---|---|---|---|
-| **E-01** | `experiments/WORKLOAD-SINTETICO/runs/exploratorio-01/` | Corrida exploratoria compilación/validación del workload Vulkan | **EXISTE** (reproducible como artefacto de corrida) |
-| **E-02** | `experiments/WORKLOAD-SINTETICO/runs/exploratorio-02/` | Corrida exploratoria 2 (parámetros/telemetría) | **EXISTE** |
-| **E-03** | `experiments/WORKLOAD-SINTETICO/runs/exploratorio-03-corrected/` | **E-03 corregida (Diseño B)**: 13.4 W full / 15.75 W steady; MCLK 1500 activo; 0 faults — [VERIFICADO] en MASTER-RESEARCH-STATUS | **EXISTE [VERIFICADO]** |
-| **ES-01** | `experiments/WORKLOAD-SINTETICO/runs/escalado-01/` | Barrido de ejes A-D + E: A/B/C/D/E = SIN EFECTO en potencia; auto-pacing fetch-bound | **EXISTE [VERIFICADO]** |
-| **F2** | `experiments/WORKLOAD-SINTETICO/runs/escalado-01/F2-*/` | 8 fetches = 2× frametime (112→222 ms), potencia INVARIANTE (15.76 vs 16.13 W) | **EXISTE [VERIFICADO]** |
+| **E-01** | `03-EXPERIMENTOS/WORKLOAD-SINTETICO/runs/exploratorio-01/` | Corrida exploratoria compilación/validación del workload Vulkan | **EXISTE** (reproducible como artefacto de corrida) |
+| **E-02** | `03-EXPERIMENTOS/WORKLOAD-SINTETICO/runs/exploratorio-02/` | Corrida exploratoria 2 (parámetros/telemetría) | **EXISTE** |
+| **E-03** | `03-EXPERIMENTOS/WORKLOAD-SINTETICO/runs/exploratorio-03-corrected/` | **E-03 corregida (Diseño B)**: 13.4 W full / 15.75 W steady; MCLK 1500 activo; 0 faults — [VERIFICADO] en MASTER-RESEARCH-STATUS | **EXISTE [VERIFICADO]** |
+| **ES-01** | `03-EXPERIMENTOS/WORKLOAD-SINTETICO/runs/escalado-01/` | Barrido de ejes A-D + E: A/B/C/D/E = SIN EFECTO en potencia; auto-pacing fetch-bound | **EXISTE [VERIFICADO]** |
+| **F2** | `03-EXPERIMENTOS/WORKLOAD-SINTETICO/runs/escalado-01/F2-*/` | 8 fetches = 2× frametime (112→222 ms), potencia INVARIANTE (15.76 vs 16.13 W) | **EXISTE [VERIFICADO]** |
 
 > Referencia del estado VERIFICADO: MASTER-RESEARCH-STATUS.md (2026-09-22, filas E-03 / ES-01 / F2).
 
@@ -197,7 +197,7 @@ Estos NO responden a la solicitud explícita E0–E5; se listan solo para no per
 | `E4` | Backup `mesa-e3-…/e4/` | **FOUND** (`E4-report.md`) |
 | `E5` | Backup `mesa-e3-…/e5/` | **FOUND** (`E5-report.md`) |
 | `E5b` | Backup `mesa-e3-…/e5b/` | **FOUND** (`E5b-report.md`) |
-| `E-01/E-02/E-03/ES-01` | Repo `experiments/WORKLOAD-SINTETICO/runs/` | **FOUND** |
+| `E-01/E-02/E-03/ES-01` | Repo `03-EXPERIMENTOS/WORKLOAD-SINTETICO/runs/` | **FOUND** |
 
 > Nota: las rutas **absolutas** de lo encontrado en el backup están completas en los §2/§4; las rutas de
 > la Familia 2 son relativas al repo activo.

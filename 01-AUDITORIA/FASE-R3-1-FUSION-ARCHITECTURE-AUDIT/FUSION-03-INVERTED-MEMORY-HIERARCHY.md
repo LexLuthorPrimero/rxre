@@ -29,7 +29,7 @@ cuello del camino host".
 > con mclk 1500 MHz y factor GDDR5 (cross-check R9 290/RX 480), la VRAM teórica es **96–112 GB/s** y el ratio
 > enlace/VRAM sube a **×48+** (×50–80 con overhead PCIe). Las conclusiones de esta fusión **no cambian de
 > dirección** (la brecha es aún mayor), solo de magnitud. Bandwidth REAL (medido) sigue UNKNOWN/REQUIRES
-> FUTURE EXPERIMENT. Detalle en `experiments/FASE-R4A-BANDWIDTH-REAL/EXP-F3-A-BANDWIDTH-REAL.md`.
+> FUTURE EXPERIMENT. Detalle en `03-EXPERIMENTOS/FASE-R4A-BANDWIDTH-REAL/EXP-F3-A-BANDWIDTH-REAL.md`.
 
 ## 2. ¿Puede la compresión cerrar la brecha PCIe?
 

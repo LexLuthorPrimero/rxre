@@ -1,5 +1,12 @@
 # EXP-F4-A — Governor Frametime-Feedback Read-Only (Render-Scale) — RESULTADOS
 
+> **ADDENDA DE ESTADO D6 (2026-09-23):** este documento es **HISTÓRICO / NO VIGENTE**
+> para el veredicto final: conserva la ejecución v2.1/v2.2 y sustenta el historial. La corrida
+> v2.3 posterior tiene **S1 EJECUTADA/COMPLETADA**, **S2 INICIADA/PARADA D** y veredicto global
+> **INCONCLUSO / INCONCLUSIVE**. La fuente canónica vigente es
+> `EXP-F4-A-RESULTADOS-v2.3.md`; no se borra ni reescribe este historial.
+> `P` en las tablas históricas significa `W_SMU` de `power1_input`, no vatímetro.
+
 **FASE:** R-4B · **Protocolo:** v2.1 (cerrado, aprobado) · **Fecha:** 2026-09-22
 **Harness:** `harness/app_vulkan.c` (Diseño B) · **Controlador:** `controller/governor.py` · **Telemetría:** `telemetry/telemetria.sh`
 **Resultados crudos:** `FASE-R4B-GOVERNOR/results/session1/` y `session2/`

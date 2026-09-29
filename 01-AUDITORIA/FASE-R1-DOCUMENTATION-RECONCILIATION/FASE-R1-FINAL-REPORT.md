@@ -2,7 +2,7 @@
 
 > **FASE R-1 — DOCUMENTATION RECONCILIATION & MASTER CONSOLIDATION — 2026-09-22**
 > Modo: SOLO DOCUMENTAL (read-only). Ninguna escritura de sistema durante toda la fase.
-> Directorio: `experiments/FASE-R1-DOCUMENTATION-RECONCILIATION/`
+> Directorio: `01-AUDITORIA/FASE-R1-DOCUMENTATION-RECONCILIATION/`
 
 ---
 
@@ -34,31 +34,29 @@ de acciones no autorizadas. Se integró FASE R-1 en MASTER-PLAN (sección R) sin
 
 ## C. Reconciliaciones logradas
 
-**R-1.1 — Event IDs GFX8 (CB/SQ/MC):**
+**R-1.1 — Event IDs GFX8 (reconciliación 2026-09-24):**
 
-| Bloque | GPUPerfAPI v3.11.1 | Mesa groups_VI | Estado |
+| Bloque | GPUPerfAPI v3.17/v3.11.1 (catálogo) | Mesa groups_VI | Estado |
 |---|---|---|---|
 | CB | 396 (índice 0..395) | 405 selectors (máx. clase VI) | PARTIALLY_RECONCILED |
 | SQ | 299 (0..298) | 273 selectors (máx. clase VI) | PARTIALLY_RECONCILED |
-| MC | 33 (0..32) | 22 selectors | PARTIALLY_RECONCILED (conteo); semántica MC UNRESOLVED |
+| MC | 33 (0..32) | 22 selectors | PARTIALLY_RECONCILED; semántica `UNKNOWN` |
 
-Evidencia de alineación: 20/22 bloques con **coincidencia exacta** entre ambas fuentes primarias (GRBM 34, DB 257,
-SPI 197, VGT 147, TCC 192, PA_SC 397, SX 34, etc.). PA_SU 153 vs 154 (diferencia menor descrita en R1-1 §4.4).
-Regla operativa: usar la intersección de rangos (CB 0..395, SQ 0..272, MC 0..21) para diseño seguro futuro.
+La aritmética vigente es **19/23**: 19 coincidencias y 4 discrepancias (CB, SQ, MC, PA_SU).
+Las intersecciones son índices de catálogo, no rangos semánticamente seguros; no habilitan
+programación. La aplicabilidad a `1002:699f` permanece `UNKNOWN`.
 
-**R-1.4 — MASTER-RESEARCH-STATUS:** Conclusión B antigua (fuente local) preservada como historial + adenda de
-cross-ref a FASE R-0/R-1; nota «GRBM BLOQUEADO» en sección K/Q y FASE M corregida a «VERIFICADO documental, escritura
-NO autorizada». Versión → 2.5.
+**R-1.4 — MASTER-RESEARCH-STATUS (reconciliación 2026-09-24):** Conclusión B antigua (fuente local) preservada como historial + addenda D6; FASE M queda `PARTIALLY_RECONCILED / CATALOG ONLY`, escritura NO autorizada.
 
 **R-1.3 — Etapa 2:** tabla radeontop reconstruida con método declarado (filtrada gpu≥95); conteo SPI_CSQ
-corregido 3306→8408; conclusiones centrales intactas (potencia A 22.25 vs B 15.78 W, ratio 1.41).
+corregido 3306→8408; conclusiones centrales intactas (`W_SMU` A 22.25 vs B 15.78 W, ratio 1.41; correlación, no causalidad).
 
 ## D. Contradicciones restantes (declaradas, no encubiertas)
 
 - **Semántica/unidad de eventos del bloque MC [UNRESOLVED]**: sin catálogo AMD con nombres/unidad → no diseñar
   normalización de banda de memoria. (No es contradicción; gap declarado.)
-- Coincidencia exacta de los selectores extra (los +9 de CB, +26 de SQ, +11 de MC y +1 de PA_SU) no verificada
-  1:1 (sin catálogo nombrado para esas entradas) → estado PARTIALLY_RECONCILED, límite inferior usado.
+- Las coincidencias 1:1 de selectores extra no están verificadas para el ASIC; el estado
+  es `PARTIALLY_RECONCILED` y no se usa un "límite inferior" para autorizar programación.
 - Los valores GFX12/GFX11 contrarios a GFX8 (p. ej. SQ WAVES moderno) son como aviso de no-portabilidad cruzada,
   no contradicción dentro de GFX8.
 
@@ -75,7 +73,8 @@ corregido 3306→8408; conclusiones centrales intactas (potencia A 22.25 vs B 15
 
 - **E–J (PENDIENTES):** diseñables documentalmente ya; ejecución bloqueada hasta (1) autorización explícita,
   (2) Laboratorio K/framework de telemetría, (3) resolución de gaps ALTA.
-- **M:** propósito casi resuelto por R-0/R-1 (mapa recuperado); queda opcional/consolidación.
+- **M:** propósito parcialmente reconciliado por R-0/R-1 (catálogo source-level); la
+  aplicabilidad ASIC y la programación siguen `UNKNOWN`/NO AUTORIZADA.
 - **K/L/N–Q:** siguen PLANIFICADAS, sin cambios de autorización.
 
 ## G. Acciones NO autorizadas (mantenidas)
@@ -89,10 +88,11 @@ Marco completo en `R1-10-NON-AUTHORIZED-ACTIONS.md`.
 
 ## H. Trazabilidad (fuentes primarias usadas)
 
-- GPUPerfAPI v3.11.1: `gpa_hw_counter_gfx8.cc`, `gpa_hw_exposed_counters_gfx8.cc`,
-  `public_counter_names_vk_gfx8*.txt` (parsing de arrays, conteo y unicidad confirmados).
+- GPUPerfAPI v3.17 (referencia de catálogo) y v3.11.1 (extracción histórica):
+  `gpa_hw_counter_gfx8.cc`, `gpa_hw_exposed_counters_gfx8.cc`,
+  `public_counter_names_vk_gfx8*.txt`; presencia/parseo no prueban ASIC/runtime.
 - Mesa local backup: `ac_perfcounter.c` (groups_CIK/VI/gfx9), `ac_perfcounter.h` (`selectors` campo).
-- Referencia expuesta: `R0-1-GFX8-EVENT-ID-REFERENCE.txt` (2304 contadores).
+- Referencia expuesta: `R0-1-GFX8-EVENT-ID-REFERENCE.txt` (2304 filas, no eventos únicos).
 - Documentos FASE D (RESULTADOS/EVENTS/AUDIT-ID/AUDIT-ETAPA2) y MASTER-PLAN / MASTER-RESEARCH-STATUS.
 
 ## I. Confirmación de READ-ONLY
@@ -103,7 +103,7 @@ nada**. Todos los cambios se limitaron a archivos de documentación del reposito
 ## J. Archivos de la entrega (rutas)
 
 ```
-experiments/FASE-R1-DOCUMENTATION-RECONCILIATION/
+01-AUDITORIA/FASE-R1-DOCUMENTATION-RECONCILIATION/
  ├─ R1-1-GFX8-EVENT-RECONCILIATION.md
  ├─ R1-5-DOCUMENTATION-STATUS.md
  ├─ R1-6-EVIDENCE-STATE-MODEL.md

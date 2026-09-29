@@ -66,7 +66,7 @@ depender exclusivamente de `/sys/class/drm/card1`). Se consolida aquí la estrat
 |---|---|---|
 | Overdrive (PP_OD) | NO DISPONIBLE (mask sin 0x4000) | sysfs ppfeaturemask |
 | Perfiles DPM | verificado R-07 / MCLK smu7 | R0-2 + local |
-| Contadores GFX8 mapa | VERIFICADO (R0-1) | GPUPerfAPI v3.11.1 |
+| Contadores GFX8 mapa | **PARTIALLY_RECONCILED / CATALOG ONLY** | GPUPerfAPI v3.17/v3.11.1; no runtime |
 | Semántica MC | UNRESOLVED | R1-1 |
 | Workarounds Mesa GFX8 | VERIFICADO (R0-3) | código Mesa |
 | MSAA sample loc bug en POLARIS12 | VERIFICADO presente | R0-3 |

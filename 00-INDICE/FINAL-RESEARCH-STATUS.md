@@ -1,15 +1,19 @@
 # FINAL-RESEARCH-STATUS.md — Estado final de la investigación
 Fecha: 2026-09-19 · Colección del cierre documental de la sesión RX 550.
 
+> **SNAPSHOT HISTÓRICO (reconciliación 2026-09-24):** las cifras de `power1_input`
+> son `W_SMU`/potencia estimada por sensor SMU, no vatímetro independiente. Este cierre
+> no sustituye `MASTER-RESEARCH-STATUS.md` ni sus addendas.
+
 ## Qué sabemos (reproducible y verificado hoy)
 - RX 550 = Polaris12/GFX8, PCI `1002:699f`, amdgpu. Display en Intel HD 4600 (card0); RX 550 es GPU
   secundaria sin salida de video (decisión deliberada de seguridad).
-- En las escenas actuales la RX 550 demanda **9.4-13.6 W** y el cap (25-35 W) **no liga**. Máximo draw
-  real medido: **13.6 W** (2560×1440 texturizado, EP-06). En carga: SCLK 1071, MCLK 625 (pico transitorio
+- En las escenas actuales la RX 550 muestra `W_SMU` **9.4-13.6 W** y el cap (25-35 W) **no liga**. Máximo
+  `W_SMU` observado: **13.6 W** (2560×1440 texturizado, EP-06). En carga: SCLK 1071, MCLK 625 (pico transitorio
   1500), temp 42-58 °C en runs cortos; plateau soak 64 °C.
 - **M1 (2026-09-20, `vkmark shading:phong` 1080p, cap sostenido 35/30 W, 10 corridas pareadas):**
   `power1_input @35 W` = **12.27 W** → compuerta `<27 W` activada → **NO DISCRIMINATIVO** (el cap no liga
-  con este workload). ΔFPS y ΔSCLK pareados = 0. Ver `experiments/M1-cap-35-30/RESULTADOS-M1.md`.
+  con este workload). ΔFPS y ΔSCLK pareados = 0. Ver `03-EXPERIMENTOS/M1-cap-35-30/RESULTADOS-M1.md`.
 - FPS base (Mesa stock o CUSTOM indistinguibles, DPM auto, cap 35 W): GL jelly 640p 1228-1250; VK phong
   640p 396-413; VK shading 640p 403-413; jelly 1080p 202-204; desktop 1080p 199-202; shading 1080p 73.
 - GL jellyfish 640p NO es SCLK-bound (FPS ~igual en 340-1071 MHz) — bottleneck fuera del shader.
@@ -22,7 +26,7 @@ Fecha: 2026-09-19 · Colección del cierre documental de la sesión RX 550.
 ## Qué NO sabemos (pendiente, ver open_questions.md y BUILD_SPEC §45)
 - **Causa raíz del régimen histórico** (25-31 W / SCLK ~350-390 / MCLK ~1250-1500 / 74-92 °C).
 - Qué dispara/desdibuja el MCLK sostenido alto (hoy solo 625 con picos; nunca 1250-1500 sostenido).
-- Draw real máximo sostenido y límite térmico efectivo extremo.
+- `W_SMU` máxima sostenida y límite térmico efectivo extremo.
 - Bottleneck exacto del GL 640p (CPU/submissions/present/VRAM-GTT).
 - Qué es el "phong 1285 fps" (origen del dato).
 

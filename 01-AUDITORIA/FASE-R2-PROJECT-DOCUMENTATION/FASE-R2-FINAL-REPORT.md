@@ -4,7 +4,7 @@
 > **Fase:** FASE R-2 — COMPLETE PROJECT DOCUMENTATION & ECOSYSTEM ARCHITECTURE (R-2.25)
 > **Fecha:** 2026-09-22 — Modo SOLO DOCUMENTAL Y DE DISEÑO
 > **Clasificación:** [COMPLETADA] Fase cerrada; ningún ítem "ejecutado" marcado por el hecho de estar diseñado.
-> **Lugar:** `experiments/FASE-R2-PROJECT-DOCUMENTATION/`
+> **Lugar:** `01-AUDITORIA/FASE-R2-PROJECT-DOCUMENTATION/`
 
 ---
 
@@ -35,10 +35,12 @@ grafo de dependencias, índice central en raíz, y actualización de MASTER-PLAN
 - Fases cerradas con evidencia: **A** (discriminación), **B** (cap-probe + POLARIS12-MAP), **C**/*R-14*
   (Superposition), **EP-05/EP-06** (CUSTOM=STOCK; soak no reproduce E1/E3), **FASE D etapas 1–2** (auditoría
   read-only, contraste A/B 1.41), **M1** (vkmark 35/30W, 112/112), **WORKLOAD-SINTETICO** (E-01..E-03/ES-01/F2
-  VERIFICADO), **R-0** (catálogo GFX8 vía GPUPerfAPI v3.11.1, GRBM=2 y SQ=4 VALIDADOS), **R-1** (reconciliación
-  GFX8, mapa A–R-1, capa transversal, readiness E–J).
+  observado), **R-0/R-1** (catálogo GFX8 source-level; GRBM=2/SQ=4 `CATALOG ONLY`, no
+  validación ASIC), mapa A–R-1, capa transversal y readiness E–J.
 - **FASE D etapa 3**: DISEÑADA + PRECHECK + EVENTOS + AUDITORÍA completadas; ejecución NO autorizada.
-- Herramienta operativa **rx550-torneo** validada (65/55/56/112 checks). Benchmarks instalados verificados.
+- Herramienta operativa **rx550-torneo** validada (65/55/56/112 checks). Benchmarks
+  externos: instalaciones observadas no certificadas por el repo; ejecuciones históricas
+  separadas y no se autoriza repetir.
 - **No existía ningún diseño de E→Q** con especificación ejecutable; **no existía `projects/`** (creado).
 
 ## D. INVENTARIO HISTÓRICO (E0–E5) Y FAMILIA 2
@@ -74,7 +76,7 @@ separado y **no mezclables**. Cualquier referencia a "E3" debe aclarar la famili
 | **F** | `FASE-F-GEOMETRY-INVESTIGATION-DESIGN.md` | GEO-01..08 (hipótesis/mecanismo/contador potencial/workload/riesgos/confounders/éxito-negativo) | DISEÑADA |
 | **G** | `FASE-G-MEMORY-VRAM-GTT-DESIGN.md` | modelo request→caches→VRAM/GTT→PCIe→RAM→stall; G-M1..G-M5 | DISEÑADA |
 | **H** | `FASE-H-RADV-WORKAROUNDS-DESIGN.md` | H-1..H-7 (MSAA sample loc, LINE_FILTER, clear_db_cache, z_fights/blend, shrink_image_store, wait_for_vm_map, partial_vs_wave) | DISEÑADA |
-| **I** | `FASE-I-POWERPLAY-DPM-DESIGN.md` | separación A–F; política MCLK 5/16/20; I-1..I-5 | DISEÑADA |
+| **I** | `FASE-I-POWERPLAY-DPM-DESIGN.md` | separación A–F; política MCLK upstream 5/16/20 **source-level**; readout local 3/16/20 no reconciliado; I-1..I-5 | DISEÑADA |
 | **J** | `EXPERIMENT-PRIORITY-MATRIX.md` | 10 criterios → ALTA/MEDIA/BAJA/BLOQUEADOS | DISEÑADA |
 | **K** | `FASE-K-PERFORMANCE-LAB-DESIGN.md` | K1..K10 (telemetría, runner, dataset, repeticiones, warmup, validación, fault detection, perturbación de observabilidad, capability matrix, hashing) | DISEÑADA |
 | **L** | `FASE-L-RX550-TUNER-DESIGN.md` | state machine + ownership + lock + verificación + failsafe; no reemplaza rx550-torneo | DISEÑADA |

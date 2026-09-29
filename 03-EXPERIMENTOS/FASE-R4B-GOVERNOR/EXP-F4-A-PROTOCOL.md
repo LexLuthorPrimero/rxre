@@ -1,6 +1,6 @@
 # EXP-F4-A PROTOCOL — Governor frametime-feedback read-only (FASE R-4B)
 
-> **Directorio:** `experiments/FASE-R4B-GOVERNOR/`
+> **Directorio:** `03-EXPERIMENTOS/FASE-R4B-GOVERNOR/`
 > **Fase:** FASE R-4B — EXP-F4-A GOVERNOR READ-ONLY
 > **Fecha:** 2026-09-22
 > **Versión:** 2.1 (alineación de tiempos DIST/R4 pre-ejecución; v2.0 = revisión metodológica; sin cambios de

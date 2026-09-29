@@ -8,11 +8,11 @@
 
 ## A. Documentación revisada
 
-1. `experiments/FASE-R3-1-FUSION-ARCHITECTURE-AUDIT/FUSION-01-JITTER-DUAL-CONSUMER.md` — motores codifican jitter en matrices/push constants; sin extensión Vulkan de jitter; capa PARTIALLY VERIFIED; "jitter = MV" CONTRADICTED en R-3.1.
-2. `projects/JITTER-REPROJECTION/EXPERIMENT-DESIGN.md` — hipótesis H2a-c (jitter gen/obs separadas).
-3. `projects/JITTER-REPROJECTION/PRIOR-ART.md` — surveys TAA (Yang/Liu/Salvi, Playdead), TXAA 3.0, ATAA, Hanika.
-4. `projects/BERRETA/BERRETA-DESIGN.md` — fuera de integración (referencia).
-5. `experiments/FASE-R2-PROJECT-DOCUMENTATION/FASE-P-FRAME-GENERATION-UPSCALING-DESIGN.md` — referencias a lsfg-vk/FMF (capas).
+1. `01-AUDITORIA/FASE-R3-1-FUSION-ARCHITECTURE-AUDIT/FUSION-01-JITTER-DUAL-CONSUMER.md` — motores codifican jitter en matrices/push constants; sin extensión Vulkan de jitter; capa PARTIALLY VERIFIED; "jitter = MV" CONTRADICTED en R-3.1.
+2. `04-IMPLEMENTACION/projects/JITTER-REPROJECTION/EXPERIMENT-DESIGN.md` — hipótesis H2a-c (jitter gen/obs separadas).
+3. `04-IMPLEMENTACION/projects/JITTER-REPROJECTION/PRIOR-ART.md` — surveys TAA (Yang/Liu/Salvi, Playdead), TXAA 3.0, ATAA, Hanika.
+4. `04-IMPLEMENTACION/projects/BERRETA/BERRETA-DESIGN.md` — fuera de integración (referencia).
+5. `04-IMPLEMENTACION/FASE-P-FRAME-GENERATION-UPSCALING-DESIGN.md` — referencias a lsfg-vk/FMF (capas).
 6. `MASTER-RESEARCH-STATUS.md` v2.8 (base).
 
 ## B. Prior art relevante
@@ -112,7 +112,7 @@ results/*.json   logs/*.log
 | 13 | Sin integración BERRETA/Ghost/optical flow/frame gen/tile | ✅ (EXPERIMENT-DESIGN §10) |
 | 14 | Sin benchmark de rendimiento de RX550 | ✅ (§10 + J) |
 | 15 | Sin modificación Mesa/kernel/GPU/sysfs | ✅ (§K) |
-| 16 | Sin escribir fuera de `experiments/FASE-R4C-JITTER-OBSERVABILITY/`+harness local tras autorización | ✅ |
+| 16 | Sin escribir fuera de `03-EXPERIMENTOS/FASE-R4C-JITTER-OBSERVABILITY/`+harness local tras autorización | ✅ |
 | 17 | No se creó trabajo ejecutable en PRECHECK | ✅ (solo 4 MD) |
 | 18 | Próximo paso: requerimiento de autorización explícita | ⏸️ (esta sección) |
 | 19 | Estado master refleja "PRECHECK COMPLETE / AWAITING AUTHORIZATION" | ✅ (v2.9 de MASTER-RESEARCH-STATUS) |

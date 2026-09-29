@@ -1,6 +1,6 @@
 # IDEA I-01 — TBDR EMULATION ON IMR (RX 550 / Polaris12)
 
-> **Archivo:** `projects/TBDR-IMR/README.md`
+> **Archivo:** `04-IMPLEMENTACION/projects/TBDR-IMR/README.md`
 > **Fase:** FASE R-2 — COMPLETE PROJECT DOCUMENTATION & ECOSYSTEM ARCHITECTURE
 > **Fecha:** 2026-09-22 — Modo SOLO DOCUMENTAL (sin código, sin benchmarks, sin instalaciones)
 > **Clasificación:** [DISEÑO/IDEA]. **PROVISIONAL** — no es tecnología consolidada.

@@ -1,6 +1,6 @@
 # FASE R-3.1 — FUSION ARCHITECTURE AUDIT
 
-> **Directorio:** `experiments/FASE-R3-1-FUSION-ARCHITECTURE-AUDIT/`
+> **Directorio:** `01-AUDITORIA/FASE-R3-1-FUSION-ARCHITECTURE-AUDIT/`
 > **Fase:** FASE R-3.1 — FUSION ARCHITECTURE AUDIT (CAPA ESTRATÉGICA FASE R)
 > **Fecha de cierre:** 2026-09-22
 > **Modo:** **SOLO LECTURA (READ-ONLY)** — auditoría documental + investigación web. Sin modificaciones de

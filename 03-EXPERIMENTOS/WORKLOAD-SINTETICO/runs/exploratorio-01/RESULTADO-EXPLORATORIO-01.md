@@ -4,7 +4,7 @@ Fecha: 2026-09-20 · Autorizado: primera corrida exploratoria (solo esta; sin M2
 
 ## Configuración ejecutada (conservadora, defaults del prototipo)
 
-- Workload: `experiments/WORKLOAD-SINTETICO/` (`src/main.cpp` + `src/compute.comp`, build OK).
+- Workload: `03-EXPERIMENTOS/WORKLOAD-SINTETICO/` (`src/main.cpp` + `src/compute.comp`, build OK).
 - Comando:
   `VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/radeon_icd.x86_64.json MESA_VK_DEVICE_SELECT=1002:699f ./main --duration 20 --vram 268435456 --iterations 512 --stride 16 --seed 42`
 - `--duration 20` s · `--vram 256 MiB` (2 GB no se llenan) · `--iterations 512` · `--stride 16` · `--seed 42`.

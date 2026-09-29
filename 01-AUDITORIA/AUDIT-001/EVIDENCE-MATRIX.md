@@ -1,8 +1,11 @@
 # EVIDENCE-MATRIX.md — Matriz de Evidencia × Conclusión × Clasificación
 
-**Fecha:** 2026-09-21  
-**Versión:** 1.0  
+**Fecha:** 2026-09-21
+**Versión:** 1.0
 **Fuente:** AUDIT-001.md, ERRATA.md, METRICS-DEFINITIONS.md
+
+> **Reconciliación terminológica 2026-09-24:** `draw real` se expresa como `W_SMU`,
+> potencia estimada por sensor SMU; no existe vatímetro independiente.
 
 ---
 
@@ -47,13 +50,13 @@
 |---|---|---|---|
 | **Cap 25W liga SCLK en RX 550** | Fase B, EP-06 | **INVALIDADO** | SCLK 1071 MHz con cap 25W y 70-71°C |
 | **Kalm impone cap 25W** | EP-06, journal 17/09 | **INVALIDADO** | Régimen 25W ocurrió SIN kalm |
-| **power1_input = potencia real** | EP-06, SMU docs | **INVALIDADO** | Es estimador SMU; draw real máx 13.6 W |
+| **power1_input = potencia real** | EP-06, SMU docs | **INVALIDADO** | Es estimador SMU; `W_SMU` máxima observada 13.6 W |
 | **Mesa CUSTOM causa E5** | EP-05 A/B | **INVALIDADO** | CUSTOM = STOCK; no reproduce E5 |
 | **E1/E3 midieron iGPU** | EP-08 (mem_info_*) | **REFUTADO** | Telemetría = RX 550 (amdgpu card1) |
 | **SCLK 1071 MHz = máximo DPM** | pp_dpm_sclk (nivel 7*) | **VERIFICADO** | Nivel 7 = 1071 MHz |
 | **MCLK 1500 MHz = máximo DPM** | pp_dpm_mclk (nivel 2*) | **VERIFICADO** | Nivel 2 = 1500 MHz |
 | **Régimen E1/E3 reproducible** | Fase B + EP-06 | **INVALIDADO** | No reproducible con params autorizados |
-| **Draw real máximo actual** | EP-06 (13.6 W) + Superposition (23.7 W) | **OBSERVADO** | Superposition > EP-06 |
+| **W_SMU máximo observado** | EP-06 (13.6 W) + Superposition (23.7 W) | **OBSERVADO** | Superposition > EP-06 |
 | **Fetch-bound = cuellos de botella** | ES-01 + F2 (frametime ∝ fetches) | **VERIFICADO** | 8 fetches = 2× frametime, power invariante |
 | **Auto-pacing GPU** | ES-01 + F2 | **HIPÓTESIS** | Más fetches → menos fps → misma potencia |
 

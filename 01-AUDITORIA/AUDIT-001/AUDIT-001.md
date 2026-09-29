@@ -1,9 +1,13 @@
 # AUDIT-001.md — Auditoría Histórica Completa
 
-**Fecha:** 2026-09-21  
-**Versión:** 1.0  
-**Alcance:** Auditoría sistemática de todos los experimentos históricos del proyecto RX 550 Iterative Research  
+**Fecha:** 2026-09-21
+**Versión:** 1.0
+**Alcance:** Auditoría sistemática de todos los experimentos históricos del proyecto RX 550 Iterative Research
 **Metodología:** Revisión de evidencia documental, cruce de fuentes, clasificación por evidencia (VERIFICADO/REPRODUCIBLE/OBSERVADO/NO REPRODUCIBLE/HIPÓTESIS/DESCARTADO/INVALIDADO/DESCONOCIDO)
+
+> **Reconciliación terminológica 2026-09-24:** las cifras procedentes de
+> `power1_input` se escriben como `W_SMU`/potencia estimada por sensor SMU. No existe
+> vatímetro independiente; las asociaciones de workload son correlacionales.
 
 ---
 
@@ -14,10 +18,12 @@ Esta auditoría revisa **14 experimentos/corridas históricas** (E1, E3, E5, Fas
 **Hallazgos críticos:**
 1. **El régimen histórico E1/E3/E5 (25W / 350-390 MHz / MCLK 1250-1500 / 74-92°C) NO es reproducible** bajo parámetros autorizados actuales. Ocurrió SIN Kalm activo (17/09) y no se ha reproducido ni con cap 25W + soak térmico hasta 71°C, ni con Mesa CUSTOM, ni con escenas pesadas.
 2. **Kalm NO fue causa** del régimen 25W; ocurrió cuando Kalm estaba **inactivo** (17/09). Con Kalm activo (18-19/09), la GPU opera en régimen libre (1071 MHz).
-3. **power1_input ≠ potencia real:** Es estimador SMU. En E1/E3 reportaba el target de regulación (≈cap). Draw real máximo medido en sesión actual: **13.6 W** (EP-06) y **23.7 W pico** (Superposition).
+3. **power1_input ≠ potencia real:** Es estimador SMU. En E1/E3 reportaba el target de regulación (≈cap). `W_SMU` máximo observado: **13.6 W** (EP-06) y **23.7 W pico** (Superposition).
 4. **Mesa CUSTOM NO reproduce E5:** EP-05 A/B controlado muestra CUSTOM = STOCK para 3 escenas; no reproduce el régimen E5.
 5. **E1/E3 NO midieron la iGPU:** La telemetría proviene de la RX 550 real (amdgpu card1, mem_info_* existe solo allí).
-5. **Cuello de botella actual:** Todos los workloads sintéticos Vulkan están en **fetch-latency bound** (auto-pacing: más fetches → menos fps → misma potencia). Superposition (OpenGL, geometría real) rompe este patrón.
+5. **Cuello de botella actual:** la evidencia sintética es consistente con **fetch-latency bound**
+   (auto-pacing); no es una causalidad de potencia física demostrada. Superposition muestra una
+   asociación diferente, no una causa aislada.
 
 **Correcciones registradas:** 5 Errata en `ERRATA.md` (Kalm, power1_input, Mesa CUSTOM, métricas sin etiquetar, iGPU).
 
@@ -63,12 +69,14 @@ Esta auditoría revisa **14 experimentos/corridas históricas** (E1, E3, E5, Fas
 
 **Evidencia:**
 - Kernel docs: `power1_input`/`power1_average` = estimador SMU en µW (no vatímetro físico).
-- E1/E3/E5: `power1_input ≈ power1_cap` (25W) → estimador reportaba **target de regulación**, no draw real.
-- EP-06: Draw real máximo medido = **13.6 W** (2560×1440 texturizado, cap 35W).
-- Superposition: **18.8 W media / 23.7 W pico** fase activa.
+- E1/E3/E5: `power1_input ≈ power1_cap` (25W) → estimador reportaba **target de regulación**, no `W_SMU` physical.
+- EP-06: `W_SMU` máximo observado = **13.6 W** (2560×1440 texturizado, cap 35W).
+- Superposition: **18.8 W media / 23.7 W pico** `W_SMU` en fase activa.
 - M1: `power1_input @35W` = 12.27 W media.
 
-**Conclusión:** `power1_input` es **estimador SMU en estado [regulatorio/libre]**, no draw real medido. En estado regulatorio (E1/E3) reportaba el target (≈cap). En estado libre reporta draw real (~10-16 W).
+**Conclusión:** `power1_input` es **estimador SMU en estado [regulatorio/libre]**, no
+`W_SMU` física independiente. En estado regulatorio reportaba el target (≈cap); en estado
+libre observamos ~10–16 W.
 
 **Clasificación:** "power1_input = potencia real" = **INVALIDADO** (ERRATUM-002)
 
@@ -253,7 +261,7 @@ Al cierre de FASE A, actualizar `MASTER-RESEARCH-STATUS.md` con:
 
 ## 9. Próximos Pasos (FASE B+)
 
-1. **FASE B** — Crear `experiments/POLARIS12-MAP/` con subsistemas A–AJ
+1. **FASE B** — Crear `02-ARQUITECTURA/POLARIS12-MAP/` con subsistemas A–AJ
 2. **FASE C** — `R-14-SUPERPOSITION-DISSECTION.md` con herramientas no invasivas
 3. **FASE D** — Performance counters: prueba lectura read-only (UMR → GPUPerfAPI → radeontop → debugfs/perf)
 4. **FASE E** — Real-game baseline (seleccionar candidato reproducible)

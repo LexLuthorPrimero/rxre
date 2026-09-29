@@ -1,9 +1,35 @@
 # POLARIS12-MAP.md — Mapa Principal de Capacidades Polaris12/GFX8
 
-**Fecha:** 2026-09-21  
-**Versión:** 1.0  
-**Alcance:** Índice navegable de todos los subsistemas A–AJ con enlaces a documentación detallada  
+**Fecha:** 2026-09-21
+**Versión:** 1.1
+**Alcance:** Índice navegable de todos los subsistemas A–AJ con enlaces a documentación detallada
 **Metodología:** Cada entrada sigue la cadena: Hardware Polaris12 → Documentación/ISA/Registros → Linux/amdgpu → Mesa/radeonsi/RADV → Herramienta de observación → Métrica observable → Experimento potencial → Limitación conocida
+
+> **RECONCILIACIÓN 2026-09-24:** separar capacidad nominal, negociación local y
+> capacidad runtime. PCIe Gen2×4 y 2 GiB VRAM son observaciones R-4A; 96–112 GB/s es
+> estimación nominal/derivada y el bandwidth real es `UNKNOWN`. El número de ACEs de
+> Polaris12 y la reserva de CUs por Vulkan son `UNKNOWN`. Una cola compute lógica no
+> demuestra overlap.
+
+> **ADDENDA FOCALIZADA 2026-09-24:** la reconciliación de ASIC, counters, telemetría y
+> valor informacional está en
+> [`COUNTERS-ASIC-TELEMETRY-KNOWLEDGE-ADDENDUM-2026-09-24.md`](../COUNTERS-ASIC-TELEMETRY-KNOWLEDGE-ADDENDUM-2026-09-24.md).
+> La addenda no reemplaza las tablas históricas; interpreta sus filas según las capas
+> `source/catalog → API exposure → runtime capability → physical counter validation`.
+> En particular, un catálogo GFX8 no prueba un selector válido para `1002:699f`, y
+> `gpu_busy_percent`/`mem_busy_percent`/`pcie_bw` no son PMU programables.
+
+### Lectura vigente de la cadena GPU → counters → telemetry → workload → bottleneck
+
+| Capa | Estado vigente | Regla de no sustitución |
+|---|---|---|
+| Identidad local | `CONFIRMED`: `1002:699f`, Polaris12/GFX8 | No fuerza equivalencia comercial Baffin |
+| Catálogo GFX8 | `SUPPORTED` como catálogo | No prueba ASIC, selector ni runtime |
+| API | RADV GFX8: `NOT_AVAILABLE` para `VK_KHR_performance_query`; radeonsi: `SUPPORTED` sólo source-level | Source/API no equivale a capacidad local |
+| Runtime/PMU | PMU mainline GFX8: `NOT_AVAILABLE` como PMU confirmado | No asumir backport ni PMU física |
+| Telemetría | `gpu_busy_percent`, `mem_busy_percent`, `pcie_bw`: `SUPPORTED` como proxy/accounting | No convertir proxy en bandwidth, vatímetro o WSI |
+| Validación física | `UNKNOWN`; programación prohibida | No usar selectores para causalidad |
+| Atribución | `HYPOTHESIS`/`UNKNOWN` hasta separar CPU, GPU, memoria y WSI | No ofrecer tuning como resultado |
 
 ---
 
@@ -34,7 +60,7 @@
 | **U** | **GTT** | VERIFICADO | VERIFICADO | DOCUMENTADO | mem_info_gtt_used, radeontop | [HARDWARE-ROUTES.md#U] |
 | **V** | **PCIe** | VERIFICADO | VERIFICADO | N/A | lspci, dmesg | [HARDWARE-ROUTES.md#V] |
 | **W** | **SDMA** | VERIFICADO | DOCUMENTADO | DOCUMENTADO | dmesg, radeontop | [HARDWARE-ROUTES.md#W] |
-| **X** | **ACE/Async Compute** | VERIFICADO | VERIFICADO | DOCUMENTADO | radeontop, vulkaninfo | [HARDWARE-ROUTES.md#X] |
+| **X** | **ACE/Async Compute** | DOCUMENTADO (familia) | **UNKNOWN** (queues lógicas no prueban ACE/overlap) | PARCIAL | vulkaninfo/fdinfo; capability audit | [HARDWARE-ROUTES.md#X] |
 | **Y** | **DMA/Copy Engines** | VERIFICADO | DOCUMENTADO | DOCUMENTADO | dmesg, radeontop | [HARDWARE-ROUTES.md#Y] |
 | **Z** | **PowerPlay/DPM** | VERIFICADO | VERIFICADO | N/A | pp_dpm_sclk/mclk, power1_input | [HARDWARE-ROUTES.md#Z] |
 | **AA** | **Clock Gating** | VERIFICADO (whitepaper) | INFERIDO | N/A | N/A (hardware) | [HARDWARE-ROUTES.md#AA] |
@@ -46,7 +72,7 @@
 | **AG** | **Cache Behavior** | DOCUMENTADO | DOCUMENTADO | DOCUMENTADO | radeontop (parcial) | [HARDWARE-ROUTES.md#AG] |
 | **AH** | **Sync/Barriers** | VERIFICADO | VERIFICADO | VERIFICADO | vulkaninfo, shader stats | [HARDWARE-ROUTES.md#AH] |
 | **AI** | **Pipeline Statistics** | VERIFICADO | VERIFICADO | VERIFICADO | vulkan pipeline stats | [HARDWARE-ROUTES.md#AI] |
-| **AJ** | **HW Performance Counters** | VERIFICADO (Polaris) | PARCIAL (UMR) | PARCIAL (RADV) | UMR, radeontop, perf | [HARDWARE-ROUTES.md#AJ] |
+| **AJ** | **HW Performance Counters** | SUPPORTED (catálogo GFX8 genérico) | **UNKNOWN** (runtime/ASIC) | SUPPORTED (catálogo; no API/runtime) | capability audit; programación NO AUTORIZADA | [HARDWARE-ROUTES.md#AJ] |
 
 ---
 
@@ -63,6 +89,12 @@
 ---
 
 ## Capacidad Real vs. Teórica (Nuestra RX 550)
+
+> **Corrección de alcance R-4A (2026-09-23):** no se deben confundir capacidad,
+> negociación y verificación. El endpoint declara capacidad máxima PCIe Gen3×8,
+> pero en esta plataforma el enlace negociado/verificado es **Gen2×4** por el techo
+> del root port. El número de ACE y la reserva de CUs por Vulkan son `UNKNOWN`;
+> no se fija `2` como capacidad local.
 
 | Capacidad | Teórica (Polaris12/GFX8) | Real en Nuestra RX 550 | Evidencia |
 |---|---|---|---|
@@ -81,7 +113,7 @@
 | ROPs | 16 | 16 | videocardz, whitepaper |
 | Memory Bus | 128-bit GDDR5 | 128-bit | lspci, igor'sLAB |
 | Memory Clock | 7 Gbps (1750 MHz) | 1500 MHz (DPM nivel 2) | radeontop, pp_dpm_mclk |
-| ACEs | 2 | 2 | whitepaper |
+| ACEs | **UNKNOWN** (número de familia no reconciliado para Lexa) | **UNKNOWN** (no se fija 2) | family docs; capability audit requerida |
 | Geometry Engines | 2 | 2 | whitepaper |
 | Rasterizers | 2 | 2 | whitepaper |
 | ROPs | 16 | 16 | videocardz |
@@ -99,7 +131,7 @@
 | Memory Management | Implícita (buffer objects) | Explícita (VkBuffer, VkImage, VkDeviceMemory) | Vulkan más control |
 | MSAA | glEnable(GL_MULTISAMPLE) | VkPipelineMultisampleStateCreateInfo | Igual hardware |
 | DCC | radeonsi controla | RADV controla (driconf) | RADV más configurable |
-| Async Compute | Limitado (GL) | Completo (VkQueue, ACE) | Vulkan expone ACEs |
+| Async Compute | Limitado (GL) | Queue compute lógico; ACE físico no confirmado | Vulkan expone colas, no prueba ACE/overlap |
 | Sparse Resources | ARB_sparse_texture | VK_EXT_sparse_resource | Vulkan más completo |
 
 ---
@@ -108,11 +140,11 @@
 
 | Herramienta | Qué Mide | Acceso | Requiere Root | Estado |
 |---|---|---|---|---|
-| **radeontop** | GPU busy, VRAM, GTT, clocks, Shader/Texture/Compute busy | userspace | No | **DISPONIBLE** |
-| **umr** (Unified Memory Reporter) | Registros HW, contadores, VRAM, rings | userspace (libdrm) | No (necesita drm master) | **INSTALABLE** |
-| **radeontop --dump-ctrs** | Contadores HW (si expuestos) | userspace | No | **VERIFICAR** |
-| **perf + amdgpu PMU** | Contadores PMU (cycles, instructions, cache) | kernel PMU | Sí (perf_event_paranoid) | **VERIFICAR** |
-| **radeontop --list-counters** | Contadores disponibles | userspace | No | **VERIFICAR** |
+| **radeontop** | GPU busy, VRAM, GTT, clocks, Shader/Texture/Compute busy | userspace | No | **DISPONIBLE** como telemetría/proxy; no assume counters HW GFX8 |
+| **umr** (Unified Memory Reporter) | Registros HW, database/debug, VRAM, rings | userspace (libdrm) | No (necesita drm master) | **SUPPORTED** como database/debug; selectores no validados |
+| **radeontop --dump-ctrs** | Contadores HW (si expuestos) | userspace | No | **UNKNOWN** para GFX8 local |
+| **perf + amdgpu PMU** | Contadores PMU (cycles, instructions, cache) | kernel PMU | Sí (perf_event_paranoid) | **NOT_AVAILABLE** como PMU GFX8 mainline confirmado |
+| **radeontop --list-counters** | Contadores disponibles | userspace | No | **UNKNOWN**; no usar como validación ASIC |
 | **radeontop --verbose** | Verbose output | userspace | No | **DISPONIBLE** |
 | **vulkaninfo** | Límites HW, extensiones, formatos | userspace | No | **DISPONIBLE** |
 | **glxinfo -B** | Renderer GL, versión Mesa | userspace | No | **DISPONIBLE** |
@@ -123,7 +155,7 @@
 | **pp_dpm_sclk/mclk, pp_power_profile_mode** | DPM states | sysfs | No (read) | **DISPONIBLE** |
 | **power1_input, temp1_input, gpu_busy_percent** | Power, temp, busy | sysfs/hwmon | No (read) | **DISPONIBLE** |
 | **lspci -vvv** | PCIe link width/speed, capabilities | userspace | No | **DISPONIBLE** |
-| **radeontop -l** | Lista contadores disponibles | userspace | No | **VERIFICAR** |
+| **radeontop -l** | Lista contadores disponibles | userspace | No | **UNKNOWN**; no equivale a PMU/validación ASIC |
 
 ---
 
@@ -136,6 +168,7 @@
 | `SOFTWARE-CAPABILITIES.md` | Capacidades expuestas por cada capa de software |
 | `EXPERIMENT-CANDIDATES.md` | Experimentos candidatos derivados del mapa |
 | `UNVERIFIED-CLAIMS.md` | Afirmaciones sin evidencia verificada |
+| `../COUNTERS-ASIC-TELEMETRY-KNOWLEDGE-ADDENDUM-2026-09-24.md` | Addenda incremental de ASIC/counters/telemetría y ranking de valor informacional |
 
 ---
 
@@ -156,7 +189,7 @@ F: Texture Units → 4 TEX/CU (16 total) → 1 TEX/SIMD → radeontop tex busy
 G: Texture Cache → V$ (16KB/CU) + L2 → VMEM latency → radeontop (parcial)
 H: L2 Cache → 512 KB (Polaris12), 16-way, 64B lines → slices per mem channel → radeontop/perf (parcial)
 R: Memory Controller → DPM MCLK (300/1500 MHz) → pp_dpm_mclk → radeontop mem busy
-S: GDDR5 → 128-bit, 7 Gbps, 112 GB/s teórico → radeontop mem busy
+S: GDDR5 → 128-bit, 96–112 GB/s nominal/estimado según módulo/VBIOS; real `UNKNOWN` → radeontop mem busy
 T: VRAM → 2 GB GDDR5, DEVICE_LOCAL → mem_info_vram_used → radeontop
 U: GTT → System memory aperture → mem_info_gtt_used → radeontop
 ```
@@ -177,12 +210,12 @@ Q: FB Writes → CB/DB bypass L2 (GFX8) → DCC/HTILE interaction → radeontop
 ### System/Control (R–AJ)
 ```
 R: Memory Controller → MCLK DPM (300/1500) → pp_dpm_mclk
-S: GDDR5 → 128-bit, 7 Gbps → 112 GB/s teórico
+S: GDDR5 → 128-bit, 96–112 GB/s nominal/estimado; bandwidth real `UNKNOWN`
 T: VRAM → 2 GB, DEVICE_LOCAL → mem_info_vram_used
 U: GTT → System aperture → mem_info_gtt_used
-V: PCIe → Gen3 x8 (negociado) → lspci
+V: PCIe → capacidad máxima del endpoint Gen3×8; **negociado/verificado local Gen2×4** → lspci / R-4A
 W: SDMA → 2 copy engines → dmesg
-X: ACE/Async Compute → 2 ACEs, 8 queues each → vulkaninfo queues
+X: ACE/Async Compute → número de ACEs `UNKNOWN`; queue family observable → capability audit
 Y: DMA/Copy Engines → 2 SDMA engines → dmesg
 Z: PowerPlay/DPM → SCLK/MCLK DPM, pp_power_profile_mode → sysfs
 AA: Clock Gating → Fine-grained (whitepaper) → hardware-only
@@ -222,14 +255,14 @@ AJ: HW Perf Counters → UMR, radeontop, perf, amdgpu PMU → UMR/radeontop
 | **LDS** | 64 KB/CU, 32 banks | SPI allocation | NIR→ACO LDS alloc | Compiler stats | ✅ Disponible |
 | **Texture Units** | 16 TEX units (1/SIMD) | Config init | image_sample, samplers | radeontop tex_busy | ✅ Workload actual |
 | **Rasterizer** | 2 rasterizers, 16 pix/clk | Config init | VkPipelineRasterizationState | radeontop rasterizer_busy | ✅ Disponible |
-| **ROP / Render Backends** | 16 ROPs, CB/DB bypass L2 | Register config | VkPipelineColorBlendState, DCC control | radeontop rop_busy | ✅ Workload actual |
+| **ROP / Render Backends** | 16 ROPs; bypass CB/DB→L2 documentado a nivel familia, local `UNKNOWN` | Register config | VkPipelineColorBlendState, DCC control | radeontop rop_busy | ✅ Workload actual |
 | **DCC / Color Compression** | Lossless, 8:1 max | Register config | radv_disable_dcc, driconf | dmesg, mem_busy | ✅ Workload actual (off) |
 | **MSAA / FMASK** | 1x/2x/4x/8x, FMASK | Sample config | VkPipelineMultisampleStateCreateInfo | vulkaninfo sample_counts | ✅ Workload actual |
 | **Depth / HTILE** | Early-Z, HTILE compression | Register config | radv_htile_enable | radeontop depth_busy | ✅ Disponible |
 | **VRAM / GTT** | 2 GB GDDR5, 1.75 GiB heap | mem_info_* sysfs | VK_MEMORY_PROPERTY_* | mem_info_*, radeontop | ✅ Workload actual |
-| **PCIe** | Gen3 x8 negociado | amdgpu_pcie.c | N/A | lspci -vvv | ✅ Verificado |
+| **PCIe** | Capacidad máxima del endpoint Gen3×8; **negociado/verificado local Gen2×4** | amdgpu_pcie.c | N/A | lspci -vvv / R-4A | ✅ Verificado local (Gen2×4) |
 | **SDMA / Copy Engines** | 2 engines | amdgpu_sdma.c | VkCmdCopyBuffer/Image | dmesg | ✅ Workload actual (upload) |
-| **ACE / Async Compute** | 2 ACEs, 8 queues c/u | HWS virtualization | VK_QUEUE_COMPUTE_BIT | vulkaninfo queues | ✅ Disponible |
+| **ACE / Async Compute** | Número de ACEs `UNKNOWN`; familia GCN4 documenta queues/HWS | HWS virtualization (source-level) | `VK_QUEUE_COMPUTE_BIT` (queue logical) | vulkaninfo/capability audit | **REQUIRES CAPABILITY AUDIT** |
 | **PowerPlay / DPM** | SCLK 8 niveles, MCLK 3 niveles | pp_dpm_sclk/mclk, power1_input | N/A | sysfs, radeontop | ✅ Workload actual |
 | **Power Profiles** | pp_power_profile_mode | sysfs write (root) | N/A | pp_power_profile_mode | ⚠️ Requiere root |
 | **Sparse Resources** | PRT/PRT2 (64KB tiles) | VM management | VK_EXT_sparse_resource | vulkaninfo | ✅ Disponible |
@@ -261,7 +294,7 @@ AJ: HW Perf Counters → UMR, radeontop, perf, amdgpu PMU → UMR/radeontop
 | Capacidad | Observable Via | Por Qué No Controlable |
 |---|---|---|
 | **SCLK / MCLK actual** | pp_dpm_sclk/mclk, radeontop, freq1_input | DPM automático (policy SMU) |
-| **MCLK up threshold (20% activity)** | Policy documentada, no tunable | SMU firmware policy |
+| **MCLK policy upstream 5/16/20 (source-level)** | R-4A readout local 3/16/20 no reconciliado; no trigger local confirmado | SMU firmware/BIOS local `UNKNOWN` |
 | **GPU Busy / Mem Busy %** | radeontop, sysfs | Resultado, no control |
 | **Temperature** | temp1_input, radeontop | Resultado, no control |
 | **VRAM / GTT Usage** | mem_info_*, radeontop | Resultado, no control |
@@ -309,7 +342,7 @@ AJ: HW Perf Counters → UMR, radeontop, perf, amdgpu PMU → UMR/radeontop
 | Experimento | Razón de Descarte |
 |---|---|
 | **PWR-02: MCLK Forcing** | Requiere autorización explícita + `--danger` + riesgo térmico; congelado por política |
-| **PWR-03: Thermal Throttling** | Riesgo térmico (>90°C abort); requiere cooling extra y autorización; congelado |
+| **PWR-03: Thermal Throttling** | 90 °C es confound de ventana, no es un límite de seguridad; 96 °C es abort configurado; requiere protocolo y autorización; congelado |
 | **BIOS/SPPT/VBIOS Flash** | Riesgo permanente, fuera de scope, política prohibida |
 | **ppfeaturemask Write** | Bits desconocidos, riesgo inestabilidad; solo read |
 | **Kalm Write** | Política: no tocar Kalm |
@@ -320,20 +353,21 @@ AJ: HW Perf Counters → UMR, radeontop, perf, amdgpu PMU → UMR/radeontop
 | **L2 Partition Control** | Hardware/firmware only |
 | **UMR/GPUPerfAPI sin verificar** | No instalar herramientas sin verificar compatibilidad GFX8 primero |
 
-### G. Claims Que Siguen Sin Evidencia (Pendientes de Verificación en FASE D+)
+### G. Claims que siguen sin evidencia (auditoría capability pendiente)
 
-**25 claims de prioridad ALTA pendientes de verificación en FASE D+.**
+**Los claims de prioridad permanecen abiertos; no se convierten en una instrucción de
+instalación o ejecución.** La numeración histórica de la tabla se conserva como trazabilidad.
 
 | Claim | Subsistema | Acción Requerida |
 |---|---|---|
-| **UMR funciona en GFX8/Polaris para leer contadores** | AJ | Instalar UMR + `umr --list-counters` (FASE D) |
-| **GPUPerfAPI soporta GFX8** | AJ | Verificar compatibilidad GPA |
+| **UMR funciona en GFX8/Polaris para leer contadores** | AJ | **REQUIRES AUTHORIZATION** para instalación/uso; no está confirmado localmente |
+| **GPUPerfAPI soporta GFX8** | AJ | **REQUIRES CAPABILITY AUDIT**; catálogo v3.17/documental, no runtime |
 | **radeontop --list-counters expone contadores HW** | AJ | `radeontop --list-counters` |
 | **perf + amdgpu PMU expone eventos GFX8** | AJ | `perf list | grep amdgpu` + kernel config |
 | **LDS = 64 KB/CU en Polaris12 (vs 32 KB en ISA GCN3)** | E | `umr --read-config` o kernel source `gfx_v8_0.c` |
 | **CB/DB bypass L2 en GFX8 (confirmar en Polaris12)** | M, H | Verificar en `gfx_v8_0.c` / medir CB bandwidth |
 | **Fetch latency L2 miss ~350 ciclos en Polaris12** | F, G, H | Contadores HW L1/L2 miss rate (FASE D) |
-| **MCLK 1500 sostenido requiere mem_busy ≥ 20% sostenido** | R | Workload con mem_busy controlado |
+| **MCLK 1500 sostenido requiere `mem_busy_percent ≥20 %`** | R | **UNKNOWN**: upstream 5/16/20 y readout local 3/16/20 no reconciliados; no es trigger local |
 | **CB writes bypass L2 en GFX8 (confirmar en nuestra GPU)** | M, Q | Medir CB bandwidth vs L2 traffic |
 | **DCC deshabilitado para MSAA 4x/8x en RADV (confirmar)** | N, P | `radv_image_can_enable_dcc` code review |
 

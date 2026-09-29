@@ -8,7 +8,7 @@ antes de repetir R-4B (NO relanzar S1 todavía; NO modificar el protocolo v2.1; 
 
 > Esta investigación es **independiente de EXP-F4-A** y de `results/session1`. NO contamina ni
 > modifica los datos de S1. S1 permanece registrada como **PARADA D / INCONCLUSIVA PARA EVALUACIÓN
-> DEL GOVERNOR**.
+> DEL GOVERNOR**. `P` en este protocolo significa `W_SMU` de `power1_input`, no vatímetro.
 
 ---
 
@@ -30,19 +30,19 @@ antes de repetir R-4B (NO relanzar S1 todavía; NO modificar el protocolo v2.1; 
 - `decisions.md` — **DN-07: política térmica «cooldown a ≤50 °C»** (protocolo frío de Fase B);
   DN-10: Kalm descartado como causa; DN-12/DN-13.
 - `evidence.md` — E1/E3/E5 74–92 °C [NO REPRODUCIBLE]; EP-06 a 70–71 °C con 1071 MHz/~11 W.
-- `experiments/fase-a-discriminacion-.../RESULTADOS-FASE-A.md` — firma E1/E3 = power-target
+- `03-EXPERIMENTOS/fase-a-discriminacion-.../RESULTADOS-FASE-A.md` — firma E1/E3 = power-target
   throttling de tarjeta caliente; escenas ligeras no llegan a 75–80 °C.
-- `experiments/fase-b-cap-probe-.../RESULTADOS-FASE-B.md` — cooldown ≤50 °C entre estados; from
+- `03-EXPERIMENTOS/fase-b-cap-probe-.../RESULTADOS-FASE-B.md` — cooldown ≤50 °C entre estados; from
   frío 37 °C; máx alcanzado 60 °C.
-- `experiments/ep06-soak-cap-20260919-205645/RESULTADOS-EP06.md` — soak ligero plateau 64 °C;
+- `03-EXPERIMENTOS/ep06-soak-cap-20260919-205645/RESULTADOS-EP06.md` — soak ligero plateau 64 °C;
   pesado 67 °C; a 70–71 °C SCLK sigue 1071 MHz (el régimen E1 no se reproduce caliente).
-- `experiments/AUDIT-001/METRICS-DEFINITIONS.md` — potencias; steady requires gpu_busy≥95,
+- `01-AUDITORIA/AUDIT-001/METRICS-DEFINITIONS.md` — potencias; steady requires gpu_busy≥95,
   SCLK≥1071 MHz, MCLK≥1500 MHz, ≥100 muestras (también aplicables a contexto térmico).
-- `experiments/FASE-R4B-GOVERNOR/EXP-F4-A-PROTOCOL.md` — §14-D (histéresis>15 % → parada D).
-- `experiments/FASE-R4B-GOVERNOR/EXP-F4-A-RESULTADOS.md` — sección 1B (SESSION 1, parada D).
-- `projects/CLOSED-LOOP-QUALITY-GOVERNOR/EXPERIMENT-DESIGN.md` §4 — «Record temp; abort/cool if
-  >90 °C (DN-07 thermal policy)».
-- `projects/CLOSED-LOOP-QUALITY-GOVERNOR/POLARIS12-FEASIBILITY.md` — temp es señal lenta de
+- `03-EXPERIMENTOS/FASE-R4B-GOVERNOR/EXP-F4-A-PROTOCOL.md` — §14-D (histéresis>15 % → parada D).
+- `03-EXPERIMENTOS/FASE-R4B-GOVERNOR/EXP-F4-A-RESULTADOS.md` — sección 1B (SESSION 1, parada D).
+- `04-IMPLEMENTACION/projects/CLOSED-LOOP-QUALITY-GOVERNOR/EXPERIMENT-DESIGN.md` §4 — «90 °C
+  es confound; 96 °C es el abort configurado (DN-07 thermal policy)».
+- `04-IMPLEMENTACION/projects/CLOSED-LOOP-QUALITY-GOVERNOR/POLARIS12-FEASIBILITY.md` — temp es señal lenta de
   seguridad; DPM es confounder conocido.
 
 ### 2.2 Hechos verificados hoy (read-only, 2026-09-22 23:47)
@@ -59,7 +59,7 @@ antes de repetir R-4B (NO relanzar S1 todavía; NO modificar el protocolo v2.1; 
 | fan | `pwm1_enable=2` (auto), `pwm1≈86–103`, `fan1_input` no disponible |
 | display | iGPU card0 (HDMI connected); card1 DVI-D/HDMI-A-2 **disconnected** |
 | GPU busy ahora | 0 % (idle; nadie más usando card1) |
-| harness | `experiments/FASE-R4B-GOVERNOR/harness/build/governor_harness` OK |
+| harness | `03-EXPERIMENTOS/FASE-R4B-GOVERNOR/harness/build/governor_harness` OK |
 
 **Dato nuevo medido en S1 (ya en `EXP-F4-A-RESULTADOS.md` §1B):** nuestro workload sintético
 recalibrado (s=1.00, ~19.4 W) alcanza 81 °C en el bloque 5 del pass p1 y 92 °C sostenido en
@@ -141,9 +141,11 @@ Definida **pre-experimentalmente** con la documentación del proyecto y verifica
 
 > **RETORNO = `temp1_input ≤ 50 °C` sostenido ≥30 s ∧ SCLK activo = nivel 0 (214 MHz) ∧
 > `power1_input < 4 W`.** Justificación: DN-07 fija cooldown a ≤50 °C para iniciar experimentos;
-> 50 °C deja margen de ~47 °C bajo el límite crítico de 97 °C y ~42 °C bajo el punto de
-> degradación sostenida observado (≥89–92 °C), garantizando que un siguiente bloque re-entra en
-> régimen pleno de SCLK 1071 MHz. La verificación post-réplica lo confirma.
+> 50 °C deja margen de ~47 °C bajo el límite de abort configurado de 96 °C y ~42 °C bajo
+> el punto de degradación observado (≥89–92 °C) en los casos ensayados. Esto **no garantiza**
+> que un siguiente bloque reentre en régimen pleno; la exclusión se decide por las gates
+> y la telemetría de cada corrida.
+> La verificación post-réplica se limita a los casos ensayados; no constituye garantía general.
 
 ## 5. Interpretación separada (paso 6)
 

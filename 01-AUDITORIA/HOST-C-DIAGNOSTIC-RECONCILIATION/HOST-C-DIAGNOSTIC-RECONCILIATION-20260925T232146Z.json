@@ -1,0 +1,170 @@
+{
+  "schema": "rx550-host-c-diagnostic-reconciliation-1",
+  "generated_at": "20260925T232146Z",
+  "mode": "READ_ONLY_EVIDENCE",
+  "writes_to_system": false,
+  "privileges_used": "none (no sudo)",
+  "package_installs": 0,
+  "service_changes": 0,
+  "sysfs_writes": 0,
+  "processes_terminated": 0,
+  "processes_suspended": 0,
+  "patches_applied": 0,
+  "c1_executed": false,
+  "benchmarks_executed": false,
+  "host": {
+    "scope": "HOST-C",
+    "scope_basis": "DECLARED",
+    "os": "Nobara Linux 44 (KDE Plasma Desktop Edition)",
+    "kernel_running": "7.1.3-200.nobara.fc44.x86_64"
+  },
+  "finding_A_radv_provenance": {
+    "question": "Which package/file provides the RADV ICD observed in HOST-C?",
+    "old_classification": "RADV_PROVENANCE=UNKNOWN ; mesa-vulkan-drivers=NOT_PRESENT",
+    "new_classification": "DRIVER_PROVENANCE=OBSERVED ; PACKAGE_PRESENT",
+    "chain": [
+      {
+        "step": 1,
+        "query": "ls /usr/share/vulkan/icd.d/",
+        "result": "24 ICD manifests incl. radeon_icd.x86_64.json (mtime 2026-09-16 21:00)"
+      },
+      {
+        "step": 2,
+        "query": "cat radeon_icd.x86_64.json",
+        "result": "library_path=/usr/lib64/libvulkan_radeon.so, api_version=1.4.354, library_arch=64"
+      },
+      {
+        "step": 3,
+        "query": "ls -l /usr/lib64/libvulkan_radeon.so",
+        "result": "EXISTS, 19378152 bytes, mtime 2026-09-16 21:00 (same install event as the manifest)"
+      },
+      {
+        "step": 4,
+        "query": "rpm -qf /usr/share/vulkan/icd.d/radeon_icd.x86_64.json",
+        "result": "mesa-vulkan-drivers-freeworld-26.2.3-1.fc44.x86_64"
+      },
+      {
+        "step": 5,
+        "query": "rpm -ql mesa-vulkan-drivers-freeworld | grep radeon",
+        "result": "ships BOTH /usr/lib64/libvulkan_radeon.so AND /usr/share/vulkan/icd.d/radeon_icd.x86_64.json"
+      },
+      {
+        "step": 6,
+        "query": "rpm -q mesa-vulkan-drivers",
+        "result": "NOT installed (confirmed)"
+      },
+      {
+        "step": 7,
+        "query": "rpm -qa | grep -iE 'vulkan|mesa'",
+        "result": "mesa-vulkan-drivers-freeworld-26.2.3-1.fc44.{x86_64,i686} present; no other vulkan driver package"
+      }
+    ],
+    "resolution": {
+      "PROVENANCE_OF_RADV": "mesa-vulkan-drivers-freeworld",
+      "RADV_PACKAGE": "mesa-vulkan-drivers-freeworld-26.2.3-1.fc44.x86_64 (+ .i686)",
+      "RADV_ICD": "/usr/share/vulkan/icd.d/radeon_icd.x86_64.json",
+      "RADV_LIBRARY": "/usr/lib64/libvulkan_radeon.so",
+      "RADV_VERSION": "Mesa 26.2.3 (icd api_version 1.4.354)",
+      "RADV_RUNTIME": "OBSERVED",
+      "PACKAGE_PRESENT": "OBSERVED",
+      "DRIVER_PRESENT": "OBSERVED",
+      "DRIVER_OPERATIONAL": "OBSERVED",
+      "DRIVER_PROVENANCE": "OBSERVED"
+    },
+    "root_cause_of_the_apparent_contradiction": "There was no contradiction. mesa-vulkan-drivers (the name queried) and mesa-vulkan-drivers-freeworld (the package that actually ships RADV) are different packages. Nobara ships the freeworld variant. The validator's package list simply did not include the freeworld name, so the field read None while the driver was installed and working.",
+    "validator_defect_A": {
+      "field": "packages['mesa-vulkan-drivers']",
+      "observed": null,
+      "reality": "mesa-vulkan-drivers-freeworld-26.2.3-1.fc44.x86_64",
+      "classification": "DOCUMENTED_TOOL_DEFECT",
+      "cause": "hardcoded package list omits mesa-vulkan-drivers-freeworld; rpm -q is unprefixed, so unknown names are never enumerated",
+      "NOT_modified": "tools/validate_rx550_final.py was NOT modified in this stage"
+    },
+    "tokens_not_derived": "DRIVER_OPERATIONAL was NOT inferred from PACKAGE_PRESENT. It is OBSERVED from BLK-02 vulkan_radv_icd device_id=0x699f, and independently corroborated here by the ICD->library->rpm chain being intact on disk."
+  },
+  "finding_B_kernel": {
+    "question": "Why does rpm -q kernel-core report a different kernel than uname -r?",
+    "old_classification": "KERNEL_CONFLICT=DOCUMENTED_TOOL_DEFECT (cause hypothesised)",
+    "new_classification": "KERNEL_QUERY_BEHAVIOUR=UNAMBIGUOUSLY_EXPLAINED",
+    "KERNEL_RUNNING": "7.1.3-200.nobara.fc44.x86_64",
+    "KERNEL_INSTALLED": [
+      "kernel-core-6.18.2-200.nobara.fc43.x86_64",
+      "kernel-core-7.1.3-200.nobara.fc44.x86_64"
+    ],
+    "KERNEL_QUERY_BEHAVIOUR": "rpm -q kernel-core returns ALL installed kernel-core packages. With two kernels installed there is no correlation between the first returned line and the running kernel. rpm returns them in its own order; the validator then keeps the first '.x86_64' match, which was the fc43 one.",
+    "evidence": [
+      {
+        "query": "uname -r",
+        "result": "7.1.3-200.nobara.fc44.x86_64"
+      },
+      {
+        "query": "cat /proc/version",
+        "result": "Linux version 7.1.3-200.nobara.fc44.x86_64 (mockbuild@559670082b9946b78305ee85a5345150)"
+      },
+      {
+        "query": "cat /proc/sys/kernel/osrelease",
+        "result": "7.1.3-200.nobara.fc44.x86_64"
+      },
+      {
+        "query": "rpm -q kernel-core",
+        "result": "TWO lines: fc43 then fc44"
+      },
+      {
+        "query": "rpm -qf /boot/vmlinuz-7.1.3-200.nobara.fc44.x86_64",
+        "result": "kernel-core-7.1.3-200.nobara.fc44.x86_64  <- unambiguous"
+      },
+      {
+        "query": "ls -l /boot/vmlinuz*",
+        "result": "3 images: 6.18.2 fc43 (dic 2025), 7.1.3 fc44 (jul 3), 0-rescue"
+      }
+    ],
+    "VALIDATOR_FIELD": "packages['kernel-core'] = 6.18.2-200.nobara.fc43.x86_64",
+    "VALIDATOR_FIELD_IS_MISLEADING": true,
+    "CLASSIFICATION": "DOCUMENTED_TOOL_DEFECT",
+    "recommended_source_for_future_fix": {
+      "primary": "uname -r  (or /proc/sys/kernel/osrelease)",
+      "why": "authoritative for the RUNNING kernel; no package query needed",
+      "corroboration": "rpm -qf /boot/vmlinuz-7.1.3-200.nobara.fc44.x86_64  -> package owning the running image",
+      "anti_pattern": "rpm -q kernel-core  -> ambiguous when >1 kernel installed; must never be presented as the running kernel"
+    }
+  },
+  "reconciliation_of_prior_evidence": [
+    {
+      "event": "RT-0016 (ROUTING-LOG.jsonl, PRESERVED)",
+      "OLD_CLASSIFICATION": "DRIVER_OPERATIONAL=NOT_AVAILABLE for RADV on HOST-C",
+      "NEW_CLASSIFICATION": "DRIVER_OPERATIONAL=OBSERVED",
+      "NEW_EVIDENCE": "BLK-02 FINAL-VALIDATION-20260925T231128Z renderers.vulkan_radv_icd device_id=0x699f; plus this stage's ICD->library->rpm chain",
+      "REASON": "RT-0016 correctly recorded that mesa-vulkan-drivers was absent and that this prevented asserting DRIVER_OPERATIONAL. The missing inference was that the RADV driver ships in mesa-vulkan-drivers-freeworld instead. Once provenance is established, PACKAGE_PRESENT and DRIVER_OPERATIONAL are both OBSERVED. RT-0016 is NOT deleted or rewritten."
+    },
+    {
+      "event": "OWNERSHIP-AUDIT-HOST-C-20260925T231635Z (PRESERVED)",
+      "OLD_CLASSIFICATION": "OWNERSHIP=PARTIAL ; OWNERSHIP_CARD1=NOT_AVAILABLE ; OWNERSHIP_RENDERD129=NOT_AVAILABLE",
+      "NEW_CLASSIFICATION": "UNCHANGED",
+      "NEW_EVIDENCE": "none in this stage",
+      "REASON": "This stage did not re-run ownership and gathered no new FD evidence. PARTIAL is preserved. Absence of Kalm/autopilot is not ownership FULL."
+    },
+    {
+      "event": "PATCH-SOURCES.md section 3 (PRESERVED, HISTORICAL note retained)",
+      "OLD_CLASSIFICATION": "mesa-vulkan-drivers: no instalado",
+      "NEW_CLASSIFICATION": "PARTIALLY SUPERSEDED: the fact stays true, its implication was wrong",
+      "NEW_EVIDENCE": "rpm -qf radeon_icd.x86_64.json -> mesa-vulkan-drivers-freeworld",
+      "REASON": "The literal statement 'mesa-vulkan-drivers is not installed' remains OBSERVED and correct. What changes is that it was read as 'Vulkan drivers absent'. They are present under a different package name. The historical text is not edited; this reconciliation supersedes its interpretation only."
+    }
+  ],
+  "carried_forward_unchanged": {
+    "OWNERSHIP": "PARTIAL",
+    "OWNERSHIP_CARD1": "NOT_AVAILABLE",
+    "OWNERSHIP_RENDERD129": "NOT_AVAILABLE",
+    "BLK_01": "NOT_CLOSED",
+    "G1": "OPEN",
+    "criterion_evaluation_root_namespaces": "FAIL (199 root-owned PIDs with unreadable /proc/PID/fd)"
+  },
+  "explicitly_not_done": [
+    "No package installed, removed or updated",
+    "tools/validate_rx550_final.py NOT modified",
+    "ROUTING-LOG.jsonl NOT modified (no new query required documentation lookups)",
+    "No prior capture, audit or historical document edited or deleted",
+    "No sudo, no service change, no sysfs write, no process touched",
+    "No C1, no benchmark, no patch applied"
+  ]
+}

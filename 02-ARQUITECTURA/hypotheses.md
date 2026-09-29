@@ -1,11 +1,14 @@
 # Hypotheses — CIERRE 2026-09-19
 
+> **Reconciliación terminológica 2026-09-24:** `W_SMU` histórico se lee como
+> `W_SMU`/potencia estimada SMU; no hay vatímetro independiente.
+
 ## Confirmadas / Soportadas (evidencia actual)
 - H3 — `power1_input` = estimador SMU: [SOPORTADA]. Hoy reporta valores reales < cap; el "clavado==cap"
   solo apareció en el régimen histórico (descartado como hecho operacional).
 - H6 — GL jellyfish 640p NO es SCLK-bound: [VERIFICADO] (FPS ~1035-1250 en SCLK 340-1071); causa exacta
   es HIPÓTESIS (CPU/submissions/present/VRAM-GTT).
-- En las escenas actuales el cap (25-35 W) no liga y el draw real es 9.4-13.6 W: [REPRODUCIBLE].
+- En las escenas actuales el cap (25-35 W) no liga y el W_SMU es 9.4-13.6 W: [REPRODUCIBLE].
 
 ## Descartadas (refutadas)
 - H1 — "el cap 25 W liga el SCLK en cargas ligeras (640p)" → REFUTADA (Fase A/B: curva plana, 1071 siempre).

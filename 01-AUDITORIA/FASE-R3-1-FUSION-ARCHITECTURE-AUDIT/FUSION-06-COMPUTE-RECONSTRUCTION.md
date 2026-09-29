@@ -24,22 +24,23 @@ image quality — separadas siempre (Lab K).
 
 ## 2. Auditado: concurrencia async en GCN4
 
-- **ACE + HWS multi-cola en GCN4 = VERIFIED** (Polaris whitepaper: "ACE ACE / HWS / GRAPHICS CP / HWS / ACE
-  ACE"; scheduling << Otterness & Anderson RTSS'21).
-- **Número de ACE habilitados en Polaris12 (Lexa): UNKNOWN** (sin hoja pública Lexa; asumidas 2 en R-2 como
-  low-end GCN4, but flagged).
-- **Concurrencia sin degradación: PLAUSIBLE pero NO medido.** Mismos 8 CUs comparten wavefront slots; L2
-  512 KB y path de 112 GB/s son compartidos. En workload fetch-bound con colgados de CUs/bandwidth, el
-  overlap puede ocultar el coste; en workload que satura, degrada. cuantía = pregunta experimental (EXP-F6-A).
+- **ACE + HWS multi-cola en GCN4 = DOCUMENTADO A NIVEL FAMILIA/source-level** (Polaris
+  whitepaper y fuentes de scheduling); no confirma la configuración runtime de Lexa.
+- **Número de ACE habilitados en Polaris12 (Lexa): `UNKNOWN`** (sin hoja pública/local;
+  no se asumen 2).
+- **Concurrencia sin degradación: `UNKNOWN` / no medido.** Las mismas 8 CUs comparten
+  wavefront slots; L2 512 KB y bandwidth VRAM nominal/estimado 96–112 GB/s (real
+  `UNKNOWN`) son compartidos. La cantidad de overlap es una pregunta experimental
+  (`EXP-F6-A`), no una capacidad presupuesta.
 
 ## 3. Auditado: presupuesto de tiempo en Polaris12
 
 - No hay soporte FSR3/AFMF oficial para GCN (AFMF 2.x: RX 7000/6000, Ryzen 700M; FSR3: RX 5700+, RDNA1+).
   **AFMF/FSR3 en Polaris: CONTRADICTED por API** (las ideas corren igual — lsfg-vk — pero fuera de soporte).
 - Coste estimado (aritmética, no medición): ~9–11 ms/frame@1080p (5700XT ≈ 40 CU/9.75 TFLOPS/448 GB/s vs
-  nuestros 8 CU/1.2 TFLOPS/112 GB/s ≈ ×5 compute, ×4 BW). Frente a presupuesto de ~16.7 ms (60 fps), el
-  OF+FI **consume el presupuesto completo** → solo viable a resoluciones reducidas (540p/720p) o con
-  concurrency real descontada.
+  nuestros 8 CU/1.2 TFLOPS/96–112 GB/s nominal/estimado; bandwidth real `UNKNOWN`). Frente a
+  ~16.7 ms (60 fps), el OF+FI **podría consumir el presupuesto completo**; la viabilidad y
+  el overlap real quedan `UNKNOWN`.
 - Latencia: +1 frame real + tiempo de flujo ≈ +20–30 ms (pésimo para input, aceptable solo para video).
 
 ## 4. Falsabilidad (como sistema)
@@ -52,7 +53,7 @@ latencia, power y calidad en harness con kernels FFX-style a 540/720p, con y sin
 
 - **RECONSTRUCCIÓN completa en compute** en Polaris12: **REJECTED/FALSIFIED** como feature de rendimiento en
   1080p (presupuesto y bandwidth), consentida solo como calibración educativa/documental (540p/720p) en la
-  órbita de FASE P. 
+  órbita de FASE P.
 - La **única parte plaus-blessed** es la concurrencia async medida (BERRETA/ASY-01) y el "reconstruction is
   perceptual, never throughput".
 - **Novedad:** KNOWN VARIANT (= AFMF/FSR3/lsfg stack); concurrencia en low-end GCN4 sin medición =

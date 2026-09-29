@@ -12,7 +12,9 @@ Run the FidelityFX Optical Flow + Frame Interpolation SDK on the RX550 (Linux RA
 
 ## 2. STAGE B — ISOLATE THE "FREE CU" PREMISE
 - Occupancy sweep: capture RViz/RADV counters (or `amdgpu` perf) during a GPU-bound game-like workload (e.g., DXVK/Vulkan game or a deterministic synthetic scene) and during OF. Determine whether game CUs are truly idle while (a) ROP/geometry-bound shadow/depth passes run and (b) during shading-bound phases.
-- Test with CU reservation (`VkPhysicalDeviceProperties` limits check on Polaris12 for reservation; on 8 CUs reserving any CU is brutal) and with wave-limiting (`VK_AMD_shader_core_properties`-adjacent, per GDC17).
+- Test with CU reservation only if a capability audit finds a real API/control surface; no
+  se asume que `VkPhysicalDeviceProperties` sea un mecanismo de reserva. Wave limiting y
+  número de ACEs quedan `UNKNOWN`.
 - Expected: the "holes" are narrow shadow/prepass windows; measure and timestamp them.
 
 ## 3. STAGE C — LATENCY BUDGET TEST

@@ -6,6 +6,11 @@
 > **Clasificación:** [DISEÑADO]. Documentado/reconciliado en R-0/R-1; **programación de contadores sigue
 > NO AUTORIZADA.**
 > **Estado global:** **PLANIFICADA** / parcialmente avanzada por R-0.1 y R1-1 (documental).
+>
+> **RECONCILIACIÓN 2026-09-24:** el catálogo GFX8 documenta filas y nombres, pero no
+> valida eventos para `1002:699f`. `v3.11.1` es extracción histórica; `v3.17` es la
+> referencia operativa de tablas. Los rangos `0..N-1` no son rangos semánticamente
+> seguros. La programación de counters permanece NO AUTORIZADA.
 
 ---
 
@@ -19,8 +24,8 @@ FASE D etapa 3 (que instrumenta en vivo), FASE M es la **capa de conocimiento** 
 
 | Fuente | Qué aporta | Estado |
 |---|---|---|
-| **GPUPerfAPI v3.11.1** (AMD GPUOpen, tag) | Catálogo GFX8 completo (2304 eventos extraídos): GRBM GUI_ACTIVE=2, SQ WAVES=4 y demás por bloque (CB/SQ/PA/SPI/TA/TCP/TCC/VGT/SX/MC…) | **[VERIFICADO]** R0-1 |
-| **Mesa `groups_VI` / `ac_perfcounter`** | Tablas por clase VI (selectors); máxima sobre clase (limit); rangos seguros CB 0..395, SQ 0..272, MC 0..21 | **[VERIFICADO]** / R1-1 (reconciliación) |
+| **GPUPerfAPI v3.17** (referencia actual; `v3.11.1` histórico) | Filas y nombres genéricos GFX8; 2304 filas expuestas, no eventos únicos/validados para Polaris12 | **PARTIALLY RECONCILED / CATALOG ONLY** |
+| **Mesa `groups_VI` / `ac_perfcounter`** | Tablas por clase VI; el máximo de clase no es el ASIC concreto ni una garantía semántica | **PARTIALLY RECONCILED** |
 | **`gfx_8_0_enum.h`** (amdgfxregs) | Constantes de registros; sin enums PERF_SEL completos | NO contiene enums de evento |
 | **UMR** | 2633 registros, ZERO enums de evento GFX8 | Sin eventos |
 | **radeontop** | Solo mediciones por heurística (busy%, mem_busy) | NO contadores |
@@ -31,10 +36,10 @@ FASE D etapa 3 (que instrumenta en vivo), FASE M es la **capa de conocimiento** 
 ## 3. Qué sabemos / qué NO sabemos
 
 **Sabemos (documental, verificado):**
-- El índice de evento CONCIDECE con el PERF_SEL escribido en `*_PERFCOUNTERn_SELECT` (p.ej. GRBM=2,
-  SQ=4) — convalidado por R-0.1 (estructura del catálogo) y R1-1 (reconciliación con Mesa).
-- Rangos seguros y discrepancy 396 vs 405 (CB), 299 vs 273 (SQ), 33 vs 22 (MC) → PARTIALLY_RECONCILED;
-  semántica de MC **UNRESOLVED** → **no diseñar normalización de MC**.
+- El catálogo contiene una asociación source-level índice↔PERF_SEL; no prueba que cada
+  entrada exista en el ASIC, tenga semántica conocida o sea programable.
+- La comparación de conteos es `PARTIALLY_RECONCILED` (19/23); la semántica de MC es
+  `UNRESOLVED` y no se diseña normalización de bandwidth.
 - Qué se puede medir read-only hoy (metadatos) está en K9 (Capability Matrix) y METRICS-DEFINITIONS.
 
 **No sabemos (gaps):**
@@ -54,10 +59,9 @@ FASE D etapa 3 (que instrumenta en vivo), FASE M es la **capa de conocimiento** 
 
 ## 5. Event IDs documentados ≠ autorización
 
-- El catálogo (R-0.1) prueba que **existen** los IDs y su semántica de PERF_SEL. NO prueba que
-  programarlos esté permitido ni que la herramienta esté presente. La **DE MANDATO** de
-  `GRBM_PERFCOUNTER0_SELECT=0x2` pasa de "no válido científicamente" a "valido documentalmente, pero
-  **ejecución sigue NO AUTORIZADA**" (adenda R-1 en MASTER-RESEARCH-STATUS §R-0).
+- El catálogo (R-0/R-1) permite documentar nombres y valores como **entradas de catálogo**.
+  NO prueba que el evento exista en el ASIC concreto, que su semántica sea conocida ni que
+  programarlo esté permitido. La autorización de ejecución es una condición separada.
 - La **FASE D etapa 3** (instrumentación en vivo, SPM) es una vía de EJECUCIÓN separada de la que FASE M
   solo provee el conocimiento; ambas se activan solo con autorización explícita.
 
@@ -67,7 +71,6 @@ FASE D etapa 3 (que instrumenta en vivo), FASE M es la **capa de conocimiento** 
   la herramienta de cnt++ (M-E) depende de la arquitectura del proyecto.
 
 ## 7. Conclusión del diseño
-FASE M queda **DISEÑADA** (estado, rutas M-A..M-E, límites, autorización). El conocimiento documental ya
-está resuelto (R-0.1, R1-1). Lo ejecutable (M-C/M-D/M-E) requiere autorización o instalación — **nada se
+FASE M queda **DISEÑADA** (estado, rutas M-A..M-E, límites, autorización). El conocimiento documental está **parcialmente reconciliado** (R-0/R-1); la aplicabilidad al ASIC y la semántica de eventos individualmente siguen `UNKNOWN`. Lo ejecutable (M-C/M-D/M-E) requiere autorización o instalación — **nada se
 ejecutó**. La **programación de contadores permanece NO autorizada** y cualquier evento del catálogo
 sigue siendo un selector documentado, no un hecho ejecutado.

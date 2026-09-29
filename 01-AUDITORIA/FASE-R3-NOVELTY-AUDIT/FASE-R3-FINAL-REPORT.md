@@ -4,7 +4,11 @@
 > **Fase:** FASE R-3 — ORIGINAL IDEAS, NOVELTY AUDIT & RESEARCH CANDIDATES
 > **Fecha:** 2026-09-22 — Modo SOLO DOCUMENTAL
 > **Clasificación:** [COMPLETADA]. Investigación documental y web; **nada se implementó, ejecutó ni instaló**.
-> **Ubicación:** `experiments/FASE-R3-NOVELTY-AUDIT/` (matrices) + `projects/` (10 directorios de ideas).
+>
+> **Reconciliación 2026-09-24:** las afirmaciones de ACE/CU-reservation, SQTT/RGP,
+> GPUPerfAPI y cualquier cifra de ACE que aparecen en este informe son source-level o hipótesis. No
+> describen capacidad runtime de `1002:699f`; H12 y toda capability audit siguen abiertas.
+> **Ubicación:** `01-AUDITORIA/FASE-R3-NOVELTY-AUDIT/` (matrices) + `04-IMPLEMENTACION/projects/` (10 directorios de ideas).
 
 ---
 
@@ -15,11 +19,13 @@ búsqueda web en múltiples fuentes (AMD GPUOpen, Khronos, Mesa, NVIDIA, academi
 comunidad técnica y consolas). Cada idea tiene su directorio con prior art, factibilidad Polaris12,
 diseño de experimento (no ejecutado) y riesgos. La regla de novedad se aplicó severamente: **ninguna
 afirmación de originalidad se verificó positiva**; las ausencias se registran como NOVELTY UNKNOWN y los
-reclamos base refutados se marcan CONTRADICTED BY PRIOR ART.
+reclamos base refutados se marcan CONTRADICTED/REJECTED por prior art o topología, según
+corresponda; la evidencia local que no se midió permanece `UNKNOWN`.
 
 Resultado global: **0 ideas "PROVEN NOVEL"**; **1 POTENTIALLY NOVEL en determinadas condiciones**
 (sub-variante compute de I-09, condicionada); varias PARTIALLY NOVEL; varias KNOWN VARIANT. Ninguna idea de
-rendimiento sobrevive sin matices a la topología real de Polaris12 (CB/DB bypass L2, 8 CUs/16 ROPs,
+rendimiento sobrevive sin matices a la topología real de Polaris12; el bypass CB/DB es
+source-level de familia y la confirmación local permanece `UNKNOWN` (8 CUs/16 ROPs,
 fetch-bound ES-01).
 
 ## B. RESPUESTA A LAS 10 PREGUNTAS DEL INFORME
@@ -56,16 +62,16 @@ Dumont 2003, NeuralPVS 2025), I-09 (GSPC ICCAD 2013, AutoScratch), I-08 (MobiCom
 - **I-05** (viewer SQTT v2.2 para GFX8): PARTIALLY NOVEL / NOVELTY UNKNOWN — condicionado a que RGP ≤1.16
   o rgp-inspect no lo cubran (verificar).
 - **I-02+I-03 como par** (temporal tile-skip en IMR + reproyección solo-cámara como tile-lock): la
-  combinación en IMR-desktop con HTILE/DCC+L2-bypass es el único slice sin prior art directo — PARTIALLY
-  NOVEL dentro de un método conocido.
+  combinación es un slice candidato; el bypass CB/DB es source-level y la confirmación local
+  `UNKNOWN`; por ello la novelty queda condicionada.
 - **I-09 sub-variante compute** (target compute-UV ≤230 KB releyendo): PARTIALLY NOVEL en GCN4, condicionado
   y marginal.
 
 ### 6. ¿Cuáles son técnicamente plausibles en Polaris12?
 - **Plausibles (según evidencia): I-08** (governor read-only), **I-02/I-03** (escena estática, fill-limited
   512 sh), **I-10** (como variante de medición), **I-05** (herramienta, verify-first).
-- **Implausibles por topología: I-01, I-09 (headline)** (CB/DB bypass L2), **I-04 (full)** (32 SP/ROP; CUs
-  no libres), **I-07** (bandwidth/power; 8–20 ms por frame generado).
+- **Headlines que no deben promoverse:** I-01/I-09 (CB/DB bypass documentado a nivel familia,
+  local `UNKNOWN`), I-04 (full; CUs compartidas) e I-07 (estimación de coste; no causalidad).
 
 ### 7. ¿Cuáles requieren demasiado trabajo?
 - I-01, I-09, I-04 (full): re-implementación de pipeline de visibilidad + residencia sin API → HIGH.
@@ -89,14 +95,15 @@ Dumont 2003, NeuralPVS 2025), I-09 (GSPC ICCAD 2013, AutoScratch), I-08 (MobiCom
 
 ### 10. ¿Qué nuevas líneas de investigación aparecen?
 1. **Verificación de cobertura SQTT de RGP 1.x** para I-05 (cerraría/abriría el gap de viewer).
-2. **Cuantificación del overlap real de 2 ACE en 8 CU fetch-bound** (I-10/I-04async + BERRETA): pregunta de
+2. **Cuantificación del overlap real de queues/ACEs en 8 CU fetch-bound** (I-10/I-04async
+   + BERRETA): pregunta de
    medición, no de novedad.
 3. **Acople DPM-calidad (H2 de I-08)**: ¿el frametime bajo DPM es no-monotónico? → determina si el governor
    read-only aporta algo reutilizable.
 4. **Alcance real de EGL_KHR_partial_update / VK_KHR_incremental_present bajo X11/Wayland + DCC** como
    superficie para I-02 (align de tiles vs DCC).
-5. **Corrección local de la FASE R-3: confirmar en hojas oficiales el número de ACE de Lexa** (sin hoja
-   pública, asumidas 2).
+5. **Corrección local de la FASE R-3: confirmar el número de ACEs de Lexa**; la cifra 2
+   queda `UNKNOWN`, sin hoja oficial local.
 6. **Nivel de tráfico delta real** en escenas estáticas con post-vs-sin-post (para dimensionar I-02).
 
 ## C. STATE OF NOVELTY FINAL POR IDEA (tabla corta)
@@ -116,12 +123,13 @@ Dumont 2003, NeuralPVS 2025), I-09 (GSPC ICCAD 2013, AutoScratch), I-08 (MobiCom
 
 ## D. CHECKLIST DE FINALIZACIÓN DE FASE R-3
 
-- [x] Las 10 ideas fueron investigadas (dirs `projects/I-*`).
+- [x] Las 10 ideas fueron investigadas (dirs `04-IMPLEMENTACION/projects/`).
 - [x] Se buscó prior art (múltiples fuentes; inglés primario, cuando aplica otros idiomas).
 - [x] Se revisaron papers (HPGA/MICRO/SIGGRAPH/JCGT/ICCAD/MLSys/MobiCom…).
 - [x] Se revisaron proyectos open source (FidelityFX, Vulkan-Samples, Mesa, RenderDoc, gfxreconstruct…).
 - [x] Se revisaron fuentes AMD/Vulkan/Mesa (GPUOpen, Khronos, docs.mesa3d, NVIDIA CUDA L2).
-- [x] Se revisó relevancia específica Polaris12 (L2 512 KB, CB/DB bypass L2, 8 CU/16 ROP, ES-01 fetch-bound).
+- [x] Se revisó relevancia específica Polaris12 (L2 512 KB; bypass CB/DB source-level con
+  confirmación local `UNKNOWN`; 8 CU/16 ROP; ES-01 fetch-bound).
 - [x] Las afirmaciones de originalidad fueron verificadas o rebajadas (se usó NOVELTY STATUS; ninguna
   "proven novel").
 - [x] Existe matriz de novedad (`R3-NOVELTY-MATRIX.md`).
@@ -138,5 +146,6 @@ Dumont 2003, NeuralPVS 2025), I-09 (GSPC ICCAD 2013, AutoScratch), I-08 (MobiCom
 La finalidad era intentar **refutar** las ideas, no demostrar que son nuevas. Las tesis base de I-01, I-04,
 I-07 e I-09 fueron refutadas por prior art/topología; los residuos potencialmente novedosos quedaron
 clasificados como PARTIALLY/POTENTIALLY NOVEL con el gate de evidencia correspondiente. **Ninguna idea se
-declaró "PROVEN NOVEL".** Lo que sí queda, y es real, es un **gap de herramienta** (I-05) y combinaciones
-de conocimiento previo (I-02+I-03) valiosas para el laboratorio local — no para el mundo.
+declaró "PROVEN NOVEL".** I-05 queda como **gap de herramienta candidato/no demostrado** y
+combinaciones de conocimiento previo (I-02+I-03) como candidatas para el laboratorio local;
+la novelty y el runtime siguen `UNKNOWN`.

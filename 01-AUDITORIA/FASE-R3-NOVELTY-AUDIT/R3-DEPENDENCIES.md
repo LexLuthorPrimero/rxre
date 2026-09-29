@@ -111,11 +111,11 @@ L2-Resident
 ### I-10 — Async Auxiliary Renderer
 ```
 Async Auxiliary Renderer
-├─► Vulkan async queues (compute/ACE)                   [CONFIRMED]
+├─► Vulkan async queues (compute/ACE)                   [REQUIRES CAPABILITY AUDIT]
 ├─► aux renderer (AO/SSR/Hi-Z/sombras)                  [LIKELY]
 ├─► synchronización con GFX queue (DAG de dependencias) [LIKELY]
-├─► BERRETA/ASY-01 (misma pregunta: overlap 2 ACE/8 CU) [POTENTIAL DEPENDENCY → coordinar]
-├─► power cap 35 W (enmascara overlap)                  [CONFIRMED confounder]
+├─► BERRETA/ASY-01 (misma pregunta: overlap ACEs/8 CU; count UNKNOWN) [POTENTIAL DEPENDENCY]
+├─► power cap 35 W (enmascara overlap)                  [OBSERVED confounder]
 └─► FASE K (runner timeline)                            [LIKELY]
 ```
 
@@ -144,4 +144,4 @@ Async Auxiliary Renderer
    bandwidth/power): sus dependencias de *ejecución* son las que menos importan; sus dependencias de
    *evidencia negativa* son lectura de código + medición documental.
 4. **UNKNOWN se reserva** para: PFOB/GO/PLL suport Vulkan (I-01), detección de TAA y presencia física
-   de los 2 ACE de Lexa sin hoja oficial (I-10), y estado de SQTT/RGP 1.x (I-05, a verificar).
+   de la capacidad ACE/queue (I-10), y estado de SQTT/RGP (I-05, `UNKNOWN`).

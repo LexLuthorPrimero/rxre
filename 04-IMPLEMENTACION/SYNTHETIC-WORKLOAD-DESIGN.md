@@ -3,7 +3,7 @@
 > **Archivo:** `SYNTHETIC-WORKLOAD-DESIGN.md`
 > **Fase:** FASE R-2 — COMPLETE PROJECT DOCUMENTATION & ECOSYSTEM ARCHITECTURE (R-2.9)
 > **Fecha:** 2026-09-22 — Modo SOLO DOCUMENTAL (DISEÑO; NO implementado)
-> **Clasificación:** [DISEÑADO]. Extiende el prototipo existente `experiments/WORKLOAD-SINTETICO/`
+> **Clasificación:** [DISEÑADO]. Extiende el prototipo existente `03-EXPERIMENTOS/WORKLOAD-SINTETICO/`
 > (Vulkan COMPUTE `main` + diseño gráfico `DESIGN-GRAPHICS.md`). **Ningún código se escribió ni se
 > ejecutó en esta fase.**
 > **Estado:** work-in-progress de diseño; el prototipo actual permanece CONGELADO (sin cambios).
@@ -18,8 +18,9 @@ y a la comparación con Superposition (OpenGL) y un futuro juego real (FASE E).
 
 ## 2. ARQUITECTURA
 - **Base existente (reusada, NO modificada hoy):** `WORKLOAD-SINTETICO/main` (Vulkan COMPUTE + SSBO),
-  `main-graphics` (workload gráfico) y la selección estricta de GPU
-  (`vendor=0x1002 device=0x699F`, `MESA_VK_DEVICE_SELECT=1002:699f`).
+  `main-graphics` (workload gráfico) y la selección estricta de GPU por
+  `vendor=0x1002 device=0x699F`, con ICD y verificación del device en cada corrida.
+  `MESA_VK_DEVICE_SELECT=1002:699f` es opcional y no sustituye esa verificación.
 - **Diseño objetivo:** un **launcher Orquestador-Ligero** (`workload_launcher`) que reciba modo +
   parámetros y arme el shader/pipeline correspondiente; cada modo = programa/shader independiente,
   sin acoplar entre sí. Los modos se declaran como **modos de experimento**, no como productos.

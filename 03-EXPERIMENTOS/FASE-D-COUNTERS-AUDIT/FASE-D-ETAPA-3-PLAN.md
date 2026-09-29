@@ -12,12 +12,14 @@
 
 ### 0.1 Por qué existe Etapa 3
 
-Etapa 2 (auditada) demostró, con 6 corridas intercaladas A B A B A B:
+Etapa 2 (auditada) demostró, con 6 corridas intercaladas A B A B A B. La configuración
+efectiva de Superposition A fue `1600×900/Medium`; High/1920 fue una petición/args no
+coincidente. La tabla es snapshot histórico y no autoriza repetir la corrida.
 
-| Métrica (ventana steady) | A (Superposition High, OpenGL) | B (E-03, Vulkan) |
+| Métrica (ventana steady) | A (Superposition `1600×900/Medium`, OpenGL) | B (E-03, Vulkan) |
 |---|---|---|
-| `power_avg_steady` [W] | **22.256** (22.123/22.301/22.344) | **15.778** (15.822/15.793/15.720) |
-| `power_max_steady` [W] | 23.62 (23.46/23.68/23.73) | 15.84 (15.91/15.80/15.80) |
+| `W_SMU` steady [W] | **22.256** (22.123/22.301/22.344) | **15.778** (15.822/15.793/15.720) |
+| `W_SMU` máximo [W] | 23.62 (23.46/23.68/23.73) | 15.84 (15.91/15.80/15.80) |
 | Ratio A/B (por par) | — | **1.398 / 1.412 / 1.421** |
 | gpu_busy / mem_busy | ≈100 / ≈25 | ≈100 / ≈36 |
 | sclk / mclk (nivel) | 7 (1071) / 2 (1500) en 100 % | 7 / 2 en 100 % |
@@ -71,7 +73,7 @@ Vía de acceso (en GFX8): **dir** = directa (sin ventana de shader) · **win** =
 | Contador (bloque) | Vía | Cubre | Prioridad | Justificación |
 |---|---|---|---|---|
 | `GRBM_PERFCOUNTER0/1` (gfx800) | dir | Q1/Q6 global | **A** | 2 slots globales (eventos de pipeline frontend/back-end); bajo riesgo; ancla de normalización por ciclo |
-| `GRBM_SE*_PERFCOUNTER0/1` (GRBMSE, per SE) | dir | Q1 (segmenta geometría vs shader por SE) | **A** | 4 slots/SE; discrimina prím (VGT) vs ciclos de shader (SPI/SQ por SE) **sin** ventana — [VERIFICAR]  
+| `GRBM_SE*_PERFCOUNTER0/1` (GRBMSE, per SE) | dir | Q1 (segmenta geometría vs shader por SE) | **A** | 4 slots/SE; discrimina prím (VGT) vs ciclos de shader (SPI/SQ por SE) **sin** ventana — [VERIFICAR]
 | `SX_PERFCOUNTER0/1` (gfx800) | dir | Q1/Q3 (export de shader) | **A** | SX 4 slots; export es la señal direccional más fuerte (1.51–1.60) |
 | `TCC_PERFCOUNTER0..N` (gfx800, por slice) | dir | Q4 (transacciones L2, hit/miss) | **A** | **No shader-windowed** → cierra H5 sin SPM; verificar nº de slices (PD12: 4) |
 | `TCA_PERFCOUNTER0..N` (gfx800) | dir | Q4 (arbitraje L2) | **B** | Refinamiento de H5; solo si sobran slots/riesgo |

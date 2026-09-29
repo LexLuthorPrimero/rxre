@@ -3,7 +3,12 @@
 > **Archivo:** `R0-2-POWERPLAY-MCLK-SMU7.md`
 > **Fase:** FASE R-0 — EXTERNAL KNOWLEDGE RECOVERY / POLARIS12 KNOWLEDGE GAP AUDIT
 > **Fecha:** 2026-09-22 — Modo SOLO DOCUMENTAL (read-only, validación cruzada de fuentes externas)
-> **Clasificación:** [VERIFICADO] (código fuente kernel Linux, postas confirmadas; coincide con investigación local R-07)
+> **Clasificación:** [VERIFICADO source-level] (código fuente kernel Linux; no demuestra
+> el trigger effective de esta unidad ni equivalencia con `mem_busy_percent`).
+>
+> **RECONCILIACIÓN 2026-09-24:** 5/16/20 se conserva como parámetro upstream para el
+> caso de bus 128-bit. La activación local, el firmware/BIOS y la relación con MCLK
+> reportada o `mem_busy_percent` siguen `UNKNOWN`; no es un gate operativo.
 
 ---
 
@@ -21,9 +26,9 @@ Para **Polaris12 / RX 550 (bus 128-bit)**, los valores son:
 | `mclk_down_hyst` | Histeresis de bajada de MCLK | **16** |
 | `mclk_activity` | Actividad objetivo (%) para transición | **20** |
 
-Este resultado **coincide exactamente** con el registro local `R-07` de
-`experiments/WORKLOAD-SINTETICO/` (que ya documentaba `mclk_activity=20, up_hyst=5, down_hyst=16`
-para bus 128-bit) → validación cruzada fuente externa ↔ investigación local.
+El parámetro upstream coincide con la investigación local `R-07` como **referencia
+source-level**; no valida el comportamiento efectivo de la unidad ni la equivalencia
+con `mem_busy_percent`.
 
 ---
 
@@ -90,13 +95,13 @@ También existe `apply_optimized_settings` y `update_up_hyst`/`update_down_hyst`
 
 ## 3. Implicación para Polaris12 / RX 550
 
-- **MCLK 1500 MHz (nivel 2 de 3 medido: 300/625/1500)** solo se alcanza si la actividad de MCLK
-  supera ~20 % de forma sostenida (up_hyst 5) y se mantiene por encima durante la ventana.
-- `mem_busy ~36 %` (sintéticos) vs `~25 %` (Superposition) medidos vía amdgpu; el umbral de
-  conmutación está en el dominio del controlador de MCLK del SMU, no directamente en el
-  registro leído por el driver.
-- Coherente con el comportamiento observado (MCLK 300-625 en reposo/sintético; 1500 solo bajo
-  presión de memoria real → Superposition/4×tex).
+- El código upstream documenta `mclk_activity=20`, `up_hyst=5` y `down_hyst=16` para
+  el bus de 128 bits. **No demuestra** que MCLK 1500 en esta unidad requiera
+  `mem_busy_percent >20`; el trigger local, firmware/BIOS y perfil efectivo son `UNKNOWN`.
+- `mem_busy ~36 %` (sintéticos) vs `~25 %` (Superposition) son observaciones de proxy;
+  no se convierten en un umbral causal del SMU.
+- La correlación observada MCLK 300–625/1500 con presión de memoria es **direccional**,
+  no una demostración del mecanismo local.
 
 ---
 
@@ -111,15 +116,17 @@ También existe `apply_optimized_settings` y `update_up_hyst`/`update_down_hyst`
      FreeBSD drm-kmod mirror: `git.etawen.dev`)
 3. `polaris10_smumgr.c` — niveles MCLK, `MemoryDpmLevelCount`, stutter, watermark (Cregit Linux 5.4:
    https://cregit.linuxsources.org/code/5.4/drivers/gpu/drm/amd/powerplay/smumgr/polaris10_smumgr.c.html).
-4. Cross-reference local: `experiments/WORKLOAD-SINTETICO/RESEARCH.md` → **R-07** (registraba
-   5/16/20; ahora confirmado por fuente externa).
+4. Cross-reference local: `03-EXPERIMENTOS/WORKLOAD-SINTETICO/RESEARCH.md` → **R-07** (registraba
+   5/16/20 como policy source-level). R-4A además observó un readout local `3/16/20`;
+   la equivalencia de campos/perfil no está reconciliada y no se usa como gate local.
 
 ---
 
 ## 5. Confianza y límites
 
-- [VERIFICADO] para la existencia e interpretación de la política (código kernel).
-- Nota de cuidado: la medición real del comportamiento de transición de MCLK en la unidad concreta
-  depende de VBIOS/pptable y del estado térmico; el código confirma la lógica *del driver*, no el
-  comportamiento SMU completo. Sin experimentos (no autorizados) no se puede afirmar más.
-- RX 550 (1002:699f, Polaris12) → bus 128-bit → **5/16/20** por código, coincidiendo con R-07.
+- [VERIFICADO source-level] para la existencia de la política upstream.
+- La medición real del comportamiento de transición en la unidad concreta depende de
+  VBIOS/pptable, firmware y estado térmico; el código no demuestra el trigger local.
+- RX 550 (1002:699f, Polaris12) → bus 128-bit → **5/16/20 upstream**; el readout local
+  `3/16/20` de R-4A queda **UNRESOLVED** hasta reconciliar campo/perfil. No se usa como
+  gate local.

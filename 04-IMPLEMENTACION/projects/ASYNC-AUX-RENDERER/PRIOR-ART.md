@@ -22,7 +22,7 @@ ROP-COMPUTE-OFFLOAD, ya CONTRADICTED). Es **co-programar** un auxiliar en la(s) 
 
 2. **AMD GDC17 "Advanced Shader Programming on GCN" / "Async Compute"** — presentación del modo
    recomendado: dispatch a cola compute mientras la GFX está ocupada; wave limiting, cache effects,
-   cómo medir. 
+   cómo medir.
    - https://gpuopen.com/download/GDC2017-Advanced-Shader-Programming-On-GCN.pdf
    - Status: KNOWN (primario vendor).
 
@@ -42,14 +42,14 @@ ROP-COMPUTE-OFFLOAD, ya CONTRADICTED). Es **co-programar** un auxiliar en la(s) 
 
 5. **DOOM (idTech6, Vulkan) — GDC 2016 / GPUOpen** — async compute para sombras+post mientras la
    GFX está en raster; ~7% ganancia de frame total (DF); "todos los pasos que no usan los CUs...
-   computarlos en colas async". 
+   computarlos en colas async".
    - https://gpuopen.com/learn/vulkan-and-modern-graphics-technology-doom/ (GPUOpen)
    - https://www.digitalfoundry.net/.../doom-vulkan (análisis comunitario)
    - Status: KNOWN (primario vendor+ingeniería).
 
 6. **Cyberpunk 2077 — GDC 2023, "Building Night City" (CDPR)** — async-compute: **Hi-Z + SSAO
    durante los shadowmaps** en cola async, sync en fork-join; muestra *qué* es "auxiliar": pasos
-   que pueden preceder al frame principal (SSR fuera de cola GFX). 
+   que pueden preceder al frame principal (SSR fuera de cola GFX).
    - https://media.gdcvault.com/gdc2023/Slides/Buildingnightcity_Tremblay_Charles.pdf
    - Status: KNOWN (primario).
 
@@ -82,10 +82,10 @@ ROP-COMPUTE-OFFLOAD, ya CONTRADICTED). Es **co-programar** un auxiliar en la(s) 
 ## 3. SUB-CLAIM "AUXILIARY RENDERER" AÚN MÁS ESPECÍFICO (segunda apertura/segundo render del mundo en async)
 
 - **R* async SSR** (§9) es el ejemplo más cercano de "un renderer de *reflexión* (segunda imagen del
-  mundo desde la cámara, en buffers propios) en cola async". 
+  mundo desde la cámara, en buffers propios) en cola async".
 - **Cyberpunk async SSR/Hi-Z/SSAO** (§6) idem.
 - **No se encontró en fuentes primarias** una implementación *en Polaris12/RX550 específicamente*
-  que *mida* overlap real con 2 ACE + fetch-bound. Ese hueco de medición es documental (no de
+  que *mida* overlap real con queues/ACEs (count `UNKNOWN`) + fetch-bound. Ese hueco de medición es documental (no de
   invención de la técnica).
 
 ## 6. BUSCADO Y NO ENCONTRADO (por FASE R-3)

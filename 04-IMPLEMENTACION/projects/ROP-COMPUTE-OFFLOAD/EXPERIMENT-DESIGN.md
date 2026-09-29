@@ -25,8 +25,10 @@ This mirrors published pipelines (Laine, CuRast, Lucid). Every step gets a matri
 ## 3. TEST C — ASYNC-COMPUTE CO-SCHEDULE (the legitimate variant)
 1. Shadow-map or depth-prepass (ROP/geometry-bound) on the graphics queue.
 2. Independent compute (light tile culling, blur, AO, or a synthetic ALU kernel) on the ACE compute queue.
-3. Compare sequential vs queued/async with fences; tune with CU reservation (`VK_AMD`/DX12-equivalent ROI on Polaris12) and wave limiting (AMD GDC17).
-This establishes the *realizable* ceiling the ROP-offload redesign would even be competing with.
+3. Compare sequential vs queued/async with fences; no se presupone CU reservation. Solo
+   usar una API de reserva/wave limiting si una capability audit demuestra que existe en
+   esta unidad; el número de ACEs y el overlap siguen `UNKNOWN`.
+This would establish the *realizable* ceiling the ROP-offload redesign would compete with.
 
 ## 4. TEST D — ENVELOPE / BANDWIDTH ACCOUNTING
 - Record max mem-BW drawn: hardware path scalar (RBE compressed write) vs compute path (vis-write + resolve-read). Compute bound from DRAM counters, not just wall clock.

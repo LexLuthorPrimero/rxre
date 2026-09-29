@@ -42,14 +42,14 @@ es REJECTED/FALSIFIED a nivel de mecanismo.
 |---|---|
 | Los ROPs están saturados / las CUs están libres | REQUIRES EXPERIMENT (nunca medido) / CONTRADICTED como regla general |
 | El tile 32×32 es unidad natural del HW | CONTRADICTED (8×8 HTILE/raster; 32×32 es práctica de industria) |
-| El tile 4 KB permanece en L2 / 512 KB L2 permite residencia | CONTRADICTED (CB/DB bypass L2 en GFX8; sin API de residencia) |
-| PCIe es el cuello dominante | VERIFIED (para el camino host; factor ×24-32 vs VRAM) — pero NO es universal |
+| El tile 4 KB permanece en L2 / 512 KB L2 permite residencia | **UNKNOWN local** (bypass CB/DB source-level; no API de residencia) |
+| PCIe es el cuello dominante | **PARTIALLY VERIFIED** para el camino host; ×48–80 vs VRAM nominal/estimado; no universal |
 | GTT puede competir con VRAM efectivo | CONTRADICTED en paridad de bandwidth (aunque DCC no ahorra PCIe; moverate 8 MB/s) |
 | Jitter es equivalente a motion vector | CONTRADICTED (objetos dinámicos, disocclusion, recuperación por matrices no por jitter) |
 | Compute puede sustituir ROP sin pérdida | CONTRADICTED (PS corre en los mismos CUs antes del RBE; 32 SP/ROP; UAV deshabilitan DCC) |
-| Polaris12 puede mantener concurrencia graphics+compute "gratis" | PLAUSIBLE-UNMEDIDO (ACE/HWS VERIFIED, 8 CUs compartidas) |
-| Polaris12 puede correr optical flow de frame generation | CONTRADICTED en 1080p (9-11 ms/frame est.; AFMF/FSR3 sin soporte GCN) |
-| RGP no soporta Polaris12 | PARTIALLY VERIFIED (RGP 2.x=RDNA; RGP 1.x-era/CodeXL SÍ GCN) |
+| Polaris12 puede mantener concurrencia graphics+compute "gratis" | **UNKNOWN / UNMEDIDO** (ACE/HWS family-level; nº ACEs, overlap y runtime local desconocidos; 8 CUs compartidas) |
+| Polaris12 puede correr optical flow de frame generation | **CONTRADICTED en 1080p** (estimación; AFMF/FSR3 sin soporte GCN) |
+| RGP no soporta Polaris12 | **PARTIALLY VERIFIED**: RGP 2.x=RDNA; compatibilidad GCN-era histórica no confirma runtime/viewer local |
 | DCC reduce tráfico PCIe | CONTRADICTED (irrelevante, GPUOpen) |
 
 ### Q6. ¿Qué prior art se encontró que minimiza la novedad?

@@ -44,8 +44,13 @@ Novelty audit. Sources ranked primary > community. The subject decomposes into (
 11. **AMD GPUOpen — concurrent execution / async queues.** Tasks on different queues share CUs, LDS, GPRs, cache("threads sharing the same CU will share GPRs and LDS"; "different queues share their caches… more cache thrashing"). Compute work depends on how much async headroom exists. https://gpuopen.com/learn/concurrent-execution-asynchronous-queues/
 12. **AMD GPUOpen — nBodyGravity (2016):** canonical async-compute case study on GCN (Fury X); 15% win only because gfx workload was ~half compute. https://gpuopen.com/learn/maxing-out-gpu-usage-in-nbodygravity/
 13. **The Division 2 (GDC 2019):** "Async compute is stalling the gfx pipe! … on consoles: limit async compute occupancy"; parallelizing only *unalike* workloads is rewarded. https://gpuopen.com/download/gdc-2019-agtd1-efficient-rendering-in-the-division-2.pdf
-14. **AMD Polaris whitepaper (Kanter):** ACEs + HWS + CU reservation + Quick Response Queue — both mechanisms frame-gen would use. https://doczz.net/doc/3493873/white-paper---amd-graphics-cores-next--gcn ; http://zqwzjdq.vgamuseum.info/images/doc/amd/polaris-whitepaper.pdf
+14. **AMD Polaris whitepaper (Kanter):** ACEs + HWS y mecanismos de scheduling
+  descritos para la familia. La aplicabilidad a Polaris12, el número de ACEs y una
+  eventual reserva de CUs por API Vulkan son `UNKNOWN`; no se usa como capacidad local.
 15. **GCN microarch details (ChipsAndCheese):** 16KB V$/CU, L2 slices, RBE color/depth caches bypassing L2, L2 atomics (16/line/cycle). https://chipsandcheese.com/p/gcn-amds-gpu-architecture-modernization
 
 ## 5. NOVELTY TAG ASSESSMENT
-The *specific formulation* — "run FidelityFX-style optical-flow + frame interpolation on Polaris12's async compute engines for the RX550" — is **KNOWN VARIANT**: every algorithmic element is public and shipped (AFMF/FSR3 reference impl, LSFG/layer ports), and the *implementation target* (GCN4 low-end, 8 CUs) is the only delta. No new algorithm; platforming an existing, published, vendor-supported pipeline onto entry hardware. The "CUs are free" premise is further **CONTRADICTED BY PRIOR ART** (AFMF/FSR3 docs: cost depends on async-compute headroom; additivity on shared CUs).
+The *specific formulation* — "run FidelityFX-style optical-flow + frame interpolation on
+Polaris12's async compute path for the RX550" — is **KNOWN VARIANT**: the algorithmic
+elements are public. The local number of ACEs, reservation mechanism, overlap and benefit
+are `UNKNOWN`; no `CUs are free` claim is made.

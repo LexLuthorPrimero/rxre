@@ -1,6 +1,9 @@
 # RESULTADOS — TEST TÉRMICO READ-ONLY (EXP-F4-A / FASE R-4B)
 
 **Fecha:** 2026-09-23 (00:06) · **Estado:** COMPLETADO (N=2 réplicas)
+>
+> **Nota de reconciliación 2026-09-24:** las cifras `power1_input`/`P` son `W_SMU`
+> (estimador SMU), no vatímetro. Este test no evalúa el governor.
 **Diseño/metodología:** `TEST-TERMICO-READONLY.md` (fuentes del proyecto, auditoría Kalm,
 confinamiento read-only, condición de retorno, replicación).
 
@@ -9,7 +12,7 @@ confinamiento read-only, condición de retorno, replicación).
 
 ---
 
-## 1. Auditoría Kalm (VERIFIED — ver TEST-TERMICO-READONLY.md §3)
+## 1. Auditoría Kalm (VERIFICADO — ver TEST-TERMICO-READONLY.md §3)
 
 | PID | Proceso | Servicio | Estado | Interacción con amdgpu |
 |---|---|---|---|---|
@@ -27,7 +30,7 @@ confinamiento read-only, condición de retorno, replicación).
 
 ## 3. Métricas por réplica (A–J)
 
-| Métrica | REP1 | REP2 | Valorencia |
+| Métrica | REP1 | REP2 | Interpretación |
 |---|---|---|---|
 | A. Temp inicial (°C) | 36.8 | 48.0 | REP2 parte 11 °C más caliente (retorno a ≤50 °C, no a frío) |
 | B. SCLK inicial (MHz / nivel) | 214 / 0 | 214 / 0 | iguales |
@@ -37,12 +40,12 @@ confinamiento read-only, condición de retorno, replicación).
 | F. Temp en ese instante | — | — | S1: **92 °C** (p2/p3: SCLK 734→551 MHz sostenido) |
 | G. Tiempo hasta 90 °C (s) | **169** (desde 37 °C) | **136** (desde 48 °C) | 90 °C no alcanzado a 92/97 en el test (corte) |
 | H. Tiempo de recuperación: fin carga → retorno (s) | **270** | **255** | Δ=15 s (5.6 %) → reproducible |
-| I. Temp/SCLK/P al final del cooldown | 49 °C / 214 MHz / 3.4 W | 49 °C / 214 MHz / 3.7 W | condición retorno alcanzada |
+| I. Temp/SCLK/`W_SMU` al final del cooldown | 49 °C / 214 MHz / 3.4 W | 49 °C / 214 MHz / 3.7 W | condición retorno alcanzada |
 | J. Reproducibilidad | — | — | tasa ramp: 0.315 vs 0.310 °C/s (±1.6 %); recuperación ±5.6 % |
 
-**Potencias (contexto, METRICS-DEFINITIONS):** `power_max` carga ≈ **23.5 W** (~22.4 W media),
-cap 35 W → **el cap no liga** (throttling puramente térmico ≥92 °C, no power-target). Veredicto
-consistente con Fase A/B (el cap solo ligan si la demanda alcanza el cap; aquí 23.5 < 35).
+**Potencias (contexto, METRICS-DEFINITIONS):** `W_SMU` de carga ≈ **23.5 W** (~22.4 W media),
+cap 35 W → **el cap no liga** en este test. La categoría thermal/power no se atribuye más
+allá de la evidencia; el cap solo liga si la demanda alcanza el cap (aquí 23.5 < 35).
 
 ## 4. Curvas representativas (10 Hz; promediadas por tramo)
 
@@ -93,8 +96,9 @@ Tiempo medido: **255–270 s (~4.3–4.5 min) desde ~74 °C**, extrapolando desd
    (~150 s) llevan de 37→88 °C, por debajo del umbral de degradación (92 °C) — pero el 5º bloque
    quedaría al borde (88–90 °C). Si se quiere margen: cooldown también entre bloque 4 y 5 de cada
    pass (medir primero el efecto, no asumir).
-4. **FASE 1 completo sería repetible sin throttle si todos los passes parten de ≤50 °C**, dado
-   que el tramo p1 (40→81 °C en S1) no degradó; el problema fue la acumulación p1→p2 sin pausa.
+4. **FASE 1 completo sería repetible sin throttle si todos los passes parten de ≤50 °C**, como
+   observación limitada al protocolo y workload ensayados; no es una garantía general de seguridad.
+   En el tramo p1 (40→81 °C en S1) no se observó degradación; el problema observado fue la acumulación p1→p2 sin pausa.
 
 **Riesgos/confusores declarados:** ventilación ambiente no controlada (fAN PWM auto) → la
 condición es operativa (temp/SCLK/power), no un tiempo fijo; `power1_input` es estimador SMU

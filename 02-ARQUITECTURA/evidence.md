@@ -1,15 +1,35 @@
 # Evidence — CIERRE 2026-09-19
+
+> **Reconciliación terminológica 2026-09-24:** las cifras de `power1_input` son `W_SMU`,
+> no un vatímetro independiente. Los resultados históricos conservan su contexto.
 Referencias a datos y reportes. Los históricos detallados viven en el backup
 `~/Escritorio/RX550_Modo_Torneo_Backup_2026-09-19_0836/` y en `rejected_ideas.md`/`research_log.md`.
+
+> **Nota de trazabilidad (reorganización 2026-09-23):** las rutas `experiments/...` que
+> aparecen en secciones históricas conservan el estado PRE-REORGANIZACIÓN y no se
+> convierten automáticamente en rutas actuales. Las rutas de experimentos actuales de este
+> documento usan los directorios canónicos `03-EXPERIMENTOS/`.
 
 ## Episodios y archivos de resultado
 | Experimento | Dir | Resultado |
 |---|---|---|
-| FASE A (discriminación) | `experiments/fase-a-discriminacion-20260919-114241/` | `RESULTADOS-FASE-A.md`, `INVALIDACION-corridas-04-09.md`; 3 GL válidas + 3 VK phong + 3 VK default |
-| FASE B (cap probe) | `experiments/fase-b-cap-probe-20260919-122038/` | `RESULTADOS-FASE-B.md`, 28 runs cap 25/28/32/35 W desde frío |
-| EP-08 (auditoría telemetría) | `experiments/fase-b-cap-probe-20260919-122038/EP08-auditoria-telemetria-E1E3.md` | E1/E3 muestrearon la RX 550 real; runner no está en backup |
-| EP-06 (soak + réplica E1) | `experiments/ep06-soak-cap-20260919-205645/` | `RESULTADOS-EP06.md`, soak 1/2 CSV, réplica E1 caliente |
-| EP-05 (A/B Mesa CUSTOM vs STOCK) | `experiments/ep05-mesa-custom-20260919-212249/` | `RESULTADOS-EP05.md`, `CONDICIONES.txt`, 12+4 runs con telemetry.csv + libs-cargadas.txt |
+| FASE A (discriminación) | `03-EXPERIMENTOS/fase-a-discriminacion-20260919-114241/` | `RESULTADOS-FASE-A.md`, `INVALIDACION-corridas-04-09.md`; 3 GL válidas + 3 VK phong + 3 VK default |
+| FASE B (cap probe) | `03-EXPERIMENTOS/fase-b-cap-probe-20260919-122038/` | `RESULTADOS-FASE-B.md`, 28 runs cap 25/28/32/35 W desde frío |
+| EP-08 (auditoría telemetría) | `03-EXPERIMENTOS/fase-b-cap-probe-20260919-122038/EP08-auditoria-telemetria-E1E3.md` | E1/E3 muestrearon la RX 550 real; runner no está en backup |
+| EP-06 (soak + réplica E1) | `03-EXPERIMENTOS/ep06-soak-cap-20260919-205645/` | `RESULTADOS-EP06.md`, soak 1/2 CSV, réplica E1 caliente |
+| EP-05 (A/B Mesa CUSTOM vs STOCK) | `03-EXPERIMENTOS/ep05-mesa-custom-20260919-212249/` | `RESULTADOS-EP05.md`, `CONDICIONES.txt`, 12+4 runs con telemetry.csv + libs-cargadas.txt |
+
+## Gate P0 de validez experimental (2026-09-24)
+
+La evidencia actual del gate READ-ONLY está en
+`01-AUDITORIA/FASE-P0-EXPERIMENTAL-VALIDITY-GATE/P0-EXPERIMENTAL-VALIDITY-GATE-2026-09-24.md`.
+Resultado: **B. `CONTAMINATED_REQUIRES_ISOLATION`**. `OWNERSHIP=PARTIAL`: `Xwayland`
+abre `card1` y el proceso GPU de `ChatGPT` abre `renderD129`; `fdinfo` prueba memoria y
+client IDs, no actividad de motor. Se observaron escrituras de `system-autopilot` y `kalm`
+durante la ventana; `kalm-gpu` permanece activo con capacidad de cap/DPM. La telemetría
+final de SCLK/MCLK/W_SMU/temperatura y runtime PM es estado del sistema, no prueba de
+atribución. Las mediciones históricas se conservan y sólo se marcan `REQUIRES_REVIEW` cuando
+faltan metadatos de clientes/agentes.
 
 ## Números reproducibles clave (ver knowledge.md y BUILD_SPEC §15)
 - Draw: 9.4-13.6 W; cap nunca liga hoy; max 13.6 W @2560×1440 texturizado (EP-06).

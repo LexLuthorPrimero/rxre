@@ -1,7 +1,7 @@
 # HARDWARE-ROUTES.md — Rutas de Hardware por Subsistema (Cadena Completa)
 
-**Fecha:** 2026-09-21  
-**Versión:** 1.0  
+**Fecha:** 2026-09-21
+**Versión:** 1.0
 **Formato:** Para cada subsistema: Hardware Polaris12 → Documentación/ISA/Registros → Linux/amdgpu → Mesa/radeonsi/RADV → Herramienta de observación → Métrica observable → Experimento potencial → Limitación conocida
 
 ---
@@ -544,8 +544,9 @@
 - **2 Memory Controllers** (128-bit bus = 2 canales × 64-bit)
 - **Cada canal**: 1 L2 slice (256 KB) + 1 memory controller
 - **MCLK DPM**: niveles 300 MHz (piso) / 1500 MHz (máx)
-- **DPM Policy (smu7)**: `mclk_activity = 20` (bus 128-bit), `up_hyst = 5`, `down_hyst = 16` (parche amd-gfx 2020)
-- **MCLK up threshold**: actividad memoria sostenida ≥ ~20%
+- **DPM Policy (smu7, source-level)**: `mclk_activity = 20` (bus 128-bit), `up_hyst = 5`, `down_hyst = 16` (parche amd-gfx 2020)
+- **MCLK up threshold**: el código upstream documenta `mclk_activity=20` como policy
+  source-level; no equivale a un trigger local `mem_busy_percent` ni prueba el firmware/BIOS local.
 
 ### Documentación
 - **amd-gfx list 2020-09**: "para VRAM 128-bit (RX 460/550): `mclk_activity = 20`, `up_hyst = 5`, `down_hyst = 16`"
@@ -559,7 +560,7 @@
 |---|---|
 | **radeontop** | `mem_busy_percent`, `mclk` actual |
 | **pp_dpm_mclk** | Niveles DPM, estado activo (`*`) |
-| **power1_input** | Power draw (SMU estimate) |
+| **power1_input** | `W_SMU`/potencia estimada por sensor SMU |
 
 ---
 
@@ -567,12 +568,14 @@
 
 ### Hardware Polaris12
 - **128-bit bus** (2 canales × 64-bit)
-- **7 Gbps** (data rate) → **112 GB/s** teórico peak bandwidth
+- **7 Gbps** (data rate) → **96–112 GB/s nominal/estimado** según módulo/VBIOS;
+  bandwidth real local `UNKNOWN`.
 - **2 GB** VRAM (Polaris12 Lexa PRO)
 - **Data rate**: DDR = 2 transfers/clk → 7 Gbps = 1750 MHz clock efectivo
 
 ### Documentación
-- **TechPowerUp / igor'sLAB**: 128-bit, 7 Gbps, 112 GB/s
+- **TechPowerUp / igor'sLAB**: 128-bit, 7 Gbps, ~112 GB/s como referencia externa;
+  no equivale a bandwidth real medido en esta unidad.
 
 ### Herramientas
 | Herramienta | Métrica |
@@ -626,8 +629,9 @@
 ## V. PCIe
 
 ### Hardware Polaris12
-- **PCIe 3.0 x8** (negociado; capaz x16 pero cableado x8 en RX 550)
-- **Throughput**: ~8 GB/s bidireccional (x8 Gen3)
+- **PCIe 3.0 x8** (capacidad documentada; R-4A negotiation local **Gen2×4**)
+- **Throughput**: capacidad nominal x8 Gen3 no es throughput local; R-4A estima ~2.0 GB/s
+  por sentido, payload real `UNKNOWN`.
 - **ASPM**: Active State Power Management (L0s/L1)
 
 ### Linux/amdgpu
@@ -663,22 +667,24 @@
 ## X. ACE / Async Compute
 
 ### Hardware Polaris12
-- **2 ACEs** (Asynchronous Compute Engines)
-- **8 queues por ACE** (16 queues totales)
-- **Dispatch**: 1 wavefront/clk/ACE → 2 wavefronts/clk total
-- **HWS (Hardware Scheduler)**: virtualiza colas (3rd/4th gen GCN)
-- **CU Reservation**: `VkPipelineShaderStageCreateInfoWaveLimitAMD` (extensión AMD)
+- **Número de ACEs:** `UNKNOWN` para esta unidad; la familia GCN4 documenta ACEs/HWS.
+- **Queue count:** no se fija en 8 por ACE ni 16 totales sin enumeración local.
+- **Dispatch:** capacidad de la familia documentada; no se extrapola al ASIC.
+- **HWS:** source-level/family-level; kernel runtime por auditar.
+- **CU Reservation:** no se ha identificado un mecanismo en la API Vulkan auditada;
+  `VkPipelineShaderStageCreateInfoWaveLimitAMD` representa wave limiting, no reserva.
 
 ### Documentación
-- **Polaris Whitepaper**: "Each ACE block... can dispatch up to four wavefronts/workgroups to the shader engines from any compute queue at any time"
+- **Polaris Whitepaper (family-level):** "Each ACE block... can dispatch up to four wavefronts/workgroups to the shader engines from any compute queue at any time"; no demuestra el número de ACEs de Polaris12.
 
 ### Linux/amdgpu
 - `amdgpu_hws.c`: HWS scheduler
 - `amdgpu_ctx.c`: context management
 
 ### Mesa/RADV
-- **RADV**: `radv_queue_submit()` — compute queue usa ACE
-- **Vulkan**: `VK_QUEUE_COMPUTE_BIT` → ACE queue
+- **RADV**: `radv_queue_submit()` — una cola compute es una superficie lógica;
+  la Scheduling/ACE efectiva requiere capability audit.
+- **Vulkan**: `VK_QUEUE_COMPUTE_BIT` no prueba ACE físico ni reserva.
 
 ---
 
@@ -873,7 +879,7 @@ L1 K$ (Scalar/Constant) : 16 KB per 4 CUs, 4-way, 64B lines
 L1 V$ (Vector/Data)     : 16 KB per CU, 4-way, 64B lines, write-through
 L2 (Unified)            : 512 KB total, 16-way, 64B lines, write-back
     → 2 slices (1 per memory channel), 256 KB cada una
-DRAM                    : GDDR5 128-bit, 7 Gbps, 112 GB/s
+DRAM                    : GDDR5 128-bit, 96–112 GB/s nominal/estimado; real `UNKNOWN`
 ```
 
 ### Coherencia
@@ -933,34 +939,41 @@ DRAM                    : GDDR5 128-bit, 7 Gbps, 112 GB/s
 
 ## AJ. Hardware Performance Counters
 
+> **ADDENDA 2026-09-24:** esta sección mezcla disponibilidad nominal
+> nominal con capability local. La evidencia vigente separa:
+> catálogo/registros GFX8 `SUPPORTED`; API RADV GFX8 `NOT_AVAILABLE`; radeonsi
+> source-level `SUPPORTED`; PMU mainline GFX8 `NOT_AVAILABLE`; runtime, selectors
+> y validación física `UNKNOWN`. No se debe programar ningún selector.
+
 ### Hardware Polaris12
-- **Performance Monitoring Unit (PMU)** en hardware
-- **Contadores programables** por CU/SIMD/TEX/ROP/L2/MC
-- **Eventos**: cycles, instructions, cache hits/misses, busy cycles, stall cycles, bandwidth
+- **Performance Monitoring Unit (PMU)** en hardware: existencia nominal/catálogo `SUPPORTED`; PMU mainline GFX8 `NOT_AVAILABLE` como PMU confirmado.
+- **Registros/contadores programables** por CU/SIMD/TEX/ROP/L2/MC: `SUPPORTED` como registros/catálogo; semántica y aplicabilidad al ASIC local `UNKNOWN`.
+- **Eventos** (cycles, instructions, cache hits/misses, busy/stall cycles, bandwidth): catálogo/source `SUPPORTED` en algunas definiciones; selectores concretos para `1002:699f` `UNKNOWN`.
 
 ### Acceso
 | Método | Herramienta | Estado |
 |---|---|---|
-| **UMR** (Unified Memory Reporter) | `umr --list-counters`, `umr --read-counter` | **INSTALABLE** (needs drm master) |
-| **GPUPerfAPI (GPA)** | `GPA_GetCounterNames`, `GPA_OpenContext` | **VERIFICAR** compatibilidad GFX8 |
-| **radeontop** | `--list-counters`, `--dump-ctrs` | **VERIFICAR** |
-| **perf + amdgpu PMU** | `perf list | grep amdgpu` | **VERIFICAR** kernel config |
-| **amdgpu PMU** | `perf stat -e amdgpu/.../` | **VERIFICAR** kernel config |
-| **Mesa debug** | `RADV_DEBUG=perfcounters` | **VERIFICAR** implementación |
+| **UMR** (Unified Memory Reporter) | `umr --list-counters`, `umr --read-counter` | **SUPPORTED** como database/debug; no valida eventos GFX8 |
+| **GPUPerfAPI (GPA)** | `GPA_GetCounterNames`, `GPA_OpenContext` | **SUPPORTED** como catálogo/histórico; runtime/ASIC `UNKNOWN` |
+| **radeontop** | `--list-counters`, `--dump-ctrs` | **UNKNOWN** para counters HW; telemetría/proxy disponible |
+| **perf + amdgpu PMU** | `perf list | grep amdgpu` | **NOT_AVAILABLE** como PMU GFX8 mainline confirmado |
+| **amdgpu PMU** | `perf stat -e amdgpu/.../` | **NOT_AVAILABLE** como PMU GFX8 mainline confirmado |
+| **Mesa debug** | `RADV_DEBUG=perfcounters` | **NOT_AVAILABLE** como feature pública GFX8; source legacy no implica runtime |
 
-### Métricas Objetivo (si disponibles)
-- `SQ_WAVES` / `SQ_ACTIVE_WAVES` — waves activas
-- `VALU_INSTS` / `VALU_UTILIZATION` — ALU utilization
-- `TEX_INSTS` / `TEX_CACHE_HIT/MISS` — texture cache
-- `L2_CACHE_HIT/MISS` — L2 cache
-- `MC_READ/WRITE_BYTES` — memory controller bandwidth
-- `SQ_WAVE_CYCLES` — wave cycles
-- `SQ_STALL_CYCLES` — stall cycles (VMEM, EXP, LGKM)
+### Métricas Objetivo (si están validadas)
+- `SQ_WAVES` / `SQ_ACTIVE_WAVES` — `HYPOTHESIS`/catálogo; validación GFX8 `UNKNOWN`.
+- `VALU_INSTS` / `VALU_UTILIZATION` — `HYPOTHESIS`/catálogo; validación GFX8 `UNKNOWN`.
+- `TEX_INSTS` / `TEX_CACHE_HIT/MISS` — `HYPOTHESIS`/catálogo; validación GFX8 `UNKNOWN`.
+- `L2_CACHE_HIT/MISS` — `HYPOTHESIS`/catálogo; validación GFX8 `UNKNOWN`.
+- `MC_READ/WRITE_BYTES` — `HYPOTHESIS`/catálogo; unidades y selector `UNKNOWN`.
+- `SQ_WAVE_CYCLES` — `HYPOTHESIS`/catálogo; validación GFX8 `UNKNOWN`.
+- `SQ_STALL_CYCLES` — `HYPOTHESIS`/catálogo; validación GFX8 `UNKNOWN`.
 
 ### Limitaciones
-- **GFX8/Polaris soporte en herramientas modernas**: verificar compatibilidad real
-- **UMR**: requiere `drm master` (no root, pero X/Wayland no usa drm master)
-- **perf_event_paranoid**: puede requerir `sysctl -w kernel.perf_event_paranoid=-1`
+- **GFX8/Polaris en herramientas modernas**: compatibilidad runtime `UNKNOWN`; catálogo no es validación.
+- **UMR**: database/debug; no es tabla de eventos validada.
+- **perf**: no modificar `perf_event_paranoid`; el PMU mainline GFX8 no está confirmado.
+- **Programación**: prohibida; no usar selectors de catálogo como atajo.
 
 ---
 

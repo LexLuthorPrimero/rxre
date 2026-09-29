@@ -90,7 +90,8 @@ Tras cada `write sysfs`:
 | write falla (permission/EWOULDBLOCK) | readback ≠ target 2 lecturas | abort, restaurar snapshot, log FAIL_SAFE |
 | proceso muere | manejador de señales + journal | restore forzado al salir |
 | device lost / reboot | post_fail de estado perdido | reintento con estado inicial registrado; nunca escribir sin readback previo |
-| thermal risk (temp > 90 °C) | telemetría continua | abort inmediato del workload (regla de seguridad) |
+| thermal confound (temp ≥ 90 °C) | telemetría continua | marcar ventana; no es abort ni límite de seguridad |
+| abort configurado (temp ≥ 96 °C) | telemetría continua | abort inmediato del workload; requiere protocolo y autorización |
 | lock no adquirible | O_EXCL fail | no ejecutar (espera) |
 
 ## 8. Benchmarks y A/B (con el Lab K)
@@ -100,8 +101,9 @@ Tras cada `write sysfs`:
   recomendación a gobernanza; nunca activación automática.
 
 ## 9. Conclusión del diseño
-FASE L queda **DISEÑADA** (state machine, ownership, verification, rollback, failsafe). Depende de:
-FASE K (runner/validación), FASE I (interfaces/experimentos PowerPlay), y de la autorización de writes
-solo dentro del frame (snapshot+readback+restore). **rx550-torneo sigue siendo la herramienta operativa;
-FASE L no la toca ni la reemplaza automáticamente. Ningún cambio de estado fue ejecutado o verificable
-en esta fase (read-only).**
+FASE L queda **DISEÑADA** (state machine, ownership, verification, rollback, failsafe).
+Depende de FASE K (runner/validación); FASE I aporta interfaces/feedback y no invierte
+el orden de diseño. Los writes solo pueden ocurrir dentro de un frame
+snapshot+readback+restore con autorización. **rx550-torneo** sigue siendo la herramienta
+operativa; FASE L no la toca ni la reemplaza automáticamente. Ningún cambio de estado fue
+ejecutado o verificable en esta fase (read-only).
