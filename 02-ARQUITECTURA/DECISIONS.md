@@ -1154,3 +1154,79 @@ Ambas fuentes se consultaron **por el agente**, leyendo las URLs, el 2026-09-29.
 de las dos estaba instalada en el host: no hay `bcdec` ni cabeceras Vulkan. Lo que motivó
 esta entrada fue que una afirmación de conformidad **sin fuente** sobreviviera a tres
 rondas de revisión, oscilando entre spec y truncamiento según quién escribiera.
+
+---
+
+## 2026-09-29 — AD-13: Estado de Fase 2 (descompresor en GPU): `PARTIAL`, Fase B `NOT_WRITTEN`
+
+| Campo | Valor |
+|---|---|
+| **DECISION** | La Fase 2 se cierra como **parcialmente completa**. El shader existe y su aritmética concuerda con el decodificador de CPU; **nunca se ha ejecutado en la RX 550**. La Fase B no se escribe con declaraciones manuales de Vulkan |
+| **DECIDER** | `HUMAN` (2026-09-29) sobre el cierre; `MODEL_CHOICE` la decisión de no escribir Fase B a mano |
+| **DATE** | `2026-09-29` |
+| **Estado Fase 2** | `PARTIAL` |
+| **Fase B** | `NOT_WRITTEN` |
+| **Ejecución en GPU** | `NOT_RUN` |
+
+### Lo que está establecido
+
+- Shader GLSL `decompress_bc3.comp` escrito, y compila a SPIR-V con `glslangValidator` 11:16.3.0,
+  `rc=0`, 11 944 B, 2 986 palabras, magic `07230203`.
+- `shader_vs_c` reconcilia la aritmética del shader con `rx550_decompress_block()`:
+  **0 de 4096 canales** discrepantes, 64 bloques de corpus. Es `SIMULATED_ARITHMETIC`: un modelo
+  en C del shader, no el GLSL compilado ni ejecutado.
+- `test_corpus_validate` (Fase A) valida el artefacto SPIR-V, construye un corpus determinista y
+  **mide la cobertura** de las dos ramas de la rampa alfa.
+- D19a aplicado (`44bc133`): la convención BC3 `a0 = max, a1 = min` hace que el encoder pueda
+  emitir `a0 > a1`. Antes no podía: `mn <= mx` por construcción, luego
+  `a0 = mn + inset <= mx - inset = a1` siempre. Medido: la cobertura de la rama de 8 valores pasó
+  de **0 de 64 a 59 de 64** bloques.
+- AD-11: redondeo `+3`/`+2` según la especificación Microsoft. El barrido contra las dos
+  transcripciones independientes da **0 de 65 536** pares con discrepancia.
+
+### Lo que NO está establecido
+
+- **El shader no se ha ejecutado en ninguna GPU.** `NOT_RUN`. Ni la RX 550, ni llvmpipe, ni
+  ningún otro dispositivo. Todo lo anterior es una afirmación sobre el algoritmo y sobre el
+  artefacto compilado, no sobre su ejecución.
+- `GFX_HWIP` sigue `NOT_DETERMINED`.
+- Validación de esquema SPIR-V: `NOT_AVAILABLE`, `spirv-val` no está instalado.
+- El `.spv` está hoy desfasado respecto al `.comp`, que fue editado después.
+  `make decompress_bc3.spv` lo regenera.
+
+### Por qué la Fase B no se escribe a mano
+
+`vulkan-devel` no está instalado en este host y el agente no tiene `sudo` sin contraseña:
+
+```
+/usr/include/vulkan/vulkan.h   ausente
+dnf info vulkan-devel           "No hay paquetes que se correspondan con la lista"
+sudo -n true                   "a password is required"
+```
+
+Se intentó declarar los structs de Vulkan a mano y se abandonó. Coste medido: **37 errores de
+compilación**, y un `pNext` duplicado en una struct que **altera el layout en silencio**: no da
+error, da basura plausible. `decompressor/vk_pipeline_min.c` (13 776 B) presenta un `SIGSEGV`
+reproducible en RADV y en llvmpipe cuya causa no es diagnosticable sin las cabeceras reales; un
+fallo de layout se manifiesta como segmentación, no como mensaje.
+
+La lección es de método, no de Vulkan: **una struct declarada a mano y no verificada contra la
+cabecera no es una fuente, es una suposición con el tamaño de un struct**. El criterio de §4.1
+—una implementación reescrita a mano es más débil que la fuente que reemplaza— se aplica igual
+aquí: si la fuente primaria está disponible y es barata, no se sustituye.
+
+### Consecuencia para el manifiesto RX550-FIRST
+
+La Fase 2 **no cumple** la exigencia de ejercitar la GPU. El shader es correcto en aritmética y
+válido en compilación, y eso es `PARTIAL`, no otra cosa. Declararlo completo sin la Fase B sería
+el mismo error que `RX550_BC4X`: una afirmación de conformidad sin ejecución detrás.
+
+### Reanudar
+
+1. `sudo dnf install vulkan-devel` — requiere privilegios, es acción del `HUMAN`.
+2. Reescribir la Fase B con `#include <vulkan/vulkan.h>`, sin structs a mano.
+3. Despachar en la RX 550, identificada por PCI identity `0x1002:0x699F` y **nunca** por índice de
+   enumeración: este host expone iGPU, AMD y llvmpipe, y llvmpipe aceptaría el dispatch.
+4. **Validar la salida antes de comparar.** Sin ese paso, una GPU que no hizo nada deja el búfer
+   intacto, la comparación da 0 discrepancias y el test pasa. Es el fallo que un resultado
+   `PASS` vacío no detecta.
