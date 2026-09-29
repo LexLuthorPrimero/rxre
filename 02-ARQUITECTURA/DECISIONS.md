@@ -1230,3 +1230,71 @@ el mismo error que `RX550_BC4X`: una afirmación de conformidad sin ejecución d
 4. **Validar la salida antes de comparar.** Sin ese paso, una GPU que no hizo nada deja el búfer
    intacto, la comparación da 0 discrepancias y el test pasa. Es el fallo que un resultado
    `PASS` vacío no detecta.
+
+---
+
+## 2026-09-29 — AD-12: el sampler del Polaris 12 trunca o redondea la rampa alfa de BC3
+
+**Contexto.** La especificación Microsoft *Block Compression (Direct3D 10)* describe la
+interpolación en notación fraccional. El documento de Direct3D 9 *Textures with Alpha
+Channels (DXT4/DXT5)* — el mismo formato, publicado explícitamente como enteros — la escribe
+con redondeo:
+
+    a0 >  a1 : a[i] = ((8-i)*a0 + (i-1)*a1 + 3) / 7,  i = 2..7
+    a0 <= a1 : a[i] = ((6-i)*a0 + (i-1)*a1 + 2) / 5,  i = 2..5
+    a0 <= a1 : a[6] = 0, a[7] = 255
+
+bcdec v0.985 trunca: sin `+3`, sin `+2`. La diferencia no es marginal — 54300 de 65536 pares
+de endpoints discrepan, con error máximo de 1 sobre 255.
+
+**AD-11** siguió el texto de la especificación (redondeo). Eso resuelve **qué dice el
+documento**. No resuelve **qué hace el hardware**, y este proyecto entrega un **encoder** cuyo
+consumidor es precisamente ese hardware.
+
+**Pregunta (NOT_DETERMINED).** ¿El sampler de textura del Polaris 12 decodifica la rampa alfa
+de BC3 con truncamiento o con redondeo `+3`/`+2`?
+
+**Impacto si la respuesta es TRUNCAMIENTO.** `rx550_compress.c` emitiría bloques que el sampler
+de la RX 550 decodifica de forma distinta a como predice `rx550_decompress_block()`. El error
+no aparecería en un informe: viaja **dentro del payload del bloque**, de forma sistemática, en
+el 82.9 % de los pares de endpoints. Un round-trip contra nuestro propio decodificador lo
+ocultaría por construcción — ambos serían erróneos de la misma manera.
+
+**Por qué RX550-FIRST obliga a medirlo y no a decidirlo.** El manifiesto pone el hardware
+delante del texto. Conformarse con la especificación y producir bloques que la GPU objetivo no
+decodifica igual es el peor resultado posible: parece correcto y no lo es.
+
+**Método elegido.** Adjuntar una textura comprimida DXT5 directamente como color attachment
+de un FBO y leer con `glReadPixels`. Esto fuerza al sampler a descomprimir y devuelve RGBA8 sin
+ shaders, sin quad y sin dibujar nada: el valor devuelto ES la salida del sampler. Evita por
+ diseño la ruta de cómputo Vulkan, que en este host no funciona (`vkCreateComputePipelines`
+ provoca SIGSEGV dentro de `libvulkan_radeon.so` y de `libvulkan_lvp.so`, incluso con shader
+ vacío y pipeline layout vacío).
+
+**Cobertura prevista.** Los 256×256 = 65536 pares de endpoints y los 8 códigos de índice:
+1048576 observaciones de hardware. No una muestra.
+
+**Autovalidación obligatoria antes de comparar.** Un resultado de "0 discrepancias" no prueba
+nada si el camino de medida está roto. Se exige: (1) que `GL_RENDERER` contenga `RX 550`, si
+no se aborta — en un contexto Intel todos los números serían del sampler equivocado;
+(2) presencia de `GL_EXT_texture_compression_s3tc`; (3) FBO completo; (4) que los índices 0 y
+1 decodifiquen exactamente a `a0` y `a1`, que no intervienen interpolación y por tanto prueban
+el camino en sí.
+
+**Estado de la medición: NO REALIZADA.** `test_hardware_bc3.c` existe y compila, pero en este
+host no se ha podido establecer un contexto OpenGL desde un programa propio, por un
+desajuste cliente/servidor en GLX que se documenta en `04-IMPLEMENTACION/decompressor/`.
+`NOT_DETERMINED` no se convierte en `PROVEN_ABSENT` ni en `PROVEN`: la pregunta sigue abierta.
+
+**Estado actual del código.**
+- `rx550_compress.c` usa redondeo `+3`/`+2` (AD-11).
+- `decompress_bc3.comp` usa redondeo `+3`/`+2`, sincronizado con el C. `shader_vs_c` reporta
+  **0/4096** canales discrepantes frente a `rx550_decompress_block()` en la variante que lee
+  los endpoints de color de `block 2`, que es como lee el shader.
+- `test_alpha_ramp` **falla**, porque sigue afirmando igualdad con bcdec v0.985. El fallo es
+  correcto y está informativo: es el suite diciendo que ya no coincidimos con el decodificador
+  estándar de facto. No se corrige hasta que AD-12 se resuelva con una medición.
+
+**Decisión pendiente.** Esperar el resultado de la medición en hardware para confirmar o
+refutar AD-11. Hasta entonces, el redondeo se mantiene por coherencia interna entre el encoder
+y el shader, marcada como **no validada contra el hardware objetivo**.

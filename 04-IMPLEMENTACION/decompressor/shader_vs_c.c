@@ -33,8 +33,8 @@ static void shader_as_specified(const rx550_block_t *b, uint8_t out[64])
 
     uint32_t a0 = b0 & 0xFF, a1 = (b0 >> 8) & 0xFF, ap[8];
     ap[0] = a0; ap[1] = a1;
-    if (a0 > a1) for (uint32_t i = 2; i < 8; i++) ap[i] = ((8-i)*a0 + (i-1)*a1)/7;
-    else { for (uint32_t i = 2; i < 6; i++) ap[i] = ((6-i)*a0 + (i-1)*a1)/5; ap[6]=0; ap[7]=255; }
+    if (a0 > a1) for (uint32_t i = 2; i < 8; i++) ap[i] = ((8-i)*a0 + (i-1)*a1 + 3)/7;
+    else { for (uint32_t i = 2; i < 6; i++) ap[i] = ((6-i)*a0 + (i-1)*a1 + 2)/5; ap[6]=0; ap[7]=255; }
 
     /* TAL COMO VIENE EN LA ESPECIFICACION -- lee de block0/block1 */
     uint32_t c0_565 = (b0 >> 16) & 0xFFFF;
@@ -76,8 +76,8 @@ static void shader_corrected(const rx550_block_t *b, uint8_t out[64])
 
     uint32_t a0 = b0 & 0xFF, a1 = (b0>>8)&0xFF, ap[8];
     ap[0]=a0; ap[1]=a1;
-    if (a0 > a1) for (uint32_t i=2;i<8;i++) ap[i]=((8-i)*a0+(i-1)*a1)/7;
-    else { for (uint32_t i=2;i<6;i++) ap[i]=((6-i)*a0+(i-1)*a1)/5; ap[6]=0; ap[7]=255; }
+    if (a0 > a1) for (uint32_t i=2;i<8;i++) ap[i]=((8-i)*a0+(i-1)*a1+3)/7;
+    else { for (uint32_t i=2;i<6;i++) ap[i]=((6-i)*a0+(i-1)*a1+2)/5; ap[6]=0; ap[7]=255; }
 
     /* CORREGIDO: los endpoints de color viven en block2, no en block0/block1 */
     uint32_t c0_565 =  b2        & 0xFFFF;

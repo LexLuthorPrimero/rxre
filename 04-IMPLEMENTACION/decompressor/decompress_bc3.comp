@@ -30,12 +30,12 @@
  *   alpha     : the BC3 two-mode ramp, per the Microsoft "Block Compression
  *               (Direct3D 10)" specification:
  *
- *                 a0 >  a1 : 6 interpolated values, divisor 7, TRUNCATED,
- *                            a[i] = ((8-i)*a0 + (i-1)*a1) / 7, i = 2..7
- *                 a0 <= a1 : 4 interpolated values, divisor 5, TRUNCATED, plus
+ *                 a0 >  a1 : 6 interpolated values, divisor 7, ROUNDED,
+ *                            a[i] = ((8-i)*a0 + (i-1)*a1 + 3) / 7, i = 2..7
+ *                 a0 <= a1 : 4 interpolated values, divisor 5, ROUNDED, plus
  *                            the two fixed extremes 0 (transparent) and
  *                            255 (opaque),
- *                            a[i] = ((6-i)*a0 + (i-1)*a1) / 5, i = 2..5
+ *                            a[i] = ((6-i)*a0 + (i-1)*a1 + 2) / 5, i = 2..5
  *
  * The sub-block alpha of BC3 uses the same two-mode ramp as BC4 BY DESIGN.
  * That is not a deviation and not a BC4 format: BC4 is a single-channel format
@@ -145,13 +145,35 @@ uint expand5(uint v5)
  * rule opens at (6*a0 + a1)/7, so a0 loses exactly one step across the
  * ramp and (7-i) loses two.
  *
- * ROUNDING -- pure truncation, no offset (HUMAN_POLICY, 2026-09-28, D13).
- * A previous revision added +3 on the /7 branch and +2 on the /5 branch.
- * That is round-to-nearest, it is not in the specification, and it is not
- * what bcdec v0.985 does: against bcdec__smooth_alpha_block the offsets
- * produced 54300 of 65536 disagreeing endpoint pairs (max error 1 of 255),
- * and without them 0 of 65536 disagree. The shader must mirror the C
- * exactly, so both carry no offset.
+ * ROUNDING -- +3 on the /7 branch, +2 on the /5 branch (AD-11, 2026-09-29).
+ * This mirrors rx550_compress.c:119 and :150 exactly, which carry the same two
+ * offsets. The shader must mirror the C; agreement is measured, not assumed:
+ * shader_vs_c reports 0/4096 mismatching channels against rx550_decompress_block()
+ * for the variant that reads the colour endpoints from block 2, as this shader does
+ * (decompress_bc3.comp reads c0/c1 from w2, bytes 8..11).
+ *
+ * OPEN RISK, NOT RESOLVED BY AD-11. AD-11 settled what the specification TEXT
+ * says, citing the Direct3D 9 "Textures with Alpha Channels (DXT4/DXT5)"
+ * document, which writes the interpolation with explicit +3 and +2. It did NOT
+ * establish what the RX 550's hardware sampler does. bcdec v0.985 truncates,
+ * and the difference is not marginal: 54300 of 65536 endpoint pairs disagree
+ * (max error 1 of 255). That is why `make test` in 04-IMPLEMENTACION/compressor
+ * currently FAILS on the bcdec-compatibility target -- by design, not by
+ * accident; the target still asserts bcdec equality.
+ *
+ * This matters more than conformance, because this project ships an ENCODER.
+ * The encoder's consumer is the hardware sampler. If the Polaris 12 sampler
+ * truncates, then every block this codec emits is decoded by the RX 550
+ * slightly differently from what rx550_decompress_block() predicts, and the
+ * error is systematic and baked into the block payload. RX550-FIRST makes
+ * hardware behaviour the criterion, not documentation text.
+ *
+ * SETTLING IT: the measurement is available on this host without the blocked
+ * Vulkan compute path. Force the GL stack onto the discrete GPU
+ * (MESA_LOADER_DRIVER_OVERRIDE=radeonsi, or DRI_PRIME), upload a DXT5
+ * compressed texture whose alpha endpoints make the two rules differ, render
+ * it to an FBO, read the pixels back, and compare against the truncation and
+ * rounding predictions. Status of that experiment: NOT_DONE.
  *
  * The a0 <= a1 mode shares its ramp with BC4, and that is by design: BC3's
  * alpha sub-block IS a BC4-style ramp carried in 3-bit indices. BC4 itself is a
@@ -172,10 +194,10 @@ void alpha_palette(uint a0, uint a1, out uint pal[8])
 
     if (a0 > a1) {
         for (uint i = 2u; i < 8u; i++)
-            pal[i] = ((8u - i) * a0 + (i - 1u) * a1) / 7u;
+            pal[i] = ((8u - i) * a0 + (i - 1u) * a1 + 3u) / 7u;
     } else {
         for (uint i = 2u; i < 6u; i++)
-            pal[i] = ((6u - i) * a0 + (i - 1u) * a1) / 5u;
+            pal[i] = ((6u - i) * a0 + (i - 1u) * a1 + 2u) / 5u;
         pal[6] = 0u;
         pal[7] = 255u;
     }
