@@ -13,6 +13,15 @@ directorio, y **una división en 271/378 que yo mismo propuse era falsa**.
 > implementaciones interpolan. La división real es por **rama**, no por poder
 > probatorio, y las 649 son equivalentes. Ver §«La división falsa» más abajo.
 
+> **Enmienda registrada (2026-09-29, 04:40).** Se traza la ruta estática que
+> va del sampler `NEAREST` del árbol de Mesa leído hasta `lp_build_lerpdxta()`,
+> en 8 saltos. Eso **eleva** una clasificación de `NOT_DETERMINED` a
+> `EVIDENCE` en un eje —la ruta definida por el árbol— y **no cierra** los dos
+> que quedan: que el binario instalado venga de ese árbol, y que la ruta sea la
+> observada en ejecución. Ver §«Ruta efectiva, por trazado». El documento no
+> anticipa el resultado de `RUNTIME_EXECUTION`; sólo evita que un
+> `NOT_DETERMINED` demasiado ancho sobreviva a evidencia ya reunida.
+
 ---
 
 ## Qué se pide y qué hay
@@ -32,6 +41,166 @@ bloque BC3 de 16 bytes ya codificado, que es lo que necesita el test de GPU.
 **No se sustituye**: es más completo que lo que este documento produciría, y
 su conjunto de 649 casos coincide exactamente con el de aquí, con los mismos
 valores esperados (verificado caso a caso, 0 diferencias).
+
+---
+
+## Estado de los artefactos
+
+Cuatro niveles, y no son intercambiables:
+
+```
+DISEÑADO      alguien decidió que iva a existir
+IMPLEMENTADO  hay código en disco
+EJECUTADO     ese código se ha corrido y ha producido salida
+VALIDADO      su salida se ha comparado contra algo independiente
+```
+
+Un artefacto puede estar en cualquiera de los cuatro. `DISEÑADO` no implica
+`IMPLEMENTADO`, y este proyecto se ha olvidado de esa distinción con los dos
+artefactos de la sección siguiente.
+
+### Existen y están validados
+
+| Artefacto | Estado | Evidencia |
+|---|---|---|
+| `compressor/rx550_compress.c` | IMPLEMENTADO · EJECUTADO · VALIDADO | suite `test_compress`: `all checks passed`; commit `05c6297` |
+| `compressor/rx550_compress_avx2.s` | IMPLEMENTADO · EJECUTADO · VALIDADO | 6 instrucciones AVX2 medidas en el `.o`; bit-idéntico a la ruta C en 200 000 bloques |
+| `decompressor/decompress_bc3.comp` | IMPLEMENTADO · EJECUTADO EN RX 550 · VALIDADO | `0/16384` discrepancias GPU vs CPU sobre 3 texturas; decisión `F4-AD-12` |
+| `llvmpipe_pairs.py` | IMPLEMENTADO · EJECUTADO · VALIDADO | 649 contrastados contra `1e28733`; control negativo `rc=1` |
+
+**El códec completo está implementado y validado.** El compresor es C + ASM
+(portable, sin `-mavx2` a propósito, para que el despacho por detección de
+CPU sea un mecanismo de seguridad y no un peligro); el descompresor es GLSL
+compute, por `F4-AD-12`. La asimetría entre las dos lenguas es deliberada y no
+es trabajo pendiente.
+
+### Diseñados y prometidos, pero NO EXISTEN
+
+| Artefacto | Prometido en | Estado real |
+|---|---|---|
+| `07-DRIVER/tests/test_llvmpipe_discriminator.c` | §«Cómo se valida» de una versión anterior | **NO EXISTE** |
+| `07-DRIVER/tests/data/llvmpipe_649.bin` | §«Formato del fixture» de una versión anterior | **NO EXISTE** |
+
+Se dejan escritos aquí, con su nombre exacto, para que no vuelvan a
+aparecer citados como si existieran. Tres sesiones han trabajado ya sobre este
+proyecto asumiendo que lo descrito en un documento existe; ese es el modo de
+fallo que esta sección evita.
+
+**Por qué no se construyen:**
+
+- El clasificador en Python cubre la función que Q-5 necesita (`--ramp A0 A1`
+  clasifica una rampa observada). `IMPLEMENTATION_IS_NOT_AUTHORITY`: que una
+  versión anterior de este documento prometiera un `.c` no lo convierte en
+  requisito.
+- El corpus de `5c02833` ya trae `block_hex` con el bloque BC3 listo para
+  subir a la GPU. Un fixture binario paralelo sería un segundo formato del
+  mismo dato, con el riesgo de desincronizarse del primero.
+
+### Estado de Q-5
+
+**Enmienda del 2026-09-29, 04:40.** La redacción anterior de esta tabla decía
+`NOT_DETERMINED` para la ruta efectiva. Sigue siendo `NOT_DETERMINED`, pero
+**por un motivo más estrecho**: antes no se había trazado nada, y ahora hay
+un trazado de 8 saltos. La clasificación sube de `UNKNOWN` a `EVIDENCE` en
+un eje, y los demás siguen abiertos. Ver §«Ruta efectiva, por trazado».
+
+| Eje | Estado | Cómo se midió |
+|---|---|---|
+| Función identificada | **`FACT`** | `lp_bld_format_s3tc.c:817-877`, leído |
+| Ruta efectiva para el sampler `NEAREST` | **`EVIDENCE`** | trazado estático, 8 saltos, §«Ruta efectiva» |
+| Aritmética de los 649 | **`TEST`** | `q5_validate_llvmpipe.py`, 649/649, control negativo por mutación |
+| Árbol fuente leído **=** binario instalado | **`NOT_DETERMINED`** | `Q-3` salió `FAIL` por método en `00f9051` |
+| llvmpipe ejecutado | **`NOT_DETERMINED`** | requiere `RUNTIME_EXECUTION` |
+| Correspondencia modelo ↔ ejecución | **`NOT_DETERMINED`** | requiere `RUNTIME_EXECUTION` |
+
+La cadena que el documento repite —llvmpipe **usa** `lp_build_lerpdxta` para
+BC3— se descompone en tres afirmaciones que antes iban juntas y ahora no:
+
+```
+FUNCIÓN EXISTENTE      !=  RUTA DEFINIDA POR EL ÁRBOL LEÍDO
+                      !=  RUTA OBSERVADA EN EJECUCIÓN
+```
+
+La segunda está establecida por lectura. La tercera, no. Este documento
+reproduce **la función que cita `1e28733`**, transcrita del árbol
+`26.1-branchpoint-1415-gc5e413533f4`. Lo que añade la enmienda es que la
+transcripción **no está huérfana**: hay un camino estático desde el sampler
+hasta ella. Lo que no añade es ninguna afirmación sobre ejecución.
+
+### Ruta efectiva, por trazado
+
+Del punto de entrada del sampler a la función transcrita, en el árbol
+`26.1-branchpoint-1415-gc5e413533f4`:
+
+```
+lp_build_sample_image_nearest()          lp_bld_sample_aos.c:431
+  └─ lp_build_sample_fetch_image_nearest()   lp_bld_sample_aos.c:363
+       └─ lp_build_fetch_rgba_aos()          lp_bld_format_aos.c:468
+            └─ lp_build_fetch_s3tc_rgba_aos()    lp_bld_format_s3tc.c:2175
+                 └─ s3tc_dxt5_to_rgba_aos()         :2150
+                      └─ s3tc_dxt5_full_to_rgba_aos()  :1032
+                           └─ s3tc_dxt5_alpha_channel() :881
+                                └─ lp_build_lerpdxta()  :985 -> :817
+```
+
+Tres decisiones del trazado que **no** son obvias y que un lector podría dar
+por hechas sin comprobarlas:
+
+1. **Es la rama `NEAREST`, no la `LINEAR`.** En `lp_bld_sample_aos.c:963` el
+   dispatch es `if (img_filter == PIPE_TEX_FILTER_NEAREST)`. Ese es el filtro
+   que exige `F4-AD-28` §3, y por eso el trazado empieza en `NEAREST` y no en
+   una ruta intermedia. La rama `LINEAR` pasa por
+   `lp_build_sample_fetch_image_linear()` (`:552`) y llega a la misma función,
+   pero interpola espacialmente después: usaría la misma aritmética de bloque
+   **más** una mezcla de texels vecinos.
+2. **El S3TC dispatch está en `lp_build_fetch_rgba_aos`, no en el sampler.**
+   `lp_bld_format_aos.c:730`, bajo `format_desc->layout == UTIL_FORMAT_LAYOUT_S3TC`.
+   Ese layout cubre **BC3 y BC4**: la función `s3tc_dxt5_*` es la ruta de DX5
+   cuando el formato es `BC3_UNORM_BLOCK`, que es el que se mide.
+3. **Hay una segunda implementación SOA** —`lp_build_sample_image_nearest()` en
+   `lp_bld_sample_soa.c:973`— que **no** pasa por `lp_build_lerpdxta`: su
+   `grep` de `s3tc` da una única coincidencia, un comentario. Esa variante
+   termina en `lp_build_fetch_rgba_soa()` (`lp_bld_format_soa.c:409`), que a
+   su vez **sí** llama a `lp_build_fetch_rgba_aos()` (`:791`, `:854`, `:883`),
+   y por tanto reconverge en la misma función de la aritmética. El comentario
+   del fuente lo dice: *"Try calling lp_build_fetch_rgba_aos for all pixels.
+   Should only really hit subsampled, compressed (for s3tc srgb and rgtc
+   too)"*.
+
+**Conclusión limitada a lo que esto establece:**
+
+> El árbol de Mesa inspeccionado contiene una cadena estática que conduce desde
+> el sampler `NEAREST` hasta `lp_build_lerpdxta()`. Esto establece evidencia
+> sobre la ruta **definida por ese árbol fuente**, pero no demuestra todavía que
+> el binario/ICD instalado haya sido compilado a partir de ese árbol ni que esa
+> ruta sea la observada durante ejecución.
+
+**Por qué el segundo hueco no es subsanable leyendo.** `Q-3` (`00f9051`) salió
+`FAIL` por método al intentar verificar por binario que el árbol leído es el
+del build instalado. Un `strings` o un `nm -D` sobre `libgallium` **no**
+distinguen dos revisiones del mismo fichero fuente. Cerrarlo exige o el hash del
+paquete que produjo el binario, o un símbolo que este árbol no tiene. Ese es el
+primer hueco, y es independiente del segundo: aunque se probara que el binario
+es de este árbol, **`RUNTIME_EXECUTION` sigue siendo la única forma de observar
+la ruta**.
+
+### Qué queda pendiente, con precisión
+
+### Qué queda pendiente, con precisión
+
+1. **Q-5**: cerrar los **dos** huecos de la tabla de arriba. El segundo —
+   que el árbol leído sea el binario instalado — no lo cierra
+   `RUNTIME_EXECUTION`; lo cierra el hash del paquete que produjo el binario, o
+   una fuente de build. El primero sí.
+   Con ambos cerrados, el clasificador compara contra una referencia correcta
+   **y alcanzada**.
+2. **AD-12**: el comportamiento real de redondeo o truncamiento del sampler de
+   la RX 550. `NOT_DETERMINED`, y es la medición que el corpus de 649 existe
+   para interpretar. **No lo adelantaría Q-5 ni aunque los dos huecos se
+   cerraran**: Q-5 establece la aritmética de un rival de software, AD-12
+   pregunta por el hardware. Son dos mediciones sobre dos dispositivos.
+3. **El driver exclusivo**: `07-DRIVER/`, que es trabajo de Fase 4 y no de
+   este documento.
 
 ---
 
@@ -238,10 +407,15 @@ Este trabajo se refutaría con:
 1. La transcripción de `lp_build_lerpdxa` no coincide con el C de Mesa para
    alguna tripla. El recuento coincidiría por casualidad — improbable con
    393 216 casos, pero es la comprobación que corresponde.
-2. `lp_build_lerpdxa` no es la función que llvmpipe usa realmente para BC3 en
-   esta versión de Mesa. **`NOT_DETERMINED`.** El commit `1e28733` cita la
-   función; este trabajo reproduce la función citada. Que sea la ruta efectiva
-   en ejecución solo lo dirá Q-5.
+2. `lp_build_lerpdxta` no es la función que llvmpipe usa realmente para BC3 en
+   esta versión de Mesa. **Parcialmente cerrado, y el resto `NOT_DETERMINED`.**
+   El commit `1e28733` cita la función; este trabajo reproduce la función
+   citada **y ha trazado que el sampler `NEAREST` del árbol leído llega hasta
+   ella** (8 saltos, §«Ruta efectiva»). Lo que queda abierto es doble: que el
+   binario instalado venga de este árbol, y que la ruta sea la observada en
+   ejecución. Un trazado estático no puede cerrar ninguno de los dos, y
+   presentarlos como cerrados sería el error inverso al que este documento
+   corrige.
 3. El corpus de `5c02833` y la clasificación de este generador no coinciden.
    **Verificado: coinciden.** 649 casos, mismo conjunto, mismos valores
    esperados, 0 diferencias.
@@ -252,4 +426,7 @@ Este trabajo se refutaría con:
 - Fuente de la aritmética: `src/gallium/auxiliary/gallivm/lp_bld_format_s3tc.c:817-877`
 - Recuento original: commit `1e28733` (IA-3)
 - Generador y clasificador: `06-INGENIERIA-INVERSA/llvmpipe_pairs.py`, commit `75e6b85`
+- Validación de la aritmética: `06-INGENIERIA-INVERSA/corpus/q5_validate_llvmpipe.py`, commit `d07aaac` — 649/649, con control negativo por mutación
+- Cadena `NEAREST` → `lp_build_lerpdxta`: trazada por mí el 2026-09-29, 8 saltos, todos por lectura. Ficheros citados: `lp_bld_sample_aos.c:363,431,963` · `lp_bld_format_aos.c:468,730` · `lp_bld_format_s3tc.c:881,985,1032,2150,2175`. **Grado**: `EVIDENCE` sobre el árbol leído, no sobre el binario
+- `Q-3` (binario instalado = árbol leído): `FAIL` por método, commit `00f9051`
 - Corpus materializado: `08-ARQUITECTURA/validations/casos_llvmpipe_unico.json`, commit `5c02833` (IA-3), sha256 `4e9de0a3…`
