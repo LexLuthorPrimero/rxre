@@ -1,7 +1,7 @@
 # Estado del Proyecto: Compresor BC3/DXT5 para RX 550 (Polaris 12)
 
 **Fecha**: 2026-09-29
-**Estado global**: **Fase 1 completa. Fase 2: el shader SE EJECUTA en la RX 550, el alfa coincide byte a byte, y el agreement test FALLA en color.**
+**Estado global**: **Fase 1 completa. Fase 2 completa — el shader se ejecuta en la RX 550 y su salida coincide byte a byte con el decodificador de CPU (0/4096, 3 corridas).**
 
 > Todas las cifras de este documento fueron **medidas en esta host el 2026-09-29** con los
 > targets del `Makefile`. Las que no pude medir están marcadas como `NOT_DETERMINED`, no
@@ -69,60 +69,58 @@ independiente de la implementación y el resultado `CONFORMA` significa algo.
 
 ---
 
-## Fase 2: Descompresor (GPU) — PARCIAL
+## Fase 2: Descompresor (GPU) — COMPLETA
 
-**Estado**: `PARTIAL`. Código escrito y validado aritméticamente en CPU.
-**Ejecución en GPU**: `RUN`. El shader se ejecutó en la RX 550 (RADV POLARIS12).
-**Agreement GPU vs CPU**: **NO establecido** — 57 de 64 bloques difieren, todos en color.
+**Estado**: `COMPLETE`. El shader se ejecutó en la RX 550 y su salida coincide **byte a byte**
+con el decodificador de referencia de CPU.
+**Ejecución en GPU**: `RUN`, reproducible.
+**Agreement GPU vs CPU**: **ESTABLECIDO** — 0 de 4096 bytes, en 3 corridas consecutivas.
 
-### Completado
-
-- `decompress_bc3.comp`: shader GLSL, traducción literal de `rx550_decompress_block()`,
-  `alpha_palette()` y `colour_palette()`.
-- Compila a SPIR-V con `glslangValidator` 16.3.0, `rc=0`, 11984 B.
-- `shader_vs_c`: **0/4096** canales discrepantes frente a `rx550_decompress_block()`, en la
-  variante que lee los endpoints de color de `block 2`, que es como lee el shader
-  (`decompress_bc3.comp` toma `c0`/`c1` de `w2`, bytes 8..11).
-- Sincronizado con el C tras AD-11: shader y `alpha_palette()` llevan ambos `+3`/`+2`.
-
-### Lo que se midio, y lo que falla
-
-**El shader ejecuta en la RX 550.** Pipeline creado, `vkCmdDispatch(1,1,1)`, fence completado:
-No es aritmética simulada.
+### Evidencia
 
 ```
-[ OK ] 940 de 4096 bytes distintos de cero
-[ OK ] ninguna palabra conserva el patron veneno 0xDEADBEEF
-RESULT: GPU != CPU. 57 de 64 bloques difieren.
-  bloques discrepantes : 57 de 64
-  bytes discrepantes   : 3197 de 4096
+[0] 1002:699f  AMD Radeon RX 550 / 550 Series (RADV POLARIS12)   <- objetivo, por PCI identity
+[2] 10005:0000 llvmpipe                                           <- presente, NO seleccionado
+[ OK ] vkCreateDevice, familia de colas compute 0
+[ OK ] vkCreateShaderModule -- el driver aceptó el módulo
+[ OK ] vkCmdDispatch(4,1,1), submit y fence completados
+[ OK ] 4005 de 4096 bytes distintos de cero
+[ OK ] ninguna palabra conserva el patrón veneno 0xDEADBEEF
+  bloques discrepantes : 0 de 64
+  bytes discrepantes   : 0 de 4096
+RESULT: GPU == CPU.          rc=0
 ```
 
-**Alfa: 0 discrepancias de 4096.** La rampa BC3 del shader coincide byte a byte con
-`rx550_decompress_block()` en hardware real.
+Alfa y color coinciden por igual: la comparación es sobre los 4096 bytes completos, no sólo
+sobre un canal. La cobertura del corpus se mide y se imprime — 5 bloques en el modo de 6 valores
+de la rampa alfa, 59 en el de 8.
 
-**RGB: 57 de 64 bloques.** Error estrecho y sistemático (±57/±58), no redondeo ni ruido.
-Causa `NOT_DETERMINED`.
+### Los tres defectos que lo bloqueaban
 
-### Corrección de un diagnóstico anterior (AD-14)
+Ninguno era visible desde el lado CPU. `shader_vs_c` dio **0/4096** con los tres presentes.
 
-Mi informe previo atribuyo el SIGSEGV de `vkCreateComputePipelines` como defecto del driver.
-**Era falso: era mío.** Mis declaraciones de structs Vulkan escritas a mano. Con
-`<vulkan/vulkan.h>` real (vulkan-headers 1.4.341.0) el pipeline se crea sin crash.
+1. **Índice de color** (`decompress_bc3.comp`): `& 0xFFu` donde el C lee 2 bits; el `& 3u`
+   posterior recortaba a los dos bits **altos** del byte. Los píxeles 2 y 3 de cada grupo de 4
+   tomaban el índice de otro píxel — de ahí los pares transpuestos con diferencia constante ±58.
+   Además la rama `else` leía fuera del bloque para `p = 8..15`: `c_idx` son 4 bytes, una sola
+   palabra, no dos como el array de 6 bytes del alfa.
+2. **Faltaba `vkCmdPushConstants`**: el shader acotaba el dispatch con `params.num_blocks` leído
+   de memoria no inicializada. Con basura grande no escribía nada; con basura pequeña se ejecutaba
+   por suerte. La primera corrida (3197 bytes erróneos) fue una ejecución afortunada, no un
+   resultado reproducible.
+3. **`DISPATCHES` mal calculado**: `ceil(64/256) = 1` cuando el shader mapea una invocación a un
+   **píxel**, no a un bloque — un workgroup de 256 cubre 16 bloques. Hacían falta 4. Los bloques
+   16..63 nunca se escribieron.
 
-La autovalidación previa a la comparación hizo su trabajo: se negó a reportar `PASS` sobre una
-salida **entera a cero**, que habría producido «0 discrepancias» y un falso éxito.
+Ver AD-13 en `DECISIONS.md` para el detalle y para lo que este test **no** establece.
 
-**Defecto abierto y peligroso**: el test imprime `[FAIL]` por `stderr` y devuelve `rc=0`.
-Con la salida canalizada parece exitoso. Cualquier CI que compruebe el código de salida
-reportaría **verde sobre un fallo**. No corregido.
+### Límites
 
-### Detalle importante sobre AD-11
-
-AD-11 **no** está verificado contra el hardware. Settlea qué dice el texto de la
-especificación. Ver AD-12.
-
----
+- `GFX_HWIP` sigue `NOT_DETERMINED`: este test no consulta la generación gfx ni la infiere.
+- Validación de esquema SPIR-V: `NOT_AVAILABLE`, sin `spirv-val`. Que el driver acepte el módulo
+  es evidencia sobre ese driver.
+- El corpus es determinista y sintético: es una guarda de regresión, no una prueba exhaustiva.
+- Un dispatch no mide rendimiento.
 
 ## AD-12: comportamiento del hardware — `NOT_DETERMINED`
 
@@ -154,7 +152,7 @@ marcado como **no validado contra el hardware objetivo**.
 | AD-10 | `RX550_ALPHA_INSET_STEPS 0` — mismo PSNR (±0.01 dB), 2.8× más rápido |
 | AD-11 | Interpolación BC3 con redondeo `+3`/`+2` según especificación Microsoft D3D9 |
 | AD-12 | Rampa del hardware Polaris 12: `NOT_DETERMINED` |
-| AD-13 | Estado de Fase 2: `PARTIAL`, Fase B `NOT_WRITTEN` |
+| AD-13 | Fase 2 `COMPLETE`: agreement test GPU==CPU, 0/4096, tres defectos corregidos |
 | D19a | Convención BC3 `a0 = max, a1 = min` (`44bc133`): bloques con la rama `/7` de **0 a 59 de 64** |
 
 ---

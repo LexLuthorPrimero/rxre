@@ -67,6 +67,22 @@ endpoint pairs, with a maximum error of 1 of 255. Blocks here follow the specifi
 
 ## Validation status
 
+**Fase B (GPU dispatch): COMPLETE. The shader runs on the RX 550.**
+
+```
+[0] 1002:699f  AMD Radeon RX 550 / 550 Series (RADV POLARIS12)   <- target, by PCI identity
+[2] 10005:0000 llvmpipe                                           <- present, NOT selected
+[ OK ] vkCmdDispatch(4,1,1), submit and fence completed
+[ OK ] 4005 of 4096 bytes non-zero
+[ OK ] no word retains the 0xDEADBEEF poison pattern
+  blocks differing : 0 of 64
+  bytes differing  : 0 of 4096
+RESULT: GPU == CPU.          rc=0
+```
+
+Three consecutive runs, identical. Alpha and colour both match: the comparison covers all 4096
+bytes, not one channel.
+
 **Fase A (CPU, no GPU): COMPLETE**
 
 | check | result |
@@ -74,37 +90,37 @@ endpoint pairs, with a maximum error of 1 of 255. Blocks here follow the specifi
 | `shader_vs_c` | **0 of 4096** channels differ from `rx550_decompress_block()` |
 | `test_alpha_ramp` | **0 of 65 536** endpoint pairs, against two independent transcriptions of the spec |
 | `test_corpus_validate` | SPIR-V header valid; corpus deterministic; both alpha-ramp branches covered |
-| `glslangValidator` | `rc=0`, 11 944 B, 2 986 words, magic `07230203` |
+| `glslangValidator` | `rc=0`, 11 672 B, 2 918 words, magic `07230203` |
 
-**Fase B (GPU dispatch): `NOT_WRITTEN`**
+### What each test can and cannot detect
 
-The shader has **never been executed on any GPU** — not the RX 550, not llvmpipe, not anything.
-Every statement above is a claim about the algorithm and about the compiled artefact, never
-about execution. `GFX_HWIP` remains `NOT_DETERMINED`.
+This is the part worth reading. The three defects that made the shader wrong were **all invisible
+to the CPU-side validator**, which reported 0 of 4096 with every one of them present:
 
-Blocked on `vulkan-devel`, which is not installed and cannot be installed without privileges:
+| defect | caught by |
+|---|---|
+| colour index: `& 0xFF` where the C reads 2 bits, so the `& 3` kept the byte's **high** two bits; pixels 2 and 3 of each group of 4 took a neighbour's index. The `else` branch also read past the block for `p = 8..15` | GPU execution only |
+| `vkCmdPushConstants` never issued, so the shader bounded its dispatch with uninitialised memory | GPU execution only |
+| `DISPATCHES` computed as `ceil(64/256) = 1` when the shader maps one invocation to a **pixel**: a 256-invocation workgroup covers 16 blocks, so 4 were needed | GPU execution only |
 
-```
-/usr/include/vulkan/vulkan.h   absent
-dnf info vulkan-devel           no matching package
-sudo -n true                   a password is required
-```
+`shader_vs_c` models the shader's arithmetic in C and **does not compile the GLSL**. It cannot see
+a missing Vulkan call, a wrong dispatch count, or an out-of-bounds read. Its result is worth
+having and is narrower than its name suggests.
 
-Declaring the Vulkan structs by hand was attempted and abandoned: 37 compile errors, and a
-duplicated `pNext` field that shifts a struct's layout silently rather than failing to compile.
-`vk_pipeline_min.c` segfaults on RADV and llvmpipe for a reason that cannot be diagnosed without
-the real headers — a layout fault presents as a crash, not a message. See AD-13.
+### Why the output is validated before it is compared
 
-When Fase B is written, two requirements are not optional:
+A dispatch that never runs leaves the output buffer as it was initialised. Compared byte for byte
+against the CPU reference that gives **zero discrepancies and a pass**. The two checks above —
+the output is non-trivial, and no word retains the poison pattern — are what make the result
+evidence. Without them, defect 2 would have produced an empty `PASS`.
 
-- Identify the RX 550 by **PCI identity** `0x1002:0x699F`, never by enumeration index. This host
-  exposes the Intel iGPU, the AMD device, and llvmpipe, and llvmpipe would happily accept the
-  dispatch.
-- **Validate the buffer before comparing it.** A dispatch that never ran leaves the output
-  untouched, a byte-for-byte comparison reports zero discrepancies, and the test passes. Checking
-  that the output is non-trivial first is what makes the result evidence.
+### What a pass does not establish
 
----
+- `GFX_HWIP` remains `NOT_DETERMINED`; this test neither queries nor infers the gfx generation.
+- Schema validity of the SPIR-V is `NOT_AVAILABLE` — `spirv-val` is not installed. A driver
+  accepting a module is evidence about that driver.
+- The corpus is deterministic and synthetic: a regression guard, not an exhaustive proof.
+- One dispatch measures no performance.
 
 ## Why a translation and not a reimplementation
 
@@ -143,8 +159,8 @@ rule, not against the C it is derived from.
 | `shader_vs_c` | built binary of the above |
 | `decompress_bc3.spv` | built by `make`; see "Compilation status" |
 | `test_corpus_validate.c` | **written and run** — Fase A: validates the artefact, builds a deterministic corpus, measures coverage of both alpha-ramp branches |
-| `test_decompress.c` | **not written** — needs `vulkan.h` and a live device. See AD-13 |
-| `vk_pipeline_min.c` | abandoned: hand-declared Vulkan structs, `SIGSEGV` on RADV and llvmpipe, cause not diagnosticable without real headers |
+| `test_decompress.c` | **written and run** — Phase B, the GPU agreement test. 0 of 4096 bytes differ |
+| `vk_pipeline_min.c` | abandoned: hand-declared Vulkan structs, `SIGSEGV` on RADV and llvmpipe. Superseded by `test_decompress.c`, which uses the real headers |
 | `Makefile` | **written** — `all` · `test` · `check-codec` · `check-spirv` · `clean` |
 
 ---
@@ -223,14 +239,16 @@ certainly does not mean the shader runs.
 
 ---
 
-## To finish this file
+## What is left
 
-1. `sudo dnf install vulkan-devel` — currently absent, and the reason the GPU
-   test is not written.
-2. Write `test_decompress.c` with `#include <vulkan/vulkan.h>`: build a corpus
-   with `rx550_compress_block()` on the CPU, dispatch the same corpus through
-   the shader on the GPU, and require byte-for-byte equality against
-   `rx550_decompress_block()`. Two requirements are not optional — identify the
-   RX 550 by PCI identity rather than enumeration index, and validate the
-   output buffer before comparing it, or a dispatch that never ran will pass.
-3. Only then is the "not run on hardware" caveat at the top of this file lifted.
+Fase 2 is complete as a correctness exercise. What it does not do is measure anything:
+
+1. `GFX_HWIP` is `NOT_DETERMINED`. Nothing here queries the gfx generation, and no shader in
+   this project has established it. Closing that needs a query against the driver, not a shader.
+2. `spirv-val` is not installed, so schema validation is `NOT_AVAILABLE`. Installing
+   `spirv-tools` would close it.
+3. Performance is unmeasured. One dispatch of 64 blocks says nothing about throughput; a
+   benchmark is a separate experiment with its own `NOISE` floor and control.
+4. The corpus is 64 synthetic blocks. A representative real-texture corpus would be a stronger
+   guard, and would also settle the `RX550_ALPHA_INSET_STEPS` question (AD-10) that the synthetic
+   corpus could not.

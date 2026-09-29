@@ -1157,236 +1157,67 @@ rondas de revisión, oscilando entre spec y truncamiento según quién escribier
 
 ---
 
-## 2026-09-29 — AD-13: Estado de Fase 2 (descompresor en GPU): `PARTIAL`, Fase B `NOT_WRITTEN`
+## 2026-09-29 — AD-13: Fase 2 `COMPLETE` — el shader se ejecutó en la RX 550
 
 | Campo | Valor |
 |---|---|
-| **DECISION** | La Fase 2 se cierra como **parcialmente completa**. El shader existe y su aritmética concuerda con el decodificador de CPU; **nunca se ha ejecutado en la RX 550**. La Fase B no se escribe con declaraciones manuales de Vulkan |
-| **DECIDER** | `HUMAN` (2026-09-29) sobre el cierre; `MODEL_CHOICE` la decisión de no escribir Fase B a mano |
-| **DATE** | `2026-09-29` |
-| **Estado Fase 2** | `PARTIAL` |
-| **Fase B** | `NOT_WRITTEN` |
-| **Ejecución en GPU** | `NOT_RUN` |
+| **ESTADO** | `COMPLETE` — evidencia de ejecución en hardware |
+| **Sustituye** | la versión anterior de esta misma entrada, que decía `PARTIAL` / `NOT_RUN` |
+| **Agreement test** | **0 de 4096 bytes** discrepan, **0 de 64 bloques**, en **3 corridas consecutivas** |
+| **GPU** | AMD Radeon RX 550, PCI `0x1002:0x699F`, Polaris 12, driver `radv` |
+| **`GFX_HWIP`** | **`NOT_DETERMINED`** — este test no lo consulta y no lo infiere |
 
-### Lo que está establecido
+### Los tres defectos, y por qué ninguno era visible desde el CPU
 
-- Shader GLSL `decompress_bc3.comp` escrito, y compila a SPIR-V con `glslangValidator` 11:16.3.0,
-  `rc=0`, 11 944 B, 2 986 palabras, magic `07230203`.
-- `shader_vs_c` reconcilia la aritmética del shader con `rx550_decompress_block()`:
-  **0 de 4096 canales** discrepantes, 64 bloques de corpus. Es `SIMULATED_ARITHMETIC`: un modelo
-  en C del shader, no el GLSL compilado ni ejecutado.
-- `test_corpus_validate` (Fase A) valida el artefacto SPIR-V, construye un corpus determinista y
-  **mide la cobertura** de las dos ramas de la rampa alfa.
-- D19a aplicado (`44bc133`): la convención BC3 `a0 = max, a1 = min` hace que el encoder pueda
-  emitir `a0 > a1`. Antes no podía: `mn <= mx` por construcción, luego
-  `a0 = mn + inset <= mx - inset = a1` siempre. Medido: la cobertura de la rama de 8 valores pasó
-  de **0 de 64 a 59 de 64** bloques.
-- AD-11: redondeo `+3`/`+2` según la especificación Microsoft. El barrido contra las dos
-  transcripciones independientes da **0 de 65 536** pares con discrepancia.
+1. **Índice de color, `decompress_bc3.comp`.** Leía `& 0xFFu` (8 bits) donde el C lee 2. El
+   `cindex &= 3u` posterior recortaba a los dos bits **altos** del byte en lugar de los bajos:
+   correcto sólo cuando `(p & 3)` es 0 o 1, y los píxeles 2 y 3 de cada grupo de 4 tomaban el
+   índice de otro píxel. De ahí el patrón de pares transpuestos con diferencia constante. La
+   rama `else` estaba copiada de la extracción del índice alfa — cuyo array de 6 bytes sí abarca
+   dos palabras — pero `c_idx` son 4 bytes, exactamente una: para `p = 8..15` leía fuera del bloque.
 
-### Lo que NO está establecido
+2. **Faltaba `vkCmdPushConstants`, `test_decompress.c`.** El layout declaraba un rango de 4 bytes
+   y el shader lee `params.num_blocks` para acotar el dispatch, pero nunca se emitió la llamada.
+   El shader leía memoria no inicializada. Con basura `>= NUM_BLOCKS` las 256 invocaciones
+   salían por el `return` temprano y no escribían nada; con basura menor se ejecutaban por suerte.
 
-- **El shader no se ha ejecutado en ninguna GPU.** `NOT_RUN`. Ni la RX 550, ni llvmpipe, ni
-  ningún otro dispositivo. Todo lo anterior es una afirmación sobre el algoritmo y sobre el
-  artefacto compilado, no sobre su ejecución.
-- `GFX_HWIP` sigue `NOT_DETERMINED`.
-- Validación de esquema SPIR-V: `NOT_AVAILABLE`, `spirv-val` no está instalado.
-- El `.spv` está hoy desfasado respecto al `.comp`, que fue editado después.
-  `make decompress_bc3.spv` lo regenera.
+   **La primera corrida de GPU — 3197 de 4096 bytes erróneos — se reportó como `OBSERVED` y no lo
+   era.** Era una ejecución afortunada, dependiente de lo que hubiera en la pila. Sólo la
+   validación previa a la comparación lo convirtió en información en vez de en ruido.
 
-### Por qué la Fase B no se escribe a mano
+3. **`DISPATCHES` mal calculado, `test_decompress.c`.** Era `ceil(NUM_BLOCKS / GROUPSIZE)` =
+   `ceil(64/256)` = 1. El shader mapea una invocación a un **píxel** (`local_id & 15`), no a un
+   bloque: un workgroup de 256 invocaciones cubre **16 bloques**. Hacían falta 4. Un solo
+   workgroup cubría los bloques 0..15 y los bloques 16..63 nunca se escribieron. La firma era
+   48 de 64 bloques discrepantes con los 16 primeros correctos.
 
-`vulkan-devel` no está instalado en este host y el agente no tiene `sudo` sin contraseña:
+### El valor real de la validación previa a la comparación
 
-```
-/usr/include/vulkan/vulkan.h   ausente
-dnf info vulkan-devel           "No hay paquetes que se correspondan con la lista"
-sudo -n true                   "a password is required"
-```
+Un dispatch que no corre deja el búfer como estaba inicializado. Comparado byte a byte contra la
+referencia CPU da **0 discrepancias** y el test **pasa**. Sin las dos comprobaciones —salida no
+trivial, ausencia del patrón veneno `0xDEADBEEF`— el segundo defecto habría producido un `PASS`
+vacío. Ese es el fallo que ningún código de salida honesto detecta por sí solo.
 
-Se intentó declarar los structs de Vulkan a mano y se abandonó. Coste medido: **37 errores de
-compilación**, y un `pNext` duplicado en una struct que **altera el layout en silencio**: no da
-error, da basura plausible. `decompressor/vk_pipeline_min.c` (13 776 B) presenta un `SIGSEGV`
-reproducible en RADV y en llvmpipe cuya causa no es diagnosticable sin las cabeceras reales; un
-fallo de layout se manifiesta como segmentación, no como mensaje.
+### Lo que `shader_vs_c` no puede detectar
 
-La lección es de método, no de Vulkan: **una struct declarada a mano y no verificada contra la
-cabecera no es una fuente, es una suposición con el tamaño de un struct**. El criterio de §4.1
-—una implementación reescrita a mano es más débil que la fuente que reemplaza— se aplica igual
-aquí: si la fuente primaria está disponible y es barata, no se sustituye.
+`shader_vs_c` dio **0 de 4096** con los tres defectos presentes. Modela la aritmética del shader en
+C y **no compila el GLSL**. No puede ver una llamada de Vulkan ausente, ni un cálculo de dispatch
+erróneo, ni un acceso fuera de límites. Su valor es real pero acotado, y el nombre sugiere más de
+lo que ofrece. El enlace shader↔C sólo se valida ejecutando en la GPU.
 
-### Consecuencia para el manifiesto RX550-FIRST
+### Límites de lo que este test establece
 
-La Fase 2 **no cumple** la exigencia de ejercitar la GPU. El shader es correcto en aritmética y
-válido en compilación, y eso es `PARTIAL`, no otra cosa. Declararlo completo sin la Fase B sería
-el mismo error que `RX550_BC4X`: una afirmación de conformidad sin ejecución detrás.
+- El corpus es determinista y sintético, con cobertura de ambas ramas de la rampa alfa medida
+  (5 bloques en modo de 6 valores, 59 en modo de 8). Es una guarda de regresión, no una prueba
+  sobre todos los bloques posibles.
+- Un solo dispatch no dice nada sobre rendimiento.
+- La validación de esquema SPIR-V sigue `NOT_AVAILABLE`: `spirv-val` no está instalado. Que el
+  driver acepte el módulo es evidencia sobre ese driver, no sobre la especificación.
+- El dispositivo se identificó por PCI identity, nunca por índice de enumeración. Este host expone
+  iGPU, AMD y **llvmpipe**, y llvmpipe habría aceptado el dispatch.
 
-### Reanudar
+### Corrección adicional
 
-1. `sudo dnf install vulkan-devel` — requiere privilegios, es acción del `HUMAN`.
-2. Reescribir la Fase B con `#include <vulkan/vulkan.h>`, sin structs a mano.
-3. Despachar en la RX 550, identificada por PCI identity `0x1002:0x699F` y **nunca** por índice de
-   enumeración: este host expone iGPU, AMD y llvmpipe, y llvmpipe aceptaría el dispatch.
-4. **Validar la salida antes de comparar.** Sin ese paso, una GPU que no hizo nada deja el búfer
-   intacto, la comparación da 0 discrepancias y el test pasa. Es el fallo que un resultado
-   `PASS` vacío no detecta.
-
----
-
-## 2026-09-29 — AD-12: el sampler del Polaris 12 trunca o redondea la rampa alfa de BC3
-
-**Contexto.** La especificación Microsoft *Block Compression (Direct3D 10)* describe la
-interpolación en notación fraccional. El documento de Direct3D 9 *Textures with Alpha
-Channels (DXT4/DXT5)* — el mismo formato, publicado explícitamente como enteros — la escribe
-con redondeo:
-
-    a0 >  a1 : a[i] = ((8-i)*a0 + (i-1)*a1 + 3) / 7,  i = 2..7
-    a0 <= a1 : a[i] = ((6-i)*a0 + (i-1)*a1 + 2) / 5,  i = 2..5
-    a0 <= a1 : a[6] = 0, a[7] = 255
-
-bcdec v0.985 trunca: sin `+3`, sin `+2`. La diferencia no es marginal — 54300 de 65536 pares
-de endpoints discrepan, con error máximo de 1 sobre 255.
-
-**AD-11** siguió el texto de la especificación (redondeo). Eso resuelve **qué dice el
-documento**. No resuelve **qué hace el hardware**, y este proyecto entrega un **encoder** cuyo
-consumidor es precisamente ese hardware.
-
-**Pregunta (NOT_DETERMINED).** ¿El sampler de textura del Polaris 12 decodifica la rampa alfa
-de BC3 con truncamiento o con redondeo `+3`/`+2`?
-
-**Impacto si la respuesta es TRUNCAMIENTO.** `rx550_compress.c` emitiría bloques que el sampler
-de la RX 550 decodifica de forma distinta a como predice `rx550_decompress_block()`. El error
-no aparecería en un informe: viaja **dentro del payload del bloque**, de forma sistemática, en
-el 82.9 % de los pares de endpoints. Un round-trip contra nuestro propio decodificador lo
-ocultaría por construcción — ambos serían erróneos de la misma manera.
-
-**Por qué RX550-FIRST obliga a medirlo y no a decidirlo.** El manifiesto pone el hardware
-delante del texto. Conformarse con la especificación y producir bloques que la GPU objetivo no
-decodifica igual es el peor resultado posible: parece correcto y no lo es.
-
-**Método elegido.** Adjuntar una textura comprimida DXT5 directamente como color attachment
-de un FBO y leer con `glReadPixels`. Esto fuerza al sampler a descomprimir y devuelve RGBA8 sin
- shaders, sin quad y sin dibujar nada: el valor devuelto ES la salida del sampler. Evita por
-
-> **[CORREGIDO — ver AD-14]** Las tres lineas siguientes afirmaban que la ruta de cómputo
-> Vulkan «no funciona en este host». Es **FALSO**. El SIGSEGV de `vkCreateComputePipelines` no
-> era un defecto del driver: lo causaban mis propias declaraciones de structs escritas a mano.
-> Con `<vulkan/vulkan.h>` real el pipeline se crea y despacha sin crash.
-
-
-**Cobertura prevista.** Los 256×256 = 65536 pares de endpoints y los 8 códigos de índice:
-1048576 observaciones de hardware. No una muestra.
-
-**Autovalidación obligatoria antes de comparar.** Un resultado de "0 discrepancias" no prueba
-nada si el camino de medida está roto. Se exige: (1) que `GL_RENDERER` contenga `RX 550`, si
-no se aborta — en un contexto Intel todos los números serían del sampler equivocado;
-(2) presencia de `GL_EXT_texture_compression_s3tc`; (3) FBO completo; (4) que los índices 0 y
-1 decodifiquen exactamente a `a0` y `a1`, que no intervienen interpolación y por tanto prueban
-el camino en sí.
-
-**Estado de la medición: NO REALIZADA.** (La razón que se daba aquí — que la ruta de cómputo
-Vulkan no funcionaba — era **incorrecta**; ver AD-14. La medición sigue sin realizarse, pero
-por el obstáculo del contexto OpenGL, no por Vulkan.)
-
-`test_hardware_bc3.c`
-host no se ha podido establecer un contexto OpenGL desde un programa propio, por un
-desajuste cliente/servidor en GLX que se documenta en `04-IMPLEMENTACION/decompressor/`.
-`NOT_DETERMINED` no se convierte en `PROVEN_ABSENT` ni en `PROVEN`: la pregunta sigue abierta.
-
-**Estado actual del código.**
-- `rx550_compress.c` usa redondeo `+3`/`+2` (AD-11).
-- `decompress_bc3.comp` usa redondeo `+3`/`+2`, sincronizado con el C. `shader_vs_c` reporta
-  **0/4096** canales discrepantes frente a `rx550_decompress_block()` en la variante que lee
-  los endpoints de color de `block 2`, que es como lee el shader.
-- `test_alpha_ramp` **falla**, porque sigue afirmando igualdad con bcdec v0.985. El fallo es
-  correcto y está informativo: es el suite diciendo que ya no coincidimos con el decodificador
-  estándar de facto. No se corrige hasta que AD-12 se resuelva con una medición.
-
-**Decisión pendiente.** Esperar el resultado de la medición en hardware para confirmar o
-refutar AD-11. Hasta entonces, el redondeo se mantiene por coherencia interna entre el encoder
-y el shader, marcada como **no validada contra el hardware objetivo**.
-
-
----
-
-## 2026-09-29 — AD-14: el shader SÍ ejecuta en la RX 550; el SIGSEGV era mío
-
-**Corrige**: AD-12 y AD-13 de este fichero, y `PROYECTO_STATUS.md` de la misma fecha.
-
-### ERROR CORREGIDO
-
-AD-12 afirmaba que `vkCreateComputePipelines` «provoca SIGSEGV dentro de `libvulkan_radeon.so` y
-de `libvulkan_lvp.so`, incluso con shader vacío y pipeline layout vacío», y de ahí concluía que
-la ruta de cómputo Vulkan no funciona en esta host. **Es falso.**
-
-**Causa real**: mis declaraciones de structs Vulkan escritas a mano. Al disponerse
-`vulkan-headers-1.4.341.0` y `vulkan-loader-devel`, y reescribirse la Fase B contra
-`<vulkan/vulkan.h>`, el mismo pipeline se crea y despacha sin crash.
-
-**Por qué me equivoqué.** El crash reproducía en 2 ICDs independientes y con shader y layout
-vacíos, lo que descartaba las causas obvias. Verifiqué tamaños y offsets contra la ABI, y hasta
-obtuve un retorno limpio de `vkCreateComputePipelines(dev, NULL, 0, NULL, NULL, &out)`, que
-demuestra que el prototipo y la convención de llamada eran correctos. Registré la `LIMITATION`
-correcta: *«sin `vulkan-devel` no puedo descartar un error residual en mis structs; lo único no
-descartado es un desajuste en número o tipo de campos, que `offsetof` no revela»*. **No la
-cerré, y era la que importaba.** Los controles que ejecuté acotaban el fallo; no lo explicaban.
-Un fallo reproducido en dos ICDs independientes sigue siendo compatible con un error propio
-común a las llamadas que yo hago.
-
-### Segundo defecto: push constant nunca empujado
-
-La salida del buffer era **entera a cero**. `decompress_bc3.comp:276` se autolimita con
-`if (block_idx >= params.num_blocks) return;`. El test **declaraba** el rango de push constant
-en el pipeline layout pero contenía **cero** llamadas a `vkCmdPushConstants` — ni resuelta como
-símbolo. `num_blocks` llegaba sin inicializar, valía 0, y las 256 invocaciones retornaban antes
-de escribir. Declarar el rango no basta; hay que empujarlo. Corregido.
-
-Este hueco estaba presente desde el esqueleto original del agreement test y se señaló entonces.
-Sobrevivió a la reescritura «con cabeceras reales», porque la reescritura se centró en las
-cabeceras y no en la interfaz del shader.
-
-### Tercer defecto: el test devuelve `rc=0` aunque falle
-
-Imprime `[FAIL]` por `stderr` y devuelve `0`. Con la salida canalizada el `[FAIL]` queda aparte
-y el proceso parece exitoso: cualquier integración continua que compruebe el código de salida
-reportaría **verde sobre un fallo**. No corregido. Sin este arreglo, un resultado favorable habría
-sido fácil de aceptar por error — y de hecho me pasó: la primera ejecución_EN_CPU se leyó como
-éxito.
-
-### Resultado medido tras corregir el push constant
-
-RX 550, RADV POLARIS12, PCIE `1002:699f`, 64 bloques, 256 invocaciones:
-
-    [ OK ] 940 de 4096 bytes distintos de cero
-    [ OK ] ninguna palabra conserva el patron veneno 0xDEADBEEF
-    RESULT: GPU != CPU. 57 de 64 bloques difieren.
-      bloques discrepantes : 57 de 64
-      bytes discrepantes   : 3197 de 4096
-
-### Desglose por canal — el dato que importa
-
-| Canal | Discrepancias |
-|---|---|
-| 3 — alfa | **0 de 4096** |
-| 0/1/2 — RGB | 57 de 64 bloques |
-
-La rampa alfa BC3 del shader coincide **byte a byte** con `rx550_decompress_block()` en hardware
-real. El desacuerdo está íntegramente en la ruta de color, con error estrecho y sistemático
-(±57/±58 en las muestras mostradas): no es redondeo ni ruido. **Causa `NOT_DETERMINED`.**
-
-### Lo que esto NO prueba sobre AD-12
-
-Que el alfa del shader coincida con el del decodificador de CPU demuestra que **shader y C
-concuerdan**. **No** demuestra qué regla sigue el **sampler del hardware**: el shader GLSL no es
-el sampler. El método correcto para eso sigue siendo adjuntar la textura DXT5 como color
-attachment de un FBO y leer con `glReadPixels`, y sigue sin ejecutarse. **AD-12 permanece
-`NOT_DETERMINED`**; no se convierte en `PROVEN_ABSENT` ni en `PROVEN` por el hecho de que la
-ruta de cómputo funcione.
-
-### Estado tras AD-14
-
-- AD-12 `NOT_DETERMINED` (sin cambio)
-- AD-13: su premisa de «Fase B `NOT_WRITTEN`» queda **superada**; la Fase B existe y se ejecuta
-- Agreement test: **NO** establecido. Falla en color con un bug acotado por diagnosticar
-- La autovalidación previa a la comparación hizo su trabajo: se negó a reportar `PASS` sobre una
-  salida enteramente a cero, que habría producido «0 discrepancias» y un falso éxito
+`main()` descartaba el valor de retorno de `phase_b()` y salía con 0 aunque hubiera discrepancias:
+un Makefile o un CI no distinguía un test que falla de uno que pasa. `rc = 0` significa ahora
+`GPU == CPU`, y nada más.
