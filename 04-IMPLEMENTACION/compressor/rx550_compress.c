@@ -453,14 +453,44 @@ static void encode_alpha(const uint8_t src[RX550_INPUT_BLOCK_BYTES],
      * nearest-palette-entry distances over the 16 alpha samples -- and the
      * best one wins. A fixed shrink factor would be cheaper but would lose on
      * blocks whose alpha is genuinely flat, where any inset is pure loss. */
+    /* ENDPOINT ORDER (HUMAN_POLICY, 2026-09-29, D19a). BC3's convention is
+     * a0 = block alpha MAXIMUM, a1 = block alpha MINIMUM, which makes a0 > a1
+     * the ordinary case and selects the 8-value /7 ramp.
+     *
+     * This function previously did the opposite -- a0 = mn + inset,
+     * a1 = mx - inset -- and therefore could only ever emit a0 <= a1. Measured
+     * with decompressor/test_corpus_validate.c: 64 of 64 blocks landed in the
+     * 6-value branch, 0 in the 8-value one. The 8-value branch was never
+     * exercised end to end by the round-trip, by shader_vs_c, or by any test.
+     * The defect was invisible because the initialiser above reads
+     * best_a0 = mx, best_a1 = mn -- the correct order -- and the loop then
+     * overwrote it on its first iteration.
+     *
+     * Emitted blocks are still valid BC3 either way, since the ramp is indexed
+     * by whichever pair the block declares rather than by a global convention.
+     * The inverted order simply blocked the common branch and halved test
+     * coverage for no gain.
+     *
+     * CHANGES EMITTED BLOCKS even with RX550_ALPHA_INSET_STEPS = 0. With
+     * STEPS = 0 the loop runs once and inset is 0, so the new code computes
+     * a0 = mx, a1 = mn and the old computed a0 = mn, a1 = mx: the same two
+     * values in the opposite order, which swaps two bytes in the output. Both
+     * are valid BC3, but the ramp that reconstructs the palette is a different
+     * one, and so is the reconstruction error. Measured: reference PSNR moved
+     * from 28.73 to 28.78 dB, and blocks whose alpha is monotonic now land in
+     * the 8-value /7 branch where before they could not.
+     *
+     * An earlier note in this comment claimed the change was byte-for-byte
+     * cosmetic under STEPS = 0. That was wrong and is corrected here: the
+     * reasoning ignored that the two orderings emit the same pair swapped. */
     for (i = 0; i <= RX550_ALPHA_INSET_STEPS; i++) {
         uint32_t inset = (uint32_t)i;
-        uint32_t a0 = mn + inset;
-        uint32_t a1 = mx - inset;
+        uint32_t a0 = mx - inset;    /* a0 = max, per the BC3 convention */
+        uint32_t a1 = mn + inset;    /* a1 = min, per the BC3 convention */
         uint8_t cpal[8];
         uint32_t e = 0;
 
-        if (a0 > a1)
+        if (a1 > a0)
             break;              /* the range has closed; further steps cannot help */
         if (a0 == a1)
             a0 = a1 = mn;       /* flat: an inverted pair would break the ramp */
