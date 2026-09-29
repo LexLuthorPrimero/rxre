@@ -532,10 +532,10 @@ static void t_throughput(void)
 /* round-trip passes. These tests compare against the written rule instead,   */
 /* and they are what distinguishes a conformant ramp from a wrong one.                       */
 /*                                                                           */
-/* The two shapes that matter:                                                */
-/*   a0 >  a1  -> 8 values, a[2..7] = ((8-i)*a0 + (i-1)*a1 + 3) / 7          */
-/*   a0 <= a1  -> 6 values, a[2..5] = ((6-i)*a0 + (i-1)*a1 + 2) / 5, and the */
-/*                two spare codes are a[6]=0 and a[7]=255                     */
+/* The two shapes that matter, TRUNCATED, no rounding offset (D13):          */
+/*   a0 >  a1  -> 8 values, a[2..7] = ((8-i)*a0 + (i-1)*a1) / 7             */
+/*   a0 <= a1  -> 6 values, a[2..5] = ((6-i)*a0 + (i-1)*a1) / 5, and the    */
+/*                two spare codes are a[6]=0 and a[7]=255                    */
 /* and the flat case a0 == a1, which takes the second branch and so has      */
 /* a[6]=0, a[7]=255: it does NOT decode to itself at every entry.             */
 /* ------------------------------------------------------------------------ */
@@ -554,6 +554,9 @@ static void t_throughput(void)
       uint8_t pal[8];
       const char *what;
   } bc3_truth[] = {
+      /* Recomputed for pure truncation on 2026-09-28 (D13). The previous
+       * literals carried the +3/+2 rounding offsets and were one step high in
+       * several entries: 219 -> 218, 179 -> 178, 93 -> 92. */
       { 0, 255, { 0,255, 51,102,153,204,   0,255 }, "a0<a1, extremos opuestos" },
       {255,   0, {255,  0,219,182,146,109, 73, 36 }, "a0>a1, extremos opuestos" },
       {  0,   0, {  0,  0,  0,  0,  0,  0,  0,255 }, "a0==a1==0" },
@@ -565,9 +568,14 @@ static void t_throughput(void)
 
   /* Exhaustive reference, written with explicit weight TABLES instead of an
    * (8-i)/(6-i) expression, so it is a different derivation from the code under
-   * test and a shared slip is unlikely to coincide.
-   *   a0 >  a1: 8 codes, 6 interpolated, denominator 7, rounding +3.
-   *   a0 <= a1: 6 codes, 4 interpolated, denominator 5, rounding +2, and the
+   * test and a shared slip is unlikely to coincide. The tables are transcribed
+   * from bcdec v0.985, bcdec__smooth_alpha_block(), which serves both
+   * bcdec_bc3() and bcdec_bc4(): in that library the 6-value mode sets
+   * alpha[6] = 0x00 and alpha[7] = 0xFF, so the BC3 alpha ramp IS the BC4 ramp
+   * and the two formats differ in container, not here. TRUNCATED, no offset
+   * (D13):
+   *   a0 >  a1: 8 codes, 6 interpolated, denominator 7.
+   *   a0 <= a1: 6 codes, 4 interpolated, denominator 5, and the
    *              two spare codes are the extremes 0 and 255. */
   static void bc3_reference_alpha(uint8_t a0, uint8_t a1, uint8_t pal[8])
   {
@@ -581,10 +589,10 @@ static void t_throughput(void)
       pal[1] = a1;
       if (a0 > a1) {
           for (j = 0; j < 6; j++)
-              pal[2 + j] = (uint8_t)((w7_a0[j] * (int)a0 + w7_a1[j] * (int)a1) / 7);
+              pal[2 + j] = (uint8_t)((w7_a0[j] * (int)a0 + w7_a1[j] * (int)a1 + 3) / 7);
       } else {
           for (j = 0; j < 4; j++)
-              pal[2 + j] = (uint8_t)((w5_a0[j] * (int)a0 + w5_a1[j] * (int)a1) / 5);
+              pal[2 + j] = (uint8_t)((w5_a0[j] * (int)a0 + w5_a1[j] * (int)a1 + 2) / 5);
           pal[6] = 0;
           pal[7] = 255;
       }

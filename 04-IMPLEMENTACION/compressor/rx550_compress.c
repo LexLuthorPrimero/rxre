@@ -117,7 +117,7 @@ static void alpha_palette(uint8_t a0, uint8_t a1, uint8_t pal[8])
          * (6-i) and not (7-i): at i=2 the rule opens at (6*a0 + a1)/7, so
          * a0 loses exactly one step across the ramp. */
         for (i = 2; i < 8; i++)
-            pal[i] = (uint8_t)(((8 - i) * (int)a0 + (i - 1) * (int)a1) + 3) / 7);
+            pal[i] = (uint8_t)(((8 - i) * (int)a0 + (i - 1) * (int)a1 + 3) / 7);
     } else {
         /* Four interpolated values, /5, and the two spare codes are the fixed
          * extremes 0 (transparent) and 255 (opaque) -- NOT six values with /7.
@@ -148,7 +148,7 @@ static void alpha_palette(uint8_t a0, uint8_t a1, uint8_t pal[8])
          * block, and index 0 is a0. See the "Alfa plano" section of
          * 04-IMPLEMENTACION/compressor/README.md and decision AD-8. */
         for (i = 2; i < 6; i++)
-            pal[i] = (uint8_t)(((6 - i) * (int)a0 + (i - 1) * (int)a1) + 2) / 5);
+            pal[i] = (uint8_t)(((6 - i) * (int)a0 + (i - 1) * (int)a1 + 2) / 5);
         pal[6] = 0;
         pal[7] = 255;
     }
