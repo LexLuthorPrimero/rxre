@@ -631,7 +631,7 @@ fórmula `PDE_VRAM_OFFSET` de E1 — ver `DEC-5`.
 
 > No existe comprobación CRC de versiones de símbolos mediante MODVERSIONS; permanecen las demás comprobaciones del cargador, incluidas firma y políticas de seguridad.
 
-**Impacto**: `E1_TRANSFER_STATUS = PRESERVED` **no** es autorización de build. `BUILD_AUTHORIZATION`, `MODULE_SIGNATURE`, `TREE_EXCLUSIVITY`, `LOADABILITY` y `RUNTIME_AUTHORIZATION` siguen separados, y `BUILD_ALLOWED = NO`. La fuente dejó de ser el obstáculo; la firma de módulos es ahora el 후보 dominante, y es una pregunta que no depende de la procedencia.
+**Impacto**: `E1_TRANSFER_STATUS = PRESERVED` **no** es autorización de build. `BUILD_AUTHORIZATION`, `MODULE_SIGNATURE`, `TREE_EXCLUSIVITY`, `LOADABILITY` y `RUNTIME_AUTHORIZATION` siguen separados, y `BUILD_ALLOWED = NO`. La fuente dejó de ser el obstáculo; la firma de módulos es ahora el candidato dominante, y es una pregunta que no depende de la procedencia.
 
 ---
 
@@ -696,19 +696,80 @@ El coeficiente de `a0` es `(8-i)`, no `(6-i)` ni `(7-i)`: en `i=2`, DXT5 es
 | `glslangValidator` 16.3.0 sobre el shader, `-V` | `rc=0`, sin warnings, SPIR-V 11 984 B |
 | `shader_vs_c.c`: lógica del shader transliterada a C contra el decodificador C | **0/4096** canales |
 
-**Retirado de la justificación propuesta, por no ser verificable:**
+### Fuente primaria — consultada el 2026-09-28, `SPECIFICATION_VERIFIED`
+
+`CONFORMITY_PROVENANCE = SPECIFICATION_VERIFIED`
+
+| Campo | Valor |
+|---|---|
+| **URL** | `https://learn.microsoft.com/en-us/windows/win32/direct3d10/d3d10-graphics-programming-guide-resources-block-compression` |
+| **Página** | *Block Compression (Direct3D 10) - Win32 apps*, publicada 2022-08-26 |
+| **URL 2** | `https://learn.microsoft.com/en-us/windows/win32/direct3d9/textures-with-alpha-channels` — *Textures with alpha channels*, para la regla de modo de color |
+| **MÉTODO** | lectura directa de la especificación primaria por el agente. **No** por transcripción de terceros |
+| **RESULTADO** | la rampa alfa implementada coincide **literalmente** con la especificación |
+
+La especificación publica, textualmente:
+
+```cpp
+if( alpha_0 > alpha_1 ) {
+  alpha_2 = (6 * alpha_0 + 1 * alpha_1 + 3) / 7;   // bit code 010
+  alpha_3 = (5 * alpha_0 + 2 * alpha_1 + 3) / 7;   // bit code 011
+  alpha_4 = (4 * alpha_0 + 3 * alpha_1 + 3) / 7;   // bit code 100
+  alpha_5 = (3 * alpha_0 + 4 * alpha_1 + 3) / 7;   // bit code 101
+  alpha_6 = (2 * alpha_0 + 5 * alpha_1 + 3) / 7;   // bit code 110
+  alpha_7 = (1 * alpha_0 + 6 * alpha_1 + 3) / 7;   // bit code 111
+} else {
+  alpha_2 = (4 * alpha_0 + 1 * alpha_1 + 2) / 5;   // Bit code 010
+  alpha_3 = (3 * alpha_0 + 2 * alpha_1 + 2) / 5;   // Bit code 011
+  alpha_4 = (2 * alpha_0 + 3 * alpha_1 + 2) / 5;   // Bit code 100
+  alpha_5 = (1 * alpha_0 + 4 * alpha_1 + 2) / 5;   // Bit code 101
+  alpha_6 = 0;                                     // Bit code 110
+  alpha_7 = 255;                                   // Bit code 111
+}
+```
+
+Correspondencia con lo implementado, entrada por entrada:
+
+| Dato | Especificación | `alpha_palette()` | |
+|---|---|---|---|
+| `a0 > a1`, pesos | `6,5,4,3,2,1` sobre `a0` | `((8-i)*a0 + (i-1)*a1 + 3)/7` | coincide |
+| `a0 <= a1`, pesos | `4,3,2,1` sobre `a0` | `((6-i)*a0 + (i-1)*a1 + 2)/5` | coincide |
+| `a0 <= a1`, sobrantes | `alpha_6 = 0`, `alpha_7 = 255` | `pal[6]=0; pal[7]=255;` | coincide |
+| Divisores | 7 y 5 | `/7` y `/5` | coincide |
+
+**La distribución de bits de los índices también está confirmada por la fuente**: la
+especificación publica la tabla byte a byte del bloque alfa, y coincide con
+`pack_3bit()` (`LSB-first`, 16 × 3 bits, repartidos en 6 bytes a partir del byte 2).
+
+### Modo de color: BC3 es SIEMPRE modo 4 colores
+
+Verificado en la misma fuente primaria, y es un punto donde la transcripción de terceros
+falla con frecuencia:
+
+> *«The color compare used in BC1 to determine if the texel is transparent is **not used
+> with these formats**. It is assumed that without the color compare the color data is always
+> treated as if in 4-color mode.»*
+> — *Textures with alpha channels (Direct3D 9)*, sección DXT4/DXT5
+
+Equivalente, según la propia especificación: el `if` de BC1 debe reescribirse como
+`if ((color_0 > color_1) OR !DXT1)`.
+
+El modo de 3 colores con `color_3 = 0` y `color_2 = 1/2*c0 + 1/2*c1` es **exclusivo de
+BC1**. Aplicado a BC3 produciría bloques que un decodificador estándar no reconstruye, y es
+precisamente el defecto que se detectó en la especificación original del shader. La
+implementación y el shader actuales son correctos en este punto porque **no** tienen la rama
+condicional.
+
+### Retirado de la justificación propuesta, por no ser verificable
 
 - `bcdec`, `oxideav-dds`, `DirectXTex`/`D3DX` como corroboración: **ninguno instalado, ninguno
-  consultado**. Comprobado el 2026-09-28: 0 fuentes DXT5 en `~/Descargas`.
+  consultado**. Comprobado el 2026-09-28: 0 fuentes DXT5 en `~/Descargas`. Ya **no** hacen
+  falta como corroboración: la fuente primaria está consultada y es autoritativa.
 - «Análisis ryg»: sin referencia identificable.
-- «Verificada contra la especificación Microsoft (Block Compression, Direct3D 10)»: **la
-  especificación no se ha leído**. La conformidad está establecida contra un conjunto de
-  literales cuya transcripción es mía. Eso es mejor que un test circular, pero es
-  `SECONDARY` respecto de la fuente primaria, y `AGENTS.md` §3.1 sitúa la fuente primaria por
-  encima. **Es el límite que queda abierto**, y se cierra consultando la especificación, no
-  con más vectores.
-
-`CONFORMITY_PROVENANCE = AGENT_TRANSCRIPTION`, no `SPECIFICATION_VERIFIED`.
+- La transcripción del bloque de color que la propuesta para esta entrada atribuía
+  a BC3 la regla de 3 colores de BC1. **Corregido arriba**; la implementación nunca tuvo
+  ese defecto, pero la afirmación sí.
+  tuvo ese defecto, pero la afirmación sí.
 
 ### Errores metodológicos registrados
 

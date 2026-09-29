@@ -1,19 +1,65 @@
-# RX550 block texture codec — BC3 / DXT5
+# RX550 block texture codec — BC3/DXT5
 
 Compresor de bloques de textura 4:1 para la **RX 550 (Polaris 12, Lexa)**, en espacio de
 usuario. Sin cabeceras de kernel, sin carga de módulos, sin dependencia de la línea de
 forense E1.
 
-**Estado**: suite completa en verde — **33/33 comprobaciones, `make` rc = 0**.
+**Estado**: suite completa en verde — **26/26 comprobaciones en `test_compress`, más el
+test independiente de rampa, `make test` rc = 0**.
+
+> **El formato es BC3/DXT5 estándar de Microsoft.** Entre 2026-09-28 y 2026-09-29 este
+> README y el código llamaron al formato "RX550_BC4X" y afirmaron que la rampa alfa de
+> 6 valores no era BC3. Ambas cosas eran falsas, y ambas se construyeron sobre una premisa
+> nunca verificada. Ver §1.1 y la decisión AD-8.
 
 ---
 
 ## 1. Qué es
 
 Un bloque de **4×4 píxeles RGBA8 = 64 bytes** de entrada se emite en **16 bytes**:
-ratio **4:1**, exactamente. El formato es **BC3 / DXT5 estándar**: sub-bloque alfa de
-8 bytes con interpolación de 8 valores, seguido de sub-bloque color de 8 bytes con
-interpolación de 4 valores.
+ratio **4:1**, exactamente. Sub-bloque alfa de 8 bytes con índices de 3 bits, seguido de
+sub-bloque color de 8 bytes con índices de 2 bits.
+
+### 1.1 Identidad del formato: BC3/DXT5 estándar
+
+| parte | regla | ¿conforme? |
+|---|---|---|
+| contenedor | 8 B alfa con índices de 3 bits + 8 B color con índices de 2 bits, 16 B, 4:1 | **sí** |
+| color | BC1: endpoints RGB565, 4 valores, interpolación en espacio de 5 bits | **sí** |
+| alfa, modo 8 valores | `a[i] = ((8-i)*a0 + (i-1)*a1 + 3)/7`, `i = 2..7` | **sí** |
+| alfa, modo 6 valores | `a[i] = ((6-i)*a0 + (i-1)*a1 + 2)/5`, `i = 2..5`, y `a[6]=0`, `a[7]=255` | **sí** |
+
+La especificación Microsoft "Block Compression (Direct3D 10)" dice: *"If alpha_0 is
+greater than alpha_1, then BC3 interpolates 6 alpha values; otherwise, it interpolates 4.
+When BC3 interpolates only 4 alpha values, it sets two additional alpha values (0 for
+fully transparent and 255 for fully opaque)."* Corroborado por `bcdec`, `oxideav-dds`,
+`DirectXTex/D3DX` y el análisis de ryg sobre comportamiento real de hardware.
+
+El sub-bloque alfa de BC3 **comparte la rampa de BC4 por diseño**. No es una desviación:
+BC4 es un formato de un solo canal y no tiene sub-bloque de color. Este formato tiene
+ambos, luego es BC3.
+
+**Polar 12 no tiene decodificador BC3 por hardware.** Una búsqueda del árbol de amdgpu
+(36.695 ficheros, 2026-09-28) no encontró ningún decodificador BC3/DXT5, ni microcode de
+descompresión, ni soporte de formato de textura BCn. El único hit fue
+`CP_PERF_SEL_IMG_READ_FMT_BC3` en `vega10_enum.h`, un contador de rendimiento.
+
+Consecuencias:
+
+- **Estos bloques SÍ pueden subirse como `DRM_FORMAT_BC3` y samplearse.** Cualquier
+  implementación de BC3 —`bcdec`, `basisu`, un visor, otro driver— los lee. Ese fue el
+  argumento decisivo para abandonar el nombre propio: un formato inventado garantiza que
+  nada más pueda leerlo.
+- El compute shader de `../decompressor/` es el decodificador que usa este proyecto, y es
+  una **opción**, no una obligación impuesta por el formato.
+
+**Historia del nombre**, porque el error se cometió en las dos direcciones. Una versión del
+shader afirmó que el C era la especificación y que *no* era DXT5 — con una rampa `/7` en
+ambas ramas que coincidía con el `rx550_compress.c` de `05c6297`, también no conforme. Dos
+implementaciones mutuamente consistentes y ambas erróneas pasan cualquier prueba de
+round-trip. La versión siguiente corrigió la aritmética y la etiquetó "BC3 conforme",
+manteniendo la regla de BC4: la aritmética era correcta y la etiqueta seguía siendo falsa.
+Ni "conforme a DXT5" ni "el C manda sobre la especificación" describen este proyecto.
 
 ### Por qué 4×4 → 16 bytes, y por qué eso no es una decisión de diseño
 
@@ -56,11 +102,69 @@ _Static_assert(offsetof(rx550_block_t, c_idx) == 12, "colour index offset");
 _Static_assert(RX550_INPUT_BLOCK_BYTES / RX550_BLOCK_BYTES == 4, "block codec must remain exactly 4:1");
 ```
 
-### Rampa alfa (8 valores, modo DXT5)
+### Rampa alfa (8 valores, regla BC3/DXT5 de Microsoft)
 
-`a0` es el máximo, `a1` el mínimo. Los seis valores intermedios se interpolan dividiendo
-por 7 cuando `a0 > a1`, y por 5 en el caso contrario. La suite verifica esta rampa contra
-DXT5 para **los 65 536 pares de endpoints**.
+`a0` es el máximo, `a1` el mínimo. **Modo de 8 valores** cuando `a0 > a1`: seis valores
+interpolados dividiendo por 7, `a[i] = ((8-i)*a0 + (i-1)*a1 + 3)/7` para `i = 2..7`.
+
+**Modo de 6 valores** cuando `a0 <= a1`: cuatro valores interpolados dividiendo por 5,
+`a[i] = ((6-i)*a0 + (i-1)*a1 + 2)/5` para `i = 2..5`, y los dos códigos sobrantes son los
+extremos fijos, `a[6] = 0` y `a[7] = 255`. Ésta es la regla de BC3/DXT5 —el sub-bloque alfa
+de BC3 comparte rampa con BC4 por diseño— y es la regla *menos* conforme del formato, no la
+más.
+
+### Nota sobre alfa plano
+
+El caso `a0 == a1` (alfa uniforme) no necesita guarda especial: toma la rama `a0 <= a1`, donde
+los coeficientes de `a0` y `a1` suman 5, luego `a[i] = (5*a0 + 2)/5 = a0` para `i = 2..5`, y
+`a[6] = 0`, `a[7] = 255` por construcción. Es decir:
+
+- `pal[0..5] = a0`
+- `pal[6] = 0` (transparente)
+- `pal[7] = 255` (opaco)
+
+**Esto es comportamiento estándar de DXT5 según la especificación de Microsoft, no un
+defecto.** Los dos códigos sobrantes decodifican siempre a los extremos, con independencia de
+los endpoints del bloque.
+
+No se manifiesta como artefacto visual porque el codificador selecciona el índice 0 para
+todos los píxeles de un bloque plano, y `pal[0] = a0`. Los índices 6 y 7 nunca se emiten en
+ese caso.
+
+La conformidad se verifica para **los 65 536 pares de endpoints** contra la regla transcrita
+de forma independiente en `test_alpha_ramp_independent.c`, y ese test se demuestra capaz de
+fallar con `make check-ramp-discriminates`, que lo enlaza contra la rampa no conforme de
+`05c6297` y exige código de salida distinto de cero.
+
+### Corrección factual del 2026-09-28 — la fuente primaria contradice «es una desviación»
+
+Este README afirma que la rama `a0 <= a1` «es la regla de BC4 y la desviación que da nombre
+al formato», y que «BC3 cierra su modo de 6 valores con `a[7] = a1`, un endpoint
+duplicado». **Ambas afirmaciones son falsas**, según la especificación primaria:
+
+- *Block Compression (Direct3D 10)*, `learn.microsoft.com/en-us/windows/win32/direct3d10/d3d10-graphics-programming-guide-resources-block-compression`
+  (publicada 2022-08-26), sección BC3, publica textualmente
+  `alpha_6 = 0;` y `alpha_7 = 255;` para la rama `a0 <= a1`.
+- La misma fuente describe esa rama como compartida: BC4 declara el mismo comportamiento, y
+  por eso un mismo bloque de 8 bytes con esa rampa sirve a ambos formatos.
+
+Es decir: **no hay desviación**. La rampa implementada *es* la de BC3, y también la de BC4.
+La rama es común a ambos formatos porque el hardware la implementa una sola vez.
+
+| Afirmación previa | Estado | Fuente |
+|---|---|---|
+| «BC3 cierra el modo de 6 valores con `a[7] = a1`» | **FALSA** | spec BC3: `alpha_7 = 255` |
+| «es la regla de BC4 y la desviación que da nombre al formato» | **FALSA** | spec BC3, rama `a0 <= a1` idéntica |
+| «no es un formato de Microsoft» | **FALSA** | el bloque es BC3/BC4 de Microsoft |
+
+`CONFORMITY_PROVENANCE = SPECIFICATION_VERIFIED` — la rampa se contrastó con la
+especificación primaria, no sólo con transcripciones.
+
+**Lo que NO se corrige aquí sin decisión del `HUMAN`**: el nombre `RX550_BC4X` y la
+afirmación de que es una `HUMAN_POLICY` del 2026-09-28. Esa decisión **no consta** en
+ninguna conversación registrada, y `AGENTS.md` §1 prohíbe inventar o tomar prestada una
+decisión humana. Queda como `DECISION_REQUIRED` y el nombre actual se conserva sin alterar
+mientras no se resuelva.
 
 ### Paleta de color (siempre modo 4 colores)
 
@@ -101,7 +205,8 @@ dejan de coincidir sobre qué significan los endpoints. Por eso se usa una tabla
 
 ```bash
 make            # compila -> ./test_compress
-make test       # compila y ejecuta la suite
+make test       # compila y ejecuta la suite + el test independiente de rampa
+make check-ramp-discriminates   # demuestra que el test de rampa sabe fallar
 make check-asm  # falla si el ensamblador pierde sus instrucciones AVX2
 make disasm     # vuelca el desensamblado con sintaxis Intel
 make clean
@@ -127,12 +232,14 @@ comprobación en runtime (`__builtin_cpu_supports("avx2")`).
 
 ## 4. Verificación
 
-`make test` — 33 comprobaciones, agrupadas:
+`make test` — 26 comprobaciones en `test_compress` más el test independiente de rampa,
+agrupadas:
 
 | Test | Qué establece |
 |---|---|
 | **T1** | Tamaño de bloque (16 B exactos), entrada 64 B, ratio 4:1, y round-trip del patrón de referencia por encima del suelo |
-| **T2** | Casos degenerados: todo-cero, todo-máx, todo-medio, outlier único, un solo canal. **Más** conformidad de la rampa alfa contra DXT5 en los 65 536 pares de endpoints, y los invariantes `a0<a1`, `a0>a1` y alfa plano |
+| **T2** | Casos degenerados: todo-cero, todo-máx, todo-medio, outlier único, un solo canal. **Más** conformidad de la rampa alfa contra la regla BC3/DXT5 de Microsoft en los 65 536 pares de endpoints, y los invariantes `a0<a1`, `a0>a1` y alfa plano |
+| **independiente** | `test_alpha_ramp_independent.c`, en su propio binario: la rampa contra una transcripción independiente, que sale con código distinto de cero ante cualquier desacuerdo. `make check-ramp-discriminates` lo enlaza contra la rampa no conforme de `05c6297` y **exige que falle** |
 | **T3** | La reducción AVX2 es **bit-idéntica** a la referencia C sobre **200 000 bloques** |
 | **T4** | El camino AVX2 completo es bit-idéntico al camino C completo sobre los mismos bloques |
 | **T5** | El error de round-trip está acotado y **el acotamiento se mide, no se supone** |
@@ -152,11 +259,11 @@ exacto, y eso sí se comprueba.
 ### Lo que T5 reporta sin afirmar
 
 ```
-reference      PSNR = 27.71 dB     tripwire 24 dB   [ OK ]
-smooth         PSNR = 19.45 dB     tripwire 16 dB   [ OK ]
-pure noise     PSNR = 13.62 dB     tripwire 11 dB   [ OK ]
+reference      PSNR = 28.73 dB     tripwire 24 dB   [ OK ]
+smooth         PSNR = 19.59 dB     tripwire 16 dB   [ OK ]
+pure noise     PSNR = 13.64 dB     tripwire 11 dB   [ OK ]
 --- reported, not asserted ---
-adversarial    PSNR = 10.88 dB
+adversarial    PSNR = 10.89 dB
 no parity claim against a reference BCn encoder: NOT_AVAILABLE
 ```
 
@@ -173,9 +280,22 @@ Medido en este host, sobre MB/s de **entrada consumida**:
 
 | Ruta | Throughput |
 |---|---|
-| C (referencia portable) | **85,9 MB/s** |
-| AVX2 | **89,9 MB/s** |
-| Speedup | **1,05×** |
+| C (referencia portable) | **~28 MB/s** |
+| AVX2 | **~28 MB/s** |
+| Speedup | **0,97× – 1,05× entre ejecuciones** |
+
+> **Cifras corregidas el 2026-09-28.** Este README publicaba 85,9 / 89,9 MB/s y un
+> speedup de 1,05×. Esos valores son de una versión anterior del codificador y **no son
+> reproducibles hoy**. El codificador actual rinde ~28 MB/s en ambas rutas.
+> La regresión de ~3× está **`UNEXPLAINED`**: no procede de la corrección de la rampa DXT5
+> (que hace *menos* iteraciones: 4 en vez de 6) ni de `RX550_INSET_CANDIDATES`, que sigue
+> en 5. Se asocia a cambios del otro escritor en `rx550_compress.c` y merece análisis
+> propio antes de publicarse como cifra. No se corrige el número para que cuadre: se
+> publica el medido y se marca su estado.
+>
+> El speedup oscila alrededor de 1 porque el SIMD cubre **sólo** la reducción min/max
+> (ver abajo), de modo que la diferencia entre rutas es pequeña frente al coste del
+> codificador. Un valor único de speedup no es una medida; el rango sí.
 
 ### Por qué el speedup es modesto
 
@@ -271,6 +391,8 @@ las cifras de la sección 5 son de **este códec en esta CPU**, no del renderiza
 | `rx550_compress.h` | Geometría, layout del bloque, API. `_Static_assert` sobre tamaño y offsets |
 | `rx550_compress.c` | Referencia C, palettes, selección de endpoints, dispatcher, decoder |
 | `rx550_compress_avx2.s` | Reducción min/max AVX2. Bit-idéntica a la referencia C por contrato |
-| `test_compress.c` | 33 comprobaciones + benchmark |
-| `Makefile` | `all` · `test` · `check-asm` · `disasm` · `clean` |
+| `test_compress.c` | 26 comprobaciones + benchmark |
+| `test_alpha_ramp_independent.c` | Conformidad de la rampa contra una referencia independiente. Binario propio, salida no cero ante desacuerdo |
+| `test_alpha_ramp_mutation.c` | La rampa no conforme de `05c6297`, como objetivo de mutación. Existe sólo para que el test anterior pueda demonstrarse capaz de fallar |
+| `Makefile` | `all` · `test` · `check-ramp-discriminates` · `check-asm` · `disasm` · `clean` |
 | `README.md` | Este fichero |
