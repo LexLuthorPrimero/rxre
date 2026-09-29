@@ -108,11 +108,31 @@ Es la única defensa posible contra la contradicción silenciosa: `git merge` de
 Al retirar el cerrojo del protocolo, **esta regla se queda**. Es lo que impide que el trabajo en
 paralelo produzca un repositorio lleno de afirmaciones que nadie puede fechar.
 
-## 9. Referencia
+## 9. Aplicación de la regla sobre documentos ya escritos
+
+**Ronda 8, 2026-09-29.** La regla se escribió en la ronda 7 sobre documentos futuros. La primera
+prueba real es aplicarla a lo que ya está escrito, y produce esto:
+
+| Documento | Afirmación | Grado real | Corrección |
+|---|---|---|---|
+| `004` §3.1 | «[0] = RX 550, [1] = Intel, [2] = llvmpipe» | **supuesto, y falso** | orden real iGPU(0) → RX 550(1) → llvmpipe(2). Medido con `vulkaninfo --summary` |
+| `004` §5.1 | «el fallback A requiere `STORAGE_IMAGE`» (como riesgo) | **supuesto** | `STORAGE_IMAGE` no está: es `NOT_AVAILABLE`, no arriesgado |
+| `003` §3 | `VkImage` BC3 sin especificar tiling | **supuesto por omisión** | `linearTilingFeatures` no tiene `SAMPLED_IMAGE`; hace falta `VK_IMAGE_TILING_OPTIMAL` |
+| `003` §4.1 | «si falla, replantear a copia `BUFFER→IMAGE→BUFFER`» | **supuesto** | daba a entender que había una vía de replanteo viable; `COLOR_ATTACHMENT` tampoco está |
+
+Tres de cuatro eran **supuestos escritos como hechos**, y dos de ellos en la especificación que
+IA-2 iba a implementar. Eso es el argumento de la regla, medido.
+
+Detalle y evidencia: `decisions/DECISIONS-F4.md` `F4-AD-25`.
+
+## 10. Referencia
 
 Reglas relacionadas:
 
 - `F4-AD-22` — medir antes de aceptar la premisa (capacidades del host)
 - `F4-AD-23` — el probe aborta si no encuentra el dispositivo objetivo
+- `F4-AD-24` — citar el commit de origen de todo dato cruzado
+- `F4-AD-25` — aplicación de la regla sobre documentos existentes; tres autocorrecciones
+- `F4-AD-26` — la regla formalizada, con los tres grados y sus obligaciones
 - `AGENTS.md` §Evidencia — vocabulario de estados; esta regla es su versión operativa para datos
   cruzados entre IAS

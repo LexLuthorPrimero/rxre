@@ -1,7 +1,7 @@
 # Decisiones de Fase 4 — Driver Exclusivo RX 550
 
 **Ámbito**: `08-ARQUITECTURA/` — IA-3 (Arquitecto)
-**Iniciado**: 2026-09-29 · **Ronda**: 1
+**Iniciado**: 2026-09-29 · **Ronda**: 1 · **Última decisión**: `F4-AD-26` (Ronda 8)
 
 Estados, según `AGENTS.md`: `DECIDIDO` · `PROPUESTO` · `ABIERTO` · `BLOQUEADO`.
 
@@ -382,3 +382,69 @@ registro se apoya en `lsof`, `fuser` ni en un escaneo parcial de `/proc`.
 - **Lo que NO es**: no es ceremonia, no impide el paralelismo, no sustituye a medir. Solo cambia una
   línea de cómo se escribe un dato. Es la única defensa posible contra la contradicción silenciosa:
   `git merge` detecta ficheros, `grep` no detecta mentiras.
+
+## F4-AD-25 — Aplicación de `F4-AD-24` a mi propio trabajo, con dos autocorrecciones
+
+- **Fecha**: 2026-09-29 · **Estado**: `DECIDIDO` (medido)
+- **Por qué esta decisión existe**: `F4-AD-24` dice «cita lo que no mediste». La primera aplicación
+  honesta de esa regla es aplicársela a uno mismo. Al revisar `004` y `003` con la regla activa
+  aparecieron **tres** afirmaciones propias que no estaban sustentadas como escritas.
+- **Autocorrección 1 — el orden de enumeración de dispositivos estaba invertido**. `004` §3.1
+  listaba `[0]` = RX 550, `[1]` = Intel, `[2]` = llvmpipe. Medido (`vulkaninfo --summary`):
+  el orden real es **iGPU(0) → RX 550(1) → llvmpipe(2)**. El documento acertaba al exigir filtro
+  por PCI y se equivocaba en el ejemplo, y el ejemplo es lo que se copia. Un probe escrito
+  copiando el ejemplo habría medido la Intel. Corregido en `004` §2.1.
+- **Autocorrección 2 — `004` §5.1 trataba `STORAGE_IMAGE` como riesgo, no como ausencia**.
+  `VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT` **no está** en `VK_FORMAT_BC3_UNORM_BLOCK` para
+  `1002:699f` (medido). El fallback por compute `imageLoad` no es una vía arriesgada: es
+  `NOT_AVAILABLE`. Reclasificado.
+- **Autocorrección 3 — `004` §3 no fijaba el tiling de la imagen**, y `linearTilingFeatures` de
+  BC3 **no** incluye `SAMPLED_IMAGE` (solo `COPY_IMAGE_INDIRECT_DST_BIT_KHR`). Sin el requisito
+  `VK_IMAGE_TILING_OPTIMAL`, el camino principal de `003` §3 fallaría de forma no obvia.
+  Requisito añadido (`004` §5.6, comprobación `V-E`).
+- **Consecuencia de fondo**: la regla no es un ritual de formato. Aplicada a documentos ya
+  escritos, encontramos tres errores **reales**, dos de ellos en un documento que iba a ser la
+  especificación que IA-2 implementaría. La regla capturó lo que la revisión normal no capturó.
+- **Cumplimiento** (medido): `DOCUMENTATION-ROUTER.md` §3bis (commit `ad4d08b`, **fuera de mi
+  ámbito**) afirma que Vulkan/RADV en `HOST-C` es `NOT_AVAILABLE` porque `mesa-vulkan-drivers` no
+  está instalado. Es **falso**: `rpm -qf /usr/lib64/libvulkan_radeon.so` →
+  `mesa-vulkan-drivers-freeworld-26.2.3-1.fc44.x86_64`, y RADV enumera `1002:699f` y responde
+  consultas de formato. Tercer caso del patrón «se comprueba un vecino, no el objeto» que
+  `AGENTS.md` §Falsificación ya documenta dos veces. **Reportado, no reparado**: `01-AUDITORIA/`
+  no es mi ámbito. La decisión que sí tomo es no citar §3bis como autoridad sobre el estado de
+  Vulkan en este host.
+
+## F4-AD-26 — La Regla de Citación, formalizada
+
+- **Fecha**: 2026-09-29 · **Ronda**: 8 · **Estado**: `DECIDIDO`
+- **Origen de la petición**: la regla fue propuesta por IA-1 en
+  `reviews/2026-09-29-amendment-citation-rule.md` (commit `35c2a45`) y registrada por mí como
+  `F4-AD-24` (commit `939155b`). Esta decisión la **formaliza** y le añade la parte que faltaba.
+- **Texto de la regla**:
+
+  > **Todo dato proveniente de otra IA debe citarse con su commit/fuente. Si no lo mediste vos,
+  > no lo escribas como hecho absoluto.**
+
+- **Los tres grados**, y la obligación de declarar cuál:
+
+  | Grado | Qué es | Cómo se escribe | Obligación |
+  |---|---|---|---|
+  | **Medido por mí** | lo verifiqué yo, en esta ronda | afirmación directa + **el comando que lo demuestra** | el comando es lo que la hace auditable |
+  | **Citado** | viene del trabajo de otra IA | «Según IA-N (commit `abc123`), X» | el hash es la marca de caducidad |
+  | **Supuesto** | nadie lo ha medido | `NOT_DETERMINED` + la razón | es el que se olvida y el que más cuesta |
+
+- **Lo que esta decisión añade sobre `F4-AD-24`**: `F4-AD-24` decía «cita el commit». No decía
+  **qué hacer con los datos que no son de otra IA y que tampoco he medido**, que es el caso
+  habitual. Por eso el tercer grado no es opcional: un dato propio no verificado es exactamente
+  el que `F4-AD-22` prohíbe presentar como capacidad del host.
+- **Un dato que no es mío y que tampoco he medido se escribe `NOT_DETERMINED`, no «según el
+  sentido común»**. La historia de esta regla en el proyecto demuestra el coste: el orden de
+  dispositivos invertido (`F4-AD-25`) llevaba dos rondas sin que nadie lo notara, porque se
+  escribía como hecho y se leía como hecho.
+- **Alcance**: aplica a **todo** dato de todo documento de `08-ARQUITECTURA/`, incluidos los
+  valores «de fuente primaria» (un número de `vulkan_core.h` sin número de línea y sin versión
+  del paquete es un dato no verificable).
+- **Mantenimiento**: al terminar un turno, `git log` sobre los ficheros citados. Si alguno cambió
+  desde que lo escribí, corrijo la cita o la marco obsoleta. Registrado en `005` §6.
+- **Documento de aplicación**: `designs/005-regla-citacion.md` (patrones y ejemplos) y
+  `designs/004-fallback-sin-rasterizador.md` §9 (tabla de procedencia completa, aplicada).

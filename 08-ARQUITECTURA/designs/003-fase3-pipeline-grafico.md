@@ -168,6 +168,36 @@ y plan de replanteo, está en `004-fallback-sin-rasterizador.md`.** Puntos que q
 - **Nunca `BC3_SRGB`**: aplicaría una transformación sRGB al decodificar y contaminaría la
   medición.
 
+### 4.2 `F1` medido: `PASS`, y tres restricciones que el diseño no contemplaba
+
+**Medido por mí** el 2026-09-29T06:23Z con `vulkaninfo --show-formats` (artefacto preservado,
+sha256 `5ff5762b…fffd`; detalle en `../validations/2026-09-29-f1-format-capability.md`):
+
+`F1 = PASS`. `VK_FORMAT_BC3_UNORM_BLOCK` **sí** soporta `SAMPLED_IMAGE` en `1002:699f`.
+`optimalTilingFeatures = 0xd401` (API 1.0) / `0x1d401` (con `Properties2`).
+**El método de §3 aplica.**
+
+Tres restricciones que este diseño no pedía y que hay que respetar al escribir el código:
+
+| # | Restricción | Consecuencia sobre §3 |
+|---|---|---|
+| 1 | `linearTilingFeatures` de BC3 **no** tiene `SAMPLED_IMAGE` (solo `COPY_IMAGE_INDIRECT_DST`) | el `VkImage` BC3 debe crearse con **`VK_IMAGE_TILING_OPTIMAL`**. §3 no decía tiling |
+| 2 | `STORAGE_IMAGE` **no** está en BC3 | el `SSBO` con `imageSample`+`imageStore` que §3 menciona como alternativa queda **cerrado**; la única ruta es FBO |
+| 3 | `COLOR_ATTACHMENT` **no** está en BC3 | coherente con §3 (BC3 `SAMPLED` → RGBA8 attachment), pero cierra la vía de «BC3 como attachment» |
+
+Y un dato que refuerza `F4-AD-23` más de lo que argumentaba: **los tres** dispositivos de esta
+host (iGPU Intel, RX 550, llvmpipe) reportan `SAMPLED_IMAGE` para BC3. Un probe que eligiera por
+índice habría acertado **por accidente**, sin señal de error. El orden real de enumeración es
+iGPU(0) → RX 550(1) → llvmpipe(2), y **la iGPU es el índice 0**.
+
+**CONFLICT con el router, reportado no reparado** (`01-AUDITORIA/` está fuera de mi ámbito):
+`DOCUMENTATION-ROUTER.md` §3bis afirma que Vulkan/RADV en `HOST-C` es `NOT_AVAILABLE` porque
+`mesa-vulkan-drivers` no está instalado. Es falso: el paquete que provee los ICD es
+`mesa-vulkan-drivers-freeworld-26.2.3-1.fc44`, verificado con `rpm -qf /usr/lib64/libvulkan_radeon.so`.
+Es el tercer caso del patrón de comprobación de un vecino en lugar del objeto que `AGENTS.md` §
+Falsificación ya documenta dos veces. El paquete ausente es cierto; la conclusión que se extrajo
+de él, no.
+
 ## 5. Autovalidación: obligatoria, y con qué objetivo
 
 Sin esto, el fallo es el de la Fase 2 en otra forma: salida vacía leída como resultado.
@@ -205,13 +235,13 @@ estar escrito dos veces, de forma independiente**, o el experimento no vale.
 
 ## 7. Criterios de éxito
 
-| # | Criterio | Verificación |
-|---|---|---|
-| F1 | `VK_FORMAT_BC3_UNORM_BLOCK` soporta `SAMPLED_IMAGE` | `formatProperties` |
-| F2 | S1..S7 pasan | salida del validador |
-| F3 | N4, N5, N6 se rechazan | control negativo |
-| F4 | **Clasificación inequívoca**: trunc **o** redondeo, sin residuo | conteo de las tres categorías |
-| F5 | La clasificación es **coherente en las dos ramas** (`a0>a1` y `a0<=a1`) | breakdown por rama |
+| # | Criterio | Verificación | Estado |
+|---|---|---|---|
+| F1 | `VK_FORMAT_BC3_UNORM_BLOCK` soporta `SAMPLED_IMAGE` | `formatProperties` | **`PASS`** — medido 2026-09-29T06:23Z, `0xd401`. Ver §4.2 |
+| F2 | S1..S7 pasan | salida del validador | `NOT_RUN` |
+| F3 | N4, N5, N6 se rechazan | control negativo | `NOT_RUN` |
+| F4 | **Clasificación inequívoca**: trunc **o** redondeo, sin residuo | conteo de las tres categorías | `NOT_RUN` — `AD-12` sigue `NOT_DETERMINED` |
+| F5 | La clasificación es **coherente en las dos ramas** (`a0>a1` y `a0<=a1`) | breakdown por rama | `NOT_RUN` |
 
 **F4 con residuo no nulo no es un éxito parcial: es un `NOT_DETERMINED`**, y se reporta como tal.
 Sería el caso de que el sampler use una regla que no es ni truncamiento ni redondeo — y eso sería
