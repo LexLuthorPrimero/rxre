@@ -1082,3 +1082,75 @@ compromiso calidad/velocidad es decisión del humano (§10.2), y el corpus sint�
 representativo suficiente para impositionarlo.
 
 **Reproducir**: `make measure-alpha-inset` barre la constante y reimprime la tabla.
+
+---
+
+## 2026-09-29 — AD-11: Divergencia entre la especificación Microsoft BC3 y `bcdec` v0.985
+
+| Campo | Valor |
+|---|---|
+| **DECISIÓN** | Seguir la **especificación Microsoft** (redondeo `+3` / `+2`), **no** `bcdec` |
+| **DECIDER** | `HUMAN_POLICY` 2026-09-29, sobre evidencia verificada por el agente |
+| **DATE** | `2026-09-29` |
+| **SUSTITUYE** | la decisión D13 («truncamiento puro»), que quedó registrada como `HUMAN_POLICY` el 2026-09-28 y que era incorrecta |
+
+### Contexto
+
+El códec implementa la rampa alfa de BC3. Dos lecturas de la práctica circulaban en el
+proyecto: una decía que la especificación publica el redondeo `+3`/`+2`, y otra que la
+referencia `bcdec` —y con ella el «hardware»— trunca. Ambas se afirmaron sin consultar la
+fuente. El test llegó a imprimir `CONFORMA con la especificacion Y con bcdec v0.985`, que
+es autocontradictorio: no se puede ser conforme con una especificación con redondeo y con
+una biblioteca que trunca en la misma rampa.
+
+### Evidencia, consultada
+
+| Fuente | Qué dice | Cómo se obtuvo |
+|---|---|---|
+| Microsoft, *Block Compression (Direct3D 10)*, 2022-08-26 | `alpha_2 = (6 * alpha_0 + 1 * alpha_1 + 3) / 7;` … `alpha_6 = 0; alpha_7 = 255;` | lectura directa de la URL de learn.microsoft.com |
+| `bcdec` v0.985, `iOrange/bcdec`, `bcdec__smooth_alpha_block()` | `alpha[2] = (6 * alpha[0] + alpha[1]) / 7;` … **sin `+3`, sin `+2`** | lectura directa de `bcdec.h` en el repositorio |
+
+Medido por diferencia sobre los 65 536 pares de endpoints:
+
+| Magnitud | Valor |
+|---|---|
+| Pares que divergen | **54 300 / 65 536 = 82,9 %** |
+| Entradas de rampa divergentes | 136 686 / 524 288 |
+| Error máximo | **1 LSB** |
+
+### Justificación
+
+1. La especificación Microsoft es la **fuente de autoridad** del formato. Una
+   implementación de referencia es `SECONDARY` respecto de ella (`AGENTS.md` §3.1).
+2. El decodificador de bloques por función fija del hardware es el que define la
+   interoperabilidad. `bcdec` es una biblioteca *de CPU* escrita pensando en tamaño
+   reducido, y su cabecera declara explícitamente que prioriza tamaño sobre fidelidad.
+3. El error es de **1 LSB** en el 82,9 % de los pares: visible, acotado y no fatal, pero
+   suficiente para que un bloque no sea *byte-idéntico* con una herramienta basada en
+   `bcdec`. Eso se documenta en vez de ocultarse.
+
+### Impacto y alcance
+
+- El códec es **conforme con la especificación Microsoft**. `CONFORMITY_PROVENANCE =
+  SPECIFICATION_VERIFIED`.
+- El códec **NO es byte-idéntico con `bcdec` v0.985**: diverge en 54 300 de 65 536 pares
+  de endpoints, con un error máximo de 1 LSB. Cualquier herramienta que compare contra
+  `bcdec` reportará esa diferencia y **reportará bien**.
+- El modo de color de BC3 queda confirmado por la misma fuente: `bcdec_bc3()` llama a
+  `bcdec__color_block()` con `onlyOpaqueMode = 1`, y el comentario del propio `bcdec` dice
+  *"also BC3 color block uses ONLY this mode"*. **BC3 es siempre modo 4 colores.** El
+  `if` de BC1 no aplica.
+
+### Regla
+
+No se cambia sin autorización explícita del `HUMAN`. Y mientras siga siendo cierto, toda
+afirmación de conformidad debe decir **con qué** se es conforme: decir «conforme» a secas,
+como hacía la línea retirada de `test_alpha_ramp_independent.c`, es indistinguible de no
+decir nada.
+
+### Procedencia de esta entrada
+
+Ambas fuentes se consultaron **por el agente**, leyendo las URLs, el 2026-09-29. Ninguna
+de las dos estaba instalada en el host: no hay `bcdec` ni cabeceras Vulkan. Lo que motivó
+esta entrada fue que una afirmación de conformidad **sin fuente** sobreviviera a tres
+rondas de revisión, oscilando entre spec y truncamiento según quién escribiera.

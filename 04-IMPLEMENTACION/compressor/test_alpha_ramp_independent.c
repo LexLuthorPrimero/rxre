@@ -192,7 +192,8 @@ int main(void)
      * state this file was in before the D13 correction: the two references had
      * drifted apart and only one of them was being consulted. */
     if (bad == 0 && dist_bc3 == 0) {
-        printf("RESULT: CONFORMA con la especificacion Y con bcdec v0.985\n");
+        printf("RESULT: CONFORMA con la especificacion Microsoft (redondeo +3/+2)\n");
+        printf("NOTA: bcdec v0.985 trunca y DIVERGE de la spec; ver AD-11\n");
         return 0;
     }
     if (bad == 0)

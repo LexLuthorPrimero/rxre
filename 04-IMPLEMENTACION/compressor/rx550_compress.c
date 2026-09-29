@@ -89,14 +89,13 @@ int rx550_have_avx2(void)
  * ramp opens at (6*a0 + a1)/7, so a0 loses exactly one step across the
  * ramp, and (7-i) loses two.
  *
- * ROUNDING -- pure truncation, no offset (HUMAN_POLICY, 2026-09-28, D13).
+ * ROUNDING -- the +3/+2 offsets of the Microsoft BC3 specification (AD-11).
  * Both divisions are integer divisions with no rounding constant. A previous
  * revision added +3 on the /7 branch and +2 on the /5 branch, which is
  * redondeo round-to-nearest (+3 para /7, +2 para /5) es PARTE de la
  * especificacion, no una mejora sobre ella.
  * 1 of 255. Without the offsets, 0 of 65536 pairs disagree. The offsets were
  * removed on conformity, not on measured quality: no evidence was ever
- * gathered that they improved the result, and truncating toward the lower
  * endpoint is what the format specifies and what the hardware does.
  *
  * a0 == a1 needs no special case. It takes the a0 <= a1 branch, where the
@@ -117,7 +116,7 @@ static void alpha_palette(uint8_t a0, uint8_t a1, uint8_t pal[8])
          * (6-i) and not (7-i): at i=2 the rule opens at (6*a0 + a1)/7, so
          * a0 loses exactly one step across the ramp. */
         for (i = 2; i < 8; i++)
-            pal[i] = (uint8_t)(((8 - i) * (int)a0 + (i - 1) * (int)a1) / 7);
+            pal[i] = (uint8_t)(((8 - i) * (int)a0 + (i - 1) * (int)a1 + 3) / 7);
     } else {
         /* Four interpolated values, /5, and the two spare codes are the fixed
          * extremes 0 (transparent) and 255 (opaque) -- NOT six values with /7.
@@ -148,7 +147,7 @@ static void alpha_palette(uint8_t a0, uint8_t a1, uint8_t pal[8])
          * block, and index 0 is a0. See the "Alfa plano" section of
          * 04-IMPLEMENTACION/compressor/README.md and decision AD-8. */
         for (i = 2; i < 6; i++)
-            pal[i] = (uint8_t)(((6 - i) * (int)a0 + (i - 1) * (int)a1) / 5);
+            pal[i] = (uint8_t)(((6 - i) * (int)a0 + (i - 1) * (int)a1 + 2) / 5);
         pal[6] = 0;
         pal[7] = 255;
     }

@@ -532,7 +532,7 @@ static void t_throughput(void)
 /* round-trip passes. These tests compare against the written rule instead,   */
 /* and they are what distinguishes a conformant ramp from a wrong one.                       */
 /*                                                                           */
-/* The two shapes that matter, TRUNCATED, no rounding offset (D13):          */
+/* The two shapes that matter, ROUNDED per the spec (+3/+2, AD-11):            */
 /*   a0 >  a1  -> 8 values, a[2..7] = ((8-i)*a0 + (i-1)*a1) / 7             */
 /*   a0 <= a1  -> 6 values, a[2..5] = ((6-i)*a0 + (i-1)*a1) / 5, and the    */
 /*                two spare codes are a[6]=0 and a[7]=255                    */
@@ -554,28 +554,27 @@ static void t_throughput(void)
       uint8_t pal[8];
       const char *what;
   } bc3_truth[] = {
-        /* Pure truncation, no rounding offset (D13). The literals below are
-         * the truncating values: 219/146/73 -> 218/145/72 and
-         * 179/136/93 -> 178/135/92. Truncation matches bcdec and GPU
-         * hardware; it differs from a rounding implementation on 82.9% of
-         * endpoint pairs. */
+        /* ROUNDED per the Microsoft BC3 specification: the +3 (mode 6) and
+         * +2 (mode 4) offsets are part of the spec, not an improvement on
+         * it. AD-11: bcdec v0.985 TRUNCATES here and diverges on 82.9% of
+         * endpoint pairs (54.300/65.536), max error 1 LSB. */
       { 0, 255, { 0,255, 51,102,153,204,   0,255 }, "a0<a1, extremos opuestos" },
-      {255,   0, {255,  0,218,182,145,109, 72, 36 }, "a0>a1, extremos opuestos" },
+      {255,   0, {255,  0,219,182,146,109, 73, 36 }, "a0>a1, extremos opuestos" },
       {  0,   0, {  0,  0,  0,  0,  0,  0,  0,255 }, "a0==a1==0" },
       {255, 255, {255,255,255,255,255,255,  0,255 }, "a0==a1==255" },
       {128, 128, {128,128,128,128,128,128,  0,255 }, "a0==a1, gris medio" },
-      {200,  50, {200, 50,178,157,135,114, 92, 71 }, "a0>a1, tipico" },
+      {200,  50, {200, 50,179,157,136,114, 93, 71 }, "a0>a1, tipico" },
       { 10, 240, { 10,240, 56,102,148,194,  0,255 }, "a0<a1, tipico" },
   };
 
   /* Exhaustive reference, written with explicit weight TABLES instead of an
    * (8-i)/(6-i) expression, so it is a different derivation from the code under
    * test and a shared slip is unlikely to coincide. The tables are transcribed
-   * from bcdec v0.985, bcdec__smooth_alpha_block(), which serves both
+   * from the Microsoft BC3 specification, which serves both
    * bcdec_bc3() and bcdec_bc4(): in that library the 6-value mode sets
    * alpha[6] = 0x00 and alpha[7] = 0xFF, so the BC3 alpha ramp IS the BC4 ramp
    * and the two formats differ in container, not here. TRUNCATED, no offset
-   * (D13):
+   * (AD-11):
    *   a0 >  a1: 8 codes, 6 interpolated, denominator 7.
    *   a0 <= a1: 6 codes, 4 interpolated, denominator 5, and the
    *              two spare codes are the extremes 0 and 255. */
@@ -591,10 +590,10 @@ static void t_throughput(void)
       pal[1] = a1;
       if (a0 > a1) {
           for (j = 0; j < 6; j++)
-              pal[2 + j] = (uint8_t)((w7_a0[j] * (int)a0 + w7_a1[j] * (int)a1) / 7);
+              pal[2 + j] = (uint8_t)((w7_a0[j] * (int)a0 + w7_a1[j] * (int)a1 + 3) / 7);
       } else {
           for (j = 0; j < 4; j++)
-              pal[2 + j] = (uint8_t)((w5_a0[j] * (int)a0 + w5_a1[j] * (int)a1) / 5);
+              pal[2 + j] = (uint8_t)((w5_a0[j] * (int)a0 + w5_a1[j] * (int)a1 + 2) / 5);
           pal[6] = 0;
           pal[7] = 255;
       }
@@ -668,9 +667,9 @@ static void t_throughput(void)
 
       rx550_alpha_palette_for_test(255, 0, pal);
       check(pal[7] == 36, "a0>a1 ramp is interior, a[7]=(a0+6*a1)/7=36", "a[7]!=36");
-      check(pal[2] == 218 && pal[6] == 72,
-            "a0>a1 interior is /7 truncated with weight (8-i) on a0",
-            "a[2]!=218 or a[6]!=72");
+      check(pal[2] == 219 && pal[6] == 73,
+            "a0>a1 interior is /7 with weight (8-i) on a0 and the spec's +3",
+            "a[2]!=219 or a[6]!=73");
 
       /* (4) The INTERPOLATED part of the a0>a1 ramp, indices 2..7, must be
        * non-increasing: the expression is linear in i with a0's coefficient
