@@ -1,0 +1,167 @@
+# btfq — el driver amdgpu REALMENTE cargado, no el que queremos que sea
+
+## Qué es
+
+Un lector de BTF que responde a una pregunta que el corpus no puede:
+**¿qué compila el driver que ahora mismo está corriendo en la RX550?**
+
+`RESEARCH/working/linux-7.1.3` son los fuentes de donde venimos.
+`/sys/kernel/btf/amdgpu` es el binario donde estamos. Coinciden en número de
+versión (`7.1.3-200.nobara.fc44` frente a `7.1.3`), pero un distro aplica
+parches, así que la coincidencia de versión **no** implica coincidencia de
+fuentes. Esta herramienta mide esa divergencia en vez de suponerla.
+
+Se lee sin root, porque `/sys/kernel/btf/` es `r--r--r--`. No toca la GPU.
+
+## Uso
+
+```
+./btfq.py census                    control de integridad del parseo
+./btfq.py enums   <subcadena>        enums por nombre de enum o de valor
+./btfq.py struct  <nombre>           campos con offset REAL en bits
+./btfq.py size    <struct>           size declarado vs último campo
+./btfq.py present <subcadena>        miembros cuyo nombre contenga eso
+./btfq.py where   <subcadena>        de qué base/módulo salió cada tipo
+
+./crosscheck.py <struct> <header.h>  corpus (fuente) vs BTF (binario)
+python3 cn4.py                      controles del parser
+python3 cn5.py                      controles del contraste
+```
+
+Códigos de salida: `0` éxito, `1` sin coincidencias o controles fallidos,
+`2` uso incorrecto, `3` el BTF no se pudo parsear.
+
+## Resultados obtenidos
+
+### 1. El corpus y el binario coinciden en `amdgpu_gmc`
+
+87 campos, intersección 87, cero divergencias reales. El host **no** lleva
+parches en esta struct. Esto es una corroboración independiente del corpus:
+viene del binario, no de releer los fuentes.
+
+Un campo aparece en la fuente y no en el BTF: `idx`, el miembro de la struct
+anónima dentro de `fault_hash[]`. BTF no nombra los miembros de structs
+anónimas, así que se reporta como `(anon)`. Es una limitación **del formato**,
+no una divergencia medida, y por eso no cuenta como diferencia.
+
+### 2. `MTYPE` sí existe en el binario — pero no en GFX8
+
+El binario contiene cinco enums distintos llamados `MTYPE`, con valores
+inconsistentes entre sí (`MTYPE_UC = 3` en dos de ellos, `MTYPE_C_RW_US = 0`
+en otro). Los declara el driver para ASICs que no son el nuestro.
+
+Esto **no** contradice el hallazgo anterior de que GFX8 no usa `MTYPE`: la
+razón sigue siendo que `gmc_v8_0.c` no abre ningún `_enum.h`. Pero la
+formulación correcta es "GFX8 no usa MTYPE", no "MTYPE no existe".
+
+Los cinco enums `MTYPE` tienen **cero** referencias desde structs, miembros o
+`DATASEC`. Existen en el binario sin que ningún tipo los use.
+
+### 3. `amdgpu_gart` no tiene ningún campo de MTYPE
+
+5 campos: `bo`, `ptr`, `num_gpu_pages`, `num_cpu_pages`, `table_size`,
+`gart_pte_flags` (`int64`). Es consistente con que GFX8 no escriba MTYPE en
+las PTE: no tiene dónde hacerlo.
+
+### 4. Lo que BTF NO puede decir
+
+- **Macros.** Los flags de PTE (`AMDGPU_PTE_VALID` y compañía) son `#define`
+  en `amdgpu_vm.h`, y BTF solo describe tipos. La prueba del discriminante:
+  `GFX8` (macro) no aparece; `amdgpu_vm_level` (enum real) sí.
+  **Conclusión: `btfq` complementa a `pteflags`, no lo sustituye.** Para los
+  flags de PTE hace falta el preprocesador.
+- **Valores en runtime.** BTF da tipos, no instancias. Responde "qué
+  constantes compila el driver", no "qué hay en `adev->gmc.x` ahora mismo".
+
+## Por qué tiene dos capas: split BTF
+
+Con `CONFIG_DEBUG_INFO_BTF_MENU` los ids de tipo del módulo **no son
+locales**. Los `name_off` tampoco. La regla completa:
+
+```
+type_ids:   base ocupa 1..142435, módulo 142436..195834
+name_off:   < len(base_pool)  -> pool del base
+            >= len(base_pool) -> pool del módulo, en name_off - len(base_pool)
+```
+
+El razonamiento, que es lo que hace falta para confiar en la herramienta:
+
+| | |
+|---|---|
+| base `vmlinux` | 142435 tipos |
+| módulo `amdgpu` | 53399 tipos |
+| `max(type_id)` del módulo | 195834 = 142435 + 53399 |
+
+Que el máximo referenciado coincida **exactamente** con la suma solo cuadra si
+los ids ya venían desplazados por el base. Y que el mínimo fuera de rango
+(60629) caiga por debajo de los tipos propios del módulo (1..53399) descarta que
+sea un error de parseo.
+
+Para el pool de strings hay tres hipótesis y un discriminante medido:
+
+| hipótesis | nombres con forma de identificador C |
+|---|---|
+| solo pool del módulo | 5.9% |
+| base si menor, si no módulo sin desplazar | 6.3% |
+| **base si menor, si no módulo desplazado** | **100.0%** |
+
+El 100% no es heurística: no queda ni un nombre por explicar.
+
+## Errores que esta herramienta cometió
+
+Están aquí porque el patrón se repite y para no volver a caer.
+
+1. **`btf_type` leído como 4 bytes** en vez de 12 (`name_off u32` + `info u32` +
+   `size|type u32`). Cada entrada se leía desplazada y los kinds salían
+   inventados (207, 21, 245). Un kind inventado hace que el recorrido se pare en
+   la segunda entrada con un error que no señala el origen real.
+2. **Offsets de header leídos como absolutos.** `type_off=0` significa "justo
+   detrás del header", no "en el byte 0". Leerlo absoluto parseaba el propio
+   encabezado como si fuera un tipo.
+3. **`str_off` sumado a `type_off+type_len`.** `str_off` *ya* es
+   `type_off+type_len`; sumarlo dos veces daba una geometría que no cerraba.
+4. **Asumir que los ids del módulo son locales** y marcar 3972 referencias como
+   colgantes. Eran perfectly válidas. Un falso positivo de "referencia
+   colgante" induce a desconfiar de un dato que era correcto.
+5. **Resolver los nombres siempre contra el pool del módulo**, lo que truncaba
+   unos 23000 nombres.
+6. **Un control negativo que no mutaba su entrada.** Mutaba un objeto ya
+   construido y volvía a cargar, así que no mutaba nada observable: pasaba
+   sin comprobar nada. Se rehízo en `cn4.py` mutando el fichero.
+7. **`rc=$?` después de un pipe** da el código de `head`, no el del script.
+   Parecía que una consulta fallaba cuando el script iba bien.
+
+Y dos errores de método que no eran de la herramienta sino de cómo se usó:
+
+8. **Una regex que devolvió 0 y se reportó sin comprobar.** La causa: al
+   quitar comentarios quedaba una línea con solo espacios, y `^\s*` con `re.M`
+   la consumía junto con el `\n`, así que el campo siguiente ya no casaba al
+   inicio de línea. "0 resultados" y "parser roto" se ven igual.
+9. **Una mutación de control que no aplicaba.** Buscaba
+   `\tbool\t\t\tis_app_apu;\n` (tres tabuladores) cuando la línea real es
+   `\tbool is_app_apu;\n`. El control se evaluaba como si hubiera aplicado.
+   Ahora `cn5.py` verifica que su mutación ocurrió antes de juzgar si el
+   contraste la detecta.
+
+## Controles negativos
+
+`cn4.py` (4/4 vivos) muta el **fichero de entrada**, nunca un objeto ya
+construido, y comprueba con sha256 que `/sys/kernel/btf/amdgpu` queda
+byte-idéntico. Cubre: pool de strings corrupto, fichero truncado, `str_len`
+alterado, integridad de la fuente.
+
+`cn5.py` (4/4 vivos) es mutation testing del contraste: introduce
+divergencias deliberadas en una **copia en `/tmp`** — nunca en `RESEARCH/`,
+que además está bajo prohibición de escritura — y exige que el contraste las
+vea. Sin esto, un contraste que solo sabe decir "coinciden" no ha demostrado
+nada.
+
+## Estado epistémico
+
+- Parseo del BTF: **PROVEN** por geometría cerrada (0 referencias colgantes),
+  recuento consistente y discriminante de strings al 100%.
+- Corpus ≡ binario para `amdgpu_gmc`: **PROVEN** por contraste de campos.
+- GFX8 no usa `MTYPE`: **PROVEN** por tres vias independientes (fuente, BTF,
+  ausencia en `amdgpu_gart`).
+- Semántica de hardware de cada bit de PTE: `NOT_DETERMINED`. Requiere runtime
+  con root, no autorizado.
