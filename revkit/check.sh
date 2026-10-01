@@ -69,7 +69,10 @@ run "vclaims: citas de 08-ARQ"       ./vclaims.py
 echo
 
 echo "--- autocomprobacion del kit ---"
-run "selfcheck: 13 controles"        python3 selfcheck.py
+# La etiqueta NO lleva un numero fijo: si anadir un control y no
+# actualizar el texto, el runner anuncia una cantidad que ya no es la real,
+# y eso es exactamente el fallo que estas herramientas persiguen.
+run "selfcheck: controles del kit"   python3 selfcheck.py
 echo
 
 echo "--- btfq (kit anterior, revalidado) ---"

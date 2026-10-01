@@ -253,6 +253,29 @@ def r14_wait_reg_mem():
     return ok
 
 
+def r15_invalidate_canales():
+    """
+    INVALIDATE-CANALES.md afirma dos ausencias por enumeracion:
+      1. nadie LEE mmVM_INVALIDATE_REQUEST
+      2. nadie usa los canales ENG0..ENG17
+    Esas ausencias son la base del documento, asi que se fijan como control.
+    """
+    rc, out, _ = ejecuta(["cidx.py", "use", "mmVM_INVALIDATE_REQUEST"])
+    lineas = [l for l in out.splitlines() if re.search(r"\w+\.c:\d+", l)]
+    ficheros = {re.match(r"(\S+\.c):\d+", l).group(1) for l in lineas
+                if re.match(r"(\S+\.c):\d+", l)}
+    # (1) ningun uso es una lectura
+    lecturas = [l for l in lineas
+                if "RREG" in l or "readl" in l.lower() or "rreg" in l.lower()]
+    rc2, out2, _ = ejecuta(["cidx.py", "use", "mmVM_INVALIDATE_ENG0"])
+    canales = "0 ficheros lo usan" in out2
+    ok = len(ficheros) == 10 and not lecturas and canales
+    anota("CN-R15 invalidate: 10 ficheros, 0 lecturas, 0 canales", ok,
+          "%d usos en %d ficheros, %d lecturas, canales sin uso: %s"
+          % (len(lineas), len(ficheros), len(lecturas), canales))
+    return ok
+
+
 def main():
     print("Controles del propio revkit")
     print()
@@ -266,7 +289,7 @@ def main():
         r6_obs_no_confunde_dispositivos, r7_obs_deduplica,
         r8_vclaims_externas, r9_vclaims_detecta_rango_malo,
         r10_pte_separa_alcanzable, r11_pte_dump, r12_sin_cjk, r13_backticks,
-        r14_wait_reg_mem,
+        r14_wait_reg_mem, r15_invalidate_canales,
     ]
     fallos = 0
     for fn in pruebas:
