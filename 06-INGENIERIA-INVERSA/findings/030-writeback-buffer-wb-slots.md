@@ -89,7 +89,16 @@ Dos detalles que importan para el driver propio:
 
 1. **El offset va en dwords, no en bytes** (`<< 3`). `ring->fence_offs` etc. se suman
    directamente a una direccion base de GPU. El bitmap es de *slots*, y cada slot son
-   8 bytes.
+   8 bytes utiles.
+   Y la conversion de slot a puntero, tal cual (`amdgpu_ring.c:206-210`):
+
+   ```c
+   #define amdgpu_ring_get_gpu_addr(ring, offset)  (ring->adev->wb.gpu_addr + offset * 4)
+   #define amdgpu_ring_get_cpu_addr(ring, offset)  (&ring->adev->wb.wb[offset])
+   ```
+
+   `offset` va en dwords y se multiplica por 4: coherente con el `<< 3` del bitmap
+   (que da un indice de *slot*), no con el desplazamiento en bytes.
 2. **`wb_free` es idempotente-ish**: `if (wb < num_wb)` evita el `__clear_bit` fuera de
    rango, pero no comprueba que el bit estuviera puesto. Liberar dos veces el mismo slot
    no rompe nada; liberar un slot que **pertence a otro** si.
@@ -195,7 +204,9 @@ VRAM, los module params. Nada de eso toca el wb.
 |---|---|
 | `adev->wb` es un bitmap de `AMDGPU_MAX_WB = 1024` slots | `PROVEN` (`amdgpu.h:464,515`) |
 | `wb_get` devuelve `-EINVAL` si el pool se agota | `PROVEN` |
-| El offset va en dwords (`<< 3`), 8 bytes por slot | `PROVEN` |
+| El offset va en dwords (`<< 3` en el bitmap, `* 4` al convertir) | `PROVEN` |
+| `adev->wb` es un BO de 32 KiB, no paginas por ring | `PROVEN` — corrige mi `030` v1 |
+| Cada slot ocupa 32 B de direccion, no 8 | `PROVEN` — corrige mi `030` v1 |
 | Cada ring pide 5 slots | `PROVEN` (`amdgpu_ring.c:267-291`) |
 | `amdgpu_ring_fini` libera 4 | `PROVEN` (conteo) |
 | `trail_fence_offs` no se libera nunca | `PROVEN_ABSENT` (barrido de `wb_free`) |
@@ -224,16 +235,20 @@ esta marcado como tal.
 - **No hay ruta de re-borrado**: ningun `.c` hace `wb_free` de algo que no haya pedido
   `wb_get`. Verificado implicitamente por el hecho de que `029` §2.4 muestra el patron
   1:1 en los otros cuatro slots.
+- **La correccion de tamano** viene de `amdgpu_device.c:1041`, el comentario del propio
+  driver dice "256bit slots". Mi primera version leyo `sizeof(uint32_t) * 8` como si
+  fueran 8 bytes por slot. Son 32. Es el mismo tipo de error que `020`: leer una
+  constante sin comprobar su unidad contra el comentario que la explica.
 
 ## 7 · UNLOCKS
 
-- El driver propio tiene **el mapa completo de su writeback**: cinco slots de 8 bytes
-  por ring, en un bitmap de 1024, con `<< 3` de desplazamiento. Es la unidad minima de
-  la que cuelgan fence, rptr, wptr, cond_exe y trail_fence.
-- `HARDWARE`/`IMPLEMENTATION`: si no se implementa preemption, son **dos slots por ring
-  menos** (`cond_exe_offs` y `trail_fence_offs`), con justificacion de `022` y `029`.
-  En un dispositivo con 16 rings son 256 bytes. Poco, pero el principio es el que vale:
-  cada recurso debe tener una razon de ser en el ASIC objetivo.
+- El driver propio tiene **el mapa completo de su writeback**: un BO de 32 KiB en GTT,
+  1024 slots de 32 B, cinco tomados por ring, con `<< 3` en el bitmap y `* 4` en la
+  conversion a direccion. Es la unidad minima de la que cuelgan fence, rptr, wptr,
+  cond_exe y trail_fence.
+- `IMPLEMENTATION`: si no se implementa preemption, son **dos slots por ring menos**
+  (`cond_exe_offs` y `trail_fence_offs`), con justificacion de `022` y `029`. En un
+  dispositivo con 16 rings, **1 KiB** de los 32 KiB del BO.
 - El modo de fallo duro (`-EINVAL` propagado hasta fallo de init) es una **decision de
   diseno del driver de referencia**, no una Fatal inevitable: un pool agotado podria
   degradar en vez de fallar. `MODEL_CHOICE` para el driver propio, con el trade-off
