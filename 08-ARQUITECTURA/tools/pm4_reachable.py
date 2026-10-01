@@ -118,22 +118,82 @@ def opcode_values():
     seguia diciendo 0x22, y la razon no era la que yo suponia (que GFX8
     tomase el opcode de otra cabecera), sino algo mas simple y mas
     tranquilizador: los CINCO headers de este corpus definen COND_EXEC como
-    0x22. El opcode es redundante, no contradictorio. Pero el工具 no podia
-    distinguir un caso del otro, y por eso lacked la comprobacion.
+    0x22. El opcode es redundante, no contradictorio. Pero la herramienta no
+    podia distinguir un caso del otro, y por eso le faltaba la comprobacion.
+
+    AHORA DELEGA EN include_closure, que resuelve por el orden REAL de
+    includes en vez de por orden alfabetico de cabeceras. Y al hacerlo
+    aparecio un error mas grave que la suposicion misma:
+
+      opcode                      alfabetico   real    (dice include_closure)
+      PACKET3_INDIRECT_BUFFER_CONST  0x31        0x33     *** estaba mal
+      PACKET3_LOAD_CONFIG_REG        0x5F        0x60     *** estaba mal
+      PACKET3_LOAD_CONTEXT_REG       0x60        0x61     *** estaba mal
+      PACKET3_LOAD_SH_REG            0x5F        0x5F     correcto
+
+    Tres de cuatro. gfx_v8_0.c incluye vid.h, y es vid.h el que gana para los
+    cuatro, no la primera cabecera alfabetica. Ninguno de los tres afecta al
+    inventario de la categoria A, porque son construcciones de Mesa que
+    amdgpu no usa en GFX8. Pero la herramienta estaba reportando un numero
+    que el codigo no veia, que es justo lo que una herramienta no debe hacer.
+
+    Si include_closure no esta disponible se cae al barrido alfabetico, y se
+    AVISA de que los numeros pueden no ser los reales.
     """
+    try:
+        import include_closure as IC
+    except ImportError:
+        print("AVISO: include_closure.py no disponible. Los valores de opcode")
+        print("        salen de un barrido alfabetico de cabeceras, que NO es el")
+        print("        orden real de includes: los numeros pueden ser otros.")
+        vals, where, conflict = {}, {}, {}
+        for p in sorted(glob.glob(f"{BASE}/*.h")):
+            for l in open(p, errors="replace"):
+                m = re.match(r"\s*#\s*define\s+(PACKET3_[A-Z0-9_]+)\s+"
+                             r"(0x[0-9A-Fa-f]+)\s*$", l)
+                if not m:
+                    continue
+                name, v = m.group(1), int(m.group(2), 16)
+                conflict.setdefault(name, {}).setdefault(v, []).append(
+                    os.path.basename(p))
+                vals.setdefault(name, v)
+                where.setdefault(name, os.path.basename(p))
+        clashes = {n: d for n, d in conflict.items() if len(d) > 1}
+        return vals, where, clashes, "barrido alfabetico (NO es el real)"
+
+    cl = IC.Closure()
+    cl.process_file(os.path.join(BASE, "gfx_v8_0.c"))
+    # BUG QUE ESTA LINEA ARREGLA, y que hacia la comprobacion VACIA: leia
+    # cl.defs, que por construccion guarda UN valor por nombre (el ultimo que
+    # gana). Un mapa con una sola entrada por clave no puede tener conflictos,
+    # asi que la salida decia 'ninguno' siempre. Los conflictos estan en
+    # cl.history, que es donde se guardan TODAS las definiciones en orden.
+    #
+    # Detectarlo porque el numero de opcodes bajo de 145 a 78 al delegar en el
+    # cierre: 145 era la union de todas las cabeceras del arbol, 78 es lo que
+    # ve gfx_v8_0.c de verdad. Un numero que baja al cambiar de metodo es una
+    # senal de que el metodo anterior contaba cosas que no cuenta.
     vals, where, conflict = {}, {}, {}
-    for p in sorted(glob.glob(f"{BASE}/*.h")):
-        for l in open(p, errors="replace"):
-            m = re.match(r"\s*#\s*define\s+(PACKET3_[A-Z0-9_]+)\s+(0x[0-9A-Fa-f]+)\s*$", l)
-            if not m:
+    for name, hist in cl.history.items():
+        if not name.startswith("PACKET3_"):
+            continue
+        seen = {}
+        for val, rel, _ln in hist:
+            try:
+                v = int(val, 0)
+            except (TypeError, ValueError):
                 continue
-            name, v = m.group(1), int(m.group(2), 16)
-            conflict.setdefault(name, {}).setdefault(v, []).append(
-                os.path.basename(p))
-            vals.setdefault(name, v)
-            where.setdefault(name, os.path.basename(p))
+            seen.setdefault(v, []).append(os.path.basename(rel))
+        if not seen:
+            continue
+        last = hist[-1][0]
+        vals[name] = int(last, 0)
+        where[name] = os.path.basename(hist[-1][1])
+        conflict[name] = seen
     clashes = {n: d for n, d in conflict.items() if len(d) > 1}
-    return vals, where, clashes
+    return (vals, where, clashes,
+            f"cierre de includes de gfx_v8_0.c "
+            f"({len(cl.order)} ficheros, {len(cl.missing)} cabecera local ausente)")
 
 
 def assigned_funcs(fname):
@@ -170,7 +230,7 @@ def packets_in(name, rec):
 
 def main():
     idx = index_functions()
-    vals, where, clashes = opcode_values()
+    vals, where, clashes, OPCODE_SOURCE = opcode_values()
     if not idx:
         sys.exit("NO_FUNCTIONS_INDEXED -- el indexador esta roto")
     print("=" * 76)
@@ -178,15 +238,19 @@ def main():
     print("=" * 76)
     print(f"funciones indexadas en amdgpu/*.c : {len(idx)}")
     print(f"opcodes PACKET3 definidos        : {len(vals)}")
+    print(f"  resueltos por: {OPCODE_SOURCE}")
     if clashes:
         print()
         print("*** CONFLICTO DE VALOR entre cabeceras ***")
-        print("  El mismo opcode definido con valores distintos. La herramienta")
-        print("  usa el primero, y aqui lo declara:")
+        print("  El mismo opcode definido con valores distintos. Estos son los que")
+        print("  VIERTE el codigo de gfx_v8_0.c, NO los que gane quien se mire")
+        print("  primero:")
         for n, d in sorted(clashes.items()):
+            final = vals.get(n)
             det = "; ".join(f"0x{v:02X} en {','.join(sorted(fs))}"
                             for v, fs in sorted(d.items()))
-            print(f"  {n:36} {det}")
+            print(f"  {n:34} {det}")
+            print(f"  {'':34} => ve 0x{final:02X}  [gana el último #define]")
     else:
         print("conflictos de valor entre cabeceras: ninguno")
     print()

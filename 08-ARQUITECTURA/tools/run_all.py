@@ -79,6 +79,8 @@ def main():
 
     # 1. herramientas de analisis
     tools = [
+        ("cierre de includes de gfx_v8_0.c",
+         ["include_closure.py", "gfx_v8_0.c", "--opcodes"], 0),
         ("PM4 alcanzabilidad y vocabulario vivo", ["pm4_reachable.py"], 0),
         ("PM4 layouts documentados vs emitidos", ["pm4_layout_audit.py"], 0),
         ("inventario de registros MMIO", ["gmmio_inventory.py"], 0),
@@ -86,7 +88,11 @@ def main():
     if quick:
         tools = tools[1:]
     for label, a, n in tools:
-        rc, ok = run(label, ["python3", os.path.join(HERE, a[0])], want_lines=n)
+        # a es la lista COMPLETA de argumentos, no solo el nombre del script.
+        # include_closure necesita sus tres (script, fichero, --opcodes) y con
+        # a[0] se quedava sin el fichero -> rc=2 -> "FALLA" sin motivo real.
+        rc, ok = run(label, ["python3", os.path.join(HERE, a[0])] + a[1:],
+                     want_lines=n)
         results.append((label, ok))
 
     # 2. linter de documentos. Esto es lo que mas me ha ahorrado.
