@@ -25,9 +25,15 @@ Se lee sin root, porque `/sys/kernel/btf/` es `r--r--r--`. No toca la GPU.
 
 ./crosscheck.py <struct> <header.h>  corpus (fuente) vs BTF (binario)
 ./vmsize.py                         geometría de GPUVM: modelo vs log del host
+./sweep.py                          rastro de la cifra refutada por el proyecto
+
 python3 cn4.py                      controles del parser BTF
 python3 cn5.py                      controles del contraste
+python3 cn6.py                      controles del barrido
 ```
+
+Documentos: `vmsize.md` (geometría y la contradicción falsa del `dev_info`),
+`bootlog.md` (observaciones de arranque), este README.
 
 Códigos de salida: `0` éxito, `1` sin coincidencias, divergencia o controles
 fallidos, `2` uso incorrecto, `3` el BTF no se pudo parsear.
@@ -95,6 +101,45 @@ independientes, dos coincidencias.
 El detalle está en `vmsize.md`, que incluye la contradicción falsa que casi se
 declara (el `+1` del `dev_info`) y los dos errores de modelo que hubo que
 corregir antes de llegar a la coincidencia.
+
+## 6. El log de arranque: dos observaciones que el corpus no puede dar
+
+`bootlog.md` extrae las 97 líneas de amdgpu de `journalctl -k -b` (solo
+lectura). Casi toda la geometría ya estaba modelada, pero dos líneas aportan
+hechos de **este** hardware:
+
+**Topología de CUs.** El log dice `SE 2, SH per SE 1, CU per SH 5,
+active_cu_number 8`. `AGENTS.md` ya declaraba 2 SE, 1 SH/SE, 8 CUs y máscara
+`0x1e`; el log los confirma y añade el desglose: **10 CUs físicos, 8 activos**
+(`2 × 5 = 10`). Y `max_cu_per_sh` viene del **VBIOS**
+(`amdgpu_atomfirmware.c:964`), no de una constante del driver, así que el
+corpus no puede derivarlo. Para un driver propio eso significa que el número
+de CUs hay que leerlo del VBIOS, igual que hace el de referencia.
+
+**PRT se ejerció en runtime.**
+
+```
+amdgpu 0000:01:00.0: Disabling VM faults because of PRT request!
+```
+
+Cadena trazada completa: ioctl `DRM_IOCTL_AMDGPU_GEM_VA` con
+`AMDGPU_VM_PAGE_PRT` (`amdgpu_gem.c:815`) → `amdgpu_vm_fini` detecta la bandera
+(`amdgpu_vm.c:2814`) → `gmc_v8_0_set_prt` escribe `mmVM_PRT_CNTL`
+(`gmc_v8_0.c:766`). **Un proceso en esta máquina usó PRT.**
+
+Esto **no** contradice a `pteflags`, que clasificó `AMDGPU_PTE_PRT` como
+`CLEARED_NOT_SET` («`get_vm_pte` lo borra, no lo pone») — eso sigue cierto.
+Lo que añade es que PRT tiene **dos mecanismos**: el bit 51 de la PTE, por
+entrada y nunca activo en GFX8, y `mmVM_PRT_CNTL`, un registro de control
+**global** que el hardware activó aquí. Confundirlos produce un error concreto:
+buscar el bit 51 en las PTEs para saber si PRT está activo, cuando en GFX8 la
+señal real está en el registro.
+
+**Cuarta vía de que GFX8 no usa MTYPE.** `AMDGPU_VM_MTYPE_MASK` es un flag que
+el ioctl **acepta** en cualquier ASIC (`amdgpu_gem.c:814`), pero solo lo
+consumen `gmc_v9_0.c`, `v10_0`, `v11_0`, `v12_0`, `v12_1`. `gmc_v8_0.c` no
+aparece, verificado por enumeración de ficheros. Un driver propio tendría que
+rechazarlo explícitamente, porque el ioctl no lo hace.
 
 ## Barrido de la cifra refutada
 
@@ -234,13 +279,17 @@ que además está bajo prohibición de escritura — y exige que el contraste la
 vea. Sin esto, un contraste que solo sabe decir "coinciden" no ha demostrado
 nada.
 
-`cn6.py` (5/5 vivos) es el control del barrido, y es el más importante porque
-allí el riesgo es el opuesto: **fallar de más**. Dos de los cinco casos fallaron
-la primera vez (`2^22` leído como `block_size = 22`, y el rango codificable
-`[9,24]` leído como un claim sobre GFX8), que era exactamente lo que inflaba el
-recuento de 60 líneas. Cuando los controles de un clasificador por contexto
-viven, eso **no** convierte su salida en una lista de errores: `cn6.py` lo
-dice en su propia salida.
+`cn6.py` (6/6 vivos) es el control del barrido, y es el más importante porque
+allí el riesgo es el opuesto: **fallar de más**. Dos de los cinco casos de
+clasificación fallaron la primera vez (`2^22` leído como `block_size = 22`, y
+el rango codificable `[9,24]` leído como un claim sobre GFX8), que era
+exactamente lo que inflaba el recuento de 60 líneas. El sexto control
+(`CN-6f`) comprueba que los documentos no arrastren caracteres CJK o cirílicos
+colados, que se me colaron varias veces redactando y que contaminan el registro
+sin verse al escribir.
+
+Cuando los controles de un clasificador por contexto viven, eso **no** convierte
+su salida en una lista de errores: `cn6.py` lo dice en su propia salida.
 
 ## Estado epistémico
 
@@ -250,10 +299,17 @@ dice en su propia salida.
 - Geometría de GPUVM (`vm_size=64`, `num_level=1`, `block_size=10`,
   `fragment=9`): **PROVEN**, modelo del corpus y log del host coinciden.
 - GART = 256 MiB en POLARIS12: **PROVEN**, corpus y log.
-- GFX8 no usa `MTYPE`: **PROVEN** por tres vías independientes (fuente, BTF,
-  ausencia en `amdgpu_gart`).
+- GFX8 no usa `MTYPE`: **PROVEN** por cuatro vías independientes (fuente: cero
+  `_enum.h` en `gmc_v8_0.c`; BTF: sin campo MTYPE en `amdgpu_gart`; binario: los
+  cinco enums `MTYPE` sin referencias; enumeración de ficheros:
+  `AMDGPU_VM_MTYPE_MASK` solo lo consumen `gmc_v9/v10/v11/v12`).
 - `BITS_PER_LEVEL = 9` de `014`: **REFUTED** — son 10.
 - El driver del host está parcheado respecto al corpus: **REFUTED**; la
   contradicción aparente venía del `+1` del `dev_info`.
+- 10 CUs físicos, 8 activos: **DERIVATION** sobre `OBSERVATION` del log; la cifra
+  viene del VBIOS (`amdgpu_atomfirmware.c:964`), no del driver.
+- La ruta PRT de GFX8 existe y el hardware la ejerció: **OBSERVED**. La
+  semántica de `CB_DISABLE_*_FAULT_ON_UNMAPPED_ACCESS`: **NOT_DETERMINED**.
+- `AMDGPU_PTE_PRT` nunca activo en GFX8: **PROVEN** (`pteflags`, sin cambio).
 - Semántica de hardware de cada bit de PTE: **NOT_DETERMINED**. Requiere runtime
   con root, no autorizado.

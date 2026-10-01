@@ -25,11 +25,18 @@ funciona.
 ESTOS CONTROLES
 
 CN-6a  una linea que AFIRMA 9      -> debe marcarse
-CN-6b  una linea con 9 y otro numero (219, 1024) -> NO debe marcarse
+CN-6b  una linea con 22 dentro de 2^22 -> NO debe marcarse
 CN-6c  una linea que REFUTA el 9    -> NO debe marcarse
 CN-6d  una linea con 9 de fragmento, sin block_size -> NO debe marcarse
-CN-6e  la herramienta detecta si misma si se le rompe la entrada
+CN-6e  base y maximo del campo, no claim sobre GFX8 -> NO debe marcarse
+
+CN-6f, mas abajo, comprueba que los documentos no tengan caracteres CJK ni
+cirilicos colados. Redactando los .md largos se colaron varias veces en mitad
+de una frase espanola. No se ven al escribir y contaminan el registro del
+proyecto con texto sin sentido. Es un fallo de escritura, no de logica, pero
+afecta a la evidencia igual.
 """
+import glob
 import os
 import sys
 
@@ -66,6 +73,35 @@ CASOS[1] = ("CN-6b 22 dentro de 2^22, no es block_size",
 VALORES = {"CN-6b": "22"}
 
 
+def prueba_cn6f():
+    """
+    Ningun documento del directorio puede contener CJK ni cirilico.
+
+    Rango: U+3000-U+9FFF (CJK), U+AC00-U+D7AF (hangul), U+0400-U+04FF
+    (cirilico). Los tres son un error en un texto en espanol, y aparecen
+    cuando se redacta un documento largo y se escribe a tropezones.
+    """
+    aqui = os.path.dirname(os.path.abspath(__file__))
+    malos = []
+    for pat in ("*.md", "*.py"):
+        for f in sorted(glob.glob(os.path.join(aqui, pat))):
+            for i, linea in enumerate(
+                    open(f, encoding="utf-8", errors="replace"), 1):
+                for ch in linea:
+                    o = ord(ch)
+                    if ((0x3000 <= o <= 0x9FFF) or
+                            (0xAC00 <= o <= 0xD7AF) or
+                            (0x0400 <= o <= 0x04FF)):
+                        malos.append("%s:%d U+%04X %s"
+                                     % (os.path.basename(f), i, o,
+                                        unicodedata.name(ch, "?")))
+                        break
+    return not malos, ("%d ocurrencias: %s" % (len(malos), malos[:8])
+                       if malos else "%d documentos, 0 caracteres no latinos"
+                       % len(glob.glob(os.path.join(aqui, "*.md"))
+                             + glob.glob(os.path.join(aqui, "*.py"))))
+
+
 def main():
     print("Controles del barrido de block_size")
     print()
@@ -90,12 +126,20 @@ def main():
             fallos += 1
 
     print()
-    print("%d/%d controles vivos" % (len(CASOS) - fallos, len(CASOS)))
+    ok, detalle = prueba_cn6f()
+    print("  %-46s %s" % ("CN-6f sin CJK/cirilico colados", "OK" if ok else "FALLO"))
+    print("      %s" % detalle)
+    if not ok:
+        fallos += 1
+
+    total = len(CASOS) + 1
+    print()
+    print("%d/%d controles vivos" % (total - fallos, total))
     if fallos == 0:
         print()
         print("AVISO OPERATIVO: los controles pasan, pero los casos CN-6b/c/d")
         print("documentan que un barrido de este tipo produce falsos")
-        print("POSITIVOS en documents reales. Que los controles vivan no")
+        print("POSITIVOS en documentos reales. Que los controles vivan no")
         print("convierte sus salida en una lista de errores.")
     return 1 if fallos else 0
 
