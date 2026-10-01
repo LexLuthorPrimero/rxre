@@ -1,0 +1,37 @@
+flags con valor 1<<N encontrados: 19
+
+=== intersaccion con GFX8 ===
+Un flag DEFINIDO no es un flag de GFX8: el corpus define los de
+todas las generaciones. Solo cuenta si lo consume un fichero
+alcanzable desde gfx_v8_0.
+
+CON ALCANZABILIDAD DEMOSTRADA (15):
+  bit 54  AMDGPU_PDE_PTE                     amdgpu_vm.h
+  bit 63  AMDGPU_PDE_PTE_GFX12               amdgpu_vm.h
+  bit  4  AMDGPU_PTE_EXECUTABLE              amdgpu_vm.c,amdgpu_vm.h,amdgpu_vm_pt.c
+  bit 63  AMDGPU_PTE_IS_PTE                  amdgpu_vm_pt.c
+  bit 51  AMDGPU_PTE_PRT                     amdgpu_vm.h,gmc_v8_0.c
+  bit 56  AMDGPU_PTE_PRT_GFX12               amdgpu_vm.h
+  bit  5  AMDGPU_PTE_READABLE                amdgpu_ttm.c,amdgpu_vm.c,amdgpu_vm.h
+  bit  2  AMDGPU_PTE_SNOOPED                 amdgpu_ttm.c,amdgpu_vm.c,amdgpu_vm.h
+  bit  1  AMDGPU_PTE_SYSTEM                  amdgpu_gart.c,amdgpu_ttm.c,amdgpu_vm.c
+  bit 56  AMDGPU_PTE_TF                      amdgpu_vm.h
+  bit  3  AMDGPU_PTE_TMZ                     amdgpu_ttm.c,amdgpu_vm.c
+  bit  0  AMDGPU_PTE_VALID                   amdgpu_ttm.c,amdgpu_vm.c,amdgpu_vm_pt.c
+  bit  6  AMDGPU_PTE_WRITEABLE               amdgpu_ttm.c,amdgpu_vm.c,amdgpu_vm.h
+  bit  1  AMDGPU_VM_USE_CPU_FOR_COMPUTE      amdgpu_vm.c
+  bit  0  AMDGPU_VM_USE_CPU_FOR_GFX          amdgpu_vm.c
+
+DEFINIDOS PERO NINGUN CONSUMIDOR ALCANZABLE (4):
+  bit 59  AMDGPU_PTE_BUS_ATOMICS             solo en gmc_v12_1.c
+  bit 58  AMDGPU_PTE_DCC                     solo en gmc_v12_0.c
+  bit 55  AMDGPU_PTE_LOG                     solo en gmc_v10_0.c,gmc_v11_0.c
+  bit 58  AMDGPU_PTE_NOALLOC                 solo en gmc_v10_0.c,gmc_v11_0.c
+
+SIN NINGUN CONSUMIDOR (0):
+
+CLASIFICACION
+  alcanzable   : el flag lo consume una ruta que GFX8 ejecuta
+  no_alcanzable: solo lo consumen rutas de OTRO ASIC
+                 -> NOT_APPLICABLE para GFX8, no PROVEN_ABSENT
+  sin_consumidor: definido y nadie lo usa -> NOT_OBSERVED

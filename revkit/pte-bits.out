@@ -1,0 +1,30 @@
+flags con valor 1<<N encontrados: 19
+
+=== bits de PTE/PDE definidos en amdgpu ===
+
+NOTA: esto lista lo DEFINIDO, no lo que GFX8 usa. Usa 'para-gfx8'
+para separar. El corpus define los flags de todas las generaciones,
+y confundirlos es el error que produjo la conclusion falsa de MTYPE.
+
+flag                                  bit  definido en            valor
+------------------------------------------------------------------------------------------------
+AMDGPU_PTE_VALID                        0  amdgpu_vm.h            (1ULL << 0)
+AMDGPU_VM_USE_CPU_FOR_GFX               0  amdgpu_vm.h            (1 << 0)
+AMDGPU_PTE_SYSTEM                       1  amdgpu_vm.h            (1ULL << 1)
+AMDGPU_VM_USE_CPU_FOR_COMPUTE           1  amdgpu_vm.h            (1 << 1)
+AMDGPU_PTE_SNOOPED                      2  amdgpu_vm.h            (1ULL << 2)
+AMDGPU_PTE_TMZ                          3  amdgpu_vm.h            (1ULL << 3)
+AMDGPU_PTE_EXECUTABLE                   4  amdgpu_vm.h            (1ULL << 4)
+AMDGPU_PTE_READABLE                     5  amdgpu_vm.h            (1ULL << 5)
+AMDGPU_PTE_WRITEABLE                    6  amdgpu_vm.h            (1ULL << 6)
+AMDGPU_PTE_PRT                         51  amdgpu_vm.h            (1ULL << 51)
+AMDGPU_PDE_PTE                         54  amdgpu_vm.h            (1ULL << 54)
+AMDGPU_PTE_LOG                         55  amdgpu_vm.h            (1ULL << 55)
+AMDGPU_PTE_PRT_GFX12                   56  amdgpu_vm.h            (1ULL << 56)
+AMDGPU_PTE_TF                          56  amdgpu_vm.h            (1ULL << 56)
+AMDGPU_PTE_DCC                         58  amdgpu_vm.h            (1ULL << 58)
+AMDGPU_PTE_NOALLOC                     58  amdgpu_vm.h            (1ULL << 58)
+AMDGPU_PTE_BUS_ATOMICS                 59  amdgpu_vm.h            (1ULL << 59)
+AMDGPU_PDE_PTE_GFX12                   63  amdgpu_vm.h            (1ULL << 63)
+AMDGPU_PTE_IS_PTE                      63  amdgpu_vm.h            (1ULL << 63)
+--- 19 flags definidos
