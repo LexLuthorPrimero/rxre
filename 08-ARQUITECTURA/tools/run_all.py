@@ -98,6 +98,12 @@ def main():
         ("PM4 codec: contraste de layouts", ["pm4_codec.py", "--check"], 0),
         ("PM4 codec: NOP contra regla 034", ["pm4_codec.py", "--nops"], 0),
         ("contrato de las herramientas", ["toolkit.py"], 0),
+        # El detector de contradicciones tiene que correr en CADA verificacion.
+        # Si solo corre cuando me acuerdo, deja de ser un control y pasa a ser
+        # una consulta: la contradiccion de block_size llego a tres documentos
+        # porque nadie ejecuto nada en medio.
+        ("contradicciones entre hallazgos",
+         ["causal_map.py", "--contradictions"], 0),
     ]
     if quick:
         tools = tools[1:]
