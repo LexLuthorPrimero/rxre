@@ -96,6 +96,47 @@ El detalle está en `vmsize.md`, que incluye la contradicción falsa que casi se
 declara (el `+1` del `dev_info`) y los dos errores de modelo que hubo que
 corregir antes de llegar a la coincidencia.
 
+## Barrido de la cifra refutada
+
+`sweep.py` rastrea `block_size` por todo el proyecto. **No** es un
+`grep block_size | grep 9`: un grep así no distingue un `9` que es `block_size`
+de uno que es `fragment_size`, ni un `22` dentro de `2^22`, ni una tabla que
+lista 13/14/15 para refutarlos. Esa indistinción es precisamente la que produjo
+los cuatro valores que circularon.
+
+La primera versión marcó 60 líneas. Al revisarlas una a una, **el error real en
+lógica de validación era cero**, y la causa fueron dos fallos del clasificador:
+
+- `rx550_vmid1_pgt.c` ya acepta el rango codificable `[9, 24]`, luego
+  `block_size = 10` entra sin problema. La guarda que rechazaba `!= 9` fue
+  sustituida antes. Solo quedan obsoletos el **texto** del mensaje de error
+  (`"block_size distinto de 9"`) y un comentario que afirma `NO ESCRIBE_EN_GFX8`
+  para el valor 10, afirmación que el log refuta.
+- `02-ARQUITECTURA/RESEARCH-LINES.md` lee `PAGE_TABLE_BLOCK_SIZE = block_size - 9 = 1`
+  partiendo del `10` del log, que es exactamente lo que `gmc_v8_0.c:933` escribe.
+  Correcto, y marcado `OBSERVED`.
+
+**Conclusión: la cifra refutada está propagada a comentarios y mensajes, no a
+la validación. No hay bug funcional por `block_size`.**
+
+### Lo que el barrido NO aporta: ya está registrado
+
+`docs/CONTRADICTIONS.md` ya tiene **`C-005`**, que documenta exactamente esto:
+`014-q1` cerró la geometría con `BITS_PER_LEVEL = 9`, `GPUVA_WIDTH_BITS = 30` y
+`MIN_VIABLE_ASPACE = 2 MiB` marcados `PROVEN`, las tres falsas, con el mismo
+diagnóstico de rama y la misma causa raíz (el `9` de `fragment_size_default`
+tomado por el de `block_size`, y la rama `num_level > 1` que no corre). Y
+`C-006` cubre la extensión a `DRIVER-MISSION-STATE.md`.
+
+Llegué a esa conclusión por vía independiente y la eliminé al encontrarla ya
+documentada. Un hallazgo duplicado en el sitio equivocado cuesta más de lo que
+informa: dos versões del mismo hecho que pueden divergir sin que nadie lo note.
+
+Lo que el barrido sí añade es la **medición del residuo**: qué ficheros siguen
+contendiendo cifras refutadas y, sobre todo, que ninguna de ellas está bajo
+control de versiones (`git log` vacío para `014-q1-gpuvm-minimal.md` y para
+`030-page-walker-gfx8-2-niveles.md`). `git checkout` no los restauraría.
+
 ## Por qué tiene dos capas: split BTF
 
 Con `CONFIG_DEBUG_INFO_BTF_MENU` los ids de tipo del módulo **no son
@@ -166,25 +207,19 @@ Y dos errores de método que no eran de la herramienta sino de cómo se usó:
    Ahora `cn5.py` verifica que su mutación ocurrió antes de juzgar si el
    contraste la detecta.
 
-## Contradicciones que estas herramientas abrieron
+## Contradicciones: ya indexadas en `docs/`
 
-`CONTRADICCION-014.md` documenta que `014-q1-gpuvm-minimal.md` declara Q1
-**CLOSED** con `BITS_PER_LEVEL = 9`, y que eso es `REFUTED`: el valor real es
-`10`. En cascada caen las entradas por nivel (512 → 1024), los bytes por tabla
-(4 KiB → 8 KiB), la cobertura del PTB (2 MiB → 4 MiB), `GPUVA_WIDTH_BITS`
-(30 → 40) y `MIN_VIABLE_ASPACE` (2 MiB → 4 MiB).
+La contradicción de `block_size` **ya estaba registrada** en
+`docs/CONTRADICTIONS.md` como `C-005` (y su extensión como `C-006`), con el
+mismo diagnóstico y la misma causa raíz que llegué a obtener por vía
+independiente. No la duplico.
 
-La causa raíz es identificable: la llamada
-`amdgpu_vm_adjust_size(adev, 64, 9, 1, 40)` lleva un `9` que es
-`fragment_size_default`, **no** `block_size`. Y como `2^9 = 512` entradas de
-8 B dan exactamente 4096 B, el dato correcto del fragmento se usó para
-sostener la cifra equivocada del nivel. Fragmento y nivel son magnitudes
-distintas que coinciden en bytes por razones distintas.
+Lo que estas herramientas aportan sobre eso:
 
-Q1 debería marcarse `CONTRADICTED`, no `CLOSED`.
-
-Ese documento **no** modifica `014`: el scope `docs` está tomado por otra
-sesión.
+- `vmsize.py` la **reproduce de forma ejecutable**: modelo contra log del host,
+  `rc=0`. `docs/CONTRADICTIONS.md` la razona en prosa.
+- El barrido mide el **residuo**: qué ficheros siguen con cifras refutadas y que
+  ninguna de ellas está bajo control de versiones.
 
 ## Controles negativos
 
@@ -198,6 +233,14 @@ divergencias deliberadas en una **copia en `/tmp`** — nunca en `RESEARCH/`,
 que además está bajo prohibición de escritura — y exige que el contraste las
 vea. Sin esto, un contraste que solo sabe decir "coinciden" no ha demostrado
 nada.
+
+`cn6.py` (5/5 vivos) es el control del barrido, y es el más importante porque
+allí el riesgo es el opuesto: **fallar de más**. Dos de los cinco casos fallaron
+la primera vez (`2^22` leído como `block_size = 22`, y el rango codificable
+`[9,24]` leído como un claim sobre GFX8), que era exactamente lo que inflaba el
+recuento de 60 líneas. Cuando los controles de un clasificador por contexto
+viven, eso **no** convierte su salida en una lista de errores: `cn6.py` lo
+dice en su propia salida.
 
 ## Estado epistémico
 
