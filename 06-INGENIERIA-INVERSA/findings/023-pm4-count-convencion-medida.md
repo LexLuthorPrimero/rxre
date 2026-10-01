@@ -182,10 +182,41 @@ dw4 (payload parcheado por el driver)    = dw_dist(offset, wptr-1) = nº de dwor
 ```
 
 El software entrega un valor distinto en cada lectura. Solo una hace que el paquete
-sirva. Cuacual es `NOT_DETERMINED` con la causa nombrada: **falta la especificacion PM4
+sirva. Cual es `NOT_DETERMINED` con la causa nombrada: **falta la especificacion PM4
 de GFX8**, no falta analisis del corpus. Una `HYPOTHESIS` adicional —que el hardware lea
 el campo parcheado, porque es el unico que recibe informacion util— sigue siendo
 `HYPOTHESIS` y no se presenta como conclusion.
+
+### ENMENDADO POR `033` — la causa era permanente, y el referente del `−1` ya no es `NOT_DETERMINED`
+
+Dos correcciones a este documento:
+
+1. **La causa es una ausencia en el plano del fabricante, no una fuente no buscada.**
+   La ISA de GCN3 (637 paginas, Rev 1.0 de 2015) esta publicada y **no contiene ninguna
+   especificacion PM4**: cero ocurrencias de `PACKET3`, `RELEASE_MEM`, `COND_EXEC`,
+   `VM_INVALIDATE`, `INT_SEL`, `WRITE_AT`, `GRBM`, `mmCP`. Ese `NOT_DETERMINED` de arriba
+   no se cierra buscando mas. Ver `033` §1.
+
+2. **El `NOT_DETERMINED` mas importante de este documento —de que se resta el `1`— ya
+   esta resuelto, y no por la especificacion inexistente sino por el corpus:**
+
+   ```
+   campo F  =  numero de dwords de DATOS - 1
+   paquete  =  F + 2 dwords
+   F = 0x3FFF = RESERVADO (cabecera sola = el paquete, NOP unitario)
+   ```
+
+   Tres evidencias, todas medidas: (a) `PACKET3(WAIT_REG_MEM, 5)` con **6** dwords de
+   datos en los tres sitios de GFX8, lo que da un paquete de 7 dwords, que es la
+   dimension real de `WAIT_REG_MEM` en GCN3; (b) `gfx_v11_0.c:553-568`
+   `insert_nop` escribe `F = num_nop − 2` y recursa `num_nop − 1`, que encaja exacto sin
+   solapamientos; (c) el tope `0x3ffe` y el caso base `.nop = PACKET3(PACKET3_NOP, 0x3FFF)`
+   ("Header itself is a NOP packet") solo tienen sentido juntos si `0x3FFF` queda fuera
+   de la formula.
+
+   Mi convencion medida era correcta; lo que faltaba era **de que** se restaba el uno.
+   El `NOT_DETERMINED` de §5 (el `dw4` parcheado) **sigue abierto**, y por el motivo que
+   §1 de `033` establece.
 
 ## 6 · Lo que esto NO es
 
