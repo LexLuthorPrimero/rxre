@@ -367,3 +367,61 @@ barrido:           grep -rn "update_rptr" *.c -> 0 resultados
 ```
 
 Ningun registro obtenido de MMIO. Ninguna operacion runtime. `GPU INTACTA`.
+
+---
+
+## ENMENDADO POR `037` — §3 cierra: el doorbell lo gobierna `CP_RB_DOORBELL_CONTROL`
+
+`031` §3 dejo abierto que garantia une la escritura del `wptr` con el `writel` del doorbell, y §7
+lo dejo como el `DESIGN_FREEDOM` de fusionarlas. Faltaba el paso intermedio: **que
+registro hardware le dice al CP que apertura vigilar**. `037` lo midio.
+
+```
+gfx_v8_0.c:4200   CP_RB_DOORBELL_CONTROL.DOORBELL_OFFSET = ring->doorbell_index
+                  CP_RB_DOORBELL_CONTROL.DOORBELL_EN      = 1
+                  offset 0x003059
+```
+
+Y con eso queda **cerrado** lo que este documento dio por supuesto:
+
+```
+init:    CP_RB_DOORBELL_CONTROL.DOORBELL_OFFSET = doorbell_index
+         -> el HW sabe que apertura vigilar
+
+submit:  *wptr_cpu_addr = wptr                     GTT, pagina del writeback
+         writel(doorbell[doorbell_index], wptr)    apertura de dispositivo
+```
+
+El doorbell **solo lleva el indice**. El valor del `wptr` solo existe en la pagina del
+writeback. Por eso el HW tiene que verla antes de procesar el timbre — y por eso el
+`mb()` de `ring_commit` tiene que estar antes de las dos escrituras, y no entre ellas.
+
+### Correccion de una hipotesis mia de `037`
+
+`037` afirmo que el puntero que gobierna la puerta es `CP_HQD_PQ_WPTR` (`0x3255`) y no
+`CP_RB0_WPTR` (`0x3045`). **Falso.** Los sitios de escritura lo desmienten:
+
+```
+CP_HQD_PQ_WPTR   se escribe UNA vez, con el literal 0    (:4381)  -> init
+CP_RB0_WPTR      :6031-6032  solo en la rama ELSE de set_wptr_gfx  -> MUERTA en GFX8
+                 :6019       solo en la rama ELSE de get_wptr      -> MUERTA en GFX8
+                 :4255       init
+```
+
+`CP_RB0_WPTR` sirve para **dos** cosas: el valor inicial al arrancar el ring, y el
+mecanismo alternativo sin doorbell que `031` §2.0 demostro que no se usa en esta ASIC.
+Las ramas `else` son exactamente la via del `WREG32`+`RREG32` de confirmacion que este
+documento describio como codigo muerto. Ahora se ve que **el registro que esa rama
+escribia es `CP_RB0_WPTR`**, lo que cierra el circulo.
+
+### Lo que queda abierto, y es lo de §4
+
+Sigue sin resolverse **por que es suficiente** que `writel` a la apertura actue como
+barrera. `037` anadio que hay **tres** espacios de direccionamiento —`RREG32` directo,
+`RREG32_SMC` con prefijo `ix`, y `AMDGCN_REG_OFFSET` por bloque— y el segundo es el de la
+apertura del doorbell? No: el doorbell es `writel` sobre `adev->doorbell.cpu_addr`, que
+viene de un BO en `AMDGPU_GEM_DOMAIN_DOORBELL` (`031` §1.3). Los tres espacios de `037` son
+otra cosa y no se solapan con este.
+
+`NOT_DETERMINED` §4 sin cambio, con su discriminante sin cambio: insertar `wmb()` entre
+las dos escrituras y comparar. Requiere hardware.
