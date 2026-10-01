@@ -75,8 +75,8 @@
       "mv * /sys/*": "deny",
       "ln -sf * /sys/*": "deny",
       "modprobe*": "deny",
-      "insmod *": "deny",
-      "rmmod *": "deny",
+      "insmod *": "ask",
+      "rmmod *": "ask",
       "rm /sys/*": "deny",
       "sed -i* /sys/*": "deny",
 
