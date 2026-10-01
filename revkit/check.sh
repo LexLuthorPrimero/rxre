@@ -75,11 +75,17 @@ run "vclaims: citas de 08-ARQ"       ./vclaims.py
 run "estado: contradicciones"        ./estado.py contradicciones
 echo
 
+echo "--- diferencial entre versiones ---"
+run "verdiff: vm_flush en 7.1.3 vs 7.2.8" ./verdiff.py fn gfx_v8_0.c gfx_v8_0_ring_emit_vm_flush
+run "verdiff: flush_tlb en ambas"         ./verdiff.py fn gmc_v8_0.c gmc_v8_0_emit_flush_gpu_tlb
+echo
+
 echo "--- autocomprobacion del kit ---"
 # La etiqueta NO lleva un numero fijo: si anadir un control y no
 # actualizar el texto, el runner anuncia una cantidad que ya no es la real,
 # y eso es exactamente el fallo que estas herramientas persiguen.
 run "selfcheck: controles del kit"   python3 selfcheck.py
+run "correlate: tabla hallazgo/herramienta" ./correlate.py
 echo
 
 echo "--- descubrimiento de trabajo ---"

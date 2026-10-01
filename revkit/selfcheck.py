@@ -471,6 +471,89 @@ def r23_invariantes_detectados():
     return ok
 
 
+def r24_verdiff_ambos_arboles():
+    """
+    verdiff depende de que existan LOS DOS arboles. Si uno falta, comparar
+    "identicas" sobre una ausencia seria el peor resultado posible.
+    """
+    rc, out, _ = ejecuta(["verdiff.py", "fn", "gmc_v8_0.c",
+                          "gmc_v8_0_emit_flush_gpu_tlb"])
+    ok = rc == 0 and "7.1.3: lineas" in out and "7.2.8: lineas" in out
+    anota("CN-R24 verdiff ve los dos arboles", ok,
+          "encuentra la funcion en ambas versiones: %s" % ok)
+    return ok
+
+
+def r25_verdiff_no_confunde_ausencia():
+    """
+    "NO EXISTE en ninguna" NO es "IDENTICA".
+
+    La primera version de verdiff reportaba IDENTICA cuando no encontraba la
+    funcion en NINGUNA de las dos, porque hacia c1 == c2 con ambos a None. Eso
+    es la peor forma de equivocarse: convierte una inability de leer en una
+    afirmacion de igualdad.
+
+    Se comprueba con un nombre que no existe: debe decir NO EXISTE, no
+    IDENTICA.
+    """
+    rc, out, _ = ejecuta(["verdiff.py", "fn", "gmc_v8_0.c",
+                          "esta_funcion_no_existe_xyz"])
+    ok = rc == 1 and "NO EXISTE EN NINGUNA" in out and "IDENTICA" not in out
+    anota("CN-R25 verdiff distingue ausencia de igualdad", ok,
+          "dice NO EXISTE y no IDENTICA: %s" % ok)
+    return ok
+
+
+def r26_registro_dos_campos():
+    """
+    CP_RB_WPTR_POLL_CNTL tiene DOS campos que lo ocupan entero. Ese layout es
+    la base de la correccion de RB-POLL.md: sin el, la lectura del codigo da
+    el campo equivocado.
+    """
+    rc, out, _ = ejecuta(["regs.py", "CP_RB_WPTR_POLL_CNTL", "--asic", "gfx_8_0"])
+    n = len(re.findall(r"bits @", out))
+    tiene_f = "POLL_FREQUENCY" in out
+    tiene_i = "IDLE_POLL_COUNT" in out
+    ok = n == 2 and tiene_f and tiene_i
+    anota("CN-R26 WPTR_POLL_CNTL tiene 2 campos, sin huecos", ok,
+          "%d campos, POLL_FREQUENCY=%s IDLE_POLL_COUNT=%s"
+          % (n, tiene_f, tiene_i))
+    return ok
+
+
+def r27_correlate_tiene_tabla():
+    """
+    correlate.py debe producir una tabla de hallazgos con su herramienta.
+    Si devuelve una lista vacia o revienta, el enlace entre "lo que se
+    afirmo" y "lo que se puede comprobar" se pierde, que es justo lo que
+    automatiza.
+    """
+    rc, out, _ = ejecuta(["correlate.py"])
+    m = re.search(r"(\d+) documentos analizados", out)
+    ok = rc == 0 and m and int(m.group(1)) > 50
+    # y debe clasificar con MAS DE UNA herramienta
+    multi = len(re.findall(r"\d+ documentos\s+\S+", out))
+    anota("CN-R27 correlate produce la tabla hallazgo-herramienta", bool(ok),
+          "%s documentos, %d herramientas clasificadas"
+          % (m.group(1) if m else "?", multi))
+    return bool(ok)
+
+
+def r28_verdiff_comentarios_encuentra():
+    """
+    verdiff doc debe buscar en COMENTARIOS de las dos versiones. Es la via
+    para acotar NOT_DETERMINED sin runtime, y si devuelve 0 seria inútil.
+    """
+    rc, out, _ = ejecuta(["verdiff.py", "doc", "IDLE_POLL_COUNT"])
+    dos = "7.1.3" in out and "7.2.8" in out
+    n = re.search(r"total (\d+) lineas", out)
+    ok = rc == 0 and dos and n and int(n.group(1)) > 0
+    anota("CN-R28 verdiff doc busca en ambas versiones", bool(ok),
+          "dos versiones y %s lineas de comentario"
+          % (n.group(1) if n else "?"))
+    return bool(ok)
+
+
 def main():
     print("Controles del propio revkit")
     print()
@@ -489,7 +572,9 @@ def main():
         r18_sync_es_invariante, r19_causa_clasifica_correctamente,
         r20_descubrir_registros, r19b_sdma_ptepde_de_este_asic,
         r21_scan_no_devuelve_vacio, r22_scan_no_ordena_por_ruido,
-        r23_invariantes_detectados,
+        r23_invariantes_detectados, r24_verdiff_ambos_arboles,
+        r25_verdiff_no_confunde_ausencia, r26_registro_dos_campos,
+        r27_correlate_tiene_tabla, r28_verdiff_comentarios_encuentra,
     ]
     fallos = 0
     for fn in pruebas:

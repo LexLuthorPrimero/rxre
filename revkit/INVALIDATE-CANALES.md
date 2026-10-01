@@ -64,6 +64,61 @@ Si un driver propio quisiera invalidar un rango en vez de una VMID entera,
 tendría que usar los canales. Y al no haber código de referencia, la semántica
 del `_SEM` y del `_ACK` queda sin documentar por observación.
 
+## `VM_INVALIDATE_RESPONSE`: qué es, y por qué el driver no lo lee
+
+Este documento decía que `VM_INVALIDATE_RESPONSE` era `NOT_DETERMINED` porque
+el driver no lo lee. Eso sigue siendo cierto, pero el registro **sí tiene
+layout conocido**, y eso acota la pregunta.
+
+```
+VM_INVALIDATE_RESPONSE   (gmc_8_1_sh_mask.h, el ASIC de POLARIS12)
+    DOMAIN_INVALIDATED_0     1 bit @  0
+    DOMAIN_INVALIDATED_1     1 bit @  1
+    ...
+    DOMAIN_INVALIDATED_15    1 bit @ 15
+    16 campos, 1 bit cada uno, sin huecos
+```
+
+Es un registro de **16 bits, un bit por dominio**. El hardware pone a 1 el bit
+de cada dominio que ha invalidado, y el software lee cuáles.
+
+Eso encaja con el invalidate global: se dispara con `INVALIDATE_REQUEST` a un
+bit por VMID, y el hardware responde con `DOMAIN_INVALIDATED_n` a un bit por
+**dominio**. Los 16 no coinciden necesariamente con los VMID: son dominios, y
+la correspondencia entre dominio y VMID no está en el corpus.
+
+### La correspondencia VMID ↔ dominio es la pregunta que queda
+
+El driver no la necesita porque no lee la respuesta. Para un driver propio que
+quiera **saber** si un invalidate se completó, esa correspondencia es
+obligatoria: sin ella, un `DOMAIN_INVALIDATED_3` no dice qué VMID se invalidó.
+
+Tres candidats, y ninguno es demostrable estáticamente:
+
+| hipótesis | qué tendría que verse |
+|---|---|
+| dominio n = VMID n | que el hardware numere igual, sin traducción |
+| dominio n = VMID n mod 16 | que haya wrap a los 16 |
+| otro mapeo | que exista una tabla, y no hay ninguna en el corpus |
+
+## Sobre el header que citan algunos documentos
+
+`017` y `018` citan `gmc_8_2_sh_mask.h` para `DOMAIN_INVALIDATED`. Pero
+`gmc_v8_0.c:36` incluye:
+
+```c
+#include "gmc/gmc_8_1_sh_mask.h"
+```
+
+El ASIC de POLARIS12 usa **`gmc_8_1`**, no `gmc_8_2`. Comprobado que los valores
+de `DOMAIN_INVALIDATED` son **idénticos** en ambos headers, así que la cita no
+da un valor falso. Pero la fuente autoritativa para este ASIC es
+`gmc_8_1_sh_mask.h`, y citarla es lo correcto.
+
+Es el mismo modo de fallo que ya se cometió en este proyecto con `block_size`:
+tomar un campo de un header de otra generación. Aquí no cambia el número,
+pero cambiaría cualquier valor que difiriera.
+
 ## Clasificación
 
 | Afirmación | Estado |
@@ -75,6 +130,10 @@ del `_SEM` y del `_ACK` queda sin documentar por observación.
 | Ningún canal lo usa el driver | **PROVEN** — enumeración, 0 consumidores |
 | Qué significa `_ACK` y `_SEM` | **NOT_DETERMINED** |
 | Si un canal puede invalidar más que una VMID | **NOT_DETERMINED** |
+| `VM_INVALIDATE_RESPONSE` = 16 bits, uno por `DOMAIN_INVALIDATED_n` | **PROVEN** — `gmc_8_1_sh_mask.h` |
+| GFX8 incluye `gmc_8_1_sh_mask.h`, no `gmc_8_2` | **PROVEN** — `gmc_v8_0.c:36` |
+| Que los valores de `DOMAIN_INVALIDATED` coincidan entre ambos headers | **PROVEN** — comparación |
+| La correspondencia `DOMAIN_INVALIDATED_n` ↔ VMID n | **NOT_DETERMINED** |
 
 Que el invalidate global baste para invalidar una VMID es la hipótesis que
 sostiene el diseño de amdgpu. Que un canal por rango funcione es
