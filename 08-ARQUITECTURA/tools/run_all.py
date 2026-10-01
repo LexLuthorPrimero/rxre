@@ -84,6 +84,11 @@ def main():
         ("PM4 alcanzabilidad y vocabulario vivo", ["pm4_reachable.py"], 0),
         ("PM4 layouts documentados vs emitidos", ["pm4_layout_audit.py"], 0),
         ("inventario de registros MMIO", ["gmmio_inventory.py"], 0),
+        # lectura del ASIC en vivo, SOLO LECTURA. Verifica que el modulo
+        # cargado es el que cree el corpus. No escribe nada.
+        ("runtime: estado del ASIC (solo lectura)",
+         ["runtime_obs.py", "module"], 0),
+        ("binario real vs corpus", ["binfacts.py"], 0),
     ]
     if quick:
         tools = tools[1:]
