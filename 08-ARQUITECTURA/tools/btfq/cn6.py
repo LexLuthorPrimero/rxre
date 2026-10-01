@@ -35,9 +35,16 @@ cirilicos colados. Redactando los .md largos se colaron varias veces en mitad
 de una frase espanola. No se ven al escribir y contaminan el registro del
 proyecto con texto sin sentido. Es un fallo de escritura, no de logica, pero
 afecta a la evidencia igual.
+
+CN-6g comprueba que los .md no tengan backticks desparejados. Se perdio mas de
+una vez al aplicar una sustitucion con regex: el patron borro el backtick de
+CIERRE en lugar del caracterizo, y el markdown quedo roto en puntos donde nadie
+lo mire. Un `` ` `` sin pareja hace que el resto del documento se renderice
+como codigo, y eso destruye el formato entero a partir de ahi.
 """
 import glob
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -81,25 +88,125 @@ def prueba_cn6f():
     (cirilico). Los tres son un error en un texto en espanol, y aparecen
     cuando se redacta un documento largo y se escribe a tropezones.
     """
+    return _revisa_texto(
+        lambda ch: (0x3000 <= ord(ch) <= 0x9FFF or
+                    0xAC00 <= ord(ch) <= 0xD7AF or
+                    0x0400 <= ord(ch) <= 0x04FF),
+        "caracter no latino")
+
+
+def prueba_cn6g():
+    """
+    Ningun .md puede dejar un backtick sin pareja.
+
+    Un backtick sin pareja hace que todo lo que sigue se renderice como
+    codigo. No es cosmético: a partir del punto roto el documento pierde
+    estructura y las tablas y listas desaparecen.
+
+    El criterio NO es "el numero total de backticks es par". Ese criterio
+    esta mal con bloques cercados, porque cada ``` aporta 3 backticks y
+    abrir y cerrar un bloque son 6, que es par; pero un ``` suelto de una
+    linea cambia el total sin que nada este roto, y al reves un backtick
+    realmente colgando puede dejar el total en par si hay otro backtick
+    imbalanceado en otro punto.
+
+    La comprobacion correcta es de ESTADO: recorrer linea a linea alternando
+    dentro/fuera de codigo, ignorar el contenido de los bloques cercados, y
+    detectar una linea con un numero impar de backticks cuya siguiente linea
+    no tenga ninguno, que es la senal de un backtick abierto que nadie cierra.
+
+    Uso esta forma porque es la que ha detectado los fallos reales: la
+    comprobacion por paridad global daba "impar" en vbios.md y no senalaba
+    que la linea 64 era la culpable.
+
+    Y hay un SEGUNDO fallo que el conteo por estado NO ve: los backticks
+    pueden estar emparejados pero cruzados. `` `a y `b` `` tiene un numero
+    par de backticks y ninguna linea queda abierta, asi que el control de
+    estado lo da por bueno, pero el render es incorrecto porque el primer
+    termino se emite como Inline code y se traga el segundo.
+
+    Ese fallo se detecta aparte: si al quitar los tramos "`...`" que casan
+    queda algun backtick, es que hay un cruce. Se comprueba como control
+    propio (CN-6h) porque es un fallo distinto con un sintoma distinto.
+    """
     aqui = os.path.dirname(os.path.abspath(__file__))
     malos = []
+    for f in sorted(glob.glob(os.path.join(aqui, "*.md"))):
+        dentro = False        # dentro de un bloque cercado ```
+        abierto = False       # backtick suelto abierto en una linea anterior
+        for i, linea in enumerate(
+                open(f, encoding="utf-8", errors="replace"), 1):
+            st = linea.strip()
+            if st.startswith("```"):
+                dentro = not dentro
+                continue
+            if dentro:
+                continue
+            c = linea.count("`")
+            if abierto:
+                if c == 0:
+                    malos.append("%s:%d" % (os.path.basename(f), i))
+                abierto = False
+                continue
+            if c % 2 == 1:
+                abierto = True
+        if abierto:
+            malos.append("%s:EOF (nunca cierra)" % os.path.basename(f))
+    return not malos, ("backticks colgando en: %s" % malos[:8] if malos
+                       else "todos los .md sin backticks colgando")
+
+
+def prueba_cn6h():
+    """
+    Backticks emparejados pero CRUZADOS.
+
+    `` `uno y `dos` `` tiene 4 backticks, numero par, y ninguna linea queda
+    abierta: el control de estado lo acepta. Y aun asi el markdown se
+    renderiza mal, porque el primer tramo se toma como Inline code y se come
+    el segundo.
+
+    Se detecta quitando del texto los tramos "`...`" que casan con un
+    emparejado rapido. Si queda algun backtick, es que habia un cruce.
+    """
+    aqui = os.path.dirname(os.path.abspath(__file__))
+    malos = []
+    for f in sorted(glob.glob(os.path.join(aqui, "*.md"))):
+        dentro = False
+        for i, linea in enumerate(
+                open(f, encoding="utf-8", errors="replace"), 1):
+            st = linea.strip()
+            if st.startswith("```"):
+                dentro = not dentro
+                continue
+            if dentro:
+                continue
+            # Un backtick ESCAPADO (\`) es markdown valido y no cuenta como
+            # delimitador: sirve para escribir un backtick literal. Sin esta
+            # excepcion, cualquier documento que documente un ejemplo de
+            # backtick se autodetecta como fallo. Se quitan antes de buscar
+            # el cruce.
+            limpio = linea.replace("\\`", "")
+            # quita los tramos que SI casan entre si
+            resto = re.sub(r"`[^`\n]*`", "", limpio)
+            if "`" in resto:
+                malos.append("%s:%d" % (os.path.basename(f), i))
+    return not malos, ("backticks cruzados en: %s" % malos[:8] if malos
+                       else "sin backticks cruzados")
+
+
+def _revisa_texto(pred, etiqueta):
+    aqui = os.path.dirname(os.path.abspath(__file__))
+    malos = []
+    total = 0
     for pat in ("*.md", "*.py"):
         for f in sorted(glob.glob(os.path.join(aqui, pat))):
+            total += 1
             for i, linea in enumerate(
                     open(f, encoding="utf-8", errors="replace"), 1):
-                for ch in linea:
-                    o = ord(ch)
-                    if ((0x3000 <= o <= 0x9FFF) or
-                            (0xAC00 <= o <= 0xD7AF) or
-                            (0x0400 <= o <= 0x04FF)):
-                        malos.append("%s:%d U+%04X %s"
-                                     % (os.path.basename(f), i, o,
-                                        unicodedata.name(ch, "?")))
-                        break
+                if any(pred(ch) for ch in linea):
+                    malos.append("%s:%d" % (os.path.basename(f), i))
     return not malos, ("%d ocurrencias: %s" % (len(malos), malos[:8])
-                       if malos else "%d documentos, 0 caracteres no latinos"
-                       % len(glob.glob(os.path.join(aqui, "*.md"))
-                             + glob.glob(os.path.join(aqui, "*.py"))))
+                       if malos else "%d ficheros, 0 %s" % (total, etiqueta))
 
 
 def main():
@@ -132,7 +239,19 @@ def main():
     if not ok:
         fallos += 1
 
-    total = len(CASOS) + 1
+    ok, detalle = prueba_cn6g()
+    print("  %-46s %s" % ("CN-6g backticks emparejados", "OK" if ok else "FALLO"))
+    print("      %s" % detalle)
+    if not ok:
+        fallos += 1
+
+    ok, detalle = prueba_cn6h()
+    print("  %-46s %s" % ("CN-6h backticks no cruzados", "OK" if ok else "FALLO"))
+    print("      %s" % detalle)
+    if not ok:
+        fallos += 1
+
+    total = len(CASOS) + 3
     print()
     print("%d/%d controles vivos" % (total - fallos, total))
     if fallos == 0:

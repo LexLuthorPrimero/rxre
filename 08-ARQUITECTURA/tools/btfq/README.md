@@ -108,13 +108,28 @@ corregir antes de llegar a la coincidencia.
 lectura). Casi toda la geometría ya estaba modelada, pero dos líneas aportan
 hechos de **este** hardware:
 
-**Topología de CUs.** El log dice `SE 2, SH per SE 1, CU per SH 5,
-active_cu_number 8`. `AGENTS.md` ya declaraba 2 SE, 1 SH/SE, 8 CUs y máscara
-`0x1e`; el log los confirma y añade el desglose: **10 CUs físicos, 8 activos**
-(`2 × 5 = 10`). Y `max_cu_per_sh` viene del **VBIOS**
-(`amdgpu_atomfirmware.c:964`), no de una constante del driver, así que el
-corpus no puede derivarlo. Para un driver propio eso significa que el número
-de CUs hay que leerlo del VBIOS, igual que hace el de referencia.
+**Topología de CUs, y un residuo que faltaba.** El log dice
+`SE 2, SH per SE 1, CU per SH 5, active_cu_number 8`.
+`AGENTS.md` ya declaraba 2 SE, 1 SH/SE, 8 CUs y máscara
+`0x1e`; el log confirma los cuatro y añade el desglose: **10 CUs físicos
+(`2 × 5`), de los que 8 están activos**.
+
+El número de CUs **no es una constante del driver**. `max_cu_per_sh` viene del
+**VBIOS** (`amdgpu_device.c:1848`, `gpu_info_fw->gc_num_cu_per_sh`), así que el
+corpus no puede derivarlo: es una propiedad de esta placa.
+
+Y los 8 **activos** tampoco son una máscara fija. Los calcula
+`gfx_v8_0_get_cu_info()` (`gfx_v8_0.c:7072`) **escribiendo** la máscara de CUs
+inactivos y **leyendo de vuelta** el bitmap de activos con
+`gfx_v8_0_get_cu_active_bitmap()`. El silicio decide cuáles quedan activos. El
+VBIOS publica `active_cu_per_sh` en el offset 40 de la tabla y el driver
+**no lo lee**: aparece en las tres declaraciones de `atomfirmware.h` y en
+ningún `.c` de `drivers/gpu/drm/`.
+
+**Consecuencia para un driver propio:** no se pueden codificar los CUs activos.
+Leer solo el VBIOS daría 10, y lanzar sobre 2 CUs que el hardware no responde a
+activar no da un fallo visible, da comportamiento raro, que es peor porque
+parece un bug de timing. Layout byte a byte de la tabla en `vbios.md`.
 
 **PRT se ejerció en runtime.**
 
@@ -279,14 +294,29 @@ que además está bajo prohibición de escritura — y exige que el contraste la
 vea. Sin esto, un contraste que solo sabe decir "coinciden" no ha demostrado
 nada.
 
-`cn6.py` (6/6 vivos) es el control del barrido, y es el más importante porque
+`cn6.py` (8/8 vivos) es el control del barrido, y es el más importante porque
 allí el riesgo es el opuesto: **fallar de más**. Dos de los cinco casos de
 clasificación fallaron la primera vez (`2^22` leído como `block_size = 22`, y
 el rango codificable `[9,24]` leído como un claim sobre GFX8), que era
-exactamente lo que inflaba el recuento de 60 líneas. El sexto control
-(`CN-6f`) comprueba que los documentos no arrastren caracteres CJK o cirílicos
-colados, que se me colaron varias veces redactando y que contaminan el registro
-sin verse al escribir.
+exactamente lo que inflaba el recuento de 60 líneas.
+
+Los tres últimos controles son de integridad de los documentos, y existen
+porque tres fallos reales pasaron inadvertidos:
+
+- `CN-6f`, CJK o cirílico colados. Se me colaron varias veces en mitad de una
+  frase española sin que se vieran al escribir.
+- `CN-6g`, backticks colgando. Una sustitución con regex borró backticks de
+  cierre en tres documentos. El primer criterio que probé —«el número total de
+  backticks debe ser par»— **era incorrecto**: los bloques cercados aportan 3
+  backticks cada uno y falsean la paridad. Se reemplazó por una comprobación
+  de estado línea a línea.
+- `CN-6h`, backticks emparejados pero **cruzados** (`uno \`a y \`b\``). Estos
+  tienen número par y ninguna línea queda abierta, así que `CN-6g` los acepta;
+  y el render queda mal. `CN-6h` los detecta y encontró dos casos reales en
+  este mismo README.
+
+Los tres se validaron con mutación: cada uno detecta su fallo y el árbol queda
+limpio después.
 
 Cuando los controles de un clasificador por contexto viven, eso **no** convierte
 su salida en una lista de errores: `cn6.py` lo dice en su propia salida.
