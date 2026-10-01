@@ -427,6 +427,17 @@ def selftest():
     print("SELF-TEST de stale_gap: control negativo")
     print("=" * 74)
     fallos = 0
+    # ESTA ES LA UNICA ESCRITURA DE LA HERRAMIENTA, y vive aqui.
+    #
+    # El contrato dice WRITES_FILES=no porque el modo normal -- el que la
+    # usa run_all y el que consume la evidencia -- solo lee. El self-test
+    # necesita ficheros, y la forma correcta de decirlo es en el sitio donde
+    # ocurre, no en una linea del docstring que nadie comprueba.
+    #
+    # Los ficheros van a un directorio propio de /tmp, se BORRAN antes de
+    # empezar, y se nombran t1..t10 para que no puedan confundirse con nada
+    # del proyecto. Nada del corpus se toca, y el contrato sigue siendo
+    # cierto para toda la ejecucion que produce evidencia.
     tmp = "/tmp/opencode/stale_gap_selftest"
     os.makedirs(tmp, exist_ok=True)
     for f in os.listdir(tmp):

@@ -142,7 +142,48 @@ def candidatos():
     except Exception:
         pass
 
-    # --- 3. fronteras de hardware: caras pero unicas
+    # --- 3. fronteras OBSOLETAS: el mas barato de todo, y el que mas
+    #        trabajo evita. Sin esto, este ranking manda a repetir
+    #        mediciones ya hechas.
+    #
+    #        stale_gap cruza cada frontera con sujeto contra todos los claims
+    #        cerrados del proyecto. Lo que sale con resolucion ya no es
+    #        trabajo de investigacion: es trabajo de DOCUMENTO.
+    try:
+        import stale_gap as SG
+        fr, _cc = SG.clasificar()
+        obsoletas = [f for f in fr
+                     if f["clase"] in ("RESUELTA_OTRO", "RESUELTA_AQUI")]
+        sin_sujeto = [f for f in fr if f["clase"] == "SIN_SUJETO"]
+        if obsoletas:
+            cands.append(dict(
+                tipo="obsoleta", coste=COSTE["contradiccion"],
+                titulo=f"{len(obsoletas)} fronteras ya resueltas: "
+                       f"corregir el documento, no investigar",
+                por_que="el sujeto ya tiene respuesta cerrada en otro "
+                        "documento. El NOT_DETERMINED dirige a trabajo que ya "
+                        "esta hecho: se repite una medicion y se escribe un "
+                        "hallazgo que ya existe. Es lo mas barato de todo y "
+                        "lo que mas throughput evita.",
+                documentos=len(set(x["doc"] for x in obsoletas)),
+                detalle=", ".join(sorted(set(
+                    f"{x['doc']}:{x['linea']}" for x in obsoletas))[:6])))
+        if sin_sujeto:
+            cands.append(dict(
+                tipo="sin_sujeto", coste=COSTE["contradiccion"],
+                titulo=f"{len(sin_sujeto)} fronteras sin sujeto: "
+                       f"completar la frase",
+                por_que="una frontera que no dice de QUE es no se puede "
+                        "cerrar, repetir ni medir. No es trabajo de "
+                        "investigacion: es escribir contra que es la "
+                        "pregunta. Arreglable sin tocar el hardware.",
+                documentos=len(set(x["doc"] for x in sin_sujeto)),
+                detalle=", ".join(sorted(set(
+                    x["doc"] for x in sin_sujeto))[:6])))
+    except Exception as e:
+        pass
+
+    # --- 4. fronteras de hardware: caras pero unicas
     nd = not_determined()
     hw = [x for x in nd if re.search(r"hardware|RUNTIME|experimento",
                                      x[2], re.I)]
@@ -156,16 +197,34 @@ def candidatos():
             documentos=len(set(x[0] for x in hw)),
             detalle=", ".join(sorted(set(x[0] for x in hw))[:6])))
 
-    # --- 4. fronteras de lectura: baratas
+    # --- 5. fronteras de lectura: baratas, y YA SIN LAS OBSOLETAS
+    #
+    #    Se restan las que stale_gap marco como resueltas. Sin esta resta,
+    #    este bloque contaba 29 fronteras que no son frontera ninguna, y el
+    #    ranking mandaba a hacerlas.
+    #
+    #    NOTA: el recuento es de LINEAS con NOT_DETERMINED, no de fronteras
+    #    distintas. Una frontera mencionada en diez lineas cuenta diez. Es un
+    #    orden de magnitud, no un recuento, y por eso el numero lleva "lineas".
+    resueltos = set()
+    try:
+        import stale_gap as SG
+        fr, _cc = SG.clasificar()
+        resueltos = set(
+            (f["doc"], f["linea"]) for f in fr
+            if f["clase"] in ("RESUELTA_OTRO", "RESUELTA_AQUI"))
+    except Exception:
+        pass
     rd = [x for x in nd if not re.search(r"hardware|RUNTIME|experimento",
-                                         x[2], re.I)]
+                                         x[2], re.I)
+          and (x[0], x[1]) not in resueltos]
     if rd:
         cands.append(dict(
             tipo="lectura", coste=COSTE["lectura"],
-            titulo=f"{len(rd)} fronteras que se cierran releyendo codigo",
+            titulo=f"{len(rd)} lineas de frontera que se cierran releyendo",
             por_que="estas son las MAS BARATAS: no necesitan hardware, solo "
-                    "mas lectura. Si el tiempo es el recurso escaso, aqui es "
-                    "donde se rinde mas.",
+                    "mas lectura. Ya restadas las "
+                    f"{len(resueltos)} que stale_gap dio por ya resueltas.",
             documentos=len(set(x[0] for x in rd)),
             detalle=", ".join(sorted(set(x[0] for x in rd))[:6])))
 
@@ -206,6 +265,18 @@ def main():
     print()
     print("Y esta herramienta NO decide cual hacer. Decide cual es el mas")
     print("barato de empezar, que no es lo mismo.")
+    print()
+    print("OTRO LIMITE, MAS SERIO. Los candidatos [1] y [2] NO son trabajo de")
+    print("investigacion: son trabajo de correccion. Eso los hace baratos, y")
+    print("por coste salen primeros. Es la razon por la que estan a la")
+    print("vista: un ranking ordenado solo por coste arriva a preferir escribir")
+    print("bien antes que medir, y eso puede ser exactamente lo contrario de")
+    print("lo que hace falta.")
+    print()
+    print("La defensa es que su coste es de VERDAD bajo: corregir una marca")
+    print("obsoleta son diez minutos, y medir es una tarde. Si aun asi el")
+    print("proyecto dedicara una sesion entera a ellos, el ranking habria")
+    print("fallado, y habria que darle peso al valor, no al coste.")
     return 0
 
 
