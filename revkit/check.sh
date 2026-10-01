@@ -64,6 +64,12 @@ run "obs: la GPU objetivo existe"    ./obs.py gpu
 run "obs: parametros de modulo"      ./obs.py params
 echo
 
+echo "--- trazado de codigo ---"
+run "ibtrace: secuencia de vm_flush" ./ibtrace.py func gfx_v8_0.c::gfx_v8_0_ring_emit_vm_flush
+run "causa: mapa de invalidate"      ./causa.py mapa mmVM_INVALIDATE_REQUEST
+run "causa: descubre registros"      ./causa.py descubrir gfx_v8_0
+echo
+
 echo "--- documentos ---"
 run "vclaims: citas de 08-ARQ"       ./vclaims.py
 echo

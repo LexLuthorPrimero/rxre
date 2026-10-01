@@ -276,6 +276,102 @@ def r15_invalidate_canales():
     return ok
 
 
+def r16_ibtrace_encuentra_vm_flush():
+    """
+    ibtrace debe encontrar la secuencia de emit_vm_flush que se verifico A
+    MANO. Si deja de encontrarla, el herramienta no sirve y WAIT-REG-MEM.md y
+    INVALIDATE-CANALES.md se quedan obsoletos sin aviso.
+    """
+    rc, out, _ = ejecuta(["ibtrace.py", "func",
+                          "gfx_v8_0.c::gfx_v8_0_ring_emit_vm_flush"])
+    # lo verificado a mano: 9 escrituras, 2 headers, y el rango 6191-6215
+    ok = rc == 0 and "9 escrituras" in out and "2 headers" in out
+    # y que el opcode del WAIT este resuelto, no sin nombre
+    resuelto = "PACKET3_WAIT_REG_MEM = 0x3C" in out
+    anota("CN-R16 ibtrace reproduce la secuencia de emit_vm_flush", ok and resuelto,
+          "9 escrituras/2 headers y opcode resuelto: %s"
+          % (ok and resuelto))
+    return ok and resuelto
+
+
+def r17_ibtrace_comentarios_no_parten():
+    """
+    Los comentarios van EN MEDIO de los argumentos en el estilo de amdgpu:
+
+        amdgpu_ring_write(ring, (WAIT_REG_MEM_OPERATION(0) | /* wait */
+                                 WAIT_REG_MEM_FUNCTION(0) |  /* always */
+
+    Si la herramienta no quita comentarios antes de parsear, cuenta DOS
+    escrituras donde hay UNA y pierde los flags del medio. Este control
+    comprueba que la expresion completa aparece en una sola linea de salida.
+    """
+    rc, out, _ = ejecuta(["ibtrace.py", "func",
+                          "gfx_v8_0.c::gfx_v8_0_ring_emit_vm_flush"])
+    # la linea del WAIT debe traer los TRES campos en la misma salida
+    uno = ("WAIT_REG_MEM_OPERATION" in out and "WAIT_REG_MEM_FUNCTION" in out
+           and "WAIT_REG_MEM_ENGINE" in out)
+    anota("CN-R17 los comentarios no parten una escritura en varias", uno,
+          "los 3 campos del WAIT aparecen juntos: %s" % uno)
+    return uno
+
+
+def r18_sync_es_invariante():
+    """
+    TODAS las generaciones v6 a v12 emiten PFP_SYNC_ME en vm_flush. Eso
+    convierte "por que GFX8 lo emite" en una pregunta con respuesta de
+    diseno, no de capricho. Se fija como control porque es la afirmacion que
+    da contexto al NOT_DETERMINED del efecto en hardware.
+    """
+    rc, out, _ = ejecuta(["ibtrace.py", "sync"])
+    gens = set()
+    for l in out.splitlines():
+        if "PFP_SYNC_ME" in l and "vm_flush" in l:
+            for g in ("v6_0", "v7_0", "v8_0", "v9_0", "v10_0", "v11_0",
+                      "v12_0", "v12_1"):
+                if g in l:
+                    gens.add(g)
+    ok = len(gens) >= 6 and "v8_0" in gens
+    anota("CN-R18 PFP_SYNC_ME en vm_flush es invariante v6-v12", ok,
+          "generaciones que lo emiten: %s" % ", ".join(sorted(gens)))
+    return ok
+
+
+def r19_causa_clasifica_correctamente():
+    """
+    causa.py debe clasificar un registro que se escribe y no se lee como tal.
+    Esa clasificacion es la que sostiene INVALIDATE-CANALES.md. Si se
+    clasifica como "uso" generico, el documento pierde su base.
+    """
+    rc, out, _ = ejecuta(["causa.py", "mapa", "mmVM_INVALIDATE_REQUEST"])
+    ok = rc == 0 and "SE ESCRIBE PERO NO SE LEE" in out
+    # y NO debe aparecer ninguna lectura MMIO
+    sin_lectura = "lectura-MMIO" not in out
+    anota("CN-R19 causa clasifica invalidate como solo-escrito", ok and sin_lectura,
+          "detecta la ausencia de lectura: %s, y no inventa lecturas: %s"
+          % (ok, sin_lectura))
+    return ok and sin_lectura
+
+
+def r20_descubrir_registros():
+    """
+    El modo descubrimiento debe encontrar registros MMIO en gfx_v8_0.c.
+    Si devuelve 0, el instrumento que sirve para ENCONTRAR TRABAJO esta roto,
+    y es peor que no tenerlo: no avisa.
+    """
+    rc, out, _ = ejecuta(["causa.py", "descubrir", "gfx_v8_0"])
+    m = re.search(r"total distintos\s*:\s*(\d+)", out)
+    m2 = re.search(r"SOLO escritos\s*:\s*(\d+)", out)
+    if not m or not m2:
+        anota("CN-R20 descubrir encuentra registros MMIO", False,
+              "no se pudo leer el recuento")
+        return False
+    tot, solo = int(m.group(1)), int(m2.group(1))
+    ok = tot > 50 and solo > 0 and solo < tot
+    anota("CN-R20 descubrir encuentra registros MMIO", ok,
+          "%d registros, %d solo escritos, %d leidos" % (tot, solo, tot - solo))
+    return ok
+
+
 def main():
     print("Controles del propio revkit")
     print()
@@ -290,6 +386,9 @@ def main():
         r8_vclaims_externas, r9_vclaims_detecta_rango_malo,
         r10_pte_separa_alcanzable, r11_pte_dump, r12_sin_cjk, r13_backticks,
         r14_wait_reg_mem, r15_invalidate_canales,
+        r16_ibtrace_encuentra_vm_flush, r17_ibtrace_comentarios_no_parten,
+        r18_sync_es_invariante, r19_causa_clasifica_correctamente,
+        r20_descubrir_registros,
     ]
     fallos = 0
     for fn in pruebas:
