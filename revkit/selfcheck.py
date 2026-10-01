@@ -372,6 +372,32 @@ def r20_descubrir_registros():
     return ok
 
 
+def r19b_sdma_ptepde_de_este_asic():
+    """
+    El emisor de PTEPDE del ASIC de POLARIS12 es
+    sdma_v4_0_vm_set_pte_pde, y termina con "count - 1".
+
+    Es la funcion que escribe las page tables de esta GPU, y C-011 la marca
+    con severidad MUY ALTA por escribir UN PTE POR ENCIMA del rango pedido.
+    Se fija como control porque si el corpus cambia, o si la herramienta
+    deja de verla, esa severidad deja de estar justificada.
+
+    Y comprueba la escritura por ib->ptr[], que es la que usan los emisores
+    de SDMA: sin ella, ibtrace decia "sin escrituras" de la funcion MAS
+    importante para PTE.
+    """
+    rc, out, _ = ejecuta(["ibtrace.py", "func",
+                          "sdma_v4_0.c::sdma_v4_0_vm_set_pte_pde"])
+    n = re.search(r"(\d+) escrituras", out)
+    tiene = "count - 1" in out
+    por_ptr = "ib->ptr" in out
+    ok = rc == 0 and n and int(n.group(1)) == 10 and tiene and por_ptr
+    anota("CN-R19b PTEPDE de POLARIS12: 10 dwords, ultimo = count-1", ok,
+          "%s escrituras, count-1 presente: %s, escritura por ib->ptr: %s"
+          % (n.group(1) if n else "?", tiene, por_ptr))
+    return ok
+
+
 def main():
     print("Controles del propio revkit")
     print()
@@ -388,7 +414,7 @@ def main():
         r14_wait_reg_mem, r15_invalidate_canales,
         r16_ibtrace_encuentra_vm_flush, r17_ibtrace_comentarios_no_parten,
         r18_sync_es_invariante, r19_causa_clasifica_correctamente,
-        r20_descubrir_registros,
+        r20_descubrir_registros, r19b_sdma_ptepde_de_este_asic,
     ]
     fallos = 0
     for fn in pruebas:

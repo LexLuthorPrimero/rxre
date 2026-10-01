@@ -72,6 +72,7 @@ echo
 
 echo "--- documentos ---"
 run "vclaims: citas de 08-ARQ"       ./vclaims.py
+run "estado: contradicciones"        ./estado.py contradicciones
 echo
 
 echo "--- autocomprobacion del kit ---"

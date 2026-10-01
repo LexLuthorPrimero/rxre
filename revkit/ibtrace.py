@@ -49,9 +49,23 @@ AMDKG = ("/home/lucas/Escritorio/RX550-INVESTIGACION/RESEARCH/working/"
          "linux-7.1.3/drivers/gpu/drm/amd/amdgpu")
 
 # Escrituras de anillo. Los nombres reales en el driver:
+#
+# Hay DOS formas de escribir en un IB, y la primera version de esta
+# herramienta solo(conocía la primera:
+#
+#   amdgpu_ring_write(ring, VALOR);        <- el comun
+#   ib->ptr[ib->length_dw++] = VALOR;      <- el de SDMA
+#
+# Los emisores de SDMA, que son los que escriben las page tables, usan
+# SIEMPRE la segunda. Ignorarla no daba un resultado parcial: daba "sin
+# escrituras de anillo en el cuerpo" para sdma_v4_0_vm_set_pte_pde, que es
+# precisamente la funcion que escribe los PTE de este ASIC. Un 0 que
+# significa "no se que buscar", no "no escribe".
 RE_RING_WRITE = re.compile(
     r"\b(amdgpu_ring_write|amdgpu_ring_write_mult\w*|"
     r"RREG32|WREG32|WREG_SB|WREG64)\s*\(\s*(?P<args>[^;]*)\)\s*;")
+RE_SDMA_WRITE = re.compile(
+    r"ib->ptr\s*\[\s*(?P<idx>[^]]+?)\s*\]\s*=\s*(?P<val>[^;]+?);")
 # La firma abre aqui; el cierre puede estar en la MISMA linea o en las
 # siguientes, y esta linea puede acabar en COMA si el nucleo de argumentos
 # sigue abajo:
@@ -225,13 +239,27 @@ def _quita_comentarios(txt):
 
 
 def escrituras_de(cuerpo):
-    """[(linea_rel, llamada, argumentos)] en orden de aparicion"""
+    """
+    [(linea_rel, llamada, argumentos)] en ORDEN DE APARICION.
+
+    Hay que mezclar las dos formas de escritura en una sola lista ordenada,
+    porque el ORDEN es el dato: en un IB el orden de los dwords ES el
+    paquete. Presentarlos en dos listas separadas pierde la informacion
+    principal, y da una lectura falsa del paquete.
+    """
     limpio = _quita_comentarios(cuerpo)
-    out = []
+    eventos = []
     for m in RE_RING_WRITE.finditer(limpio):
-        out.append((limpio[:m.start()].count("\n"), m.group(1),
-                    " ".join(m.group("args").split())))
-    return out
+        eventos.append((m.start(),
+                        limpio[:m.start()].count("\n"), m.group(1),
+                        " ".join(m.group("args").split())))
+    for m in RE_SDMA_WRITE.finditer(limpio):
+        eventos.append((m.start(),
+                        limpio[:m.start()].count("\n"),
+                        "ib->ptr[%s]" % m.group("idx"),
+                        " ".join(m.group("val").split())))
+    eventos.sort(key=lambda x: x[0])
+    return [(e[1], e[2], e[3]) for e in eventos]
 
 
 def clasifica(args):
