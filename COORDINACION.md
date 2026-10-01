@@ -21,6 +21,111 @@ coordina: se cumple y sigue habiendo colisiones.
 `mkdir` sobre un directorio existente **falla**, y el sistema de ficheros garantiza que sólo una
 sesión gana. Eso sí es un cerrojo.
 
+### PREFLIGHT — obligatorio antes de participar en una cola
+
+Esta sección va **antes** de "Adquirir el turno" a propósito. Leer el protocolo de arriba abajo
+llegaba a la instrucción de acción antes que a la de comprobación, y por eso una sesión podía
+reconstruir estado y empezar a trabajar en una cola ocupada sin haberse enterado de que lo estaba.
+Un gate que está debajo de la acción que gobierna no gobierna.
+
+#### 1 · Declarar el rol, una sola vez, antes de actuar
+
+Una sesión empieza en `READ_ANALYSIS` y sólo cambia de rol si va a hacer algo más.
+
+```
+READ_ANALYSIS
+    leer estado, documentación, código, evidencia, coordinación
+    NO requiere cerrojo            ("leer nunca necesita cerrojo")
+    NO es participación en cola
+    NO otorga autorización de escritura
+
+QUEUE_PARTICIPATION
+    seleccionar un nodo para ejecución · declarar intención de ejecutar
+    reclamar trabajo compartido · modificar estado de coordinación
+    REQUIERE este preflight
+
+WORKER_DISPATCH
+    NO es lectura · NO es escritura
+    REQUIERE este preflight
+
+WRITE_EXECUTION
+    REQUIERE este preflight
+    + autorización de escritura
+    + estado de cerrojo compatible
+
+LOCK_TAKEOVER
+    REQUIERE autorización humana explícita
+```
+
+Leer documentación **durante** `READ_ANALYSIS` no satisface este preflight. Lo que lo satisface es
+haber declarado el rol antes de cambiar de propósito.
+
+#### 2 · Comprobar el estado del cerrojo
+
+```bash
+cd /home/lucas/Escritorio/RX550-INVESTIGACION
+
+if test -d .write-lock; then
+    echo "LOCK_PRESENTE"
+    cat .write-lock/owner 2>/dev/null
+    pid=$(grep -oE 'pid=[0-9]+' .write-lock/owner 2>/dev/null | head -1 | cut -d= -f2)
+    if [ -n "$pid" ] && test -d "/proc/$pid"; then
+        echo "OWNER_ACTIVE -> BLOCK / WAIT"
+    else
+        echo "OWNER_NOT_RUNNING -> REQUIRE HUMAN AUTHORIZATION"
+    fi
+else
+    echo "LOCK_ABSENT"
+fi
+```
+
+**El umbral de edad no establece abandono.** 20 min (o el valor vigente) sólo determina que toca
+comprobar. El estado se establece con la comprobación, nunca con la aritmética. No confundir:
+
+```
+LOCK_AGE > umbral   ≠   process_dead   ≠   lock_abandoned
+```
+
+Comprobar `/proc/$pid` antes que nada: es la única evidencia de liveness que este protocolo usa, y
+es la que se aplicó en los dos casos históricos de recuperación.
+
+#### 3 · Emitar una decisión, no una intención
+
+```
+LOCK_ABSENT                              -> QUEUE_ENTRY_ALLOWED
+LOCK_PRESENTE + OWNER_ACTIVE             -> QUEUE_ENTRY_BLOCKED  (esperar)
+LOCK_PRESENTE + OWNER_NOT_RUNNING        -> QUEUE_ENTRY_BLOCKED  (autorización humana)
+LOCK_PRESENTE + propietario ilegible     -> QUEUE_ENTRY_BLOCKED  (diagnosticar antes)
+```
+
+Mientras la decisión no sea `QUEUE_ENTRY_ALLOWED`:
+no seleccionar nodo · no reclamar trabajo · no preparar escritura · no modificar estado compartido.
+
+#### 4 · Excepciones, y solo dos
+
+```
+READ_ANALYSIS con cerrojo ajeno    -> permitido, y es lo normal
+LOCK_TAKEOVER                      -> solo con autorización humana, y solo por el cerrojo concreto
+```
+
+La segunda no es una regla general. Autorizar la recuperación de un cerrojo abandonado concreto no
+autoriza la de ningún otro.
+
+#### 5 · Lo que un preflight no es
+
+```
+Un gate que no puede fallar no es un gate.
+Un gate comprobado en su caso negativo, no lo es hasta comprobar el positivo.
+Un exit 0 no prueba que la transición ocurriera; comprobar el estado resultante.
+Un mecanismo de coordinación que viva en /tmp no es coordinación: se pierde en cada reinicio.
+```
+
+#### 6 · Mecanismos de coordinación paralelos
+
+Si existe un mecanismo de claims o Cerrojo que no sea `.write-lock`, se registra como
+`UNAUTHORIZED_PARALLEL_COORDINATION_STATE = OBSERVED`. **No se adopta, no se extiende, no se
+borra por no estar documentado.** Un artefacto no se convierte en protocolo porque exista.
+
 ### Adquirir el turno
 
 ```bash
@@ -136,3 +241,17 @@ así que una sesión que muera entre ambas deja un cerrojo indistinguible de uno
 el `owner` como primer operación, o usar `mkdir` con un subdirectorio ya nombrado
 (`.write-lock/docs`), reduce la ventana a cero en la práctica. @otra-IA: si te sirve, lo
 integro en el próximo turno de `docs`.
+
+## Cerrojo recuperado (abandonado)
+
+[2026-09-29 02:32] PID 25179 tenía `.write-lock/` desde las 01:46 (46 min). Comprobado
+antes de recuperarlo: `/proc/25179` no existe, luego el proceso terminó — no es que
+escribiera despacio. Los únicos ficheros de `07-DRIVER/` con mtime posterior son
+artefactos de build de mi propia ronda (`rx550.ko`, `Module.symvers`,
+`.module-common.o`), no trabajo de otra sesión.
+
+Recuperado por IA-2 con autorización explícita del humano. El umbral de 20 min que fija
+este documento resultó demasiado corto para una ronda de compilación: una sesión puede
+legítimamente tardar 20–30 min compilando contra un árbol de kernel. **Se corrige a 45 min
+en la próxima revisión**; 20 min produce falsos positivos y tabletop Curator una puerta que
+en realidad estaba abierta.

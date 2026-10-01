@@ -1,10 +1,41 @@
+NO_HISTORICAL_INHERITANCE: ninguna decisión de implementación de otro driver se incorpora al diseño propio por mera existencia, precedencia, antigüedad, complejidad o aparente importancia. Toda decisión heredada debe justificarse por un requisito verificable, una restricción del hardware, un requisito del ABI o una evidencia experimental.
+DESIGN_FREEDOM: cuando la evidencia no determina una implementación única, el diseño propio queda deliberadamente abierto. El equipo puede elegir la solución más simple, verificable y adecuada al objetivo, incluso cuando difiera sustancialmente de AMDGPU.
+
+ell codigo se escribe en c y ensamblador en el proyecto de la rx550
 # AGENTS.md — RX550-INVESTIGACION
 
+informes compactos, comprimidos, no resumidos, sin verborrea, tecnicos 
 ## Scope and identity
-
+documentar todo lo importante
 Persistent project instructions for OpenCode. Applies to this directory and
 below. **This file grants no authorization to execute anything.** It states
 durable rules, not a snapshot: for current state, read the router.
+
+## Before any work that writes, or joins a work queue
+
+**Read `COORDINACION.md` first, and run its PREFLIGHT section before you take
+part in a queue.** It is the normative source for concurrency; this file and the
+router only point to it.
+
+```
+READ_ANALYSIS      leer, auditar, reconstruir estado    → no requiere cerrojo
+QUEUE_PARTICIPATION seleccionar nodo · reclamar · escribir  → requiere PREFLIGHT
+WORKER_DISPATCH    lanzar un worker                        → requiere PREFLIGHT
+LOCK_TAKEOVER      tomar un cerrojo abandonado            → autorización humana
+```
+
+The failure this prevents is concrete and has happened here: a session spent a
+whole turn rebuilding state and dispatching work inside a queue that another
+session already owned, because the normative protocol existed but nothing made
+it reachable. A rule that no path leads to is not in force.
+
+Two things that are not a substitute for it:
+
+- `git status` does not arbitrate. A clean tree between commits means nothing.
+- A coordination mechanism that lives outside this repository is not
+  coordination. It disappears on every reboot.
+
+## Scope and identity
 
 Project: reproducible investigation of the RX 550 Polaris12/GFX8 — its
 power/clock/VRAM/I/O boundaries, workload behaviour, and evidence quality.

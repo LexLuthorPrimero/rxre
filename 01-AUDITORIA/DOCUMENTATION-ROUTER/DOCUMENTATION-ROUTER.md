@@ -14,6 +14,23 @@
 
 ---
 
+## -1. Coordinación: fuente normativa fuera del router
+
+Este router indexa **documento**. La concurrencia entre sesiones no se indexa aquí porque no es una
+consulta de conocimiento: es una precondición de entrada.
+
+```
+Antes de escribir, o de tomar parte en una cola de trabajo:
+
+    ../../COORDINACION.md   →  sección PREFLIGHT  →  RUN / WAIT / REQUIRE_HUMAN
+
+Fuente normativa: COORDINACION.md.  No la sustituye este índice, ni `git status`, ni un cerrojo
+existente fuera del árbol del proyecto.
+```
+
+Motivo registrado: la fuente normativa era correcta pero inalcanzable desde ningún punto de entrada,
+y una sesión puede participar en una cola ocupada sin saberlo. Ver `COORDINACION.md` §PREFLIGHT.
+
 ## 0. Las tres identidades de host
 
 **Antes de responder nada, identifica contra qué host pregunta el usuario.**
