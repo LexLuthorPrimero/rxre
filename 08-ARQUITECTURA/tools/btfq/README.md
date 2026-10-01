@@ -33,7 +33,10 @@ python3 cn6.py                      controles del barrido
 ```
 
 Documentos: `vmsize.md` (geometría y la contradicción falsa del `dev_info`),
-`bootlog.md` (observaciones de arranque), este README.
+`bootlog.md` (observaciones de arranque), `vbios.md` (dónde vive el número de
+CUs y por qué el corpus no puede derivarlo), `cus.md` (el protocolo completo para
+descubrir cuántos CUs hay activos, con registros y el fallo silencioso), este
+README.
 
 Códigos de salida: `0` éxito, `1` sin coincidencias, divergencia o controles
 fallidos, `2` uso incorrecto, `3` el BTF no se pudo parsear.
@@ -129,7 +132,10 @@ ningún `.c` de `drivers/gpu/drm/`.
 **Consecuencia para un driver propio:** no se pueden codificar los CUs activos.
 Leer solo el VBIOS daría 10, y lanzar sobre 2 CUs que el hardware no responde a
 activar no da un fallo visible, da comportamiento raro, que es peor porque
-parece un bug de timing. Layout byte a byte de la tabla en `vbios.md`.
+parece un bug de timing. Layout byte a byte de la tabla en `vbios.md`, y el
+protocolo completo de descubrimiento en `cus.md`, incluido el fallo silencioso
+cuantificado: sin el `& mask` final el conteo da **30** CUs en vez de 8, y el
+hardware sigue respondiendo.
 
 **PRT se ejerció en runtime.**
 
@@ -337,7 +343,8 @@ su salida en una lista de errores: `cn6.py` lo dice en su propia salida.
 - El driver del host está parcheado respecto al corpus: **REFUTED**; la
   contradicción aparente venía del `+1` del `dev_info`.
 - 10 CUs físicos, 8 activos: **DERIVATION** sobre `OBSERVATION` del log; la cifra
-  viene del VBIOS (`amdgpu_atomfirmware.c:964`), no del driver.
+  viene del VBIOS (`amdgpu_device.c:1848`), no del driver, y los activos los
+  decide el silicio, leído por `gfx_v8_0_get_cu_info()`.
 - La ruta PRT de GFX8 existe y el hardware la ejerció: **OBSERVED**. La
   semántica de `CB_DISABLE_*_FAULT_ON_UNMAPPED_ACCESS`: **NOT_DETERMINED**.
 - `AMDGPU_PTE_PRT` nunca activo en GFX8: **PROVEN** (`pteflags`, sin cambio).
