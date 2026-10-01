@@ -116,9 +116,39 @@ def main():
         # real: si el struct vi_mqd deja de cuadrar con los offsets, esto
         # devuelve 3 y el runner lo marca como fallo.
         ("asercion struct vi_mqd vs offsets", ["mqd_layout.py", "--mismatches"], 0),
+        # --- las siete herramientas de la sesion de registros/simbolos ---
+        # Se ejecutan con --self, no con su modo informative. La razon es la
+        # misma que el mapa causal: un self-test que nadie ejecuta deja de
+        # ser un control. Estas siete se escribieron hoy y su modo normal es
+        # un informe, que siempre sale "bien" aunque la herramienta este rota.
+        # El --self es lo que puede fallar.
+        ("citecheck: 32 vectores", ["citecheck.py", "--self"], 0),
+        ("scopeguard: preflight", ["scopeguard.py", "--self"], 0),
+        ("xref: lectura/escritura", ["xref.py", "--self"], 0),
+        ("causal: grafo de llamadas", ["causal.py", "--self"], 0),
+        ("contradict: cifras en conflicto", ["contradict.py", "--self"], 0),
+        ("regdb: campos entre familias", ["regdb.py", "--self"], 0),
+        ("hdrmap: familias por .c", ["hdrmap.py", "--self"], 0),
+        # El barrido que hizo el hallazgo 065: registros escritos por un .c con
+        # direccion distinta segun familia. Si el numero deja de ser 7, o el
+        # corpus cambio o la herramienta se rompio. Se ejecuta entero porque
+        # su SALIDA es la verificacion, no su codigo de salida.
+        ("registros con offset distinto entre familias",
+         ["regdb.py", "--scan-file",
+          "RESEARCH/working/linux-7.1.3/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c"],
+         0),
         # Control negativo: una herramienta que no puede fallar no puede
         # decir que pasa. Debe detectar sus propias 4 mutaciones.
         ("mqd_layout: control negativo", ["mqd_layout.py", "--self-test"], 0),
+        # La misma asercion en los 4 sitios que la hacen (display y KFD, dos
+        # generaciones). Cuatro sitios que cuadran es CORROBORACION de que el
+        # struct esta construido para ese layout; uno que cuadra es un caso.
+        ("asercion struct->offset en 4 sitios", ["mqd_layout.py", "--sitios"], 0),
+        # El validador de contratos debe pasar su propio control de la regla
+        # "lo que no esta en git no reproba". Si _en_git se equivoca, esa
+        # regla dejaria de ser una excepcion y seria un agujero.
+        ("toolkit: control de propias/ajenas",
+         ["toolkit.py", "--selftest-ajenas"], 0),
     ]
     if quick:
         tools = tools[1:]

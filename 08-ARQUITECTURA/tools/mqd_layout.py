@@ -60,11 +60,16 @@ import json
 CORPUS = ("/home/lucas/Escritorio/RX550-INVESTIGACION/"
           "RESEARCH/working/linux-7.1.3/drivers/gpu/drm/amd")
 VIST = f"{CORPUS}/include/vi_structs.h"
+# GCN1 no usa vi_mqd: usa cik_mqd, en su propio header. Es la razon por la que
+# los dos sitios de gfx_v7_0 salian NO_ANALIZABLE: no era un fallo del
+# extractor, era que se les pedia un struct equivocado.
+CIK = f"{CORPUS}/include/cik_structs.h"
 
 # El ASIC de esta placa. Polaris12 usa la familia gfx_8_0. El 8_1 se compara
 # porque 065 demostro que 7 registros de GMC difieren entre 8_0 y 8_1: si el
 # bloque HQD difiriese, la tabla de un solo ASIC seria incompleta.
 ASIC_HDRS = {
+    "gfx_7_0": f"{CORPUS}/include/asic_reg/gca/gfx_7_0_d.h",
     "gfx_8_0": f"{CORPUS}/include/asic_reg/gca/gfx_8_0_d.h",
     "gfx_8_1": f"{CORPUS}/include/asic_reg/gca/gfx_8_1_d.h",
 }
@@ -72,6 +77,41 @@ ASIC_HDRS = {
 # Los bucles tal cual estan escritos en el codigo. Se extraen del .c para no
 # hardcodearlos: si el driver cambia un limite, esta herramienta lo sigue.
 FUENTE_C = f"{CORPUS}/amdgpu/gfx_v8_0.c"
+
+# CADA SITIO que indexa una struct por offset de registro. 043 encontro el de
+# gfx_v8_0.c. El grep los encuentra todos, y son cuatro:
+#
+#   gfx_v8_0.c            mqd_commit      (el de Polaris12)
+#   gfx_v7_0.c            mqd_commit      (GCN1, bloque mas corto)
+#   amdgpu_amdkfd_gfx_v8.c kgd_hqd_load   (el MISMO struct, otro consumidor)
+#   amdgpu_amdkfd_gfx_v7.c kgd_hqd_load
+#
+# Los tres ultimos repiten la asercion. Que un consumidor la repita es
+# CORROBORACION: dos rutas independientes del driver indexan el mismo bloque
+# por offset y salen bien. Y donde NO coincide el comentario, hay un hallazgo
+# real (043 seccion siguiente).
+SITIOS = [
+    dict(nombre="gfx_v8_0.c:mqd_commit", f=FUENTE_C,
+         funcion="gfx_v8_0_mqd_commit", var_pat="mqd_reg",
+         struct="vi_mqd", ancla="cp_mqd_base_addr_lo",
+         asic="gfx_8_0"),
+    dict(nombre="amdkfd_gfx_v8.c:kgd_hqd_load",
+         f=f"{CORPUS}/amdgpu/amdgpu_amdkfd_gfx_v8.c",
+         funcion="kgd_hqd_load", var_pat="reg",
+         struct="vi_mqd", ancla="cp_mqd_base_addr_lo",
+         asic="gfx_8_0"),
+    dict(nombre="gfx_v7_0.c:mqd_commit",
+         f=f"{CORPUS}/amdgpu/gfx_v7_0.c",
+         funcion="gfx_v7_0_mqd_commit", var_pat="mqd_reg",
+         struct="cik_mqd", struct_f=CIK, ancla="cp_mqd_base_addr_lo",
+         asic="gfx_7_0"),
+    dict(nombre="amdkfd_gfx_v7.c:kgd_hqd_load",
+         f=f"{CORPUS}/amdgpu/amdgpu_amdkfd_gfx_v7.c",
+         funcion="kgd_hqd_load", var_pat="reg",
+         struct="cik_mqd", struct_f=CIK, ancla="cp_mqd_base_addr_lo",
+         asic="gfx_7_0"),
+]
+
 LOOP_RE = re.compile(
     r"for\s*\(\s*(\w+)\s*=\s*(mm\w+)\s*;\s*\1\s*<=\s*(mm\w+)\s*;\s*\1\+\+\s*\)"
     r"\s*WREG32\(\s*\1\s*,")
@@ -160,39 +200,112 @@ def candidatos(campo):
     return out
 
 
-def indices_programados(base, regs, asic="gfx_8_0"):
+def cuerpo_de(path, funcion):
+    """El texto de UNA funcion, con su desplazamiento de linea real.
+
+    Acotar a la funcion es obligatorio: si se leyera el fichero entero, las
+    escrituras literales de OTRAS funciones aparecerian como programadas por
+    esta, y el recuento de posiciones no significaria lo que dice.
+
+    NOTA SOBRE EL PRIMER INTENTO. Esta funcion buscaba el cierre con
+    "\n}\\n", que en un .c de amdgpu no existe: las funciones terminan con
+    "\n}" y el salto de linea final. Con ese criterio NO ENCONTRABA NINGUN
+    CUERPO, y por eso los cuatro sitios salian vacios o con 3 y 6 posiciones
+    en vez de 53.
+
+    El cierre se detecta contando llaves, que es lo unico que no depende del
+    estilo de impresion. Se devuelve tambien el numero de linea de inicio,
+    para que las citas sean las del fichero y no las de un fragmento.
+    """
+    if not os.path.exists(path):
+        return "", 0
+    lines = open(path, errors="replace").read().split("\n")
+    ini = None
+    for i, l in enumerate(lines):
+        if funcion in l and re.search(r"\b" + funcion + r"\s*\(", l):
+            ini = i
+            break
+    if ini is None:
+        return "", 0
+    prof = 0
+    visto = False
+    out = []
+    for k in range(ini, len(lines)):
+        out.append(lines[k])
+        for ch in lines[k]:
+            if ch == "{":
+                prof += 1
+                visto = True
+            elif ch == "}":
+                prof -= 1
+        if visto and prof <= 0:
+            break
+    return "\n".join(out), ini + 1
+
+
+def parse_loops(path, funcion=None, var_pat=None):
+    """[(var, reg_ini, reg_fin, linea, texto)] de los bucles WREG32 sobre registro.
+
+    Con `funcion`, se acota a esa funcion. Sin ella, se lee el fichero entero,
+    que es lo que se hacia antes: sin acotar, los bucles de una funcion和你
+    contaban como de otra.
+    """
+    if funcion:
+        txt, off = cuerpo_de(path, funcion)
+        base = off - 1
+    else:
+        txt, base = open(path, errors="replace").read(), 0
+    # EL PATRON ABARCA DOS LINEAS: el for y el WREG32 que lo sigue. Buscarlo
+    # linea a linea devolvia 0 bucles, y por eso los sitios salian con 3 y 6
+    # posiciones (solo las escrituras literales) en vez de 53. Es el tercer
+    # fallo de extraccion de esta herramienta, y el de peor aspecto: una
+    # extraccion parcial que devuelve un numero plausible.
+    lineas = txt.split("\n")
+    out = []
+    for i, l in enumerate(lineas):
+        nxt = lineas[i + 1] if i + 1 < len(lineas) else ""
+        m = LOOP_RE.search(l + "\n" + nxt)
+        if m:
+            out.append((m.group(1), m.group(2), m.group(3),
+                        i + 1 + base, l.strip()))
+    return out
+
+
+def indices_programados(base, regs, sitio=None):
     """{indice: 'bucle'|'directo'} de lo que el driver ESCRIBE de verdad.
 
-    Se deriva de los bucles del .c mas las escrituras literales dentro de la
-    misma funcion. Sin esto, la tabla compararia 257 campos del struct contra
-    2633 registros y llamaria MISMATCH a un bloque entero que el driver nunca
-    toca: el struct es mucho mas grande que el bloque HQD porque contiene
-    tambien el estado de dispatch de compute y graphics.
+    Se deriva de los bucles de la funcion mas las escrituras literales de ESA
+    MISMA funcion. Sin acotar a la funcion, el recuento mezcla sitios.
     """
+    f = sitio["f"] if sitio else FUENTE_C
+    fn = sitio["funcion"] if sitio else "gfx_v8_0_mqd_commit"
     prog = {}
-    for _var, a, b, _ln, _txt in parse_loops(FUENTE_C):
+    for _var, a, b, _ln, _txt in parse_loops(f, fn):
         lo, hi = regs.get(a), regs.get(b)
         if lo is None or hi is None:
             continue
         for off in range(lo, hi + 1):
             prog[off - base] = "bucle"
-    # escrituras literales dentro de mqd_commit (EOP RPTR/WPTR: errata Tonga)
-    src = open(FUENTE_C, errors="replace").read()
-    ini = src.find("static int gfx_v8_0_mqd_commit")
-    if ini >= 0:
-        cuerpo = src[ini:src.find("\n}", ini)]
-        for m in re.finditer(r"WREG32\(\s*(mm\w+)\s*,", cuerpo):
-            off = regs.get(m.group(1))
-            if off is not None and off - base >= 0:
-                prog.setdefault(off - base, "directo")
+    cuerpo, _ini = cuerpo_de(f, fn)
+    for m in re.finditer(r"WREG32\(\s*(mm\w+)\s*,", cuerpo):
+        off = regs.get(m.group(1))
+        if off is not None and off - base >= 0:
+            prog.setdefault(off - base, "directo")
     return prog
 
 
-def construir(asic="gfx_8_0", structs=None, regs=None):
+def construir(asic="gfx_8_0", structs=None, regs=None, sitio=None):
     """Devuelve la tabla y el veredicto. Acepta inyectar struct/registros
     para poder hacer el control negativo del self-test sin tocar el corpus."""
-    regs = regs if regs is not None else parse_regs(ASIC_HDRS[asic])
-    campos = structs if structs is not None else parse_struct(VIST)
+    if sitio:
+        asic = sitio["asic"]
+    hdr = ASIC_HDRS.get(asic)
+    if hdr is None:
+        return None
+    regs = regs if regs is not None else parse_regs(hdr)
+    struct_f = (sitio or {}).get("struct_f", VIST)
+    struct_n = (sitio or {}).get("struct", "vi_mqd")
+    campos = structs if structs is not None else parse_struct(struct_f, struct_n)
     byoff = por_offset(regs)
 
     if not campos:
@@ -205,7 +318,7 @@ def construir(asic="gfx_8_0", structs=None, regs=None):
     if base_mm not in regs:
         return None
     base = regs[base_mm]
-    prog = indices_programados(base, regs, asic)
+    prog = indices_programados(base, regs, sitio)
 
     filas = []
     for i in range(len(campos) - i0):
@@ -249,6 +362,7 @@ def construir(asic="gfx_8_0", structs=None, regs=None):
             how=prog.get(i, "-"),
             registros=nombres_off, candidatos=sorted(cands), estado=estado))
     return dict(asic=asic, base_offset=base, i0=i0,
+                sitio=sitio["nombre"] if sitio else "(sin sitio: por defecto)",
                 n_campos=len(campos), programados=len(prog), filas=filas)
 
 
@@ -289,6 +403,78 @@ def veredicto(t):
                 filas_otros=otros, filas_alias=alias)
 
 
+def todos_los_sitios():
+    """Verifica la asercion en TODOS los sitios que la hacen, no solo en uno.
+
+    POR QUE IMPORTA MAS QUE EL PRIMER RESULTADO. 043 verifico el bloque de
+    Polaris12 y dio 52/53. Pero hay CUATRO funciones que indexan el mismo
+    bloque por offset de registro: dos de display y dos de KFD. Que las cuatro
+    repitan la asercion y las cuatro cuadren es CORROBORACION de algo mas
+    fuerte que que una cuadre: el struct esta construido para ese layout, no
+    para que cuadre en un caso.
+
+    Y donde dos sitios dicen cosas DISTINTAS del mismo bloque, la discrepancia
+    es informacion: significa que el hardware tiene mas registros de los que
+    uno de los dos comentarios afirma, y hay que decidir cual.
+    """
+    print("=" * 76)
+    print("ASERCION struct->offset en TODOS los sitios que la hacen")
+    print("=" * 76)
+    filas = []
+    for s in SITIOS:
+        t = construir(sitio=s)
+        if t is None:
+            filas.append(dict(sitio=s["nombre"], asic=s["asic"],
+                              estado="NO_ANALIZABLE"))
+            continue
+        v = veredicto(t)
+        filas.append(dict(sitio=s["nombre"], asic=s["asic"],
+                          estado="OK" if (v["mismatch"] == 0
+                                          and v["sin_registro"] == 0
+                                          and v["arrays"] == 0
+                                          and v["otros_tipos"] == 0)
+                          else "FALLA",
+                          n=v["n_programados"], cuadran=v["cuadran"],
+                          match=v["match"], alias=v["alias"],
+                          nombre_div=v["nombre_divergente"],
+                          mismatch=v["mismatch"],
+                          sin_reg=v["sin_registro"], arrays=v["arrays"],
+                          otros=v["otros_tipos"],
+                          bloque=f"{v['alcance_ini']}..{v['alcance_fin']}",
+                          dwords=v["alcance_dwords"]))
+    print(f"{'sitio':32} {'asic':8} {'n':>4} {'cuadran':>8} {'nombre':>7} "
+          f"{'bloque':>20} estado")
+    print("-" * 118)
+    for r in filas:
+        if r["estado"] == "NO_ANALIZABLE":
+            print(f"{r['sitio']:32} {r['asic']:8} {'':>4} {'':>8} {'':>7} "
+                  f"{'':>20} NO_ANALIZABLE")
+            continue
+        print(f"{r['sitio']:32} {r['asic']:8} {r['n']:4} {r['cuadran']:8} "
+              f"{r['nombre_div']:7} {r['bloque']:>20} {r['estado']}")
+
+    ok = [r for r in filas if r.get("estado") == "OK"]
+    print()
+    print(f"  sitios que corroboran la asercion : {len(ok)}/{len(SITIOS)}")
+
+    # Los bloques no son iguales entre generaciones. Eso NO es un fallo: es
+    # que el bloque CRECE. Lo que hay que decir es si el de Polaris12 esta
+    # dentro del patron.
+    bloques = {}
+    for r in filas:
+        if r.get("estado") == "OK":
+            bloques.setdefault(r["asic"], set()).add(r["bloque"])
+    if len(bloques) > 1:
+        print()
+        print("  El bloque cambia entre generaciones del ASIC:")
+        for a, bs in sorted(bloques.items()):
+            print(f"    {a}: {' , '.join(sorted(bs))}")
+        print("  Es COHERENTE con que EOP se anadio en GCN3 y no existe en")
+        print("  GCN1: un ASIC mas nuevo tiene mas registros al final.")
+
+    return 0 if len(ok) == len(SITIOS) else 3
+
+
 def main():
     args = sys.argv[1:]
 
@@ -302,21 +488,38 @@ def main():
         print(json.dumps(dict(tabla=t, veredicto=v), indent=1))
         return 0
 
+    if "--sitios" in args:
+        return todos_los_sitios()
+
     if "--ranges" in args:
         print("=" * 76)
-        print("BUCLES de registro en gfx_v8_0.c, extraidos del codigo")
+        print("BUCLES de registro que indexan la struct por offset")
         print("=" * 76)
-        regs = parse_regs(ASIC_HDRS["gfx_8_0"])
-        byoff = por_offset(regs)
-        for _var, a, b, ln, txt in parse_loops(FUENTE_C):
-            lo, hi = regs.get(a), regs.get(b)
-            if lo is None or hi is None:
-                print(f"  :{ln} {a}..{b}  ALGUNO NO ESTA EN EL HEADER")
+        for s in SITIOS:
+            if not os.path.exists(s["f"]):
+                print(f"\n  {s['nombre']}: FICHERO AUSENTE")
                 continue
-            n = [o for o in byoff if lo <= o <= hi]
-            print(f"  :{ln}  {a} (0x{lo:04x}) .. {b} (0x{hi:04x})"
-                  f"  -> {len(n)} offsets con registro")
-            print(f"        {txt}")
+            regs = parse_regs(ASIC_HDRS.get(s["asic"], ""))
+            if not regs:
+                print(f"\n  {s['nombre']}: header {s['asic']} ausente")
+                continue
+            byoff = por_offset(regs)
+            print(f"\n  {s['nombre']}  [{s['asic']}]")
+            bucles = parse_loops(s["f"], s["funcion"])
+            if not bucles:
+                print("    sin bucles de registro en esa funcion")
+            for _var, a, b, ln, txt in bucles:
+                lo, hi = regs.get(a), regs.get(b)
+                if lo is None or hi is None:
+                    print(f"    :{ln} {a}..{b}  ALGUNO NO ESTA EN EL HEADER")
+                    continue
+                n = [o for o in byoff if lo <= o <= hi]
+                print(f"    :{ln}  {a} (0x{lo:04x}) .. {b} (0x{hi:04x})"
+                      f"  -> {len(n)} offsets con registro")
+        print()
+        print("  Nota: las lineas son relativas al cuerpo de la funcion")
+        print("  extraido, no al fichero. Con sed -n hay que sumar el")
+        print("  desplazamiento de la funcion.")
         return 0
 
     print("=" * 76)
@@ -543,13 +746,38 @@ def self_test():
     print(f"  9. gfx_8_1 -> match={v81['match']} mismatch={v81['mismatch']}"
           f" sin={v81['sin_registro']}  (informativo)")
 
+    # 10. TODOS los sitios que hacen la asercion, no solo el de Polaris12.
+    #     Si uno de ellos dejara de cuadrar, la tabla --sitios debe decirlo.
+    todos = [(s["nombre"], veredicto(construir(sitio=s)) or {})
+             for s in SITIOS]
+    n_ok = sum(1 for _n, v in todos
+               if isinstance(v, dict) and v
+               and v.get("mismatch") == 0 and v.get("sin_registro") == 0)
+    print(f" 10. sitios que corroboran -> {n_ok}/{len(SITIOS)}"
+          f"  {'COHERENTE' if n_ok == len(SITIOS) else 'ALGUNO FALLA <<<'}")
+    fallos += 0 if n_ok == len(SITIOS) else 1
+
+    # 11. dos sitios del MISMO ASIC tienen que dar el MISMO bloque. Si dieran
+    #     distinto, uno de los dos extractorese estaria leyendo otra funcion.
+    por_asic = {}
+    for s in SITIOS:
+        v = veredicto(construir(sitio=s))
+        if isinstance(v, dict) and v:
+            por_asic.setdefault(s["asic"], set()).add(
+                (v["alcance_ini"], v["alcance_fin"], v["n_programados"]))
+    incoherentes = [a for a, bs in por_asic.items() if len(bs) > 1]
+    print(f" 11. coherencia entre sitios del mismo ASIC -> "
+          f"{'OK' if not incoherentes else 'INCOHERENTE: ' + str(incoherentes) + ' <<<'}")
+    fallos += 0 if not incoherentes else 1
+
     print()
     if fallos:
         print(f"  RESULTADO: TOOL_BROKEN -- {fallos} controles fallan")
         return 1
-    print("  RESULTADO: TOOL_VALIDATED -- los 8 controles pasan:")
+    print(f"  RESULTADO: TOOL_VALIDATED -- {11 - fallos}/11 controles pasan:")
     print("    detecta renombre de campo, cambio de tipo, registro ausente,")
-    print("    y entrada vacia sin reventar; salida determinista.")
+    print("    entrada vacia sin reventar, salida determinista, y que los 4")
+    print("    sitios den el MISMO bloque dentro de cada ASIC.")
     if real_ok:
         print("    Y sobre los datos REALES no detecta nada, que es el dato")
         print("    que se iba a verificar.")

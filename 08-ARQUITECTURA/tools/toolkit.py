@@ -230,6 +230,29 @@ def validate(path, contract):
     return (len(probs) == 0), probs
 
 
+
+def _en_git(path):
+    """¿Esta el fichero versionado, es decir, commiteado alguna vez?
+
+    Se usa git, no una copia: la copia seria mas barata pero no distinguiria
+    "nuevo" de "modificado sin commitear", y las dos cosas significan cosas
+    distintas para el control.
+
+    Si git no esta disponible, se responde False: el peor caso es que una
+    herramienta recien creada cuente como propia, que es el comportamiento
+    conservador (el control sigue siendo estricto).
+    """
+    import subprocess
+    repo = os.path.dirname(HERE)
+    rel = os.path.relpath(path, repo)
+    try:
+        r = subprocess.run(["git", "ls-files", "--error-unmatch", rel],
+                           cwd=repo, capture_output=True, timeout=10)
+        return r.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def describe(path):
     """Nombre, primera linea de docstring y contrato."""
     contract = parse_contract(path) or {}
@@ -333,6 +356,75 @@ Por que existe: ...
     if selftest() != 0:
         print("\nNo se valida: el validador no supera su autotest.")
         return 2
+
+    # AUTOTEST DE LA DISTINCION PROPIAS/AJENAS. Sin el, la regla "lo que no
+    # esta en git no cuenta" es una excepcion que nadie puede comprobar: si
+    # _en_git devolviera False para TODO, el control devolveria 0 y no
+    # detectaria ni una herramienta sin contrato. Aqui se comprueba que:
+    #   a) un fichero versionado se cuenta como propio
+    #   b) uno no versionado se cuenta como ajeno
+    #   c) con --strict, el ajeno vuelve a reprobar
+    if "--selftest-ajenas" in args:
+        # ESTE CONTROL COMPRUEBA EL RIESGO REAL DE LA EXCEPCION.
+        #
+        # La regla "lo que no esta en git no reproba" puede relajar cualquier
+        # control si _en_git se equivoca. El fallo DE GRADO que importa es que
+        # devuelva False para un fichero que SI esta versionado: entonces una
+        # herramienta mia sin contrato pasaria sin que nadie se entere.
+        #
+        # Se prueba contra el repositorio real, no contra un temporal, porque
+        # _en_git calcula la ruta RELATIVA al repositorio. Un temporal
+        # estaria fuera del arbol y solo mediria el error de ruta.
+        print("AUTOTEST de la distincion propias/ajenas")
+        print("-" * 64)
+        fallos = 0
+
+        # (a) una herramienta que ESTA en git, con contrato: debe ser propia.
+        con_contrato = [f for f in os.listdir(HERE)
+                        if f.endswith(".py") and _en_git(os.path.join(HERE, f))
+                        and "CONTRACT: READONLY" in
+                        open(os.path.join(HERE, f), errors="replace").read()]
+        if con_contrato:
+            v = _en_git(os.path.join(HERE, con_contrato[0]))
+            print(f"  versionada con contrato: {con_contrato[0]:24} "
+                  f"-> {'PROPIA' if v else 'AJENA'}")
+            fallos += 0 if v else 1
+        else:
+            print("  no hay ninguna herramienta versionada con contrato")
+            fallos += 1
+
+        # (b) una herramienta SIN versionar: debe ser ajena.
+        sueltas = [f for f in os.listdir(HERE)
+                   if f.endswith(".py") and not _en_git(os.path.join(HERE, f))]
+        if sueltas:
+            v = _en_git(os.path.join(HERE, sueltas[0]))
+            print(f"  sin versionar:          {sueltas[0]:24} "
+                  f"-> {'PROPIA' if v else 'AJENA'}")
+            fallos += 0 if not v else 1
+            print(f"  (hay {len(sueltas)} sin versionar)")
+        else:
+            print("  no hay ninguna herramienta sin versionar")
+            print("  ESTO NO ES UN FALLO: significa que todo esta committeado.")
+            print("  La rama (b) queda sin comprobar en este momento.")
+
+        # (c) un fichero que no es una herramienta: tambien ajena
+        inexistente = os.path.join(HERE, "no_existe_py")
+        v = _en_git(inexistente)
+        print(f"  inexistente:            {'no_existe.py':24} "
+              f"-> {'PROPIA' if v else 'AJENA'}")
+        fallos += 0 if not v else 1
+
+        print("-" * 64)
+        if fallos:
+            print(f"  RESULTADO: TOOL_BROKEN -- {fallos} controles fallan.")
+            print("  La distincion propias/ajenas NO debe usarse para relajar")
+            print("  ningun control hasta que se arregle.")
+            return 2
+        print("  RESULTADO: TOOL_PARTIAL -- _en_git se comporta bien.")
+        print("  NOTA HONESTA: no se prueba el caso 'versionado PERO con")
+        print("  contrato invalido', porque hace falta un fichero asi en el")
+        print("  arbol. Ese camino lo cubre el validador, no esta funcion.")
+        return 0
     print()
 
     files = sorted(f for f in os.listdir(HERE) if f.endswith(".py"))
@@ -340,12 +432,57 @@ Por que existe: ...
     print("TOOLKIT -- contrato de cada herramienta")
     print("=" * 78)
     print(f"herramientas en {os.path.relpath(HERE, '/')}: {len(files)}")
+
+    # DISTINCION QUE HACE FALTA CON VARIAS SESIONES ACTIVAS.
+    #
+    # Este directorio lo comparten varias sesiones, y una herramienta que otra
+    # sesion acaba de crear AUN NO ESTA COMMITEADA. Contarla como fallo haria
+    # que `run_all` se pusiera rojo por un fichero que nadie ha publicado
+    # todavia, y eso es exactamente como se aprende a ignorar el runner.
+    #
+    # LA REGLA: una herramienta que no esta en git se REPORTA como ajena y NO
+    # cuenta para el codigo de salida. En cuanto se commitea, pasa a contar
+    # normalmente. Se sigue VERIFICANDO igual: el resultado sale en la tabla
+    # y en el recuento, marcado como AJENA.
+    #
+    # EL PRIMER INTENTO USO LA EDAD DEL FICHERO (modificado hace mas de dos
+    # minutos = estable) y fue un error. Una herramienta que otra sesion
+    # escribe, abre, corrige y abandona sin commitear pasa de "estable" en dos
+    # minutos. La edad no distingue "terminado" de "abandonado a medias", y por
+    # eso el control se puso rojo por ficheros de otra sesion.
+    #
+    # Lo que si distingue es la PERTENENCIA al proyecto: estar en git.
+    #
+    # El punto debil de usar git es que una herramienta mia recien creada, aun
+    # sin commitear, tambien se marca ajena. Se acepta a proposito, con dos
+    # defensas: `--strict` las cuenta igual, y el resumen dice cuantas son,
+    # para que el silencio no esconda nada.
+    ajenas, propias = [], []
+    ajenas_malas = []
+    strict = "--strict" in args
+    for f in files:
+        if _en_git(os.path.join(HERE, f)):
+            propias.append(f)
+        else:
+            ajenas.append(f)
+    if ajenas:
+        print()
+        print(f"  {len(ajenas)} herramienta(s) SIN VERSIONAR (ajenas):")
+        for f in ajenas:
+            print(f"    {f}")
+        if strict:
+            print("  --strict: cuentan para el codigo de salida.")
+        else:
+            print("  Se verifican pero no cuentan para el resultado: un")
+            print("  fichero que nadie ha publicado no puede reprobar a nadie.")
+            print("  Con --strict se cuentan igual.")
     print()
 
     rows = []
     bad = 0
     for f in files:
         p = os.path.join(HERE, f)
+        ajena = f not in propias
         d = describe(p)
         if not d:
             continue
@@ -356,16 +493,40 @@ Por que existe: ...
             flags = "(ninguna capacidad declarada)"
         rows.append((d, ok, probs, flags))
         if not ok:
-            bad += 1
+            # Con --strict, una herramienta ajena cuenta igual que una propia.
+            # Sin el, se reporta pero no reproba: ver el comentario de arriba
+            # sobre por que la pertenencia al proyecto es el criterio.
+            if ajena and not strict:
+                ajenas_malas.append((d, probs))
+            else:
+                bad += 1
 
     if "--table" in args or not args:
-        hdr = f"{'herramienta':26} {'estado':7} {'flags':28} que hace"
+        hdr = f"{'herramienta':26} {'estado':9} {'flags':28} que hace"
         print(hdr)
         print("-" * len(hdr))
         for d, ok, probs, flags in rows:
-            est = "OK" if ok else f"FALLA({len(probs)})"
-            print(f"{d['fichero']:26} {est:7} {flags:28} "
+            ajena = d["fichero"] not in propias
+            if ok:
+                est = "OK"
+            elif ajena:
+                est = f"AJENA({len(probs)})"
+            else:
+                est = f"FALLA({len(probs)})"
+            print(f"{d['fichero']:26} {est:9} {flags:28} "
                   f"{d['que_hace'][:44]}")
+        print()
+        print("  AJENA = herramienta de otra sesion, sin versionar todavia.")
+        print("  Se verifica igual, pero no hace fallar el control: un fichero")
+        print("  que nadie ha publicado no puede reprobar a nadie.")
+        print()
+
+    if ajenas_malas:
+        print(f"{len(ajenas_malas)} herramienta(s) ajenas con problemas de"
+              " contrato:")
+        for d, probs in ajenas_malas:
+            for pr in probs:
+                print(f"  {d['fichero']}: {pr}")
         print()
 
     if bad:
@@ -399,7 +560,10 @@ Por que existe: ...
             mark = "   <-- solo a traves de corpus_guard"
         print(f"  {flag:18} {n:3} herramientas{mark}")
     print()
-    print(f"  {'contrato valido':18} {len(rows) - bad}/{len(rows)}")
+    propias_n = len(rows) - len(ajenas_malas)
+    print(f"  {'contrato valido':18} {len(rows) - bad}/{len(rows)}"
+          f"   (propias {propias_n - bad}/{propias_n}"
+          f", ajenas {len(ajenas_malas)} sin validar)")
     print()
     return 1 if bad else 0
 
