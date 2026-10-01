@@ -199,17 +199,53 @@ gfx_v8_0_ring_emit_init_cond_exec()          [gfx_v8_0.c:6320-6332]
   0                  <- dummy, el que se parchea
 ```
 
-Con `n = 3` y cuatro dwords de payload, el patron `n = payload - 1` que se ve en
-`WAIT_REG_MEM` (`PACKET3(..., 5)` con seis payload). El campo `num_skip` que el
-hardware leeria es dw3; el driver parchea **dw4**, un dword extra. Medido con una
-reproduccion dword a dword, no supuesto.
+**CORRECCION (ronda `023`):** la primera version de este documento dijo que dw4 era
+"un dword extra fuera del payload". Es falso, y lo era por una suposicion mia sobre
+la convencion de `PACKET3`. Medido sobre el corpus:
 
-Interpretacion (`HYPOTHESIS`, marcada como tal): si el hardware leyese `num_skip` de
-dw3, estaria leyendo 0 y **no descartaria nunca** — con independencia del predicado.
-Esa es una lectura alternativa a "el predicado nunca es falso", y las dos
-convergen en el mismo efecto observable. **Cual de las dos es la correcta no se
-puede decidir leyendo el codigo**: haria falta la especificacion PM4 de GFX8, o un
-discriminante runtime. `NOT_DETERMINED`. Lo que si es `PROVEN` es que **ninguna de
+```
+path GFX8 (gfx_v6_0, gfx_v7_0, gfx_v8_0, gmc_v8_0, sdma_v3_0)
+  emisiones PACKET3 contables : 68
+  n - payload = -1            : 68     <- excepcion cero
+arbol amdgpu completo
+  emisiones PACKET3 contables : 171
+  n - payload = -1            : 170
+```
+
+`n = payload - 1` se cumple en **68/68** del path GFX8 y **170/171** del arbol. No es
+un patron observado en dos paquetes: es una propiedad medida, con herramienta
+versionada (`08-ARQUITECTURA/tools/pm4_count_census.py`).
+
+Consecuencia directa: **dw4 es el cuarto payload del paquete, no un extra.** Los dos
+casos que este documento y `020` trataban como "a verificar" quedan confirmados:
+
+```
+PACKET3(WAIT_REG_MEM, 5) -> payload 6   -> n = payload - 1
+PACKET3(COND_EXEC,    3) -> payload 4   -> n = payload - 1
+```
+
+Y `gfx_v8_0_ring_emit_vm_flush` tiene la forma `PACKET3(...)` + 6 payload + un
+`PACKET3_PFP_SYNC_ME` separado: los 2 dwords de PFP_SYNC_ME **no** son payload del
+WAIT_REG_MEM. Eso confirma el conteo de `020`.
+
+Interpretacion (`HYPOTHESIS`, marcada como tal): **la pregunta es de que campo lee el
+hardware**, y no es academica. Reproduciendo el parche dword a dword:
+
+```
+dw3 (el declarado en el payload)  = 0                 nunca se parchea
+dw4 (el parcheado por el driver)  = dw_dist(...)      = nº de dwords de la envolvente
+```
+
+Si el hardware lee **dw4**, `num_skip` vale el tamaño real de la envolvente y el
+paquete sirve. Si lee **dw3**, vale 0 y no descarta nunca, con independencia del
+predicado. El software entrega un valor distinto en cada lectura y solo una de las
+dos hace que `COND_EXEC` sirva para algo.
+
+**Cual de las dos es la correcta no se puede decidir con este corpus**:
+`PACKET3_COND_EXEC` es el opcode `0x22` (`vid.h:125`) y nada mas — no hay bitfields,
+ni comentario, ni documentacion en ninguna cabecera. `NOT_DETERMINED`, y la causa
+esta nombrada: **falta la especificacion PM4 de GFX8**. No es una laguna de
+investigacion, es una laguna del corpus. Lo que si es `PROVEN` es que **ninguna de
 las dos lecturas posibles puede llegar a descartar en GFX8**, porque el predicado no baja
 a 0 en ninguna parte.
 
