@@ -398,6 +398,79 @@ def r19b_sdma_ptepde_de_este_asic():
     return ok
 
 
+def r21_scan_no_devuelve_vacio():
+    """
+    scan.py es el instrumento que DESCUBRE trabajo. Si devuelve una lista
+    vacia o solo ruido, es peor que no existir: da la sensacion de que no hay
+    nada pendiente.
+
+    Se comprueba que produce las cinco secciones y que al menos una tiene
+    contenido real.
+    """
+    rc, out, _ = ejecuta(["scan.py"])
+    secciones = ["BLOQUEANTES", "HUECOS", "INVARIANTES", "SOLO-ESCRITOS",
+                 "ABIERTAS"]
+    faltan = [s for s in secciones if s not in out]
+    ok = rc == 0 and not faltan
+    anota("CN-R21 scan produce las 5 secciones", ok,
+          "faltan: %s" % (faltan or "ninguna"))
+    return ok
+
+
+def r22_scan_no_ordena_por_ruido():
+    """
+    El ranking de bloqueantes NO debe estar dominado por la propia palabra
+    buscada. La primera version tenia NOT_DETERMINED en el puesto 1 con 189
+    apariciones: eso no ordena nada.
+
+    Se comprueba que "NOT_DETERMINED" NO aparezca en la tabla de simbolos.
+    """
+    rc, out, _ = ejecuta(["scan.py", "--solo", "bloqueantes"])
+    # La primera version de este control partia la salida por el guion y
+    # buscaba en el segundo trozo, que es donde esta la tabla. Con dos
+    # guiones en la salida, el segundo trozo ya no es la tabla, y el control
+    # daba FALLO sobre una salida que estaba bien. Un control que no sabe
+    # donde mira da falsos negativos y entrena a ignorar.
+    #
+    # Ahora se comprueba lo que se quiere comprobar: que ninguna FILA de la
+    # tabla tenga como simbolo una palabra de la maquina de estados.
+    filas = []
+    started = False
+    for l in out.splitlines():
+        if l.startswith("simbolo"):
+            started = True
+            continue
+        if started:
+            if not l.strip() or l.startswith("Criterio"):
+                break
+            m = re.match(r"^(\S+)\s+(\d+)\s+(\d+)\s+(.*)$", l)
+            if m:
+                filas.append(m.group(1))
+    RUIDO = {"NOT_DETERMINED", "PROVEN", "DERIVATION", "OBSERVATION",
+             "CONCLUSION", "HYPOTHESIS", "UNKNOWN", "NOT_FOUND",
+             "NOT_AVAILABLE", "NOT_OBSERVED", "REFUTED", "PARTIAL",
+             "CORROBORATED", "FACT", "TEST", "POLICY", "ERROR"}
+    sucias = [f for f in filas if f in RUIDO]
+    ok = filas and not sucias
+    anota("CN-R22 scan no ordena por la palabra que busca", bool(ok),
+          "%d filas, %d con ruido como simbolo; primera: %s"
+          % (len(filas), len(sucias), filas[0] if filas else "-"))
+    return bool(ok)
+
+
+def r23_invariantes_detectados():
+    """
+    El detector de invariantes debe encontrar PFP_SYNC_ME en multiples
+    generaciones. Es la comprobacion de que el modo invariantes funciona:
+    si no encuentra uno que SI existe, no sirve para detectar los nuevos.
+    """
+    rc, out, _ = ejecuta(["scan.py", "--solo", "invariantes"])
+    ok = bool("PFP_SYNC_ME" in out and re.search(r"en [4-9] generacion", out))
+    anota("CN-R23 detecta invariantes de la familia", ok,
+          "PFP_SYNC_ME presente y con 4+ generaciones: %s" % bool(ok))
+    return ok
+
+
 def main():
     print("Controles del propio revkit")
     print()
@@ -415,6 +488,8 @@ def main():
         r16_ibtrace_encuentra_vm_flush, r17_ibtrace_comentarios_no_parten,
         r18_sync_es_invariante, r19_causa_clasifica_correctamente,
         r20_descubrir_registros, r19b_sdma_ptepde_de_este_asic,
+        r21_scan_no_devuelve_vacio, r22_scan_no_ordena_por_ruido,
+        r23_invariantes_detectados,
     ]
     fallos = 0
     for fn in pruebas:

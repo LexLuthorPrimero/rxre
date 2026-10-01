@@ -82,6 +82,21 @@ echo "--- autocomprobacion del kit ---"
 run "selfcheck: controles del kit"   python3 selfcheck.py
 echo
 
+echo "--- descubrimiento de trabajo ---"
+# scan es un INFORME, no una validacion: devuelve 0 aunque no encuentre
+# nada, porque "no hay trabajo pendiente" es un resultado valido. Solo se
+# marca como fallo si el script se rompe.
+if ./scan.py > /tmp/scan.out 2>&1; then
+    RESULTADOS+=("OK    scan: informe de trabajo pendiente")
+    printf '  %-46s OK\n' "scan: informe de trabajo pendiente"
+else
+    RESULTADOS+=("FALLO scan: informe de trabajo pendiente")
+    printf '  %-46s FALLO\n' "scan: informe de trabajo pendiente"
+    head -10 /tmp/scan.out | sed 's/^/       /'
+    fallos=$((fallos+1))
+fi
+echo
+
 echo "--- btfq (kit anterior, revalidado) ---"
 BTFQ=../08-ARQUITECTURA/tools/btfq
 if [ -d "$BTFQ" ]; then
