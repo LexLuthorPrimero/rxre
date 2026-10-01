@@ -101,17 +101,39 @@ def index_functions():
 
 
 def opcode_values():
-    """opcode -> valor, y opcode -> fichero donde se define."""
-    vals, where = {}, {}
+    """opcode -> valor, opcode -> fichero, y opcode -> CONFLICTO si lo hay.
+
+    DEFECTO QUE ESTA COMPROBACION ARREGLA, y que encontre por una mutacion:
+    antes hacia vals.setdefault(nombre, valor) recorriendo las cabeceras en
+    orden alfabetico. Con eso, si dos cabeceras dieran valores DISTINTOS para
+    el mismo opcode, la herramienta se quedaba con la primera y no lo decia
+    nunca. Es el peor fallo posible en una tabla de resolucion: no da un
+    numero falso, da un numero arbitrario sin marcar.
+
+    Lo que se hace ahora: se recogen TODOS los valores y se informa de los
+    que discrepan. El valor que se usa es el primero, pero el conflicto se
+    declara, porque un pacote redefinido entre generaciones es informacion.
+
+    Se vio mutando sid.h: PACKET3_COND_EXEC 0x22 -> 0x23. La herramienta
+    seguia diciendo 0x22, y la razon no era la que yo suponia (que GFX8
+    tomase el opcode de otra cabecera), sino algo mas simple y mas
+    tranquilizador: los CINCO headers de este corpus definen COND_EXEC como
+    0x22. El opcode es redundante, no contradictorio. Pero el工具 no podia
+    distinguir un caso del otro, y por eso lacked la comprobacion.
+    """
+    vals, where, conflict = {}, {}, {}
     for p in sorted(glob.glob(f"{BASE}/*.h")):
         for l in open(p, errors="replace"):
             m = re.match(r"\s*#\s*define\s+(PACKET3_[A-Z0-9_]+)\s+(0x[0-9A-Fa-f]+)\s*$", l)
-            if m:
-                # los offsets de registro share nombre; solo nos interesan los
-                # que se usan dentro de PACKET3(op, n), que se filtran luego
-                vals.setdefault(m.group(1), int(m.group(2), 16))
-                where.setdefault(m.group(1), os.path.basename(p))
-    return vals, where
+            if not m:
+                continue
+            name, v = m.group(1), int(m.group(2), 16)
+            conflict.setdefault(name, {}).setdefault(v, []).append(
+                os.path.basename(p))
+            vals.setdefault(name, v)
+            where.setdefault(name, os.path.basename(p))
+    clashes = {n: d for n, d in conflict.items() if len(d) > 1}
+    return vals, where, clashes
 
 
 def assigned_funcs(fname):
@@ -148,7 +170,7 @@ def packets_in(name, rec):
 
 def main():
     idx = index_functions()
-    vals, where = opcode_values()
+    vals, where, clashes = opcode_values()
     if not idx:
         sys.exit("NO_FUNCTIONS_INDEXED -- el indexador esta roto")
     print("=" * 76)
@@ -156,6 +178,17 @@ def main():
     print("=" * 76)
     print(f"funciones indexadas en amdgpu/*.c : {len(idx)}")
     print(f"opcodes PACKET3 definidos        : {len(vals)}")
+    if clashes:
+        print()
+        print("*** CONFLICTO DE VALOR entre cabeceras ***")
+        print("  El mismo opcode definido con valores distintos. La herramienta")
+        print("  usa el primero, y aqui lo declara:")
+        for n, d in sorted(clashes.items()):
+            det = "; ".join(f"0x{v:02X} en {','.join(sorted(fs))}"
+                            for v, fs in sorted(d.items()))
+            print(f"  {n:36} {det}")
+    else:
+        print("conflictos de valor entre cabeceras: ninguno")
     print()
 
     # --- 1. semillas -------------------------------------------------
