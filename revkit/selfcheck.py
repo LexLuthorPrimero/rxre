@@ -554,6 +554,43 @@ def r28_verdiff_comentarios_encuentra():
     return bool(ok)
 
 
+def r29_dos_headers_ambos_validos():
+    """
+    GFX8 usa DOS headers de ASIC distintos, y ambos son correctos:
+      gmc_v8_0.c  incluye gmc_8_1_sh_mask.h
+      gfx_v8_0.c  incluye gmc_8_2_sh_mask.h
+
+    Se fijo como control porque en INVALIDATE-CANALES.md se afirmo primero
+    que gmc_8_2 estaba mal, y era falso. El control comprueba que los dos
+    headers estan presentes, para que nadie vuelva a "corregir" al reves.
+
+    Y comprueba que DOMAIN_INVALIDATED es identico en ambos, que es lo que
+    hace la cita irrelevante en cuanto al valor.
+    """
+    import subprocess as sp
+    amk = ("/home/lucas/Escritorio/RX550-INVESTIGACION/RESEARCH/working/"
+           "linux-7.1.3/drivers/gpu/drm/amd/amdgpu")
+    inc = ("/home/lucas/Escritorio/RX550-INVESTIGACION/RESEARCH/working/"
+           "linux-7.1.3/drivers/gpu/drm/amd/include/asic_reg/gmc")
+    gmc1 = open(os.path.join(amk, "gmc_v8_0.c"), encoding="utf-8",
+                errors="replace").read()
+    gfx1 = open(os.path.join(amk, "gfx_v8_0.c"), encoding="utf-8",
+                errors="replace").read()
+    a = "gmc_8_1_sh_mask.h" in gmc1
+    b = "gmc_8_2_sh_mask.h" in gfx1
+    h1 = [l for l in open(os.path.join(inc, "gmc_8_1_sh_mask.h"),
+                          encoding="utf-8", errors="replace")
+          if "DOMAIN_INVALIDATED" in l]
+    h2 = [l for l in open(os.path.join(inc, "gmc_8_2_sh_mask.h"),
+                          encoding="utf-8", errors="replace")
+          if "DOMAIN_INVALIDATED" in l]
+    ok = a and b and h1 == h2 and len(h1) == 32
+    anota("CN-R29 los dos headers de ASIC son validos y coinciden", ok,
+          "gmc_v8_0 usa 8_1=%s, gfx_v8_0 usa 8_2=%s, DOMAIN_INVALIDATED "
+          "identico=%s (%d lineas)" % (a, b, h1 == h2, len(h1)))
+    return ok
+
+
 def main():
     print("Controles del propio revkit")
     print()
@@ -575,6 +612,7 @@ def main():
         r23_invariantes_detectados, r24_verdiff_ambos_arboles,
         r25_verdiff_no_confunde_ausencia, r26_registro_dos_campos,
         r27_correlate_tiene_tabla, r28_verdiff_comentarios_encuentra,
+        r29_dos_headers_ambos_validos,
     ]
     fallos = 0
     for fn in pruebas:

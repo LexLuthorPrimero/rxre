@@ -136,6 +136,127 @@ definido en un fichero compartido y consumido solo por rutas de otro ASIC.
 Verificado de forma independiente contra `pteflags`: `SYSTEM=1`,
 `SNOOPED=2`, `READABLE=5`, y `LOG`/`NOALLOC` solo en `gmc_v10`/`gmc_v11`.
 
+### `ibtrace.py` — secuencias de emisión de IB
+
+```
+./ibtrace.py func FICHERO::FUNCION    una función, escritura a escritura
+./ibtrace.py todas [filtro]          inventario de las que emiten
+./ibtrace.py sync                    las que emiten opcodes de sincronización
+./ibtrace.py diff A.c B.c            la misma función en dos ficheros
+```
+
+63 funciones con emisión en `gfx_v8_0.c`. Antes eso era leer 4000 líneas.
+
+Reproduce lo verificado a mano para `emit_vm_flush`: 9 escrituras, 2 headers,
+`PACKET3_WAIT_REG_MEM = 0x3C`.
+
+Reconoce **las dos** formas de escribir en un IB, y las mezcla en una lista
+ordenada porque en un IB el orden de los dwords **es** el paquete:
+
+```c
+amdgpu_ring_write(ring, VALOR);        /* el común */
+ib->ptr[ib->length_dw++] = VALOR;      /* el de SDMA, y el que escribe las PTEs */
+```
+
+### `causa.py` — mapa causal, que es lo que pide el protocolo
+
+```
+./causa.py mapa SIMBOLO        SOURCE -> usos -> dónde se corta la cadena
+./causa.py flujo SIMBOLO       quién lo escribe, quién lo pasa, quién lo usa
+./causa.py descubrir FICHERO   registros MMIO, separando leídos de solo-escritos
+```
+
+El paso que importa es el tercero: **decir dónde se corta la cadena**. Un mapa
+que llega a «nadie lo consume» no está incompleto, es una *afirmación*, y una
+afirmación necesita evidencia que esta herramienta no aporta.
+
+`descubrir gfx_v8_0` da **117 registros MMIO, 50 solo-escritos**. Esos son los
+que el hardware consume sin feedback: no hay observable en el driver de
+referencia para ninguno.
+
+### `verdiff.py` — diferencial entre las dos versiones del driver
+
+```
+./verdiff.py fn FICHERO FUNCION    cómo cambia entre 7.1.3 y 7.2.8
+./verdiff.py doc SIMBOLO           el símbolo en los COMENTARIOS de ambas
+./verdiff.py nuevo                 símbolos que 7.2.8 tiene y 7.1.3 no
+```
+
+Hay **dos árboles completos** en el corpus (`RESEARCH/working/linux-7.1.3` y
+`rx550-upstream-7.2.8`, mismo sha256) y el segundo no se usaba. Cuando algo es
+`NOT_DETERMINED` hay tres vías: runtime (bloqueado), documentación externa (no
+está), y **otra generación del mismo driver** (disponible, e ignorada).
+
+`doc` es la más infravalorada: un comentario de upstream junto a un registro
+suele decir qué hace, y es evidencia que la versión propia no da.
+
+Ha corroborado por segunda fuente que `emit_vm_flush` y
+`emit_flush_gpu_tlb` son **idénticas** en 7.1.3 y 7.2.8.
+
+### `estado.py` — consolida el estado del proyecto
+
+```
+./estado.py censo             cuenta estados: PROVEN, NOT_DETERMINED, REFUTED...
+./estado.py contradicciones   las de docs/CONTRADICTIONS.md con su ESTADO
+./estado.py cobertura         documentos que afirman PROVEN sin cita al corpus
+./estado.py registro          índice de documentos
+```
+
+No edita nada. Es una vista, y lo dice en su salida.
+
+Cifras del censo: 5768 marcas de estado, 2415 de resolución y 3353 no
+resuelta. 204 documentos afirman `PROVEN`; 129 con cita al corpus, 75 sin ella.
+
+### `scan.py` — descubre trabajo pendiente
+
+```
+./scan.py [--solo SECCION]
+```
+
+Cinco secciones, cada una con su **criterio declarado**: bloqueantes, huecos,
+invariantes, solo-escritos, abiertas.
+
+La sección de invariantes es la que ha dado más: `PFP_SYNC_ME` en
+`emit_vm_flush` aparece en **siete** generaciones (v6–v12). El proyecto lo tenía
+como decisión de GFX8; es de la familia.
+
+### `correlate.py` — enlaza hallazgos con herramientas
+
+```
+./correlate.py
+```
+
+Para cada documento: qué símbolos y citas tiene, qué herramienta puede
+responderlo, y el comando exacto. 158 documentos, 24 herramientas
+clasificadas. Señala además los símbolos que aparecen en varios documentos,
+que es o corroboración de que importa, o duplicación que divergirá.
+
+## Documentos de hallazgo
+
+Cada uno responde una pregunta con evidencia de las herramientas:
+
+| documento | qué cierra |
+|---|---|
+| `WAIT-REG-MEM.md` | qué valores de `FUNCTION` emite GFX8, y las tres funciones que emiten WAIT_REG_MEM |
+| `INVALIDATE-CANALES.md` | los 18 canales de invalidate que el driver no usa, y el layout de `VM_INVALIDATE_RESPONSE` |
+| `RB-POLL.md` | el ring scheduling, y por qué `0x60` es `POLL_FREQUENCY` y no `IDLE_POLL_COUNT` |
+| `PTEPDE-GFX8.md` | la secuencia de PTEPDE del ASIC real, con `count - 1` |
+
+Los dos últimos contienen **correcciones de hallazgos anteriores**, con el
+razonamiento que se refutó. Se dejan visibles a propósito: un documento donde
+solo se ve el resultado final no permite saber cuánto se comprobó.
+
+## Límite común
+
+Ninguna de estas herramientas lee MMIO. `/sys/kernel/debug/dri` está en `0400`
+y sin `sudo` no hay acceso, así que el camino de runtime completo sigue
+cerrado. Todo lo de aquí es estático más lo que el kernel ya publicó en sysfs
+y en el log.
+
+Lo que sí cierra huecos sin hardware: **otra generación del mismo driver**.
+`verdiff.py` la usa, y ha servido para corroborar por segunda fuente dos
+cadenas de emisión y para acotar una pregunta de layout de registro.
+
 ### `check.sh` — todas las validaciones en un comando
 
 ```

@@ -101,23 +101,28 @@ Tres candidats, y ninguno es demostrable estáticamente:
 | dominio n = VMID n mod 16 | que haya wrap a los 16 |
 | otro mapeo | que exista una tabla, y no hay ninguna en el corpus |
 
-## Sobre el header que citan algunos documentos
+## Sobre qué header de ASIC es el correcto
 
-`017` y `018` citan `gmc_8_2_sh_mask.h` para `DOMAIN_INVALIDATED`. Pero
-`gmc_v8_0.c:36` incluye:
+Este documento primero afirma que el ASIC usa `gmc_8_1_sh_mask.h` y no
+`gmc_8_2`, y llama error a los documentos que citan `gmc_8_2`. **Era falso**, y
+la comprobación lo refuta:
 
-```c
-#include "gmc/gmc_8_1_sh_mask.h"
+```
+gmc_v8_0.c:36   #include "gmc/gmc_8_1_sh_mask.h"
+gfx_v8_0.c      #include "gmc/gmc_8_2_sh_mask.h"
 ```
 
-El ASIC de POLARIS12 usa **`gmc_8_1`**, no `gmc_8_2`. Comprobado que los valores
-de `DOMAIN_INVALIDATED` son **idénticos** en ambos headers, así que la cita no
-da un valor falso. Pero la fuente autoritativa para este ASIC es
-`gmc_8_1_sh_mask.h`, y citarla es lo correcto.
+**Los dos headers los usa el driver, cada uno en su fichero.** No hay un único
+header correcto para «GFX8»: depende de qué fichero se esté leyendo. Y
+`DOMAIN_INVALIDATED` es **idéntico** en ambos, comprobado con `diff`.
 
-Es el mismo modo de fallo que ya se cometió en este proyecto con `block_size`:
-tomar un campo de un header de otra generación. Aquí no cambia el número,
-pero cambiaría cualquier valor que difiriera.
+Así que citar `gmc_8_2_sh_mask.h` desde `017` o `018` no es un error. Lo que sí
+sería un error es **no comprobar el valor en el header del fichero que se cita**,
+que es lo que estas herramientas hacen ahora.
+
+La lección es la de siempre, y en la dirección contraria al esperado: la
+sospecha de error erareasonable pero infundada, y la herramienta la refutó en un
+segundo. Un hallazgo que se descarta vale tanto como uno que se confirma.
 
 ## Clasificación
 
