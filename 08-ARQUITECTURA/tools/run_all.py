@@ -149,6 +149,11 @@ def main():
         # regla dejaria de ser una excepcion y seria un agujero.
         ("toolkit: control de propias/ajenas",
          ["toolkit.py", "--selftest-ajenas"], 0),
+        # Fronteras del proyecto que otro documento YA cerro. Un NOT_DETERMINED
+        # obsoleto dirige el trabajo hacia algo hecho. Se ejecuta entero porque
+        # su SALIDA es la verificacion.
+        ("fronteras obsoletas (trabajo ya hecho)", ["stale_gap.py"], 0),
+        ("stale_gap: control negativo", ["stale_gap.py", "--self-test"], 0),
     ]
     if quick:
         tools = tools[1:]
