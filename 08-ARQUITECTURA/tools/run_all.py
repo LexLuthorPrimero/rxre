@@ -104,6 +104,14 @@ def main():
         # porque nadie ejecuto nada en medio.
         ("contradicciones entre hallazgos",
          ["causal_map.py", "--contradictions"], 0),
+        # El mapa causal. Se ejecuta entero porque su salida ES la
+        # verificacion: si deja de encontrar las aristas que se conocen,
+        # el corpus cambio o la herramienta se rompio.
+        ("mapa causal (aristas del camino GFX8)", ["causal_chain.py"], 0),
+        # El generador de trabajo. Se ejecuta para que el ranking este
+        # disponible en cada verificacion y para que se note cuando cambia
+        # el numero de registros sin documentar.
+        ("siguiente trabajo (ranking)", ["next_work.py"], 12),
     ]
     if quick:
         tools = tools[1:]
