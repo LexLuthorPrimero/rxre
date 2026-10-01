@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# CONTRACT: name=pm4_count_census
+# CONTRACT: READONLY=yes
+# CONTRACT: WRITES_FILES=no
+# CONTRACT: WRITES_SYSFS=no
+# CONTRACT: MUTATES_CORPUS=no
+# CONTRACT: WRITES_GPU=no
 """
 CENSUS DE ENCODING PM4 EN GFX8 (o cualquier ASIC del arbol amdgpu).
 

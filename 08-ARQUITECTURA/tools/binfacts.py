@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# CONTRACT: name=binfacts
+# CONTRACT: READONLY=no
+# CONTRACT: WRITES_FILES=yes
+# CONTRACT: WRITES_SYSFS=no
+# CONTRACT: MUTATES_CORPUS=no
+# CONTRACT: WRITES_GPU=no
 r"""BINFACTS -- el binario real del modulo cargado, medido.
 
 POR QUE EXISTE. Todo el proyecto mide un CORPUS: una copia del arbol de fuentes

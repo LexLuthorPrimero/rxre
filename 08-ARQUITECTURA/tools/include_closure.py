@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# CONTRACT: name=include_closure
+# CONTRACT: READONLY=yes
+# CONTRACT: WRITES_FILES=no
+# CONTRACT: WRITES_SYSFS=no
+# CONTRACT: MUTATES_CORPUS=no
+# CONTRACT: WRITES_GPU=no
 r"""INCLUDE CLOSURE RESOLVER -- que opcode ve REALMENTE una unidad
 
 POR QUE EXISTE. En 037 escribi que "el mapa de registros del RX550 es gmc_8_2"

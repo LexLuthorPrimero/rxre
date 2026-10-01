@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# CONTRACT: name=runtime_obs
+# CONTRACT: READONLY=no
+# CONTRACT: WRITES_FILES=yes
+# CONTRACT: WRITES_SYSFS=yes
+# CONTRACT: MUTATES_CORPUS=no
+# CONTRACT: WRITES_GPU=no
 r"""RUNTIME OBS -- observacion del ASIC en vivo, SOLO LECTURA por defecto.
 
 POR QUE EXISTE. 25 de los hallazgos de este proyecto acaban en

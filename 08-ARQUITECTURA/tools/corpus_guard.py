@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# CONTRACT: name=corpus_guard
+# CONTRACT: READONLY=no
+# CONTRACT: WRITES_FILES=yes
+# CONTRACT: WRITES_SYSFS=no
+# CONTRACT: MUTATES_CORPUS=yes
+# CONTRACT: WRITES_GPU=no
 """
 CORPUS GUARD -- integridad del corpus alrededor de una prueba de mutacion.
 

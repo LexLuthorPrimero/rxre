@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# CONTRACT: name=doclint
+# CONTRACT: READONLY=yes
+# CONTRACT: WRITES_FILES=no
+# CONTRACT: WRITES_SYSFS=no
+# CONTRACT: MUTATES_CORPUS=no
+# CONTRACT: WRITES_GPU=no
 """
 DOCLINT -- verificador de hallazgos, para no repetir los errores que ya cometi.
 

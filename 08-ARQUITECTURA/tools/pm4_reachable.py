@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# CONTRACT: name=pm4_reachable
+# CONTRACT: READONLY=yes
+# CONTRACT: WRITES_FILES=no
+# CONTRACT: WRITES_SYSFS=no
+# CONTRACT: MUTATES_CORPUS=no
+# CONTRACT: WRITES_GPU=no
 """
 VOCABULARIO PM4 VIVO DE UN ASIC: que paquetes ejecuta de verdad, no cuales define.
 

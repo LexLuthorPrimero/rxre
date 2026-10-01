@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# CONTRACT: name=pm4_layout_audit
+# CONTRACT: READONLY=yes
+# CONTRACT: WRITES_FILES=no
+# CONTRACT: WRITES_SYSFS=no
+# CONTRACT: MUTATES_CORPUS=no
+# CONTRACT: WRITES_GPU=no
 """
 AUDITORIA CRUZADA: layout documentado  vs  payload realmente emitido.
 

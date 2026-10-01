@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# CONTRACT: name=run_all
+# CONTRACT: READONLY=no
+# CONTRACT: WRITES_FILES=yes
+# CONTRACT: WRITES_SYSFS=no
+# CONTRACT: MUTATES_CORPUS=no
+# CONTRACT: WRITES_GPU=no
 r"""
 RUNNER -- una sola entrada para toda la caja de herramientas.
 
@@ -89,6 +95,9 @@ def main():
         ("runtime: estado del ASIC (solo lectura)",
          ["runtime_obs.py", "module"], 0),
         ("binario real vs corpus", ["binfacts.py"], 0),
+        ("PM4 codec: contraste de layouts", ["pm4_codec.py", "--check"], 0),
+        ("PM4 codec: NOP contra regla 034", ["pm4_codec.py", "--nops"], 0),
+        ("contrato de las herramientas", ["toolkit.py"], 0),
     ]
     if quick:
         tools = tools[1:]

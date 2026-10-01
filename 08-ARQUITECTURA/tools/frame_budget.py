@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# CONTRACT: name=frame_budget
+# CONTRACT: READONLY=yes
+# CONTRACT: WRITES_FILES=no
+# CONTRACT: WRITES_SYSFS=no
+# CONTRACT: MUTATES_CORPUS=no
+# CONTRACT: WRITES_GPU=no
 """
 Presupuesto de dwords del FRAME de una submission en GFX8 (ring GFX y COMPUTE).
 

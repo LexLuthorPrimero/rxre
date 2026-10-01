@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# CONTRACT: name=count_vmflush_dw
+# CONTRACT: READONLY=yes
+# CONTRACT: WRITES_FILES=no
+# CONTRACT: WRITES_SYSFS=no
+# CONTRACT: MUTATES_CORPUS=no
+# CONTRACT: WRITES_GPU=no
 """
 Cuenta los dwords que el path de vm-flush de GFX8 escribe realmente en el
 ring, y lo compara con lo que cada ring_funcs reserva en emit_frame_size.
