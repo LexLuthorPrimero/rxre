@@ -112,6 +112,13 @@ def main():
         # disponible en cada verificacion y para que se note cuando cambia
         # el numero de registros sin documentar.
         ("siguiente trabajo (ranking)", ["next_work.py"], 12),
+        # La asercion estructural del driver. Se ejecuta con codigo de salida
+        # real: si el struct vi_mqd deja de cuadrar con los offsets, esto
+        # devuelve 3 y el runner lo marca como fallo.
+        ("asercion struct vi_mqd vs offsets", ["mqd_layout.py", "--mismatches"], 0),
+        # Control negativo: una herramienta que no puede fallar no puede
+        # decir que pasa. Debe detectar sus propias 4 mutaciones.
+        ("mqd_layout: control negativo", ["mqd_layout.py", "--self-test"], 0),
     ]
     if quick:
         tools = tools[1:]
