@@ -13,7 +13,7 @@ COPIA del corpus en /tmp y se exige que el contraste la vea.
 
 Por que una copia y no el corpus
 -------------------------------
-RESEARCH/ es el corpus y esta bajo禁令 de escritura. Ademas, mutar el
+RESEARCH/ es el corpus y esta bajo prohibicion de escritura. Ademas, mutar el
 corpus real dejaria una diferencia que nadie podria distinguir de un
 resultado legitimo. La mutacion va contra /tmp, y el script lo comprueba
 con sha256 antes y despues.

@@ -24,12 +24,13 @@ Se lee sin root, porque `/sys/kernel/btf/` es `r--r--r--`. No toca la GPU.
 ./btfq.py where   <subcadena>        de qué base/módulo salió cada tipo
 
 ./crosscheck.py <struct> <header.h>  corpus (fuente) vs BTF (binario)
-python3 cn4.py                      controles del parser
+./vmsize.py                         geometría de GPUVM: modelo vs log del host
+python3 cn4.py                      controles del parser BTF
 python3 cn5.py                      controles del contraste
 ```
 
-Códigos de salida: `0` éxito, `1` sin coincidencias o controles fallidos,
-`2` uso incorrecto, `3` el BTF no se pudo parsear.
+Códigos de salida: `0` éxito, `1` sin coincidencias, divergencia o controles
+fallidos, `2` uso incorrecto, `3` el BTF no se pudo parsear.
 
 ## Resultados obtenidos
 
@@ -72,6 +73,28 @@ las PTE: no tiene dónde hacerlo.
   flags de PTE hace falta el preprocesador.
 - **Valores en runtime.** BTF da tipos, no instancias. Responde "qué
   constantes compila el driver", no "qué hay en `adev->gmc.x` ahora mismo".
+
+## 5. La geometría de GPUVM: el corpus acierta, y el log lo confirma
+
+`vmsize.py` modela `amdgpu_vm_adjust_size` desde el corpus y lo compara con
+`journalctl -k -b`, que es una **observación del host**, no una derivación.
+
+```
+MODELO (corpus)              HOST (log)
+  vm_size    = 64 GB           64 GB     coincide
+  num_level  = 1               2 levels  coincide (el log imprime num_level+1)
+  block_size = 10              10-bit    coincide
+  fragment   = 9               9-bit     coincide
+```
+
+`rc=0`. El corpus predice correctamente la geometría del hardware real, y como
+corroboración independiente predice también GART 256 MiB para `CHIP_POLARIS12`
+(`gmc_v8_0.c:595`), que es lo que el host registra. Dos geometrías
+independientes, dos coincidencias.
+
+El detalle está en `vmsize.md`, que incluye la contradicción falsa que casi se
+declara (el `+1` del `dev_info`) y los dos errores de modelo que hubo que
+corregir antes de llegar a la coincidencia.
 
 ## Por qué tiene dos capas: split BTF
 
@@ -143,6 +166,26 @@ Y dos errores de método que no eran de la herramienta sino de cómo se usó:
    Ahora `cn5.py` verifica que su mutación ocurrió antes de juzgar si el
    contraste la detecta.
 
+## Contradicciones que estas herramientas abrieron
+
+`CONTRADICCION-014.md` documenta que `014-q1-gpuvm-minimal.md` declara Q1
+**CLOSED** con `BITS_PER_LEVEL = 9`, y que eso es `REFUTED`: el valor real es
+`10`. En cascada caen las entradas por nivel (512 → 1024), los bytes por tabla
+(4 KiB → 8 KiB), la cobertura del PTB (2 MiB → 4 MiB), `GPUVA_WIDTH_BITS`
+(30 → 40) y `MIN_VIABLE_ASPACE` (2 MiB → 4 MiB).
+
+La causa raíz es identificable: la llamada
+`amdgpu_vm_adjust_size(adev, 64, 9, 1, 40)` lleva un `9` que es
+`fragment_size_default`, **no** `block_size`. Y como `2^9 = 512` entradas de
+8 B dan exactamente 4096 B, el dato correcto del fragmento se usó para
+sostener la cifra equivocada del nivel. Fragmento y nivel son magnitudes
+distintas que coinciden en bytes por razones distintas.
+
+Q1 debería marcarse `CONTRADICTED`, no `CLOSED`.
+
+Ese documento **no** modifica `014`: el scope `docs` está tomado por otra
+sesión.
+
 ## Controles negativos
 
 `cn4.py` (4/4 vivos) muta el **fichero de entrada**, nunca un objeto ya
@@ -161,7 +204,13 @@ nada.
 - Parseo del BTF: **PROVEN** por geometría cerrada (0 referencias colgantes),
   recuento consistente y discriminante de strings al 100%.
 - Corpus ≡ binario para `amdgpu_gmc`: **PROVEN** por contraste de campos.
-- GFX8 no usa `MTYPE`: **PROVEN** por tres vias independientes (fuente, BTF,
+- Geometría de GPUVM (`vm_size=64`, `num_level=1`, `block_size=10`,
+  `fragment=9`): **PROVEN**, modelo del corpus y log del host coinciden.
+- GART = 256 MiB en POLARIS12: **PROVEN**, corpus y log.
+- GFX8 no usa `MTYPE`: **PROVEN** por tres vías independientes (fuente, BTF,
   ausencia en `amdgpu_gart`).
-- Semántica de hardware de cada bit de PTE: `NOT_DETERMINED`. Requiere runtime
+- `BITS_PER_LEVEL = 9` de `014`: **REFUTED** — son 10.
+- El driver del host está parcheado respecto al corpus: **REFUTED**; la
+  contradicción aparente venía del `+1` del `dev_info`.
+- Semántica de hardware de cada bit de PTE: **NOT_DETERMINED**. Requiere runtime
   con root, no autorizado.
