@@ -1,0 +1,22 @@
+cache: 625 ficheros, 13820 simbolos
+cikd.h:294: #define		WAIT_REG_MEM_FUNCTION(x)                ((x) << 0)
+gfx_v10_0.c:4021: WAIT_REG_MEM_FUNCTION(3) |  /* equal */
+gfx_v11_0.c:541: WAIT_REG_MEM_FUNCTION(3) |  /* equal */
+gfx_v12_0.c:439: WAIT_REG_MEM_FUNCTION(3) |  /* equal */
+gfx_v12_1.c:248: WAIT_REG_MEM_FUNCTION(3)));  /* equal */
+gfx_v12_1_pkt.h:106: #define		WAIT_REG_MEM_FUNCTION(x)                (((x) & 0x7) << 0)
+gfx_v6_0.c:2360: WAIT_REG_MEM_FUNCTION(3) | /* equal */
+gfx_v6_0.c:2386: amdgpu_ring_write(ring, (WAIT_REG_MEM_FUNCTION(0) |  /* always */
+gfx_v7_0.c:2082: WAIT_REG_MEM_FUNCTION(3) |  /* == */
+gfx_v7_0.c:3106: WAIT_REG_MEM_FUNCTION(3) | /* equal */
+gfx_v7_0.c:3149: WAIT_REG_MEM_FUNCTION(0) |  /* always */
+gfx_v8_0.c:6049: WAIT_REG_MEM_FUNCTION(3) |  /* == */
+gfx_v8_0.c:6182: WAIT_REG_MEM_FUNCTION(3) | /* equal */
+gfx_v8_0.c:6201: WAIT_REG_MEM_FUNCTION(0) |  /* always */
+gfx_v9_0.c:1182: WAIT_REG_MEM_FUNCTION(3) |  /* equal */
+gfx_v9_4_3.c:404: WAIT_REG_MEM_FUNCTION(3) |  /* equal */
+nvd.h:167: #define		WAIT_REG_MEM_FUNCTION(x)                ((x) << 0)
+sid.h:398: #define		WAIT_REG_MEM_FUNCTION(x)                ((x) << 0)
+soc15d.h:178: #define		WAIT_REG_MEM_FUNCTION(x)                ((x) << 0)
+vid.h:169: #define		WAIT_REG_MEM_FUNCTION(x)                ((x) << 0)
+--- 15 ficheros lo usan

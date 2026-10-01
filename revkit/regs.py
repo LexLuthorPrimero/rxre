@@ -72,6 +72,21 @@ RE_MASK = re.compile(
     r"\s*(.*)$")
 RE_HEX = re.compile(r"^(?:0[xX]([0-9a-fA-F]+)|([0-9]+))(?:[uUlL]*)\s*$")
 
+# SEGUNDO formato: registros de 64 bits partidos en dos mitades.
+#
+#   #define mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR_LO32_DEFAULT 0x00000000
+#   #define mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR_HI32_DEFAULT 0x00000000
+#
+# Estos van con prefijo mm_ (minusculas) y sufijo _DEFAULT, y NO usan "__"
+# como separador registro/campo. La primera version de regs.py solounia el
+# formato con "__", asi que mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR no aparecia:
+# el driver lo usa en gmc_v8_0.c:673 y el indice no lo tenia.
+#
+# Un registro que el driver escribe y que el indice no encuentra es
+# especialmente grave, porque invita a concluir que el registro no existe.
+RE_MM = re.compile(
+    r"^#define\s+(mm[A-Za-z0-9_]+?)_(LO32|HI32|HI16|LO16|DEFAULT)\b\s+(.+?)\s*$")
+
 
 def norm_field(f):
     """
@@ -194,14 +209,24 @@ class Regs:
                         continue
                     for i, ln in enumerate(lines, 1):
                         m = RE_MASK.match(ln)
-                        if not m:
+                        if m:
+                            reg, field, kind, valtxt = m.groups()
+                            v = parse_val(valtxt)
+                            if v is not None:
+                                self.raw.append(
+                                    (reg, field, kind, v, rel, i))
+                                n += 1
                             continue
-                        reg, field, kind, valtxt = m.groups()
-                        v = parse_val(valtxt)
-                        if v is None:
-                            continue
-                        self.raw.append((reg, field, kind, v, rel, i))
-                        n += 1
+                        # formato mm_<REG>_<LO32|HI32|DEFAULT>
+                        m2 = RE_MM.match(ln)
+                        if m2:
+                            reg, mitad, valtxt = m2.groups()
+                            v = parse_val(valtxt)
+                            if v is not None:
+                                self.raw.append(
+                                    (reg, mitad, "ADDR", v, rel, i))
+                                n += 1
+                        continue
         if verbose:
             print("indexadas %d macros en %d ficheros" % (n, len(vistos)),
                   file=sys.stderr)
@@ -339,17 +364,24 @@ def main():
         print()
         print("registros unicos en esos ficheros: %d" % len(regs))
         print("campos unicos en esos ficheros   : %d" % len(cf))
-        # y el caso de que el patron fuera un nombre de REGISTRO o de CAMPO
-        rr = sorted(x for x in regs if rx.search(x))
-        cc = sorted(x for x in cf if rx.search(x))
+        # y el caso de que el patron fuera un nombre de REGISTRO o de CAMPO.
+        # Sin esto, buscar un registro por su NOMBRE daba 0 ficheros, y se
+        # concluyo que el ASIC no lo tiene, cuando lo que falta era mirar
+        # donde se guarda la clave.
+        rr = sorted(x for x in r.reg_files if rx.search(x))
+        cc = sorted({f for (_reg, f, _k) in r.macros if rx.search(f)})
         if rr:
             print("registros cuyo NOMBRE casa: %d" % len(rr))
-            for x in rr[:20]:
+            for x in rr[:25]:
                 print("   %s" % x)
         if cc:
             print("campos cuyo NOMBRE casa: %d" % len(cc))
-            for x in cc[:20]:
+            for x in cc[:25]:
                 print("   %s" % x)
+        if not rr and not cc and not por_fichero:
+            print("NINGUN registro, campo ni fichero casa con el patron.")
+            print("Eso es NOT_FOUND, no PROVEN_ABSENT: el registro puede estar")
+            print("definido de otra forma, o ser de un ASIC no cubierto.")
         return 0
 
     if not a.reg:

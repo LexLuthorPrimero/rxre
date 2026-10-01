@@ -27,6 +27,8 @@ CN-R10 pte separa DEFINIDO de ALCANZABLE (el error de MTYPE)
 CN-R11 pte dump decodifica una PTE con los flags que se le ponemos
 CN-R12 ningun fichero tiene CJK ni cirilico colados
 CN-R13 ningun .md tiene backticks colgando ni cruzados
+CN-R14 cidx enumera los WAIT_REG_MEM_FUNCTION de GFX8 y son 3, con un solo
+       FUNCTION(0). Si esto cambia, el hallazgo de WAIT-REG-MEM.md cambia.
 """
 import os
 import re
@@ -234,6 +236,23 @@ def r13_backticks():
     return not colg and not cruz
 
 
+def r14_wait_reg_mem():
+    """
+    El hallazgo de WAIT-REG-MEM.md depende de una enumeracion que puede
+    cambiar si cambia el corpus. Se fija como control para que el documento
+    no se quede obsoleto sin que nadie lo note.
+    """
+    rc, out, _ = ejecuta(["cidx.py", "use", "WAIT_REG_MEM_FUNCTION"])
+    g8 = [l for l in out.splitlines() if "gfx_v8_0.c:" in l]
+    ceros = [l for l in g8 if "FUNCTION(0)" in l]
+    ok = len(g8) == 3 and len(ceros) == 1
+    anota("CN-R14 GFX8 emite 3 WAIT_REG_MEM, un solo FUNCTION(0)", ok,
+          "%d usos en gfx_v8_0.c, %d con FUNCTION(0): %s"
+          % (len(g8), len(ceros), [l.split(":")[0] + ":" + l.split(":")[1]
+                                    for l in g8]))
+    return ok
+
+
 def main():
     print("Controles del propio revkit")
     print()
@@ -247,6 +266,7 @@ def main():
         r6_obs_no_confunde_dispositivos, r7_obs_deduplica,
         r8_vclaims_externas, r9_vclaims_detecta_rango_malo,
         r10_pte_separa_alcanzable, r11_pte_dump, r12_sin_cjk, r13_backticks,
+        r14_wait_reg_mem,
     ]
     fallos = 0
     for fn in pruebas:

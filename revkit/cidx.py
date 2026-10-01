@@ -252,7 +252,8 @@ def main():
     ap = argparse.ArgumentParser(
         description="indice del corpus con limites de palabra reales")
     ap.add_argument("cmd", choices=[
-        "find", "use", "def", "callers", "absent", "stats", "funcs"])
+        "find", "use", "def", "callers", "absent", "stats", "funcs",
+        "macro", "vtable", "cadena"])
     ap.add_argument("simbolo", nargs="?", default=None)
     ap.add_argument("--raiz", default=AMDKG)
     ap.add_argument("-n", type=int, default=40, help="maximo de lineas")
@@ -346,6 +347,124 @@ def main():
             d = idx.funcs[f][0]
             print("%-44s %s:%d" % (f, d[0], d[1]))
         print("--- %d funciones" % len(idx.funcs))
+        return 0
+
+    if a.cmd == "macro":
+        """
+        Resuelve una macro y de que clase es.
+
+        Hace falta porque buena parte del despacho de amdgpu son MACROS que
+       -expanden a un acceso por vtable:
+
+            #define amdgpu_gmc_emit_flush_gpu_tlb(r, vmid, addr) \\
+                (r)->adev->gmc.gmc_funcs->emit_flush_gpu_tlb(...)
+
+        Buscar esa macro con 'def' devuelve 0 Definitions, y ese 0 parece
+        una ausencia cuando lo que pasa es que no hay funcion: hay una macro
+        que despacha a una vtable. Es el mismo fallo de "0 que parece
+        resultado", aqui por otra via.
+        """
+        loc = idx.macros.get(a.simbolo, [])
+        if not loc:
+            cand = [m for m in idx.macros if a.simbolo in m]
+            print("no hay macro %r" % a.simbolo)
+            if cand:
+                print("macros que contienen ese texto: %s"
+                      % ", ".join(sorted(cand)[:10]))
+            return 1
+        for rel, i in loc[:a.n]:
+            txt = idx.files[rel].splitlines()[i - 1]
+            print("%s:%d" % (rel, i))
+            print("   %s" % txt.strip()[:150])
+            # la macro despacha a vtable?
+            if "->" in txt and "(" in txt:
+                print("   -> parece DESPACHO por puntero de funcion")
+                for m in re.finditer(r"->(\w+)\s*\(", txt):
+                    print("      campo: %s" % m.group(1))
+        print("--- %d definiciones de la macro" % len(loc))
+        return 0
+
+    if a.cmd == "vtable":
+        """
+        Quien ASIGNA un campo de vtable, y con que funcion.
+
+        Cierra el otro extremo de una macro de despacho: la macro llama a
+        gmc_funcs->X, y aqui se ve que gmc_vX_0.c asigna X = una funcion.
+        """
+        rx = re.compile(r"\.%s\s*=\s*(\w+)" % re.escape(a.simbolo))
+        for rel, txt in idx.files.items():
+            for i, ln in enumerate(txt.splitlines(), 1):
+                m = rx.search(ln)
+                if not m:
+                    continue
+                destino = m.group(1)
+                d = idx.define(destino)
+                print("%s:%d" % (rel, i))
+                print("   %s" % ln.strip()[:120])
+                if d:
+                    print("   -> %s definida en %s:%d"
+                          % (destino, d[0][0], d[0][1]))
+                    cs = idx.callers(destino)
+                    if cs:
+                        print("   -> la llaman: %s" % ", ".join(cs[:6]))
+                else:
+                    print("   -> %s NO aparece definida (macro? "
+                          "externa?)" % destino)
+        return 0
+
+    if a.cmd == "cadena":
+        """
+        Cadena de despacho completa: macro -> vtable -> funcion -> callers.
+
+        Es la pregunta que hace el protocolo: "cual es la relacion que
+        deberia existir". Para una macro de despacho, la relacion pasa por la
+        vtable del ASIC, y ninguna de las tres consultas sueltas la ve entera.
+        """
+        loc = idx.macros.get(a.simbolo, [])
+        if not loc:
+            print("%r no es una macro" % a.simbolo)
+            return 1
+        rel, i = loc[0]
+        txt = idx.files[rel].splitlines()[i - 1]
+        print("1. macro %s" % a.simbolo)
+        print("   %s:%d" % (rel, i))
+        print("   %s" % txt.strip()[:150])
+        campos = re.findall(r"->(\w+)\s*\(", txt)
+        if not campos:
+            print("   no es un despacho por puntero de funcion")
+            return 1
+        for campo in campos:
+            print()
+            print("2. campo de vtable: %s" % campo)
+            rx = re.compile(r"\.%s\s*=\s*(\w+)" % re.escape(campo))
+            asignaciones = []
+            for r2, t2 in idx.files.items():
+                for i2, l2 in enumerate(t2.splitlines(), 1):
+                    m = rx.search(l2)
+                    if m:
+                        asignaciones.append((r2, i2, m.group(1)))
+            # la asignacion que corresponde a NUESTRO ASIC
+            objetivo = None
+            for r2, i2, destino in asignaciones:
+                print("   %-40s -> %s" % (r2, destino))
+                # la asignacion que corresponde a NUESTRO ASIC
+                if objetivo is None and "v8" in r2:
+                    objetivo = (r2, i2, destino)
+            if not objetivo:
+                objetivo = asignaciones[0] if asignaciones else None
+            if objetivo:
+                r2, i2, destino = objetivo
+                print("   para GFX8: %s:%d -> %s" % (r2, i2, destino))
+                d = idx.define(destino)
+                if d:
+                    print()
+                    print("3. implementacion: %s:%d" % (d[0][0], d[0][1]))
+                    cs = idx.callers(destino)
+                    if cs:
+                        print("   la llaman: %s" % ", ".join(cs[:8]))
+                    else:
+                        print("   NINGUN fichero la llama directamente "
+                              "(puede ir por puntero a funcion)")
         return 0
 
     return 2
