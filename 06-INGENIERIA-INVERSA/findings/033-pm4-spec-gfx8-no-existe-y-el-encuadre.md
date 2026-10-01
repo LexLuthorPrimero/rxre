@@ -250,6 +250,22 @@ No puede ser. `0x3FFF` significa **"esta cabecera sola es el paquete"**.
 `PROVEN_DERIVED`, y el razonamiento es deductivo: el tope del §3.2 y el caso base solo
 tienen sentido juntos si `0x3FFF` esta fuera de la formula.
 
+### 3.4-ENMENDADO · `034` sube esto a PROVEN con segunda fuente interna
+
+La derivacion de arriba es `PROVEN_DERIVED`. `034` la **eleva a `PROVEN`** con una via
+que no use ni hardware ni fuentes externas: el kernel **documenta el layout de 25
+paquetes** en comentarios numerados (`/* 1. header`, `2.`, `3.`, ...), y **los usa**.
+Las dos cuentas —el comentario y el codigo de emision— coinciden **28/28, cero
+discrepancias**, con `F == payload_documentado - 1` y `F == payload_real - 1`.
+
+Herramienta: `08-ARQUITECTURA/tools/pm4_layout_audit.py`, validada por mutacion.
+Ejemplo leido a mano: `MAP_QUEUES` en `gfx_v8_0.c:4345-4357`, F=5, 6 payload escritos,
+y layout documentado 6.
+
+El modelo de §3.4 no cambia. Lo que cambia es su grado: dos fuentes de verdad
+independientes **dentro del corpus**, y no dependo de freedreno —cuyo `pkt_is_type3` §4
+acabo de demostrar que es incorrecto para GFX8.
+
 ### 3.4 · El modelo completo
 
 ```
@@ -372,8 +388,8 @@ construccion es lo que importa, y ya se tiene.
 | Las cabeceras TYPE0/2/3/4/7 y sus mascaras | `SECONDARY_CORROBORATION` |
 | TYPE4 y TYPE7 llevan bit de paridad impar | `SECONDARY_CORROBORATION` |
 | Los 4 magic de NOP son ASCII | `SECONDARY_CORROBORATION` |
-| `F = datos − 1`, paquete = `F + 2` dwords | `PROVEN_DERIVED` — `WAIT_REG_MEM` ×3 + `insert_nop` |
-| `0x3FFF` reservado para NOP unitario | `PROVEN_DERIVED` — el tope + el caso base |
+| `F = datos − 1`, paquete = `F + 2` dwords | **`PROVEN`** — `PROVEN_DERIVED` en §3, **enmendado por `034`** con 2 fuentes internas |
+| `0x3FFF` reservado para NOP unitario | `PROVEN_DERIVED` — el tope + el caso base; `RUN_CLEANER_SHADER` (payload 1, F=0) lo confirma por el otro borde |
 | El `-1` de freedreno es la misma formula | `SECONDARY_CORROBORATION` — la forma coincide |
 | `pkt_is_type3` exige opcode `< 0x80` | `PROVEN` |
 | Esa asercion vale para GFX8 | **`REFUTED`** — 12/74 opcodes ≥ `0x80`, uno vivo |
