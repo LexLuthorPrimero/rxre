@@ -22,6 +22,7 @@ Uso:
   pm4_emit.py --func gfx_v8_0_ring_emit_vm_flush
   pm4_emit.py --all
   pm4_emit.py --control
+  pm4_emit.py --quien         quien emite cada PACKET3, por generacion
   pm4_emit.py --frame-size
 
 Codigos de salida:
@@ -868,6 +869,140 @@ def frame_size(path, macros):
     return rows
 
 
+# Ficheros de motor por generacion, para preguntar "quien usa esto".
+# El nombre del fichero ES la generacion: gfx_v8_0.c, sdma_v3_0.c, ...
+GEN_RE = re.compile(r"^(\w+?)_v(\d+)_(\d+)\.c$")
+
+
+def quien_usa(macros):
+    """Para cada PACKET3 definido en sid.h: quien lo emite y de que tipo.
+
+    La pregunta NO es solo "que paquetes usa GFX8", es "quien usa cada uno".
+    Eso separa tres cosas que el recuento bruto de --control mezcla:
+
+      grafico    lo emite gfx_v8_0.c      -> alcanzable en esta placa
+      motor      otro motor de GCN3 (sdma, uvd, vce)
+                 -> alcanzable, pero por otro camino, no por el anillo GFX
+      posterior  solo gfx_v9_0 en adelante
+                 -> esta placa no lo puede ejecutar por el driver
+      NADIE      lo define sid.h y no lo emite nadie
+                 -> definicion muerta, o la usa el firmware
+
+    La cuarta categoria es la que no se puede ver contando emisiones.
+
+    LIMITACION DECLARADA: es un escaneo de texto sobre "PACKET3(PACKET3_X", y
+    no ve un opcode en variable. Si un sitio hace packet = PACKET3(op, n),
+    ese paquete contara como NADIE cuando en realidad se usa. Se declara; no
+    se disimula.
+    """
+    sid = os.path.join(AMD, "sid.h")
+    with open(sid, encoding="utf-8", errors="replace") as fh:
+        defined = set(re.findall(r"^#\s*define\s+(PACKET3_\w+)\b", fh.read(),
+                                 re.M))
+    uso = dict((d, []) for d in defined)
+    call_re = re.compile(r"PACKET3\(\s*(PACKET3_\w+)")
+    for name in sorted(os.listdir(AMD)):
+        if not name.endswith(".c"):
+            continue
+        with open(os.path.join(AMD, name), encoding="utf-8",
+                  errors="replace") as fh:
+            for ln, line in enumerate(fh, 1):
+                for m in call_re.finditer(line):
+                    if m.group(1) in uso:
+                        uso[m.group(1)].append((name, ln))
+
+    grafico, motor, anterior, posterior, ambos, nadie = [], [], [], [], [], []
+    for pk in sorted(defined):
+        quien = uso[pk]
+        if any(f == TARGET for f, _l in quien):
+            grafico.append((pk, quien))
+            continue
+        vers = set()
+        for f, _ln in quien:
+            g = GEN_RE.match(f)
+            if g:
+                vers.add(int(g.group(2)))
+        if not vers:
+            nadie.append(pk)
+        elif 8 in vers:
+            motor.append((pk, quien))
+        else:
+            # La DIRECCION importa: llamar "posterior" a algo que solo emite
+            # GCN1 seria una etiqueta falsa.
+            if any(v < 8 for v in vers):
+                anterior.append((pk, sorted(vers)))
+            if any(v > 8 for v in vers):
+                posterior.append((pk, sorted(vers)))
+
+    print("PAQUETES DEFINIDOS EN sid.h : %d" % len(defined))
+    print()
+    print("A. lo emite gfx_v8_0.c -- alcanzable en esta placa    : %d"
+          % len(grafico))
+    for pk, _w in grafico:
+        print("     %s" % pk)
+    print()
+    print("B. otro motor de GCN3, no el anillo GFX              : %d"
+          % len(motor))
+    for pk, quien in motor:
+        files = sorted(set(f for f, _l in quien))
+        print("     %-40s %s" % (pk, ", ".join(files[:3])))
+    print()
+    print("C. solo generaciones ANTERIORES a GCN3 -- no en GFX8  : %d"
+          % len(anterior))
+    for pk, vers in anterior:
+        print("     %-40s v%s" % (pk, ",".join(str(v) for v in vers)))
+    print()
+    print("D. solo generaciones POSTERIORES a GCN3 -- no en GFX8: %d"
+          % len(posterior))
+    for pk, vers in posterior:
+        print("     %-40s v%s" % (pk, ",".join(str(v) for v in vers)))
+    print()
+    # SEPARAR opcode real de constante que comparte el prefijo PACKET3_.
+    # El campo opcode son 8 bits -- sid.h:337 hace (op) & 0xFF --, asi que un
+    # opcode cabe en 0x00..0xFF. Un "_START", un "_ENA" o una mascara de
+    # registro no caben, y no son paquetes: son offsets y bits.
+    # El tamano NO basta solo: PACKET3_CB0_DEST_BASE_ENA vale 0x40 y cabe en
+    # 8 bits, pero es una mascara de registro, no un opcode. Se cruzan DOS
+    # senales independientes:
+    #   1. el valor cabe en 8 bits   (sid.h:337 hace (op) & 0xFF)
+    #   2. el nombre NO lleva sufijo de campo, que impose el generador del ASIC
+    # Las dos tienen que cumplirse. Con una sola, la cuenta sale mal.
+    FIELD_SUFFIX = re.compile(r"_(ENA|START|END|SHIFT|MASK|BASE_INDEX)$")
+    opcodes, no_opcodes = [], []
+    for pk in nadie:
+        try:
+            v = eval_call(pk, macros)
+        except Unresolved:
+            no_opcodes.append((pk, None, "expresion"))
+            continue
+        if FIELD_SUFFIX.search(pk):
+            no_opcodes.append((pk, v, "sufijo de campo"))
+        elif v <= 0xFF:
+            opcodes.append((pk, v))
+        else:
+            no_opcodes.append((pk, v, "> 8 bits"))
+
+    print("E1. OPCODE real que NADIE emite en amdgpu             : %d"
+          % len(opcodes))
+    print("    (los usa Mesa, el firmware, o no los usa nadie)")
+    for pk, v in opcodes:
+        print("     %-40s 0x%02X" % (pk, v))
+    print()
+    print("E2. NO es un opcode: offset o mascara de registro    : %d"
+          % len(no_opcodes))
+    print("    (comparte el prefijo PACKET3_ pero no se emite como paquete)")
+    for pk, v, por in no_opcodes:
+        print("     %-40s %-10s %s"
+              % (pk, "0x%X" % v if v is not None else "-", por))
+    print()
+    total = (len(grafico) + len(motor) + len(anterior) + len(posterior)
+             + len(opcodes) + len(no_opcodes))
+    print("SUMA DE CATEGORIAS = %d ; DEFINIDOS = %d  -> %s"
+          % (total, len(defined),
+             "CUADRA" if total == len(defined) else "NO CUADRA"))
+    return grafico, motor, anterior, posterior, opcodes, no_opcodes
+
+
 # -------------------------------------------------------------- self-test
 
 def self_test(macros):
@@ -928,7 +1063,7 @@ def self_test(macros):
         for f in fails:
             print("   " + f)
         return 1
-    print("self-test OK (12 vectores, 6 controles negativos)")
+    print("self-test OK (16 vectores, 9 controles negativos)")
     return 0
 
 
@@ -961,6 +1096,10 @@ def main(argv):
         print("\ntotal funciones: %d, dwords: %d, sin resolver: %d"
               % (len(report), sum(r["n"] for r in report), len(unres)))
         return 3 if unres else 0
+
+    if "--quien" in argv:
+        quien_usa(macros)
+        return 0
 
     if "--control" in argv:
         report, _ = analyse(path, macros)
