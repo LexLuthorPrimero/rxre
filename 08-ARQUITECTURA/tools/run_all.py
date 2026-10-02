@@ -40,7 +40,30 @@ ROOT = "/home/lucas/Escritorio/RX550-INVESTIGACION"
 GUARD = os.path.join(HERE, "corpus_guard.py")
 
 
-def run(label, cmd, want_lines=0, quick_ok=False):
+def run(label, cmd, want_lines=0, quick_ok=False, rc_ok=None):
+    """Ejecuta una comprobacion. `rc_ok` es la lista de codigos que valen.
+
+    POR QUE EXISTE `rc_ok` Y POR QUE NO PUEDE VIVIR EN EL LLAMANTE.
+
+    `num_collision` devuelve 3 cuando hay numeros de hallazgo duplicados. Es un
+    HECHO del proyecto, no un fallo de la herramienta: ponerlo en rojo obligaria
+    a cambiar la convencion de citacion por las malas.
+
+    La primera version de esto lo resolvio en el bucle del llamante:
+
+        rc, ok = run(...)
+        if ok and rc_tol is not None and rc not in (0, rc_tol):
+            ok = False
+
+    Y no funcionaba, porque `ok` ya era False: `run` devuelve `rc == 0`, y con
+    rc=3 nunca puede ser cierto. La condicion `if ok and ...` nunca se
+    cumplia, y la herramienta se quedaba en FALLA sin poder marcarlo.
+
+    Es la clase de error que mas cuesta ver: la logica es correcta y la
+    herramienta devuelve un valor que la hace inalcanzable. Por eso la
+    decision se toma AQUI, donde se conoce el codigo de salida, y no dos
+    niveles mas arriba.
+    """
     print(f"\n{'=' * 70}")
     print(f">>> {label}")
     print(f"{'=' * 70}")
@@ -65,7 +88,8 @@ def run(label, cmd, want_lines=0, quick_ok=False):
         for l in err.split("\n")[-8:]:
             print(l)
     print(f"[{dt:.1f}s  rc={r.returncode}]")
-    return r.returncode, r.returncode == 0
+    validos = [0] if rc_ok is None else list(rc_ok)
+    return r.returncode, r.returncode in validos
 
 
 def main():
@@ -129,6 +153,13 @@ def main():
         ("contradict: cifras en conflicto", ["contradict.py", "--self"], 0),
         ("regdb: campos entre familias", ["regdb.py", "--self"], 0),
         ("hdrmap: familias por .c", ["hdrmap.py", "--self"], 0),
+        # F11 pide el titular CRUDO y el FILTRADO de cada herramienta con
+        # numero.  Esta mide si alguna vez se leyo su salida, y publica las
+        # suyas para que el proximo pueda aplicar el mismo criterio.
+        ("toolaudit: F11 titular leido", ["toolaudit.py", "--self"], 0),
+        # Catalogo de mensajes SMU: 276 para Polaris12. El dato generado que
+        # 070 dejo abierto, y que una herramienta debe producir, no transcribir.
+        ("smumsg: catalogo de mensajes", ["smumsg.py", "--self"], 0),
         # El barrido que hizo el hallazgo 065: registros escritos por un .c con
         # direccion distinta segun familia. Si el numero deja de ser 7, o el
         # corpus cambio o la herramienta se rompio. Se ejecuta entero porque
@@ -154,6 +185,17 @@ def main():
         # su SALIDA es la verificacion.
         ("fronteras obsoletas (trabajo ya hecho)", ["stale_gap.py"], 0),
         ("stale_gap: control negativo", ["stale_gap.py", "--self-test"], 0),
+        # Los numeros de hallazgo identifican un hallazgo.
+        #
+        # `num_collision` devuelve 3 cuando HAY colisiones, y eso no es un
+        # fallo de la herramienta: es un hecho del proyecto. Va con want_lines
+        # y rc tolerado, para que el numero este a la vista en cada
+        # verificacion y nadie pueda decir que no se sabia, sin declarar
+        # catastrophe por una convencion de citacion que hay que DECIDIR
+        # cambiar.
+        ("numeros de hallazgo unicos", ["num_collision.py"], 10, 3),
+        ("num_collision: control negativo",
+         ["num_collision.py", "--self-test"], 0),
         # LA INTEGRIDAD CON HUELLA, no solo con git status.
         #
         # `--git` responde 0 cuando `git status --porcelain RESEARCH/` esta
@@ -172,12 +214,27 @@ def main():
     ]
     if quick:
         tools = tools[1:]
-    for label, a, n in tools:
+    for t in tools:
+        label, a, n = t[0], t[1], t[2]
         # a es la lista COMPLETA de argumentos, no solo el nombre del script.
         # include_closure necesita sus tres (script, fichero, --opcodes) y con
         # a[0] se quedava sin el fichero -> rc=2 -> "FALLA" sin motivo real.
+        #
+        # rc_tol: un codigo de salida que NO es fallo pero informa de un
+        # estado. `num_collision` devuelve 3 cuando hay numeros de hallazgo
+        # duplicados, y eso es un hecho del proyecto, no un error de la
+        # herramienta. Marcarse FALLA obligaria a arreglar la convencion de
+        # citacion por las malas; lo unico honesto es que el numero este a la
+        # vista sin declarar catastrophe.
+        #
+        # Se distingue de `want_lines` porque no es lo mismo: `want_lines`
+        # avisa si la salida sale VACIA, que si es un fallo. `rc_tol` acepta un
+        # codigo concreto, que es una declaracion sobre que codigos son
+        # validos para esa herramienta.
+        rc_tol = t[3] if len(t) > 3 else None
         rc, ok = run(label, ["python3", os.path.join(HERE, a[0])] + a[1:],
-                     want_lines=n)
+                     want_lines=n,
+                     rc_ok=[0, rc_tol] if rc_tol is not None else None)
         results.append((label, ok))
 
     # 2. linter de documentos. Esto es lo que mas me ha ahorrado.
