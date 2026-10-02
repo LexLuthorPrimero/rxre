@@ -299,6 +299,11 @@ def main():
          ["driver_offsets.py"], 0, 0),
         ("driver_offsets: anclas y controles del filtro",
          ["driver_offsets.py", "--self-test"], 1, 1),
+        # Los 12 opcode de paquete del driver cotejados con sid.h/vid.h. Un
+        # valor distinto produce sumisiones invalidas SIN sintoma hasta que el
+        # trabajo no llega a la GPU, asi que esto va en la automatizacion.
+        ("driver_offsets: 12 opcode PM4 contra la ISA",
+         ["driver_offsets.py", "--pm4"], 0, 0),
         # La reserva de numeros de hallazgo. num_collision mide 37 duplicados
         # y esta sesion choco 3 veces (111, 119, 120) con otra escribiendo.
         # El self-test RESERVA y LIBERA de verdad: comprobar que el numero no

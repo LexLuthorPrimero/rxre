@@ -35,6 +35,8 @@ offset y no se busca: buscarla daria un falso NO_ENCONTRADO.
 Uso:
   driver_offsets.py                  todos los ficheros
   driver_offsets.py --fichero N      uno
+  driver_offsets.py --pm4           opcode de paquete del driver vs sid.h/vid.h
+  driver_offsets.py --pm4           opcode de paquete vs sid.h/vid.h
   driver_offsets.py --self-test
 
 Codigos de salida:
@@ -114,6 +116,75 @@ def constantes(fichero):
     return out
 
 
+
+# ---------------------------------------------------------------- PM4
+# Los opcode de PAQUETE no son registros, pero son contrato con el ASIC igual:
+# un valor distinto produce sumisiones invalidas SIN ningun sintoma hasta que
+# el trabajo no llega a la GPU. Se cotejan contra sid.h y vid.h.
+AMD_DIR = os.path.join(ROOT, "RESEARCH", "working", "linux-7.1.3",
+                       "drivers", "gpu", "drm", "amd", "amdgpu")
+RE_PKT_DEF = re.compile(r"^\s*#define\s+(PACKET3_[A-Z0-9_]+)\s+0x([0-9a-fA-F]+)")
+RE_DRIVER_PKT = re.compile(r"^\s*#define\s+(RX550_PKT3_[A-Z0-9_]+)\s+"
+                           r"0x([0-9a-fA-F]+)")
+
+
+def tabla_packets():
+    """PACKET3_X -> (valor, fichero, linea), desde sid.h y vid.h.
+
+    Se leen los DOS porque un paquete puede estar definido en cualquiera de los
+    dos, y a veces en los dos. `vid.h` separa los defines con TABULADOR y
+    `sid.h` con espacio: un grep con un solo separador encuentra uno de los dos y
+    hace pensar que el otro no existe. Ya me paso: casi reporto una cita
+    erronea del driver por eso.
+    """
+    t = {}
+    for h in ("sid.h", "vid.h"):
+        ruta = os.path.join(AMD_DIR, h)
+        if not os.path.exists(ruta):
+            continue
+        with open(ruta, encoding="utf-8", errors="replace") as fh:
+            for n, linea in enumerate(fh, 1):
+                m = RE_PKT_DEF.match(linea)
+                if m:
+                    t.setdefault(m.group(1), (int(m.group(2), 16), h, n))
+    return t
+
+
+def pm4_driver():
+    t = {}
+    for f in glob.glob(os.path.join(DRV, "*.h")):
+        with open(f, encoding="utf-8", errors="replace") as fh:
+            for linea in fh:
+                m = RE_DRIVER_PKT.match(linea)
+                if m:
+                    nombre = m.group(1)
+                    # RX550_PKT3_SET_SH_REG_START es un OFFSET de registro,
+                    # no un opcode de paquete: se llama PKT3 pero no lo es.
+                    if nombre.endswith("_START"):
+                        continue
+                    t[nombre[len("RX550_PKT3_"):]] = int(m.group(2), 16)
+    return t
+
+
+def cotejo_pm4():
+    t = tabla_packets()
+    d = pm4_driver()
+    filas, ok, mal = [], 0, 0
+    for k in sorted(d):
+        ref = t.get("PACKET3_" + k)
+        if ref is None:
+            filas.append((k, d[k], None, "NO_ENCONTRADO", "-"))
+            mal += 1
+        elif ref[0] == d[k]:
+            filas.append((k, d[k], ref[0], "CONFIRMADO", "%s:%d" % (ref[1], ref[2])))
+            ok += 1
+        else:
+            filas.append((k, d[k], ref[0], "** DIFIERE **",
+                          "%s:%d" % (ref[1], ref[2])))
+            mal += 1
+    return filas, ok, mal
+
+
 def self_test():
     fails = []
 
@@ -165,6 +236,18 @@ def self_test():
 
     # 3. Las tres constantes del driver tienen que CONFIRMARSE. Es el contrato
     #    de hardware del driver, y es lo que esta herramienta existe para cerrar.
+    # 4. ANCLAS DE PAQUETES: 12 opcode del driver, cotejados con sid.h/vid.h. Los
+    #    doce coinciden; si el extractor dejara de leer tabulador vs espacio,
+    #    PACKET3_SURFACE_SYNC (que esta en LOS DOS headers) saldria NO_ENCONTRADO.
+    filas, ok, mal = cotejo_pm4()
+    if len(filas) != 12:
+        fails.append("esperaba 12 opcode de paquete en el driver, lei %d" % len(filas))
+    if mal:
+        fails.append("%d opcode de paquete no coinciden: %s"
+                     % (mal, [f for f in filas if "CONFIRMADO" not in f[3]]))
+    if ok != 12:
+        fails.append("solo %d de 12 opcode confirman" % ok)
+
     for nom, off in (("RX550_MM_VM_CTX0_PTBA", 0x54F),
                      ("RX550_MM_VM_CTX8_PTBA", 0x50E),
                      ("RX550_MM_VM_INVALIDATE_REQ", 0x51E)):
@@ -199,6 +282,19 @@ def main(argv):
         if not ficheros:
             print("driver_offsets: no existe %s" % base, file=sys.stderr)
             return 2
+
+    if "--pm4" in argv:
+        filas, ok2, mal = cotejo_pm4()
+        print("%-20s %-9s %-9s %-12s %s"
+              % ("paquete", "driver", "sid/vid", "estado", "fuente"))
+        print("-" * 66)
+        for k, dv, sv, est, src in filas:
+            print("%-20s 0x%-7x %-9s %-12s %s"
+                  % (k, dv, ("0x%x" % sv) if sv is not None else "-", est, src))
+        print()
+        print("CONFIRMADOS %d de %d" % (ok2, len(filas)))
+        return 1 if mal else 0
+
 
     ok = amb = no = 0
     print("%-28s %-9s %-10s %s" % ("constante", "offset", "veredicto", "registro"))
