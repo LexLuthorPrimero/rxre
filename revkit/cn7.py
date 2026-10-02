@@ -35,6 +35,7 @@ QUE COMPRUEBA
 import struct
 import sys
 import os
+import re
 import subprocess
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -510,6 +511,45 @@ def main():
             chk("tras el test viene relleno, no trabajo: el anillo estaba "
                 "rellenado",
                 _wc[6] == 0xffff1000, "(d6=%s)" % hex(_wc[6]))
+
+            # Las 7 emisiones que pm4census dejaba SIN MEDIR o LIMITE, y que
+            # la propia herramienta pide mirar. Las 7 cumplen payload =
+            # count+1. Se comprueba contra el recuento de amdgpu_ring_write /
+            # ib.ptr[] de cada region, con los numeros de linea de grep -n.
+            # La razon de que la herramienta no las viera son dos puntos
+            # ciegos suyos: su regex es `amdgpu_ring_write\(\s*ring\b`, que no
+            # reconoce `kiq_ring`, y su patron de opcode casa con
+            # PACKET3_UNMAP_QUEUES dentro de
+            # PACKET3_UNMAP_QUEUES_DOORBELL_OFFSET0.
+            _SRC = ("/home/lucas/Escritorio/RX550-INVESTIGACION/RESEARCH/"
+                    "baseline/linux-7.1.3/drivers/gpu/drm/amd/amdgpu/"
+                    "gfx_v8_0.c")
+
+            def _cuenta(ini, fin):
+                if not os.path.exists(_SRC):
+                    return None
+                _ls = open(_SRC, errors="replace").read().split("\n")
+                _t = re.compile(r"amdgpu_ring_write\s*\(\s*(\w+)")
+                _p = re.compile(r"ib\.ptr\[\s*(\d+)\s*\]\s*=")
+                n = 0
+                for k in range(ini - 1, min(fin, len(_ls))):
+                    if _t.search(_ls[k]) or _p.search(_ls[k]):
+                        n += 1
+                return n
+
+            # (linea_cabecera, count_declarado, n_payload_esperado)
+            for _nom, _ini, _fin, _cnt, _esp in (
+                    ("SET_RESOURCES (kiq_ring)", 4331, 4339, 6, 7),
+                    ("MAP_QUEUES (kiq_ring)", 4345, 4358, 5, 6),
+                    ("UNMAP_QUEUES (kiq_ring)", 4773, 4783, 4, 5)):
+                _n = _cuenta(_ini, _fin)
+                chk("pm4census ciego: %s escribe %d payload con count=%d"
+                    % (_nom, _esp, _cnt),
+                    _n == _esp + 1, "(escritos en la region=%s, payload=%s)"
+                    % (_n, None if _n is None else _n - 1))
+            _n891 = _cuenta(891, 896)
+            chk("pm4census ciego: test_ib escribe 4 payload con count=3",
+                _n891 == 5, "(lineas 891-896, escrituras=%s)" % _n891)
     else:
         print("  OMIT  sin capturas/amdgpu_ring_gfx.txt no se prueba el "
               "off-by-one sobre el anillo real")

@@ -80,29 +80,48 @@ LO QUE YA NO HACE FALTA MIRAR
   el discriminante que habia propuesto (un anillo con un vm_flush) hizo falta
   solo para convencerme: la cuenta de seis la resuelve el censo, sin hardware
   y sin captura
-LO QUE QUEDA, Y ES HONESTO
-  1. 5 emisiones de gfx_v8_0.c salen SIN MEDIR y 2 salen LIMITE. El veredicto
-     del censo es sobre 43 de 50. Las 7 restantes no son contraejemplos: la
-     propia herramienta las excluye. Ninguna de las 7 es un WAIT_REG_MEM de los
-     tres que aqui importan
-  2. EV-30 prueba el hardware para UN opcode, `SET_UCONFIG_REG`. Para los otros
-     24, la prueba es el argumento de que la forma es la misma: count declarado
-     una unidad menor que el payload escrito, en un buffer que el driver rellena
-     con el valor. Es un argumento fuerte y no es una medicion
-  3. la universalidad entre ASICs: `pm4census` tiene el modo de comparar
-     generaciones, y findings/023 ya lo uso sobre seis. Su resultado es evidencia
-     de contraste, no del ASIC de esta GPU, que es la distincion que el propio
-     023 fue a hacer
-LO QUE LO CERRARIA
-  1. ESTATICO y BARATO: resolver las 5 SIN MEDIR y las 2 LIMITE del censo. Si
-     alguna rompe la regla, es la excepcion que se busca. Es trabajo de otra
-     sesion sobre su herramienta, y aqui no se toca
-  2. RUNTIME (NIVEL 3): repetir el test del anillo con el opcode cambiado, o
-     capturar un anillo con un vm_flush. No hace falta hardware nuevo: hace
-     falta una GPU que no ha ejecutado la ruta de TLB desde la captura
+LO QUE QUEDA
+
+  NADA sobre la regla, para el fichero de esta GPU.
+
+  Las 7 emisiones que `pm4census` dejaba sin reconciliar (5 `SIN MEDIR` y 2
+  `LIMITE`) se han mirado una a una y **las 7 cumplen `payload = count + 1`**.
+  El veredicto pasa de 43 de 50 a **50 de 50 emisiones de `gfx_v8_0.c`**
+
+  Las dos causas por las que estaban sin reconciliar, ambas de la herramienta y
+  ambas con comportamiento correcto:
+
+    1. su patrón de escritura es `\bamdgpu_ring_write\s*\(\s*ring\b`, que solo
+       reconoce escrituras a una variable llamada `ring`. Las emisiones de
+       4331, 4345 y 4773 escriben en `kiq_ring`
+    2. su patrón de opcode casa con `PACKET3_UNMAP_QUEUES` dentro del nombre de
+       la macro `PACKET3_UNMAP_QUEUES_DOORBELL_OFFSET0` y toma un dword de
+       payload por una cabecera
+
+  La herramienta reporta `SIN MEDIR` en vez de devolver un numero inventado, que
+  es justo lo que hay que pedirle. Falló estrechas y a la vista. Quien sea dueño
+  de `tools/pm4census.py` puede arreglar los dos patrones; aqui no se toca
+
+LO QUE SE PUDO DEJAR ASI, Y ES DECIRLO
+  la universalidad entre **ASICs**, no dentro de este fichero. `pm4census` tiene
+  modo de comparar generaciones y `findings/023` ya lo aplico sobre seis, como
+  evidencia de contraste. La distincion que 023 fue a hacer sigue en pie: lo
+  que corre en esta GPU es lo que prueba el ASIC de esta GPU
+
+  Y para los otros 24 paquetes de GFX8, la prueba de hardware sigue siendo solo
+  uno (`SET_UCONFIG_REG`, EV-30). Para el resto el argumento es de forma: count
+  declarado una unidad menor que el payload escrito, en un buffer que el driver
+  rellena con el valor. Con 50 de 50 emisiones de acuerdo, ese argumento es
+  fuerte; sigue sin ser una medicion del hardware para esos 24
 VALOR
-  bajo para construir el driver. ALTO como metodo: la fila se cerraba con una
-  herramienta que ya existia en el arbol y que no se consulto
+  ninguno para construir el driver: la regla esta cerrada para el ASIC de esta
+  GPU y es trivial de implementar (`count = payload - 1`)
+
+  ALTO como metodo, y es la segunda vez que paga en esta sesion: las dos
+  preguntas de esta frontera se cerraron con una herramienta que ya estaba en el
+  arbol (`tools/pm4census.py`), sin hardware, sin captura y sin runtime. La
+  primera la cerre contradictedola con una tabla hecha a mano; la segunda,
+  siguiendo sus indications de "exige mirarlas"
 ```
 
 ## F13 · Qué son los `0x20` de `protected by` en `amdgpu_sa_info`

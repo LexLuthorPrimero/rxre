@@ -2566,6 +2566,49 @@ tienen la misma forma.
 `LAST_VERIFIED: 2026-10-02 - gfx_v8_0.c:838-864, amdgpu_ring.c:756-768,
 amdgpu_ring.h:432, bytes del anillo de compute dwords 3..6, cn7`.
 
+### Las 7 emisiones que el censo dejaba sin reconciliar: las 7 cumplen
+
+El veredicto de `pm4census` era sobre 43 de 50 emisiones, y la propia
+herramienta dice de las 7 restantes que "exige mirarlas". Miradas, una a una,
+por `grep -n`:
+
+| línea | emisión | `count` | payload escritos | ¿cumple? |
+|---|---|---|---|---|
+| 891 | `test_ib`, `WRITE_DATA` | 3 | 4 | sí |
+| 4154 | `CONTEXT_CONTROL` | 1 | 2 | sí |
+| 4331 | `SET_RESOURCES` | 6 | 7 | sí |
+| 4345 | `MAP_QUEUES` | 5 | 6 | sí |
+| 4773 | `UNMAP_QUEUES` | 4 | 5 | sí |
+| 6084 | `emit_ib_gfx` | 2 | 3 | sí |
+
+(`pm4census` marca 4779 y 6086; 4779 es el dword de payload que contiene la
+macro `PACKET3_UNMAP_QUEUES_DOORBELL_OFFSET0`, y 6086 está dentro del `if` que
+precede a la emisión.)
+
+**Las seis cumplen `payload = count + 1`. Con eso el veredicto pasa de 43 de 50
+a 50 de 50 emisiones de `gfx_v8_0.c`.**
+
+Las siete estaban sin reconciliar por **dos puntos ciegos concretos** de la
+herramienta, y ambos son comportamiento correcto:
+
+1. su patrón de escritura es `\bamdgpu_ring_write\s*\(\s*ring\b`
+   (tools/pm4census.py:218), que **solo** reconoce escrituras a una variable
+   llamada `ring`. Las emisiones de 4331, 4345 y 4773 escriben en **`kiq_ring`**,
+   y no las ve
+2. su patrón de opcode casa con `PACKET3_UNMAP_QUEUES` dentro del nombre de la
+   macro `PACKET3_UNMAP_QUEUES_DOORBELL_OFFSET0`, y toma un **dword de payload**
+   por una cabecera
+
+Lo que importa aquí es cómo la herramienta reactora eso: **`SIN MEDIR`, no un
+número inventado**. Un reconocedor que no cubre lo que existe no produce ceros
+"sin medir": produce ceros que PARECEN una medida, y eso es lo que la
+herramienta dice explícitamente evitar. Falló estrechas y a la vista; no
+falló por debajo.
+
+Ninguna de las 7 es una excepción a la regla, así que la conclusión de EV-30
+**no tiene contraejemplo en el fichero de esta GPU**.
+
+
 ## EV-18 · El anillo GFX tiene 2048 dwords y estaba vacío
 
 ```
