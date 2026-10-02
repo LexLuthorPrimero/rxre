@@ -234,6 +234,16 @@ def main():
          ["ko_immediate.py", "--compare-all"], 19, 3),
         ("ko_immediate: control negativo",
          ["ko_immediate.py", "--self-test"], 1, 1),
+        # El IP version que declara cada firmware, contrastado con los
+        # ip_block del driver. Es lo que cerro la frontera GFX_HWIP: el
+        # registro no existe en el corpus, pero la cabecera del firmware si.
+        #
+        # rc_tol=3: sin /lib/firmware/amdgpu no hay nada que leer. Es estado
+        # del entorno, no defecto del metodo.
+        ("IP version del firmware de polaris12",
+         ["fw_ipver.py", "--placa", "polaris12"], 19, 3),
+        ("fw_ipver: control negativo",
+         ["fw_ipver.py", "--self-test"], 1, 1),
         # La reserva de numeros de hallazgo. num_collision mide 37 duplicados
         # y esta sesion choco 3 veces (111, 119, 120) con otra escribiendo.
         # El self-test RESERVA y LIBERA de verdad: comprobar que el numero no
