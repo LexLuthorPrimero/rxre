@@ -5,6 +5,12 @@
 `CORPUS=RESEARCH/working/linux-7.1.3 + /lib/firmware/amdgpu/` · `HARDWARE_SCOPE=HOST-C/RX550/0000:01:00.0`
 `CIERRA=la frontera GFX_HWIP que 050 dio por sin fuente`
 `DESARROLLA=el NOT_DETERMINED de 135 sobre capacidad por ASIC`
+`CORRIGIDO_POR=182`: el grep de este hallazgo era correcto sobre la cadena
+literal, pero la INFERENCIA no lo era. El driver SI tiene version de IP del
+GFX: se llama `GC_HWIP` (amdgpu_ip.h:32) y se lee con `amdgpu_ip_version()`
+(amdgpu.h:1211). En Polaris12 ese campo vale **0**, asi que ~300 comparaciones
+de version degeneran. La conclusion de este hallazgo sigue valiendo; la
+justificacion queda corregida. Ver 182.
 
 ## Cuestión principal
 
