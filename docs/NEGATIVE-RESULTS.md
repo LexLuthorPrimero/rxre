@@ -1010,3 +1010,78 @@ CÓMO SE DETECTÓ
   no leyendo el control: MUTANDO el corpus en una copia y viendo que el control
   no caía. Un control que se lee y parece razonable no está probado
 ```
+
+## NR-2026-10-02-u · Cite la generacion de SDMA equivocada, dos veces
+
+```
+QUE PASO
+  en la primera version de EV-38 cite `sdma_v2_4.c` como la ruta SDMA de esta
+  ASIC, y lo mismo en el control de cn7 que lo verifica
+REALIDAD
+  Polaris12 instala `sdma_v3_1_ip_block` (`vi.c:2113`), que comparte
+  `sdma_v3_0_ip_funcs` (`sdma_v3_0.c:1699`). El codificador vivo es
+  `sdma_v3_0_vm_write_pte`
+CLASIFICACION
+  generacion supuesta, no leida. Y el resultado no era un error de detalle:
+  aparecio un CUARTO codificador que no estaba en la tabla, `GEN_PTEPDE`, que es
+  el de 3+ entradas y el unico con un campo "mask" en el hardware
+POR QUE OCURRIO Y POR QUE CUARTA VEZ
+  porque el nombre de fichero mas obvio ("el SDMA de GFX8 es v2_4") es el de un
+  ASIC de la MISMA familia de familia, Topaz. Es el cuarto caso de la sesion de
+  mezclar generaciones: EV-35 con `sid.h`, el control de la mascara con
+  `gmc_v6_0.c`, `pm4census` con 7.2.8, y este
+LO QUE SE HIZO, Y ES LO IMPORTANTE
+  el control ya NO lleva ningun nombre de fichero escrito. Deriva la cadena:
+  `case CHIP_POLARIS12` DENTRO de `vi_set_ip_blocks` -> bloque de SDMA -> el
+  fichero que lo define -> su `.funcs` -> la tabla `amdgpu_vm_pte_funcs` que esa
+  implementa -> `.write_pte` / `.set_pte_pde` / `.copy_pte_num_dw`
+REGLA, y es la general
+  en un control, un nombre de fichero NO es un dato: es una suposicion con
+  formato de dato. Se deriva de la ruta producer -> implementacion, que es la
+  unica forma de que el control siga siendo cierto si el driver cambia
+Y UN DEFECTO EN MI PROPIA DERIVACION
+  la primera version hacia `vi.find("case CHIP_POLARIS12:")` sobre el fichero
+  entero, y `vi.c` tiene OCHO casos de POLARIS12 en switches distintos: cogia el
+  primero, que no es `vi_set_ip_blocks`, y por eso daba `sdma_v2_4_ip_block`
+  otra vez. O sea, el control que escribia para cazar este error lo tenia
+  primero. Anclado a la funcion, y el control dice cuantas ocurrencias hay en el
+  fichero y cuantas en la funcion, para que se vea por que se ancla
+
+```
+
+## NR-2026-10-02-v · Mi control de fences media mal, y senalaba documentos que estaban bien
+
+```
+QUE PASÓ
+  cn8 exigia que ningun documento de docs/ tuviera un numero IMPAR de fences, y
+  reportaba CHANGELOG-RESEARCH.md y CURRENT-STATE.md como impares
+REALIDAD
+  los dos estan PERFECTAMENTE. La metrica contaba todas las apariciones de ```
+  en el fichero, incluidas las que estan EN MEDIO DE UNA FRASE, y yo habia
+  escrito prosa con un ``` literal ("abri un ``` sin cerrarlo")
+CLASIFICACION
+  el defecto era la METRICA, no los documentos. Un fence markdown empieza la
+  linea; uno en medio de una frase no lo es
+MEDIDA, con las dos metricas
+                     todas   solo_a_linea   inline
+  CHANGELOG            127            124        3   -> par de verdad
+  CURRENT-STATE         25             24        1   -> par de verdad
+  CONTRADICTIONS        81             81        0   -> IMPAR de verdad
+  EVIDENCE-MATRIX      225            225        0   -> IMPAR de verdad
+  MASTER-RESEARCH-...  13             13        0   -> IMPAR de verdad
+  los otros 12         pares         pares        0
+REGLA
+  un recuento tiene que contar lo que dice contar. "Cuantos fences" no es lo
+  mismo que "cuantas apariciones del delimitador", y en cuanto la respuesta se
+  usa para acusar a un fichero, la diferencia importa
+Y EL FALLO DE PROCESO, que es peor
+  dos veces en esta sesion ejecute la suite ANTES de anexar los documentos del
+  turno, y comite sin volver a correrla. Con eso, un fence roto entra en un
+  commit con la suite en verde. Esta vez el defecto loZFنيo a la metrica, pero
+  el hueco de proceso es el mismo y es el que hay que cerrar
+LO QUE SE HACE
+  1. la metrica del control ahora es "solo a linea", que es la correcta
+  2. el control nuevo informa de cuantos ``` hay en medio de una frase, para que
+     sean visibles en vez de romper la paridad en silencio
+  3. los dos sentidos estan probados: un fence de linea sin cerrar FALLA, y un
+     ``` en prosa NO FALLA

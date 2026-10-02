@@ -406,17 +406,32 @@ def main():
                     "MASTER-RESEARCH-STATUS.md"}
     F3 = chr(96) * 3
     impares = set()
+    inline = {}
     for _f in sorted(os.listdir(_docs)):
         if not _f.endswith(".md"):
             continue
         _t = open(os.path.join(_docs, _f), errors="replace").read()
-        if _t.count(F3) % 2:
+        # Un fence markdown EMPIEZA la linea. Contar todas las apariciones de
+        # ``` incluye los que estan en medio de una frase --yo escribi "abri un
+        # ``` sin cerrarlo" en prosa-- y eso roba la paridad y senala documentos
+        # que estan bien. Medido: con la metrica de "todas" CHANGLOG y
+        # CURRENT-STATE salian impares; con "solo a linea" son pares y los
+        # impares son exactamente los tres de la deuda. El defecto era la
+        # metrica, no los documentos.
+        _a = sum(1 for _l in _t.splitlines() if _l.strip().startswith(F3))
+        if _a % 2:
             impares.add(_f)
+        _in = _t.count(F3) - _a
+        if _in:
+            inline[_f] = _in
     chk("docs/: los documentos con numero IMPAR de fences son los que ya se "
         "sabian, ni uno mas ni uno menos",
         impares == DEUDA_FENCES,
         "(impares ahora: %s; deuda acreditada: %s)"
         % (sorted(impares), sorted(DEUDA_FENCES)))
+    chk("docs/: el recuento de fences es el de linea, y los ``` en medio de "
+        "una frase seAvisan en vez de romper la paridad",
+        True, "(``` en medio de frase, informativo: %s)" % (inline,))
 
     # Cabeceras duplicadas: un bloque copiado dos veces no se ve leyendo, y ya
     # me paso una vez con la correccion de F12. El unico duplicado que hay es de

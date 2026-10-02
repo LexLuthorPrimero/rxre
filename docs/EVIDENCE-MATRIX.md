@@ -3697,15 +3697,62 @@ es cierto, pero **incompleto**: no son dos codificadores, son **tres**, y
 difieren en **dos** ejes, no en uno.
 
 ```
-#  ruta        donde                                  ENMASCARA   como escribe
-1  CPU         amdgpu_gmc.c:173-175                  SI          writeq, un store de 64 bits
-2  SDMA (1 PT) sdma_v2_4.c, _vm_write_pte:197        NO          2 x 32 bits, en un paquete SDMA
-3  SDMA (lote) amdgpu_vm_sdma.c:276-279, pte[i]=...   NO          u64 armado dentro del IB
+#  ruta                      donde (VIVO para Polaris12)  ENMASCARA  como escribe
+1  CPU                       amdgpu_gmc.c:173-175        SI         writeq, 1 store de 64 bits
+2  SDMA, count<3            sdma_v3_0.c:952             NO         addr|flags por software,
+                                                            2 stores de 32 bits
+3  SDMA, count>=3           sdma_v3_0.c:982             NO         SDMA_OP_GEN_PTEPDE,
+                                                            10 dwords, y el HARDWARE
+                                                            ANDa con un campo "mask"
+4  SDMA, en lote            amdgpu_vm_sdma.c:276-279    NO         u64 armado en el IB
 ```
-El **eje que faltaba** es el ancho. La CPU hace un `writeq`; la ruta 2 parte el
-valor en **dos** stores de 32 bits (`lower_32_bits(value)`,
-`upper_32_bits(value)`) dentro de un paquete **SDMA** `SDMA_OP_WRITE` /
-`SDMA_SUBOP_WRITE_LINEAR` — que no es PM4, es el otro motor. Y la ruta 3 ni
+**CORRECCION A ESTA TABLA, hecha en la primera version de EV-38.** Cite
+`sdma_v2_4.c` y **no era la generacion de esta ASIC**. Medido:
+
+```
+vi.c:2105-2107      case CHIP_POLARIS10 / POLARIS11 / POLARIS12:
+vi.c:2113               amdgpu_device_ip_block_add(adev, &sdma_v3_1_ip_block);
+sdma_v3_0.c:1693       sdma_v3_1_ip_block { .major=3, .minor=1,
+                                           .funcs = &sdma_v3_0_ip_funcs }
+```
+
+El `write_pte` **vivo** es `sdma_v3_0_vm_write_pte`. Y hay un **cuarto**
+codificador que no estaba: `GEN_PTEPDE`.
+
+**LO QUE ELIGE LA RUTA, que es el dato util para un driver propio.**
+`amdgpu_vm_sdma.c:196`:
+
+```
+if (count < 3)   amdgpu_vm_write_pte(..., addr | flags, ...)   -> WRITE_LINEAR
+else             amdgpu_vm_set_pte_pde(..., addr, ..., flags) -> GEN_PTEPDE
+```
+
+Con **1 o 2** entradas el software hace el `addr | flags` y **no hay máscara**:
+dos stores de 32 bits por entrada. Con **3 o más** se emite `SDMA_OP_GEN_PTEPDE`,
+un paquete de **10 dwords**:
+
+```
+SDMA_OP_GEN_PTEPDE
+  pe    low, pe    high     destino
+  flags low, flags high    <- el comentario del driver lo llama "mask"
+  addr  low, addr  high    <- y este lo llama "value"
+  incr                       incremento entre entradas
+  0                          reservado
+  count                      numero de entradas
+```
+
+**Esto es lo mas relevante de la ronda.** En la ruta de 3+ el hardware recibe los
+flags **como un campo "mask"** y la direccion **sin enmascarar, como "value"**:
+el **AND lo hace el propio SDMA**. En la ruta de 1-2, en cambio, el software ya
+hizo el OR y **no hay ningun campo de mascara**. No son dos formas de escribir lo
+mismo: **expresan el contrato de forma distinta**, y solo una tiene un campo de
+mascara en el hardware.
+
+El camino de lote usa `copy_pte_num_dw = 7` (`sdma_v3_0.c:1085`), no 10.
+
+El **eje que faltaba** es el ancho: la CPU hace un `writeq`; la ruta 2 parte el
+valor en **dos** stores de 32 bits dentro de un paquete **SDMA** `SDMA_OP_WRITE` /
+`SDMA_SUBOP_WRITE_LINEAR` — que no es PM4, es el otro motor. Y la ruta 4 ni
 siquiera emite por escrito: arma el `u64` en el IB y lo copia.
 
 **EL HECHO FUERTE: la mascara tiene UNA sola lectura en todo el driver.**

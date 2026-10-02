@@ -890,24 +890,126 @@ def main():
                     errors="replace").read()
         _sdma = open(os.path.join(_AMD, "amdgpu_vm_sdma.c"),
                      errors="replace").read()
-        _s24 = open(os.path.join(_AMD, "sdma_v2_4.c"),
-                    errors="replace").read()
-        chk("EV-38: los TRES codificadores existen: writeq en CPU, split de 32 "
-            "en SDMA, y u64 armado en el IB",
-            ("writeq(value" in _gmc)
-            and ("lower_32_bits(value)" in _s24
-                 and "upper_32_bits(value)" in _s24)
+
+        # El fichero de SDMA NO se escribe aqui: se DERIVA del case del chip.
+        # Escribi "sdma_v2_4.c" a mano en la primera version de EV-38 y era la
+        # generacion equivocada -- Polaris12 instala sdma_v3_1_ip_block, que
+        # comparte sdma_v3_0_ip_funcs. Un nombre de fichero escrito a mano en un
+        # control es una generacion supuesta; este lo lee del case.
+        # El fichero de SDMA NO se escribe aqui: se DERIVA del case del chip.
+        # Escribi "sdma_v2_4.c" a mano en la primera version de EV-38 y era la
+        # GENERACION EQUIVOCADA: Polaris12 instala sdma_v3_1_ip_block, que
+        # comparte sdma_v3_0_ip_funcs. Un nombre de fichero puesto a mano en un
+        # control es una generacion supuesta.
+        #
+        # Y la version intermedia de esta derivacion tenia el defecto que el
+        # control pretendia cazar: hacia vi.find("case CHIP_POLARIS12:") sobre
+        # el fichero entero, y vi.c tiene OCHO casos de POLARIS12 en switches
+        # distintos. Agarraba el primero, que no es vi_set_ip_blocks. Medido.
+        _vi = open(os.path.join(_AMD, "vi.c"), errors="replace").read()
+        _fi = _vi.find("int vi_set_ip_blocks(")
+        _ff = _vi.find("\nint ", _fi + 10)
+        _cuerpo_vi = _vi[_fi:_ff if _ff > 0 else len(_vi)]
+        _k = _cuerpo_vi.find("case CHIP_POLARIS12:")
+        _m = re.search(r"sdma_v(\d)_(\d)_ip_block",
+                       _cuerpo_vi[_k:_k + 900]) if _k >= 0 else None
+        _bloque = ("sdma_v%s_%s_ip_block" % (_m.group(1), _m.group(2))
+                   if _m else None)
+        chk("EV-38: el case de CHIP_POLARIS12 DENTRO de vi_set_ip_blocks "
+            "instala sdma_v3_1_ip_block, y se lee del fuente",
+            _bloque == "sdma_v3_1_ip_block",
+            "(encontrado: %s; casos de POLARIS12 en vi.c: %d, en esta funcion: "
+            "%d)" % (_bloque, _vi.count("case CHIP_POLARIS12:"),
+                     _cuerpo_vi.count("case CHIP_POLARIS12:")))
+
+        # Del bloque, a su fichero y a su .funcs.
+        _impl = _pnombre = _fnombre = None
+        for _f in sorted(os.listdir(_AMD)):
+            if not _f.endswith(".c"):
+                continue
+            _t = open(os.path.join(_AMD, _f), errors="replace").read()
+            _i2 = _t.find("struct amdgpu_ip_block_version %s" % (_bloque or "@@"))
+            if _i2 < 0:
+                continue
+            _m2 = re.search(r"\.funcs\s*=\s*&(\w+)", _t[_i2:_i2 + 320])
+            if not _m2:
+                break
+            _fnombre = _m2.group(1)
+            _impl = _f
+            break
+        chk("EV-38: ese bloque vive en sdma_v3_0.c y comparte "
+            "sdma_v3_0_ip_funcs, o sea que el codificador vivo es el de v3.0",
+            _impl == "sdma_v3_0.c" and _fnombre == "sdma_v3_0_ip_funcs",
+            "(fichero=%s funcs=%s)" % (_impl, _fnombre))
+
+        # De la tabla de PTE: los punteros vivos.
+        _s = (open(os.path.join(_AMD, _impl), errors="replace").read()
+              if _impl else "")
+        _wp = _sp = _cd = None
+        # El "= {" importa: entre el nombre de la tabla y la llave hay un "=",
+        # no solo espacios. Con \s*\{ solo, la expresion no casa y todos los
+        # controles siguientes darian falso por una razon que no es la suya.
+        _m3 = re.search(r"struct amdgpu_vm_pte_funcs (\w+vm_pte_funcs)\s*=\s*\{"
+                        r"(.*?)\n\};", _s, re.S)
+        if _m3:
+            _pnombre = _m3.group(1)
+            _tabla = _m3.group(2)
+            _wp = re.search(r"\.write_pte\s*=\s*(\w+)", _tabla)
+            _sp = re.search(r"\.set_pte_pde\s*=\s*(\w+)", _tabla)
+            _cd = re.search(r"\.copy_pte_num_dw\s*=\s*(\d+)", _tabla)
+            _wp = _wp.group(1) if _wp else None
+            _sp = _sp.group(1) if _sp else None
+            _cd = int(_cd.group(1)) if _cd else None
+        chk("EV-38: la tabla de PTE viva asigna write_pte y set_pte_pde, y "
+            "declara copy_pte_num_dw = 7 (no los 10 de GEN_PTEPDE)",
+            _pnombre == "sdma_v3_0_vm_pte_funcs" and _wp and _sp and _cd == 7,
+            "(tabla=%s write_pte=%s set_pte_pde=%s copy_pte_num_dw=%s)"
+            % (_pnombre, _wp, _sp, _cd))
+
+        def _cuerpo_de(nombre):
+            _m = re.search(r"static void %s\(.*?\)\s*\{(.*?)\n\}" % nombre,
+                           _s, re.S)
+            return _m.group(1) if _m else None
+
+        _cb_write = _cuerpo_de(_wp) if _wp else None
+        _cb_gen = _cuerpo_de(_sp) if _sp else None
+        chk("EV-38: el codificador de 1-2 entradas parte el valor en dos stores "
+            "de 32 bits, con la cabecera WRITE_LINEAR",
+            _cb_write is not None
+            and "lower_32_bits(value)" in _cb_write
+            and "upper_32_bits(value)" in _cb_write
+            and "SDMA_SUBOP_WRITE_LINEAR" in _cb_write,
+            "(funcion=%s)" % (_wp,))
+
+        _ndw = len(re.findall(r"ib->ptr\[ib->length_dw\+\+\]",
+                              _cb_gen or ""))
+        chk("EV-38: el codificador de 3+ es GEN_PTEPDE, con 'mask' y 'value' "
+            "en campos separados, y son 10 dwords",
+            _cb_gen is not None and "SDMA_OP_GEN_PTEPDE" in _cb_gen
+            and _ndw == 10 and "/* mask */" in _cb_gen
+            and "/* value */" in _cb_gen,
+            "(funcion=%s ndw=%d)" % (_sp, _ndw))
+
+        chk("EV-38: el criterio de eleccion de ruta es count < 3, leido de "
+            "amdgpu_vm_sdma.c",
+            re.search(r"if \(count < 3\)", _sdma) is not None,
+            "(amdgpu_vm_sdma.c contiene 'if (count < 3)')")
+
+        chk("EV-38: los CUATRO codificadores existen: writeq en CPU, split de "
+            "32 en SDMA, GEN_PTEPDE con campo mask, y u64 armado en el IB",
+            ("writeq(value" in _gmc) and (_cb_write is not None)
+            and (_cb_gen is not None)
             and ("pte[i] = amdgpu_vm_map_gart" in _sdma),
-            "(writeq=%s split=%s en_ib=%s)"
-            % ("writeq(value" in _gmc,
-               "lower_32_bits(value)" in _s24,
-               "pte[i] = amdgpu_vm_map_gart" in _sdma))
+            "(writeq=%s split=%s gen=%s en_ib=%s)"
+            % ("writeq(value" in _gmc, _cb_write is not None,
+               _cb_gen is not None, "pte[i] = amdgpu_vm_map_gart" in _sdma))
+
         chk("EV-38: las rutas SDMA NO enmascaran; solo la CPU lo hace",
             ("addr | flags" in _sdma or "addr|flags" in _sdma)
             and "pte_addr_mask" not in _sdma
-            and "pte_addr_mask" not in _s24,
-            "(amdgpu_vm_sdma.c menciona la mascara: %s; sdma_v2_4.c: %s)"
-            % ("pte_addr_mask" in _sdma, "pte_addr_mask" in _s24))
+            and "pte_addr_mask" not in _s,
+            "(amdgpu_vm_sdma.c menciona la mascara: %s; %s: %s)"
+            % ("pte_addr_mask" in _sdma, _impl, "pte_addr_mask" in _s))
 
     print("-" * 62)
     if FALLOS:

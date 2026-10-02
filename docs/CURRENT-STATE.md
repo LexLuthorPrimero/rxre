@@ -536,3 +536,44 @@ Corregido, y con mutación que ahora sí lo cae.
 **Y el control de fences de la ronda anterior me cazó a mí**: abrí un ``` sin
 cerrar en el NR nuevo, y `cn8` lo vio en la misma pasada. Antes habría entrado con
 la suite en verde.
+
+---
+
+## Ronda 2026-10-02 (tarde 7) · EV-38bis · cuatro codificadores, y el hardware tiene un campo "mask"
+
+Al revisar EV-38 comprobé si había repetido el error de generación. Lo había, y
+**dos veces**: en la tabla y en el control.
+
+**Polaris12 instala `sdma_v3_1_ip_block`** (`vi.c:2113`), que comparte
+`sdma_v3_0_ip_funcs`. El codificador vivo es **`sdma_v3_0_vm_write_pte`**, no el
+de `sdma_v2_4` que yo citaba — ese es el de Topaz, otro ASIC de la misma familia.
+
+**Y apareció un cuarto codificador**, que es el que de verdad importa:
+
+| ruta | dónde | enmascara | cómo escribe |
+|---|---|---|---|
+| CPU | `amdgpu_gmc.c:173-175` | **sí** | `writeq` |
+| SDMA `count<3` | `sdma_v3_0.c:952` | no | `addr|flags` por software, split de 32 bits |
+| SDMA `count>=3` | `sdma_v3_0.c:982` | no | `SDMA_OP_GEN_PTEPDE`, 10 dwords, con campo **`mask`** y campo **`value`** |
+| SDMA en lote | `amdgpu_vm_sdma.c:276-279` | no | `u64` armado en el IB |
+
+**El criterio es `count < 3`**. Con 1–2 entradas el software hace el OR y **no hay
+máscara**. Con **3+**, el hardware recibe los flags **como campo "mask"** y la
+dirección **sin enmascarar como "value"**: **el AND lo hace el propio SDMA**.
+
+**Los dos caminos no son dos formas de escribir lo mismo**: uno dice "valor ya
+combinado" y el otro "máscara de hardware + valor". Solo uno tiene un campo de
+máscara en el hardware, y para un driver propio esa es una decisión de diseño, no
+un detalle de codificación. El de lote usa `copy_pte_num_dw = 7`.
+
+**El control ya no lleva nombres de fichero a mano**: deriva del `case` del chip
+al bloque, de ahí al fichero, de ahí a `.funcs`, y de ahí a la tabla de PTE. Y
+**esa derivación tuvo al principio el defecto que pretendía cazar**: `vi.c` tiene
+ocho `case CHIP_POLARIS12` en switches distintos, y yo agarraba el primero.
+Anclado a la función.
+
+Es la **cuarta** vez en la sesión que mezclar generaciones produce un falso
+positivo: `sid.h` en EV-35, `gmc_v6_0.c` en el control de la máscara,
+`pm4census` con 7.2.8, y ahora el SDMA. La regla que sale es una sola: **en un
+control, un nombre de fichero no es un dato, es una suposición con formato de
+dato.**

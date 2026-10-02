@@ -2331,3 +2331,67 @@ la ruta **CPU enmascara `pt` a `pte_addr_mask`** (`amdgpu_gmc.c:171`) mientras l
 ruta **SDMA guarda `addr|flags` sin enmascarar** (`amdgpu_vm_sdma.c:197`). Los dos
 escritores codifican la direccion distinto. Registrado, pendiente de verificar
 con mis propias vias.
+
+---
+
+## 2026-10-02 · opencode · EV-38bis · el codificador vivo es el de SDMA v3.0, y hay un cuarto
+
+```
+OBJECT   docs/EVIDENCE-MATRIX.md (EV-38), revkit/cn7.py
+ACTION   CORRECTION de mi propia cita + NEW codificador + control que DERIVA
+ORIGEN   comprobar si habia repetido el error de generacion, al revisar EV-38
+```
+
+**OLD STATE → NEW STATE**
+
+- EV-38 citaba `sdma_v2_4.c` como la ruta SDMA de esta ASIC. → NEW: es la
+  **generación equivocada**. Medido: `vi.c:2113` instala `sdma_v3_1_ip_block`
+  para `CHIP_POLARIS12`, y ese bloque comparte `sdma_v3_0_ip_funcs`
+  (`sdma_v3_0.c:1699`). El codificador vivo es `sdma_v3_0_vm_write_pte`.
+- EV-38 decía **tres** codificadores. → NEW: son **cuatro**, y el que faltaba es
+  el más importante:
+
+```
+ruta                donde (VIVO)                ENMASCARA   como escribe
+CPU                 amdgpu_gmc.c:173-175       SI          writeq
+SDMA count<3        sdma_v3_0.c:952            NO          addr|flags por software,
+                                                          split de 32 bits
+SDMA count>=3       sdma_v3_0.c:982            NO          SDMA_OP_GEN_PTEPDE,
+                                                          10 dwords, con campo
+                                                          "mask" y campo "value"
+SDMA en lote        amdgpu_vm_sdma.c:276-279   NO          u64 armado en el IB
+```
+
+- → NEW: el criterio de elección es **`count < 3`** (`amdgpu_vm_sdma.c:196`).
+  Con 1–2 entradas el software hace el OR y **no hay máscara**. Con **3+** el
+  hardware recibe los flags **como campo "mask"** y la dirección **sin
+  enmascarar, como "value"**: **el AND lo hace el propio SDMA**.
+- → NEW: el camino de lote usa `copy_pte_num_dw = 7`, no 10.
+
+**Lo que esto significa para un driver propio**: los dos caminos SDMA **no son
+dos formas de escribir lo mismo**. Uno expresa el contrato como "valor ya
+combinado" y el otro como "máscara hardware + valor". Quien escriba el suyo tiene
+que elegir cuál de las dos semánticas reproduce, y **solo una tiene un campo de
+máscara en el hardware**.
+
+**El control dejó de llevar nombres de fichero escritos a mano** (`NR-2026-10-02-u`).
+Ahora deriva: `case CHIP_POLARIS12` **dentro de** `vi_set_ip_blocks` → bloque de
+SDMA → fichero que lo define → `.funcs` → tabla `amdgpu_vm_pte_funcs` →
+`.write_pte`, `.set_pte_pde`, `.copy_pte_num_dw`.
+
+**Y mi derivación tuvo el defecto que pretendía cazar**: la primera versión
+buscaba `case CHIP_POLARIS12:` en el fichero entero, y `vi.c` tiene **ocho**
+casos en switches distintos; cogía el primero, que no es `vi_set_ip_blocks`, y
+volvía a dar `sdma_v2_4_ip_block`. Anclado a la función.
+
+**VALIDACIÓN POR MUTACIÓN**
+
+```
+M1  la ruta SDMA consulta la mascara                    4 controles FALLAN
+M2  la mascara de gmc_v8_0 a 36 bits                   2 controles FALLAN
+M3  el case de POLARIS12 instala sdma_v4_0 (Navi)       4 controles FALLAN
+M4  copy_pte_num_dw pasa a 10                           1 control   FALLAN
+original                                                 97 OK, rc=0
+```
+
+`check.sh` 35 | `cn7` 97 | `cn8` 32 | `selfcheck` 30/30. GPU INTACTA.
