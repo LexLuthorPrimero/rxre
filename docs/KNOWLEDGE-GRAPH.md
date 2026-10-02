@@ -594,3 +594,49 @@ Las dos Caras son punteros a funcion, y las dos son invisibles a `grep`.
 esta definida y no la invoca nadie en el driver: `PROVEN_ABSENT` de llamadores,
 comprobado sobre todo el arbol. No es una obligacion para un driver propio en esta
 version, aunque el nombre sugiera lo contrario.
+
+## 15 · La cadena de arranque de Polaris12: por que GMC va antes que todo lo demas
+
+`2026-10-02` · EV-43 · `PROVEN` por lectura para el orden, `NOT_DETERMINED` para el
+exito individual
+
+La cadena que faltaba entre `item 1 (device init)` y `item 4 (VRAM)`, con la razon
+escrita por el propio driver:
+
+```
+PCI probe -> vi_set_ip_blocks (9 bloques, EV-40/EV-42)
+   |
+   +-> early_init x9                    en orden de bloque 0..8
+   |
+   +-> sw_init x9
+   |     y DENTRO del bucle, y esto es lo no obvio:
+   |       vi_common.hw_init   [COMMON]  "so everything is set up for gmc"
+   |       gmc_v8_1.hw_init    [GMC]     "so we can allocate gpu mem"
+   |              |
+   |              +--> SIN ESTO NO HAY RESERVA DE MEMORIA DE GPU
+   |                  y por tanto no hay ni ring, ni IB, ni page table
+   |                  Todo lo demas depende de este nodo.
+   |
+   +-> tonga_ih.hw_init      [IH]        en phase1 (el unico que phase1 alcanza aqui)
+   +-> amdgpu_device_fw_loading           <-- el firmware se carga ANTES
+   +-> hw_init_phase2 (sin filtro de tipo)
+   |     gfx_v8_0, sdma_v3_1, pp_smu, dm, uvd_v6_3, vce_v3_4
+   +-> late_init x9
+```
+
+**EL NODO CRITICO DEL GRAFO NO ES UN BLOQUE, ES UNA CONDICION DE ORDEN.** `gmc_v8_1`
+no es "importante": es el primero que hace posible la memoria. Y su propia
+inicializacion depende de `vi_common`, asi que el orden de los dos primeros bloques
+no es estetico, es un requisito. Cualquier reordenacion de mi driver tiene que
+respetar `COMMON antes que GMC antes que el resto`, o no habra memoria.
+
+**Y LA PARTICIPACION ES DATO, NO CODIGO.** `amdgpu_ip_member_of_hwini` lee
+`adev->init_lvl->hwini_ip_block_mask`, una mascara de `uint32_t` con un bit por tipo
+de bloque. Los tres niveles viven en `amdgpu_device.c:161-182`. En `DEFAULT` es
+`AMDGPU_IP_BLK_MASK_ALL`. Para un driver propio, la pregunta "que bloques existen" y
+la pregunta "en que orden se inicializan" estan **en tablas distintas**, y las dos
+hay que fijarlas: `vi.c` para la primera, `init_lvl` para la segunda.
+
+**LIMITE DE ESTE NODO.** El orden es `PROVEN`; que cada `hw_init` individual
+devolviera 0 en este arranque es `NOT_DETERMINED`, porque `status.hw` por bloque no
+se ha leido. Que los nueve bloques se instanciaron si es `OBSERVED` (EV-42).

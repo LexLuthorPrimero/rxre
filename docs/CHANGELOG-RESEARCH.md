@@ -2858,3 +2858,64 @@ un rango de revision), asi que el rev 0xc7 de la placa es irrelevante para la
 identificacion del ASIC. Casi lo doy por raro al verlos.
 
 GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 2 (solo lectura). MODIFICATIONS 0.
+
+---
+
+## 2026-10-02 · opencode · EV-43: el orden de arranque, y por que dos bloques se adelantan
+
+```
+OBJECT   docs/CURRENT-STATE.md, docs/KNOWLEDGE-GRAPH.md
+ACTION   EVIDENCE (cadena de arranque, leida) + LIMIT (exito individual no medido)
+TRACK    STATIC · WRITE_EXECUTION=NONE · MODIFICATIONS_CORPUS=0 · GPU INTACTA
+```
+
+**LA SECUENCIA, Y NO ES PLANA.** early_init x9, luego sw_init x9, y **DENTRO** del
+bucle de sw_init se hardware-inicializan COMMON y GMC. Despues phase1, luego
+`amdgpu_device_fw_loading`, luego phase2, luego late_init x9.
+
+**LA RAZON ESTA ESCRITA EN EL CODIGO, Y ES LA QUE FALTABA.** "need to do common hw
+init early so everything is set up for gmc" y "need to do gmc hw init early so we can
+allocate gpu mem". O sea: **COMMON antes que GMC para que todo este listo, y GMC antes
+que el resto porque hasta que GMC no esta arriba no se puede reservar memoria de
+GPU.** Para un driver propio esa es la cadena item 1 -> item 4 del universo, y es la
+primera vez que esta escrita con su causa. Si se reordena, no hay memoria.
+
+**DOS COSAS QUE NO SON LO QUE APARENTAN.**
+
+- **`hw_init_phase1` no es un barrido general**: tiene un filtro por tipo. Solo
+  llama hw_init a COMMON, a PSP **pero solo si es SR-IOV VF**, y a IH. Y salta lo
+  que ya tenga `status.hw`. Como COMMON y GMC ya lo tienen desde el bucle de sw_init,
+  **en esta placa phase1 solo alcanza a tonga_ih**. Leyendo "phase1 luego phase2"
+  como dos barridos genericos habria asignado mal el orden de tres bloques.
+- **`hw_init_phase2` si es el general**: mismos guards, sin filtro de tipo.
+
+**EL ORDEN DE hw_init AQUI:** vi_common, gmc_v8_1 (ambos dentro del bucle de sw_init),
+tonga_ih (phase1), y gfx_v8_0, sdma_v3_1, pp_smu, dm, uvd_v6_3, vce_v3_4 en phase2.
+De ahi sale algo que no habia visto: **GFX y SDMA se inicializan por hardware
+DESPUES de cargar el firmware**, porque fw_loading esta entre phase1 y phase2 (2403).
+Para mi driver el firmware es precondicion del hardware de graficos, no un detalle de
+orden.
+
+**Y LA PARTICIPACION ES UNA TABLA, NO CODIGO.** `amdgpu_ip_member_of_hwini` lee
+`adev->init_lvl->hwini_ip_block_mask`, una mascara con un bit por tipo. Los tres
+niveles estan en amdgpu_device.c:161-182; en DEFAULT es AMDGPU_IP_BLK_MASK_ALL, asi
+que en esta placa participan los nueve. El nivel restringido (GMC|SMC|COMMON|IH|PSP)
+es solo para reset de hive XGMI antes del primer uso, y Polaris12 no tiene XGMI.
+**Para un driver propio, "que bloques existen" esta en `vi.c` y "en que orden se
+inicializan" esta en `init_lvl`: son dos tablas distintas y hay que fijarlas las
+dos.**
+
+**EL LIMITE, DICHO.** El orden es PROVEN por lectura. Que las nueve llamadas
+devolvieran exito en este arranque es NOT_DETERMINED, porque `status.hw` por bloque
+no lo he leido. Que los nueve bloques se instanciaron si es OBSERVED (EV-42). No
+confunde una cosa con otra.
+
+**Y UN ARREGLO DE HERRAMIENTA MIA.** Esta vez escribi los bloques de codigo con un
+marcador ````` en vez de ````` en linea. Es la **segunda vez** que
+ese cierre de cadena mal puesto me costo un ciclo entero, y la razon es que el error
+vive dentro de la propia sintaxis del script: un `ast.parse` previo lo detecta, pero
+yo no lo estaba haciendo siempre. Con el marcador desaparece la clase de error, no
+solo elINSTANCE.
+
+check.sh 39 | cn7 97 | cn8 33 | gfx8blocks 24/24 | gchwip_alcance 21/21.
+GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.

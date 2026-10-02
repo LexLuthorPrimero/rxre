@@ -925,3 +925,96 @@ no eran la captura.** Mis dos regex de busqueda ademas habian descartado dos lin
 por un **espacio doble** entre `>` y `(`. Con la captura real, la contradiccion se
 disuelve en un comando. **Un recorte no es una captura, y una linea que no aparece
 en mis grep no es una linea que no exista.** Novena vez.
+
+## Ronda 2026-10-02 (tarde 13) · EV-43 · el orden de inicializacion de los nueve
+bloques, y por que dos se adelantan
+
+`TRACK=STATIC` · `WORK_CLASS=READ_ONLY/EVIDENCE` · `WRITE_EXECUTION=NONE`
+`MODIFICATIONS_CORPUS=0` · `RUNTIME=NOT_RUN` · `GPU INTACTA`
+`CORPUS=RESEARCH/baseline/linux-7.1.3` · `DESARROLLA=EV-40 y EV-42`
+
+**LO QUE PONE EN ORDEN A LOS NUEVE.** La secuencia autoritativa esta en
+`amdgpu_device.c`, y **no es una secuencia plana de fases**: hay bloques que se
+hardware-inicializan **dentro** del bucle de `sw_init`, antes de que existan las
+fases.
+
+```
+amdgpu_device_ip_early_init      amdgpu_device.c:1926  (invocado en 3861)
+    -> early_init de los 9, en orden de bloque 0..8
+amdgpu_device_ip_init            amdgpu_device.c:2299  (invocado en 4019)
+    2304  amdgpu_ras_init
+    2308  bucle sobre los 9 bloques, en orden:
+            sw_init de cada uno                        (2311-2312)
+            y DENTRO del mismo bucle, por tipo:
+              COMMON -> hw_init                        (2327-2335)
+              GMC    -> hw_init                        (2336...)
+    2399  amdgpu_device_ip_hw_init_phase1
+    2403  amdgpu_device_fw_loading
+    2407  amdgpu_device_ip_hw_init_phase2
+amdgpu_device_ip_late_init       amdgpu_device.c:2668  (invocado en 4058)
+    -> late_init de los 9
+```
+
+**POR QUE DOS SE ADELANTAN, Y ESTA ESCRITO EN EL CODIGO, NO INFERIDO**
+
+```
+2327  if (type == AMD_IP_BLOCK_TYPE_COMMON) {
+2328      /* need to do common hw init early so everything is set up for gmc */
+2336  } else if (type == AMD_IP_BLOCK_TYPE_GMC) {
+2337      /* need to do gmc hw init early so we can allocate gpu mem */
+```
+
+O sea la causalidad, dicha por el propio driver: **COMMON antes que GMC** para que
+todo este preparado, y **GMC antes que el resto** porque hasta que GMC no esta
+arriba **no se puede reservar memoria de GPU**. Para un driver propio esa es la
+cadena `item 1 -> item 4` del universo de investigacion, y es la primera vez que
+esta escrita con su razon.
+
+**Y DOS COSAS QUE NO SON LO QUE APARENTAN.**
+
+1. **`hw_init_phase1` no inicializa hardware "en general": tiene un filtro por
+   tipo.** `amdgpu_device.c:2129-2131` solo llama `hw_init` a **COMMON**, a **PSP
+   pero solo si es SR-IOV VF**, y a **IH**. Y ademas salta lo que ya tenga
+   `status.hw` puesto (2124). Como COMMON y GMC ya lo tienen desde el bucle de
+   `sw_init`, en esta placa **phase1 solo alcanza a `tonga_ih`**. Si hubiera leido
+   "phase1 luego phase2" como dos barridos genericos, habria asignado mal el orden
+   de tres bloques.
+2. **`hw_init_phase2` si es el general**: mismos tres guards (`status.sw`,
+   `status.hw`, `member_of_hwini`) pero **sin filtro de tipo** (2151-2167).
+
+**EL ORDEN DE `hw_init` EN ESTA PLACA, POR TANTO**
+
+```
+1  vi_common   (bloque 0, COMMON)   dentro del bucle de sw_init
+2  gmc_v8_1    (bloque 1, GMC)      dentro del bucle de sw_init
+3  tonga_ih    (bloque 2, IH)       en phase1
+4  el resto, en phase2 y en orden de bloque:
+   gfx_v8_0 (3), sdma_v3_1 (4), pp_smu (5), dm (6), uvd_v6_3 (7), vce_v3_4 (8)
+```
+O sea que **GFX y SDMA se inicializan por hardware DESPUES de cargar el
+firmware** (`amdgpu_device_fw_loading` esta entre phase1 y phase2, linea 2403). Para
+un driver propio eso significa que el firmware es una precondicion del hardware de
+graficos, no un detalle de orden.
+
+**Y LA PARTICIPACION NO ES ESTATICA: ES UNA MASCARA DE RUNTIME.**
+`amdgpu_ip_member_of_hwini` (`amdgpu_device.c:190-194`) es
+`adev->init_lvl->hwini_ip_block_mask & (1U << block)`, y hay tres niveles:
+
+```
+amdgpu_init_default        161   .hwini_ip_block_mask = AMDGPU_IP_BLK_MASK_ALL
+amdgpu_init_recovery       166   .hwini_ip_block_mask = AMDGPU_IP_BLK_MASK_ALL
+amdgpu_init_minimal_xgmi   176   GMC | SMC | COMMON | IH | PSP
+```
+En un arranque normal (`AMDGPU_INIT_LEVEL_DEFAULT`) **participan los nueve**, asi que
+en esta placa no queda ninguno fuera. El nivel restringido es solo para reset de una
+hive XGMI antes del primer uso, y **Polaris12 no tiene XGMI**, asi que no aplica
+aqui. **Esto no es una lista de tipos escrita en el codigo: es una tabla de datos, y
+para un driver propio esa tabla es exactamente lo que habria que fijar.**
+
+**LIMITE.** El orden de las fases es `PROVEN` por lectura. **Que las nueve llamadas
+hayan ocurrido con exito en este arranque es `OBSERVED` solo para el hecho de que los
+nueve bloques se instanciaron** (EV-42); el exito de cada `hw_init` individual no se
+ha comprobado, y `status.hw` por bloque no se ha leido. Es `NOT_DETERMINED`, no
+`PROVEN`.
+
+`GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.`
