@@ -191,6 +191,9 @@ if [ -f capturas/amdgpu_vbios.txt ]; then
     # contra la VRAM real. Si el layout estuviera mal, caerian fuera y daria
     # rc=5, asi que el contraste discrimina de verdad.
     run "pm4dec: direcciones de GPU vs VRAM"        python3 pm4dec.py capturas/amdgpu_ring_gfx.txt --direcciones
+    # escribe: los WRITE_DATA del anillo. dst_sel=0 significa REGISTRO, no
+    # memoria, y la direccion se resuelve contra el bloque del ASIC correcto.
+    run "pm4dec: WRITE_DATA (a que escribe)"         python3 pm4dec.py capturas/amdgpu_ring_gfx.txt --escribe
     # ibpools: analiza amdgpu_sa_info, que son los buffers de IB del driver
     # con direcciones FISICAS del sistema. Lleva autocomprobacion dentro:
     # avisa si no interpreta todas las lineas, si hay mas de un IB en uso por

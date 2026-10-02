@@ -648,7 +648,70 @@ patron.
 
 ---
 
-## 12. ERRORES PROPIOS ENCONTRADOS EN ESTA SESION
+## 13. WRITE_DATA: EL ANILLO ESCRIBE EN UN REGISTRO, NO EN MEMORIA
+
+Ocho `PACKET3_WRITE_DATA` en el anillo capturado, todos iguales:
+
+| campo | valor | significado (sid.h:378-388) |
+|---|---|---|
+| `dst_sel` | 0 | **registro**, no memoria |
+| `WR_CONFIRM` | 1 | espera de confirmacion |
+| `engine` | 1 | PFP |
+| direccion | `0x00000BCC` | offset del mapa de registros |
+
+`dst_sel == 0` significa registro segun el comentario de `sid.h:379`.
+Distinto de 0 es memoria via GRBM. Aqui es 0, y la direccion cae en el
+rango de registros del ASIC: coherente.
+
+### `0xBCC` = `mmHDP_DEBUG0`
+
+Resuelto por coherencia entre generaciones del bloque OSS. Cinco ficheros
+del corpus definen ese offset igual:
+
+```
+oss_1_0_d.h      oss_2_0_d.h      oss_2_4_d.h
+oss_3_0_d.h      oss_3_0_1_d.h        ->  mmHDP_DEBUG0 = 0xbcc
+```
+
+`PROVEN`: no es que no haya nombre, es que un offset corto como `0xbcc`
+existe en varios bloques (DCE, GC, MMHUB tambien lo definen) y en varias
+generaciones, y el indice hay que filtrarlo por ASIC.
+
+**El anillo escribe en un registro de depuracion del HDP, ocho veces, con
+confirmacion de escritura.** Eso no estaba en ninguna deduccion anterior.
+
+### El `0xDEADBEEF` que NO esta
+
+`gfx_v8_0.c:891-894` emite un `WRITE_DATA` con valor `0xDEADBEEF`. Se
+busco en el anillo capturado: **cero apariciones**.
+
+Ese codigo es un test unitario, no la secuencia de trabajo. Concluir que
+"el anillo escribe DEADBEEF" porque el driver lo hace en un test seria
+importar un dato de un test a una medicion. Se busco de verdad y no esta,
+y eso queda escrito en la salida del propio tool.
+
+### El patron de fondo: el driver escribe mas de lo que declara
+
+Este es el **cuarto** paquete con el mismo defecto:
+
+| paquete | declara | escribe |
+|---|---|---|
+| `WAIT_REG_MEM` | 5 | 6 |
+| `COND_EXEC` | 3 | 5 |
+| `INDIRECT_BUFFER` | 2 | 3 |
+| `WRITE_DATA` | 3 | 4 |
+
+En los cuatro, el ultimo dword escrito queda **fuera del conteo declarado**.
+No es un error del decodificador: el codigo fuente lo hace asi, en cuatro
+sitios distintos de cuatro emisores distintos.
+
+Que el hardware lo lea o no es `NOT_DETERMINED`. Lo que si se sabe es que
+el valor esta en el buffer, en el orden correcto, y que el campo `count` no
+lo cuenta.
+
+---
+
+## 14. ERRORES PROPIOS ENCONTRADOS EN ESTA SESION
 
 Se anotan porque el patron se repite y conviene reconocerlo.
 
@@ -833,3 +896,29 @@ Se anotan porque el patron se repite y conviene reconocerlo.
     no comparando dos lecturas que yo mismo habia desalineado. La lectura
     original era correcta; la duda era mia. `pm4dec` ahora dice explicitamente
     que `idx` es indice de palabra y que el de anillo es `idx - 3`.
+
+21. **Traer un dato de un test unitario a una medicion.** Cite
+    `gfx_v8_0.c:891-894`, que emite un `WRITE_DATA` con `0xDEADBEEF`, y me
+    puse a buscar ese `0xDEADBEEF` en el anillo esperando encontrarlo.
+
+    No esta. Ese codigo es un test. Cuando el valor buscado no aparece, lo
+    informativo no es "el dato es raro" sino "estaba mirando el sitio
+    equivocado". Ahora el tool busca el `0xDEADBEEF` de verdad y dice que no
+    esta, con el motivo.
+
+22. **Contar de memoria lo que un script puede contar.** Escribi "tres
+    ficheros definen mmHDP_DEBUG0 = 0xbcc" porque habia visto tres. Al
+    comprobarlo con grep eran **cinco** (faltaban `oss_1_0_d.h` y `oss_3_0`).
+
+    Peor: habia puesto los nombres hardcodeados en el propio tool, que es
+    exactamente el error que el kit viene corrigiendo en todas partes. Ahora
+    `_mm_por_offset()` los lee del corpus en cada ejecucion.
+
+23. **Tomar la primera coincidencia de un indice sin filtrar.** `dires.py
+    0xbcc` devuelve `mmDCP3_DC_LUT_WHITE_OFFSET_RED` (DCE),
+    `regTCX_UE_ERR_STATUS_HI` (GC) y `regVM_INVALIDATE_ENG9_REQ` (MMHUB)
+    antes que el nombre correcto. Los tres son reales y de otros ASICs.
+
+    Un indice que cruza 30 ASICs no puede devolver "el primero que aparezca".
+    Lo que demuestra el nombre correcto es que **varias versiones del mismo
+    bloque** dan el mismo offset, no que exista una coincidencia.

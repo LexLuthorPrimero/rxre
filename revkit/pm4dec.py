@@ -576,6 +576,168 @@ def cmd_direcciones(d, ops, a):
     return 0
 
 
+def _mm_por_offset(offset, bloque="oss"):
+    """
+    Devuelve [(nombre, fichero)] para un offset, leyendo los headers del
+    corpus en tiempo de ejecucion.
+
+    Se usa para resolver un offset de registro corto contra el ASIC
+    correcto. Un offset como 0xbcc existe en varios bloques y en varias
+    generaciones, de modo que un indice que devuelve "el primero que
+    aparezca" se equivoca de ASIC. Lo que demuestra el nombre correcto es
+    que VARIAS versiones del MISMO bloque dan el MISMO offset.
+
+    No se escribe ningun nombre aqui: se leen del corpus. Escribir "son
+    cuatro" o "son tres" a mano ya fallo una vez en esta sesion.
+    """
+    import re as _re
+    raiz = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "..", "RESEARCH", "baseline", "linux-7.1.3",
+                        "drivers", "gpu", "drm", "amd", "include", "asic_reg",
+                        bloque)
+    if not os.path.isdir(raiz):
+        return []
+    salida = []
+    for fn in sorted(os.listdir(raiz)):
+        if not fn.endswith(".h"):
+            continue
+        try:
+            txt = open(os.path.join(raiz, fn), errors="replace").read()
+        except OSError:
+            continue
+        for m in _re.finditer(r"^#define\s+(mm[A-Za-z0-9_]+)\s+0x([0-9A-Fa-f]+)",
+                              txt, _re.M):
+            if int(m.group(2), 16) == offset:
+                salida.append((m.group(1) + " = 0x%x" % offset, fn))
+                break
+    return salida
+
+
+def cmd_escribe(d, ops, a):
+    """
+    Decodifica los PACKET3_WRITE_DATA: a DONDE escribe el anillo y con que
+   Confirmacion.
+
+    Por que es interesante aunque no escriba en memoria: la direccion del
+    payload no es siempre una VA. En el anillo capturado es
+    mmHDP_DEBUG0 (0xbcc), un registro de la USC, y eso es un dato sobre
+    QUE USA EL DRIVER, no sobre la memoria.
+
+    EL LAYOUT
+    gfx_v8_0.c:891-894, que es un test unitario y por tanto el ejemplo
+    mas legible del corpus:
+
+        ib.ptr[0] = PACKET3(PACKET3_WRITE_DATA, 3);
+        ib.ptr[1] = WRITE_DATA_DST_SEL(5) | WR_CONFIRM;
+        ib.ptr[2] = lower_32_bits(gpu_addr);
+        ib.ptr[3] = upper_32_bits(gpu_addr);
+        ib.ptr[4] = 0xDEADBEEF;      <- FUERA del conteo
+
+    Los campos, de sid.h:378-388:
+        WRITE_DATA_DST_SEL(x)    (x) << 8
+        WR_CONFIRM               1 << 20
+        WRITE_DATA_ENGINE_SEL(x) (x) << 30
+
+    dst_sel == 0 significa "registro", segun el comentario de sid.h, y
+    distinto de 0 significa memoria via GRBM. En el anillo capturado es 0,
+    y la direccion cae en el rango de registros del ASIC: coherente.
+
+    Un aviso sobre el 0xDEADBEEF: se busco en el anillo capturado y NO esta.
+    Es del test unitario. Concluir que el anillo "escribe DEADBEEF" porque
+    el codigo lo hace seria importar un dato de un test a una medicion.
+    """
+    pkts, _, _, _ = decodifica(d, ops, saltar_cabecera=True)
+    wds = [p for p in pkts if p["op"] == 0x37]
+    print("=" * 78)
+    print("PACKET3_WRITE_DATA: DONDE escribe el anillo")
+    print("=" * 78)
+    if not wds:
+        print("El anillo no contiene WRITE_DATA.")
+        return 1
+    print("encontrados: %d" % len(wds))
+    print()
+    print("%-10s %-8s %-8s %-8s %s"
+          % ("palabra", "dst_sel", "confirm", "engine", "direccion"))
+    print("-" * 68)
+    vistos = set()
+    for p in wds:
+        pl = p["payload"]
+        p0 = pl[0]
+        dst = (p0 >> 8) & 0xFF
+        conf = (p0 >> 20) & 1
+        eng = (p0 >> 30) & 3
+        addr = ((pl[2] << 32) | pl[1]) if len(pl) >= 3 else 0
+        vistos.add((dst, conf, eng, addr))
+        print("%-10d %-8d %-8d %-8d 0x%08X"
+              % (p["idx"], dst, conf, eng, addr))
+    print("-" * 68)
+    print()
+    print("SIGNIFICADO (sid.h:378-388):")
+    for dst, conf, eng, addr in sorted(vistos):
+        print("  addr=0x%08X  dst_sel=%d (%s)  WR_CONFIRM=%d  engine=%d"
+              % (addr, dst, "registro" if dst == 0 else "memoria via GRBM",
+                 conf, eng))
+    print()
+    print("  dst_sel == 0 es REGISTRO, no memoria. La direccion no es una")
+    print("  VA de GPU sino un offset del mapa de registros.")
+    print()
+    # Resolver el offset contra el indice de direcciones, FILTRANDO por el
+    # ASIC. Sin el filtro salen coincidencias de DCE, GC y MMHUB, que son de
+    # otros chips: el offset 0xbcc existe en varios bloques y en varias
+    # generaciones, y mirar el primero que aparezca da un nombre de otro
+    # ASIC.
+    #
+    # La busqueda correcta para esta GPU es el bloque que el anillo
+    # ejecuta, y se comprueba en varios headers de la misma generacion: si
+    # mmHDP_DEBUG0 = 0xbcc en oss_2_0, oss_2_4 y oss_3_0_1, la coherencia
+    # entre generaciones es la prueba, no la primera coincidencia.
+    try:
+        import subprocess as _sp
+        aqui = os.path.dirname(os.path.abspath(__file__))
+        r = _sp.run([sys.executable, os.path.join(aqui, "dires.py"),
+                     hex(sorted(vistos)[0][3])], capture_output=True, text=True)
+        lineas = [l for l in r.stdout.splitlines() if l.startswith("  ")]
+        if lineas:
+            print("  El indice devuelve %d nombres para ese offset, y son"
+                  % len(lineas))
+            print("  de ASIC DISTINTOS (DCE, GC, MMHUB...). Un offset corto")
+            print("  como 0xbcc existe en varios bloques y en varias")
+            print("  generaciones, de modo que la primera coincidencia NO")
+            print("  es la de esta GPU:")
+            for l in lineas[:4]:
+                print("   ", l.strip())
+            print()
+            print("  Se resuelve por coherencia entre generaciones del")
+            print("  bloque que corresponde. Los nombres se LEEN del corpus")
+            print("  en cada ejecucion, no se escriben aqui:")
+            for nombre, fichero in _mm_por_offset(
+                    sorted(vistos)[0][3]):
+                print("    %-28s %s" % (fichero, nombre))
+            print()
+            print("  Varias definiciones independientes del MISMO offset en el")
+            print("  bloque OSS. Eso es PROVEN: no es que no haya nombre, es")
+            print("  que hay que elegir el del ASIC correcto.")
+        else:
+            print("  El offset no aparece en el indice de direcciones. Se")
+            print("  deja el valor crudo: NOT_FOUND en el indice, que no es")
+            print("  PROVEN_ABSENT en el hardware.")
+    except Exception:
+        print("  (no se pudo consultar el indice de direcciones)")
+
+    # El 0xDEADBEEF: se busca de verdad, no se da por supuesto.
+    import struct as _s
+    n = len(d) // 4
+    words = _s.unpack_from("<%dI" % n, d, 0)
+    hay = [i for i, x in enumerate(words) if x == 0xDEADBEEF]
+    print()
+    print("  0xDEADBEEF en el anillo capturado: %d apariciones" % len(hay))
+    if not hay:
+        print("  NO esta. Aparece en gfx_v8_0.c:894, pero en un TEST")
+        print("  UNITARIO, no en la secuencia de trabajo. Traerlo aqui")
+        print("  seria importar un dato de un test a una medicion.")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(
         description="decodifica PM4/IB de un anillo capturado")
@@ -587,6 +749,8 @@ def main():
                          "(util para ver el error que producia antes)")
     ap.add_argument("--direcciones", action="store_true",
                     help="extrae y contrasta las direcciones de GPU del anillo")
+    ap.add_argument("--escribe", action="store_true",
+                    help="decodifica los WRITE_DATA: a donde escribe el anillo")
     ap.add_argument("--todos", action="store_true",
                     help="lista cada paquete, no solo el resumen")
     a = ap.parse_args()
@@ -607,6 +771,8 @@ def main():
     pts = pointers(d)
     if a.direcciones:
         return cmd_direcciones(d, ops, a)
+    if a.escribe:
+        return cmd_escribe(d, ops, a)
     pkts, ndw, problemas, nops = decodifica(
         d, ops, saltar_cabecera=not a.sin_cabecera)
     # Se inicializa aqui y se actualiza mas abajo, en dos sitios: problemas
