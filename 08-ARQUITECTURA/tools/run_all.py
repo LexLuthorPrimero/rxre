@@ -274,6 +274,13 @@ def main():
         # El control negativo es amdgpu_gmc_tmz_set, que solo hace un dev_info.
         ("mmio_map: ancla 0x398 y control negativo",
          ["mmio_map.py", "--self-test"], 1, 1),
+        # Veredicto TARGET_MATCH contra el contrato de target. Codigo de salida
+        # distinto para MATCH / MISMATCH / INDETERMINATE: un campo ilegible NO
+        # es MATCH, y sin esa separacion el fingerprint "pasaria" a medias.
+        ("fingerprint: TARGET_MATCH",
+         ["fingerprint.py", "--completo"], 0, 0),
+        ("fingerprint: parser con 3 controles negativos",
+         ["fingerprint.py", "--self-test"], 1, 1),
         # La reserva de numeros de hallazgo. num_collision mide 37 duplicados
         # y esta sesion choco 3 veces (111, 119, 120) con otra escribiendo.
         # El self-test RESERVA y LIBERA de verdad: comprobar que el numero no
