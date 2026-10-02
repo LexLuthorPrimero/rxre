@@ -214,6 +214,14 @@ def main():
          ["corpus_gap.py"], 26, 0),
         ("corpus_gap: control negativo",
          ["corpus_gap.py", "--self-test"], 0),
+        # La contabilidad de tamano de anillo del propio driver, resuelta
+        # estaticamente. El contraste es contra una cantidad INDEPENDIENTE
+        # (los `emit_frame_size` comentados de gfx_v8_0.c), que es lo que
+        # convierte el self-test en validacion y no en tautologia.
+        ("PM4 emitido, contraste con emit_frame_size",
+         ["pm4_emit.py", "--frame-size"], 0),
+        ("pm4_emit: control negativo",
+         ["pm4_emit.py", "--self-test"], 0),
         # La tabla (device_id, revision) -> chip_id, leida del .ko cargado.
         # Es la que 050 dio por ausente porque hwmgr.c no esta en el corpus.
         # Devuelve 2 sin .ko y 3 si el layout deducido no encaja, y los dos
