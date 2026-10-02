@@ -156,7 +156,10 @@ Conocimiento consolidado. No reabrir salvo evidencia contradictoria nueva:
 - GART base alineado a 4 GiB; `gart_end` derivado tras alineación.
 - BAR/full-visible = FALSE en esta RX550.
 - `vm_update_mode = -1` observado; política efectiva `vm_update_mode = 0`.
-- CPU page-table writer inalcanzable bajo política efectiva.
+- CPU page-table writer inalcanzable bajo política efectiva, por DOS razones
+  independientes (`163`): (a) la VRAM no es full-visible por el BAR, y
+  (b) la política por defecto NUNCA concede `AMDGPU_VM_USE_CPU_FOR_GFX`,
+  ni siquiera con BAR completo. (b) vale para toda placa con este driver.
 - `amdgpu_vm_map_gart()` inalcanzable en esta ruta.
 - SDMA es el writer efectivo de page tables.
 - VMID allocation/reuse software parcialmente/completamente reconstruido.
@@ -330,6 +333,46 @@ BAR pequeño
 → map_gart CPU path inalcanzable
 → investigar SDMA writer
 ```
+
+## DISCRIMINANTE DECLARADO
+
+El paso 6 de arriba selecciona un discriminante, y hasta ahora se seleccionaba
+**en prosa**. Eso tiene un coste medido: ninguna herramienta puede unir «este
+discriminante está pendiente» con «necesita esta ruta», porque la unión no
+está escrita. Se intentó por dos vías y **ambas fallan**:
+
+```
+léxica      37 candidatos sobre rutas ya medidas como no alcanzables,
+            y al leer 2 son CIERRES: "dmesg: Operation not permitted →
+            journalctl funciona" es una medición terminada, no una tarea.
+estructural 243 filas NOT_DETERMINED en tablas de clasificación,
+            y sólo 1 nombra una ruta en la misma fila.
+```
+
+Así que el hueco no era de herramienta: **es de formato**.
+
+Un discriminante pendiente se escribe **una línea**, en la cabecera del
+finding, con estas claves y ninguna más:
+
+```text
+PENDIENTE=<id> | HALLAZGO=<NNN-slug.md> | ESTADO=NOT_DETERMINED
+             | NECESITA=<RUTA> | ALCANZABLE_SIN_ROOT=<si|no|NO_MEDIDO>
+```
+
+- `NECESITA=` es la **ruta concreta**, no la clase. `/sys/kernel/debug/dri/0/`,
+  no «lectura de hardware».
+- `ALCANZABLE_SIN_ROOT=` obliga a responder. **`NO_MEDIDO` es una respuesta
+  válida y preferible a inventar**: obliga a medir la ruta antes de darla por
+  buena, y la tabla de rutas vive en `tools/routeaudit.py`.
+- Si el discriminante no necesita ruta (es de lectura del corpus),
+  `NECESITA=CORPUS` y `ALCANZABLE_SIN_ROOT=si`.
+
+Una ruta `no` no es un cierre: es `BLOCKED_BY_PERMISSION`, que **no es** lo
+mismo que `NOT_DETERMINED`. El primero se resuelve con permisos; el segundo, con
+más lectura del corpus. Confundirlos hace que un trabajo bloqueado parezca
+pendiente de investigar, que es como se cuela trabajo imposible.
+
+Varias líneas `PENDIENTE=` por finding si hay varios discriminantes abiertos.
 
 ---
 
@@ -864,6 +907,39 @@ TOOL_BROKEN
 ```
 
 `TOOL_UNVALIDATED` no puede cerrar afirmación crítica.
+
+### VALIDACIÓN DE LA VALIDACIÓN
+
+Una comprobación que nunca ha fallado no está probada. Y una que sólo puede
+fallar si uno se equivoca al invocarla, tampoco sirve: hay que **provocarla**.
+
+```text
+1. construir el control que decide algo
+2. invertirle el valor a propósito, en copia, nunca en el original
+3. comprobar que FALLA
+4. restaurar y comprobar que vuelve a pasar
+```
+
+El caso de esta tanda, medido: `tools/mutate.py` decide si un bug del encoder lo
+detecta la suite. Con `motivo[160]` en vez de `motivo[256]`, el vector nuevo
+`la cola del motivo NO se trunca` falla con `marcados=13 llamadas=12`; restaurado,
+vuelve a pasar. Sin el paso 3, ese vector habría sido un adorno.
+
+Y hay un segundo fallo que el paso 3 no caza, y que es el peor de los dos:
+
+> **Un criterio de clasificación tiene que ser una convención verificada contra
+> el binario, no una frase en un comentario.**
+
+La atribución «¿esto lo detectó el decodificador o el header validator?»
+usaba la palabra `decodifica` en el nombre del check. Hay 13 checks y sólo 12
+la llevan. El que falta es el de PTEPDE, cuyo nombre habla de la cabecera SDMA.
+La frase era falsa, nadie la comprobó, y el reparto quedaba mal **sin que nada
+fallara**. Ahora el criterio es el prefijo declarado `[IB] `, y
+`mutate.py --selftest` lo verifica contando checks marcados contra llamadas a
+los helpers en el binario.
+
+Corolario: una afirmación sobre lo que una herramienta hace debe poder fallar.
+Si no se puede, es una descripción, no una medición.
 
 ### AUTOMATIZACIÓN DEL CICLO COMPLETO
 Cuando sea posible:
