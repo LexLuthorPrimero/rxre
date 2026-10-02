@@ -187,6 +187,53 @@ explícito **no** compra sincronización gratis.
 
 ---
 
+## 2026-10-02 · opencode · RK-11 · cn8 vigila la integridad de formato de docs/
+
+```
+OBJECT   revkit/cn8.py + docs/
+ACTION   NEW TOOL CAPABILITY + deuda de formato ACREDITADA y fijada
+ORIGEN   la suite estaba en verde con un NR mio que abria un ``` y no cerraba
+```
+
+**OLD STATE → NEW STATE**
+
+- `cn8` no miraba fences ni cabeceras duplicadas. Un documento podía estar
+  partido sin que nada se enterara. → NEW: dos controles, ambos con **deuda
+  medida y fijada como conjunto**, no como exigencia de cero.
+
+**La deuda, medida el 2026-10-02**
+
+```
+fences impares        EVIDENCE-MATRIX.md, CONTRADICTIONS.md,
+                      MASTER-RESEARCH-STATUS.md      (los demas 14 dan par)
+cabecera duplicada    TOOLS-STATUS.md -> "## TL-46 · docscan --taxonomy" (x2)
+```
+
+**Por qué fijar la deuda en vez de arreglarla**: son documentos de otras
+sesiones, y un cierre de fence puesto en el sitio equivocado parte el bloque de
+alguien. Pero sin el control, un documento **nuevo** roto pasa en verde. Fijar el
+conjunto da las dos cosas.
+
+**El control tiene tres sentidos, y se provocaron los tres**
+
+```
+nuevo fence impar en un documento hoy par     rc=1
+cabecera duplicada nueva                      rc=1
+ARREGLAR la deuda preexistente                rc=1
+```
+
+El tercero es el que obliga a.updatear la lista a propósito: si alguien arregla
+el duplicado de `TOOLS-STATUS`, el conjunto deja de cuadrar y hay que ir a
+cambiar la constante. Sin eso, la deuda se olvidaría sola.
+
+**Dos defectos míos que los controles ya cogen**: un ` ``` ` que abrí sin cerrar
+en `NR-2026-10-02-s`, y la corrección de F12 **duplicada** en `OPEN-FRONTIERS`
+por un script de reubicación con un bug de búsqueda. Los dos entraron con la
+suite en verde antes de existir el control; ahora no pueden entrar.
+
+
+---
+
 ## 2026-10-01 · agente de documentación · ROUND 1
 
 ### R-01 · Reconciliación de la contradicción interna de `PROYECTO_STATUS.md`
@@ -2171,3 +2218,46 @@ mismo hecho sobre universos distintos, y EV-35 explica la diferencia.
 
 **Sin cambio de bloqueos**: `F12` sigue sin credencial y sin anillo con
 `vm_flush`. `RX550_SUDO_PASS` ausente, comprobado otra vez esta ronda.
+
+---
+
+## 2026-10-02 · opencode · F12 · EACCES leido como NOT_FOUND, y un tercer bloqueo
+
+OBJECT   docs/OPEN-FRONTIERS.md (F12), docs/NEGATIVE-RESULTS.md
+ACTION   CORRECTION de diagnostico + NEW blocker + NEW observador identificado
+ORIGEN   una busqueda de limitaciones, prompted por pm4census leyendo 7.2.8
+
+**OLD STATE → NEW STATE**
+
+- F12 estaba anotado como "`/sys/kernel/debug/dri/0/` no existe". → NEW: eso era
+  **EACCES leido como NOT_FOUND**. El padre es `0700 root:root` y debugfs esta
+  montado, con lo que todo lo que hay debajo devuelve EACCES y **no se puede
+  saber si existe**. Clasificacion correcta: `BLOCKED_BY_PERMISSION`.
+  `NR-2026-10-02-s`.
+- F12 tenia **dos** bloqueos anotados. → NEW: hay un **tercero, medido**, y es
+  independiente: **no hay ningun cliente DRM abierto** (0 coincidencias de
+  `/dev/dri/*` en `/proc/*/fd`), y los directorios de debugfs de amdgpu son **por
+  cliente**. Sin cliente no hay `dri/<minor>/`, tenga root o no la tenga.
+- F2b venia dariendose por bloqueada "falta observador". → NEW: existe un
+  observador **upstream**, `amdgpu_debugfs.c:2585` registra
+  `vm_pagetable_info` con modo `0444`, presente en los tres arboles del corpus.
+  Sigue siendo `BLOCKED_BY_PERMISSION` — no se ha obtenido ni un byte — pero deja
+  de ser "no hay observador", afirmacion que se daba por buena sin mirar.
+
+**Lo que no se ejecuta.** `/dev/dri/renderD128` es `crw-rw-rw-`, o sea que abrir
+un cliente DRM no requiere permiso. Aun asi **no se abre**: es NIVEL 3, toca el
+driver, y solo se justificaria con un discriminante que cierre algo. Anotado como
+ruta, no ejecutado.
+
+**Tambien medido, sin relacion con F12.** Los arboles `baseline` y `working` de
+7.1.3 son **byte-identicos**: 2787 ficheros, 0 diferencias. `kernelbuild` tiene
+los mismos 2787 pero **4 distintos**, y son `amdgpu_debugfs.c`, `amdgpu_debugfs.h`,
+`amdgpu_vm.c` y `amdgpu_vm_pt.c` — es decir, la instrumentacion que otra sesion
+anadio, no una version distinta del kernel. Herramientas que leen distintotrees
+leen el mismo kernel, salvo que lean kernelbuild.
+
+**Lo que otra sesion dejo anotado en el writer de PDE** y que toca F2b:
+la ruta **CPU enmascara `pt` a `pte_addr_mask`** (`amdgpu_gmc.c:171`) mientras la
+ruta **SDMA guarda `addr|flags` sin enmascarar** (`amdgpu_vm_sdma.c:197`). Los dos
+escritores codifican la direccion distinto. Registrado, pendiente de verificar
+con mis propias vias.

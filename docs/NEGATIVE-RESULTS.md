@@ -958,3 +958,28 @@ POR QUE OCURRIO
   porque "que opcodes llevan count" es la pregunta que uno se hace al leer
   codigo, y contestarla leyendo codigo da una lista que parece justificada. La
   pregunta que si tiene respuesta es "cuantas emisiones hay", y esa se mide
+
+## NR-2026-10-02-s · `EACCES` leido como `NOT_FOUND`: no puedo afirmar que un path no exista
+
+QUE PASO
+  anote que /sys/kernel/debug/dri/0/ "no existe", porque `stat` no lo resolvia
+REALIDAD
+  /sys/kernel/debug es 0700 root:root y debugfs esta montado. Con el padre
+  ilegible, `stat` de cualquier cosa debajo devuelve EACCES (13), NO ENOENT (2).
+  Con EACCES no hay forma de distinguir "no esta" de "no me dejan mirar"
+CLASIFICACION
+  lo correcto es NOT_DETERMINED por permiso, o BLOCKED_BY_PERMISSION.
+  Lo que escribi era NOT_FOUND, que es exactamente la conversion que las reglas
+  del proyecto prohiben
+POR QUE OCURRIO
+  porque `stat` fallaba y el fallo es "no existe" en el caso de uso habitual.
+  Un EACCES se lee como ausencia si no se mira el errno, porque ambos son "no lo
+  obtuve". Y el mensaje de error que ve el usuario es el mismo
+REGLA
+  distinguir SIEMPRE ENOENT de EACCES antes de escribir una ausencia. Y cuando
+  sea EACCES, la ausencia es indeterminada: el dato no existe PARA MI, que no es
+  lo mismo que no exista
+OTRO DETALLE QUE SALIO
+  no hay ningun cliente DRM abierto (0 coincidencias de /dev/dri/* en /proc/*/fd),
+  y los directorios de debugfs de amdgpu son POR CLIENTE. Asi que F12 tenia un
+  tercer bloqueo que no estaba en la lista, independiente de la credencial

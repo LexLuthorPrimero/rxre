@@ -448,3 +448,48 @@ impar de fences desde antes de hoy (181 en `bfbc393`, 209 ahora; cada ronda anad
 un numero par). No lo localizo y **retiro** la linea 1985 que tenia anotada: era
 una localizacion inventada por un metodo que no puede darla. Queda
 `NOT_DETERMINED` y declarado, no reparado.
+
+## Ronda duplicada a proposito
+
+---
+
+## Ronda 2026-10-02 (tarde 5) · F12 era EACCES, y hay un tercer bloqueo
+
+**Me equivoqué en el diagnóstico de F12 y lo he corregido.** Escribí que
+`/sys/kernel/debug/dri/0/` "no existe". **Es `EACCES`.** El padre es
+`0700 root:root` y debugfs está montado, así que todo lo que hay debajo devuelve
+permiso denegado y **no hay forma de saber si existe**. `NOT_DETERMINED` por
+permiso, no `NOT_FOUND`. Es justo la conversión que las reglas prohíben, cometida
+por mí (`NR-2026-10-02-s`).
+
+**Y F12 tenía un tercer bloqueo que no estaba en la lista, medido**: no hay
+ningún cliente DRM abierto (0 coincidencias de `/dev/dri/*` en `/proc/*/fd`), y
+los directorios de debugfs de amdgpu son **por cliente**. Sin cliente no hay
+`dri/<minor>/`, tenga root o no. La cadena son tres eslabones: cliente abierto,
+root, y una carga que produzca el anillo.
+
+**No abro el cliente.** `/dev/dri/renderD128` es `crw-rw-rw-`, o sea que no
+requiere permiso — pero abrir un cliente DRM es **NIVEL 3**, toca el driver, y
+solo se justificaría con un discriminante que cierre algo. Anotado como ruta.
+
+**Lo que sí sale: el observador de F2b existe y es upstream.**
+`amdgpu_debugfs.c:2585` registra `vm_pagetable_info` con modo `0444`, y está en
+los tres árboles del corpus. Dejaba de dar por buena la idea de que "no hay
+observador", que era una afirmación que llevaba rondando sin mirar el upstream.
+
+**Y lo que otra sesión dejó anotado en el writer de PDE**, que toca F2b: la ruta
+**CPU enmascara `pt` a `pte_addr_mask`** (`amdgpu_gmc.c:171`) y la ruta **SDMA
+guarda `addr|flags` sin enmascarar** (`amdgpu_vm_sdma.c:197`). Los dos escritores
+codifican la dirección distinto. Pendiente de verificar por mis vías.
+
+**Medido de paso**: `baseline` y `working` son **byte-idénticos** (2787 ficheros,
+0 diferencias), así que da igual cuál lea una herramienta. `kernelbuild` tiene
+los mismos 2787 pero **4 distintos** — `amdgpu_debugfs.c/.h`, `amdgpu_vm.c`,
+`amdgpu_vm_pt.c` — que no son otra versión del kernel sino la instrumentación que
+añadió otra sesión.
+
+**Y un hueco de la suite, cerrado**: `cn8` no miraba fences ni cabeceras
+duplicadas, y la suite estaba en verde con un documento partido. Dos controles
+nuevos, con la deuda **fijada como conjunto** en vez de exigir cero, y
+provocados en los tres sentidos (fence nuevo, duplicado nuevo, y **arreglar la
+deuda de otro**, que también falla para que la lista no se olvide).

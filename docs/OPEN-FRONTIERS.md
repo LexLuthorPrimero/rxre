@@ -6,6 +6,7 @@
 >
 > `LAST_SCAN: 2026-10-02 - revkit/`
 
+
 ## F12 · La PTE de esta GPU, observada
 
 ```
@@ -64,6 +65,67 @@ VALOR
   alto, y mas alto de lo que estaba: no es una frontera abierta, es una lectura
   pendiente de una credencial
 ```
+
+### Correccion del diagnostico de F12 (2026-10-02): era EACCES y lo lei como NOT_FOUND
+
+Lo que habia escrito decia, en essence, que `/sys/kernel/debug/dri/0/` "no
+existe". **Eso estaba mal**, y es la conversion que las reglas prohiben.
+
+```
+codigos: ENOENT = 2 (no existe)      EACCES = 13 (sin permiso)
+
+/sys/kernel/debug                        OK  modo=0o700
+/sys/kernel/debug/dri                    EACCES
+/sys/kernel/debug/dri/0                  EACCES
+/sys/kernel/debug/dri/0/amdgpu_vm_info   EACCES
+```
+El padre es `0700 root:root` y debugfs **esta montado** (`/proc/mounts` lo
+confirma). A partir de ahi, `stat` devuelve **EACCES**, no `ENOENT`. Y con
+`EACCES` **no se puede saber si el fichero existe**: no hay forma de distinguir
+"no esta" de "no me dejan mirar".
+
+**Clasificacion correcta: `NOT_DETERMINED` por permiso**, es decir
+`BLOCKED_BY_PERMISSION`. No `NOT_FOUND`. Anotado en `NR-2026-10-02-s`.
+
+### El tercer bloqueo de F12, que no estaba en la lista
+
+Habia dos bloqueos anotados: la credencial, y no tener un anillo con `vm_flush`.
+Hay un **tercero, medido**: **no hay ningun cliente DRM abierto**.
+
+```
+/proc/*/fd -> /dev/dri/*    : 0 coincidencias
+/dev/dri/                  : card0, card1, renderD128, renderD129
+```
+Los directorios de debugfs de amdgpu son **por cliente**: se crean al abrir un
+fd de DRM. Sin cliente, no hay `dri/<minor>/`, con o sin root. Asi que la cadena
+es de tres eslabones y todos hacen falta:
+
+```
+1. un cliente DRM abierto            (para que exista dri/<minor>/)
+2. root para atravesar el 0700      (para poder leerlo)
+3. una carga de trabajo que produzca el anillo que se quiere observar
+```
+El primero se puede resolver solo —`/dev/dri/renderD128` es `crw-rw-rw-`, o sea
+legible por cualquiera— pero **abrir un cliente DRM es NIVEL 3** (toca el
+driver), asi que no se hace sin justificacion de discriminante. Anotado, no
+ejecutado.
+
+### Lo que SI se haarausado: el observador existe y es upstream
+
+`amdgpu_debugfs.c:2585` registra:
+
+```
+debugfs_create_file("vm_pagetable_info", 0444, file->debugfs_client, file, ...)
+```
+Medido en los **tres** arboles del corpus (baseline, working, kernelbuild): 1
+ocurrencia en cada uno, luego es **upstream**, no instrumentacion de otra sesion.
+Modo `0444`, o sea que el fichero en si es legible por todos; lo que impide
+llegar a el es el `0700` del padre.
+
+Con eso, la semantica de F2b tiene un observador *en el upstream* y no hace
+falta inventar uno. Sigue siendo `BLOCKED_BY_PERMISSION` —no se ha obtenido ni
+un byte de su salida—, pero deja de ser "no hay observador", que era una
+afirmacion que este ronda habia dado por buena sin mirar el upstream.
 
 ## F12b · El `count` de PM4: payload menos uno, y una excepción sin resolver
 

@@ -390,6 +390,54 @@ def main():
     chk("el CHANGELOG tiene entrada de hoy", _ok,
         "(buscado '2026-10-02': %s)" % _d)
 
+    # --- integridad de formato de docs/, que NADIE vigilaba -------------------
+    #
+    # La suite estaba en verde con un NR mio que abria un ``` y no lo cerraba.
+    # cn8 no miraba fences, y sin mirarlos un documento puede estar partido sin
+    # que nada se entere: es la misma clase que "cerrado_en_un_fin", pero en
+    # lugar de codigo.
+    #
+    # El deficit esta ACREDITADO y se fija como conjunto conocido, medido en
+    # 2026-10-02. Asi este control no obliga a arreglar el documento de otra
+    # sesion, y a cambio falla si uno NUEVO se rompe o si uno viejo se arregla
+    # (en ese segundo caso el conjunto deja de cuadrar, que es justo cuando hay
+    # que actualizar la lista a proposito y no por descuido).
+    DEUDA_FENCES = {"EVIDENCE-MATRIX.md", "CONTRADICTIONS.md",
+                    "MASTER-RESEARCH-STATUS.md"}
+    F3 = chr(96) * 3
+    impares = set()
+    for _f in sorted(os.listdir(_docs)):
+        if not _f.endswith(".md"):
+            continue
+        _t = open(os.path.join(_docs, _f), errors="replace").read()
+        if _t.count(F3) % 2:
+            impares.add(_f)
+    chk("docs/: los documentos con numero IMPAR de fences son los que ya se "
+        "sabian, ni uno mas ni uno menos",
+        impares == DEUDA_FENCES,
+        "(impares ahora: %s; deuda acreditada: %s)"
+        % (sorted(impares), sorted(DEUDA_FENCES)))
+
+    # Cabeceras duplicadas: un bloque copiado dos veces no se ve leyendo, y ya
+    # me paso una vez con la correccion de F12. El unico duplicado que hay es de
+    # otra sesion, asi que tambien se fija como deuda en vez de exigirse cero.
+    DEUDA_DUPES = {"TOOLS-STATUS.md"}
+    dupes = {}
+    for _f in sorted(os.listdir(_docs)):
+        if not _f.endswith(".md"):
+            continue
+        _seen = {}
+        for _line in open(os.path.join(_docs, _f), errors="replace"):
+            if _line.startswith("#") and not _line.startswith("###"):
+                _seen[_line.strip()] = _seen.get(_line.strip(), 0) + 1
+        _d2 = sorted(k for k, v in _seen.items() if v > 1)
+        if _d2:
+            dupes[_f] = _d2
+    chk("docs/: las cabeceras duplicadas son solo las que ya se sabian",
+        set(dupes) == DEUDA_DUPES,
+        "(con duplicados ahora: %s; deuda acreditada: %s)"
+        % (sorted(dupes), sorted(DEUDA_DUPES)))
+
     print("-" * 66)
     if FALLOS:
         print("%d control(es) FALLAN. Las herramientas implicadas no son"
