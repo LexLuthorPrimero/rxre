@@ -216,7 +216,7 @@ identificada.
 Antes de esta ronda escribí que el árbol del repo carecía de los IP versions de Polaris 12
 porque no aparecían en `soc15.c`. **Era una inferencia mía, y era falsa**: no faltan, es que
 Polaris 12 **no pasa por `soc15.c`**. Entra por `vi.c:2107` (`vi_set_ip_blocks`), la
-generación VI. El mismo error de家族 se repite por tercera vez en este proyecto —buscar en
+generación VI. El mismo error de familia se repite por tercera vez en este proyecto —buscar en
 el sitio de una generación y concluir que algo no existe—; ya me pasó con `vulkan.h` y con
 los headers autogenerados. Lo dejo escrito para que no se repita.
 

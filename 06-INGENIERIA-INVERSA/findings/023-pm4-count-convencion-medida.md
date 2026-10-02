@@ -4,6 +4,21 @@
 `WORK_CLASS=READ_ONLY/EVIDENCE` · `WRITE_EXECUTION=NONE` · `MODIFICATIONS=0`
 `RUNTIME=NOT_RUN` · `GPU INTACTA`
 `AMENDA=022-cond-exec-inerte-en-gfx8.md` (§4), 020-vmflush-dword-budget-gfx8.md
+`MEDIDO_EN_MI_ASIC_POR=045` — **la tabla de §4 de este documento no incluye `gfx_v8_0.c`, que es
+el fichero de esta GPU** (`vi.c:2107-2123` añade `gfx_v8_0_ip_block`). Las seis generaciones de
+la tabla son evidencia de contraste, no evidencia del ASIC, y la conclusión quedó redactada
+como si midiera el ASIC. Es el mismo patrón que `043` retractionó en `035`: medir en la
+generación equivocada sin notar que se ha medido fuera de objetivo.
+
+Medido con `tools/pm4census.py` sobre `gfx_v8_0.c`: **43 de 43 emisiones reconcilian con
+`count = payload - 1`**, 86% de cobertura declarada, 5 `SIN MEDIR` y 2 `LIMITE` impresas. La
+regla que este documento estableció queda `PROVEN_DERIVED` **sobre el ASIC de esta GPU**, y no
+extrapolada de cinco generaciones ajenas.
+
+Y el `NEGATIVE_RESULT` de `SET_CONFIG_REG` con 1 payload **no se retracta, cambia su
+fundamento**: en `gfx_v8_0.c`, `SET_CONFIG_REG, 1` tiene 2 payload. La excepción de
+`gfx_v12_1.c:3371` es de otro ASIC, así que no es un `NEGATIVE_RESULT` sobre esta tarjeta sino
+una observación de contraste. Ver `045-la-convencion-de-count-nunca-se-midio-en-mi-asic.md`.
 
 ## CUDA principal
 

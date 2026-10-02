@@ -4,6 +4,44 @@
 `WORK_CLASS=READ_ONLY/EVIDENCE` · `WRITE_EXECUTION=NONE` · `MODIFICATIONS=0`
 `RUNTIME=NOT_RUN` · `GPU INTACTA`
 
+---
+
+## ⛔ RETRACTADO 2026-10-01 (parcial) — §2.3, §2.4 y §6: `block_size` era 13, es 10
+
+Resuelto como `C-003` en `docs/CONTRADICTIONS.md`. Este documento sigue siendo
+válido en el resto; lo que se retracta es el valor de `block_size` y todo lo que
+él deriva.
+
+**El error de método**, que es lo que importa repetir bien: leí la *firma* de la
+función en vez de su *call site*.
+
+```c
+static uint32_t amdgpu_vm_get_block_size(uint64_t vm_size)   // el PARÁMETRO se llama vm_size
+...
+adev->vm_manager.block_size = amdgpu_vm_get_block_size(tmp); // el ARGUMENTO es tmp
+```
+
+Sustituí el nombre del parámetro por el del argumento. Los dos universos
+discrepan —`working/` y `baseline/` (byte-idénticos, `263c5d83b1f1`) y
+`linux-7.2.8` (`amdgpu_vm.c:2430`) dicen los dos `get_block_size(tmp)`— y con
+`tmp = 2` la función cae en `x <= 8`, que este documento pasó por alto:
+
+```
+bits = ilog2(2) + 18 = 1 + 18 = 19 ;  2 <= 8  ->  19 - 9 = 10
+```
+
+Contraste con la línea que el host ya tenía en el log desde el arranque
+(`journalctl -k`, no `dmesg`, que no la expone):
+
+```
+amdgpu 0000:01:00.0: vm size is 64 GB, 2 levels, block size is 10-bit, fragment size is 9-bit
+```
+
+`RUNTIME=NOT_RUN` era la condición que hacía posible el error: al no ejecutar,
+la única comprobación disponible era el texto, y el texto pedía leer el call
+site. El valor de `max_pfn`, `num_level` y `fragment_size` de este documento
+**no cambian**: siguen correctos.
+
 ## CUDA principal
 
 La geometría del page table de Polaris12 **queda determinada numéricamente**, no solo
@@ -14,9 +52,9 @@ legible:
 vm_size         = 64 GB      (clamp: RAM*3 = 36 -> min_vm_size = 64)
 max_pfn         = 64 << 18   = 16777216 paginas
 num_level       = 1          (min(max_level=1, 2))   root_level = AMDGPU_VM_PDB0
-block_size      = 13
+block_size      = 10
 fragment_size   = 9
-PAGE_TABLE_BLOCK_SIZE escrito = block_size - 9 = 4  -> 0x04000000
+PAGE_TABLE_BLOCK_SIZE escrito = block_size - 9 = 1  -> 0x01000000
 ```
 
 `num_level = 1` **confirma por aritmetica** la afirmacion de `DRIVER-MISSION-STATE.md`
@@ -111,24 +149,31 @@ El clamp es de nuevo lo que decide. Si `max_level` fuera 2, este host tendria 2 
 Con `num_level > 1` seria 9 fijo; con `num_level == 1` delega:
 
 ```
-block_size = amdgpu_vm_get_block_size(vm_size)
-  bits = ilog2(vm_size) + 18 = ilog2(64) + 18 = 6 + 18 = 24
-  vm_size <= 8  ?  no (64 > 8)
-  -> (bits + 3) / 2 = (24 + 3) / 2 = 27 / 2 = 13
+block_size = amdgpu_vm_get_block_size(tmp)
+  tmp = DIV_ROUND_UP(fls64(max_pfn)-1, 9) - 1 = DIV_ROUND_UP(24, 9) - 1 = 3 - 1 = 2
+  bits = ilog2(tmp) + 18 = ilog2(2) + 18 = 1 + 18 = 19
+  tmp <= 8  ?  si (2 <= 8)
+  -> bits - 9 = 19 - 9 = 10
 ```
 
-**`block_size = 13`.** La rama `vm_size <= 8` es un `else` que no se toma aqui: es
-exactamente el corte que el comentario describe ("Make sure the PD is 4K in size up to
-8GB address space. Above that split equal between PD and PTs").
+**`block_size = 10`.** La rama que se toma es `bits - 9`, la misma que el
+comentario describe para "up to 8GB address space" — y `tmp` es un **contador de
+niveles**, no un tamaño en GB. La función recibe un argumento que no es de la
+magnitud que su nombre anuncia; por eso `tmp = 2` cae en la rama `x <= 8` aunque
+la VM sea de 64 GB. Ver el aviso de retraction arriba.
 
-Contraste de la funcion, evaluada:
+Contraste de la funcion, evaluada sobre su **argumento real**, que es `tmp` (un
+contador de niveles), no `vm_size` en GB:
 
-| vm_size (GB) | block_size | rama |
-|---|---|---|
-| 1 | 9 | `bits - 9` |
-| 2 | 10 | `bits - 9` |
-| **64** | **13** | `(bits+3)/2` |
-| 1024 | 15 | `(bits+3)/2` |
+| argumento `tmp` | block_size | rama | ¿es el caso de Polaris12? |
+|---|---|---|---|
+| 1 | 9 | `bits - 9` | no |
+| **2** | **10** | `bits - 9` | **sí** — `tmp = DIV_ROUND_UP(24,9)-1 = 2` |
+| 64 | 13 | `(bits+3)/2` | no — 64 es `vm_size` en GB, que no se pasa |
+| 1024 | 15 | `(bits+3)/2` | no |
+
+La fila de 64 es la que produjo el error retractado: el valor es correcto como
+evaluación de la función, pero 64 no es lo que el driver le pasa.
 
 ### 2.4 · Lo que llega al registro
 
@@ -139,9 +184,9 @@ tmp = REG_SET_FIELD(tmp, VM_CONTEXT1_CNTL, PAGE_TABLE_BLOCK_SIZE,
                     adev->vm_manager.block_size - 9);
 ```
 
-Con `block_size = 13`: escribe **4**. Encoding
+Con `block_size = 10`: escribe **1**. Encoding
 (`gmc_8_2_sh_mask.h:6543-6544`): `MASK 0xf000000`, `SHIFT 0x18`, luego
-`0x04000000`.
+`0x01000000`.
 
 ## 3 · El hallazgo: los dos contextos reciben geometrias distintas
 
@@ -152,7 +197,7 @@ En `gmc_v8_0_gart_enable` los contextos no se configuran igual:
 | `PAGE_TABLE_DEPTH` | **0** | **1** |
 | `PAGE_TABLE_START_ADDR` | `gart_start >> 12` | `0` |
 | `PAGE_TABLE_END_ADDR` | `gart_end >> 12` | `max_pfn - 1` |
-| `PAGE_TABLE_BLOCK_SIZE` | **no se escribe** | `block_size - 9 = 4` |
+| `PAGE_TABLE_BLOCK_SIZE` | **no se escribe** | `block_size - 9 = 1` |
 | `PAGE_TABLE_BASE_ADDR` | `table_addr >> 12` | `table_addr >> 12` (los 15) |
 
 `PAGE_TABLE_DEPTH` (`MASK 0x6`, `SHIFT 0x1`) es un campo de **2 bits con 3 valores
@@ -198,14 +243,18 @@ distinto. El hardware **redefine el campo** entre generaciones, luego el `-9` no
 leerse como una convencion estable del hardware. Es una convencion del driver, y
 `MODEL_CHOICE` para el driver propio.
 
-Consecuencia directa sobre lo que afirmo: **el valor 4 que llega al registro es
-`PROVEN`. Que el hardware lo interprete como "13" es `HYPOTHESIS`**, sostenida por que
-el driver escriba `block_size - 9` en todas las generaciones, no por el hardware.
+Consecuencia directa sobre lo que afirmo: **el valor 1 que llega al registro es
+`PROVEN`. Que el hardware lo interprete como "block_size menos nueve" es
+`HYPOTHESIS`**, sostenida por que el driver escriba `block_size - 9` en todas
+las generaciones, no por el hardware.
 
 ## 5 · Saturacion: el campo tiene 4 bits y `block_size` puede excederlos
 
-`MASK 0xf000000` son 4 bits. `block_size - 9` con `block_size = 13` da 4, dentro de
-rango. Pero la funcion `get_block_size` crece con `vm_size`:
+`MASK 0xf000000` son 4 bits. `block_size - 9` con `block_size = 10` da 1, muy
+dentro de rango. Y como `tmp = DIV_ROUND_UP(fls64(max_pfn)-1, 9) - 1` crece muy
+ despacio —un peldaño por cada 9 bits de `max_pfn`, no por cada GB— el campo
+saturar exigiría una VM mucho mayor que los 1024 GB que permite el cap de
+`max_bits = 40`. La tabla queda holgada para esta generación:
 
 ```
 vm_size=1024 GB -> block_size=15  -> -9 = 6    dentro de 4 bits
@@ -228,11 +277,11 @@ podria ocurrir. `NOT_APPLICABLE` en esta placa, `NEGATIVE_RESULT` heredable.
 | `vm_size = 64 GB` en esta host, y en cualquier host con < 21 GB RAM | `PROVEN_DERIVED` |
 | `max_pfn = 16777216` | `PROVEN_DERIVED` |
 | `num_level = 1`, `root_level = AMDGPU_VM_PDB0` | `PROVEN_DERIVED` |
-| `block_size = 13` | `PROVEN_DERIVED` |
-| `PAGE_TABLE_BLOCK_SIZE = 4` (`0x04000000`) | `PROVEN_DERIVED` |
+| `block_size = 10` | `PROVEN` (observado en el log de arranque) |
+| `PAGE_TABLE_BLOCK_SIZE = 1` (`0x01000000`) | `PROVEN_DERIVED` |
 | Los contextos 0 y 1-15 reciben `PAGE_TABLE_DEPTH` distinto | `PROVEN` (0 vs 1) |
 | El contexto 0 no recibe `PAGE_TABLE_BLOCK_SIZE` | `PROVEN` (no se escribe) |
-| Que significa `PAGE_TABLE_DEPTH` 0 frente a 1 | `NOT_DETERMINED` — sin documentacion |
+| Que significa `PAGE_TABLE_DEPTH` 0 frente a 1 | `PROVEN` — `064:168` da los bits `[2:1]` (shift `0x1`, máscara `0x6`), y `030` mide qué PTBA escribe el driver en cada caso: `= 0` para VMID 0 y `= 1` para VMID 1-15 |
 | Que el hardware lea `PAGE_TABLE_BLOCK_SIZE` como valor + 9 | `HYPOTHESIS` — convencion del driver |
 | Que `num_level = 1` sea una limitacion del silicio | `REFUTED` — viene de `max_level = 1`, un parametro |
 | Que el page table plano sea por limitacion del hardware | `NOT_DETERMINED` |
@@ -261,7 +310,7 @@ Ninguno para la aritmetica. Dos cosas que **no** son confounders pero si límite
 ## 8 · UNLOCKS
 
 - El driver propio tiene la geometria de page table **completa y numerica** para
-  Polaris12: 1 nivel, `block_size` 13, `fragment_size` 9, `max_pfn` 16777216. No hay
+  Polaris12: 1 nivel, `block_size` 10, `fragment_size` 9, `max_pfn` 16777216. No hay
   que derivarla ni suponerla.
 - La asimetria contexto-0 / contexto-1-15 queda localizada y **sin explicar**, que es
   el punto de entrada correcto para seguir: es el sitio donde el modelo plano del

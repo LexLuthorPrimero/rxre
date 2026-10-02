@@ -43,6 +43,8 @@ Salida: codigo de salida 1 si hay ERROR, 0 si solo hay avisos.
 """
 import re
 import os
+import tempfile
+import os
 import sys
 import glob
 
@@ -182,6 +184,32 @@ def quoted_spans(lines):
     return out
 
 
+def inline_spans(linea):
+    """Rangos [ini, fin) de los tramos de acentos graves EN LINEA.
+
+    Sirve para separar dos cosas que antes de esto iban juntas:
+
+      * CJK DENTRO de un tramo -> es material citado. En este proyecto lo citado
+        es codigo C y texto del kernel, y la excepcion real son los documentos
+        que CITAN la corrupcion como evidencia (117, 189).
+      * CJK FUERA de un tramo, en una linea que ademas lleva tramos -> es
+        corrupcion mia. Esto es lo que antes se escapaba, porque bastaba con que
+        la linea tuviera 2 acentos graves para degradarlo todo a "info".
+
+    La regla es simetrica: cita y corrupcion se distinguen por la POSICION del
+    ideograma, no por la mera presencia de acentos graves en la linea.
+    """
+    out = []
+    i = linea.find("`")
+    while i != -1:
+        j = linea.find("`", i + 1)
+        if j == -1:
+            break
+        out.append((i, j))
+        i = linea.find("`", j + 1)
+    return out
+
+
 def lint(path, idx, strict=False):
     errs, warns, infos = [], [], []
     try:
@@ -196,12 +224,27 @@ def lint(path, idx, strict=False):
 
     # ---- 1. intrusiones de otro idioma --------------------------------
     for i, l in enumerate(lines, 1):
-        is_quoted = quoted[i - 1][0] or quoted[i - 1][1]
+        fenced = quoted[i - 1][0]
+        is_quoted = fenced or quoted[i - 1][1]
+        spans = inline_spans(l)
         for m in CJK.finditer(l):
             ch = m.group(0)
+            dentro = any(a <= m.start() < b for a, b in spans)
             msg = (f"L{i}: fragmento de otro idioma {ch!r} "
                    f"(U+{ord(ch):04X})")
-            if is_quoted:
+            # BUG QUE ESTE LINTER TENIA, Y QUE DEJABA SU CONTROL SIN EFECTO:
+            # `is_quoted` vale True para CUALQUIER linea con 2 o mas acentes
+            # graves, y los hallazgos usan acentes graves en casi todas las
+            # frases que mencionan un simbolo. Al degradar el CJK a "info"
+            # cuando is_quoted, el chequeo quedaba DESACTIVADO en practicamente
+            # toda la prosa util. Comprobado: dos ideogramas CJK en una linea con
+            # 8 acentos graves daban "errores: 0".
+            #
+            # Regla que se aplica ahora: un bloque cercado SI puede citar material
+            # ajeno, y ahi el CJK se degrada. Un fragmento EN LINEA NUNCA
+            # excuse un ideograma: lo que se cita aqui es codigo C y texto del
+            # kernel, y ninguno de los dos contiene CJK.
+            if fenced or dentro:
                 infos.append(msg + "  [citado: no es redaccion propia]")
             elif str(ch) in FULLWIDTH_PUNCT:
                 warns.append(msg + "  [punctuacion de ancho completo]")
@@ -304,6 +347,27 @@ def selftest():
         fails.append("CJK: no detecta un ideograma")
     if CJK.search("el campo de bytes"):
         fails.append("CJK: falso positivo en castellano")
+    # CJK EN UNA LINEA CON ESPANES EN LINEA. Este es el agujero que hacia el
+    # chequeo INEFECTIVO: quoted_spans marca como "citado" cualquier linea con
+    # 2+ acentos graves, y los hallazgos los usan en casi todas las frases que
+    # mencionan un simbolo, asi que el CJK se degradaba a info.
+    #
+    # El caso de arriba ("el campo \u4e2d") NO lo cubria, porque no lleva
+    # acentes graves: probaba el REGEX, no el ENSAMBLAJE. Es la misma debilidad
+    # que en ipver_zero e ip_surface: el componente correcto no valida el
+    # montaje, y por eso el defecto pasa.
+    _fd, _ruta = tempfile.mkstemp(suffix=".md")
+    with os.fdopen(_fd, "w", encoding="utf-8") as _fh:
+        _fh.write("# t" + chr(10)
+                  + "`190` destapo que `uvd_v6_3` y `191` "
+                  + chr(0x6CC4) + chr(0x6F0F) + " aqui" + chr(10))
+    try:
+        _errs, _w, _i = lint(_ruta, {}, strict=False)
+        if not any("otro idioma" in e for e in _errs):
+            fails.append("CJK en linea con >=2 acentos graves: se degrado a info "
+                         "en vez de error -- el control esta sin efecto")
+    finally:
+        os.unlink(_ruta)
     # intrusiones lexicales conocidas
     for frag in ("fjCpu", "zyj", "annon"):
         if not any(re.search(p, frag) for p, _ in KNOWN_INTRUSIONS):
