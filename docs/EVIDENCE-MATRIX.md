@@ -2413,63 +2413,67 @@ alineacion que las contiene a las ocho es `0x200` (tambien `0x100`, `0x10` y
 18..21 + 256k`.
 
 
-## EV-28 · El off-by-one es en 5 de 6 emisores, y `vm_flush` es el exacto
+## EV-28 · RETIRADA: no hay ninguna excepcion. Los seis emisores siguen la regla
 
 ```
 TYPE    MEASUREMENT
-STATE   PROVEN (recuento) · NOT_DETERMINED (qué lee el hardware)
+STATE   RETIRADA 2026-10-02. La fila afirmaba que `vm_flush` era "el unico
+        exacto". Es FALSO, y la conclusion que se saco de ahi tambien.
+
+QUÉ AFIRMABA
+  una tabla con 5 emisores en +1 y `vm_flush` en 0, y la conclusion de que
+  `vm_flush` era la excepcion, de la que se dedujo que con la regla
+  "count = payload - 1" leeria un dword de mas y se comeria la cabecera
+  PFP_SYNC_ME
+
+POR QUÉ ESTA MAL
+  `gfx_v8_0_ring_emit_vm_flush` escribe SEIS payload, no cinco. Numeros de linea
+  por grep -n, no por un volcado numerado:
+
+    6199  amdgpu_ring_write(ring, PACKET3(PACKET3_WAIT_REG_MEM, 5));
+    6200  amdgpu_ring_write(ring, (WAIT_REG_MEM_OPERATION(0) |   <- control
+    6201                   WAIT_REG_MEM_FUNCTION(0) |
+    6202                   WAIT_REG_MEM_ENGINE(0)));
+    6203  amdgpu_ring_write(ring, mmVM_INVALIDATE_REQUEST);
+    6204  amdgpu_ring_write(ring, 0);
+    6205  amdgpu_ring_write(ring, 0);        /* ref  */
+    6206  amdgpu_ring_write(ring, 0);        /* mask */
+    6207  amdgpu_ring_write(ring, 0x20);     /* poll interval */
+
+  seis payload con `count = 5`, igual que `hdp_flush` y que `pipeline_sync`.
+  **No hay ninguna excepcion**
+
+  El error fue mapear los numeros de linea leyendo un `sed | cat -n` y contar
+  sobre el. El `0x20` esta en 6207 y yo lo puse en 6206, con lo que el `0` del
+  mask se consumia como si fuera el poll. El bloque tiene un `0` de ref y un
+  `0` de mask: son DOS dwords, y contar uno solo pierde uno
+
+QUIEN TENIA RAZON
+  `tools/pm4census.py`, que ya existia y mide la convencion sobre `gfx_v8_0.c`.
+  Su tabla da `PACKET3_WAIT_REG_MEM 5 -> payload 6` en los TRES sitios, y su
+  veredicto es "count = payload - 1 en 43 de 43 emisiones medidas", con 5 SIN
+  MEDIR y 2 LIMITE que excluye del veredicto. Yo no lo use y monte una tabla a
+  mano que lo contradecia
+  su documentacion dice, textual: "MIDE lo que el driver de referencia ESCRIBE
+  en este ASIC. No dice que el hardware lo LEA asi". Ese hueco es exactamente el
+  que cierra EV-30, desde el hardware
+
+LO QUE SE CIERRA
+  la regla de EV-30 (count = payload - 1) no tiene excepciones en los emisores
+  de GFX8, y EV-30 la confirma desde el hardware. Los dos lados, por vias
+  distintas, dicen lo mismo
+
+LO QUE NO SE CIERRA
+  que sea universal entre opcodes y entre ASICs. El censo lo tiene medido en 43
+  de 50 emisiones de UN fichero, y EV-30 lo tiene probado con cadena completa
+  para UN opcode. `CORROBORATED` para el resto, no `PROVEN`
+
+CÓMO SE RESUELVE
+  2026-10-02. Retirada visible. cn7 construye ahora el vm_flush con 6 payload, y
+  un control afirma contra los dwords del driver que el bloque son 7 exactos.
+  Un control que valida una entrada equivocada es peor que no tenerlo: el
+  anterior daba verde sobre un anillo de mentira
 ```
-
-Contando las llamadas reales a `amdgpu_ring_write` de cada emisor de GFX8, no
-suponiendo:
-
-| emisor | payload escritos | `count` | diferencia |
-|---|---|---|---|
-| `gfx_v8_0_emit_hdp_flush` (:6046) | 6 | 5 | **+1** |
-| `gfx_v8_0_ring_emit_pipeline_sync` (:6174) | 6 | 5 | **+1** |
-| `gfx_v8_0_ring_emit_vm_flush` (:6199) | **5** | 5 | **0** |
-| `gfx_v8_0_ring_emit_wreg` (:6349) | 4 | 3 | **+1** |
-| `COND_EXEC` | 4 | 3 | **+1** |
-| `INDIRECT_BUFFER` | 3 | 2 | **+1** |
-
-`vm_flush` es **el único exacto**. Y no es una casualidad de mi lectura: es el
-único cuyo `WAIT_REG_MEM` va seguido de inmediato de una cabecera de paquete
-válida, `PACKET3(PACKET3_PFP_SYNC_ME, 0)` (gfx_v8_0.c:6212), porque
-`usepfp` es cierto en el anillo GFX. Ese es el anillo que describen
-`ring_funcs` en :6901 y :6938, o sea ruta de producción: `emit_vm_flush`
-está en la tabla real, no en un test.
-
-**El nudo, y por qué sigue abierto:**
-
-- Si el hardware leyera `count + 1` payload, `vm_flush` **se comería la
-  cabecera del `PFP_SYNC_ME`**, y la ruta de invalidate de TLB dejaría de
-  funcionar. Es código en producción sobre silicio real, así que eso no pasa.
-- Si el hardware leyera exactamente `count`, entonces los **cinco** emisores
-  con `+1` dejan un dword suelto detrás de cada paquete, y ese dword hay que
-  tratarlo como no-op.
-
-Las dos lecturas son compatibles con el anillo capturado, porque en todos los
-casos el dword sobrante va seguido de una cabecera válida: si es no-op, se
-salta y sigue; si se consume como payload, también sigue.
-
-**Corroboración de AMD, con una reserva.** En `.emit_frame_size`
-(gfx_v8_0.c:6924-6935) AMD cuenta `7 +` para `hdp_flush` y `7 +` para
-`pipeline_sync`: header + 6 payload, o sea **la extensión completa escrita,
-incluyendo el poll interval**. Es la señal más fuerte de que el dword extra es
-parte del paquete a efectos del hardware.
-
-La reserva es que `emit_frame_size` es una **reserva de espacio para el
-ring**, no una afirmación sobre cómo parsea el hardware. Que se reserve de más
-es seguro; no implica semántica. Por eso queda `CORROBORATED`, no `PROVEN`.
-
-**Lo que sí decide el asunto**, y está especificado en F12b: un anillo donde el
-dword sobrante de un `WAIT_REG_MEM` sea un número grande en vez de `0x20` o
-`4`. Bajo "no-op de 1 dword" se salta; bajo "`count+1`" se consume como payload
-y el paquete siguiente se descoloca. Esta captura no lo discrimina porque los
-valores que aparecen son `0x20` y `4`, y ambos son menores que 2.
-
-`LAST_VERIFIED: 2026-10-02 - gfx_v8_0.c:6046, 6174, 6199, 6212, 6349, 6924-6935,
-bytes crudos del anillo, cn7`.
 
 ## EV-30 · El `count` de PM4 es payload menos uno, y lo demuestra el test del ring
 
@@ -2532,22 +2536,32 @@ Un driver propio que escriba `count` = número de payload, como haría leer la
 documentación literal del campo, **se come un dword del paquete siguiente en
 cada paquete que emita.**
 
-Corolario que reordena EV-28: `gfx_v8_0_ring_emit_vm_flush` es el **único**
-emisor de GFX8 que escribe exactamente `count` payload (5 con `count = 5`). Con
-la regla de este documento, **leería un dword de más**, que es la cabecera
-`PACKET3(PACKET3_PFP_SYNC_ME, 0)` de gfx_v8_0.c:6212.
+Corolario que **retira** EV-28: `gfx_v8_0_ring_emit_vm_flush` escribe **seis**
+payload con `count = 5`, no cinco. Los tres emisores de `WAIT_REG_MEM` de GFX8
+siguen la regla. No hay excepcion, y por tanto no se abre la pregunta de si
+`vm_flush` se comería la cabecera `PFP_SYNC_ME`: no se la come, porque escribe
+el dword que la cuenta declara.
 
-O la regla no es universal entre opcodes, o el `vm_flush` de GFX8 tiene un
-off-by-one. **Un driver propio no puede copiar ninguna de las dos sin
-decidirlo**, y F12b baja de "duda de documentación" a "una de dos, con la
-decisión explícita".
+El error fue mio: mapeé los numeros de linea leyendo un volcado numerado y
+conté cinco payload donde habia seis. `tools/pm4census.py`, que ya existia,
+medía lo mismo sobre `gfx_v8_0.c` y daba seis en los tres sitios. Ver la
+retirada de EV-28.
 
-**Lo que NO se cierra aquí**: que el `count` sea payload−1 para *todos* los
-opcodes queda `CORROBORATED`, no `PROVEN`. Está probado para
-`SET_UCONFIG_REG`, con cadena completa. Los emisores de `WAIT_REG_MEM` y
-`WRITE_DATA` tienen la misma forma y AMD cuenta su extensión **escrita** en
-`.emit_frame_size` (`7 +` para `hdp_flush` y para `pipeline_sync`), lo que apunta
-en el mismo sentido, pero eso es una reserva de espacio y no una medición.
+**CONVERGENCIA CON EL CENSO, QUE YA EXISTÍA.** `tools/pm4census.py` mide la
+convención sobre `gfx_v8_0.c` y da **43 de 43 emisiones medidas** con
+`count = payload - 1`, con 5 `SIN MEDIR` y 2 `LIMITE` que excluye del veredicto.
+Coincide con EV-30 y con el listado de emisores de esta fila.
+
+Cada lado cubre lo que al otro le falta, y ambos declaran su límite:
+
+| | qué mide | cobertura | qué NO dice |
+|---|---|---|---|
+| `tools/pm4census.py` | lo que el driver **escribe** | 43 de 50 emisiones de `gfx_v8_0.c` | si el hardware lo **lee** así |
+| EV-30 | si el hardware lo **lee** así | 1 opcode, cadena completa | los otros 24 paquetes |
+
+Que converjan por vias independientes es lo que sostiene la fila. La， de que
+el hardware lee `count+1` es EV-30; el censo explica por qué 43 de 50 emisores
+tienen la misma forma.
 
 `LAST_VERIFIED: 2026-10-02 - gfx_v8_0.c:838-864, amdgpu_ring.c:756-768,
 amdgpu_ring.h:432, bytes del anillo de compute dwords 3..6, cn7`.

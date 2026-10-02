@@ -63,38 +63,46 @@ LO QUE SE RETIRA DE ESTA FRONTERA
   seguido de una cabecera valida. Era EV-27, ya retirada
 
 LO QUE QUEDA ABIERTO, Y ES MAS PEQUEÑA
+
 PREGUNTA
-  `gfx_v8_0_ring_emit_vm_flush` es el UNICO emisor de GFX8 que escribe
-  exactamente `count` payload (5 con count=5). Los otros seis escriben count+1.
-  Con la regla de EV-30, este leeria un dword de mas: la cabecera
-  PACKET3(PACKET3_PFP_SYNC_ME, 0) de gfx_v8_0.c:6212
-  Es un off-by-one real en el driver de AMD, o la regla no es universal entre
-  opcodes?
+  ¿es la regla `count = payload - 1` universal, entre opcodes y entre ASICs?
 ESTADO
-  NOT_DETERMINED, con las dos hipotesis vivas y una consecuencia distinta en cada
-  una
-POR QUE NO SE PUEDE DECIDIR ESTATICAMENTE
-  hace falta un anillo real que contenga un vm_flush. En las cuatro capturas
-  que hay no hay ninguno: los 8 WRITE_DATA del anillo GFX van todos a
-  mmHDP_DEBUG0, y el de compute es la auto-prueba. Buscado explicitamente por
-  WRITE_DATA a 0x51e y 0x556: cero apariciones en las cuatro
-  NOT_OBSERVED, no PROVEN_ABSENT
-  y el test no se puede repetir sin tocar la GPU, que es NIVEL 3 y no esta
-  autorizado en esta ronda
-LO QUE LO DISCRIMINARIA
-  1. ESTATICO y BARATO: el mismo test del anillo, pero sobre SET_UCONFIG_REG en
-     otro contexto, o cualquier otro emisor de GFX8 con la forma opuesta. Si
-     hay un emisor mas que escriba exactamente count, la regla no es universal
-     y ya esta: basta un caso
-  2. ESTATICO: leer si algun ASIC posterior cambio el count de estos emisores.
-     gfx9+ usa el helper parametrizado `*_wait_reg_mem()`; si algunos count
-     changed entre gfx8 y gfx9, eso es una pista sobre cual es el valor correcto
-  3. RUNTIME (NIVEL 3): capturar un anillo con un vm_flush emitido, o leer
-     mmCP_WAIT_REG_MEM_TIMEOUT antes y despues de un invalidate
+  `CORROBORATED`, no `PROVEN`. Con dos limitaciones que conviene tener separadas
+LO QUE YA NO HACE FALTA MIRAR
+  la pregunta que se DERIVO de aqui, "si `vm_flush` es la excepcion", ya NO es
+  una pregunta. EV-28 queda RETIRADA: `gfx_v8_0_ring_emit_vm_flush` escribe
+  SEIS payload con count=5, como los otros dos emisores de WAIT_REG_MEM. Yo
+  habia contado cinco por un volcado de codigo numerado a ojo
+  `tools/pm4census.py` ya lo tenia medido y da seis en los tres sitios. Ese
+  fallo es la novena vez del patron de F11, y aqui la forma es nueva: no fue
+  un ambito de busqueda corto, fue leer numeros de linea de un volcado en vez
+  de de `grep -n`. Una herramienta ya existia y la contradije a mano
+  el discriminante que habia propuesto (un anillo con un vm_flush) hizo falta
+  solo para convencerme: la cuenta de seis la resuelve el censo, sin hardware
+  y sin captura
+LO QUE QUEDA, Y ES HONESTO
+  1. 5 emisiones de gfx_v8_0.c salen SIN MEDIR y 2 salen LIMITE. El veredicto
+     del censo es sobre 43 de 50. Las 7 restantes no son contraejemplos: la
+     propia herramienta las excluye. Ninguna de las 7 es un WAIT_REG_MEM de los
+     tres que aqui importan
+  2. EV-30 prueba el hardware para UN opcode, `SET_UCONFIG_REG`. Para los otros
+     24, la prueba es el argumento de que la forma es la misma: count declarado
+     una unidad menor que el payload escrito, en un buffer que el driver rellena
+     con el valor. Es un argumento fuerte y no es una medicion
+  3. la universalidad entre ASICs: `pm4census` tiene el modo de comparar
+     generaciones, y findings/023 ya lo uso sobre seis. Su resultado es evidencia
+     de contraste, no del ASIC de esta GPU, que es la distincion que el propio
+     023 fue a hacer
+LO QUE LO CERRARIA
+  1. ESTATICO y BARATO: resolver las 5 SIN MEDIR y las 2 LIMITE del censo. Si
+     alguna rompe la regla, es la excepcion que se busca. Es trabajo de otra
+     sesion sobre su herramienta, y aqui no se toca
+  2. RUNTIME (NIVEL 3): repetir el test del anillo con el opcode cambiado, o
+     capturar un anillo con un vm_flush. No hace falta hardware nuevo: hace
+     falta una GPU que no ha ejecutado la ruta de TLB desde la captura
 VALOR
-  bajo para el driver propio, ALTO como aviso: significa que copiar el codigo
-  de AMD al pie de la letra puede fallar justo en la ruta de TLB, que es la
-  mas critica
+  bajo para construir el driver. ALTO como metodo: la fila se cerraba con una
+  herramienta que ya existia en el arbol y que no se consulto
 ```
 
 ## F13 · Qué son los `0x20` de `protected by` en `amdgpu_sa_info`
