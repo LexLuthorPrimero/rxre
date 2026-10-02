@@ -251,6 +251,13 @@ def main():
          ["ipver_zero.py", "--resumen"], 6, 0),
         ("ipver_zero: control negativo",
          ["ipver_zero.py", "--self-test"], 1, 1),
+        # Superficie real de los 9 bloques IP, leida de las tablas constantes del
+        # .ko cargado. El aserto es sobre el dato EXTRAIDO, no sobre la
+        # estructura de quien lo extrae.
+        ("ip_surface: 9 bloques con superficie real",
+         ["ip_surface.py", "--bloque", "gfx_v8_0_ip_block"], 18, 0),
+        ("ip_surface: control negativo",
+         ["ip_surface.py", "--self-test"], 1, 1),
         # La reserva de numeros de hallazgo. num_collision mide 37 duplicados
         # y esta sesion choco 3 veces (111, 119, 120) con otra escribiendo.
         # El self-test RESERVA y LIBERA de verdad: comprobar que el numero no

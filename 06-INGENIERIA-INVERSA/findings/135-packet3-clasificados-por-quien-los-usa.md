@@ -1,4 +1,7 @@
 # 135 · Los 119 `PACKET3` de `sid.h`, clasificados por quién los usa: 20 los usa GFX8, 62 no son opcodes
+`CERRADO_POR=191` -- la lista de capacidades por ASIC son las **126
+tablas `*_ip_block`** del `.ko` cargado, extraidas mecanicamente con `ip_surface.py`.
+Del grupo v8 (10 tablas) esta placa registra 2: `gfx_v8_0` y `gmc_v8_1`.
 
 `CLASSIFICATION=DOCUMENTATION` · `TRACK=STATIC` · `WORK_CLASS=READ_ONLY/EVIDENCE`
 `WRITE_EXECUTION=NONE` · `MODIFICATIONS=0` · `RUNTIME=NOT_RUN` · `GPU INTACTA`
