@@ -297,7 +297,71 @@ efimeros.
 
 ---
 
-## 6. ERRORES PROPIOS ENCONTRADOS EN ESTA SESION
+## 7. FIRMWARE INFO DEL VBIOS, CRUZADA CON EL KERNEL
+
+Tabla `FirmwareInfo` en `0x9974`, campo #5 de la master data table
+(`atombios.h:2789`). Estructura `_ATOM_FIRMWARE_INFO_V1_2` (atombios.h:2982).
+`usStructureSize=108`, rev 2.2.
+
+### La unidad de los clocks, corroborada por el hardware
+
+El header dice "In 10Khz unit". 10 kHz es 1/100 de MHz, o sea que el paso a
+MHz es **dividir entre 100**.
+
+| campo | bruto | MHz | kernel ahora | |
+|---|---|---|---|---|
+| `ulDefaultEngineClock` | 21400 | **214** | `PSTATE_SCLK` 214 MHz | COINCIDE |
+| `ulDefaultMemoryClock` | 30000 | **300** | `MCLK` 300 MHz | COINCIDE |
+
+Dos coincidencias exactas en dos campos distintos, contra el estado real de
+la GPU en este momento. La unidad queda **CORROBORATED por hardware**, no
+deducida de la aritmetica.
+
+Me equivoque dos veces con esta unidad antes de acertar. La primera dividía
+por 10 y por 1000, y sacaba «2.1 MHz» para el reloj de motor. La segunda
+dividía por 100 y otra vez por 1000. Los dos números tenían decimales y
+aspecto de frecuencia, y ninguno lo era. Un error de unidades no da error:
+da un número plausible.
+
+Por eso el contraste con `amdgpu_pm_info` está **dentro** de la herramienta
+y no en mi cabeza: si la unidad no cuadra, sale con rc=5; si no puede
+contrastar, sale con rc=4. Verificado con mutación en los dos casos.
+
+### Otros valores leidos
+
+| campo | bruto | MHz |
+|---|---|---|
+| `ulDriverTargetMemoryClock` | 360000 | 3600 |
+| `ulMaxPixelClockPLL_Output` | 600000 | 6000 |
+| `ulASICMaxMemoryClock` | 62610 | 626 |
+| `ulDriverTargetEngineClock` | 0 | 0 |
+| `ulASICMaxEngineClock` | 0 | 0 |
+
+626 MHz de memoria maxima y 6000 MHz de pixel clock son coherentes con
+Polaris12. Los ceros son ceros, no valores no leidos: los campos existen en
+la estructura y estan a cero en este VBIOS.
+
+### El cruce con amdgpu_firmware_info NO da relacion
+
+`ulFirmwareRevision = 0x0F320201`. Sus cuatro bytes son `0x01 0x02 0x32 0x0F`.
+
+El kernel reporta feature versions **por IP**: ME 49, PFP 49, CE 49, MEC 49.
+**Ninguno de los cuatro bytes de `ulFirmwareRevision` es 49.**
+
+Eso **no** es una refutacion. Son dos campos distintos: uno es un entero
+opaco que el VBIOS declara, el otro es una version de IP que el kernel carga.
+Que no coincidan significa que no hay relacion establecida entre ellos, y no
+que se hayan contradicho.
+
+Clasificacion: `NOT_DETERMINED` para la relacion. No `REFUTED`.
+
+Ademas: `amdgpu_bios.c` no llama a `amdgpu_atom_parse`, asi que el driver de
+7.1.3 **no decodifica** estos campos por si mismo. El cruce es mio, no del
+driver, y eso hay que decirlo para no atribuirle una capacidad que no tiene.
+
+---
+
+## 8. ERRORES PROPIOS ENCONTRADOS EN ESTA SESION
 
 Se anotan porque el patron se repite y conviene reconocerlo.
 
@@ -383,3 +447,26 @@ Se anotan porque el patron se repite y conviene reconocerlo.
     verdad algo que aqui no se cierra.
 
     Lo que SI es dato del ASIC es el tamano: 2048 dwords, mask 0x07FF.
+
+11. **La unidad de los clocks del VBIOS, mal dos veces seguidas.** "In 10Khz
+    unit" es 1/100 de MHz. La primera vez dividi por 10 y por 1000, y salio
+    "2.1 MHz" para el reloj de motor. Corregido a /100, volvi a dividir por
+    1000 otra vez. Los dos errores dieron numeros con decimales y aspecto de
+    frecuencia.
+
+    Lo que lo resolvio no fue la aritmetica, fue contrastar con
+    `amdgpu_pm_info`: la GPU tiene ahora `PSTATE_SCLK` 214 MHz y `MCLK` 300
+    MHz, y el VBIOS dice 21400 y 30000. Un error de unidades no da error: da
+    un numero que parece una frecuencia. Por eso el contraste esta dentro de
+    la herramienta, con rc=5 si no cuadra y rc=4 si no se puede comprobar.
+
+12. **Un control de contraste mal calculado que decia "no coincide".** Al
+    escribir el bloque que compara el VBIOS con el estado del kernel,
+    redefini la variable `off`, que ahi es el offset de la TABLA, y la use
+    como offset del PAYLOAD. Leia en el sitio equivocado, sacaba 0, y el
+    contraste reportaba DIFIERE sobre dos valores que si cuadraban.
+
+    Un control mal calculado que dice "no coincide" es peor que no tenerlo:
+    hace desconfiar de una corroboracion que era real, y el reflejo seria
+    tirar el dato bueno. Se arreglo guardando los valores crudos en el
+    primer recorrido, para que el segundo no tenga que recalcular offsets.

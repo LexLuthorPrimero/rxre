@@ -146,6 +146,41 @@ def main():
     chk("el 6to dword (0x20) no rompe la sincronizacion",
         sum(p["dwords"] for p in pk) == 7 and len(pk) == 2)
 
+    # Un anillo truncado DENTRO de una tirada de NOP no produce ningun
+    # problema de paquete: el corte es invisible desde dentro del decode.
+    # Por eso el codigo de salida no puede depender solo de `problemas`, y
+    # por eso se comprueba que main() avise y devuelva 6 en ese caso.
+    #
+    # El bug que esto cubre: main() hacia rc_problemas = 0 en la rama "sin
+    # problemas de paquete", con lo cual se comia el aviso de tamano. El
+    # aviso se imprimia y el proceso salia con 0.
+    import tempfile
+    import subprocess as _sp
+    aqui = os.path.dirname(os.path.abspath(__file__))
+    with tempfile.TemporaryDirectory() as _td:
+        _f = os.path.join(_td, "corto.txt")
+        # 12 de cabecera + 997 dwords: 997 NO es potencia de dos, asi que es
+        # un anillo truncado aunque el decode interno no se queje.
+        with open(_f, "wb") as _h:
+            _h.write(struct.pack("<3I", 0x200, 0x200, 0x200))
+            _h.write(struct.pack("<997I", *([pk3(0x10, 0x3FFF)] * 997)))
+        _r = _sp.run([sys.executable, os.path.join(aqui, "pm4dec.py"), _f],
+                     capture_output=True, text=True)
+        chk("anillo truncado: avisa y sale con rc=6",
+            _r.returncode == 6 and "potencia de dos" in _r.stdout)
+
+        # Y el caso contrario: un anillo de tamano POTENCIA DE DOS no debe dar
+        # aviso. Sin esta comprobacion, un control que siempre dice "truncado"
+        # pasaria lo mismo que uno que lo detecta bien.
+        _f2 = os.path.join(_td, "entero.txt")
+        with open(_f2, "wb") as _h:
+            _h.write(struct.pack("<3I", 0x200, 0x200, 0x200))
+            _h.write(struct.pack("<1024I", *([pk3(0x10, 0x3FFF)] * 1024)))
+        _r2 = _sp.run([sys.executable, os.path.join(aqui, "pm4dec.py"), _f2],
+                      capture_output=True, text=True)
+        chk("anillo de tamano correcto: NO avisa, rc=0",
+            _r2.returncode == 0 and "potencia de dos" not in _r2.stdout)
+
     print("-" * 62)
     if FALLOS:
         print("%d control(es) FALLAN. pm4dec NO puede usarse como autoridad."

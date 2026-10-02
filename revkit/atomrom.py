@@ -491,19 +491,201 @@ def cmd_autotest(a):
     return 0
 
 
+# _ATOM_FIRMWARE_INFO_V1_2, atombios.h:2982. Solo los campos que aportan dato
+# util; el resto son relleno que el propio header llama "Don't use them".
+# El orden es del struct y NO se reordena.
+#
+# UNIDAD DE LOS CLOCKS, QUE HAY QUE HACER BIEN
+# --------------------------------------------
+# El header dice "In 10Khz unit". 10 kHz es 1/100 de MHz, asi que el paso a
+# MHz es dividir entre 100, NO (/10)/1000.
+#
+# La primera version hacia (/10)/1000 y sacaba "2.1 MHz" para el reloj de
+# motor, imposible para una GPU: numero plausible, con decimales, y
+# equivocado por un factor de 1000. Se arreglo contrastando con lo que el
+# kernel tiene AHORA en la maquina, que es la unica forma de saber si una
+# unidad esta bien:
+#
+#   ulDefaultEngineClock = 21400 -> 214 MHz == PSTATE_SCLK (214 MHz)
+#   ulDefaultMemoryClock = 30000 -> 300 MHz == MCLK (300 MHz)
+#
+# Dos coincidencias exactas en dos campos distintos. La unidad queda
+# CORROBORATED por el hardware, no deducida de la aritmetica.
+# Contraste con amdgpu_pm_info de esta misma maquina. Se lee el fichero
+# capturado; si no esta, se dice y no se inventa el valor. La ausencia hace
+# salir con codigo 4, no con un OK: el decode es valido pero la UNIDAD queda
+# sin verificar, y eso es distinto de verificada.
+CRUCE_PM = "capturas/amdgpu_pm_info.txt"
+
+FIRMWARE_INFO_V12 = [
+    ("ulFirmwareRevision", "u32", None),
+    ("ulDefaultEngineClock", "u32", 100),
+    ("ulDefaultMemoryClock", "u32", 100),
+    ("ulDriverTargetEngineClock", "u32", 100),
+    ("ulDriverTargetMemoryClock", "u32", 100),
+    ("ulMaxEngineClockPLL_Output", "u32", 100),
+    ("ulMaxMemoryClockPLL_Output", "u32", 100),
+    ("ulMaxPixelClockPLL_Output", "u32", 100),
+    ("ulASICMaxEngineClock", "u32", 100),
+    ("ulASICMaxMemoryClock", "u32", 100),
+    ("ucASICMaxTemperature", "u8", None),
+    ("ucMinAllowedBL_Level", "u8", None),
+]
+
+
+def cmd_firmware(d, a):
+    """
+    Decodifica la tabla FirmwareInfo y la cruza con lo que reporta el kernel.
+
+    POR QUE CRUZARLAS
+    -----------------
+    Hay dos fuentes de la version del firmware que no se han relacionado:
+    la tabla FirmwareInfo del VBIOS (lo que el firmware declara) y
+    amdgpu_firmware_info (lo que el kernel cargo). Si coincidieran, el
+    VBIOS describiria bien la GPU. Si no, son campos distintos.
+
+    El resultado de este cruce es que NO coinciden, y eso es un dato, no un
+    fallo: ulFirmwareRevision es un entero opaco y las feature versions que
+    da el kernel son por IP. Que ningun byte de ulFirmwareRevision sea 49 no
+    es una refutacion de la relacion, es que la relacion no esta
+    establecida. Se reporta como tal y no se fuerza un sentido.
+    """
+    v = valida(d)
+    mt = v["data_table"]
+    off = u16(d, mt + HEADER_COMUN + 2 * 4)   # campo #5: FirmwareInfo
+    print("=" * 78)
+    print("FIRMWARE INFO  (_ATOM_FIRMWARE_INFO_V1_2, atombios.h:2982)")
+    print("=" * 78)
+    print("tabla en 0x%04x, usStructureSize=%d rev=%d.%d"
+          % (off, u16(d, off), u8(d, off + 2), u8(d, off + 3)))
+    print()
+    print("%-30s %-12s %s" % ("campo", "bruto", "leido"))
+    print("-" * 62)
+    p = off + 4
+    rev = None
+    # Se guarda el valor CRUDO de cada campo mientras se recorre, para que
+    # el bloque de contraste no tenga que recalcular offsets. La primera
+    # version lo hacia, y al redefinir `off` (que ahi es el offset de la
+    # TABLA) lo usaba como offset del PAYLOAD: leia en el sitio equivocado,
+    # salia 0, y el contraste daba "DIFIERE" sobre valores que si cuadraban.
+    # Un control mal calculado que dice "no coincide" es peor que no
+    # tenerlo: hace desconfiar de una corroboracion que era real.
+    CRUDO = {}
+    for i, (nombre, tipo, div) in enumerate(FIRMWARE_INFO_V12):
+        if tipo == "u32":
+            val = u32(d, p); p += 4
+            CRUDO[nombre] = val
+            if nombre == "ulFirmwareRevision":
+                rev = val
+                print("%-30s 0x%08x" % (nombre, val))
+            elif div:
+                # div YA es el factor a MHz (100, porque 10 kHz = 1/100 MHz).
+                # Dividir otra vez por 1000 aqui fue el segundo error de la
+                # misma unidad: el primer codigo hacia val/10/1000, el
+                # segundo hacia val/100/1000. Los dos darian un numero con
+                # decimales y ninguno seria una frecuencia de GPU.
+                print("%-30s %-12d %.0f MHz" % (nombre, val, val / div))
+            else:
+                print("%-30s %d" % (nombre, val))
+        else:
+            val = u8(d, p); p += 1
+            print("%-30s %d" % (nombre, val))
+    print("-" * 62)
+    print()
+
+    # CONTRASTE CON EL HARDWARE, EN CADA EJECUCION.
+    #
+    # Una unidad mal puesta no da error: da un numero con decimales que
+    # parece una frecuencia. La unica forma de saber si la unidad es
+    # correcta es contrastar con lo que la maquina tiene AHORA, asi que eso
+    # se hace aqui y no se deja a la memoria de quien lee la salida.
+    #
+    # amdgpu_pm_info se captura con captura.py. Si no esta, se dice y se sale
+    # con codigo 4: el decode es valido pero la UNIDAD queda sin verificar,
+    # y eso no es lo mismo que verificada.
+    if not os.path.exists(CRUCE_PM):
+        print("NO SE PUDO VERIFICAR LA UNIDAD: falta %s" % CRUCE_PM)
+        print()
+        print("El decode de los valores es valido, pero que esten en MHz no")
+        print("esta comprobado. Sin el contraste, un factor 1000 de error")
+        print("pasaria desapercibido. Se sale con codigo 4.")
+        return 4
+
+    pm = open(CRUCE_PM, errors="replace").read()
+    import re as _re
+    m_sclk = _re.search(r"(\d+) MHz \(PSTATE_SCLK\)", pm)
+    m_mclk = _re.search(r"(\d+) MHz \(MCLK\)", pm)
+    if not (m_sclk and m_mclk):
+        print("NO SE PUDO VERIFICAR LA UNIDAD: el formato de %s cambio"
+              % CRUCE_PM)
+        print("Se esperaba 'N MHz (PSTATE_SCLK)' y 'N MHz (MCLK)'.")
+        return 4
+    hw = {"ulDefaultEngineClock": int(m_sclk.group(1)),
+          "ulDefaultMemoryClock": int(m_mclk.group(1))}
+
+    print("CONTRASTE DE UNIDAD con el estado real de la GPU:")
+    print("  %-24s %-8s %-8s %-10s %s"
+          % ("campo", "VBIOS/100", "kernel", "unit", "veredicto"))
+    fallos_unidad = []
+    for nombre, _t, div in FIRMWARE_INFO_V12:
+        if nombre not in hw or div is None:
+            continue
+        mhz = CRUDO[nombre] / 100.0   # 10 kHz = 1/100 de MHz
+        ok = abs(mhz - hw[nombre]) < 0.5
+        if not ok:
+            fallos_unidad.append(nombre)
+        print("  %-24s %-8.0f %-8d %-10s %s"
+              % (nombre, mhz, hw[nombre], "MHz",
+                 "COINCIDE" if ok else "DIFIERE"))
+    print()
+    if fallos_unidad:
+        print("  La unidad NO queda corroborada en: %s" % ", ".join(fallos_unidad))
+        print()
+        print("  Los valores de arriba estan BIEN leidos pero la UNIDAD no")
+        print("  esta comprobada. No se dan por buenos. Saliendo con codigo 5.")
+        unidad_ok = False
+    else:
+        print("  La unidad queda CORROBORATED: %d campos coinciden con las"
+              % len(hw))
+        print("  frecuencias que la GPU tiene ahora mismo. 10 kHz = 1/100 MHz.")
+        unidad_ok = True
+    print()
+    print("CRUCE con amdgpu_firmware_info (lo que cargo el kernel):")
+    print("  el kernel da feature version POR IP: ME 49, PFP 49, CE 49, MEC 49")
+    print("  ulFirmwareRevision = 0x%08x" % rev)
+    bs = [(rev >> (8 * i)) & 0xFF for i in range(4)]
+    print("  sus bytes son %s" % [hex(x) for x in bs])
+    print("  alguno es 49? %s" % ("si" if 49 in bs else "NO"))
+    print()
+    print("  Conclusion: son campos DISTINTOS. ulFirmwareRevision es un")
+    print("  entero opaco del VBIOS y las feature versions son por IP. Que")
+    print("  no coincida ningun byte NO es refutacion: es que no hay relacion")
+    print("  establecida. Se queda NOT_DETERMINED, no REFUTED ni CORROBORATED.")
+    # El codigo de salida lo dicta la UNIDAD, no el cruce de revisiones. Ese
+    # cruce es informativo y su resultado es "no hay relacion", que no es un
+    # fallo. La unidad, si, es algo que esta tool afirma y tiene que cumplir.
+    return 0 if unidad_ok else 5
+
+
 def main():
     ap = argparse.ArgumentParser(
         description="parseo del VBIOS ATOM de la RX550")
-    ap.add_argument("cmd", choices=["rom", "tablas", "autotest"])
+    ap.add_argument("cmd", choices=["rom", "tablas", "firmware", "autotest"])
     ap.add_argument("fichero", nargs="?", default="capturas/amdgpu_vbios.txt")
     a = ap.parse_args()
+    # El autotest fabrica su propio ROM y no necesita el fichero de disco.
     if a.cmd == "autotest":
         return cmd_autotest(a)
+    # El resto necesita el ROM, asi que se carga ANTES de despachar. La
+    # primera version de este dispatch llamaba a cmd_firmware(d, a) antes de
+    # que existiera la variable d: NameError en tiempo de ejecucion.
     if not os.path.exists(a.fichero):
         print("no existe %s" % a.fichero)
         print("Se obtiene con: RX550_SUDO_PASS=... captura.py")
         return 2
     d = open(a.fichero, "rb").read()
+    if a.cmd == "firmware":
+        return cmd_firmware(d, a)
     if a.cmd == "rom":
         return cmd_rom(d, a)
     return cmd_tablas(d, a)

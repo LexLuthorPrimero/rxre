@@ -158,6 +158,14 @@ run "atomrom: autotest (ROM sintetico)"          python3 atomrom.py autotest
 if [ -f capturas/amdgpu_vbios.txt ]; then
     run "atomrom: validar el VBIOS real"            python3 atomrom.py rom capturas/amdgpu_vbios.txt
     run "atomrom: inventariar tablas"              python3 atomrom.py tablas capturas/amdgpu_vbios.txt
+    # firmware contrasta los clocks del VBIOS con las frecuencias que la GPU
+    # tiene ahora. Sale con rc=5 si la unidad no cuadra y rc=4 si no puede
+    # contrastar: en ambos casos los valores se imprimen pero NO se dan por
+    # buenos. Un error de unidades no da error, da un numero con decimales.
+    run "atomrom: firmware info + contraste unidad" python3 atomrom.py firmware capturas/amdgpu_vbios.txt
+    # pm4dec sobre el anillo real: el decode tiene que salir limpio, sin
+    # problemas de truncamiento. Con el PKT0 mal tratado, esto no cuadraba.
+    run "pm4dec: anillo GFX real"                   python3 pm4dec.py capturas/amdgpu_ring_gfx.txt
 else
     echo "  atomrom: VBIOS real ausente (no versionado)     OMITIDO, el"
     echo "           autotest con ROM sintetico ya valida el"

@@ -405,6 +405,9 @@ def main():
     pts = pointers(d)
     pkts, ndw, problemas, nops = decodifica(
         d, ops, saltar_cabecera=not a.sin_cabecera)
+    # Se inicializa aqui y se actualiza mas abajo, en dos sitios: problemas
+    # de truncamiento de paquete, y anillo de tamano no potencia de dos.
+    rc_problemas = 0
 
     print("=" * 78)
     print("DECODIFICACION PM4/IB: %s" % os.path.basename(a.fichero))
@@ -414,6 +417,35 @@ def main():
           % ndw)
     print("opcodes cargados : %d desde sid.h" % len(ops))
     print("paquetes         : %d" % len(pkts))
+    print()
+
+    # ¿EL FICHERO ESTA COMPLETO?
+    #
+    # Un anillo real tiene un tamano en dwords que es POTENCIA DE DOS, porque
+    # los punteros se enmascaran con buf_mask = tamano-1. Asi que esa es la
+    # propiedad que se comprueba, y no el tamano en si.
+    #
+    # La primera version de esta comprobacia calculaba el tamano esperado a
+    # partir de la propia longitud del fichero, lo cual SIEMPRE cuadra: es
+    # circular, y un control circular no controla nada. Se comprobo cortando
+    # el anillo por la mitad: daba "correcto" con 4000 bytes, porque 4000
+    # bytes tambien son 12 de cabecera mas 997 dwords, y eso no viola nada
+    # que el calculo comprobara.
+    #
+    # Con la potencia de dos, 997 no la es, y el corte se detecta.
+    if pts is not None:
+        anillo_dw_total = ndw - CABECERA // 4
+        es_potencia = (anillo_dw_total > 0 and
+                       (anillo_dw_total & (anillo_dw_total - 1)) == 0)
+        if not es_potencia:
+            print("AVISO: el tamano del anillo no es potencia de dos.")
+            print("  dwords de anillo: %d" % anillo_dw_total)
+            print("  Un anillo de amdgpu tiene tamano potencia de dos, porque")
+            print("  los punteros se enmascaran con buf_mask = tamano - 1.")
+            print("  O el volcado esta truncado, o el fichero no es un anillo")
+            print("  de debugfs. En los dos casos el decode NO cubre el anillo")
+            print("  entero y no se puede afirmar lo contrario.")
+            rc_problemas = 6
     print()
 
     if pts:
@@ -467,6 +499,20 @@ def main():
         for p in problemas[:10]:
             print("  - %s" % p)
         print()
+        # Se devuelve 6 aunque el resto de la salida sea utilizable. Un anillo
+        # que no decodifica limpio no es un anillo "decodificado": es un
+        # decode con un error dentro, y si sale con 0 quien lo mire
+        # despues no tiene forma de saberlo.
+        rc_problemas = 6
+    else:
+        # OJO: aqui NO se pone rc_problemas = 0. Ese era el bug: un anillo
+        # truncado dentro de una tirada de NOP no produce problemas de
+        # paquete, asi que esta rama lo ponia a 0 y se comia el aviso de
+        # "no es potencia de dos" que ya se habia puesto. El aviso se
+        # imprimia y el codigo de salida volvia a ser 0, que es exactamente
+        # el modo de fallo que este toolkit lleva corrigiendo: un codigo que
+        # dice "todo bien" mientras hay un aviso sin resolver delante.
+        pass
 
     # resumen por opcode: que comandos se ejecutaron de verdad
     from collections import Counter
@@ -545,7 +591,7 @@ def main():
     else:
         print()
         print("(con --todos se lista cada paquete)")
-    return 0
+    return rc_problemas
 
 
 if __name__ == "__main__":
