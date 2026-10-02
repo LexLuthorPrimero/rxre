@@ -41,12 +41,22 @@ explicaba el problema, escrito con el patron literal dentro. Un comentario que
 DESCRIBE una escritura se cuenta como escritura. La solucion fue reescribir el
 comentario, no relajar el validador.
 
-ESTE FICHERO NO ES UNA HERRAMIENTA. No produce evidencia, no se ejecuta solo y
-no se invoca desde `run_all.py`. Lo invoca `stale_gap.py --self-test`, que
-importa las funciones de aqui y las ejecuta con sus propios datos.
-
-Lo unico que toca es /tmp/opencode/stale_gap_selftest, que borra antes de
-empezar. Nada del corpus se escribe, y nada del corpus se lee para escribir.
+# ESTE FICHERO NO ES UNA HERRAMIENTA. No produce evidencia, no se ejecuta solo
+# y no se invoca desde `run_all.py`. Lo invoca `stale_gap.py --self-test`, que
+# importa las funciones de aqui y las ejecuta con sus propios datos.
+#
+# Lo unico que toca es /tmp/opencode/stale_gap_selftest, que borra antes de
+# empezar. Nada del corpus se escribe, y nada del corpus se lee para escribir.
+#
+# UNA ADVERTENCIA SOBRE SU PROPIA EXISTENCIA. `citecheck` mide si las citas
+# `fichero:linea` de los hallazgos apuntan a donde dicen. Este fichero tiene
+# citas en su docstring -- `017:153`, `056:153`, `017:194` -- que son a
+# archivos REALES del proyecto y describen lineas reales. Se dejan a proposito:
+# son la evidencia de los casos que prueba el self-test, y un validador que las
+# eliminara habria eliminado el motivo de existir.
+#
+# Pero conviene saberlo: si alguna vez esas referencias dejan de ser ciertas,
+# `citecheck` lo dira, y no habra que entenderlo como un fallo de `citecheck`.
 """
 import os
 import re
@@ -271,6 +281,56 @@ def selftest():
           f"  {'OK' if ok else 'FALLA <<<'}")
     fallos += 0 if ok else 1
 
+    # 10e. LA VENTANA DE NEGACION, y el auto-referencia.
+    #
+    #     El caso mas importante de todos, y no salio de un filtro mal puesto:
+    #     salio de ESCRIBIR el hallazgo que documenta el fallo anterior.
+    #
+    #     Al explicar "un PROVEN citado se cuela como respuesta", las lineas
+    #     del propio hallazgo pasaron a ser respuesta de SIETE fronteras
+    #     abiertas de FUNCTION=always. La herramienta se cita a si misma.
+    #
+    #     Aqui se reproducen los dos mecanismos por separado.
+    # 10e-1: la ventana de negacion (frase partida en dos lineas).
+    doc("t10e-vent.md", "`mmX_VENTANA`:\n`NOT_DETERMINED` abierto.\n")
+    doc("t10e-resp.md", "para llegar a `PROVEN` es exactamente lo contrario.\n"
+                        "El texto decia que no se puede llegar a `PROVEN`.\n")
+    fr10e, _ = _clasificar_en(tmp)
+    r10e = [f["clase"] for f in fr10e if f["sujeto"] == "mmX_VENTANA"]
+    ok = r10e == ["VIVA"]
+    print(f"  {'ventana neg.':12} frase partida en dos lineas   "
+          f"{r10e if r10e else '(nada)'}  {'OK' if ok else 'FALLA <<<'}")
+    fallos += 0 if ok else 1
+
+    # 10e-2: el documento de METODO no cierra fronteras del ASIC.
+    #
+    #     Aqui no hay ningun fallo de lenguaje: el documento esta bien escrito
+    #     y sus PROVEN son ciertos. Lo que falla es la PREMISA, que un
+    #     documento de metodo responda a una frontera del hardware. Por eso el
+    #     filtro es por nombre de fichero y no por texto.
+    doc("t10f-metodo-herramientas.md",
+        "Una herramienta que cita el estado se cita a si misma.\n"
+        "`mmX_METODO` queda `PROVEN` segun el detector.\n")
+    doc("t10f-no-metodo.md",
+        "Sobre `mmX_METODO`:\n`NOT_DETERMINED` abierto.\n")
+    fr10f, _ = _clasificar_en(tmp)
+    r10f = [f["clase"] for f in fr10f if f["sujeto"] == "mmX_METODO"]
+    ok = r10f == ["VIVA"]
+    print(f"  {'metodo':12} no cierra fronteras del ASIC    "
+          f"{r10f if r10f else '(nada)'}  {'OK' if ok else 'FALLA <<<'}")
+    fallos += 0 if ok else 1
+
+    # 10e-3: y un hallazgo NORMAL si cierra. El filtro no puede tragarse
+    #        documentos legitimos por ser conservador.
+    doc("t10g-real.md", "`mmX_REAL_DEL_DOC`:\n`NOT_DETERMINED` abierto.\n")
+    doc("t10g-resp.md", "| `mmX_REAL_DEL_DOC` esta medido | `PROVEN` | tabla |")
+    fr10g, _ = _clasificar_en(tmp)
+    r10g = [f["clase"] for f in fr10g if f["sujeto"] == "mmX_REAL_DEL_DOC"]
+    ok = r10g == ["RESUELTA_OTRO"]
+    print(f"  {'hallazgo real':12} sigue cerrando fronteras    "
+          f"{r10g if r10g else '(nada)'}  {'OK' if ok else 'FALLA <<<'}")
+    fallos += 0 if ok else 1
+
     # 10c. la AFIRMACION frente a la MENCION.
     #
     #     Cuarto fallo real, encontrado al verificar a mano las 30 obsoletas
@@ -307,9 +367,18 @@ def selftest():
     if fallos:
         print(f"  RESULTADO: TOOL_BROKEN -- {fallos} controles fallan")
         return 1
-    print(f"  RESULTADO: TOOL_VALIDATED -- {len(casos) + 7} controles pasan.")
-    print("  Los cuatro que mas evitan relaciones falsas:")
-    print("    - PROVEN dentro de una frase NEGATIVA no cuenta como respuesta.")
+    print(f"  RESULTADO: TOOL_VALIDATED -- {len(casos) + 10} controles pasan.")
+    print()
+    print("  Los controles que evitan relaciones FALSAS, del mas grave al")
+    print("  menos:")
+    print("    - un documento de METODO no cierra fronteras del ASIC. El caso")
+    print("      mas raro y el mas dañino: salio de escribir este mismo")
+    print("      hallazgo. Las lineas que citaban FUNCTION=always para explicar")
+    print("      el fallo se convirtieron en respuesta de SIETE fronteras")
+    print("      abiertas. La herramienta se citaba a si misma.")
+    print("    - la ventana de NEGACION abarca la linea anterior: una frase")
+    print("      partida en dos lineas solo lleva la negacion en la primera.")
+    print("    - PROVEN dentro de una frase negativa no cuenta como respuesta.")
     print("      El caso real (056:153) daba por cerradas dos fronteras")
     print("      ABIERTAS de FUNCTION=always, y el texto decia lo contrario.")
     print("    - un estado CONDCIONAL ('haría REFUTED incorrecto') no afirma.")
@@ -317,8 +386,11 @@ def selftest():
     print("    - un numero de documento no es un sujeto consultable.")
     print("    - una actualizacion posterior no es una contradiccion consigo")
     print("      mismo.")
-    print("  Y en las tres primeras se exige lo simetrico: un PROVEN o un")
-    print("  REFUTED de verdad NO se descartan por prudencia.")
+    print()
+    print("  Y para los filtros de descarte se exige lo SIMETRICO, porque un")
+    print("  filtro que solo sabe decir 'no' es un muro, no un filtro:")
+    print("    PROVEN de verdad cuenta | REFUTED en tabla cuenta |")
+    print("    un hallazgo normal sigue cerrando fronteras")
     return 0
 
 

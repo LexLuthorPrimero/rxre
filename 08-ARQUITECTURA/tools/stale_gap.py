@@ -113,6 +113,52 @@ _BCK = re.compile(r"`([^`]{1,60})`")
 # Sujeto formal: IDENTIFICADOR = ESTADO  o  IDENTIFICADOR: ESTADO
 _ASG = re.compile(r"^([A-Za-z_][A-Za-z0-9_.]{2,})\s*[:=]\s*")
 
+# SUJETO EN NEGRITA, QUE NO ESTA ENTRE BACKTICKS.
+#
+# La primera version de `sujeto_de` solo miraba entre backticks y el patron
+# `IDENT = ESTADO`. Con eso, 112 fronteras salian SIN_SUJETO, y al mirarlas
+# muchas si lo tienen:
+#
+#   001:213  **GFX_HWIP sigue `NOT_DETERMINED`.**
+#   009:145  **Estado: `NOT_DETERMINED`, causa distinta.**
+#
+# El sujeto es el identificador, y esta escrito en negrita o en prosa con
+# mayusculas. Una frontera a la que le falta el sujeto NO se puede cerrar ni
+# repetir, asi que perderla aqui convierte un dato en un defecto de documento.
+#
+# EL RIESGO, Y POR QUE SE ACEPTA. Ampliar de donde se busca el sujeto mete
+# ruido: cualquier palabra en negrita puede ser sujeto. Se acota con tres
+# condiciones, todas necesarias:
+#
+#   1. la forma tiene que ser de IDENTIFICADOR, no de frase (una palabra suelta
+#      o dos, con guion bajo o mayusculas internas);
+#   2. NO puede ser el nombre del estado, que ya se filtra aparte;
+#   3. tiene que estar en la linea del estado o en la inmediatamente
+#      anterior, igual que los otros candidatos.
+_BOLD = re.compile(r"\*\*([A-Za-z_][A-Za-z0-9_]{2,40})\*\*")
+_MAYU = re.compile(r"(?<![`\w])([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)(?![`\w])")
+
+
+def _sujetos_negrita(linea):
+    """Identificadores de la linea que PODRIAN ser sujeto."""
+    out = []
+    for m in _BOLD.finditer(linea):
+        s = m.group(1)
+        if _EST_RE.fullmatch(s) or len(s) < 4:
+            continue
+        # frase en negrita: mas de dos palabras no es un identificador
+        if " " in s:
+            continue
+        out.append(s)
+    # CONSTANTE_EN_MAYUSCULAS con guion bajo, que es como se escriben los
+    # registros y los campos en estos documentos.
+    for m in _MAYU.finditer(linea):
+        s = m.group(1)
+        if _EST_RE.fullmatch(s):
+            continue
+        out.append(s)
+    return out
+
 # UNA RESOLUCION TIENE QUE ESTAR EN UNA AFIRMACION, NO EN UNA MENCION.
 #
 # Cuarto fallo de extraccion de esta herramienta, y el que mas fronteras
@@ -225,7 +271,71 @@ def normaliza(s):
 # La lista se deriva de lo QUE SON, no de lo que se ha visto, para que se
 # pueda discutir. Un sujeto que sea un numero de documento NO es una entidad
 # del hardware y no se puede cerrar.
+# SERIE DE DOCUMENTOS QUE SON METODO, NO HALLAZGO.
+#
+# Un hallazgo mide el ASIC. Un documento de metodo mide el PROYECTO: sus
+# afirmaciones sobre el hardware son EJEMPLOS de por que una herramienta
+# falla, no respuestas a las fronteras del ASIC.
+#
+# Y la confusion no es teorica. 045 explica que un PROVEN CITADO se cuela
+# como respuesta, y al escribirlo se reprodujo SOLO: las lineas que citan
+# FUNCTION=always para explicar el fallo se convirtieron en "respuesta
+# cerrada" de SIETE fronteras que siguen abiertas. La herramienta se estaba
+# citando a si misma.
+#
+# No se arregla con un filtro mas de lenguaje: hay que excluir por el nombre
+# del documento, que es una propiedad de la FUENTE y no del texto.
+#
+# Se declara la lista entera, no un patron generico, para que se pueda
+# discutir que entra. Añadir un patron es barato y por eso es peligroso: la
+# exclusion debe ser visible y razonada.
+SERIE_METODO = [
+    r"herramient",                # 038, 056-sin-herramientas
+    r"fronteras-obsoletas",       # 045, este detector
+    r"mapa-causal",               # 042
+    r"grafo-y-detector",          # 041
+    r"auditoria|prospeccion",     # 048-claims, 041-herramientas-de-procedencia
+    r"correccion.*make",          # 044-correccion-implementada
+    r"convencion-de-count",       # 045-la-convencion
+    r"el-limite-del-claim",       # 047-los-diez-selectores
+]
+
+
+def _es_documento_de_metodo(nombre):
+    """¿Este documento habla de herramientas y no del hardware?
+
+    Si es asi, NO PUEDE cerrar fronteras del ASIC: lo que dice del hardware es
+    un ejemplo de por que una herramienta falla, no una respuesta.
+    """
+    b = nombre.lower()
+    if "herramient" in b:
+        return True
+    for pat in SERIE_METODO:
+        if re.search(pat, b):
+            return True
+    return False
+
+
 def _es_referencia(s):
+    """¿Este documento habla de herramientas y no del hardware?
+
+    Dos familias, y las dos son metodo:
+      1. hallazgos cuyo nombre lleva el patron 'herramient';
+      2. documentos de la serie de detectores automaticos (stale_gap,
+         contradicciones, grafo, bitmap de citas), que existen para medir el
+         proyecto y no el ASIC.
+    """
+    b = nombre.lower()
+    if "herramient" in b:
+        return True
+    for pat in SERIE_METODO:
+        if re.search(pat, b):
+            return True
+    return False
+
+
+def _es_referencia(s):
+    """¿Lo que hay entre backticks es algo que se pueda consultar?"""
     b = s.strip().strip("`").lower()
     if not b:
         return True
@@ -313,6 +423,23 @@ def sujeto_de(line, previa, previa2):
         m = _ASG.match(p.strip())
         if m:
             return m.group(1)
+    # Cuarto caso, y es el que mas saldo dio: el sujeto en NEGRITA o en
+    # CONSTANTE, que no esta entre backticks.
+    #
+    # ESTE CASO VA EL ULTIMO A PROPOSITO. Con el puesto antes, se perdian los
+    # sujetos entre backticks de las lineas anteriores, y el resultado fue
+    # {"SIN_SUJETO" 112 -> 185} y {"RESUELTA_OTRO" 29 -> 19}: es decir, la
+    # ampliacion DESTRUYO informacion que ya se tenia.
+    #
+    # El orden de los candidatos es el de confianza: backticks explicitos
+    # primero, despues la forma `IDENT = ESTADO`, despues prosa. Anadir una
+    # fuente mas debil al principio no es "buscar mas", es cambiar el
+    # extractor a algo peor.
+    for p in (line, previa, previa2):
+        if not p:
+            continue
+        for cand in _sujetos_negrita(p):
+            return cand
     return None
 
 
@@ -341,11 +468,25 @@ def extraer():
 
 
 def claims_cerrados():
-    """{clave: [(doc, linea, estado, texto)]} de lo que ya esta resuelto."""
+    """{clave: [(doc, linea, estado, texto)]} de lo que ya esta resuelto.
+
+    EXCLUYE los documentos de metodo, y por que.
+
+    045 documenta el caso de un PROVEN citado que se cuela como respuesta. Al
+    escribir ese documento, el caso se reprodujo SOLO: sus lineas, que citan
+    FUNCTION=always para explicar el fallo, se convirtieron en "respuesta
+    cerrada" de siete fronteras que siguen ABIERTAS.
+
+    Es auto-referencia: una herramienta que se cita a si misma. Y no hay filtro
+    de lenguaje que lo arregle, porque el problema no es la frase: es que un
+    documento de metodo, por definicion, no mide el ASIC.
+    """
     out = defaultdict(list)
     for path in documentos():
-        ls = lineas_de(path)
         doc = os.path.basename(path)
+        if _es_documento_de_metodo(doc):
+            continue
+        ls = lineas_de(path)
         for i, l in enumerate(ls):
             ms = _EST_RE.findall(l)
             cerradas = [e for e in ms if e in CIERRAN]
@@ -367,6 +508,32 @@ def claims_cerrados():
             # tiene esta clase de fallo garantizada, porque en estos documentos
             # se CITA el estado para discutirlo.
             if _negada(l):
+                continue
+
+            # EL VECINO IMPORTA, Y ESTO ES LO MAS IMPORTANTE QUE HECHO ESTA
+            # HERRAMIENTA.
+            #
+            # El filtro de negacion mira UNA linea, y una linea de continuacion
+            # no tiene la negacion: la frase empieza en la anterior. Por eso:
+            #
+            #   045:117  "para llegar a `PROVEN` es exactamente lo contrario.
+            #             El texto decia que no se puede llegar a `PROVEN`."
+            #   045:118  "llegar a `PROVEN`."          <- sin negacion visible
+            #
+            # La 118 hereda el PROVEN de la 117 y se cuela como respuesta,
+            # cerrando SIETE fronteras de FUNCTION=always que siguen ABIERTAS.
+            # Y lo grave no es el numero: es que el documento que lo produce
+            # es ESTE PROYECTO hablando de SU PROPIA HERRAMIENTA. Una
+            # herramienta que cita el caso que analisa se cita a si misma.
+            #
+            # La regla es conservador a proposito: si la ventana de negacion
+            # de la linea esta contaminada, la linea NO PUEDE cerrar nada. No
+            # se busca la negacion mas atras, que es lo que haria falta de
+            # verdad: se descarta, porque un "PROVEN" que aparece dentro de un
+            # parrafo que esta hablando de que no se puede, no es un
+            # PROVEN dicho. Es el sujeto de una discusion.
+            ventana = " ".join(ls[max(0, i - 1):i + 1])
+            if any(re.search(p, ventana, re.I) for p in NEGACION):
                 continue
             # Y ahora: que la linea AFIRME, no que mencione.
             if not _afirma(l):
