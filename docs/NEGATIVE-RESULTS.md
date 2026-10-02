@@ -735,3 +735,70 @@ Irrecuperable. Su contenido no existe en ninguna parte de este arbol.
 Los 139 de NR-2026-10-02-i estan en la misma situacion, pero todavia
 tienen contenido: por eso son una amenaza y el 050 es una perdida.
 ```
+
+## NR-2026-10-02-h · `pte.py dump` tenía el layout de PTE hardcodeado, sin filtro de ASIC
+
+```
+QUÉ SE PROBÓ
+  ejecutar `revkit/pte.py dump` sobre un valor construido con lo que ya
+  sabemos de EV-20, para ejercitar el decodificador
+RESULTADO QUE DABA
+  "bit 47..12 ADDR_BA (PFN << 12)", o sea un campo de dirección de 36 bits
+REALIDAD DE GFX8
+  `gmc_v8_0.c:1134` pone
+      adev->gmc.pte_addr_mask = 0x000000FFFFFFF000ULL; /* 40 bit PA */
+  el bit mas alto con un 1 es el 39, luego la dirección va en bits 12..39:
+  28 bits, ventana de 2^28 = 256 MiB. La diferencia son 8 bits
+POR QUÉ IMPORTA
+  leer la tabla de `dump` como si fuera el layout de esta GPU da un campo de
+  dirección 8 bits más ancho que el real. Es exactamente el modo de fallo que
+  este kit lleva corrigiendo toda la sesión, y estaba en una herramienta MÍA
+  Y EN MI PROPIO revkit
+LA ASIMETRÍA QUE LO DELATA
+  `pte.py para-gfx8` SÍ filtra por alcance: distingue lo que GFX8 consume de lo
+  que el corpus define para otras generaciones, y clasifica lo no alcanzable
+  como NOT_APPLICABLE y no como PROVEN_ABSENT. Esa parte está bien
+  `pte.py dump` NO filtra: sus fronteras de campo están escritas a mano en el
+  código, no se derivan de nada. Es la unión de todas las generaciones, y no
+  lo dice
+LO QUE SE HIZO
+  `dump` ahora deriva el ancho de `PTE_ADDR_MASK_GFX8`, imprime la ventana
+  antes de la tabla, y avisa de que los campos son la unión de generaciones y
+  no el layout de GFX8. La tabla genérica se queda, marcada como tal, porque
+  sirve para otros ASIC
+  seis controles nuevos en cn7, con dos mutaciones que los detectan
+ERROR PROPIO, EN LA MISMA LÍNEA
+  la ventana se calculaba con `1 << (alto - 12)` = 2^27 = 128 MiB, en vez de
+  `1 << (alto - 12 + 1)` = 2^28 = 256 MiB. Los bits 12..39 son 28 bits
+  INCLUSIVE. Error de unidades en una línea que acababa de escribir, y un
+  control lo cazó
+LO QUE ESTA EN PIE DE EV-20
+  EV-20 decía "40 bit PA" citando el comentario del código, y es correcto: la
+  PA ocupa los bits 0..39 y la PTE guarda de ella los 28 altos, en 12..39. Casi
+  lo "corrijo" a 36 bits por leer la tabla de `dump`. Un `dump` con layout
+  genérico no corrige una afirmación que viene de la fuente
+```
+
+## NR-2026-10-02-i · El toolkit tenía dos herramientas que hacían el trabajo de esta sesión
+
+```
+QUÉ PASÓ
+  se iba a hacer un censo manual de emisores de PACKET3, y antes se comprobo
+  que `tools/pm4census.py` ya lo hacia: 43 de 50 emisiones con count = payload-1
+  y las 3 de WAIT_REG_MEM con payload 6, que es la correccion que yo no habia
+  hecho. Y `08-ARQUITECTURA/tools/count_vmflush_dw.py` dio el WAIT_REG_MEM del
+  vm_flush en 7 dw, o sea cabecera + 6 payload, tercera confirmacion
+  y `revkit/pte.py` estaba en MI revkit, con el análisis de flags de PTE de
+  GFX8 end to end, que es la frontera F2b que yo tenía abierta
+QUÉ ES
+  la leccion la sabia de dos veces en esta misma sesión y la tercera vez la
+  pagué igual: consultar el toolkit antes de medir
+LO QUE HIZO EL INVENTARIO
+  extraje el propósito de las 100 herramientas candidatas leyendo solo la
+  primera línea de su docstring, en vez de abrirlas una a una. Cuesta un
+  comando y evita gastar contexto
+LO QUE PARECE, Y NO PARECE
+  `tools/` y `08-ARQUITECTURA/tools/` son de otras sesiones y su documentación
+  tiene su propio ciclo. No se tocan. La lección es de método, no de que
+  falten herramientas: faltan por no consultadas, no por no existir
+```

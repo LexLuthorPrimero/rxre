@@ -38,8 +38,10 @@ import os
 import re
 import subprocess
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+AQUI = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, AQUI)
 import pm4dec as P  # noqa: E402
+import pte as _PTE  # noqa: E402
 
 FALLOS = []
 
@@ -553,6 +555,35 @@ def main():
     else:
         print("  OMIT  sin capturas/amdgpu_ring_gfx.txt no se prueba el "
               "off-by-one sobre el anillo real")
+
+    # --- pte.py dump: el ancho de direccion de GFX8
+    #
+    # cmd_dump tenia las fronteras de campo HARDCODEADAS, sin filtro de ASIC:
+    # decia "bit 47..12 ADDR_BA", o sea 36 bits. Para GFX8 no es asi:
+    # gmc_v8_0.c:1134 pone pte_addr_mask = 0x000000FFFFFFF000, con lo que la
+    # direccion va en bits 12..39 = 28 bits. Leer la tabla generica como si
+    # fuera de esta GPU da 8 bits de mas, que es justo el modo de fallo que
+    # este kit lleva corrigiendo toda la sesion
+    _ancho = _PTE.ancho_direccion_este_asic(0x000000FFFFFFF000)
+    chk("pte dump: el ancho sale de pte_addr_mask, no de la tabla generica",
+        _ancho == {"bit_mas_alto": 39, "bits_de_direccion": 28,
+                   "ventana_bytes": 268435456}, "(%s)" % (_ancho,))
+    chk("pte dump: 28 bits son 2^28 = 256 MiB, no 2^27 = 128",
+        _ancho["ventana_bytes"] == (1 << 28),
+        "(ventana=%d)" % _ancho["ventana_bytes"])
+    chk("pte dump: la tabla generica da 36 bits y la diferencia con GFX8 "
+        "es de 8", (47 - 12 + 1) - 28 == 8,
+        "(%d - 28 = %d)" % (47 - 12 + 1, 47 - 12 + 1 - 28))
+    _r = subprocess.run([sys.executable, os.path.join(AQUI, "pte.py"),
+                         "dump", "0x0001002581f3"], capture_output=True,
+                        text=True)
+    chk("pte dump: avisa de que los campos son la union de generaciones",
+        "no el layout de GFX8" in _r.stdout, "(rc=%d)" % _r.returncode)
+    chk("pte dump: dice 256 MiB en la salida",
+        "256 MiB" in _r.stdout, "(rc=%d)" % _r.returncode)
+    chk("pte dump: la constante del modulo ES la de gmc_v8_0.c:1134",
+        _PTE.PTE_ADDR_MASK_GFX8 == 0x000000FFFFFFF000,
+        "(constante=0x%016x)" % _PTE.PTE_ADDR_MASK_GFX8)
 
     print("-" * 62)
     if FALLOS:

@@ -271,69 +271,64 @@ ACCIÓN        EJECUTAR. No requiere autorización de hardware: es un experiment
 ## F2b · Semántica de hardware de cada bit de PTE
 
 ```
-PREGUNTA      Para cada bit que el driver escribe en el PTE de GFX8 -- VALID, SYSTEM,
-              SNOOPED, EXECUTABLE, READABLE, WRITEABLE, FRAG(11:7), PDE_PTE(54) --
-              ¿qué hace el hardware cuando lo ve?
-ESTADO        NOT_DETERMINED  para todos. El censo está cerrado (RE-22); la semántica no
-CERRADO       Qué productOR escribe cada bit, y con qué estado:
-                WRITTEN / CLEARED_NOT_SET / OTHER_GEN, los tres verificados por pteflags
-                con 19 aserciones y 5 controles negativos
-NO SE PUEDE RESPONDER  ESTÁTICAMENTE, y hay que decirlo con precisión
-              El propio binario lo dice: "Que el hardware de GFX8 interprete alguno de
-              estos bits... La semantica de hardware de cada bit sigue NOT_DETERMINED"
-              El preprocesado da el TEXTO de la unidad de traducción; no dice qué hace
-              el silicio con él
-EVIDENCIA CONOCIDA
-  pteflags            el censo completo, con productor por bit
-  gmc_v8_0.c:686      el comentario del propio driver sobre el layout del PTE
-  gmc_8_2_sh_mask.h   MASK y SHIFT de los campos de GMC
-  El contraste MTYPE: el símbolo ni siquiera existe en la TU de GFX8
-EVIDENCIA QUE FALTA
-  Documentación primaria de AMD sobre el PTE de VI/GFX8. No está en este repo ni en
-  ningún sitio que este proyecto haya buscado, y evidence_search.py con --expect ya
-  se usó
-EL BLOQUEO CAMBIÓ DE NOMBRE EL 2026-10-01, y conviene no mezclarlo con el anterior
-  ANTES  "falta la especificación del PTE". Correcto pero incompleto
-  AHORA  RE-24 (`033-protections-opaco`) RENOMBRA el bloqueo: no es sólo que falte la
-        spec, es que **el observador de referencia no produjo el dato en el camino que
-        nos interesa**. El decode estructurado de `PROTECTIONS` existe en UN solo punto
-        de todo el driver y está detrás de un gate de KFD. GFX6 y GFX7 tampoco lo
-        descomponen, así que no es una omisión de GFX8: es que nadie lo descompone en
-        GPUVM
-        CONSECUENCIA DE DISEÑO, y es lo que un driver propio tiene que tragarse: para
-        diagnosticar faults de traducción tendrá que INVENTAR su propia decodificación
-        de un campo de 8 bits. Y por NO_HISTORICAL_INHERITANCE no se puede heredar el
-        decode de KFD: es software de KFD sobre un campo opaco, no una verdad del
-        silicio
-  `033` lo dice de sí mismo: "No cierra F2b. F2b sigue BLOCKED_BY_CORPUS +
-  BLOCKED_BY_AUTHORIZATION. Lo que hace es renombrar el bloqueo"
-TEST DISCRIMINANTE
-  No hay uno estático. Las tres vías son:
-    (a) spec PM4/VM de GFX8 -- es la fuente primaria y no está disponible
-    (b) lectura del MMU hardware tras mapear entradas con cada bit -- RUNTIME, y
-        escribir un PTE con un bit mal interpretado es corrupción silenciosa
-    (c) comparar el comportamiento observable (¿un PTE SNOOPED pero no SYSTEM
-        invalida?) contra el modelo -- RUNTIME
-  Y una cuarta que 033 abre: given las DOS hipótesis (A: [3:5] espeja R/W/X;
-  B: Fault-ID opaco), un experimento que produzca un fault conocido y lea
-  `PROTECTIONS` las separa. Es RUNTIME, y es de las pocas cosas que un runtime
-  discriminaría sin depender de la spec
-BLOQUEOS      **RECLASIFICADO 2026-10-01.** La vía (a) —la especificación primaria— está
-              CERRADA: existe, se midió, y no contiene PM4. Ver RE-29
-              -> (b) y (c) son las únicas vías que quedan, y las dos son RUNTIME
-              -> `BLOCKED_BY_NEGATIVE_RESULT` + `BLOCKED_BY_AUTHORIZATION`
-              Y ambas dependen de que F1 se resuelva antes: no se puede observar una
-              traducción si no se sabe si el invalidate se aplicó
-LO QUE 033 DEGRADA, y hay que decirlo
-  la confianza del LAYOUT del PTE. El censo RE-22 dice qué escribe el driver y eso no
-  cambia, pero el layout de los bits tiene UNA fuente: el comentario de
-  `gmc_v8_0.c:691-702`, sin corroboración en ninguna cabecera ASIC. Ningún finding
-  anterior lo decía
-RELEVANTE     RE-24, RE-22, RE-05, 033, 026-pte-encoding, gmc_v8_0.c
-VALOR         MEDIO ahora, ALTO después. Con la geometría (RE-10) y el censo (RE-22)
-              cerrados, la semántica de cada bit es lo que queda entre el modelo y el
-              hardware para la capa de memoria. Es la frontera más grande que queda
-              abierta y es grande por defecto: son ocho bits
+ACTUALIZADO 2026-10-02. La parte de ALCANCE estaba cerrada desde antes por
+`revkit/pte.py para-gfx8`, una herramienta de este mismo revkit que no se
+había ejecutado nunca. Lo que queda es la parte de SEMÁNTICA, que esa
+herramienta no puede cerrar y no pretende cerrar
+
+LO QUE YA ESTABA RESUELTO, Y NO SE CONSULTÓ
+  `revkit/pte.py para-gfx8` interseca los flags `AMDGPU_PTE_*` definidos con lo
+  que GFX8 alcanza, y separa lo que aplica de lo que no:
+
+    con alcance demostrado (15)
+      bit 54 AMDGPU_PDE_PTE          amdgpu_vm.h
+      bit  4 AMDGPU_PTE_EXECUTABLE   amdgpu_vm.c, amdgpu_vm.h, amdgpu_vm_pt.c
+      bit 51 AMDGPU_PTE_PRT          amdgpu_vm.h, gmc_v8_0.c
+      bit  5 AMDGPU_PTE_READABLE     amdgpu_ttm.c, amdgpu_vm.c, amdgpu_vm.h
+      bit  2 AMDGPU_PTE_SNOOPED      amdgpu_ttm.c, amdgpu_vm.c, amdgpu_vm.h
+      bit  1 AMDGPU_PTE_SYSTEM       amdgpu_gart.c, amdgpu_ttm.c, amdgpu_vm.c
+      bit  3 AMDGPU_PTE_TMZ          amdgpu_ttm.c, amdgpu_vm.c
+      bit  0 AMDGPU_PTE_VALID        amdgpu_ttm.c, amdgpu_vm.c, amdgpu_vm_pt.c
+      bit  6 AMDGPU_PTE_WRITEABLE    amdgpu_ttm.c, amdgpu_vm.c, amdgpu_vm.h
+      (+ 5 mas con el mismo criterio)
+
+    definidos pero SIN consumidor alcanzable (4)
+      bit 59 AMDGPU_PTE_BUS_ATOMICS  solo gmc_v12_1.c
+      bit 58 AMDGPU_PTE_DCC          solo gmc_v12_0.c
+      bit 55 AMDGPU_PTE_LOG          solo gmc_v10_0.c, gmc_v11_0.c
+      bit 58 AMDGPU_PTE_NOALLOC      solo gmc_v10_0.c, gmc_v11_0.c
+
+  los cuatro últimos son `NOT_APPLICABLE` para GFX8, no `PROVEN_ABSENT`: el
+  corpus define los flags de todas las generaciones
+
+  el criterio de la herramienta es el que hay que usar, y está escrito en su
+  cabecera: "Un flag que un fichero DEFINE no significa que GFX8 lo USE. Solo
+  cuenta si lo consume un fichero alcanzable desde gfx_v8_0"
+
+LO QUE SIGUE ABIERTO, Y ES OTRA COSA
+  esto responde QUÉ bits existen para GFX8. No responde QUÉ hace el hardware con
+  cada uno. `VALID`, `WRITEABLE`, `READABLE`, `EXECUTABLE` y `SYSTEM` tienen
+  nombre y productor, y su efecto en la page walker sigue sin observar
+ESTADO
+  alcance: `PROVEN` (15 flags)
+  semantica: `NOT_OBSERVED`. No hay forma de observar una PTE real por debugfs
+  en 7.1.3: `amdgpu_vm_info` lista BOs y no vuelca entradas (NR-2026-10-02-b)
+QUÉ LO CERRARÍA
+  un observador de la memoria de la GPU, igual que para F12. Con el, una PTE
+  real se decodifica con `pte.py dump` y el alcance ya cerrado da la semántica
+
+DATO NUEVO DE ESTA RONDA, Y QUE AFECTA A ESTA FRONTERA
+  `pte.py dump` tenía el layout de campos HARDCODEADO, sin filtro de ASIC:
+  decía `bit 47..12 ADDR_BA`, 36 bits. Para GFX8 el campo acaba en el bit 39
+  (`gmc_v8_0.c:1134`, `pte_addr_mask = 0x000000FFFFFFF000`), o sea 28 bits y una
+  ventana de 256 MiB. Diferencia de 8 bits
+  corregir eso cambia el tamaño de la ventana que cubre un nivel de page table,
+  que es la magnitud con la que hay que dimensionar un page walker propio. Ver
+  NR-2026-10-02-h
+VALOR
+  medio para el driver propio: el juego de flags ya está y es pequeño. Alto
+  como aviso, porque la herramienta que lo mide tenía el layout equivocado y eso
+  es justo lo que hace un page walker mal dimensionado
 ```
 
 ## F3 · Significado de `PAGE_TABLE_DEPTH = 0` frente a `= 1`

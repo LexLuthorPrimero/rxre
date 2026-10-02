@@ -171,6 +171,24 @@ def cmd_para(defs, uso):
     return 0
 
 
+# Mascara de direccion del ASIC. La tabla de campos de mas abajo es la UNION
+# de las generaciones, y usarla sola confunde. Para GFX8 el campo de
+# direccion NO llega al bit 47: `gmc_v8_0.c:1134` pone
+#     adev->gmc.pte_addr_mask = 0x000000FFFFFFF000ULL; /* 40 bit PA */
+# es decir la PA ocupa los bits 0..39 y la PTE guarda los 28 altos en 12..39.
+# Leer "bit 47..12" como el ancho de GFX8 da 8 bits de mas.
+PTE_ADDR_MASK_GFX8 = 0x000000FFFFFFF000
+
+
+def ancho_direccion_este_asic(mask):
+    """Bits de direccion que caben en la mascara, y ventana que cubren."""
+    if mask == 0:
+        return None
+    alto = mask.bit_length() - 1
+    return {"bit_mas_alto": alto, "bits_de_direccion": alto - 12 + 1,
+            "ventana_bytes": 1 << (alto - 12 + 1)}
+
+
 def cmd_dump(defs, valor):
     """
     Decodifica un valor de 64 bits como PTE.
@@ -181,6 +199,19 @@ def cmd_dump(defs, valor):
     """
     v = int(valor, 0) & 0xFFFFFFFFFFFFFFFF
     print("PTE = 0x%016x" % v)
+    print()
+    _a = ancho_direccion_este_asic(PTE_ADDR_MASK_GFX8)
+    print("  --- ancho de DIRECCION de GFX8, no el de la tabla generica ---")
+    print("  gmc_v8_0.c:1134  pte_addr_mask = 0x%016x  (/* 40 bit PA */)"
+          % PTE_ADDR_MASK_GFX8)
+    print("  la direccion va en bits 12..%d = %d bits = ventana de %d MiB"
+          % (_a["bit_mas_alto"], _a["bits_de_direccion"],
+             _a["ventana_bytes"] // (1024 * 1024)))
+    print("  ADDR_BA de este ASIC = 0x%x" % ((v >> 12) & 0xFFFFFFF))
+    print()
+    print("  AVISO: los campos de abajo son la UNION de todas las")
+    print("  generaciones, no el layout de GFX8. Para GFX8 el campo de")
+    print("  direccion acaba en el bit %d, no en el 47." % _a["bit_mas_alto"])
     print()
     print("  bit 63..48  ADDR_HI / fragment  0x%x" % ((v >> 48) & 0xFFFF))
     print("  bit 47..12  ADDR_BA  (PFN << 12) 0x%x" % ((v >> 12) & 0xFFFFFFFFF))
