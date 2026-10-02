@@ -60,7 +60,7 @@ Y el otro lado, para que se vea que la elección no es arbitraria:
 navi10_ih.c:712     .decode_iv = amdgpu_ih_decode_iv_helper    (major=5, minor=0)
 vega10_ih.c:642     .decode_iv = amdgpu_ih_decode_iv_helper
 ih_v6_0.c:801       .decode_iv = amdgpu_ih_decode_iv_helper    (major=6, minor=0)
-ih_v6_1.c:780  ih_v7_0.c:857   .decode_iv = amdgpu_ih_decode_iv_helper
+ih_v6_1.c:780  ih_v7_0.c:820   .decode_iv = amdgpu_ih_decode_iv_helper
 ```
 
 **El discriminante es la versión mayor del bloque IH, y 3.0 usa el de 16 bytes.**
@@ -148,7 +148,7 @@ amdgpu_ih.c:71-74                    wptr/rptr viven dentro del propio anillo
 amdgpu_ih.h:36-49                    struct amdgpu_ih_regs, nueve registros
 sid.h                                IH_RB_CNTL 0xF80, IH_RB_BASE 0xF81,
                                      IH_RB_RPTR 0xF82, IH_RB_WPTR_ADDR_LO 0xF85
-navi10_ih.c:712, vega10_ih.c:642, ih_v6_0.c:801, ih_v6_1.c:780, ih_v7_0.c:857
+navi10_ih.c:712, vega10_ih.c:642, ih_v6_0.c:801, ih_v6_1.c:780, ih_v7_0.c:820
 findings/051                         CORROBORADO: el layout de 16 bytes
 findings/031                         CORROBORADO: los dominios de wptr/rptr
 findings/171                         por que esto es lo que fija la prioridad
