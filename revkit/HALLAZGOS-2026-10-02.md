@@ -914,11 +914,30 @@ Se anotan porque el patron se repite y conviene reconocerlo.
     exactamente el error que el kit viene corrigiendo en todas partes. Ahora
     `_mm_por_offset()` los lee del corpus en cada ejecucion.
 
-23. **Tomar la primera coincidencia de un indice sin filtrar.** `dires.py
-    0xbcc` devuelve `mmDCP3_DC_LUT_WHITE_OFFSET_RED` (DCE),
+23. **Tomar la primera coincidencia de un indice sin filtrar.**
+    `dires.py 0xbcc` devuelve `mmDCP3_DC_LUT_WHITE_OFFSET_RED` (DCE),
     `regTCX_UE_ERR_STATUS_HI` (GC) y `regVM_INVALIDATE_ENG9_REQ` (MMHUB)
     antes que el nombre correcto. Los tres son reales y de otros ASICs.
 
     Un indice que cruza 30 ASICs no puede devolver "el primero que aparezca".
     Lo que demuestra el nombre correcto es que **varias versiones del mismo
     bloque** dan el mismo offset, no que exista una coincidencia.
+
+### Un fallo que se ha repetido dos veces
+
+`CN-R13` (backticks sin cerrar) ha saltado dos veces en esta sesion, y las
+dos por lo mismo: **una referencia a codigo partida entre dos lineas**.
+
+```
+`Memory at e0000000
+[size=256M]` en lspci
+```
+
+El backtick se abre en una linea y se cierra en la siguiente. Markdown lo
+tolera, asi que no se ve al escribir, y al leer con el Cesar de bits se ve
+claro. Escribi la leccion y volvio a ocurrir en el commit siguiente.
+
+La regla practica que se deduce: si una referencia entre acentos graves no
+cabe en la linea, el problema no es la linea, es que hay que mover el texto
+entero. Un control que solo se ejecuta a veces no es un control: este se
+ejecuta en `check.sh`, y dos veces ha hecho falta que lo atrapara.

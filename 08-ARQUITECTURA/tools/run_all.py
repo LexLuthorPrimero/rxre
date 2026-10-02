@@ -196,6 +196,13 @@ def main():
         ("numeros de hallazgo unicos", ["num_collision.py"], 10, 3),
         ("num_collision: control negativo",
          ["num_collision.py", "--self-test"], 0),
+        # Que parte del hardware NO se puede leer porque su codigo no esta.
+        # Devuelve 2 sin el .ko descomprimido, y eso es un dato: "no puedo
+        # comprobarlo" no es "no falta nada".
+        ("hueco del corpus por bloque",
+         ["corpus_gap.py"], 26, 0),
+        ("corpus_gap: control negativo",
+         ["corpus_gap.py", "--self-test"], 0),
         # LA INTEGRIDAD CON HUELLA, no solo con git status.
         #
         # `--git` responde 0 cuando `git status --porcelain RESEARCH/` esta
