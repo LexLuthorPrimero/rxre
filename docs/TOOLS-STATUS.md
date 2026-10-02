@@ -2530,3 +2530,34 @@ ancho de la máscara y avisa de que la tabla es genérica.
 **Límite de `klog.py`**: lee texto del log, no hardware. Su único efecto es
 decir **si el observador existe y dónde**. La lectura de la tabla GART por BAR
 es NIVEL 2 y está en otro sitio, con su credencial.
+
+### Límite de `tools/reg_resolve.py` que conviene saber (2026-10-02)
+
+**`--field` no resuelve campos de GMC.** `resolve_field` construye la ruta
+`include/asic_reg/gca/{gfx}_sh_mask.h` (tools/reg_resolve.py:176), y su plan B
+busca ficheros `{gfx}*_sh_mask.h`, que tampoco llega a `gmc_*_sh_mask.h`.
+
+`gca/gfx_8_0_sh_mask.h` tiene **cero** apariciones de `VM_INVALIDATE_REQUEST`,
+porque el registro es de GMC y no de GCA. Así que:
+
+| modo | alcance | funciona en GMC |
+|---|---|---|
+| `--reg`, `--resolve` | caminan todo `include/asic_reg` | **sí** |
+| `--field` | solo `gca/` | **no** |
+
+Ejemplo que sí funciona, para lo que sí está en su alcance:
+
+```
+tools/reg_resolve.py --kernel <raiz> --reg mmVM_INVALIDATE_REQUEST
+  -> 5 definiciones, todas 0x51e, en gmc_6_0, gmc_7_0, gmc_7_1, gmc_8_1, gmc_8_2
+```
+
+**El prefijo `mm` es obligatorio.** Los símbolos se llaman `mmVM_INVALIDATE_REQUEST`
+en el código; sin el prefijo la herramienta responde 0 definiciones, y eso se
+lee como una ausencia. Pasó aquí, y casi produce un negativo sobre una
+herramienta válida.
+
+Es la misma forma que el caso de `0xBCC` de EV-22: un offset corto existe en
+varios bloques de ASIC, y el resolvedor por bloque acierta mientras el
+resolvedor por árbol no.
+

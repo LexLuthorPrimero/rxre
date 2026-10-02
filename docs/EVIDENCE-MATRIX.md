@@ -2306,6 +2306,76 @@ Detalle completo, con la cadena de includes y los bytes del anillo, en
 `revkit/VM-FLUSH-GFX8.md`.
 
 `LAST_VERIFIED: 2026-10-02 - gmc_v8_0.c:668-683, gmc_8_2_sh_mask.h, cn7`.
+Corroborado con `tools/reg_resolve.py` y con las 16 mascaras de `gmc_8_2_sh_mask.h`.
+### EV-26 corroborado de forma independiente, y con las MASCARAS
+
+Contraste con `tools/reg_resolve.py`, herramienta del proyecto que no se había
+usado. Dos resultados, y uno de ellos corrige una conclusión provisional mía.
+
+**El registro, en las cinco generaciones.** Con el prefijo `mm`, que es como lo
+llama el código:
+
+```
+mmVM_INVALIDATE_REQUEST en todo asic_reg: 5 definiciones
+  include/asic_reg/gmc/gmc_6_0_d.h   1252   0x51e
+  include/asic_reg/gmc/gmc_7_0_d.h    559   0x51e
+  include/asic_reg/gmc/gmc_7_1_d.h    592   0x51e
+  include/asic_reg/gmc/gmc_8_1_d.h    615   0x51e
+  include/asic_reg/gmc/gmc_8_2_d.h    617   0x51e
+```
+
+Y los otros tres que publicé en EV-26 y EV-22:
+
+```
+mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR   0x54f
+mmVM_CONTEXT8_PAGE_TABLE_BASE_ADDR   0x50e
+mmSCRATCH_REG0                       0xc040
+```
+
+Cuatro de cuatro, con una herramienta que no es mía.
+
+**Las máscaras, que es más fuerte que los shifts.** La fila de EV-26 solo
+comprobaba `SHIFT[i] == i`. El campo tiene además una máscara de un bit, y esa
+máscara **es** el bit desplazado:
+
+| dominio | `MASK` | `SHIFT` | `MASK == 1 << dominio` |
+|---|---|---|---|
+| 0 | `0x00000001` | 0 | sí |
+| 1 | `0x00000002` | 1 | sí |
+| 7 | `0x00000080` | 7 | sí |
+| 15 | `0x00008000` | 15 | sí |
+
+**16 de 16, sin discrepancias.** `INVALIDATE_DOMAIN_7_MASK = 0x80` y el driver
+escribe `1 << vmid` con `vmid = 7`. No es que las dos cosas cuadren: **son el
+mismo número**. Eso convierte la afirmación de "el mapeo VMID → bit es
+consistente" en "el hardware expone exactamente el valor que el driver escribe".
+
+Y `INVALIDATE_DOMAIN_16` **no existe**: el límite es exactamente 16, que es el
+número de contextos de VM que el reparto de `gmc_v8_0.c:1162-1168` reserva.
+
+**UNA CONCLUSIÓN PROVISIONAL MÍA QUE ERA FALSA, RETIRADA**
+
+La primera vez que ejecuté `reg_resolve` le pedí `VM_INVALIDATE_REQUEST` **sin el
+prefijo `mm`**, y la herramienta respondió `PROVEN_ABSENT` con 0 definiciones. A
+partir de ahí iba a reportar que la herramienta tenía un falso negativo y que su
+salida usaba la conversión prohibida `NOT_FOUND` → `PROVEN_ABSENT`.
+
+Es falso, y el fallo es mío: el símbolo se llama `mmVM_INVALIDATE_REQUEST` en el
+código. Con el prefijo salen las cinco definiciones. **Décima vez que el mismo
+patrón me lleva a una conclusión equivocada**, y esta podía haber creado un
+negativo sobre una herramienta válida del proyecto.
+
+Lo que sí es real, y sí es un límite de la herramienta: **`--field` no resuelve
+campos de GMC.** `resolve_field` construye
+`include/asic_reg/gca/{gfx}_sh_mask.h` (tools/reg_resolve.py:176) y su plan B
+busca ficheros `{gfx}*_sh_mask.h`, que tampoco llega a `gmc_8_2_sh_mask.h`.
+`gca/gfx_8_0_sh_mask.h` tiene **cero** apariciones de `VM_INVALIDATE_REQUEST`,
+porque el registro es de GMC y no de GCA. `--reg` y `--resolve` sí caminan todo
+`asic_reg` y funcionan.
+
+Es la misma forma que el caso de `0xBCC` de EV-22, donde un offset corto existe
+en varios bloques: el resolvedor por bloque acierta y el resolvedor por árbol no.
+.
 
 ## EV-27 · RETIRADA del REFUTED: el anillo NO distingue `count` de `count+1`
 
