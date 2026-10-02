@@ -37,6 +37,7 @@ Uso:
   driver_offsets.py --fichero N      uno
   driver_offsets.py --pm4           opcode de paquete del driver vs sid.h/vid.h
   driver_offsets.py --pm4           opcode de paquete vs sid.h/vid.h
+  driver_offsets.py --campos       shifts de campo vs sid.h/vid.h
   driver_offsets.py --self-test
 
 Codigos de salida:
@@ -185,6 +186,83 @@ def cotejo_pm4():
     return filas, ok, mal
 
 
+
+# ------------------------------------------------------------- CAMPOS
+# Un opcode correcto con un campo mal puesto emite un paquete BIEN FORMADO que
+# hace OTRA cosa. Es la clase de fallo que si da sintomas, a diferencia del
+# opcode, y por eso merece su propio cotejo.
+#
+# Se compara el SHIFT, no el texto: la ISA escribe `(1 << 16)` y el driver
+# `(1u << 16)`, que son el mismo valor con distinto sufijo. Comparar cadenas
+# daria un falso "difiere" por el sufijo, que es la clase de error que ya ha
+# pasado varias veces aqui.
+RE_SHIFT = re.compile(r"<<\s*(\d+)")
+
+PARES_CAMPO = [
+    ("WRITE_DATA_DST_SEL",   "RX550_WRITE_DATA_DST_SEL"),
+    ("WR_ONE_ADDR",          "RX550_WR_ONE_ADDR"),
+    ("WR_CONFIRM",           "RX550_WR_CONFIRM"),
+    ("WRITE_DATA_ENGINE_SEL", "RX550_WRITE_DATA_ENGINE_SEL"),
+    ("WAIT_REG_MEM_FUNCTION",  "RX550_WAIT_REG_MEM_FUNCTION"),
+    ("WAIT_REG_MEM_MEM_SPACE", "RX550_WAIT_REG_MEM_MEM_SPACE"),
+    ("WAIT_REG_MEM_OPERATION", "RX550_WAIT_REG_MEM_OPERATION"),
+    ("WAIT_REG_MEM_ENGINE",    "RX550_WAIT_REG_MEM_ENGINE"),
+]
+
+
+def _defines_isa():
+    """nombre -> (shift_o_None, fichero, linea) para los campos de paquete."""
+    t = {}
+    for h in ("sid.h", "vid.h"):
+        ruta = os.path.join(AMD_DIR, h)
+        if not os.path.exists(ruta):
+            continue
+        with open(ruta, encoding="utf-8", errors="replace") as fh:
+            for n, linea in enumerate(fh, 1):
+                if not linea.lstrip().startswith("#define"):
+                    continue
+                m = re.match(r"\s*#define\s+([A-Za-z_]\w*)", linea)
+                if not m:
+                    continue
+                sh = RE_SHIFT.search(linea)
+                t.setdefault(m.group(1),
+                             (int(sh.group(1)) if sh else None, h, n))
+    return t
+
+
+def _shift_driver(nombre):
+    for f in glob.glob(os.path.join(DRV, "*.h")):
+        with open(f, encoding="utf-8", errors="replace") as fh:
+            for linea in fh:
+                m = re.match(r"\s*#define\s+%s\b(.*)$" % re.escape(nombre),
+                             linea)
+                if m:
+                    sh = RE_SHIFT.search(m.group(1))
+                    return int(sh.group(1)) if sh else None
+    return None
+
+
+def cotejo_campos():
+    isa = _defines_isa()
+    filas, ok, mal = [], 0, 0
+    for nom_isa, nom_drv in PARES_CAMPO:
+        d = _shift_driver(nom_drv)
+        r = isa.get(nom_isa)
+        if d is None or r is None:
+            filas.append((nom_drv, nom_isa, d, r[0] if r else None,
+                          "NO_ENCONTRADO", "-"))
+            mal += 1
+        elif r[0] is not None and d == r[0]:
+            filas.append((nom_drv, nom_isa, d, r[0], "CONFIRMADO",
+                          "%s:%d" % (r[1], r[2])))
+            ok += 1
+        else:
+            filas.append((nom_drv, nom_isa, d, r[0], "** DIFIERE **",
+                          "%s:%d" % (r[1], r[2])))
+            mal += 1
+    return filas, ok, mal
+
+
 def self_test():
     fails = []
 
@@ -248,6 +326,16 @@ def self_test():
     if ok != 12:
         fails.append("solo %d de 12 opcode confirman" % ok)
 
+    # 5. ANCLAS DE CAMPOS: los 8 shifts del driver contra sid.h/vid.h. Comparar el
+    #    SHIFT y no el texto: la ISA usa (1 << 16) y el driver (1u << 16), que
+    #    es el mismo valor. Comparar cadenas daria un falso "difiere".
+    filas, okc, malc = cotejo_campos()
+    if len(filas) != 8:
+        fails.append("esperaba 8 campos de paquete, lei %d" % len(filas))
+    if malc:
+        fails.append("%d campos no coinciden: %s"
+                     % (malc, [f for f in filas if f[4] != "CONFIRMADO"]))
+
     for nom, off in (("RX550_MM_VM_CTX0_PTBA", 0x54F),
                      ("RX550_MM_VM_CTX8_PTBA", 0x50E),
                      ("RX550_MM_VM_INVALIDATE_REQ", 0x51E)):
@@ -282,6 +370,19 @@ def main(argv):
         if not ficheros:
             print("driver_offsets: no existe %s" % base, file=sys.stderr)
             return 2
+
+    if "--campos" in argv:
+        filas, ok2, mal = cotejo_campos()
+        print("%-32s %-26s %-6s %-6s %-12s %s"
+              % ("driver", "ISA", "drv", "isa", "estado", "fuente"))
+        print("-" * 88)
+        for dv, iv, a, b, est, src in filas:
+            print("%-32s %-26s %-6s %-6s %-12s %s"
+                  % (dv, iv, a, b, est, src))
+        print()
+        print("CONFIRMADOS %d de %d" % (ok2, len(filas)))
+        return 1 if mal else 0
+
 
     if "--pm4" in argv:
         filas, ok2, mal = cotejo_pm4()
