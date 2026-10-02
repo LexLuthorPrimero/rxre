@@ -157,8 +157,17 @@ escritura.**
   offset en otra versión del struct, la lectura sería ambigua. Aquí el struct es el
   del binario que se está ejecutando, y la función de referencia usa exactamente ese
   campo, así que no hay ambigüedad **para esa función**.
-- **No he desensamblado `.init.text`.** `objdump -d` cubre `.text`. Un escritor en
-  texto de inicialización no contaría. **No lo he comprobado**, y es un hueco real.
+- ~~**No he desensamblado `.init.text`.** `objdump -d` cubre `.text`. Un escritor
+  en texto de inicialización no contaría. **No lo he comprobado**, y es un hueco
+  real.~~ **CERRADO: no era un hueco.** `objdump -d` sobre un `.ko` desensambla
+  **todas** las secciones ejecutables, no solo `.text`:
+  ```
+  $ grep -oE "^Desensamblado de la secci[^:]*:" ko.asm | sort | uniq -c
+        1 .altinstr_aux      1 .exit.text          1 .static_call.text
+        1 .altinstr_replacement   1 .init.text    1 .text
+  ```
+  El conteo de 345 lecturas y 0 escrituras se hizo sobre el **fichero entero**, así
+  que ya cubría `.init.text` y `.exit.text`. La medición era completa.
 - **`struct amdgpu_device` cambia entre versiones de kernel.** El offset `0x5d518`
   vale para este `.ko`, no para ninguno otro.
 
@@ -187,8 +196,8 @@ escritura.**
 - **Corregido un auto-contaje mío**: `grep -c` de 8302 apariciones eran 425
   accesos. Un conteo de apariciones no es un conteo de eventos, y menos cuando cada
   acceso produce dos.
-- **Siguiente paso**: `.init.text` queda sin desensamblar, y ahí podría haber un
-  escritor estático de `ip_versions` que este método no ve.
+- **`.init.text` cerrado**: la medición cubría las 6 secciones ejecutables, no
+  solo `.text`. No era un hueco.
 
 ## Evidencia
 
