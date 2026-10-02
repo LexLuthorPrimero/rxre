@@ -34,7 +34,9 @@ el destino es el renumerado o el que ocupo el sitio.
 Uso:
   findings_index.py                 resumen + colisiones
   findings_index.py --reenvio       tabla de renumeraciones detectadas
+  findings_index.py --escribir-reenvio   genera FINDINGS-RENUMERACIONES.md
   findings_index.py --colisiones    solo los numeros con >1 fichero
+  findings_index.py --refs-colgadas  referencias que apuntan al hallazgo equivocado
   findings_index.py --json
   findings_index.py --self-test
 
@@ -176,6 +178,35 @@ def _stems_head(d):
     return out
 
 
+RE_REF = re.compile(r"`?\b(\d{3})\b`?\s*\|\s*\*\*(\d{3})\*\*|\*\*(\d{3})\*\*|\bhallazgo (\d{3})\b|`(\d{3})`")
+
+
+def refs_colgadas(filas, rev, d=FIND):
+    """Referencias a numeros que la tabla de reenvio dice que YA NO son esos.
+
+    Aqui es donde el dano se vuelve contable. Un numero renumerado sigue
+    escribiendose en el texto de otros hallazgos y esos textos no se enteran: el
+    numero existe, asi que nada parece roto. Por eso hay que cruzarlos
+    explicitamente contra la tabla.
+    """
+    viejos = {x["viejo"] for x in rev if x.get("reasignado")}
+    fuera = []
+    for ruta in sorted(glob.glob(os.path.join(d, "*.md"))):
+        base = os.path.basename(ruta)
+        try:
+            with open(ruta, encoding="utf-8", errors="replace") as fh:
+                texto = fh.read()
+        except OSError:
+            continue
+        # no contar el propio numero del fichero ni su H1
+        for n, linea in enumerate(texto.split("\n"), 1):
+            for m in re.finditer(r"`(\d{3})`", linea):
+                v = int(m.group(1))
+                if v in viejos:
+                    fuera.append({"fichero": base, "linea": n, "cita": v})
+    return fuera
+
+
 def self_test():
     fails = []
 
@@ -254,6 +285,114 @@ def _fin(fails):
     return 0
 
 
+
+REENVIO_MD = "FINDINGS-RENUMERACIONES.md"
+
+CABECERA = """# FINDINGS-RENUMERACIONES
+
+<!-- GENERADO por 08-ARQUITECTURA/tools/findings_index.py --escribir-reenvio.
+     NO EDITAR A MANO: la siguiente ejecucion lo sobrescribe. -->
+
+Tabla de renumeraciones de hallazgos. Sirve para **resolver una referencia
+colgada**: si un documento cita el hallazgo `NNN` y ese numero ya no corresponde,
+el par de esta tabla dice a donde fue.
+
+## Por que existe
+
+El numero de hallazgo es la clave primaria de la base de conocimiento. Varias
+sesiones renumeraron sus hallazgos para resolver colisiones de numero, y **no
+dejaron registro**. Como el renumerado ademas esta SIN COMMITEAR, ni el historial
+de git lo conserva: comparar el arbol contra HEAD es hoy la unica fuente.
+
+## Como se detecta
+
+Por el **stem del nombre de fichero**, no por el titulo. El titulo no sirve: al
+renumerar, el numero viejo deja de contener ese contenido, y el titulo solo
+aparece una vez en el arbol. El nombre se conserva:
+
+```
+185-tlb-de-gfx8-entra-en-bloques-de-8-pte.md    (viejo, borrado)
+239-tlb-de-gfx8-entra-en-bloques-de-8-pte.md    (nuevo)
+```
+
+## REASIGNADO = el numero viejo esta ocupado por OTRO contenido
+
+No es lo mismo que una colision. Una colision son **dos** ficheros con el mismo
+numero, y se ve. Una reasignacion es **un** fichero con el numero y contenido
+distinto, y **no produce ninguna senal**: solo referencias que apuntan al
+hallazgo equivocado. Por eso esta tabla marca los dos casos por separado.
+
+## Uso
+
+`viejo` ya no es el hallazgo. Para citarlo hay que usar `nuevo`. Cuando la tabla
+no tiene entrada para un numero, ese numero es el que tiene hoy: no hay ambiguedad
+de ese tipo.
+
+## Advertencias
+
+"""
+
+
+def escribir_reenvio(d=FIND, destino=None):
+    filas = escanear(d)
+    if filas is None:
+        return None, "no existe %s" % d
+    col = colisiones(filas)
+    rev = reenvios(filas, d)
+    raiz = os.path.dirname(os.path.dirname(d))
+    destino = destino or os.path.join(raiz, REENVIO_MD)
+
+    fuera = refs_colgadas(filas, rev, d)
+    n_reas = sum(1 for x in rev if x.get("reasignado"))
+    out = [CABECERA]
+    out.append("- Numeros con **colision** (>1 fichero): **%d**" % len(col))
+    out.append("- Renumeraciones detectadas: **%d**, de ellas **REASIGNADAS: %d**"
+               % (len(rev), n_reas))
+    out.append("- Ficheros en `findings/`: **%d**" % len(filas))
+    out.append("- **Referencias colgando** (`` `NNN` `` que ya no es ese hallazgo):"
+               " **%d**, en **%d** numeros distintos"
+               % (len(fuera), len({x['cita'] for x in fuera})))
+    out.append("")
+    out.append("Las referencias colgando son el dano real. Un numero renumerado sigue")
+    out.append("escribiendose en el texto de otros hallazgos y **nada parece roto**,")
+    out.append("porque el numero sigue existiendo. Solo se ven al cruzarlas contra")
+    out.append("esta tabla.")
+    out.append("")
+    out.append("| citado | deberia ser | veces |")
+    out.append("|---|---|---|")
+    por = {}
+    for x in fuera:
+        por.setdefault(x["cita"], []).append(x)
+    for v in sorted(por):
+        nv = next((x["nuevo"] for x in rev if x["viejo"] == v), -1)
+        out.append("| `%03d` | `%03d` | %d |" % (v, nv, len(por[v])))
+    out.append("")
+    out.append("El renumerado **no esta commiteado**: HEAD y el arbol de trabajo")
+    out.append("describen bases de datos distintas. Por eso la fuente es la")
+    out.append("comparacion contra HEAD y no el historial.")
+    out.append("")
+    out.append("## Numeros con colision (clave primaria no unica)")
+    out.append("")
+    out.append("| numero | ficheros |")
+    out.append("|---|---|")
+    for n, v in sorted(col.items()):
+        out.append("| %03d | %s |" % (n, "<br>".join(f["fichero"] for f in v)))
+    out.append("")
+    out.append("## Renumeraciones")
+    out.append("")
+    out.append("| viejo | nuevo | reasignado | fichero |")
+    out.append("|---|---|---|---|")
+    for x in sorted(rev, key=lambda z: (z["viejo"], z["nuevo"])):
+        out.append("| %03d | %03d | %s | `%s` |"
+                   % (x["viejo"], x["nuevo"],
+                      "**SI**" if x.get("reasignado") else "no",
+                      x["stem"]))
+    out.append("")
+    with open(destino, "w", encoding="utf-8") as fh:
+        fh.write(chr(10).join(out))
+    return destino, None
+
+
 def main(argv):
     if "--self-test" in argv:
         return self_test()
@@ -263,6 +402,30 @@ def main(argv):
         return 2
     col = colisiones(filas)
     rev = reenvios(filas)
+
+    if "--escribir-reenvio" in argv:
+        dest, err = escribir_reenvio()
+        if err:
+            print("findings_index: %s" % err, file=sys.stderr)
+            return 2
+        print("escrito %s" % dest)
+        return 0
+
+    if "--refs-colgadas" in argv:
+        fuera = refs_colgadas(filas, rev)
+        por = {}
+        for x in fuera:
+            por.setdefault(x["cita"], []).append(x)
+        print("referencias a numeros RENUMERADOS, que ya no son esos hallazgos")
+        print()
+        for v in sorted(por):
+            print("  %03d -> %03d   citado %d veces"
+                  % (v, next((x["nuevo"] for x in rev if x["viejo"] == v), -1),
+                     len(por[v])))
+        print()
+        print("numeros distintos citados de forma colgando: %d" % len(por))
+        print("referencias colgando en total            : %d" % len(fuera))
+        return 1 if fuera else 0
 
     if "--json" in argv:
         print(json.dumps({
