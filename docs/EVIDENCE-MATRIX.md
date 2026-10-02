@@ -3679,6 +3679,112 @@ etiqueta "el fichero que esta GPU ejecuta" es falsa en la invocación por
 defecto**, y eso es justo lo que hace que una cifra buena se aplique al fichero
 equivocado.
 
+## EV-38 · Hay TRES codificadores de PTE/PDE, y la mascara se lee en UN solo sitio: el de la CPU
+
+
+```
+TYPE    MEASUREMENT sobre el corpus, con CORRECTION de mi propia formulacion
+STATE   PROVEN para los tres codificadores y para la unicidad de la lectura
+        PROVEN_ABSENT de cualquier guardia que compruebe el ancho
+        PROVEN_DERIVED para el no-op con direcciones legales
+ORIGEN  una anotacion de otra sesion en el writer de PDE, que verify al margen
+```
+
+**PUNTO DE PARTIDA.** Otra sesion dejo anotado en `amdgpu_vm_pt.c` que la ruta
+**CPU enmascara** a `pte_addr_mask` (`amdgpu_gmc.c:171`) y la **SDMA guarda
+`addr|flags` sin enmascarar** (`amdgpu_vm_sdma.c:197`). Lo verifique por mis vias y
+es cierto, pero **incompleto**: no son dos codificadores, son **tres**, y
+difieren en **dos** ejes, no en uno.
+
+```
+#  ruta        donde                                  ENMASCARA   como escribe
+1  CPU         amdgpu_gmc.c:173-175                  SI          writeq, un store de 64 bits
+2  SDMA (1 PT) sdma_v2_4.c, _vm_write_pte:197        NO          2 x 32 bits, en un paquete SDMA
+3  SDMA (lote) amdgpu_vm_sdma.c:276-279, pte[i]=...   NO          u64 armado dentro del IB
+```
+El **eje que faltaba** es el ancho. La CPU hace un `writeq`; la ruta 2 parte el
+valor en **dos** stores de 32 bits (`lower_32_bits(value)`,
+`upper_32_bits(value)`) dentro de un paquete **SDMA** `SDMA_OP_WRITE` /
+`SDMA_SUBOP_WRITE_LINEAR` — que no es PM4, es el otro motor. Y la ruta 3 ni
+siquiera emite por escrito: arma el `u64` en el IB y lo copia.
+
+**EL HECHO FUERTE: la mascara tiene UNA sola lectura en todo el driver.**
+
+```
+$ grep -rn pte_addr_mask .   (arbol amdgpu completo)
+amdgpu_gmc.c:173     value = addr & adev->gmc.pte_addr_mask;   <- LA LECTURA
+amdgpu_gmc.h:283     uint64_t  pte_addr_mask;                 <- declaracion
+gmc_v6_0.c:839   gmc_v7_0.c:1019   gmc_v8_0.c:1134            <- asignaciones
+gmc_v9_0.c:1997  gmc_v10_0.c:850   gmc_v11_0.c:824            <- (una por ASIC)
+gmc_v12_0.c:817,847,861,921                                      <- condicional
+```
+Clasificadas las 12 apariciones: **9 asignaciones** (una por ASIC en `v6_0`,
+`v7_0`, `v8_0`, `v9_0`, `v10_0`, `v11_0`, y **tres** en `v12_0` porque su mascara
+depende de la variante), **2 declaraciones** (`amdgpu_gmc.h:283` el campo del
+struct, y `gmc_v12_0.c:817` una variable local) y **1 lectura**. Y esa unica lectura
+esta en la **ruta CPU**. Las dos rutas SDMA —que son la efectiva bajo la politica
+de esta placa, porque la CPU no se alcanza— **no consultan la mascara**.
+
+*Las cifras de esta clasificacion las puso un control de `cn7` que las lee del
+arbol, y la primera version de mi prosa decia "7 asignaciones y 1 declaracion":
+estaba mal en las dos. El control fallo y por eso esta linea es la medida.*
+
+**Y `PROVEN_ABSENT` de cualquier guardia.** No es "no lo he visto": se busco con
+otras formas antes de afirmarlo. No hay `ADDR_MASK`, ni `MAX_VA`, ni comparacion
+`addr >> 39`, ni `WARN_ON` de truncamiento. Los `WARN_ON` de
+`amdgpu_vm_sdma.c:116` y `:122` son de **espacio en el IB**
+(`length_dw > num_dw_left`), no de ancho; y `amdgpu_gmc.c:1413` valida rangos de
+**VRAM** (`base >= limit`), no la direccion de la PTE. **Nadie comprueba que la
+direccion quepa.**
+
+**POR QUE NO SE NOTA, Y CUANDO DEJARIA DE NOTARSE.** La mascara de esta
+generacion es `0x000000FFFFFFF000`, o sea bits **[39:12]**: 28 bits de direccion
+sobre el offset de pagina, y ventana de 2^28 = 256 MiB (verificado contando
+bits, no leyendo el hex a ojo). Para una direccion legal —alineada a pagina y con
+PA por debajo de 2^40— la mascara **no quita nada**, y las tres rutas escriben lo
+mismo. Eso es `PROVEN_DERIVED`, no `PROVEN`: es aritmética sobre el valor, no una
+medida del hardware.
+
+La frontera es exacta: **en cuanto una PA necesite mas de 28 bits sobre el offset
+—PA >= 2^40, o sea 1 TiB— la mascara CPU trunca y las rutas SDMA no.** Las dos
+escriben valores distintos y nada avisa. Para un driver propio esto es una
+condición de diseño: o se garantiza que la PA cabe en 40 bits, o se implementa la
+guardia que AMD no puso.
+
+**CORRECCION A MI FORMULACION.** Escribi antes "el ASIC instancia
+`gmc_v8_1_0`". Es engañoso: `gmc_v8_1_ip_block` (`gmc_v8_0.c:1768`) es un
+**descriptor de version de IP** (`.major = 8, .minor = 1`) que comparte
+`.funcs = &gmc_v8_0_ip_funcs`. **No hay implementacion v8_1 separada** — tampoco
+existe el fichero. Lo mismo con `gmc_v8_5_ip_block`. La formulacion correcta es:
+la ASIC lee una version de IP 8.1 u 8.5, y **ambas resuelven a las mismas
+funciones de GFX8**, luego la mascara de `gmc_v8_0.c:1134` aplica sea cual sea la
+revision. Por eso da igual cual sea para esta pregunta.
+
+**Y un casi-retiro mio, que no hacia falta.** Al ver `0x000000FFFFFFF000` dude
+que fueran 28 bits y estuve a punto de corregir `pte.py` y el control de `cn7`
+que lo affirmaban. Los conte con Python: `bit_length() - 12 == 28`, ventana
+`2^28` = 256 MiB. **Los dos estaban bien.** El error era mio de lectura del hex,
+y no lo habria visto si no lo hubiera medido: 7 nibbles `F` son 28 bits, no 32.
+
+### Y mi propio control cometio el error que EV-38 describe
+
+El control de `cn7` que calcula el ancho de la mascara buscaba el valor con grep
+**por todo el arbol**, sin fijar la generacion. Se comprobó mutando la mascara de
+`gmc_v8_0.c` a 36 bits: el control **pasó en verde**. La razón es que
+`gmc_v6_0.c` y `gmc_v7_0.c` tienen **exactamente la misma máscara**, así que el
+grep leía la de otra generación y el número salía igual de correcto.
+
+O sea: el control mezclaba generaciones al leer un valor, que es **justo lo que
+demuestra EV-38 en el driver**. Un control que verifica la tesis equivocada no es
+un control, es una tautología con código alrededor. Corregido fijando `gmc_v8_0.c`
+y añadiendo un control que falla si el valor leído cambia, y re-verificado:
+
+```
+mutacion M1  la ruta SDMA pasa a consultar la mascara   4 controles FALLAN
+mutacion M2  la mascara de gmc_v8_0 pasa a 36 bits      2 controles FALLAN
+original                                                     91 OK, rc=0
+```
+
 ## Herramientas (contrato y estado; detalle en TOOLS-STATUS.md)
 
 | ID | Herramienta | STATE | Verificado |

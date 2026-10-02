@@ -809,6 +809,106 @@ def main():
         "tabla viene de vid.h (antes la etiqueta de la salida era falsa)",
         (_a_gfx is not None) and ("desde vid.h" in _a_gfx))
 
+    # --- EV-38: los TRES codificadores de PTE y la unicidad de la mascara ----
+    #
+    # Todo se lee del FUENTE, no de constantes escritas aqui. Si el corpus
+    # cambia, el control tiene que caer, no seguir contando lo que era cierto
+    # la ultima vez que se miró.
+    print()
+    print("  -- EV-38: codificadores de PTE/PDE y la mascara --")
+    _AMD = os.path.join(AQUI, "..", "RESEARCH", "baseline", "linux-7.1.3",
+                        "drivers", "gpu", "drm", "amd", "amdgpu")
+    if not os.path.isdir(_AMD):
+        print("  OMIT  no hay arbol amdgpu: EV-38 no se comprueba, y NO cuenta")
+    else:
+        _lecturas, _asig, _decl = [], [], []
+        for _f in sorted(os.listdir(_AMD)):
+            if not _f.endswith((".c", ".h")):
+                continue
+            for _n, _l in enumerate(open(os.path.join(_AMD, _f),
+                                          errors="replace"), 1):
+                if "pte_addr_mask" not in _l:
+                    continue
+                _c = _l.strip()
+                if _c.startswith("uint64_t") and _c.endswith(";"):
+                    _decl.append("%s:%d" % (_f, _n))
+                elif re.match(r"(adev->gmc\.)?pte_addr_mask\s*=\s*0x", _c):
+                    _asig.append("%s:%d" % (_f, _n))
+                elif re.match(r"adev->gmc\.pte_addr_mask\s*=\s*\w", _c):
+                    # gmc_v12_0.c:921 copia de una variable local: tambien es
+                    # asignacion. Sin esta rama caia en "lectura" y hacia
+                    # parecer que la mascara se leia dos veces.
+                    _asig.append("%s:%d" % (_f, _n))
+                else:
+                    _lecturas.append(("%s:%d" % (_f, _n), _c))
+        chk("EV-38: pte_addr_mask se LEE exactamente una vez en todo el driver",
+            len(_lecturas) == 1,
+            "(lecturas: %d -> %s)" % (len(_lecturas), [x[0] for x in _lecturas]))
+        chk("EV-38: esa unica lectura es la de la ruta CPU, con la mascara a "
+            "la izquierda de un AND",
+            len(_lecturas) == 1 and "&" in _lecturas[0][1]
+            and _lecturas[0][0].startswith("amdgpu_gmc.c:"),
+            "(%s)" % (_lecturas,))
+        chk("EV-38: 12 apariciones clasificadas como 9 asignaciones, 2 "
+            "declaraciones y 1 lectura, y ninguna se queda sin clasificar",
+            (len(_asig), len(_decl), len(_lecturas)) == (9, 2, 1),
+            "(asig=%d decl=%d lect=%d)" % (len(_asig), len(_decl),
+                                           len(_lecturas)))
+
+        # El ancho se CALCULA con la mascara leida del fuente. 28 bits es la
+        # cifra correcta para GFX8; lo que se comprueba es que bits(12..39) es
+        # lo que sale de 0x000000FFFFFFF000, para que nadie lo asuma.
+        #
+        # El fichero esta FIJADO a proposito. Un grep por el valor, sin fijar la
+        # generacion, encuentra el primero que coincide, y gmc_v6_0.c y
+        # gmc_v7_0.c tienen LA MISMA mascara que gmc_v8_0.c. Medido: al mutar la
+        # de v8_0 para comprobar este control, el control leia la de v6 y pasaba
+        # en verde. O sea que el control cometia exactamente el error que EV-38
+        # describe: mezclar generaciones al leer un valor.
+        _linea = None
+        for _l in open(os.path.join(_AMD, "gmc_v8_0.c"), errors="replace"):
+            if "adev->gmc.pte_addr_mask = 0x" in _l:
+                _linea = _l.strip()
+        _mm = re.search(r"0x([0-9A-Fa-f]+)ULL", _linea or "")
+        _v = int(_mm.group(1), 16) if _mm else 0
+        chk("EV-38: el ancho de la mascara sale del fuente y son 28 bits de "
+            "direccion, ventana 2^28",
+            _v.bit_length() - 12 == 28 and (1 << (_v.bit_length() - 12)) == 1 << 28,
+            "(mascara=0x%X bit_alto=%d bits_dir=%d)" % (_v, _v.bit_length() - 1,
+                                                        _v.bit_length() - 12))
+        chk("EV-38: los bits 0..11 de la mascara estan a cero, o sea que el "
+            "offset de pagina no se enmascara",
+            _v != 0 and (_v & 0xFFF) == 0, "(mascara=0x%X)" % _v)
+        chk("EV-38: la mascara leida sale de gmc_v8_0.c y no de otra "
+            "generacion, aunque varias compartan ese mismo valor",
+            _v == 0x000000FFFFFFF000,
+            "(leido=0x%X desde gmc_v8_0.c)" % _v)
+
+        # Los tres codificadores existen: si uno desaparece, el recuento de
+        # "tres" pasa a ser falso y hay que decirlo.
+        _gmc = open(os.path.join(_AMD, "amdgpu_gmc.c"),
+                    errors="replace").read()
+        _sdma = open(os.path.join(_AMD, "amdgpu_vm_sdma.c"),
+                     errors="replace").read()
+        _s24 = open(os.path.join(_AMD, "sdma_v2_4.c"),
+                    errors="replace").read()
+        chk("EV-38: los TRES codificadores existen: writeq en CPU, split de 32 "
+            "en SDMA, y u64 armado en el IB",
+            ("writeq(value" in _gmc)
+            and ("lower_32_bits(value)" in _s24
+                 and "upper_32_bits(value)" in _s24)
+            and ("pte[i] = amdgpu_vm_map_gart" in _sdma),
+            "(writeq=%s split=%s en_ib=%s)"
+            % ("writeq(value" in _gmc,
+               "lower_32_bits(value)" in _s24,
+               "pte[i] = amdgpu_vm_map_gart" in _sdma))
+        chk("EV-38: las rutas SDMA NO enmascaran; solo la CPU lo hace",
+            ("addr | flags" in _sdma or "addr|flags" in _sdma)
+            and "pte_addr_mask" not in _sdma
+            and "pte_addr_mask" not in _s24,
+            "(amdgpu_vm_sdma.c menciona la mascara: %s; sdma_v2_4.c: %s)"
+            % ("pte_addr_mask" in _sdma, "pte_addr_mask" in _s24))
+
     print("-" * 62)
     if FALLOS:
         print("%d control(es) FALLAN. pm4dec NO puede usarse como autoridad."

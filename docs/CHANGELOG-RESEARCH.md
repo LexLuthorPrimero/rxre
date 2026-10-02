@@ -234,6 +234,76 @@ suite en verde antes de existir el control; ahora no pueden entrar.
 
 ---
 
+## 2026-10-02 · opencode · EV-38 · tres codificadores de PTE, y la mascara se lee en un solo sitio
+
+```
+OBJECT   docs/EVIDENCE-MATRIX.md, revkit/cn7.py
+ACTION   MEASURE + NEW TOOL CAPABILITY + CORRECTION de mi propia formulacion
+ORIGEN   una anotacion de otra sesion en el writer de PDE, verificada al margen
+```
+
+**OLD STATE → NEW STATE**
+
+- La anotacion de otra sesion decia "la CPU enmascara, la SDMA no". → NEW: es
+  cierto pero **incompleto**. No son dos codificadores sino **tres**, y difieren
+  en **dos** ejes, no en uno:
+  - **enmascarado**: solo la ruta CPU;
+  - **ancho de escritura**: CPU hace un `writeq` (un store de 64 bits); la ruta
+    SDMA de una sola PTE parte el valor en **dos** stores de 32 bits dentro de un
+    paquete **SDMA** `SDMA_OP_WRITE`/`SDMA_SUBOP_WRITE_LINEAR` — que no es PM4, es
+    el otro motor; y la ruta de lote ni siquiera emite, arma el `u64` dentro del IB.
+- → NEW: `pte_addr_mask` tiene **una sola lectura** en todo el driver, en
+  `amdgpu_gmc.c:173`, y esa es la **ruta CPU**. Las dos rutas SDMA —la efectiva
+  bajo la política de esta placa— **no la consultan**.
+- → NEW: `PROVEN_ABSENT` de cualquier guardia que compruebe el ancho. No por no
+  haberlo buscado: se buscaron otras formas (`ADDR_MASK`, `MAX_VA`, `addr >> 39`,
+  `WARN_ON`). Los `WARN_ON` de `amdgpu_vm_sdma.c:116,122` son de **espacio en el
+  IB**, y `amdgpu_gmc.c:1413` valida **rangos de VRAM**.
+- → NEW, y es la frontera que importa para un driver propio: la mascara de esta
+  generacion es `0x000000FFFFFFF000`, bits **[39:12]**, o sea **28 bits** de
+  direccion y ventana de 256 MiB. Para direcciones legales la mascara **no quita
+  nada** y las tres rutas escriben igual (`PROVEN_DERIVED`, es aritmética). En
+  cuanto una PA necesite **más de 28 bits sobre el offset —PA >= 2^40—** la CPU
+  trunca y SDMA no, y **nada avisa**.
+
+**CORRECCION A MI FORMULACION.** Escribi antes "el ASIC instancia
+`gmc_v8_1_0`". Es engañoso: `gmc_v8_1_ip_block` (`gmc_v8_0.c:1768`) es un
+**descriptor de version de IP** (`.major = 8, .minor = 1`) que comparte
+`.funcs = &gmc_v8_0_ip_funcs`. **No hay implementación v8_1 separada** — el
+fichero ni existe. Igual con `gmc_v8_5_ip_block`. La ASIC lee 8.1 u 8.5 y **ambas
+resuelven a las mismas funciones**, luego la mascara de `gmc_v8_0.c:1134` aplica
+sea cual sea la revisión.
+
+**Y un casi-retiro mio que no hacia falta.** Al ver `0x000000FFFFFFF000` dudé que
+fueran 28 bits y estuve a punto de corregir `pte.py` y su control, que lo
+afirmaban. Los conté con Python: `bit_length() - 12 == 28`, ventana `2^28` =
+256 MiB. **Estaban bien.** El error era mío de leer el hex: 7 nibbles `F` son 28
+bits, no 32.
+
+**Mi control cometia el error que EV-38 demuestra** (`NR-2026-10-02-t`). Buscaba
+la mascara con grep por todo el árbol sin fijar generación. Al mutar la de
+`gmc_v8_0.c` a 36 bits, **pasó en verde**: leía la de `gmc_v6_0.c` o `gmc_v7_0.c`,
+que tienen **el mismo valor**. Un control que verifica la tesis equivocada es una
+tautología. Corregido fijando el fichero, y con un control que falla si el valor
+leído cambia.
+
+**VALIDACION POR MUTACION, sobre copia WRITABLE del corpus**
+
+```
+M1  la ruta SDMA pasa a consultar la mascara      4 controles FALLAN
+M2  la mascara de gmc_v8_0 pasa a 36 bits         2 controles FALLAN
+original                                            91 OK, rc=0
+```
+
+**Y el control de fences de la ronda anterior funcionó sobre mi de inmediato**: en
+esta ronda abrí un ``` en `NR-2026-10-02-t` sin cerrarlo, y `cn8` lo cazó en la
+misma pasada. Antes habría entrado con la suite en verde.
+
+check.sh rc=0 35 | cn7 rc=0 91 | cn8 rc=0 32 | selfcheck rc=0 30/30
+GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.
+
+---
+
 ## 2026-10-01 · agente de documentación · ROUND 1
 
 ### R-01 · Reconciliación de la contradicción interna de `PROYECTO_STATUS.md`

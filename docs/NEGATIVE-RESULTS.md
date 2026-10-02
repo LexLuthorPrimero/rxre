@@ -983,3 +983,30 @@ OTRO DETALLE QUE SALIO
   no hay ningun cliente DRM abierto (0 coincidencias de /dev/dri/* en /proc/*/fd),
   y los directorios de debugfs de amdgpu son POR CLIENTE. Asi que F12 tenia un
   tercer bloqueo que no estaba en la lista, independiente de la credencial
+
+## NR-2026-10-02-t · Un control que no fija la generacion lee la de otro ASIC
+
+```
+QUÉ PASÓ
+  escribí un control que calcula el ancho de pte_addr_mask buscando el valor
+  con grep en todo el árbol amdgpu
+REALIDAD
+  PROVEN: gmc_v6_0.c, gmc_v7_0.c y gmc_v8_0.c tienen LA MISMA máscara
+  (0x000000FFFFFFF000). Al mutar la de v8_0 para comprobar el control, el grep
+  encontró la de v6 o v7, devolvió el mismo número, y el control PASÓ en verde
+CLASIFICACIÓN
+  el control era una tautología: verificaba "existe 0x...F000 en el árbol", que
+  es verdad mude lo que mude la ASIC. Fallaba por su motivo aparente y no por
+  el motivo real
+POR QUÉ IMPORTA MÁS ALLÁ DEL BUG
+  es la MISMA clase que el defecto de EV-35 y el de `pm4census`: confundir la
+  generación al leer un valor compartido. Aparece por tercera vez en la misma
+  sesión, y las tres veces en código que parecía correcto
+REGLA
+  cuando un valor aparece en varios ficheros, el control tiene que NOMBRAR el
+  fichero. Un grep por el valor, sin fijar dónde, no verifica la tesis: verifica
+  que el valor existe en algún sitio, que es otra cosa
+CÓMO SE DETECTÓ
+  no leyendo el control: MUTANDO el corpus en una copia y viendo que el control
+  no caía. Un control que se lee y parece razonable no está probado
+```

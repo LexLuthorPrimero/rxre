@@ -493,3 +493,46 @@ duplicadas, y la suite estaba en verde con un documento partido. Dos controles
 nuevos, con la deuda **fijada como conjunto** en vez de exigir cero, y
 provocados en los tres sentidos (fence nuevo, duplicado nuevo, y **arreglar la
 deuda de otro**, que también falla para que la lista no se olvide).
+
+---
+
+## Ronda 2026-10-02 (tarde 6) · EV-38 · quien escribe la PTE, y con que ancho
+
+**Hay TRES codificadores de PTE/PDE, no uno ni dos**, y difieren en dos ejes:
+
+| ruta | donde | enmascara | como escribe |
+|---|---|---|---|
+| CPU | `amdgpu_gmc.c:173-175` | **sí** | `writeq`, un store de 64 bits |
+| SDMA, una PTE | `sdma_v2_4.c` `_vm_write_pte` | no | dos stores de 32 bits, en un paquete SDMA |
+| SDMA, lote | `amdgpu_vm_sdma.c:276-279` | no | `u64` armado dentro del IB |
+
+**El hecho que decide: `pte_addr_mask` tiene UNA sola lectura en todo el driver**,
+en `amdgpu_gmc.c:173`, que es la **ruta CPU**. Las dos rutas SDMA —la efectiva en
+esta placa— no la consultan. Y no hay ninguna guardia que compruebe que la
+dirección quepa: se buscaron otras formas antes de afirmarlo, y los `WARN_ON`
+que hay son de espacio en el IB y de rangos de VRAM.
+
+**La frontera para un driver propio**: la máscara es `0x000000FFFFFFF000`, bits
+[39:12] → **28 bits** de dirección, ventana 256 MiB. Con direcciones legales la
+máscara no quita nada y las tres rutas escriben lo mismo. En cuanto una PA
+necesite más de 28 bits sobre el offset (**PA ≥ 2^40**) la CPU trunca y SDMA no, y
+nada avisa. O se garantiza que la PA cabe, o se implementa la guardia que AMD no
+puso.
+
+**Corregida una formulation mía**: "el ASIC instancia `gmc_v8_1_0`" era engañoso.
+`gmc_v8_1_ip_block` es un *descriptor* de versión de IP que comparte
+`.funcs = &gmc_v8_0_ip_funcs`; no hay implementación v8_1 separada. Da igual cuál
+sea la revisión: la máscara es la de `gmc_v8_0.c:1134`.
+
+**Y no hice falta retirar nada**: dudé de mis "28 bits" y los conté con Python.
+Estaban bien. El error era mío leyendo el hex.
+
+**Mi control nuevo cometía el mismo error que el hallazgo**: grepeaba la máscara
+por todo el árbol y, al mutar la de `gmc_v8_0.c`, leía la de `gmc_v6_0.c` — que
+tiene el mismo valor — y pasaba en verde. Es la tercera vez en la sesión que
+mezclar generaciones al leer un valor compartido sale bien(false positive).
+Corregido, y con mutación que ahora sí lo cae.
+
+**Y el control de fences de la ronda anterior me cazó a mí**: abrí un ``` sin
+cerrar en el NR nuevo, y `cn8` lo vio en la misma pasada. Antes habría entrado con
+la suite en verde.
