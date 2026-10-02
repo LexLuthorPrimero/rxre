@@ -2587,3 +2587,74 @@ cito para no meter el caracter que el guardiano prohibe; que la resuelva quien
 escribio.
 
 `GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.
+
+---
+
+## 2026-10-02 · opencode · EV-40: los 10 bloques IP de esta placa, y 4 de 50 comparaciones descartables con hecho
+
+```
+OBJECT   revkit/gfx8blocks.py, revkit/gchwip_alcance.py, revkit/check.sh,
+         docs/CURRENT-STATE.md, docs/NEGATIVE-RESULTS.md, docs/TOOLS-STATUS.md
+ACTION   EVIDENCE (superficie de inicializacion) + TOOL NEW (2) + CORRECTION
+TRACK    STATIC · WRITE_EXECUTION=NONE · RUNTIME=NOT_RUN · GPU INTACTA
+```
+
+**EL ITEM 1 DEL UNIVERSO, QUE NO TENIA NADA.** El driver elige bloque de hardware
+por **dos** caminos y en `amdgpu_device.c:1978-1999` son **mutuamente
+exclusivos**: `vi_set_ip_blocks` reparte por `asic_type`, `amdgpu_discovery_set_ip_blocks`
+reparte por `GC_HWIP`. Polaris12 entra en el `case` y no llega al `default`. De
+ahi salen dos hechos: **ninguna funcion de discovery se ejecuta aqui**, y **no se
+instancia ningun bloque de 9.x/10.x/11.x/12.x**.
+
+**LOS DIEZ.** De los 84 que el driver sabe anadir, Polaris12 instancia **10**, ocho
+incondicionales (`vi_common`, `gmc_v8_1`, `tonga_ih`, `gfx_v8_0`, `sdma_v3_1`,
+`pp_smu`, `uvd_v6_3`, `vce_v3_4`) y dos condicionados (`amdgpu_vkms`,
+`dm`). Las condiciones no se evaluan: es runtime.
+
+**CORROBORACION INDEPENDIENTE.** EV-38bis habia llegado a `gmc_v8_1_ip_block` y
+`sdma_v3_1_ip_block` por la cadena de funciones. Aqui los he encontrado
+preguntando que bloques existen, sin mirar una sola funcion. Mismos dos nombres,
+dos caminos. Y casan con lo que la otra sesion registro en `190`: los tres
+bloques que decia no haber mirado (`dm`, `uvd_v6_3`, `vce_v3_4`) estan aqui.
+
+**Y UNA CORRECCION A MI MISMO.** EV-39 §6 decia 5 comparaciones de `GC_HWIP` en
+`amdgpu_mes.c` inalcanzables, y clasifique cinco a mano. La herramienta da
+**4**: `682`, `683` de `amdgpu_mes_init_microcode`, mas
+`amdgpu_gfx_mqd_symmetrically_map_cu_mask` y `amdgpu_gmc_get_vram_info`. Los tres
+que faltan (`755/756/758`) **si** son inalcanzables, pero la regla sound es de un
+solo salto y no llega: el intermediario vive en `amdgpu_mes.c`, que no es fichero
+de bloque. **Pierde positivos a proposito.** El estado dice 4 con hecho y 7 con
+lectura manual.
+
+**LO QUE MAS ME HA COSTADO: LA HERRAMIENTA, NO EL HALLAZGO.** Catorce defectos,
+todos medidos. Tres que no se me hubieran ocurrido:
+
+- **Trocear por etiqueta de `case`.** En C, `case` no delimita codigo: las
+  etiquetas consecutivas comparten un cuerpo y `case CHIP_POLARIS12:` cae en
+  `case CHIP_VEGAM:`. Mi troceado devolvia 0 bloques para POLARIS12 y **decía
+  exito**. Una lista vacia sin decirlo es peor que no tener herramienta.
+- **Ocho `case CHIP_POLARIS12:` en `vi.c`**, uno por switch. Buscaba la etiqueta
+  en el fichero entero y cogia el de la linea 274, en otra funcion. **Acotar,
+  luego emparejar.** Y el mismo error se me repitio al escribir **la prueba** de
+  la herramienta: el test mutaba el brazo equivocado y fallaba por su cuenta.
+- **"Sin ningun llamador" esta exactamente al reves.** No es "no esta vivo", es
+  "no lo llama el texto del driver". `amdgpu_dma_buf_attach` es un `.attach =` de
+  `dma_buf_ops`: lo alcanza un ioctl, desde fuera. Yo mismo escribi la regla al
+  reves y luego la defendi.
+
+**Y LA RETIRADA DE PRETENSION.** Primero cerre el grafo de alcance para saber que
+ficheros eran vivos. Con un **recall del 96,2%** medido, eso descartaba de mas:
+entre otros a `amdgpu_device_init`, que es LA funcion de inicializacion. Un
+filtro que descarta no puede apoyarse en una aproximacion; necesita un **hecho**.
+Lo sustituyo por "este fichero solo implementa un bloque que no existe en esta
+placa". **Llegue al problema correcto por el lado equivocado.**
+
+**Y UN TEST EN LA CAPA EQUIVOCADA.** El defecto del `% -32s` estaba en la salida:
+imprimia 39 caracteres como 32, inventando otro identificador, y un lector
+concluiria que esa funcion no existe. Mi comprobacion miraba el diccionario
+interno, que ya traia el nombre entero: **verde con el bug presente**. Un test de
+salida tiene que mirar la salida.
+
+`check.sh` 39 (con las dos herramientas dentro) | `cn7` 97 | `cn8` 33 |
+`selfcheck` 30/30 | `gfx8blocks --self-test` 17/17 | `gchwip_alcance --self-test`
+21/21. `GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.

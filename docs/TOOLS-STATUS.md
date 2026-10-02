@@ -2935,3 +2935,97 @@ inventario necesita una columna de *alcanzabilidad*, y ningun inventario que yo 
 escrito la tiene. Propuesta, no hecha: anadir a `ipver_zero.py` una columna
 `alcance` con la funcion enclosing y si tiene llamador en ficheros ejecutables.
 **No la implemento: el fichero es de otra sesion y no esta en mi lock.**
+
+## `gfx8blocks.py` y `gchwip_alcance.py`: la superficie de bloques y el alcance
+
+**Que resuelven, y por que en ese orden.** `gfx8blocks` responde "que hardware
+tengo que encender para arrancar esta placa". `gchwip_alcance` usa esa respuesta
+para responder "de las comparaciones degeneradas de `GC_HWIP`, cuales estan en
+codigo que no se ejecuta". El segundo **depende del primero**, y por eso estan
+registrados juntos en `check.sh`: si el primero falla, el segundo puede estar
+descartando sobre una lista equivocada sin que se note.
+
+```
+gfx8blocks.py [--self-test] [--corpus DIR] [--asic=CHIP_X]
+   RC 0 lista, 3 lista vacia o sin incondicionales, 1 error de entrada,
+      3 exclusividad no demostrada
+
+gchwip_alcance.py [--self-test]
+   compone con 08-ARQUITECTURA/tools/ipver_zero.py y NO re-deriva el censo.
+   Si no parsea ninguna fila, se NIEGA a seguir en vez de devolver una lista
+   vacia con exito.
+```
+**`gfx8blocks.py` · `VALIDATED`.** 17 vectores y controles, `rc=0`. Mutaciones
+sobre copias, todas cazadas:
+
+```
+M1  sin acotar la busqueda a la funcion                9 controles en rojo
+M2  sin comprobar la exclusividad de las dos rutas      1 control  en rojo
+M3  clasificacion de condicional invertida              4 controles en rojo
+M5  los DOS guardias de lista vacia a False             1 control  en rojo
+M4  UN solo guardia a False                             NO es una mutacion
+```
+**M4 no es una mutacion**, y la distincion importa: hay dos guardias y el segundo
+subsume al primero, asi que quitar uno no cambia el comportamiento. Una mutacion
+que no cambia nada no se puede cazar, y su no-captura no es un hueco del test.
+
+**`gchwip_alcance.py` · `VALIDATED`.** 21 vectores, `rc=0`. Cuatro mutaciones,
+todas cazadas: `N1` ficheros-no-vivos nunca declara nada (5), `N2` vuelve a
+descartar por falta de llamador (2), `N3` cuenta declaraciones de `.h` como
+llamadas (7), `N4` vuelve a truncar el nombre en la salida (1).
+
+### Los CATORCE DEFECTOS QUE TUVIERON, Y POR QUE NO LOS CUENTO COMO HERRAMIENTA UTIL
+
+Cada uno fue **medido**, no supuesto, y cada uno es una clase de error que ya me
+ha costado trabajo antes en este proyecto:
+
+```
+1  devolvio "total 0" con rc=0        parser que no encuentra nada y reporta exito
+2  troceaba por etiqueta de case    en C, case NO delimita codigo: las etiquetas
+                                    consecutivas comparten un cuerpo, y
+                                    case CHIP_POLARIS12 cae en case CHIP_VEGAM
+3  buscaba la etiqueta en todo .c   vi.c tiene OCHO "case CHIP_POLARIS12:"; cogia
+                                    el de la linea 274, en otra funcion, con 0
+                                    bloques. ACOTAR, LUEGO EMPAREJAR
+4  exigia firma y llave en la misma linea   aqui van separadas
+5  off-by-one al leer la llave siguiente     comparaba la firma contra "{"
+6  clasificacion de condicional invertida   un bloque SIN condicion salia
+                                            CONDICIONAL: los 6 primeros
+7  shutil.copy conservo permisos de solo lectura   la mutacion reventaba con
+                                            PermissionError en vez de probar nada
+8  el grafo no salia del fichero              amdgpu_mes_init_microcode se llama
+                                            desde mes_v11_0.c, y salia "no llamada"
+9  un continue se comia la asignacion         fn era None en el 100% de los sitios
+10 resetear en columna 0 rompia con #endif   lo que delimita un cuerpo es la
+                                            PROFUNDIDAD DE LLAVES, no el sangrado
+11 la firma de la definicion contaba como llamada   una funcion se llamaba a si
+                                                    misma en su linea de definicion
+12 una declaracion en .h contaba como llamada
+13 "sin ningun llamador" se leia como muerto    esta EXACTAMENTE al reves: lo
+                                                    llama el KERNEL (dma_buf_ops)
+14 el formateador %-32s truncaba el nombre      39 caracteres impresos como 32,
+                                                    inventando OTRO identificador
+```
+**El 13 es el que mas me gusta**, porque es una regla que yo mismo enuncia mal:
+*"no tener llamadores no es estar muerto"*. No es "no está vivo", es **"no lo
+llama el texto del driver"**, que incluye los fops de DRM, los ioctl y el
+sysfs. Descartar ahi es un falso positivo de manual.
+
+**Y el mas instructivo es el 14.** El defecto estaba en la CAPA DE SALIDA, y mi
+primera comprobacion miraba el diccionario interno de datos, que ya traia el
+nombre entero. El test pasaba en verde con el bug presente. **Un test de salida
+tiene que mirar la salida.** Es el mismoPrincipio que "verificar que la salida
+pertenece al comando ejecutado", pero aplicado a una capa de la que ni me habia
+dado cuenta.
+
+**Y una retirada de pretension.** `gchwip_alcance` primero cerro el grafo de
+alcance para decidir que ficheros eran vivos, y con un **recall medido del
+96,2%** (de 835 funciones declaradas en `amdgpu_*.h`, el indice pierde 32)
+descartaba de mas: entre otros a `amdgpu_device_init`, que es **LA** funcion de
+inicializacion. Con un 4% de perdida, un filtro **no puede descartar**: uno de
+cada 25 veredictos es dudoso. Lo que sustituyo ahi fue el cierre de grafo por un
+**hecho** --"este fichero solo implementa un bloque que no existe en esta
+placa"--, que si es solido. **Un filtro que descarta necesita hechos, no
+aproximaciones.** Esta es la correccion de razonamiento mas importante de la
+ronda, y llego por el lado equivocado: primero cerre el grafo, y el grafo no
+resolvia el problema que yo creia.

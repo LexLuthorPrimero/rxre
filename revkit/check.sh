@@ -243,6 +243,19 @@ echo
 
 # el plan de captura debe ser coherente, pero su ejecucion pide sudo, asi que
 # aqui SOLO se comprueba la coherencia, sin leer la GPU.
+echo "--- la superficie de inicializacion: que bloques IP existen en esta placa ---"
+# gfx8blocks responde a la pregunta previa: de los 84 bloques que el driver sabe
+# instanciar, cuales existen en Polaris12. De ahi sale el conjunto vivo que usa
+# gchwip_alcance, asi que los dos van juntos: si el primero falla, el segundo
+# puede estar descartando sobre una lista equivocada.
+if [ -f ./gfx8blocks.py ]; then
+    run "gfx8blocks: self-test de la superficie de bloques IP" ./gfx8blocks.py --self-test
+    run "gfx8blocks: los 8 bloques incondicionales de POLARIS12" ./gfx8blocks.py
+fi
+if [ -f ./gchwip_alcance.py ]; then
+    run "gchwip_alcance: self-test del filtro de alcance" ./gchwip_alcance.py --self-test
+fi
+
 echo "--- la puerta de salida, probada sobre un repo de mentira ---"
 # El selftest fabrica un repo y una suite de mentira en un temporal: los 14
 # caminos de pub.sh se prueban SIN tocar el arbol real. Antes de que existiera,

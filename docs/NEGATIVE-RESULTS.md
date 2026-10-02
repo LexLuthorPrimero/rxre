@@ -1218,3 +1218,44 @@ positivo**: `sid.h` en EV-35, `gmc_v6_0.c` en el control de mascara, `pm4census`
 con 7.2.8, el bloque SDMA, y ahora esto. El patron no cambia y por eso la regla
 tampoco: **contar apariciones en un arbol no es contar cosas que se ejecutan.**
 Un nombre de fichero no es un dato, es una suposicion con formato de dato.
+
+## NR-2026-10-02-a2 · Correccion a EV-39 §6: son 4 comparaciones descartables, no 5
+
+`CLASSIFICATION=ERROR` · `TRACK=STATIC` · `WRITE_EXECUTION=NONE` · `GPU INTACTA`
+`CORRIGE=EV-39 seccion 6, que decia 5`
+
+**Lo que dije.** En EV-39 §6 clasifique **a mano** cinco sitios de `amdgpu_mes.c`
+(`682, 683, 755, 756, 758`) como "en codigo sin llamador alcanzable en GFX8".
+
+**Lo que hay.** La herramienta con la regla sound descarta **cuatro**, y
+`755/756/758` **no** aparecen. La razon es que **los cinco estaban bien y mi
+cifra estaba mal**:
+
+```
+682  amdgpu_mes_init_microcode                 -> amdgpu_mes_init_microcode
+683  amdgpu_mes_init_microcode                 -> amdgpu_mes_init_microcode
+755  amdgpu_mes_suspend_resume_all_supported   -> amdgpu_mes.c:289, :313
+756  amdgpu_mes_suspend_resume_all_supported   -> amdgpu_mes.c:289, :313
+758  amdgpu_mes_suspend_resume_all_supported   -> amdgpu_mes.c:289, :313
+```
+Los tres ultimos **si** son inalcanzables, y lo comprobé a mano:
+`amdgpu_mes_suspend_resume_all_supported` solo se usa en `amdgpu_mes.c:289` y
+`:313`, dentro de `amdgpu_mes_suspend` (llamado solo por `mes_v12_1.c`) y
+`amdgpu_mes_resume` (llamado por `gfx_v11_0.c`, `mes_userqueue.c`, `mes_v12_1.c`).
+Todos no vivos.
+
+**Lo que no alcanza la herramienta es el segundo salto**: `amdgpu_mes.c` no es un
+fichero de bloque, asi que no se puede declarar "no vivo" a partir de el. La regla
+es sound pero conservadora, y **pierde positivos a proposito**.
+
+**Por que importa el numero.** Si hubiera publicado "5" sin la herramienta, el
+error habria sido invisible: cinco tambien suena a resultado verificado. Lo que
+lo hace visible es que la herramienta da **4** y no coincidian. **Un resultado
+manual que no se contrasta con una maquina acaba pareciendome el de la
+maquina**, y en este caso habria sido al reves: la maquina era mas ruidosa pero
+mas honesta.
+
+**Correccion aplicada:** el estado consolidado dice **4** descartables por
+analisis de alcance, y **7** si se cuentan las tres que la regla de un salto no
+alcanza. Los 7 siguen siendo `PROVEN` por lectura manual; el 4 es lo que se puede
+afirmar sin analisis manual.

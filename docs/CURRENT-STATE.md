@@ -644,3 +644,74 @@ placa no se ejecutan (`gfx_v9_0.c`, `gfx_v10_*.c`, `nv_*`). Es el mismo patron q
 el SDMA. **Contar apariciones en un arbol no es contar cosas que se ejecutan.**
 
 `GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.`
+
+## Ronda 2026-10-02 (tarde 9) · EV-40 · los bloques IP que existen en esta placa
+
+Es el **item 1 del universo de investigacion** (device initialization), y no
+tenia nada. Ahora esta entero y medido.
+
+**1 · HAY DOS RUTAS DE SELECCION, Y SON MUTUAMENTE EXCLUSIVAS.**
+`amdgpu_device.c:1978-1999` reparte por `adev->asic_type`:
+
+```
+case CHIP_POLARIS12:  ... adev->family = AMDGPU_FAMILY_VI;
+                       r = vi_set_ip_blocks(adev);          break;
+default:                  r = amdgpu_discovery_set_ip_blocks(adev);   break;
+```
+La primera es la ruta por **FAMILIA** y la segunda por **VERSION** (`GC_HWIP`).
+Polaris12 entra en el `case` y no llega al `default`. Consecuencias, ambas
+`PROVEN`:
+
+- **Ninguna funcion `amdgpu_discovery_set_*` se ejecuta en esta placa.** Con ello,
+  los `switch` sobre `GC_HWIP` que estan ahi dentro no son "degenerados": son
+  codigo que no llega a correr.
+- **No se instancia ningun bloque de hardware de 9.x/10.x/11.x/12.x.**
+
+**2 · LOS DIEZ BLOQUES QUE EXISTEN.** De los 84 que el driver sabe anadir,
+Polaris12 instancia **10**: ocho incondicionales y dos condicionados.
+
+```
+INCONDICIONAL   vi_common_ip_block      vi.c:2109
+INCONDICIONAL   gmc_v8_1_ip_block       vi.c:2110
+INCONDICIONAL   tonga_ih_ip_block       vi.c:2111
+INCONDICIONAL   gfx_v8_0_ip_block       vi.c:2112
+INCONDICIONAL   sdma_v3_1_ip_block      vi.c:2113
+INCONDICIONAL   pp_smu_ip_block         vi.c:2114
+INCONDICIONAL   uvd_v6_3_ip_block       vi.c:2121
+INCONDICIONAL   vce_v3_4_ip_block       vi.c:2122
+CONDICIONAL     amdgpu_vkms_ip_block    vi.c:2116   if (adev->enable_virtual_display)
+CONDICIONAL     dm_ip_block             vi.c:2119   else if (has_dc_support)
+```
+Las condiciones **no se evaluan**: es otra pregunta y es de runtime.
+
+**3 · CORROBORACION INDEPENDIENTE DE EV-38bis.** Alli llegue a
+`gmc_v8_1_ip_block` y `sdma_v3_1_ip_block` por la cadena
+`sdma_v3_0_vm_write_pte` -> `sdma_v3_1_ip_block` -> `sdma_v3_0_ip_funcs`. Aqui los
+he encontrado por un camino **invertido**: preguntando que bloques existen, sin
+mirar funciones. Mismos dos nombres, dos caminos, conclusion independiente.
+
+**4 · CORROBORACION DE LA OTRA SESION.** Su `190` decia que el kernel registra 9
+bloques IP y que tres no se habian mirado nunca: `dm`, `uvd_v6_3`, `vce_v3_4`.
+Los tres estan aqui: dos en el brazo de Polaris12 (uno condicionado) y dos
+incondicionales. Los nombres casan.
+
+**5 · ALCANCE: 4 DE 50 COMPARACIONES DE `GC_HWIP` DESCARTABLES, CON HECHO.**
+
+```
+sonas descartables de 50           4     (el resto, 46, NO probadas alcanzantes)
+amdgpu_gfx.c:514  amdgpu_gfx_mqd_symmetrically_map_cu_mask   -> gfx_v11_0, gfx_v12_0
+amdgpu_gmc.c:1766 amdgpu_gmc_get_vram_info                   -> gmc_v9_0/v10_0/v11_0/v12_0
+amdgpu_mes.c:682  amdgpu_mes_init_microcode                  -> mes_v11_0/v12_0/v12_1
+amdgpu_mes.c:683  amdgpu_mes_init_microcode                  -> mes_v11_0/v12_0/v12_1
+```
+La regla del descarte es **un hecho, no una aproximacion**: todos los llamadores
+de la funcion estan en ficheros que **solo** implementan un bloque IP que no se
+instancia. Eso es EV-39, verificado. Lo que queda no esta probado alcanzante:
+`no descartado` no es `vivo`.
+
+**LIMITE DECLARADO, y es una perdida de positivos A PROPOSITO:** la regla es de un
+solo salto. Si el intermediario vive en un fichero comun, el sitio no se descarta
+aunque no se ejecute nunca. Por eso **esta cifra es 4, no 7**: ver la correccion
+en `NEGATIVE-RESULTS.md`.
+
+`GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.`
