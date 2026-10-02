@@ -128,6 +128,24 @@ def main():
     pk, _, _, _ = P.decodifica(d, ops, saltar_cabecera=True)
     chk("con saltar_cabecera=True empieza en el dword 3", len(pk) == 0)
 
+    # Fija el formato de PACKET3 con un caso construido a mano:
+    # (3<<30)|(op<<8)|(cnt<<16). Si esto se rompe, el opcode y el conteo de
+    # todo lo demas tambien, y sin este control el fallo se manifestaria
+    # como un numero raro en vez de como un error de formato.
+    d = struct.pack("<6I", pk3(0x3C, 5), 0x143, 0x1537, 0x1538, 1, 1)
+    pk, _, pr, _ = P.decodifica(d, ops)
+    chk("WAIT_REG_MEM cnt=5 -> 6 dwords, opcode nombrado",
+        len(pk) == 1 and pk[0]["nombre"] == "PACKET3_WAIT_REG_MEM"
+        and pk[0]["dwords"] == 6 and pk[0]["cnt"] == 5)
+
+    # Y que el dword de tipo 0 (el poll interval 0x20 que el driver escribe
+    # de mas, sin declararlo en count) no se tome por cabecera de PKT0 que
+    # se come 85 dwords y desincroniza todo lo que viene despues.
+    d = struct.pack("<7I", pk3(0x3C, 5), 0x143, 0x1537, 0x1538, 1, 1, 0x20)
+    pk, _, _, _ = P.decodifica(d, ops)
+    chk("el 6to dword (0x20) no rompe la sincronizacion",
+        sum(p["dwords"] for p in pk) == 7 and len(pk) == 2)
+
     print("-" * 62)
     if FALLOS:
         print("%d control(es) FALLAN. pm4dec NO puede usarse como autoridad."

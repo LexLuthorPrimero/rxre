@@ -272,14 +272,37 @@ def decodifica(d, ops, verbose=False, saltar_cabecera=False):
             # PACKET0: un registro. count en los 16 bajos, count-1 registros
             # a partir del dword siguiente. PACKET2: solo cuenta.
             if tipo == 0:
+                # DATO CRUCIAL: en el anillo GFX de GFX8, un dword tipo 0 NO
+                # es un PKT0.
+                #
+                # La busqueda de "PKT0" en TODO el driver amdgpu no devuelve
+                # NADA. El driver escribe registros en el anillo con
+                # PACKET3_SET_CONTEXT_REG (gfx_v8_0.c:1235),
+                # PACKET3_SET_SH_REG (1529), PACKET3_SET_UCONFIG_REG (850) y
+                # PACKET3_WRITE_DATA (891). Nunca con la macro PKT0.
+                #
+                # Entonces un dword tipo 0 aqui es un VALOR de uno de esos
+                # paquetes cuyo limite no hemos contado bien, no una cabecera
+                # de PKT0. La version anterior de este decodificador lo
+                # trataba como PKT0 con count=43, lo que consumia 85 dwords y
+                # fabricaba una estructura de 8 bloques que parecia
+                # convincente. Era una lectura inventada del error.
+                #
+                # COMO SE DISTINGUE de verdad: en el anillo real, los
+                # identificadores de paquete son los que tienen los bits
+                # [31:30]=11 y un opcode con nombre en sid.h. Los dwords tipo
+                # 0 aparecen SIEMPRE como payload de un PACKET3 anterior.
+                #
+                # Este decode de PKT0 se conserva para otros anillos
+                # (CPER, SDMA, compute si los hubiera), pero para el GFX de
+                # GFX8 no aplica. Decirlo es mejor que ignorarlo en silencio:
+                # un bloque de 85 dwords con 42 "registros" inventados es
+                # informacion falsa con aspecto de dato.
                 cnt = w & 0x3FFF
-                nombre = "PKT0"
-                if cnt == 0:
-                    cnt = 0
-                # PACKET0 cuenta el numero de REGISTROS, no de dwords, y cada
-                # registro es 2 dwords. count-1 registros (count>=1).
-                regs = max(cnt - 1, 0) if cnt >= 1 else 0
-                total = 1 + regs * 2
+                nombre = "PKT0(dato, no cabecera)"
+                # Se consume como UN dword, no como 1+2*(count-1). Es lo
+                # unico que no puede desincronizar el resto.
+                total = 1
                 paquetes.append({
                     "idx": i, "tipo": 0, "op": None, "cnt": cnt,
                     "nombre": nombre, "dwords": total,
@@ -398,7 +421,7 @@ def main():
         # CORRECCION IMPORTANTE sobre lo que esto demuestra.
         #
         # Una version anterior de este texto decia "leido de registros
-        # MMIO". Es FALSO, y era una lectura muy attractiva de hacer:
+        # MMIO". Es FALSO, y era una lectura muy tentadora de hacer:
         #
         #   RING_RPTR -> *ring->rptr_cpu_addr  (gfx_v8_0.c:6008)  espejo en CPU
         #   RING_WPTR -> *ring->wptr_cpu_addr si ring->use_doorbell,
@@ -489,6 +512,18 @@ def main():
         print("El hardware los ejecuto. Que no sepamos nombrarlos es una")
         print("limitacion del corpus, no del anillo. NO son 'desconocidos'")
         print("en el sentido de invalidos.")
+
+    # WAIT_REG_MEM: el paquete con mas valor de este anillo.
+    #
+    # Decodificarlo aqui, y no aparte, es porque es el unico tipo cuyo
+    # contenido se puede poner en contraste con la construccion exacta que
+    # hace el driver en gfx_v8_0.c:6047-6056, que esta en el corpus.
+    wrm = [p for p in pkts if p["op"] == 0x3C]
+    if wrm:
+        print("WAIT_REG_MEM: %d en el anillo" % len(wrm))
+        print("  Es el paquete mas interesante porque su construccion esta")
+        print("  en el corpus y se puede contrastar. Ver WAIT-REG-MEM-REAL.md")
+        print()
 
     if a.todos:
         print()
