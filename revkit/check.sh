@@ -243,6 +243,15 @@ echo
 
 # el plan de captura debe ser coherente, pero su ejecucion pide sudo, asi que
 # aqui SOLO se comprueba la coherencia, sin leer la GPU.
+echo "--- snapshot de layouts desde la BTF (perecedera) ---"
+# btfsnap guarda los layouts que salen de /sys/kernel/btf/<modulo>, que es por
+# arranque: cuando haga falta y no este guardado, ya no habra de donde sacarlo.
+# Solo se anade el --selftest, que no escribe nada y no depende del estado.
+if [ -x ./btfsnap.py ] || [ -f ./btfsnap.py ]; then
+    run "btfsnap: selftest de caminos de fallo" python3 ./btfsnap.py --selftest
+fi
+echo
+
 echo "--- coherencia del plan de captura (sin sudo) ---"
 if python3 -c "import captura,sys; f=captura.check_captura(); sys.exit(1 if f else 0)" 2>/dev/null; then
     RESULTADOS+=("OK    captura: plan coherente")

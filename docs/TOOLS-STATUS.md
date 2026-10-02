@@ -2699,3 +2699,51 @@ suponerlo; mi preocupación inicial era infundada.
 el mismo —`amd/amdgpu/sid.h` por triplicado y `radeon/sid.h`, otro driver—. El
 texto de `tools/constmap.py` dice "TEN"; medido aquí son 4. `AMBIGUOUS` está bien
 planteado, el número no. No se toca `constmap.py` por ser de otra sesión.
+
+## `btfsnap.py`: guardar los layouts que salen de la BTF, que es perecedera
+
+**Por qué existe.** `/sys/kernel/btf/<modulo>` es NIVEL 2 (leer un fichero de
+`/sys`) y **es perecedero**: es por arranque, y en esta máquina incluso se
+reescribió *dentro* del mismo arranque (04:54 con el boot a las 00:10). Cuando el
+layout haga falta y no esté guardado, ya no habrá de dónde sacarlo.
+`pahole` sobre el `.ko` **no** es alternativa: la sección `.BTF` del `.ko` está
+partida y falla con *"Malformed BTF string section"*.
+
+Lo que se guarda no es la BTF (3.88 MB, no versionable) sino los **layouts ya
+resueltos**, en texto y con su procedencia: sha256 de la BTF, bytes, mtime,
+`uname -r`, versión de `pahole` e invocación. Eso es lo que sirve para un driver
+propio — offsets y tamaños, no el índice de tipos.
+
+```
+btfsnap.py                 # escribe revkit/btf-<modulo>-layouts.txt
+btfsnap.py --listar        # estado y tamaños, no escribe
+btfsnap.py --comparar      # deriva contra lo guardado; rc=1 si la hay
+btfsnap.py --selftest      # 6 casos de los caminos de fallo
+```
+
+**`NO_EN_BTF` no es `PROVEN_ABSENT`.** La BTF del módulo solo cubre los tipos que
+el módulo exporta, así que que un struct falte **no dice nada del kernel**.
+Medido: `amdgpu_bo` sí está (712 bytes) y `drm_bo` **no**, pero `drm_gem_object`
+(368) sí: es un **renombrado** en este kernel, no una ausencia.
+
+**Pago ya cobrado**: el snapshot dice `u64 flags; /* 584 8 */` dentro de
+`struct amdgpu_bo`, y **584 = 0x248**. Eso corrobora `EV-33` y, a diferencia de la
+medida en vivo, **sobrevive al reinicio**.
+
+**Dos defectos que tuvo y se cazaron antes de usarse**
+
+1. `--comparar` daba **deriva falsa en cada ejecución**: la línea `generado` lleva
+   la hora y cambia siempre, así que `previo != texto` era siempre cierto. Un
+   detector que siempre dice que algo cambió no detecta nada. Ahora compara el
+   texto **normalizado** y, cuando hay deriva de verdad, dice en qué línea.
+   Provocado: 0 → 1 → 0.
+2. `--structs ""` caía **en silencio** a la lista por defecto: el usuario pedía
+   nada y recibía todo. Ahora es `rc=5` y lo dice.
+
+Además, un `NameError` propio en un generador roto, que reventó antes de escribir
+nada.
+
+**Estado**: `VALIDATED`. 6 casos de fallo con rc comprobados (2 BTF ausente,
+3 sin `pahole`, 4 nada resoluble, 5 `--structs` vacío), y `--selftest` **provocado**
+con un mutante que reinstala la sustitución silenciosa: sale `rc=1`.
+Registrado en `check.sh`.

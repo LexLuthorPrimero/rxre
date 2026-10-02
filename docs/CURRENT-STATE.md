@@ -353,3 +353,36 @@ no significa nada. Casi lo dejo escrito como evidencia. Además escribí "0 de l
 179 ficheros" con un 179 que no había contado. A partir de aquí, **todo recuento
 lleva el número de elementos examinados, y los controles que dependen de ficheros
 externos OMITen si no los encuentran**.
+
+---
+
+## Ronda 2026-10-02 (tarde 2) · RK-10 · los layouts de la BTF, guardados
+
+`/sys/kernel/btf/amdgpu` es **por arranque**, y en esta máquina se reescribió
+dentro del mismo arranque. `pahole` sobre el `.ko` no es alternativa: su
+sección `.BTF` está partida y falla. O sea que había una puerta de un solo
+sentido: cuando el layout hiciera falta y no estuviera guardado, ya no habría de
+dónde sacarlo.
+
+**Guardado**: `revkit/btfsnap.py` y `revkit/btf-amdgpu-layouts.txt`, 12 structs
+resueltos con su procedencia (sha256, `uname -r`, versión de `pahole`). La BTF
+son 3.88 MB y no es versionable; los layouts sí, y son lo que sirve.
+
+**Cobra de inmediato**: el snapshot dice `u64 flags; /* 584 8 */` en
+`struct amdgpu_bo`, y 584 = **0x248**. Es la corroboración de `EV-33`, y a
+diferencia de la medida en vivo **queda en disco para después del reinicio**.
+
+**Una categoría nueva**: `NO_EN_BTF` no es `PROVEN_ABSENT`. La BTF del módulo
+solo cubre los tipos que el módulo exporta. Medido: `drm_bo` **no** está y
+`drm_gem_object` **sí**: es un renombrado en este kernel, no una ausencia. Una
+herramienta que mezclara los dos habría producido un `PROVEN_ABSENT` falso.
+
+**Tres defectos propios cazados antes de usar la herramienta**: `--comparar` daba
+deriva falsa en cada ejecución (la línea de hora siempre cambia), `--structs ""`
+caía en silencio a la lista por defecto, y un `NameError` en un generador roto.
+El selftest se **provocó** con un mutante que reinstala la sustitución silenciosa
+y sale `rc=1`: un control que no puede fallar no sería un control.
+
+**Sin cambio de bloqueos**: `F12` sigue necesitando root —`RX550_SUDO_PASS`
+comprobada esta ronda, **ausente**, se perdió al reiniciar— y además un anillo
+con `vm_flush`, que no está en las 4 capturas. `F2b` y `F14` igual.

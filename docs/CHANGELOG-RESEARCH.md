@@ -101,6 +101,54 @@ sesiones; la deuda queda contada, no escondida.
 
 ---
 
+## 2026-10-02 · opencode · RK-10 · `btfsnap.py`, los layouts de la BTF, que es perecedera
+
+```
+OBJECT   revkit/btfsnap.py (nuevo) + revkit/btf-amdgpu-layouts.txt
+ACTION   NEW TOOL + snapshot + CORROBORATION de EV-33
+NIVEL    2 (leer /sys/kernel/btf/amdgpu), sin instrumentacion
+```
+
+**OLD STATE → NEW STATE**
+
+- Los layouts de struct se podian leer de `/sys/kernel/btf/amdgpu`, que es **por
+  arranque** y en esta maquina se reescribio dentro del mismo arranque (04:54 con
+  el boot a las 00:10). No havia copia. → NEW: `btfsnap.py` guarda 12 layouts ya
+  resueltos, en texto y **versionados**, con sha256 de la BTF, bytes, mtime,
+  `uname -r` y version de `pahole`. La BTF se pierde; el fichero no.
+- `EV-33` (`bo->flags` = `u64` en 0x248) estaba corroborado solo por la lectura
+  en vivo. → NEW: el snapshot lo lleva escrito (`u64 flags; /* 584 8 */`), con
+  584 = 0x248, y sobrevive al reinicio. `CORROBORATED`.
+- `NO_EN_BTF` no era una categoria de la herramienta. → NEW: existe y significa
+  otra cosa que `PROVEN_ABSENT`. Medido: `drm_bo` no esta y `drm_gem_object` si,
+  luego es un **renombrado** en este kernel. La BTF del modulo solo cubre lo que
+  el modulo exporta.
+
+**Defectos propios cazados antes de usar la herramienta**
+
+1. `--comparar` daba **deriva falsa en cada ejecucion**, porque la linea
+   `generado` lleva la hora y `previo != texto` era siempre cierto. Un detector
+   que siempre dice que algo cambio no detecta nada. Provocado: 0 → 1 → 0.
+2. `--structs ""` caia **en silencio** a la lista por defecto: sustitucion
+   silenciosa de lo que se pidio. Ahora `rc=5`.
+3. Un `NameError` en un generador roto, que revento antes de escribir nada.
+
+**VALIDACION**
+
+```
+--selftest            6 casos de fallo, rc comprobados: 2, 3, 4, 5, 0 y 0
+selftest con mutante  rc=1   (el mutante reinstala la sustitucion silenciosa)
+check.sh rc=0  35 OK  (btfsnap registrado en la suite)
+cn7 rc=0 83 | cn8 rc=0 30 | selfcheck rc=0 30/30
+```
+
+**Lo que sigue bloqueado, sin cambio**: `F12` necesita root (la credencial se
+perdio al reiniciar) y ademas un anillo con `vm_flush`, que no aparece en las 4
+capturas. `RX550_SUDO_PASS` comprobada esta ronda: **ausente**. F2b y F14
+siguen igual.
+
+---
+
 ## 2026-10-01 · agente de documentación · ROUND 1
 
 ### R-01 · Reconciliación de la contradicción interna de `PROYECTO_STATUS.md`

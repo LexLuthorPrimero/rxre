@@ -3446,6 +3446,24 @@ reescrito las 65 de golpe: son cambios de otra sesión ya escritas y mezcladas c
 contenido suyo, yemasclar eso en un commit sobre opcodes sería ruido. La deuda
 queda declarada y contada, no escondida.
 
+### Corroboración de `EV-33` que sobrevive al reinicio
+
+`EV-33` afirmaba que `bo->flags` es un `u64` en el offset **584 = 0x248** de
+`struct amdgpu_bo`, y que lo marcaron los valores de `AMDGPU_GEM_CREATE_*` de
+userspace. El snapshot de la BTF dice, literalmente:
+
+```
+struct amdgpu_bo {
+        struct ttm_buffer_object   tbo;      /*    72   480 */
+        u64                        flags;    /*   584     8 */
+}
+```
+
+`CORROBORATED`, y con una diferencia respecto a la medida en vivo: **esto está en
+un fichero versionado**, así que sigue disponible después de que la BTF —que es
+por arranque— ya no exista. Es la segunda lectura independiente del layout, la
+primera siendo `struct_layout.py` sobre el corpus.
+
 ### Dos etiquetas falsas que también estaban en la salida
 
 Ambas son el mismo fallo que un opcode mal nombrado, y por eso se arreglan en el
@@ -3497,4 +3515,5 @@ rompía nada, porque `__doc__` es el segundo, pero describía una firma que no e
 | RK-06 | `dires.py` | `VALIDATED` | 587 164 direcciones, 30 ASIC; autocomprobación en cada ejecución (rc=3 si no encuentra 0x1537/0x1538) |
 | RK-07 | `ibpools.py` | `VALIDATED` | autocomprobación: avisa si no interpreta todas las líneas, si hay >1 IB en uso por pool, o si un rango no cuadra con `size` |
 | RK-08 | `huerfanos.py` | `FUNCIONAL`, rc=1 por diseño | 296/2608 símbolos sin definición local; rc=2 si no se ha recorrido nada |
+| RK-10 | `btfsnap.py` | `VALIDATED` | guarda los layouts de 12 structs desde la BTF, con sha256/versión como procedencia; 6 casos de fallo con rc comprobados y `--selftest` probado con mutante (rc=1). El layout persiste tras el reinicio, la BTF no |
 | RK-09 | `cn7.py`, `cn8.py` | `VALIDATED` | 81 + 30 controles; los negativos usan mutación real, no `if False` cosmético. 3 mutantes medidos: M1 (tabla de `sid.h`) tumba 5 controles, M2 (sin filtro `__`) tumba 1, M3 (aviso siempre activo) tumba 1 |
