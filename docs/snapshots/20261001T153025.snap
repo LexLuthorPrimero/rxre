@@ -1,0 +1,148 @@
+# snapshot snapshot  captured 2026-10-01T15:30:25-0300
+# stable-id bbf909eddd8c2cda   contexto 73a35f813db8dc35
+# 127 hechos, 125 en el hash, 5 volátiles
+#
+# El hash cubre las estables MENOS las de contexto.  Un id que se mueve
+# porque otra sesión hizo commit no dice nada del hardware, y bajo
+# concurrencia eso pasa varias veces por hora.  Medido: con el HEAD
+# dentro del hash, este id pasó de 59e11a3ef7928751 a 73a35f813db8dc35
+# sin que la GPU moviera un byte.
+#
+# Volátiles se registran y no se comparan: si se compararan, dos capturas
+# seguidas darían diferencias que no son diferencias.
+
+[estable]
+amdgpu.abmlevel = -1
+amdgpu.agp = -1
+amdgpu.aspm = -1
+amdgpu.async_gfx_ring = 1
+amdgpu.audio = -1
+amdgpu.backlight = -1
+amdgpu.bad_page_threshold = -1
+amdgpu.bapm = -1
+amdgpu.cg_mask = 18446744073709551615
+amdgpu.cik_support = -1
+amdgpu.compute_multipipe = -1
+amdgpu.cwsr_enable = 1
+amdgpu.damageclips = -1
+amdgpu.dc = -1
+amdgpu.dcdebugmask = 0
+amdgpu.dcfeaturemask = 2
+amdgpu.debug_evictions = N
+amdgpu.debug_mask = 0
+amdgpu.deep_color = 0
+amdgpu.disable_cu = (null)
+amdgpu.discovery = -1
+amdgpu.disp_priority = 0
+amdgpu.dpm = -1
+amdgpu.emu_mode = 0
+amdgpu.enforce_isolation = -1
+amdgpu.exp_hw_support = 0
+amdgpu.force_asic_type = -1
+amdgpu.forcelongtraining = 0
+amdgpu.freesync_video = 0
+amdgpu.fw_load_type = -1
+amdgpu.gpu_recovery = -1
+amdgpu.halt_if_hws_hang = 0
+amdgpu.hdmi_hpd_debounce_delay_ms = 0
+amdgpu.hw_i2c = 0
+amdgpu.hws_gws_support = N
+amdgpu.hws_max_conc_proc = -1
+amdgpu.ip_block_mask = 4294967295
+amdgpu.lbpw = -1
+amdgpu.max_num_of_queues_per_device = 4096
+amdgpu.mcbp = -1
+amdgpu.mes_log_enable = 0
+amdgpu.modeset = -1
+amdgpu.msi = -1
+amdgpu.mtype_local = -1
+amdgpu.no_queue_eviction_on_vm_fault = 0
+amdgpu.no_system_mem_limit = N
+amdgpu.noretry = -1
+amdgpu.num_kcq = -1
+amdgpu.pcie_gen2 = -1
+amdgpu.pcie_gen_cap = 0
+amdgpu.pcie_lane_cap = 0
+amdgpu.pcie_p2p = Y
+amdgpu.pg_mask = 4294967295
+amdgpu.ppfeaturemask = 0xfff7bfff
+amdgpu.queue_preemption_timeout_ms = 9000
+amdgpu.ras_enable = -1
+amdgpu.ras_mask = 4294967295
+amdgpu.rebar = -1
+amdgpu.reset_method = -1
+amdgpu.runpm = -1
+amdgpu.sched_hw_submission = 2
+amdgpu.sched_jobs = 32
+amdgpu.sched_policy = 0
+amdgpu.sdma_phase_quantum = 32
+amdgpu.seamless = -1
+amdgpu.send_sigterm = 0
+amdgpu.sg_display = -1
+amdgpu.si_support = -1
+amdgpu.smu_memory_pool_size = 0
+amdgpu.smu_pptable_id = -1
+amdgpu.svm_default_granularity = 9
+amdgpu.timeout_fatal_disable = N
+amdgpu.timeout_period = 0
+amdgpu.tmz = -1
+amdgpu.umsch_mm = 0
+amdgpu.umsch_mm_fwlog = 0
+amdgpu.uni_mes = 1
+amdgpu.use_xgmi_p2p = 1
+amdgpu.user_partt_mode = 4294967294
+amdgpu.user_queue = -1
+amdgpu.vcnfw_log = 0
+amdgpu.virtual_display = (null)
+amdgpu.vis_vramlimit = 0
+amdgpu.visualconfirm = 0
+amdgpu.vm_block_size = -1
+amdgpu.vm_fault_stop = 0
+amdgpu.vm_fragment_size = -1
+amdgpu.vm_size = -1
+amdgpu.vm_update_mode = -1
+amdgpu.wbrf = -1
+docs_exists = True
+drm.card0.bdf = 0000:00:02.0
+drm.card0.device = 0x0412
+drm.card0.driver = i915
+drm.card0.subsystem = 0x1019
+drm.card0.vendor = 0x8086
+drm.card1.bdf = 0000:01:00.0
+drm.card1.device = 0x699f
+drm.card1.driver = amdgpu
+drm.card1.subsystem = 0x1002
+drm.card1.vendor = 0x1002
+kernel = 7.1.3-200.nobara.fc44.x86_64
+mesa = Mesa Intel(R) HD Graphics 4600 (HSW GT2)
+modules_project = (none)
+os_id = nobara
+os_version = 44
+render_nodes = by-path card0 card1 renderD128 renderD129
+subject_bdf = 0000:01:00.0
+subject_card = card1
+subject_device_id = 0x699f
+subject_driver = amdgpu
+subject_facts_absent = 6
+subject_gpu_busy_percent = <ausente>
+subject_hwmon_temp1 = <ausente>
+subject_mem_busy_percent = <ausente>
+subject_mem_info_gtt_total = 6194642944
+subject_mem_info_vis_vram_total = 268435456
+subject_mem_info_vis_vram_used = 5439488
+subject_mem_info_vram_total = 2147483648
+subject_mem_info_vram_used = 5439488
+subject_pp_dpm_mclk = <ausente>
+subject_pp_dpm_pstate = <ausente>
+subject_pp_dpm_sclk = <ausente>
+subject_selection = vendor=0x1002, unica coincidencia
+subject_subsystem = 0x1002
+subject_vendor_id = 0x1002
+tools_git_head = e6210b0
+
+[volatil]
+boot_id = 2274260d-1c2
+captured_at = 2026-10-01T15:30:25-0300
+free_mem_kb = 6578444
+journal_lines = 1182
+uptime = 34884.81
