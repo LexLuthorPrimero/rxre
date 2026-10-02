@@ -135,6 +135,40 @@ def self_test():
             fails.append("distancia mov->call = %d, por encima de MAX_DIST=%d: el "
                          "atribucion de offset no es fiable ahi" % (d, MAX_DIST))
 
+    # 5. EL AVISO DE AMBIGUEDAD TIENE QUE EXISTIR Y SER SIMETRICO. Esta es la
+    #    razon de ser del arreglo de 247: 397 nombres estan definidos mas de una
+    #    vez, y sin el aviso la herramienta cuenta una de varias y SUBAESTIMA EN
+    #    SILENCIO. Un underestimate que no dice nada es peor que uno que falla.
+    #
+    #    Y el control es simetrico a proposito: si marcara TODO, seria un muro
+    #    del otro lado, tan inútil como no marcar nada.
+    amb = _funcion(ASM, "kgd_hqd_sdma_load")          # medido: 4 definiciones
+    if amb is None:
+        fails.append("ambiguedad: no encuentro kgd_hqd_sdma_load")
+    else:
+        if not amb["ambigua"]:
+            fails.append("ambiguedad: kgd_hqd_sdma_load tiene 4 definiciones y la "
+                         "herramienta NO lo avisa: vuelve a subestimar en silencio")
+        eq("kgd_hqd_sdma_load: numero de definiciones", len(amb["definiciones"]), 4)
+        if amb["accesos"]:
+            fails.append("ambiguedad: devolvio %d accesos tomando solo la primera "
+                         "definicion; el numero es de una de varias y no debe "
+                         "presentarse como medida" % len(amb["accesos"]))
+        if len(amb["por_definicion"]) != 4:
+            fails.append("ambiguedad: esperaba un desglose de 4 definiciones, "
+                         "llegaron %d" % len(amb["por_definicion"]))
+        if sum(c for _a, c in amb["por_definicion"]) == 0:
+            fails.append("ambiguedad: el desglose suma 0 accesos en las 4 "
+                         "definiciones, que es FALSO: kgd_hqd_sdma_load escribe "
+                         "el descriptor SDMA en bucle")
+
+    unica = _funcion(ASM, "gfx_v8_0_hw_init")          # medido: 1 definicion
+    if unica is None:
+        fails.append("ambiguedad: no encuentro gfx_v8_0_hw_init")
+    elif unica["ambigua"]:
+        fails.append("control negativo: gfx_v8_0_hw_init tiene UNA definicion y la "
+                     "herramienta la marca ambigua: el aviso seria un muro")
+
     return _fin(fails)
 
 
@@ -144,12 +178,64 @@ def _fin(fails):
         for f in fails:
             print("   " + f)
         return 1
-    print("self-test OK (1 ancla fuerte, 2 controles negativos, 1 de distancia)")
+    print("self-test OK (1 ancla fuerte, 2 controles negativos, 1 de distancia, "
+          "1 de ambiguedad con control simetrico)")
     return 0
 
 
+_DEFS = {}
+
+
+def definiciones(ruta):
+    """nombre -> [direcciones], para saber cuantas veces se DEFINIO un nombre.
+
+    En C una funcion `static` en dos ficheros puede llamarse igual en ambos, y el
+    ELF repite el simbolo. Medido: 397 nombres de 33732 tienen mas de una
+    definicion. Buscar por nombre sin decirlo cuenta UNA de varias, y el error
+    va en la direccion silenciosa: SUBAESTIMA.
+    """
+    if ruta in _DEFS:
+        return _DEFS[ruta]
+    d = {}
+    if os.path.exists(ruta):
+        with open(ruta, encoding="utf-8", errors="replace") as fh:
+            for linea in fh:
+                m = RE_FUNC.match(linea)
+                if m:
+                    d.setdefault(m.group(1), []).append(linea.split()[0])
+    _DEFS[ruta] = d
+    return d
+
+
 def _funcion(ruta, nombre):
-    """Aísla una función por nombre y devuelve sus accesos MMIO."""
+    """Accesos MMIO de una función identificada POR NOMBRE.
+
+    Si el nombre esta definido mas de una vez -- 397 casos, porque un `static` en
+    dos ficheros repite el simbolo en el ELF -- NO devuelve un numero unico.
+    Devuelve el desglose por definicion y deja `accesos` vacio a proposito, para
+    que ningun llamante pueda presentar uno de ellos como la medida sin haber
+    visto el aviso. Sin esto, la herramienta SUBESTIMA EN SILENCIO.
+    """
+    if not os.path.exists(ruta):
+        return None
+    defs = definiciones(ruta).get(nombre, [])
+    if not defs:
+        return None
+    if len(defs) == 1:
+        r = _una(ruta, nombre, defs[0])
+        acc = r["accesos"] if r else []
+        return {"nombre": nombre, "accesos": acc, "definiciones": defs,
+                "ambigua": False, "por_definicion": [(defs[0], len(acc))]}
+    por = []
+    for a in defs:
+        r = _una(ruta, nombre, a)
+        por.append((a, len(r["accesos"]) if r else 0))
+    return {"nombre": nombre, "accesos": [], "definiciones": defs,
+            "ambigua": True, "por_definicion": por}
+
+
+def _una(ruta, nombre, addr):
+    """Aísla UNA definición concreta (por dirección) y devuelve sus accesos."""
     if not os.path.exists(ruta):
         return None
     salida = False
@@ -163,7 +249,7 @@ def _funcion(ruta, nombre):
             if m:
                 if salida:
                     break
-                salida = m.group(1) == nombre
+                salida = linea.split()[0] == addr
                 ultimo, dist, bucle = None, 0, False
                 continue
             if not salida:
@@ -185,13 +271,12 @@ def _funcion(ruta, nombre):
                 sym = mc.group(1)
                 tipo = "R" if sym in LECTURA else ("W" if sym in ESCRITURA else "?")
                 if ultimo is not None and dist <= MAX_DIST:
-                    acc.append({"offset": ultimo, "tipo": tipo,
-                                "dist": dist, "sym": sym,
-                                "bucle": bucle})
-                    ultimo, dist, bucle = None, 0, False
+                    acc.append({"offset": ultimo, "tipo": tipo, "dist": dist,
+                                "sym": sym, "bucle": bucle})
+                ultimo, dist, bucle = None, 0, False
     if not salida:
         return None
-    return {"nombre": nombre, "accesos": acc}
+    return {"nombre": nombre, "addr": addr, "accesos": acc}
 
 
 def recorrer(ruta):
@@ -251,10 +336,26 @@ def main(argv):
         if f is None:
             print("mmio_map: no existe %s" % n, file=sys.stderr)
             return 3
+        if f["ambigua"]:
+            # NO SE IMPRIME UN TOTAL. Imprimir "0 accesos" seria peor que
+            # imprimir 11: 0 es una AFIRMACION (esta funcion no toca MMIO) y es
+            # falsa. Aqui no se sabe, y no se saber no es cero. Por eso la
+            # ausencia de total es la salida correcta, no un fallo de la
+            # herramienta.
+            print("%s: NOMBRE AMBIGUO, %d definiciones, SIN TOTAL"
+                  % (n, len(f["definiciones"])))
+            print("  accesos por definicion:")
+            for a, c in f["por_definicion"]:
+                print("        %s   %4d accesos" % (a, c))
+            print("  El `.ko` no guarda que fichero salio cada simbolo, asi que no se")
+            print("  puede saber cual de estas corre en esta placa. Es un `static`")
+            print("  repetido (v6/v7/v8/v10). NO se puede dar un total sin inventarlo.")
+            return 0
         print("%s: %d accesos MMIO" % (n, len(f["accesos"])))
         for a in f["accesos"]:
-            print("   %s  offset 0x%04X   (dist %d, %s)"
-                  % (a["tipo"], a["offset"], a["dist"], a["sym"]))
+            print("   %s  offset 0x%04X   (dist %d, %s%s)"
+                  % (a["tipo"], a["offset"], a["dist"], a["sym"],
+                     ", BUCLE" if a.get("bucle") else ""))
         return 0
 
     total, funcs, bucles = recorrer(ASM)
