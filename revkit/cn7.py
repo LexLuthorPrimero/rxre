@@ -387,6 +387,74 @@ def main():
                 "(sintetico=%s vs real=%s)"
                 % ([hex(x) for x in _wreg(0xBCC, _w[26])],
                    [hex(_w[i]) for i in range(22, 27)]))
+        # Los 8 INDIRECT_BUFFER, por layout del emisor y NO por el count.
+        # EV-21 se escribio mirando el primero y generalize: length_dw NO es
+        # constante (344/1104/1488) y la alineacion no es 0x600 sino 0x200.
+        _ibs = []
+        for _k in range(8):
+            _d = 18 + 256 * _k
+            if _d + 3 < _n:
+                _ibs.append((_d,
+                             ((_w[_d + 2] & 0xFFFF) << 32)
+                             | (_w[_d + 1] & 0xFFFFFFFC),
+                             _w[_d + 3] >> 24, _w[_d + 3] & 0xFFFF))
+        chk("anillo real: 8 INDIRECT_BUFFER en el stride 256", len(_ibs) == 8,
+            "(encontrados=%d)" % len(_ibs))
+        if len(_ibs) == 8:
+            chk("los 8 tienen vmid=7 (sostiene la lectura de EV-21)",
+                all(v == 7 for _d, _a, v, _l in _ibs),
+                "(vmids=%s)" % sorted(set(v for _d, _a, v, _l in _ibs)))
+            chk("length_dw NO es constante: hay 344, 1104 y 1488",
+                sorted(set(l for _d, _a, _v, l in _ibs)) == [344, 1104, 1488],
+                "(valores=%s)" % sorted(set(l for _d, _a, _v, l in _ibs)))
+            _ad = [a for _d, a, _v, _l in _ibs]
+            chk("las direcciones estan alineadas a 0x200, NO a 0x600",
+                all(a % 0x200 == 0 for a in _ad)
+                and not all(a % 0x600 == 0 for a in _ad),
+                "(mod 0x200=%s, mod 0x600=%s)"
+                % (sorted(set(hex(a % 0x200) for a in _ad)),
+                   sorted(set(hex(a % 0x600) for a in _ad))))
+            chk("ninguna direccion pasa de 48 bits (el emisor enmascara el "
+                "alto a 0xFFFF)", all(a < (1 << 48) for a in _ad),
+                "(max=0x%x)" % max(_ad))
+            chk("el rango es 0x1_0025_8000 .. 0x1_0027_8600, como dice EV-21",
+                min(_ad) == 0x100258000 and max(_ad) == 0x100278600,
+                "(min=0x%x max=0x%x)" % (min(_ad), max(_ad)))
+        # Y la estructura se repite pero el contenido NO: lo que obliga a
+        # decir "misma estructura" y no "8 repeticiones".
+        if _n > 300:
+            _dif = [i for i in range(256) if _w[3 + i] != _w[259 + i]]
+            chk("los bloques 0 y 1 tienen la MISMA estructura pero distinto "
+                "contenido", len(_dif) > 0 and len(_dif) < 20,
+                "(difieren en %d dwords: %s)" % (len(_dif), _dif[:8]))
+
+        # Y el punto que obliga a retirar el REFUTED de EV-27: los dos modelos
+        # que seexcluidos a proposito dan lo MISMO sobre este anillo.
+        def _recorre2(honrar_count, saltar_tipo0):
+            i, paq, esp = 3, 0, 0
+            while i < _n - 8:
+                h = _w[i]
+                if (h >> 30) & 3 == 3:
+                    c = (h >> 16) & 0x3FFF
+                    i += (c + 1) if (honrar_count or c == 0) else (c + 2)
+                    paq += 1
+                else:
+                    if saltar_tipo0:
+                        i += 1
+                        continue
+                    i += (h & 0xFFFF) + 1
+                    esp += 1
+            return paq, esp
+
+        _m1 = _recorre2(True, True)
+        _m2 = _recorre2(False, True)
+        _m3 = _recorre2(True, False)
+        chk("EV-27: 'honrar count' y 'leer count+1' dan lo MISMO sobre este "
+            "anillo (por eso no discriminan)",
+            _m1 == _m2, "(M1=%s M2=%s)" % (_m1, _m2))
+        chk("EV-27: lo que SI cae es tratar el tipo 0 como cabecera",
+            _m3[0] < _m1[0] and _m3[1] > _m1[1],
+            "(M3=%s vs M1=%s)" % (_m3, _m1))
     else:
         print("  OMIT  sin capturas/amdgpu_ring_gfx.txt no se prueba el "
               "off-by-one sobre el anillo real")

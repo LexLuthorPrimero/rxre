@@ -2307,44 +2307,111 @@ Detalle completo, con la cadena de includes y los bytes del anillo, en
 
 `LAST_VERIFIED: 2026-10-02 - gmc_v8_0.c:668-683, gmc_8_2_sh_mask.h, cn7`.
 
-## EV-27 · "el hardware lee exactamente count" queda REFUTADO por el anillo
+## EV-27 · RETIRADA del REFUTED: el anillo NO distingue `count` de `count+1`
 
 ```
 TYPE    MEASUREMENT
-STATE   REFUTED (la hipotesis) · PROVEN (el recuento)
+STATE   RETIRADO 2026-10-02. La fila afirmaba REFUTED y no lo sostiene.
+
+QUE AFIRMABA
+  "el hardware lee exactamente count" queda REFUTADO por el anillo real,
+  con una tabla de 3 paquetes validos contra 11
+
+POR QUE ESTA MAL
+  la tabla media otra cosa. Los tres modelos, medidos sobre los 2051 dwords:
+
+    M1  honra count, salta cada dword tipo 0          -> 11 paquetes, 0 espurias
+    M2  lee count+1 (consume el extra), salta tipo 0  -> 11 paquetes, 0 espurias
+    M3  honra count y TRATA el tipo 0 como paquete     ->  3 paquetes, 2 espurias
+
+  M1 y M2 dan EXACTAMENTE lo mismo. Saltarse un dword tipo 0 y consumir el
+  dword extra son la misma cosa sobre este anillo, porque el dword sobrante
+  SIEMPRE va seguido de una cabecera valida
+  la "3 contra 11" era M1 contra M3. Y M3 no es una hipotesis sobre el
+  hardware: es tratar un dword tipo 0 como cabecera, que ya se sabe que no
+  aplica. PKT0 no existe en el driver amdgpu (NR-2026-10-02-f) y GFX8 no tiene
+  cabecera tipo 0
+
+QUE QUEDA EN PIE
+  1. el anillo contiene 7 dwords (8..14) para un WAIT_REG_MEM con count=5, y
+     el septimo, 0x20, es el poll interval. PROVEN, con bytes
+  2. si el hardware TOMARA un dword tipo 0 por cabecera, el anillo se
+     destruiria: leeria count=32 y a partir del dword 47 no queda ningun
+     paquete. PROVEN. Y ya se sabia que no lo hace
+  3. el anillo NO permite elegir entre M1 y M2. F12b sigue abierta por esta
+     via, no cerrada
+
+POR QUE PASO
+  el mismo patron por septima vez (F11), en su forma mas caracteristica:
+  medir una cantidad que salia bien y leerla como si discriminara. La
+  diferencia entre 3 y 11 era real, pero no era la que yo creia medir
+  un numero que cae del lado que confirma la hipotesis que se puso a prueba
+  no confirma nada: hay que mirar tambien el modelo que la haria caer del otro
+  lado, y comprobar que no da lo mismo
+
+COMO SE RESUELVE
+  2026-10-02. Retirada visible, con los tres modelos medidos al lado. F12b se
+  reabre y su discriminante sigue siendo el que estaba: un anillo donde el
+  dword sobrante sea un numero GRANDE en vez de 0x20 o 4, porque bajo M1 se
+  salta y bajo M2 se consume como payload
 ```
 
-Si el hardware se detuviera tras `count` payload, el séptimo dword del bloque
-`WAIT_REG_MEM` (`0x00000020`, el poll interval) sería una cabecera tipo 0 con
-`count = 32` — el count de tipo 0 está en los bits **bajos**, no en `[29:16]` —
-y el siguiente paquete empezaría en el dword 47. El dword 47 es `0x00001040`:
-tipo 0 otra vez, con count 4160. A partir de ahí el anillo no contiene ningún
-paquete más.
+Lo que **si** se cierra aqui: el anillo demuestra que un dword tipo 0 tomado por
+cabecera destruye el flujo. Eso, y solo eso.
 
-Recorriendo el anillo entero de las dos formas:
+## EV-29 · El IB codifica una VA de 48 bits, y su `length_dw` no es constante
 
-| lectura | paquetes tipo 2/3 válidos | cabeceras tipo 0 espurias |
-|---|---|---|
-| `count` exactos (5) | **3** | **2** |
-| los 6 payload | **11** | **0** |
+```
+TYPE    OBSERVATION + DERIVATION
+STATE   PROVEN
+```
 
-Once paquetes válidos frente a tres, y **cero** dwords espurios en 2051. La
-lectura de seis es la única que deja el anillo con sentido.
+`gfx_v8_0_ring_emit_ib_gfx` (gfx_v8_0.c:6069-6099), los cuatro `ring_write`:
 
-Un driver propio que asumiera "exactamente `count`" perdería el anillo en el
-primer `WAIT_REG_MEM`, ocho veces por bloque.
+```
+PACKET3(PACKET3_INDIRECT_BUFFER, 2)
+(ib->gpu_addr & 0xFFFFFFFC)
+upper_32_bits(ib->gpu_addr) & 0xFFFF
+control                /* control = length_dw | vmid<<24 */
+```
 
-**Lo que queda abierto, y es corto**: si el count es `payload - 1` (lee 6
-siempre) o si el hardware trata los dwords tipo 0 como no-op y los salta. Con
-esta captura **no se distinguen**: los dos dan 11 paquetes y 0 espurias.
+**Header + 3 payload con `count = 2`**: el `control` es el cuarto dword y queda
+fuera. Sexto emisor con el patron.
 
-Y ahí está el nudo, porque si la respuesta fuera "lee 6 siempre", el emisor de
-`vm_flush` —que escribe 5 y declara 5— **se comería un dword del paquete
-siguiente**. O el count significa otra cosa, o uno de los dos emisores tiene un
-defecto. Los tres son compatibles con lo observado.
+**Dato de campo nuevo: la VA es de 48 bits.** La parte alta se enmascara a
+`& 0xFFFF`, o sea 16 bits, mas 32 bajos. El `PACKET3_INDIRECT_BUFFER` no puede
+direccionar mas de 2^48 bytes. Ninguna de las ocho direcciones observadas pasa
+de ahi, asi que no se puede comprobar si el hardware acepta o trunca el bit 48.
+`NOT_OBSERVED`, no `PROVEN_ABSENT`.
 
-`LAST_VERIFIED: 2026-10-02 - revkit/cn7.py, bytes crudos de
-capturas/amdgpu_ring_gfx.txt dwords 8..14`.
+Los ocho, decodificados por el layout del emisor y no por el `count`:
+
+| dword | `gpu_addr` | `vmid` | `length_dw` | bytes |
+|---|---|---|---|---|
+| 18 | `0x1_0027_8000` | 7 | 344 | 1376 |
+| 274 | `0x1_0027_8600` | 7 | **1104** | 4416 |
+| 530 | `0x1_0025_8000` | 7 | 344 | 1376 |
+| 786 | `0x1_0025_8600` | 7 | **1488** | 5952 |
+| 1042 | `0x1_0025_9e00` | 7 | 344 | 1376 |
+| 1298 | `0x1_0025_a400` | 7 | **1104** | 4416 |
+| 1554 | `0x1_0025_b600` | 7 | 344 | 1376 |
+| 1810 | `0x1_0025_bc00` | 7 | **1488** | 5952 |
+
+**LOS OCHO CON `vmid = 7`**, lo que sostiene la lectura de EV-21 sobre el
+reparto de VMID. Y el rango `0x1_0025_8000 ... 0x1_0027_8600` que decia EV-21
+tambien es correcto.
+
+**`length_dw` NO es constante.** EV-21 lo dejo escrito como si lo fuera: es
+344, 1104 y 1488, y solo 4 de 8 son 344. No es un buffer repetido ocho veces:
+son **ocho command buffers distintos**, de 1376, 4416 y 5952 bytes.
+
+Y las direcciones **no estan todas alineadas a `0x600`**, como decia EV-21. La
+alineacion que las contiene a las ocho es `0x200` (tambien `0x100`, `0x10` y
+`0x4`, que es lo unico que garantiza el emisor con su `& 0xFFFFFFFC`).
+
+`LAST_VERIFIED: 2026-10-02 - gfx_v8_0.c:6069-6099, bytes del anillo dwords
+18..21 + 256k`.
+
 
 ## EV-28 · El off-by-one es en 5 de 6 emisores, y `vm_flush` es el exacto
 
@@ -2415,9 +2482,16 @@ El anillo capturado son 2048 dwords (8192 B, `mask=0x07FF`), 256 por
 bloque, alineados a `3+256k`, lo que encaja con `.align_mask = 0xff` de
 `gfx_v8_0_ring_funcs_gfx` (gfx_v8_0.c:6872).
 
-Contenido: 8 repeticiones de `WAIT_REG_MEM`, `CONTEXT_CONTROL`,
-`INDIRECT_BUFFER`, `WRITE_DATA`, `SWITCH_BUFFER`, `EVENT_WRITE_EOP` y NOP
-de relleno.
+Contenido: 8 bloques de la **misma estructura** — `WAIT_REG_MEM`,
+`CONTEXT_CONTROL`, `INDIRECT_BUFFER`, `WRITE_DATA`, `SWITCH_BUFFER`,
+`EVENT_WRITE_EOP` y NOP de relleno — con el `WRITE_DATA` en los dwords 22,
+278, 534, ... (stride 256 exacto).
+
+**CORRECCION 2026-10-02.** "8 repeticiones" era demasiado fuerte: la
+**estructura** se repite, el **contenido no**. Comparando el bloque 0 con el
+bloque 1 dword a dword, difieren en los dwords 16, 18, 28, 34, 40 y 46. Son
+las direcciones de GPU y las longitudes de los command buffers, que cambian
+en cada bloque (EV-29).
 
 `RPTR == WPTR == sw_wptr == 0x200`, o sea que **el driver no tenía nada
 pendiente**.
@@ -2528,9 +2602,22 @@ ruta **no concuerda** con un FB en 4 GiB. Puede referirse a otra cosa o no
 aplicar a la dirección que usan estos paquetes. Se deja la tensión
 visible, no se concilia.
 
-`INDIRECT_BUFFER` control: `vmid = 7`, `length_dw = 344` (1376 B). Con el
+`INDIRECT_BUFFER` control: `vmid = 7`, y los **ocho** con `vmid = 7`. Con el
 reparto de GFX8 (`gmc_v8_0.c:1162-1168`: 0 sistema, 1-7 graphics, 8-15
 KFD), 7 es el último del bloque de gráficos, justo antes del de KFD.
+
+**CORRECCIÓN 2026-10-02, dos cosas.** Esta fila se escribio mirando el
+**primer** IB y generalizando:
+
+  1. `length_dw` **no** vale 344 siempre. Los ocho son 344, 1104, 344, 1488,
+     344, 1104, 344, 1488. No es un buffer repetido ocho veces: son ocho
+     command buffers distintos
+  2. las direcciones **no** estan todas alineadas a `0x600`. La alineacion
+     que las contiene a las ocho es `0x200`
+
+Lo que **si** se mantiene: el rango `0x1_0025_8000 ... 0x1_0027_8600`, el
+`vmid = 7` en los ocho, y que no caben en una base 0. La tabla completa esta
+en EV-29, decodificada por el layout del emisor y no por el `count`.
 
 `LAST_VERIFIED: 2026-10-02 - revkit/pm4dec.py --direcciones, cn7 negativo`.
 
