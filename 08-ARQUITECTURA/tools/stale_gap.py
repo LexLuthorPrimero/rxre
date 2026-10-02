@@ -517,6 +517,37 @@ def etiqueta_de(linea):
     return celda
 
 
+# EL SUJETO PUEDE ESTAR TRES LINEAS ARRIBA, Y EN UN DOCUMENTO VIEJO.
+#
+# De las fronteras que salian SIN_SUJETO, muchas tienen su sujeto en la frase
+# ANTERIOR, a mas de dos lineas, porque el documento explica y luego marca:
+#
+#   003:141  "no se ha inspeccionado la interfaz KFD ni verificado que estas
+#             dos funciones formen una API utilizable. Queda NOT_DETERMINED."
+#   003:135  "conviene evaluar primero."        <- el sujeto: 'interfaz KFD'
+#   003:136  "3. Sustituir el modulo completo..."
+#   003:139  "**Apunto 2 es una recomendacion...**"
+#
+#   005:84   "**La doble pasada es el punto de diseño más importante de esta
+#             función.** `pass1` y `pass2` recorren..."
+#   005:90   "no se ha analizado en esta ronda (NOT_DETERMINED)"
+#
+#   011:299 "- El orden dentro del scheduler (§6) es inferido..."
+#   011:301 "separación de contextos. NOT_DETERMINED para el orden exacto."
+#
+# En los tres, el sujeto esta entre 2 y 6 lineas por encima, y separado de la
+# marca por texto que no es del sujeto.
+#
+# LA REGLA ES UNA DISTANCIA CON LIMITE, no un patron. Tres lineas es lo que
+# cubre estos casos sin arrastrar el sujeto de la seccion anterior, que
+# pertenece a otra frontera.
+#
+# Y hay una condicion mas: la busqueda se hace hacia ARRIBA, en la linea del
+# estado, y se detiene en cuanto encuentra un SENTIDO distinto. Una lista de
+# vinetas (`- ...`) o un titulo cortan la busqueda, porque lo que hay por
+# encima pertenece a otro punto de la lista.
+
+
 def extraer():
     """[(frontera)] con su sujeto, su estado y donde esta."""
     out = []
@@ -535,15 +566,68 @@ def extraer():
             prev = ls[i - 1] if i >= 1 else ""
             prev2 = ls[i - 2] if i >= 2 else ""
             s = sujeto_de(l, prev, prev2)
-            # Cuarto recurso: la primera celda de una fila de tabla. Ver
-            # `etiqueta_de`: el sujeto de una frontera puede ser una FRASE
-            # ("que el hardware ejecute 19 dw"), y eso es un sujeto mejor que
-            # un identificador, porque es una pregunta y se puede cerrar.
             et = etiqueta_de(l) or etiqueta_de(prev)
+            if not s and not et:
+                # Sin sujeto en la vicinity inmediata: se busca mas arriba, con
+                # limite de distancia y parando en un cambio de sentido. Ver el
+                # comentario de arriba para los tres casos reales del corpus.
+                et = _etiqueta_en_contexto(ls, i)
             out.append(dict(doc=doc, linea=i + 1, sujeto=s,
                             etiqueta=et, estado=est[0], todos=est,
                             texto=l.strip()[:150]))
     return out
+
+
+# Un encabezado, una vineta o un separador cortan la busqueda hacia arriba: lo
+# que hay por encima pertenece a OTRO punto de la lista, no a esta frontera.
+_CORTE = re.compile(r"^\s*(#{1,6}\s|[-*+]\s|\d+[.)]\s|[-=]{3,}\s*$|\|)")
+# Ventana maxima hacia arriba. Tres lineas es lo que cubren los casos reales
+# sin arrastrar el sujeto del punto anterior. Un limite concreto, no un
+# parametro: un parametro aqui seria un numero que nadie va a mover.
+VENTANA = 3
+
+
+def _etiqueta_en_contexto(lineas, i):
+    """El sujeto de la frase que explica el estado, hacia arriba.
+
+    Lo que se busca NO es un identificador sino el INICIO DE LA FRASE, que es
+    lo que el lector entiende como el tema. Y se para en cuanto cambia el
+    sentido del texto.
+    """
+    for k in range(1, VENTANA + 1):
+        j = i - k
+        if j < 0:
+            break
+        l = lineas[j].strip()
+        if not l:
+            continue          # un hueco no corta: la frase continua
+        if _CORTE.match(lineas[j]):
+            break             # aqui empieza otra cosa
+        # El inicio de la frase, quitando las viñetas y el markdown.
+        limpio = re.sub(r"^[-*+]\s+", "", l)
+        limpio = re.sub(r"\*\*", "", limpio).strip()
+        limpio = re.sub(r"^`([^`]*)`", r"\1", limpio).strip()
+        if len(limpio) < 8:
+            continue
+        # UNA FRASE QUE NO NOMBRA NADA NO ES UN SUJETO.
+        #
+        # "No se sabe todavia" tiene longitud suficiente y pasaria el corte por
+        # longitud, y devolverlo como etiqueta produce un sujeto que no nombra
+        # ninguna entidad: no se puede consultar, no se puede comparar, no se
+        # puede cerrar. Peor que devolver None, porque ocupa el hueco de un
+        # sujeto real.
+        #
+        # Se descarta por la misma razon por la que se descarta "corpus": no
+        # es una entidad del hardware.
+        if _es_referencia(limpio):
+            continue
+        # Se corta en la primera coma o en el primer verbo, que es donde el
+        # documento pasa a explicar en vez de nombrar.
+        corte = re.split(r"[,;:]| es | son | queda | no se | tiene | lleva ",
+                         limpio, maxsplit=1)[0].strip()
+        if len(corte) >= 12:
+            return corte.rstrip(".")
+    return None
 
 
 def claims_cerrados():
@@ -665,12 +749,73 @@ def _resolver(fr, cc):
             f["resolucion"] = sorted(despues, key=lambda h: h["linea"])[0]
             continue
         if otras:
+            # MISMOS SIMBOLOS, DISTINTA PREGUNTA.
+            #
+            # El cruce por sujeto empareja POR NOMBRE, y hay casos en que el
+            # nombre es el mismo y la pregunta es otra:
+            #
+            #   017:146  "Si `VM_INVALIDATE_RESPONSE` puede dar completion
+            #             observable por dominio"          -> NOT_DETERMINED
+            #   072:116  "`VM_INVALIDATE_RESPONSE` = 0x51f, igual en GMC 8.1
+            #             y 8.2"                          -> PROVEN
+            #
+            # 072 responde A QUE EXISTE y EN QUE OFFSET. 017 preguntaba SI
+            # PUEDE DAR COMPLETION. Son preguntas distintas y la respuesta no
+            # cubre la frontera.
+            #
+            # NO HAY FORMA BARATA DE SABER SI DOS RESPUESTAS HABLAN DE LO
+            # MISMO. Un cruce por sinonimos o por significado seria una dependencia
+            # de red en una herramienta de evidencia, y daria una medida de
+            # parecido que no es una medida de identidad. La regla es
+            # explicita y estrecha: el sujeto con forma de RESPUESTA y valor
+            # ("X = N") solo cierra fronteras que tambien son de valor.
+            #
+            # Y el criterio va en los DOS sentidos: si la frontera es de
+            # VALOR y la respuesta es de PROPIEDAD, tampoco cierra. Lo que se
+            # evita es que un "si puede" se cierre con un "existe".
+            cand = sorted(otras, key=lambda h: h["doc"])[0]
+            if not _misma_pregunta(f, cand):
+                f["clase"] = "OTRO_SIMBOLO_OTRA_PREGUNTA"
+                f["resolucion"] = cand
+                continue
             f["clase"] = "RESUELTA_OTRO"
-            f["resolucion"] = sorted(otras, key=lambda h: h["doc"])[0]
+            f["resolucion"] = cand
             continue
         f["clase"] = "VIVA"
         f["resolucion"] = None
     return fr
+
+
+# LA FRONTERA ES DE VALOR?  "X = N", "el offset de X es N", "X vale N".
+_VALOR_F = re.compile(
+    # una ASIGNACION. El simbolo va SIN backticks a proposito: en
+    # "`X` = 0x51f" el caracter anterior a la "=" es un backtick, y `\w+\s*=`
+    # no llega. Se admite el backtick como parte opcional del simbolo.
+    r"[A-Za-z0-9_`]*\w[A-Za-z0-9_`]*\s*=\s*(?:`[^`]+`|[0-9A-Za-z])"
+    # una AFIRMACION de valor en prosa: "el offset de X es N", "X vale N"
+    r"|\b(?:offset|dword|mascara|address|direccion|tamano|ancho|bits?\s*\[)"
+    r"|\bval(?:e|or|ores?)\b"
+    r"|\bes\s+(?:0x[0-9a-f]+|\d+)\b",
+    re.I)
+
+
+def _misma_pregunta(frontera, respuesta):
+    """La respuesta contesta a la frontera, o solo comparte el simbolo?
+
+    Regla estrecha y declarada:
+
+      - una respuesta que da un VALOR para el simbolo ("X = 0x51f") cierra
+        fronteras que tambien son sobre el VALOR;
+      - en cualquier otro caso, no las cierra.
+
+    El motivo es que el emparejamiento por nombre es la unica clave que hay, y
+    un nombre compartido no implica pregunta compartida. Preferir un falso
+    negativo (una frontera que sigue abierta de mas) a un falso positivo (dar
+    por hecho un trabajo que sigue sin hacer).
+    """
+    valor_resp = bool(_VALOR_F.search(respuesta["texto"]))
+    valor_fron = bool(_VALOR_F.search(frontera["texto"]))
+    return valor_resp == valor_fron
 
 
 def clasificar():
@@ -744,20 +889,21 @@ def main():
     print(f"fronteras con estado decierre : {len(fr)}")
     print(f"claims cerrados indexados     : {len(cc)}")
     print()
-    orden = ["RESUELTA_AQUI", "RESUELTA_OTRO", "NO_CRUZABLE",
-             "SUJETO_EN_FRASE", "SIN_SUJETO", "VIVA"]
-    print(f"{'clase':16} {'n':>5} {'que significa':44}")
+    orden = ["RESUELTA_AQUI", "RESUELTA_OTRO", "OTRO_SIMBOLO_OTRA_PREGUNTA",
+         "SUJETO_EN_FRASE", "NO_CRUZABLE", "SIN_SUJETO", "VIVA"]
+    print(f"{'clase':27} {'n':>5} {'que significa':40}")
     print("-" * 74)
     sig = {
         "RESUELTA_AQUI": "el mismo doc se contradice consigo mismo",
         "RESUELTA_OTRO": "otro doc ya lo cerrO; el NOT_DET esta obsoleto",
+        "OTRO_SIMBOLO_OTRA_PREGUNTA": "mismo simbolo, distinta pregunta",
         "NO_CRUZABLE": "lo que hay entre backticks no es un sujeto",
         "SUJETO_EN_FRASE": "sujeto en prosa: se puede leer, no cruzar",
         "SIN_SUJETO": "no dice de que; no se puede cerrar ni repetir",
         "VIVA": "sin resolver: trabajo real",
     }
     for c in orden:
-        print(f"{c:16} {len(cls.get(c, [])):5} {sig[c]:44}")
+        print(f"{c:27} {len(cls.get(c, [])):5} {sig[c][:40]}")
     print()
 
     if "--obsoletas" in args or not args:

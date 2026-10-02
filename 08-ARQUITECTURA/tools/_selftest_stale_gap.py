@@ -153,13 +153,24 @@ def selftest():
     # 1. frontera viva: nadie responde. Debe salir VIVA.
     doc("t1-viva.md", "El registro `mmX_VIVO`:\n`NOT_DETERMINED` todavia.\n")
     # 2. frontera obsoleta: otro doc responde PROVEN. Debe salir RESUELTA_OTRO.
-    doc("t2-obsoleta.md", "El registro `mmX_OTRO`:\n`NOT_DETERMINED` por medir.\n")
-    doc("t2-respuesta.md", "Se midio `mmX_OTRO`: `PROVEN` vale 42.\n")
+    #
+    #    "vale 42" hace que la RESPUESTA sea de valor. Y la FRONTERA tambien
+    #    tiene que serlo, o el filtro de "misma pregunta" los separa: el caso
+    #    real es 072:116 respondiendo "X = 0x51f" a una frontera que preguntaba
+    #    "si X puede dar completion". Son preguntas distintas.
+    doc("t2-obsoleta.md", "El offset de `mmX_OTRO` es `NOT_DETERMINED`, "
+                          "falta medirlo.\n")
+    doc("t2-respuesta.md", "Se midio: `mmX_OTRO` = 42. `PROVEN`.\n")
     # 3. contradiccion consigo mismo: el mismo doc dice las dos.
     doc("t3-propia.md", "Sobre `mmX_AQUI`:\n`NOT_DETERMINED` al principio.\n"
                         "Tres lineas mas tarde queda `PROVEN` resuelto.\n")
-    # 4. sin sujeto: la linea dice el estado y nada mas.
-    doc("t4-sinsujeto.md", "No se sabe todavia.\n`NOT_DETERMINED`.\n")
+    # 4. sin sujeto: la linea dice el estado y nada mas, y las lineas anteriores
+    #    no tienen sujeto ni frase que lo sea.
+    #
+    #    "No se sabe" NO cuenta como sujeto: es una frase que no nombra nada, y
+    #    devolverla como etiqueta produce un sujeto que no se puede consultar ni
+    #    comparar con nada. Aqui se prueba que no se inventa.
+    doc("t4-sinsujeto.md", "\n\nNo se sabe.\n`NOT_DETERMINED`.\n")
     # 5. respuesta ANTIGUA a una frontera posterior: es actualizacion
     #    legitima, no contradiccion consigo mismo. Debe salir VIVA.
     doc("t5-antes.md", "`mmX_ANTES` ya era `PROVEN` medido.\n"
@@ -380,6 +391,41 @@ def selftest():
     print(f"  {'prosa no tabla':12} no inventa etiqueta           {e2!r}"
           f"  {'OK' if no_corta else 'FALLA <<<'}")
     fallos += 0 if no_corta else 1
+
+    # 10j. MISMO SIMBOLO, DISTINTA PREGUNTA.
+    #
+    #     El cruce por sujeto empareja POR NOMBRE, y hay casos en que el nombre
+    #     es el mismo y la pregunta es otra. El caso real:
+    #
+    #       017:146  "Si `VM_INVALIDATE_RESPONSE` puede dar completion
+    #                 observable por dominio"          -> NOT_DETERMINED
+    #       072:116  "`VM_INVALIDATE_RESPONSE` = 0x51f, igual en GMC 8.1 y
+    #                 8.2"                              -> PROVEN
+    #
+    #     072 responde A QUE EXISTE y EN QUE OFFSET. 017 preguntaba SI PUEDE
+    #     DAR COMPLETION. Distintas preguntas, y la respuesta no cubre.
+    doc("t10j-prop.md", "| Si `mmX_POSIBLE` puede dar completion observable | "
+                        "`NOT_DETERMINED` |")
+    doc("t10j-val.md", "| `mmX_POSIBLE` = 0x51f, igual en GMC | `PROVEN` |")
+    fr10j, _ = _clasificar_en(tmp)
+    r10j = [f["clase"] for f in fr10j if f["sujeto"] == "mmX_POSIBLE"]
+    ok = r10j == ["OTRO_SIMBOLO_OTRA_PREGUNTA"]
+    print(f"  {'distinta pregunta':12} 'puede' != '= 0x51f'          "
+          f"{r10j if r10j else '(nada)'}  {'OK' if ok else 'FALLA <<<'}")
+    fallos += 0 if ok else 1
+
+    # 10j-2. y dos preguntas DE VALOR si se cruzan. El filtro tiene que ser
+    #        simetrico: si bloquea el caso de arriba por ser mas especifico que
+    #        la respuesta, tiene que dejar pasar el caso donde ambos son de
+    #        valor.
+    doc("t10k-ok.md", "| El offset de `mmX_VALOR` es | `NOT_DETERMINED` |")
+    doc("t10k-resp.md", "| `mmX_VALOR` = 0x51f | `PROVEN` |")
+    fr10k, _ = _clasificar_en(tmp)
+    r10k = [f["clase"] for f in fr10k if f["sujeto"] == "mmX_VALOR"]
+    ok = r10k == ["RESUELTA_OTRO"]
+    print(f"  {'dos de valor':12} si se cruzan                    "
+          f"{r10k if r10k else '(nada)'}  {'OK' if ok else 'FALLA <<<'}")
+    fallos += 0 if ok else 1
 
     # 10c. la AFIRMACION frente a la MENCION.
     #
