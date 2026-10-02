@@ -412,6 +412,13 @@ def cmd_direcciones(d, ops, a):
     print("INDIRECT_BUFFER encontrados: %d" % len(ibs))
     print("layout segun gfx_v9_0.c:5431-5439: [addr_lo, addr_hi, control]")
     print()
+    print("NOTA sobre las posiciones: el campo idx es el indice de PALABRA")
+    print("absoluta del volcado, y empieza en 3 porque los 3 primeros dwords")
+    print("son los punteros (RING_RPTR, RING_WPTR, sw wptr). El indice DENTRO")
+    print("del anillo es idx - 3. Confundir los dos fue un error mio durante")
+    print("este analisis: carryo a leer 4 dwords mas adelante y a obtener")
+    print("direcciones distintas, ambas con aspecto razonable.")
+    print()
     addrs = []
     for p in ibs:
         pl = p["payload"]
@@ -423,7 +430,8 @@ def cmd_direcciones(d, ops, a):
         if ctrl is not None:
             extra = "  control=0x%08x vmid=%d length_dw=%d" % (
                 ctrl, (ctrl >> 24) & 0xFF, ctrl & 0xFFFFFF)
-        print("  dword %-5d gpu_addr=0x%016x%s" % (p["idx"], addr, extra))
+        print("  palabra %-5d (anillo %-5d) gpu_addr=0x%016x%s"
+              % (p["idx"], p["idx"] - CABECERA // 4, addr, extra))
     print()
 
     # CONTRASTE CONTRA LA VRAM REAL.
@@ -437,6 +445,47 @@ def cmd_direcciones(d, ops, a):
     # restar la base. Si no cabe, el layout estaria mal y hay que decirlo,
     # no ajustar el umbral para que cuadre.
     base = 0x100000000
+    # El control va FUERA del conteo declarado, asi que el decodificador no
+    # lo da: cnt=2 y solo hay 2 dwords de payload. El tercero, que es el
+    # control, se lee a mano desde la palabra siguiente.
+    #
+    # Antes esto salia con length_dw=0 y vmid=0, que no era un dato: era la
+    # ausencia del campo, leida como si fuera un cero del hardware. Un
+    # campo que no se ha leido y un campo que vale cero se distinguen por el
+    # numero, y aqui se confundieron.
+    # idx es el indice dentro del vector `words`, que arranca en
+    # CABECERA//4 = 3 por los tres punteros. Para indexar el buffer hay que
+    # sumar ESE 3, no los 12 bytes: idx*4 ya incluye el desplazamiento desde
+    # el inicio del vector, que es donde empieza el anillo.
+    #
+    # La primera version hacia (CABECERA//4)*4 + idx*4, o sea que sumo 12
+    # bytes de mas y leia un dword mas adelante. Dio length_dw=3020 y vmid=0
+    # para un paquete cuyo control real es 0x07000158, o sea vmid=7 y
+    # length_dw=344. Ninguno de los dos numeros era plausible, pero el
+    # equivocado salia con forma de dato igual.
+    ctrl = ibs[0]["payload"]
+    if len(ctrl) == 2:
+        idx0 = ibs[0]["idx"] + 1 + 2          # cabecera + cnt, en indices de words
+        c = struct.unpack_from("<I", d, idx0 * 4)[0]
+        print("CONTROL del primer INDIRECT_BUFFER (fuera del conteo):")
+        print("  palabra %d = 0x%08x" % (idx0, c))
+        print("    length_dw = %-8d = %d bytes" % (c & 0xFFFFFF,
+                                                   (c & 0xFFFFFF) * 4))
+        print("    vmid      = %d" % (c >> 24))
+        print()
+        print("  Un length_dw de 0 seria un paquete vacio, que no tiene")
+        print("  sentido para un buffer indirecto. Que salga distinto de 0")
+        print("  confirma que el control se lee, no que se supone.")
+        print()
+        if (c >> 24) == 0:
+            print("  AVISO: vmid=0. En GFX8 el VMID 0 esta reservado al")
+            print("  sistema (gmc_v8_0.c:1164) y no lo usan ni graphics ni")
+            print("  compute. Un vmid 0 en un buffer indirecto NO es lo que")
+            print("  haria un job normal, asi que o el layout no es el")
+            print("  esperado, o esto no es un buffer indirecto de job.")
+            print("  Se dice, no se corrige el numero para que cuadre.")
+            print()
+
     print("CONTRASTE con la VRAM real:")
     vram_mm = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                            "capturas", "amdgpu_vram_mm.txt")
@@ -482,6 +531,48 @@ def cmd_direcciones(d, ops, a):
           % (usage / 2 ** 20))
     print("  consistente, pero NO es la misma cifra: el uso incluye buffers")
     print("  que no estan en este anillo. No se afirma que sean lo mismo.")
+    print()
+
+    # LA CADENA DE TRADUCCION, con los numeros del corpus.
+    #
+    # La cadena esta completa en el codigo, y son tres lineas:
+    #
+    #   amdgpu_vm.c:1228   addr = vram_base + cursor.start;
+    #   gmc_v8_0.c:1176    vram_base_offset = 0   (GPU discreta, no APU)
+    #   amdgpu_gmc.c:173   value = addr & adev->gmc.pte_addr_mask;
+    #   gmc_v8_0.c:1134    pte_addr_mask = 0x000000FFFFFFF000   (40 bit PA)
+    #
+    # Con vram_base = 0, la direccion que va a la PTE ES la propia VA. Y la
+    # mascara quita los 12 bits bajos, que son el offset dentro de la pagina.
+    #
+    # Esto NO significa que las direcciones observadas sean validas como
+    # PTE: significa que una VA con offset distinto de 0 se trunca a la
+    # pagina que la contiene. Los INDIRECT_BUFFER apuntan al inicio de un
+    # buffer, que puede empezar en cualquier byte.
+    MASK = 0x000000FFFFFFF000     # gmc_v8_0.c:1134
+    PAGE = 0x1000
+    print("TRADUCCION (amdgpu_gmc.c:173 con la mascara de gmc_v8_0.c:1134):")
+    print("  pte_addr_mask = 0x%016X  -> 40 bits de PA" % MASK)
+    print("  vram_base     = 0         -> la PTE lleva la propia VA")
+    print()
+    print("  %-20s %-20s %s" % ("gpu_addr", "PA (addr & MASK)", "bytes perdidos"))
+    for a in sorted(set(addrs)):
+        pa = a & MASK
+        perdidos = a & ~MASK
+        print("  0x%016X   0x%016X   %s"
+              % (a, pa, "0x%X" % perdidos if perdidos else "ninguno"))
+    print()
+    print("  Ningun bit ALTO se pierde: la mascara de 40 bits cubre de sobra")
+    print("  una VA de 2 GiB. Lo que se pierde son los 12 bits bajos, que")
+    print("  son el offset dentro de la pagina, y eso es lo correcto: la PTE")
+    print("  no direcciona bytes, direcciona paginas de 4 KiB.")
+    print()
+    print("  LO QUE ESTO NO CIERRA")
+    print("  Saber que la PTE lleva la VA mascarada dice COMO se construye.")
+    print("  No dice que hay en la tabla, ni que pagina fisica apunta cada")
+    print("  entrada, ni donde esta la tabla en si. Eso sigue")
+    print("  NOT_DETERMINED porque amdgpu_vm_info en 7.1.3 no vuelca PTEs")
+    print("  y amdgpu_gart no existe en este driver.")
     return 0
 
 

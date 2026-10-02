@@ -508,7 +508,71 @@ El paso que falta es la traduccion por la page table, y eso sigue
 
 ---
 
-## 9. ERRORES PROPIOS ENCONTRADOS EN ESTA SESION
+## 9. LA CADENA DE TRADUCCION, CON LOS NUMEROS DEL CORPUS
+
+La traduccion VA->PA esta **completa en el codigo**, y son cuatro lineas con
+sus valores:
+
+| donde | que hace | valor |
+|---|---|---|
+| `gmc_v8_0.c:1176` | `vram_base_offset = 0` | GPU discreta, no APU |
+| `amdgpu_vm.c:1228` | `addr = vram_base + cursor.start` | |
+| `amdgpu_gmc.c:173` | `value = addr & adev->gmc.pte_addr_mask` | |
+| `gmc_v8_0.c:1134` | `pte_addr_mask` | `0x000000FFFFFFF000` (40 bit PA) |
+
+### Lo que se cierra
+
+Con `vram_base = 0`, **la direccion que va a la PTE es la propia VA**, sin
+desplazamiento. Eso es `PROVEN_DERIVED` para la ruta de VRAM: no hace falta
+saber el contenido de la tabla para saber que operacion se aplica.
+
+Y la mascara es de **40 bits de direccion fisica**, que cubre de sobra una
+VA de 2 GiB. Ningun bit alto se pierde al enmascarar.
+
+### Lo que se pierde, y esta bien que se pierda
+
+La mascara quita los 12 bits bajos, que son el offset dentro de la pagina.
+Las direcciones observadas **no estan alineadas a 4 KiB** (`...8000`,
+`...8600`, `...9e00`), y se truncan a la pagina que las contiene.
+
+Eso no es un defecto: la PTE no direcciona bytes, direcciona paginas de
+4 KiB. Un buffer puede empezar en cualquier byte y la tabla lo cubre con la
+pagina correspondiente mas el offset.
+
+### Lo que NO se cierra
+
+Saber COMO se construye la PTE no dice que hay dentro de la tabla. Siguen
+abiertos:
+
+- que pagina fisica apunta cada entrada
+- donde esta la tabla en si
+- si la entrada tiene los flags de lectura/escritura
+- si hay PDE o solo PTE para esta configuracion
+
+Todo eso `NOT_DETERMINED` por la misma razon de siempre: no hay observador.
+`amdgpu_vm_info` en 7.1.3 lista BOs y no vuelca entradas, y `amdgpu_gart` no
+existe en este driver. **Es `NOT_AVAILABLE` por esta via, no
+`PROVEN_ABSENT` en el hardware.**
+
+### El VMID del primer buffer
+
+El control del `INDIRECT_BUFFER`, que va **fuera** del conteo declarado,
+da `vmid = 7` y `length_dw = 344` (1376 bytes).
+
+GFX8 reparte los VMID asi (gmc_v8_0.c:1162-1168):
+
+```
+VMID 0        reservado al sistema
+VMID 1-7      amdgpu graphics/compute
+VMID 8-15     amdkfd
+```
+
+`vmid = 7` es **el ultimo del bloque de graficos**, justo antes del que
+empieza KFD. Es coherente con un job de KMS en el anillo GFX.
+
+---
+
+## 10. ERRORES PROPIOS ENCONTRADOS EN ESTA SESION
 
 Se anotan porque el patron se repite y conviene reconocerlo.
 
@@ -665,3 +729,31 @@ Se anotan porque el patron se repite y conviene reconocerlo.
 
     Estuve corrigiendo el sintoma hasta que mire la causa. Un codigo de
     salida inesperado es informacion, no un obstaculo que tunear.
+
+18. **Un campo ausente leido como un cero del hardware.** El `control` del
+    `INDIRECT_BUFFER` va fuera del conteo declarado, asi que el decodificador
+    no lo entregaba. Mi codigo tomaba lo que hubiera ahi y salia
+    `length_dw = 0` y `vmid = 0`, que se registró como dato.
+
+    No era un dato: era la ausencia del campo. Un `length_dw` de 0 es un
+    paquete vacio, y un buffer indirecto vacio no tiene sentido. Ese
+    absurdo es lo que delata la lectura.
+
+19. **Un indice contado dos veces.** Para leer el control hacia
+    `(CABECERA//4)*4 + idx*4`, sumando 12 bytes de cabecera sobre un indice
+    que ya venia desplazado 3. Se leia un dword mas adelante, y salia
+    `length_dw = 3020`, `vmid = 0`.
+
+    El vmid real es 7. Ni 0 ni 192 parecian imposibles a primera vista, y
+    los dos numeros tenian forma de dato.
+
+20. **Confundir indice de palabra con indice de anillo.** El campo `idx` es
+    la posicion dentro de `words[]`, que empieza en 3 por los punteros de
+    la cabecera. Leyendolo como indice dentro del anillo me carryo 4 dwords
+    mas adelante, a obtener direcciones distintas, y a dudar de la lectura
+    buena.
+
+    Lo cerro mirando los bytes crudos con un indice calculado una sola vez, y
+    no comparando dos lecturas que yo mismo habia desalineado. La lectura
+    original era correcta; la duda era mia. `pm4dec` ahora dice explicitamente
+    que `idx` es indice de palabra y que el de anillo es `idx - 3`.
