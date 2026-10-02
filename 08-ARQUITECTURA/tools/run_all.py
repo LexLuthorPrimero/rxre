@@ -292,6 +292,13 @@ def main():
         # importa: una lista vacia significaria "no toco nada", no "todo".
         ("refs_repair: alcance y lista propia",
          ["refs_repair.py", "--self-test"], 1, 1),
+        # El contrato de hardware del driver cotejado con las definiciones del
+        # ASIC. §8: la implementacion no es autoridad sobre la semantica. rc=0
+        # exige que TODAS las constantes de registro esten CONFIRMADAS.
+        ("driver_offsets: contrato de registros contra el ASIC",
+         ["driver_offsets.py"], 0, 0),
+        ("driver_offsets: anclas y controles del filtro",
+         ["driver_offsets.py", "--self-test"], 1, 1),
         # La reserva de numeros de hallazgo. num_collision mide 37 duplicados
         # y esta sesion choco 3 veces (111, 119, 120) con otra escribiendo.
         # El self-test RESERVA y LIBERA de verdad: comprobar que el numero no
