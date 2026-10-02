@@ -269,6 +269,11 @@ def main():
         # no pueden casar la misma linea.
         ("struct_rw: control de direccion",
          ["struct_rw.py", "--self-test"], 1, 1),
+        # El ancla es fuerte: sdma_v3_0_soft_reset solo toca mmSRBM_SOFT_RESET, y
+        # el extractor tiene que devolver exactamente 0x398 y distinguir R de W.
+        # El control negativo es amdgpu_gmc_tmz_set, que solo hace un dev_info.
+        ("mmio_map: ancla 0x398 y control negativo",
+         ["mmio_map.py", "--self-test"], 1, 1),
         # La reserva de numeros de hallazgo. num_collision mide 37 duplicados
         # y esta sesion choco 3 veces (111, 119, 120) con otra escribiendo.
         # El self-test RESERVA y LIBERA de verdad: comprobar que el numero no
