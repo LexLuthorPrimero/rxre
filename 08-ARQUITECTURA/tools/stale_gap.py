@@ -711,8 +711,16 @@ def claims_cerrados():
             if not s:
                 continue
             for v in variantes(s):
+                # `contexto` son las lineas de la ventana de negacion. Se
+                # guarda con el claim porque una respuesta que contiene un
+                # NOT_DETERMINED en la ventana NO cierra nada: esta
+                # confirmando que la frontera sigue abierta. Sin el contexto,
+                # una linea de continuacion se lee como respuesta cuando lo
+                # que hace es decir "no he verificado esto".
+                ctxt = " ".join(l.strip() for l in ls[max(0, i - 1):i + 1])
                 out[v].append(dict(doc=doc, linea=i + 1,
-                                  estado=cerradas[0], texto=l.strip()[:150]))
+                                  estado=cerradas[0], texto=l.strip()[:150],
+                                  contexto=ctxt[:300]))
     return out
 
 
@@ -749,35 +757,69 @@ def _resolver(fr, cc):
             f["resolucion"] = sorted(despues, key=lambda h: h["linea"])[0]
             continue
         if otras:
-            # UNA RESPUESTA QUE SOLO REPETE LA FRONTERA NO LA CIERRA.
+            # NO SE ELIGE EL PRIMERO. La primera version tomaba
+            # sorted(otras, key=doc)[0], es decir, el documento que alfabeto
+            # primero, y daba numeros que no significaban nada.
             #
-            # El cruce empareja por nombre, y hay casos en que el nombre
-            # coincide y la pregunta no:
+            # El caso real que lo dstapa: el sujeto `src_data[0]` tiene CUATRO
+            # respuestas candidatas en el proyecto, y sus preguntas son
+            # distintas:
             #
-            #   017:146  "Si `VM_INVALIDATE_RESPONSE` puede dar completion
-            #             observable por dominio"          -> NOT_DETERMINED
-            #   072:116  "`VM_INVALIDATE_RESPONSE` = `0x51f`, igual en GMC
-            #             8.1 y 8.2"                        -> PROVEN
+            #   059:100  "`src_data[0]` es el WPTR del ring en el UNICO USO
+            #             CONOCIDO"                              -> PROVEN
+            #   051:147  "...no he verificado que contiene src_data[0] para un
+            #             fault de proteccion concreto, y eso exige RUNTIME"
+            #                                                            -> PROVEN
             #
-            # 072 responde A QUE EXISTE y EN QUE OFFSET. 017 preguntaba SI
-            # PUEDE DAR COMPLETION. En 018:226 la frontera ya decia el offset,
-            # asi que la respuesta es un ECO del enunciado.
+            # La frontera pide "que contiene src_data[0] EN UN FAULT". La
+            # primera respuesta habla del unico uso conocido, que es de otro
+            # generacion y otro contexto. Y la segunda contiene un
+            # NOT_DETERMINED dentro: no es una respuesta, es una respuesta que
+            # confirma que la frontera sigue abierta.
             #
-            # LA REGLA ES DE EVIDENCIA, NO DE TIPO DE PALABRA. El primer
-            # intento discriminaba por si la respuesta "daba un valor" y la
-            # frontera no, y descartaba casos que SI estaban resueltos:
+            # LA REGLA. Se recorren TODOS los candidatos y se queda el primero
+            # que ALINEA su slot con el de la frontera. Si ninguno alinea, se
+            # queda el mejor como candidato no verificado, que es informacion:
+            # hay respuestas a otras preguntas del mismo simbolo.
+            cand = None
+            veredicto = None
+            for c in sorted(otras, key=lambda h: (h["doc"], h["linea"])):
+                v = _misma_pregunta(f, c)
+                if v is True:
+                    cand, veredicto = c, True
+                    break
+                if v is False and cand is None:
+                    # distinta pregunta: se guarda como candidato, no como
+                    # respuesta
+                    cand, veredicto = c, False
+            if cand is None:
+                cand, veredicto = sorted(otras,
+                                         key=lambda h: (h["doc"], h["linea"]))[0], None
+            # UNA RESPUESTA QUE CONTIENE UN ESTADO DE APERTURA NO CIERRA NADA:
+            # esta CONFIRMANDO que la frontera sigue abierta.
             #
-            #   024:284  "Que significa PAGE_TABLE_DEPTH 0 frente a 1"
-            #   064:168  "PAGE_TABLE_DEPTH ocupa bits [1:2] de
-            #             VM_CONTEXT*_CNTL"
+            # Y no solo la linea: la VENTANA. El caso real es 051:147, que es
+            # una linea de continuacion:
             #
-            # Eso responde a la pregunta. Y tambien "RELEASE_MEM dword extra
-            # en GFX9" -> "GFX8 tiene 6 payload, GFX9 tiene 7".
+            #   051:146  "No he verificado que contiene `src_data[0]` para un
+            #              fault de proteccion concreto, y eso exige RUNTIME.
+            #              Lo que si es `PROVEN` es que el IV transporta"
+            #   051:147  "identidad y que el handler la ignora."
             #
-            # La prueba que si distingue es si la respuesta APORTA ALGO QUE LA
-            # FRONTERA NO DECIA. Un eco no aporta nada.
-            cand = sorted(otras, key=lambda h: h["doc"])[0]
-            veredicto = _misma_pregunta(f, cand)
+            # La 147 no tiene ningun estado de apertura: solo `PROVEN` en la
+            # 146, aplicado a OTRA afirmacion ("el IV transporta identidad").
+            # Y la 146 si dice NOT_DETERMINED... pero truncada, asi que la
+            # ventana no la ve.
+            #
+            # Aqui la regla es al reves de la del filtro de negacion: en vez
+            # de buscar la marca, se exige que la ventana la contenga para dar
+            # la frontera por cerrada. "Contiene un NOT_DETERMINED a dos lineas
+            # y un PROVEN a cuatro" no es una respuesta: es un texto que dice
+            # las dos cosas, y la que vale es la de su tema, no la que sale
+            # primero.
+            ventana = cand.get("contexto", cand["texto"])
+            if any(e in ABREN for e in _EST_RE.findall(ventana)):
+                veredicto = None
             if veredicto is False:
                 f["clase"] = "OTRO_SIMBOLO_OTRA_PREGUNTA"
                 f["resolucion"] = cand
@@ -789,6 +831,19 @@ def _resolver(fr, cc):
             f["clase"] = "RESUELTA_OTRO"
             f["resolucion"] = cand
             continue
+
+            # ESTA ES LA PARTE DEL RAZONAMIENTO QUE ESTA ARRIBA DE ESTE
+            # BLOQUE, y que conviene tener a la vista al leer el codigo:
+            #
+            #   017:146  "Si `VM_INVALIDATE_RESPONSE` puede dar completion
+            #             observable por dominio"          -> NOT_DETERMINED
+            #   072:116  "`VM_INVALIDATE_RESPONSE` = `0x51f`, igual en GMC
+            #             8.1 y 8.2"                        -> PROVEN
+            #
+            # 072 responde a EXISTENCIA. La frontera preguntaba por
+            # SEMANTICA. Y en 018:226 la frontera ya decia el offset, asi que
+            # la respuesta es un ECO del enunciado. Eso es lo que mide
+            # `_misma_pregunta`.
         f["clase"] = "VIVA"
         f["resolucion"] = None
     return fr
