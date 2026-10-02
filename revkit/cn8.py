@@ -166,11 +166,55 @@ def main():
         print("  FALLA huerfanos no se pudo cargar: %s" % e)
         FALLOS.append("huerfanos")
 
+    # sello: la propiedad que importa es que se NIEGA a re-sellar cuando hay
+    # cambios. Un detector de derivas que actualiza el sello a solas se
+    # convierte en un detector de cambios, y la historia desaparece.
+    import hashlib as _hl
+    import tempfile as _tf2
+    with _tf2.TemporaryDirectory() as _td3:
+        _raiz = os.path.join(_td3, "arbol")
+        os.makedirs(os.path.join(_raiz, "docs"))
+        os.makedirs(os.path.join(_raiz, "ev"))
+        for _n in ("a.md", "b.md"):
+            with open(os.path.join(_raiz, "ev", _n), "w") as _h:
+                _h.write("contenido de %s\n" % _n)
+        with open(os.path.join(_raiz, "docs", "EVIDENCE-MANIFEST.sha256"),
+                  "w") as _mf:
+            for _n in ("a.md", "b.md"):
+                _p = os.path.join(_raiz, "ev", _n)
+                _mf.write("%s  ev/%s\n" % (
+                    _hl.sha256(open(_p, "rb").read()).hexdigest(), _n))
+        _sp = [sys.executable, os.path.join(AQUI, "sello.py"),
+               "--raiz", _raiz]
+
+        r = subprocess.run(_sp, capture_output=True, text=True)
+        chk("sello: arbol limpio da rc=0", r.returncode == 0,
+            "(rc=%d)" % r.returncode)
+
+        with open(os.path.join(_raiz, "ev", "a.md"), "w") as _h:
+            _h.write("CAMBIADO\n")
+        r = subprocess.run(_sp, capture_output=True, text=True)
+        chk("sello: fichero movido da rc=1 y lo nombra",
+            r.returncode == 1 and "ev/a.md" in r.stdout,
+            "(rc=%d)" % r.returncode)
+
+        _nuevo = os.path.join(_td3, "nuevo.sha256")
+        r = subprocess.run(_sp + ["--actualizar", _nuevo],
+                           capture_output=True, text=True)
+        chk("sello: NIEGA re-sellar si hay movidos, rc=3",
+            r.returncode == 3 and not os.path.exists(_nuevo),
+            "(rc=%d, existe=%s)" % (r.returncode, os.path.exists(_nuevo)))
+
+        os.remove(os.path.join(_raiz, "ev", "b.md"))
+        r = subprocess.run(_sp, capture_output=True, text=True)
+        chk("sello: fichero ROTO da rc=2, no 1", r.returncode == 2,
+            "(rc=%d)" % r.returncode)
+
     print("-" * 66)
     if FALLOS:
-        print("%d control(es) FALLAN. atomrom NO es autoridad hasta"
+        print("%d control(es) FALLAN. Las herramientas implicadas no son"
               % len(FALLOS))
-        print("que se arreglen.")
+        print("autoridad hasta que se arreglen.")
         return 1
     print("todos los controles pasan")
     return 0

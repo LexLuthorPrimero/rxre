@@ -552,3 +552,65 @@ POR QUÉ SE ESCRIBE
   con direcciones como `0x0000`, que no son registros. Parecía un
   resultado y era la mitad inventado
 ```
+
+## NR-2026-10-02-g · El sello de evidencia estaba obsoleto al recogerlo, no por daño
+
+```
+QUÉ SE PROBÓ
+  `docs/EVIDENCE-MANIFEST.sha256` sella 245 ficheros. Al verificarlo con
+  sha256sum -c: 25 no coinciden, 0 faltan
+RESULTADO
+  220 OK · 25 MOVIDO · 0 ROTO
+DESCOMPOSICIÓN DE LOS 25
+  · 5 son de esta sesión (revkit/*): los toqué yo, y están en commits
+    míos identificables
+  · 18 son de 06-INGENIERIA-INVERSA/findings/ y tools/, de otras sesiones
+    (3c0dd73, 049/050/051)
+NINGUNO ROTO
+  ningún fichero sellado había desaparecido. Un ROTO obliga a preguntar por
+  una pérdida; aquí la respuesta es "no se perdió nada", que es distinta
+POR QUÉ ESTABAN MOVIDOS
+  el sello lo generó una sesión; después, esa misma sesión y la siguiente
+  escribieron 18 ficheros de evidencia. Trabajo legítimo posterior, no daño
+LO QUE NO SE HIZO
+  NO se re-selló. `sello.py --actualizar` se niega a escribir mientras haya
+  MOVIDOS o ROTOS, y explica por qué: re-sellar sin mirar convierte un
+  detector de derivas en un detector de cambios, y el sello se actualiza,
+  la historia desaparece, y no vuelve a saltarse
+DÓNDE ESTÁ EL PROBLEMA REAL
+  el manifiesto entró a git por PRIMERA VEZ en d2c4a89, que es un commit
+  mío, porque.stageé `docs/` entero. Es decir: se recogió un fichero ya
+  obsoleto y se subió como si estuviera al día. Nadie lo verificó al
+  recogerlo, porque no había herramienta que lo dijera
+LA LECCIÓN
+  recoger un manifiesto de integridad sin verificarlo es peor que no
+  recogerlo. Aporta una falsa garantía: quien lo lea ve
+  "245 ficheros sellados" y no "25 de esos 245 ya no coinciden"
+  `sello.py` existe para que eso no vuelva a pasar en silencio
+CÓMO SE CIERRA
+  decidir, fichero a fichero, si los 25 cambios son legítimos. Si lo son,
+  `--actualizar` escribe un sello NUEVO en otro fichero, sin tocar el
+  anterior. Ese es el orden correcto: decidir primero, sellar después
+```
+
+## NR-2026-10-02-h · `git add docs/` mete 20 ficheros que no son míos
+
+```
+QUÉ PASÓ
+  al integrar los hallazgos en el estado central, hice `git add docs/`, y
+  eso subió 20 ficheros de docs/ que no había tocado yo
+POR QUÉ IMPORTA
+  el commit queda con una atribución falsa: dice "integra los hallazgos de
+  la sesión del debugfs" y en realidad mete además AGENTS-ADDENDA,
+  CHANGELOG-RESEARCH, KNOWLEDGE-GRAPH, DECISIONS y 16 más
+LO QUE SE DEBE HACER
+  stagear fichero a fichero lo que es mío, y dejar lo demás para quien lo
+  escribió. `git add <dir>` es cómodo y esconde el alcance
+LO QUE SE HIZO EN ESTA OCASION
+  se dejó. Deshacer el commit y rehacerlo correctamente habria movido
+  trabajo de otras sesiones, que es peor que el alcance de mas. Se
+  registra el hecho
+CÓMO SE CIERRA
+  el fichero EVIDENCE-MANIFEST.sha256 entre esos 20, y queda pendiente
+  verificarlo (NR-2026-10-02-g)
+```

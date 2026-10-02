@@ -56,6 +56,7 @@ Uso:
 """
 import ast
 import os
+import re
 import warnings
 import re
 import sys
@@ -251,6 +252,8 @@ def _en_git(path):
         return r.returncode == 0
     except (OSError, subprocess.SubprocessError):
         return False
+
+
 
 
 def describe(path):
@@ -461,7 +464,33 @@ Por que existe: ...
     ajenas_malas = []
     strict = "--strict" in args
     for f in files:
-        if _en_git(os.path.join(HERE, f)):
+        p = os.path.join(HERE, f)
+        # LA REGLA, Y POR QUE ES ESTA Y NO UNA MAS INTELIGENTE.
+        #
+        # Un fichero NO VERSIONADO es de otra sesion con seguridad: esta en el
+        # arbol pero nadie lo ha publicado, y eso solo pasa mientras se
+        # escribe.
+        #
+        # Un fichero versionado ya no tiene esa informacion: varias sesiones
+        # commitean al mismo arbol, asi que "esta en git" no dice de quien es.
+        # Y al no poder saberlo, la regla es la PERMISIVA: se cuenta como
+        # propio.
+        #
+        # La alternativa -- usar los locks de escritura para atribuir
+        # autoria -- se implemento y se descarto. Los locks se liberan, y una
+        # herramienta commiteada hace semanas queda sin lock: marcarla ajena
+        # por eso convertia 33 herramientas propias en "ajenas", y el control
+        # se dejaba de contar a si mismo.
+        #
+        # Un control que se queda sin contar a si mismo es peor que uno que
+        # se pasa por alto un fichero ajeno: el primero no se puede arreglar,
+        # el segundo se puede señalar.
+        #
+        # EL COSTE REAL DE ESTA REGLA. Si otra sesion commitea una
+        # herramienta sin contrato, `toolkit` se pone en FALLA. Es el fallo
+        # que aparecio. Se deja que aparezca: es verdad, es de otro, y se
+        # avisa con el nombre. Lo que no hago es ocultarlo.
+        if _en_git(p):
             propias.append(f)
         else:
             ajenas.append(f)
@@ -535,6 +564,32 @@ Por que existe: ...
             for pr in probs:
                 print(f"  {d['fichero']}: {pr}")
         print()
+        # POR QUE ESTO NO SE "ARREGLA" SOLO.
+        #
+        # La regla propia/ajena no puede atribuir autoria de un fichero ya
+        # commiteado: varias sesiones commitean al mismo arbol. Asi que una
+        # herramienta de otra sesion sin contrato cuenta como fallo aqui, y
+        # el runner se pone en FALLA.
+        #
+        # Se podrian relajar dos cosas para que el runner quedara verde:
+        # aceptar mas codigos de salida, o marcar como "ajenas" las
+        # herramientas que no tengan contrato. Las dos serian mentira: el
+        # contrato es lo que permite preguntar "esta herramienta puede tocar
+        # el hardware?", y relajarlo para que el semaforo quede verde
+        # significa que el semaforo ya no mide nada.
+        #
+        # Un control que se pone rojo por trabajo de otra sesion es un
+        # control que avisa. Lo que hay que hacer con el aviso es lo que
+        # corresponde: contractar la herramienta, no tapar el control.
+        #
+        # La excepcion que si es legitima es `--strict` al reves: para
+        # consultar sin fallar, `toolkit.py --sin-fallar`.
+        if "--sin-fallar" not in args:
+            print("  El fallo es real y no se relaja: el contrato es lo que")
+            print("  permite preguntar si una herramienta puede tocar el")
+            print("  hardware. Con --sin-fallar se consulta sin poner el")
+            print("  semaforo en rojo.")
+            print()
         print("Que importa de verdad, mas alla del contrato:")
         print("  * Una herramienta que escribe sin declarar donde tiene su")
         print("    unico riesgo real: que nadie sepa si toco el hardware.")
@@ -562,9 +617,17 @@ Por que existe: ...
     print()
     propias_n = len(rows) - len(ajenas_malas)
     print(f"  {'contrato valido':18} {len(rows) - bad}/{len(rows)}"
-          f"   (propias {propias_n - bad}/{propias_n}"
-          f", ajenas {len(ajenas_malas)} sin validar)")
+          f"   (versionadas {propias_n - bad}/{propias_n}"
+          f", sin versionar {len(ajenas_malas)} sin validar)")
     print()
+    # `--sin-fallar` consulta sin poner el semaforo en rojo. Existe para poder
+    # mirar el estado sin que la mirada sea un incidente, y NO para poder
+    # ignorar un fallo que importa: quien lo usa tiene que saber lo que esta
+    # viendo, y por eso el recuento sale igual.
+    if bad and "--sin-fallar" in args:
+        print("  (--sin-fallar: se informa y no se falla)")
+        print()
+        return 0
     return 1 if bad else 0
 
 

@@ -208,6 +208,13 @@ if [ -f capturas/amdgpu_vbios.txt ]; then
     printf '  %-46s %s\n' "huerfanos: cobertura del corpus" \
         "rc=$huerf_rc (1 = corpus incompleto, es lo esperado)"
     echo "$huerf_out" | grep -E "^SIN DEFINICION" | sed 's/^/       /'
+    # sello: verifica docs/EVIDENCE-MANIFEST.sha256. rc=0 OK, 1 movido,
+    # 2 roto. Un movido NO hace fallar check.sh, porque editar evidencia es
+    # legitimo; lo que no es legitimo es que no quede dicho. Se imprime y ya.
+    sello_out=$(python3 sello.py 2>&1); sello_rc=$?
+    printf '  %-46s %s\n' "sello: integridad de la evidencia" \
+        "rc=$sello_rc (0 OK, 1 movido, 2 roto)"
+    echo "$sello_out" | grep -E "^  (OK|MOVIDO|ROTO) " | sed 's/^/       /'
 else
     echo "  atomrom: VBIOS real ausente (no versionado)     OMITIDO, el"
     echo "           autotest con ROM sintetico ya valida el"

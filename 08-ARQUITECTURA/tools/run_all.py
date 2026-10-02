@@ -121,6 +121,17 @@ def main():
         ("binario real vs corpus", ["binfacts.py"], 0),
         ("PM4 codec: contraste de layouts", ["pm4_codec.py", "--check"], 0),
         ("PM4 codec: NOP contra regla 034", ["pm4_codec.py", "--nops"], 0),
+        # El contrato de las herramientas. rc 0 si todas lo tienen.
+        #
+        # FALLA cuando hay alguna sin contrato, y eso INCLUYE herramientas
+        # que otra sesion commiteo. No se relaja: el contrato es lo unico que
+        # permite preguntar "esta herramienta puede tocar el hardware?", y
+        # aceptarlo como no-fallo para que el semaforo quede verde seria
+        # admitir que el semaforo ya no mide.
+        #
+        # Lo que si se hace es que el nombre de la herramienta que falla este
+        # en la salida, que ya lo esta. Un rojo con nombre es informacion; un
+        # verde con excusas es ruido.
         ("contrato de las herramientas", ["toolkit.py"], 0),
         # El detector de contradicciones tiene que correr en CADA verificacion.
         # Si solo corre cuando me acuerdo, deja de ser un control y pasa a ser
