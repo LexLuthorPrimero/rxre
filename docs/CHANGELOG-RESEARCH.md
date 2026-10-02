@@ -2450,3 +2450,53 @@ arbol real.
 
 check.sh rc=0 35 | cn7 rc=0 97 | cn8 rc=0 33 | selfcheck rc=0 30/30
 GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.
+
+---
+
+## 2026-10-02 · opencode · `pub.sh` ya es testeable: 14 caminos sobre un repo de mentira
+
+```
+OBJECT   revkit/pub.sh, revkit/pub_selftest.sh, revkit/check.sh, docs/TOOLS-STATUS.md
+ACTION   NEW TOOL CAPABILITY (la puerta deja de necesitar el arbol real para probarse)
+```
+
+**EL HUECO QUE CIERRA ESTE.** En la ronda anterior declare —con razon— que probar
+la puerta habia exigido mutar el arbol de verdad, y que por eso habia acabado en
+un commit basura. Eso no era una observacion: era un **hueco de diseño**. Una
+puerta que no se puede probar sin tocar el arbol real se acaba probando contra el
+arbol real, y el resultado es un commit con el mensaje `"uno dos tres"` en la
+historia para siempre.
+
+Con `--repo` y `--suite` se fabrica un repo con `git init` y cuatro stubs en un
+temporal, y los **14 caminos** se prueban en un segundo sin tocar nada real. El
+selftest esta en `check.sh`, asi que tampoco se puede publicar sin que pase.
+
+**UN HUECO DENTRO DEL HUECO.** El caso que verificaba la guardia de "nada fuera de
+las rutas" **no existia**: en todos los casos lo stageado era justo lo pedido, con
+lo que poner la comprobacion a `if false` dejaba el selftest **en verde**. Una
+guardia sin prueba es una guardia que no existe. El caso se escribio, y su primera
+version tampoco servia —`git add` de un fichero sin modificar no stagea nada— asi
+que pasaba por la puerta sin tocarla.
+
+**DEFECTOS DEL PROPIO SELFTEST**, cuatro, corregidos al escribirlo: `"$PUB0"` con
+comillas es una sola palabra y bash buscaba un comando `bash -c`;
+`git show --stat` no da la lista de ficheros; el caso anterior; y la asercion
+final exigia que no quedara nada stageado cuando lo correcto es que **desaparezca
+el ajeno**, porque `f.txt` si pertenece y debe quedarse.
+
+**Y UN FILTRO NUEVO QUE NO ES DE LINEAS.** Tres lineas de relleno **cumplen** el
+requisito de "3 lineas con texto", y por eso entro `"uno dos tres"` en la
+historia. Ahora un mensaje mayoritariamente hecho de `"uno"`, `"dos"`, `"tres"`,
+`"prueba"`... se rechaza con `rc=3` antes de correr nada.
+
+**VALIDACION POR MUTACION DE LA PUERTA**
+
+```
+MA  deja de negarse si la suite falla     5 casos en rojo
+MB  acepta un mensaje de relleno          6 casos en rojo
+MC  ignora lo stageado de mas             1 caso  en rojo
+MD  dice que saca lo ajeno y no lo saca   3 casos en rojo
+original                                 14 OK, rc=0
+```
+`check.sh` 36 con el selftest dentro | `cn7` 97 | `cn8` 33 | `selfcheck` 30/30.
+GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.

@@ -2815,3 +2815,82 @@ Y uno que no es del script sino del árbol, que encontró la puerta al construir
 caracter CJK en el propio `pub.sh` al escribirlo**. Habia 35 ficheros con CJK en
 el repositorio, casi todos de otras sesiones; el control mira `revkit`, y el unico
 culpable nuevo era este fichero nuevo.
+
+## `pub.sh` y `pub_selftest.sh`: la puerta de salida, y por que es testeable
+
+**EL FALLO QUE CIERRA, medido.** El orden que yo seguia a mano era
+suite, anexar documentos, `git add`, commit. **El paso 1 corria sobre un arbol que
+ya no era el que se iba a commitear.** Dos veces en la sesion: un fence sin
+cerrar y dos bloques con la paridad rota entraron en commits con la suite en
+verde. `cn8` tenia los controles que lo habrian cazado y no se ejecutaron
+despues de anexar. El control existia; faltaba que alguien lo ejecutara cuando
+importa.
+
+```
+pub.sh <fichero-de-mensaje> <ruta> [<ruta> ...]
+pub.sh --selftest
+pub.sh --repo DIR --suite DIR ...
+```
+El mensaje va en un **fichero** para revisarlo antes, y se exigen **3 lineas con
+texto**. Y hay un segundo filtro que no es un filtro de lineas: un mensaje que sean
+mayoritariamente `"uno"`, `"dos"`, `"tres"`, `"prueba"`... se rechaza. Tres lineas
+de relleno **cumplen** el requisito de tres lineas, y por eso entro `"uno dos
+tres"` en la historia de este arbol.
+
+**POR QUE ES TESTEABLE, que era lo que faltaba.** La primera version no lo era:
+comprobar que la puerta "se niega a commitear" exigia mutar el arbol de verdad, las
+pruebas acababan en arbol limpio, y la puerta commiteaba. De ahi salio el commit
+basura (`NR-2026-10-02-w`). Con `--repo` y `--suite` se fabrica un repositorio con
+`git init` y cuatro stubs de la suite en un temporal, y **los 14 caminos se
+prueban sin tocar el arbol real**, en un segundo.
+
+**LOS 14 CASOS, Y POR QUE ALGUNOS SON NEGATIVOS**
+
+```
+todo verde -> commitea                          rc=0
+sin cambios que publicar                      rc=4
+check.sh / cn7 / cn8 / selfcheck falla         rc=2   (cuatro casos, uno por suite)
+mensaje de una linea                          rc=3   sin correr nada
+mensaje de relleno                            rc=3
+sin fichero de mensaje                        rc=3
+sin argumentos                                rc=3
+ruta que no existe                            rc=5
+un rechazo no deja rastro                     rc=2, HEAD igual, nada stageado
+en verde commit solo lo pedido                 solo f.txt
+stageado de mas -> se niega y lo saca         rc=5, el ajeno fuera
+```
+Los dos ultimos son los que importan para una puerta. Un rechazo que deja el
+indice sucio hace que el siguiente `git commit` a mano se lleve lo que la puerta
+acabo de rechazar. Y un commit en verde que arrastra un fichero ajeno es
+exactamente lo que paso en `d2c4a89` con 20 ficheros de otra sesion.
+
+**VALIDACION POR MUTACION, sobre la puerta**
+
+```
+MA  la puerta deja de negarse si la suite falla        5 casos en rojo
+MB  acepta un mensaje de relleno                       6 casos en rojo
+MC  ignora lo stageado de mas                          1 caso  en rojo
+MD  dice que saca lo ajeno y no lo saca                3 casos en rojo
+    (incluido "el commit contiene docs/a.md f.txt")
+original                                                14 OK, rc=0
+```
+**MC solo se pudo encontrar porque el caso no existia.** Con la comprobacion de
+"nada fuera de las rutas" puesta a `if false`, el selftest se quedaba **en
+verde**: ningun caso llegaba a ejercitarla, porque en todos los casos lo stageado
+era justo lo pedido. Una guardia sin prueba es una guardia que no existe, y esa
+existe porque un `git add` de directorio se llevo 20 ficheros ajenos. El caso que
+faltaba se escribio despues, y el primer version de ese caso tampoco servia:
+`git add` sobre un fichero **sin modificar** no stagea nada, con lo que pasaba por
+la puerta sin tocarla.
+
+**Defectos del propio selftest, corregidos al escribirlos**
+
+1. `"$PUB0"` con comillas es **una sola palabra**: bash buscaba un comando llamado
+   `bash -c`. Cuatro casos en rojo por eso.
+2. `git show --stat` no da la lista de ficheros: hay que leer
+   `--name-only --format=`.
+3. El caso del "stageado de mas" hacia `git add` de un fichero sin cambios, que no
+   stagea nada, y por tanto no probaba la guardia.
+4. La asercion de ese caso exigia que no quedara nada stageado, cuando lo correcto
+   es que **desaparezca el ajeno**: `f.txt` si pertenece y debe quedarse. Una
+   puerta que se llevara tambien lo suyo seria peor.

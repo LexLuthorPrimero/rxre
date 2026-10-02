@@ -243,6 +243,16 @@ echo
 
 # el plan de captura debe ser coherente, pero su ejecucion pide sudo, asi que
 # aqui SOLO se comprueba la coherencia, sin leer la GPU.
+echo "--- la puerta de salida, probada sobre un repo de mentira ---"
+# El selftest fabrica un repo y una suite de mentira en un temporal: los 14
+# caminos de pub.sh se prueban SIN tocar el arbol real. Antes de que existiera,
+# probar la puerta obligaba a mutar el arbol de verdad, y de ahi salio un commit
+# con el mensaje "uno dos tres" que quedo en la historia.
+if [ -x ./pub.sh ] || [ -f ./pub.sh ]; then
+    run "pub.sh: selftest de la puerta" ./pub.sh --selftest
+fi
+echo
+
 echo "--- snapshot de layouts desde la BTF (perecedera) ---"
 # btfsnap guarda los layouts que salen de /sys/kernel/btf/<modulo>, que es por
 # arranque: cuando haga falta y no este guardado, ya no habra de donde sacarlo.
