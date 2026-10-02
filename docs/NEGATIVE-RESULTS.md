@@ -1324,3 +1324,44 @@ trabajo pequeno y localizable; no es un problema de fondo.
 **Y LA REGLA QUE SE LLEVA.** Un filtro que descarta necesita **hechos por paso**,
 no propagaciones élégante sobre datos que ya se ha medido que no son fiables.
 Cuatro por hecho, verificados a mano, valen mas que siete por propagacion.
+
+## NR-2026-10-02-c2 · Dos busquedas que "no existen" y si: los simbolos de 7.1.3
+y el fichero del scheduler
+
+`CLASSIFICATION=NEGATIVE_RESULT` · `TRACK=STATIC` · `WRITE_EXECUTION=NONE` ·
+`GPU INTACTA` · `CORPUS=RESEARCH/{baseline, kernelbuild}`
+
+**Caso 1: los simbolos de la ruta de envio no se llaman como yo esperaba.**
+Fui a buscar `amdgpu_ring_pad_advance` y `amdgpu_cs_write`, que son los nombres que
+conozco de otras versiones. **No existen en este arbol.** La conclusion correcta
+NO es "el driver no los tiene": es que **en 7.1.3 se llaman distinto**, y hay que
+buscar el equivalente antes de afirmar nada.
+
+```
+buscado                          existe en 7.1.3          donde
+amdgpu_ring_pad_advance          NO                     (ninguno)
+amdgpu_cs_write                  NO                     (ninguno)
+amdgpu_cs_ioctl                  SI                     amdgpu_cs.c:1411
+amdgpu_ring_commit               SI                     amdgpu_ring.c:169
+amdgpu_ring_generic_pad_ib       SI, y SIN NINGUN LLAMADOR   amdgpu_ring.c:146
+```
+**Y un `PROVEN_ABSENT` genuine, el unico de esta ronda:** `amdgpu_ring_generic_pad_ib`
+esta definida y **no la llama nadie** en el driver. Se comprobo sobre los
+`PROVEN_ABSENT` de la regla: busqueda en todo el arbol de ficheros, en todas las
+generaciones, y el resultado unico es su propia definicion. No es "no lo mire": es
+que el nucleo no la invoca. Para mi driver propio: **esa funcion no es una
+obligacion**, es un helper huerfano en esta version.
+
+**Caso 2: el fichero del scheduler no esta donde lo busque.** Busque
+`drivers/gpu/drm/drm_sched.c`, que es donde estaba en kernels anteriores. No
+existe. **Antes de decir "no esta" mire el directorio**: existe
+`drivers/gpu/drm/scheduler/` con `sched_main.c`, `sched_entity.c`,
+`sched_fence.c`, `sched_internal.h`. El fichero se partio, y `drm_sched.c` no es
+que no exista como concepto: existe repartido. Y la funcion que buscaba,
+`drm_sched_entity_push_job`, **solo aparece en comentarios** dentro de
+`sched_main.c`; la definicion esta en `sched_entity.c` (exportada en la 631).
+
+Las dos son el mismo error con distinto disfraz: **confundir "no lo he encontrado"
+con "no existe"**. En el primer caso por nombre de simbolo equivocado; en el
+segundo por nombre de fichero equivocado. Los dos habrian producido un
+`PROVEN_ABSENT` falso, y los dos se evitaron con una busqueda mas.

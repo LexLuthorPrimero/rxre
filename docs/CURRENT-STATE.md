@@ -764,3 +764,95 @@ Un `evict` de VRAM, por ejemplo, no pasa por ninguna tabla `.funcs`. Es
 `NOT_IN_CORPUS` para esta cuenta, no `PROVEN_ABSENT`.
 
 `GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.`
+
+## Ronda 2026-10-02 (tarde 11) · EV-41 · el camino de envio desde userspace
+
+Falta en el estado el **primer tramo** de los items 12 y 13: como entra una orden
+de userspace y hasta donde llega antes de salirse del driver. Esta ronda lo lee.
+
+**LA SUPERFICIE DE IOCTLS, DECLARADA POR AMDGPU: 20.**
+
+```
+AMDGPU_GEM_CREATE     AMDGPU_CTX                AMDGPU_VM
+AMDGPU_SCHED          AMDGPU_BO_LIST            AMDGPU_FENCE_TO_HANDLE
+AMDGPU_GEM_MMAP       AMDGPU_GEM_WAIT_IDLE      AMDGPU_CS
+AMDGPU_INFO           AMDGPU_WAIT_CS            AMDGPU_WAIT_FENCES
+AMDGPU_GEM_METADATA   AMDGPU_GEM_VA             AMDGPU_GEM_OP
+AMDGPU_GEM_USERPTR    AMDGPU_USERQ              AMDGPU_USERQ_SIGNAL
+AMDGPU_USERQ_WAIT     AMDGPU_GEM_LIST_HANDLES
+```
+`amdgpu_ioctls_kms[]` en `amdgpu_drv.c:3046-3068`, y `amdgpu_kms_driver` la
+registra en `.ioctls` con `.num_ioctls = ARRAY_SIZE`.
+
+**LIMITE, y es el de la regla de no presentar un parcial como completo: el core de
+DRM anade 78 ioctls mas** (`drm_ioctls[]`, `drm_ioctl.c:632`, solo en
+`kernelbuild`). Asi que **20 es `NOT_COMPLETE`**, no "los 20 ioctls del driver".
+
+**EL ORDEN REAL DEL ioctl DE ENVIO, LEIDO (no inferido).**
+`amdgpu_cs_ioctl`, `amdgpu_cs.c:1411-1473`, ocho etapas y dos caminos de error:
+
+```
+1417  amdgpu_ras_intr_triggered()   -> -EHWPOISON   puerta RAS, la primera de todas
+1420  adev->accel_working           -> -EBUSY       puerta de aceleracion
+1423  amdgpu_cs_parser_init         -> error_fini
+1429  amdgpu_cs_pass1               -> error_fini
+1433  amdgpu_cs_pass2               -> error_fini
+1437  amdgpu_cs_parser_bos          -> error_fini
+1446  amdgpu_cs_patch_jobs          -> error_backoff
+1450  amdgpu_cs_vm_handling         -> error_backoff
+1454  amdgpu_cs_sync_rings          -> error_backoff
+1458  trace_amdgpu_cs_ibs           (no puede fallar)
+1460  amdgpu_cs_submit              -> error_backoff
+1464  amdgpu_cs_parser_fini
+error_backoff:1468  mutex_unlock(parser.bo_list->bo_list_mutex)
+error_fini:1471     amdgpu_cs_parser_fini
+```
+**El orden NO es el orden del fichero.** `amdgpu_cs_parser_bos` esta definido en la
+linea 845, despues de `pass2` (600), y se ejecuta **despues** de `pass2`;
+`amdgpu_cs_patch_jobs` (1072) se ejecuta **antes** de `amdgpu_cs_vm_handling`
+(1085). Si hubiera deducido la secuencia del orden de definicion, la habria dado
+mal. **Octava vez que el orden en el fichero no es el orden de ejecucion.**
+
+Los dos caminos de error no son intercambiables: `error_backoff` **desbloquea
+`bo_list_mutex`** y `error_fini` no. O sea que el mutex se toma en
+`amdgpu_cs_parser_bos` (1437) y el unico camino que lo suelta es el posterior, lo
+que hace consistente que los tres fallos anteriores no lo hayan tomado todavia.
+
+**LO QUE HACE CADA PASADA, por lo que LLAMA (no por lo que se llama).**
+`pass1` llama a `p1_ib`, `p1_user_fence`, `p1_bo_handles`, `job_alloc`,
+`sriov_vf` y `vm_set_task_info`. `pass2` llama a las siete `p2_*`: `p2_ib`,
+`p2_dependencies`, `p2_syncobj_in`, `p2_syncobj_timeline_wait`, `p2_syncobj_out`,
+`p2_syncobj_timeline_signal` y `p2_shadow`. O sea: **el estado de sincronizacion
+entra por userspace en dos puntos distintos** y con dos mecanismos distintos, y
+ambos estan en el camino de envio, no en un ioctl aparte.
+
+**Y EL HALLAZGO DE FONDO: EL ENVIO ES ASINCRONO, Y A MEDIDA SE SALE DEL CORPUS.**
+`amdgpu_cs_submit` (`amdgpu_cs.c:1275`) **no llama a `amdgpu_ring_commit`**. Crea
+los fences (`amdgpu_ctx_add_fence`, `dma_resv_add_fence`) y empuja el trabajo con
+
+```
+drm_sched_entity_push_job(&p->jobs[i]->base)
+```
+que vive en el **core de DRM**, en `drivers/gpu/drm/scheduler/sched_entity.c`
+(`EXPORT_SYMBOL` en la linea 631). Y `drivers/gpu/drm/scheduler/` **no esta en
+`baseline` ni en `working`**: esos arboles solo tienen `drivers/gpu/drm/amd/`.
+
+Consecuencias, y las dos importan:
+
+1. **`AMDGPU_CS` devuelve 0 y el trabajo aun no se ha escrito en el anillo.** El
+   ioctl analiza y encola; la escritura al anillo ocurre despues, desde el
+   scheduler. El retorno del ioctl **no** significa ejecucion. Eso es una
+   asincronia de software, deducible del corpus, y es distinta de la que tengo
+   abierta como `hardware execution ordering NOT_PROVEN`.
+2. **El camino sale del corpus a mitad.** La mitad de analisis esta entera
+   (`amdgpu_cs.c`, 37 funciones, 1817 lineas); la mitad de ejecucion pasa por el
+   core. Los saltos exactos dentro del scheduler son `NOT_IN_CORPUS` en
+   `baseline`, no `PROVEN_ABSENT`. Reaparece la misma limitacion de EV-39: para
+   leer el puente hay que ir a `kernelbuild`.
+
+El reingreso al driver es por puntero a funcion: `amdgpu_job.c:515` registra
+`.run_job = amdgpu_job_run` (`amdgpu_job.c:426`). Es el mismo patron que las 145
+entradas de EV-40: **una llamada por puntero no aparece en ningun grep**, y por eso
+las 145 no cubren este salto.
+
+`GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.`

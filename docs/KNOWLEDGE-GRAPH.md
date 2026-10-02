@@ -540,3 +540,57 @@ llamadas*. Son dos preguntas y hay que hacerlas por separado.
 la raiz completa. Sin esa arista, el eslabon `kzalloc` de A parecia `NOT_AVAILABLE`
 y toda la cadena caia a `NOT_DETERMINED` por una limitacion mia del corpus. En un
 grafo, **el alcance de un nodo es un atributo del nodo**.
+
+## 14 · La cadena de userspace al anillo, y donde se rompe dentro del corpus
+
+`2026-10-02` · EV-41 · `PROVEN` salvo donde se dice
+
+La cadena que faltaba, y el punto exacto donde el corpus deja de alcanzar:
+
+```
+userspace
+  |  ioctl AMDGPU_CS   (de 20 que declara amdgpu_ioctls_kms[]; +78 del core DRM)
+  v
+amdgpu_cs_ioctl                 amdgpu_cs.c:1411   PROVEN, leido
+  |  1417 amdgpu_ras_intr_triggered()  -> -EHWPOISON    [puerta 1]
+  |  1420 adev->accel_working          -> -EBUSY        [puerta 2]
+  |  1423 amdgpu_cs_parser_init        + amdgpu_job_alloc, vm_set_task_info
+  |  1429 amdgpu_cs_pass1              + p1_ib, p1_user_fence, p1_bo_handles
+  |  1433 amdgpu_cs_pass2              + las 7 p2_*  (syncobj in/out/timeline)
+  |  1437 amdgpu_cs_parser_bos         <-- toma bo_list_mutex
+  |  1446 amdgpu_cs_patch_jobs         + amdgpu_cs_patch_ibs
+  |  1450 amdgpu_cs_vm_handling
+  |  1454 amdgpu_cs_sync_rings
+  |  1460 amdgpu_cs_submit             + amdgpu_ctx_add_fence, dma_resv_add_fence
+  |  1464 amdgpu_cs_parser_fini
+  v
+drm_sched_entity_push_job()       <-- PUENTE AL CORE DE DRM
+  |  definido en drivers/gpu/drm/scheduler/sched_entity.c:631 (EXPORT_SYMBOL)
+  |  ese directorio NO esta en baseline/working: solo tienen drm/amd/
+  |  ==> los saltos internos son NOT_IN_CORPUS, no PROVEN_ABSENT
+  v
+[core de DRM: ejecuta el trabajo, en contexto de interrupcion]
+  |
+  |  reingreso por PUNTERO A FUNCION, invisible a todo grep
+  v
+amdgpu_job_run                   amdgpu_job.c:426
+  |  registrado como .run_job = amdgpu_job_run  en amdgpu_job.c:515
+  v
+... hasta amdgpu_ring_commit (amdgpu_ring.c:169), llamado desde ~100 sitios
+```
+**LO QUE ESTA AHI Y NO ESTABA ANTES.** El retorno 0 del ioctl **no significa
+ejecucion**: el ioctl analiza y encola. Eso es asincronia de SOFTWARE y se deriva
+del corpus entero; es distinta, y no la resuelve, de la que tengo abierta como
+`hardware execution ordering NOT_PROVEN`. Lo que si queda abierto es que el
+hardware.execute lo que el scheduler le/write, y eso sigue sin placa.
+
+**LOS NOMBRES DE ESTA CADENA NO SON LOS QUE UN ESPERA**, y los tres cuelgan del
+mismo hecho: **una llamada por puntero a funcion no aparece en ningun indice de
+texto**. Las 145 entradas de EV-40 son el mismo patron medido en la otra
+direccion (driver hacia hardware); este es el patron de hardware hacia driver.
+Las dos Caras son punteros a funcion, y las dos son invisibles a `grep`.
+
+**UNA RAMA SIN NINGUN LLAMADOR.** `amdgpu_ring_generic_pad_ib` (`amdgpu_ring.c:146`)
+esta definida y no la invoca nadie en el driver: `PROVEN_ABSENT` de llamadores,
+comprobado sobre todo el arbol. No es una obligacion para un driver propio en esta
+version, aunque el nombre sugiera lo contrario.

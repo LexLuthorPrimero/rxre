@@ -2731,3 +2731,68 @@ añadir riesgo a un fichero que ya funcionaba.**
 `check.sh` 39 | `cn7` 97 | `cn8` 33 | `gfx8blocks --self-test` 24/24 |
 `gfx8blocks --funcs` 10 bloques, 145 funciones | `gchwip_alcance --self-test`
 21/21. `GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.
+
+---
+
+## 2026-10-02 · opencode · EV-41: el envio desde userspace es asincrono, y se sale del corpus a mitad
+
+```
+OBJECT   docs/CURRENT-STATE.md, docs/NEGATIVE-RESULTS.md, docs/KNOWLEDGE-GRAPH.md
+ACTION   EVIDENCE (cadena de envio) + NEGATIVE_RESULT (dos busquedas fallidas)
+TRACK    STATIC · WRITE_EXECUTION NONE · RUNTIME=NOT_RUN · GPU INTACTA
+```
+
+**LA SUPERFICIE DE IOCTLS.** `amdgpu_ioctls_kms[]` declara **20**:
+GEM_CREATE, CTX, VM, SCHED, BO_LIST, FENCE_TO_HANDLE, GEM_MMAP, GEM_WAIT_IDLE,
+CS, INFO, WAIT_CS, WAIT_FENCES, GEM_METADATA, GEM_VA, GEM_OP, GEM_USERPTR, USERQ,
+USERQ_SIGNAL, USERQ_WAIT, GEM_LIST_HANDLES. Y el core de DRM anade **78** mas, asi
+que 20 es NOT_COMPLETE y no "los ioctls del driver".
+
+**EL ORDEN, LEIDO Y NO INFERIDO.** `amdgpu_cs_ioctl` (`amdgpu_cs.c:1411-1473`) son
+ocho etapas con dos caminos de error: dos puertas arriba (`amdgpu_ras_intr_triggered`
+-> -EHWPOISON, `accel_working` -> -EBUSY) y luego parser_init, pass1, pass2,
+parser_bos, patch_jobs, vm_handling, sync_rings, submit, parser_fini.
+
+**Y EL ORDEN NO ES EL DEL FICHERO, por octava vez.** `amdgpu_cs_parser_bos` esta
+definido en la 845 y se ejecuta DESPUES de `pass2` (600); `amdgpu_cs_patch_jobs`
+(1072) se ejecuta ANTES de `amdgpu_cs_vm_handling` (1085). Si hubiera deducido la
+secuencia del orden de definicion, la habria dado mal. Ademas `error_backoff`
+desbloquea `bo_list_mutex` y `error_fini` no, lo que hace consistente que solo se
+suelte en el camino posterior a tomarlo.
+
+**EL HALLAZGO: EL ENVIO ES ASINCRONO, Y SE SALE DEL CORPUS.** `amdgpu_cs_submit`
+NO llama a `amdgpu_ring_commit`. Crea los fences y empuja con
+`drm_sched_entity_push_job()`, que esta en el CORE de DRM, en
+`drivers/gpu/drm/scheduler/sched_entity.c`. Y ese directorio **no esta en
+`baseline` ni en `working`**: solo tienen `drm/amd/`. Dos consecuencias: (a) que
+`AMDGPU_CS` devuelva 0 NO significa que se haya escrito en el anillo, y eso es
+asincronia de SOFTWARE, deducible del corpus y distinta de mi
+`hardware execution ordering NOT_PROVEN`; (b) la mitad de ejecucion del camino de
+envio es `NOT_IN_CORPUS`, no `PROVEN_ABSENT`. Reaparece la limitacion de EV-39.
+
+El reingreso al driver es por PUNTERO A FUNCION: `amdgpu_job.c:515` registra
+`.run_job = amdgpu_job_run`. Es el mismo patron que las 145 entradas de EV-40, en
+la direccion contraria: las dos caras son punteros a funcion, y las dos son
+invisibles a grep.
+
+**DOS BUSQUEDAS QUE CASI SON UN PROVEN_ABSENT FALSO, y las dos las evite con una
+busqueda mas.**
+- Fui a buscar `amdgpu_ring_pad_advance` y `amdgpu_cs_write`. No existen. La
+  conclusion correcta no es "el driver no los tiene": es que en 7.1.3 se llaman
+  distinto. El equivalente SI existe: `amdgpu_cs_ioctl`, `amdgpu_ring_commit`.
+- Busque `drivers/gpu/drm/drm_sched.c`. No existe. Antes de decir que no, mire el
+  directorio: existe `drivers/gpu/drm/scheduler/` con `sched_main.c`,
+  `sched_entity.c`, `sched_fence.c`. Y `drm_sched_entity_push_job` solo aparecia en
+  COMENTARIOS de `sched_main.c`; la definicion esta en `sched_entity.c:631`.
+Las dos son el mismo error con distinto disfraz: confundir "no lo he encontrado"
+con "no existe". Por nombre de simbolo equivocado, y por nombre de fichero
+equivocado.
+
+**Y UN PROVEN_ABSENT GENUINO, EL UNICO DE ESTA RONDA.**
+`amdgpu_ring_generic_pad_ib` (`amdgpu_ring.c:146`) esta definida y NO la llama nadie
+en el driver, comprobado sobre todo el arbol. No es que no la mirara: es que el
+nucleo no la invoca. Para mi driver propio no es una obligacion, aunque el nombre
+sugiera lo contrario.
+
+`check.sh` 39 | `cn7` 97 | `cn8` 33 | `gfx8blocks` 24/24 | `gchwip_alcance` 21/21.
+GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.
