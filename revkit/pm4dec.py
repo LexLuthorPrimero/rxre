@@ -76,13 +76,34 @@ _RAICES = [
 #   cikd.h   igual que vid.h                                        (CIK/GCN3)
 #   nvd.h    LOAD_SH=0x5F      LOAD_CONFIG=0x60    LOAD_CONTEXT=0x61  (NAVI)
 #   soc15d.h igual que vid.h                                  (Arcturus/MI)
+#   gfx_v12_1_pkt.h igual que vid.h                              (NAVI 12.1)
+#
+# Medido con `tools/rx550ref --sym PACKET3_LOAD_SH_REG`, que es de otra sesion:
+# 6 definiciones, y sid.h dice 0x61 mientras las OTRAS CINCO dicen 0x5F. O sea
+# que el disidente es sid.h, con 5 contra 1 y no 4 contra 1.
 #
 # sid.h esta DESPLAZADO UNA POSICION. Leerlo por costumbre daria un nombre
 # equivocado a 0x5F, 0x60 y 0x61, con toda la apariencia de un dato. Y con solo
 # sid.h, pm4dec tampoco puede nombrar PACKET3_RELEASE_MEM (0x49),
 # PACKET3_ACQUIRE_MEM (0x58) ni PACKET3_SET_UCONFIG_REG (0x79), que no estan
 # en sid.h y SI salen en el anillo de COMPUTE capturado.
-HEADERS_OPCODE = ["sid.h", "vid.h", "cikd.h", "nvd.h", "soc15d.h"]
+HEADERS_OPCODE = ["sid.h", "vid.h", "cikd.h", "nvd.h", "soc15d.h",
+                  "gfx_v12_1_pkt.h"]
+# El sexto, `gfx_v12_1_pkt.h`, se me habia OLVIDADO en la primera version, que
+# por eso auditaba cinco. Lo anadio porque `tools/rx550ref` --sym, que es de otra
+# sesion y no depende de nada mio, reporto 5 definiciones de
+# PACKET3_RELEASE_MEM donde yo soloidia con 4. Ese recuento es el que se
+# comprobo, y por eso se cambia la lista: una herramienta ajena detected lo que a
+# mi se me habia pasado.
+#
+#   gfx_v12_1_pkt.h  lo incluye SOLO gfx_v12_1.c (NAVI 12.1), define 62 opcodes
+#                    reales y 0 con '__', y coincide con vid.h en los seis
+#                    opcodes de sonda (0x5F, 0x60, 0x61, 0x49, 0x58, 0x79).
+#
+# Anadirlo NO cambia la tabla de GFX8: la elige el grafo de includes, y ahi sigue
+# ganando vid.h. Lo que cambia es la cobertura del diagnostico de conflictos, que
+# pasa a ser 5 contra 1 en los LOAD_* en vez de 4 contra 1, y que
+# cargar_opcodes(fuente="gfx_v12_1.c") ahora funciona para un anillo de NAVI 12.1.
 SID_CANDIDATOS = [os.path.join(r, h) for r in _RAICES for h in HEADERS_OPCODE]
 
 # El .c que produce los anillos de GFX de ESTE ASIC. El encabezado de opcodes se

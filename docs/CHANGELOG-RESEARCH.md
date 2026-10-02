@@ -78,6 +78,27 @@ selfcheck.py  rc=0   30/30
 el primero era una expresión muerta y documentaba un retorno de 3 elementos
 cuando el real es de 4.
 
+**Reclasificación y segunda corrección, con herramienta ajena.** `EV-35` queda
+**`CORROBORATED`, no descubrimiento mío**: `tools/rx550ref.c:30`, de otra sesión,
+lleva escrito desde antes *"gfx_v8_0.c does not include sid.h ... It includes
+vid.h"* — la misma regla, aplicada de forma más general. Y esa herramienta
+**detectó un fallo mío**: reporta **5** definiciones de `PACKET3_RELEASE_MEM`
+donde yo tenía **4**; el quinto es `gfx_v12_1_pkt.h` (NAVI 12.1), que se me había
+olvidado. `HEADERS_OPCODE` pasa a auditar seis cabeceras, y el diagnóstico de
+conflictos pasa de 4 contra 1 a **5 contra 1** contra `sid.h`. La tabla de GFX8
+no cambia: el include graph sigue ganando con `vid.h`.
+
+**Comprobado que NO resulta afectado**: `tools/pm4census.py` no resuelve opcodes
+desde cabeceras, sino sobre llamadas `PACKET3(OP, n)`. Ni el desplazamiento de
+`sid.h` ni la contaminación con `__` le afectan. Mi preocupación inicial era
+infundada, y se resolvió midiendo en vez de suponiendo.
+
+**Deuda declarada**: cito `sid.h` sin cualificar 65 veces, y hay **4** ficheros
+con ese nombre en el árbol —`amd/amdgpu/sid.h` por triplicado y `radeon/sid.h`,
+que es otro driver—. El texto de `tools/constmap.py` dice "TEN"; medidos son 4.
+No se reescriben las 65 en este commit porque mezclan contenido de otras
+sesiones; la deuda queda contada, no escondida.
+
 ---
 
 ## 2026-10-01 · agente de documentación · ROUND 1

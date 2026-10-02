@@ -2661,3 +2661,41 @@ pm4dec.py --sid <ruta>/sid.h <anillo>   # fuerza una cabecera concreta
 
 **Estado**: `VALIDATED`. `cn7.py` 81 controles, 0 fallos; 4 mutantes medidos que
 tumban 5, 1, 1 y 2 controles respectivamente.
+
+### Addendum: sexta cabecera, y cross-check con `tools/rx550ref`
+
+`tools/rx550ref` —de otra sesión, y que no depende de nada mío— implementa la
+misma regla que `cargar_opcodes(fuente=)` pero para cualquier símbolo, y pregunta
+*"¿el consumidor incluye de verdad la cabecera que gana?"*. Su
+`rx550ref.c:30` lleva escrito, desde antes:
+
+> `gfx_v8_0.c does not include sid.h ... It includes vid.h.`
+
+Así que **EV-35 es `CORROBORATED`, no un hallazgo mío**, y la herramienta
+ajena además **detectó un fallo mío**: `--sym PACKET3_RELEASE_MEM` reporta **5**
+definiciones donde yo tenía **4**. El quinto es `gfx_v12_1_pkt.h` (NAVI 12.1,
+solo `gfx_v12_1.c`), que se me había olvidado. Ahora `HEADERS_OPCODE` audita
+**seis**.
+
+| fuente | cabecera que sale del include graph | opcodes |
+|---|---|---|
+| `si.c` | `sid.h` | 74 |
+| `gfx_v7_0.c` | `cikd.h` | 66 |
+| `gfx_v8_0.c` | `vid.h` | **70** |
+| `gfx_v9_0.c` | `soc15d.h` | 70 |
+| `amdgpu_gfx.c` | `nvd.h` | 116 |
+| `gfx_v12_1.c` | `gfx_v12_1_pkt.h` | 62 |
+
+Anadir el sexto header **no cambia** la tabla de GFX8 — el include graph sigue
+ganando con `vid.h` — y solo mejora el diagnóstico de conflictos, que pasa de
+**4 contra 1** a **5 contra 1** contra `sid.h`.
+
+**Lo que NO resulta afectado, comprobado**: `tools/pm4census.py` no resuelve
+opcodes desde cabeceras, trabaja sobre llamadas `PACKET3(OP, n)`. Ni le afecta el
+desplazamiento de `sid.h` ni la contaminación con `__`. Lo verifiqué en vez de
+suponerlo; mi preocupación inicial era infundada.
+
+**Cuidado con `sid.h`**: hay **4** ficheros con ese nombre en este árbol y no son
+el mismo —`amd/amdgpu/sid.h` por triplicado y `radeon/sid.h`, otro driver—. El
+texto de `tools/constmap.py` dice "TEN"; medido aquí son 4. `AMBIGUOUS` está bien
+planteado, el número no. No se toca `constmap.py` por ser de otra sesión.

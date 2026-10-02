@@ -733,6 +733,23 @@ def main():
     chk("tabla de opcodes: una fuente que no incluye ningun header de opcodes "
         "tambien falla, en vez de caer a otro header por defecto",
         P.cargar_opcodes(fuente="gfx_v8_0.h")[0] is None)
+    # La seleccion por generacion tiene que funcionar para VARIAS, no solo para
+    # GFX8. Si se rompe la regla del include graph y todos acaban en el mismo
+    # header, este control es el que lo ve.
+    _gen = {f: P.cargar_opcodes(fuente=f)[1] for f in
+            ("si.c", "gfx_v7_0.c", "gfx_v8_0.c", "gfx_v9_0.c", "gfx_v12_1.c")}
+    chk("tabla de opcodes: la seleccion por generacion DISTINGUE las cinco, "
+        "SI / CIK / GFX8 / MI / NAVI12.1, cada una con su cabecera",
+        _gen == {"si.c": "sid.h", "gfx_v7_0.c": "cikd.h",
+                 "gfx_v8_0.c": "vid.h", "gfx_v9_0.c": "soc15d.h",
+                 "gfx_v12_1.c": "gfx_v12_1_pkt.h"},
+        "(obtenido: %s)" % (_gen,))
+    chk("tabla de opcodes: se auditan las SEIS cabeceras, incluida "
+        "gfx_v12_1_pkt.h, la de NAVI 12.1, que se habia olvidado",
+        len(P.HEADERS_OPCODE) == 6
+        and "gfx_v12_1_pkt.h" in P.HEADERS_OPCODE
+        and all(v in P.CONFLICTOS_OPCODE for v in P.RENUMERADOS_SID),
+        "(cabeceras: %s)" % (P.HEADERS_OPCODE,))
 
     # El anillo SDMA NO es PM4: el paseo de pm4dec no significa nada ahi. Este
     # control lo fija, y ademas avisa si algun dia apareciera un PACKET3.

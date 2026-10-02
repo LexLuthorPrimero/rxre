@@ -3282,6 +3282,7 @@ STATE   PROVEN para el grafo de includes y para la numeración
         PROVEN_ABSENT para 0x49/0x58/0x79 en sid.h
         CORRECTION aplicada: pm4dec y RK-05
 ORIGEN  lectura cruzada del commit 6f197ce de otra sesion (findings/135)
+        CORROBORATED de forma independiente por tools/rx550ref (otra sesion)
 ```
 
 **CÓMO SE ORIGINÓ.** Otra sesión publicó `findings/135`: de los 119 nombres
@@ -3298,16 +3299,16 @@ cargada aparecía una diferencia de 19, y de ahí salió el defecto real.
 
 **(a) Le faltaban tres opcodes que esta GPU ejecuta.** `PACKET3_RELEASE_MEM`
 (`0x49`), `PACKET3_ACQUIRE_MEM` (`0x58`) y `PACKET3_SET_UCONFIG_REG` (`0x79`)
-**no están en `sid.h`**: están en `vid.h`, `cikd.h`, `nvd.h` y `soc15d.h`, y los
-cuatro coinciden. Los tres aparecen en el anillo de **compute** capturado, que es
-el de la auto-prueba. Con la tabla anterior no se podía nombrar **ninguno** de los
-tres: salían como opcode desconocido.
+**no están en `sid.h`**: están en **`vid.h`, `cikd.h`, `nvd.h`, `soc15d.h` y
+`gfx_v12_1_pkt.h`**, y los **cinco** coinciden. Los tres aparecen en el anillo de
+**compute** capturado, que es el de la auto-prueba. Con la tabla anterior no se
+podía nombrar **ninguno** de los tres: salían como opcode desconocido.
 
 **(b) Y lo que añadí al principio empeoraba otras tres.** Al mezclar los cinco
 headers, `sid.h` quedaba ganando por ser el primero, y `sid.h` **está desplazado
 una posición** en los tres `LOAD_*`:
 
-| opcode | `sid.h` | `vid.h`, `cikd.h`, `nvd.h`, `soc15d.h` |
+| opcode | `sid.h` | los otros cinco |
 |---|---|---|
 | `0x5F` | `LOAD_CONFIG_REG` | `LOAD_SH_REG` |
 | `0x60` | `LOAD_CONTEXT_REG` | `LOAD_CONFIG_REG` |
@@ -3318,15 +3319,18 @@ peor que "desconocido". Fue un defecto que **introduje yo** al arreglar (a), y l
 detecté al medir en vez de dar por buena la primera versión.
 
 **LA SELECCIÓN ES UNA MEDIDA, NO UNA PREFERENCIA.** Cabía elegir por mayoría
-(4 de 5 headers) y habría dado lo mismo, pero sería un heuristic. Lo que la
-resuelve es el **grafo de includes**, leído del corpus:
+—que ahora es **5 de 6** headers, y habría dado lo mismo— pero sería un
+heuristic. Lo que la resuelve es el **grafo de includes**, leído del corpus.
+Verificado con `tools/rx550ref --includes gfx_v8_0.c`, que es **de otra sesión**
+y no depende de nada mío:
 
 ```
-gfx_v8_0.c   incluye "vid.h" y NINGUN otro header de opcodes
+gfx_v8_0.c   23 includes; de ellos, UN solo header de opcodes: "vid.h"
 sid.h        <- si.c, gfx_v6_0.c, dce_v6_0.c            (SI / GCN1)
 cikd.h       <- gfx_v7_0.c, dce_v8_0.c                  (CIK / GCN3)
 nvd.h        <- gfx_v10_0.c, gfx_v11_0.c, gfx_v12_0.c   (NAVI)
 soc15d.h     <- gfx_v9_0.c, gfx_v11_0.c, gmc_v9_0.c      (Arcturus / MI)
+gfx_v12_1_pkt.h <- gfx_v12_1.c, y SOLO ese             (NAVI 12.1)
 ```
 
 `sid.h` es el header de SI/GCN1, y por eso su numeración va una posición
@@ -3334,11 +3338,36 @@ detrás. Como `gfx_v8_0.c` es el emisor del anillo de GFX de esta placa, `vid.h`
 su tabla **por construcción**. Eso **excluye** el resto, y no es una
 preferencia: son generaciones distintas de ASIC.
 
+### Corroboración independiente, y una corrección que me hace ella
+
+Esto **no es un hallazgo nuevo mío**, y decirlo sería apropiarse de lo que es de
+otro. `tools/rx550ref.c:30` —otra sesión— lleva escrito:
+
+> *"gfx_v8_0.c does not include sid.h; the WAIT_REG_MEM_* fields are not there.
+> It includes vid.h. So a citation of "sid.h:398" for a macro gfx_v8_0.c uses is a
+> citation of a file the code never reads."*
+
+Es la misma regla que yo acababa de aplicar, y su herramienta la implementa de
+forma más general (pregunta *"¿el consumidor incluye de verdad la cabecera que
+gana?"* sobre cualquier símbolo). Mi `cargar_opcodes(fuente=)` hace lo mismo para
+el caso de los opcodes. `EV-35` queda `CORROBORATED`, no `DISCOVERY`.
+
+Y la herramienta ajena **detectó un fallo mío**: `--sym PACKET3_RELEASE_MEM`
+reporta **5** definiciones donde yo tenía **4**. El quinto es
+`gfx_v12_1_pkt.h`, que se me había olvidado en la lista. Corregido: ahora se
+auditan **seis** cabeceras. `tools/pm4census.py` ya lo tenía en su
+`CADENA_HEADERS`, así que era un hueco solo mío.
+
+Lo que **no**Resulta afectado, comprobado: `pm4census.py` no resuelve opcodes
+desde cabeceras —trabaja sobre llamadas `PACKET3(OP, n)`—, así que ni le afecta el
+desplazamiento de `sid.h` ni la contaminación con `__`. Lo comprobé en vez de
+suponerlo.
+
 **LO QUE LA ELECCIÓN DECIDE Y LO QUE NO.** Medido, sobre los 9 opcodes con más
 de un nombre entre generaciones:
 
 - **decide** en `0x5F`, `0x60`, `0x61`, `0x1E`, `0x33`, `0x36`, `0x3A`, `0x74`, `0x7A`
-- **no decide** en `0x49`, `0x58`, `0x79`: los cuatro headers que los definen
+- **no decide** en `0x49`, `0x58`, `0x79`: los cinco headers que los definen
   coinciden en el nombre
 
 O sea: la corrección cubre lo que `sid.h` no podía nombrar **y** evita lo que
@@ -3348,8 +3377,8 @@ nombraba mal, sin que una cosa perjudique a la otra.
 evidencias previas —`0x10` `NOP` con `count = payload − 1`, `0x22` `COND_EXEC`,
 `0x28` `CONTEXT_CONTROL`, `0x37` `WRITE_DATA`, `0x3C` `WAIT_REG_MEM`, `0x3F`
 `INDIRECT_BUFFER` (los 8 IB), `0x47` `EVENT_WRITE_EOP`, `0x8B` `SWITCH_BUFFER`—
-**0 de 8 dependen de la elección de cabecera**: los cinco headers coinciden. En
-particular `0x3F = INDIRECT_BUFFER` coincide en los cinco, así que `EV-29` y
+**0 de 8 dependen de la elección de cabecera**: los headers coinciden. En
+particular `0x3F = INDIRECT_BUFFER` coincide en todos, así que `EV-29` y
 `EV-30` quedan intactas.
 
 **EL FILTRO `__` PESA SOLO EN DOS GENERACIONES.** El generador del ASIC usa `_`
@@ -3357,12 +3386,13 @@ simple para un opcode y `__` doble para un sub-campo, que es la segunda señal d
 `findings/135`:
 
 ```
-cabecera   defines   con "__"   sobre opcode 0x00
-sid.h           74          0                      -
-vid.h           70          0                      -   <-- la de esta GPU
-cikd.h          66          0                      -
-nvd.h          229        109                     28
-soc15d.h       128         58                     17
+cabecera         defines   con "__"   sobre opcode 0x00
+sid.h                 74          0                      -
+vid.h                 70          0                      -   <-- la de esta GPU
+cikd.h                66          0                      -
+nvd.h                229        109                     28
+soc15d.h             128         58                     17
+gfx_v12_1_pkt.h        63          0                      -
 ```
 
 Con `vid.h` el filtro **no hace nada**. Es código defensivo, y lo es porque en
@@ -3389,6 +3419,32 @@ contra `nvd.h`, que es donde el filtro carga el peso.
 - La tabla de `vid.h` es la de GFX8. Para un anillo emitido por un productor de
   NAVI o MI habría que pasar `fuente=` con el `.c` que lo emite, que es lo que
   hace la función.
+
+### `sid.h` a secas es una cita ambigua, y yo la hago
+
+Medido en este árbol: **4** ficheros `sid.h`, y no son el mismo.
+
+```
+amd/amdgpu/sid.h   x3   (baseline, working y kernelbuild: el MISMO fichero)
+radeon/sid.h       x1   OTRO driver, con otros macros en las mismas lineas
+```
+
+`tools/constmap.py` declara `AMBIGUOUS` justo por esto, y su texto dice *"there
+are TEN sid.h files in this tree"*. **Medido aquí son 4**, no 10: el `AMBIGUOUS`
+está bien planteado pero el número de su documentación no se sostiene en este
+árbol. No se corrige `constmap.py` —es de otra sesión y tiene su propio ciclo—,
+así que queda anotado.
+
+**Deuda propia y medida**: cito `sid.h` sin cualificar **65 veces** —24 en este
+fichero, 13 en `TOOLS-STATUS.md` y 28 en `revkit/pm4dec.py`. Casi todas quieren
+decir `drivers/gpu/drm/amd/amdgpu/sid.h`, pero escritas así no lo dicen, y con un
+`radeon/sid.h` en el mismo árbol la cita no es comprobable por un tercero.
+
+**CONVENCIÓN que queda fijada para lo que venga**: `sid.h` a secas solo cuando el
+contexto sea inequívoco; si no, `amdgpu/sid.h` o la ruta completa. No se han
+reescrito las 65 de golpe: son cambios de otra sesión ya escritas y mezcladas con
+contenido suyo, yemasclar eso en un commit sobre opcodes sería ruido. La deuda
+queda declarada y contada, no escondida.
 
 ### Dos etiquetas falsas que también estaban en la salida
 
