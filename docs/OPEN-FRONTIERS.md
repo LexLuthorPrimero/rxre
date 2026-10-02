@@ -156,26 +156,48 @@ VALOR
   siguiendo sus indications de "exige mirarlas"
 ```
 
-## F13 · Qué son los `0x20` de `protected by` en `amdgpu_sa_info`
+## F13 · ¿Qué pone `protected by` en `amdgpu_sa_info`?
 
 ```
-PREGUNTA      `amdgpu_sa_info` vuelca 137 valores distintos en el campo
-              `protected by`. ¿Qué es ese número?
-ESTADO        NOT_IN_CORPUS, no NOT_DETERMINED. La diferencia importa: no es
-              que no se sepa por análisis, es que el código no está
-LO QUE SE SABE
-  que es un contador incremental, no una máscara de bits. Se creyó lo
-  segundo porque los tres primeros valores (1, 3, 2) parecían una rotación
-  de protección. Hay 138 valores, del 1 al 0x8A
-POR QUÉ ES NOT_IN_CORPUS
-  `amdgpu_sa_bo_dump_debug_info` se LLAMA desde `amdgpu_ib.c:491` y no está
-  DEFINIDO en ninguna de las tres raíces del corpus (EV-24). El nodo existe
-  en el driver cargado; su implementación no
-QUÉ LO CERRARÍA
-  el fichero que lo define, o una versión del driver con esa función
-VALOR
-  medio. No es hardware, pero explica el ciclo de vida de los buffers de IB
-  que usa el scheduler
+CERRADA el 2026-10-02. Ver EV-33.
+
+QUÉ PONÍA
+  138 valores distintos en la columna, del 1 al 0x8A. Clasificado
+  `NOT_IN_CORPUS` porque `amdgpu_sa_bo_dump_debug_info` se llama pero no se
+  define en ninguna de las tres raíces
+QUÉ ES
+  `amdgpu_bo::flags`, un `u64` en el offset **0x248** del struct
+LO QUE SE NECESITÓ PARA RESOLVERLA
+  dos cosas, y ninguna estaba en el corpus:
+    1. el BINARIO. `/tmp/amdgpu_loaded.ko` tiene la función en `0x3ff50`, y una
+       instrucción la delata sola: `mov 0x248(%rdi),%rdx`
+    2. la BTF. El `.ko` la trae **partida**, y `pahole` sobre el `.ko` falla con
+       "Malformed BTF string section, did you forget to provide base BTF?". La
+       combinada la expone el kernel en **`/sys/kernel/btf/amdgpu`**, 3.88 MB,
+       legible por todos. Ahí está `struct amdgpu_bo` con el campo en 584
+  es decir: el layout del struct se lee del **kernel en ejecución**, no del
+  corpus. Y el corpus no tiene ni `amdgpu_bo.h` ni `amdgpu_bo.c`
+LO QUE DESCUBRE
+  los valores los eligió **userspace**: son los flags de creación del buffer,
+  los que Mesa o KFD mandaron en `drm_amdgpu_bo_info`
+  y la etiqueta `protected by 0x%016llx` de AMD es **engañosa**: sugiere un
+  estado de protección y no lo es
+LA RETIRADA
+  esta frontera afirmaba "es un contador incremental, no una máscara de bits".
+  Es al revés, y por dos cosas:
+    - es una máscara, y sus valores los puso el usuario
+    - 1, 3 y 2 no son una "rotación de protección": son
+      `CPU_ACCESS_REQUIRED`, los dos juntos, y `NO_CPU_ACCESS`
+LO QUE NO SE CIERRA
+  `EXPLICIT_SYNC` (bit 7) es el único flag de sincronización de los bits bajos,
+  y aparece en el valor más alto de la captura. Si el scheduler usa
+  `bo->flags & EXPLICIT_SYNC` para decidir cómo pasar un IB, esa es la pregunta
+  nueva. No se afirma nada de eso
+LO QUE SÍ QUEDA ESCRITO, PARA NO SOBRAFIAR
+  138 valores distintos en el rango 1..138, con el bit más alto en el 7. Con los
+  7 bits **con nombre** serían 128 combinaciones, luego **el bit 4 también se usa
+  y AMD no le puso nombre**: hueco en su numeración
+  no se afirma que sean todas las combinaciones: son 138 de las 256 del rango
 ```
 
 ## F14 · Cuánta RAM del sistema puede direccionar esta GPU

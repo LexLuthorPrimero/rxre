@@ -2836,6 +2836,115 @@ está en el de PA.
 
 `LAST_VERIFIED: 2026-10-02 - journalctl -k -b, 80 lineas de amdgpu`.
 
+## EV-33 · "protected by" es `bo->flags`, y la etiqueta de AMD engañosa
+
+```
+TYPE    OBSERVATION (binario + BTF) + DERIVATION (significado de los bits)
+STATE   PROVEN
+```
+
+F13 estaba en `NOT_IN_CORPUS`: `amdgpu_sa_bo_dump_debug_info` se llama pero no
+se define en ninguna de las tres raices del corpus. **La funcion esta en el
+modulo cargado**, y el layout del struct tambien.
+
+**1 · Que imprime, por el binario.** `/tmp/amdgpu_loaded.ko`,
+`amdgpu_sa_bo_dump_debug_info` en `0x3ff50`, 129 bytes. La instruccion que lo
+dice es una:
+
+```
+3ff5d:  mov 0x248(%rdi),%rdx      <- rdx = el campo de 64 bits en offset 0x248
+```
+
+despues se monta una `va_list` y se llama a algo con formato. Ese `rdx` es el
+tercer argumento, o sea **el valor que se imprime**.
+
+**2 · Que campo es, por la BTF.** El `.ko` trae BTF, pero **partida**: la seccion
+del modulo no basta y `pahole` responde *"Malformed BTF string section, did you
+forget to provide base BTF?"*. La combinada la expone el kernel en
+**`/sys/kernel/btf/amdgpu`**, 3.88 MB, legible por todos. Con ella:
+
+```
+struct amdgpu_bo {
+        u32               preferred_domains;    /*     0     4 */
+        struct ttm_place  placements[3];        /*     8    48 */
+        struct ttm_buffer_object tbo;            /*    72   480 */
+        struct ttm_bo_kmap_obj  kmap;           /*   552    32 */
+        u64               flags;                /*   584     8 */   <-- 0x248
+        ...
+        /* size: 712 */
+};
+```
+
+`0x248 = 584`. **El campo de "protected by" es `amdgpu_bo::flags`, un `u64`.**
+
+**3 · Que significa, y una RETIRADA**
+
+El corpus lo usa como mascara, sin excepcion:
+
+```
+amdgpu_cs.c:812        bo->flags & AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED
+amdgpu_amdkfd_gpuvm.c  bo->flags |= AMDGPU_AMDKFD_CREATE_USERPTR_BO
+amdgpu_dev_coredump.c  if (abo->flags & AMDGPU_GEM_CREATE_NO_CPU_ACCESS)
+```
+
+Y los bits estan en `include/uapi/drm/amdgpu_drm.h` (raiz `kernelbuild`):
+
+| bit | flag | | bit | flag |
+|---|---|---|---|---|
+| 0 | `CPU_ACCESS_REQUIRED` | | 5 | `VRAM_CONTIGUOUS` |
+| 1 | `NO_CPU_ACCESS` | | 6 | `VM_ALWAYS_VALID` |
+| 2 | `CPU_GTT_USWC` | | 7 | `EXPLICIT_SYNC` |
+| 3 | `VRAM_CLEARED` | | | |
+
+Los valores observados decodifican exactamente:
+
+```
+0x01 = 1    CPU_ACCESS_REQUIRED
+0x02 = 2    NO_CPU_ACCESS
+0x03 = 3    CPU_ACCESS_REQUIRED | NO_CPU_ACCESS
+0x05 = 5    CPU_ACCESS_REQUIRED | CPU_GTT_USWC
+0x08 = 8    VRAM_CLEARED
+0x8A = 138  NO_CPU_ACCESS | VRAM_CLEARED | EXPLICIT_SYNC
+```
+
+**RETIRADA DE LO QUE F13 AFIRMABA.** Decia: *"es un contador incremental, no una
+mascara de bits. Se creyo lo segundo porque los tres primeros valores (1, 3, 2)
+parecian una rotacion de proteccion"*.
+
+Es exactamente al reves, y por dos motivos:
+
+1. **es una mascara**, y lo mas relevante: **sus valores los eligio userspace**.
+   Son los flags de creacion que Mesa o KFD mandaron en
+   `drm_amdgpu_bo_info`. No son un estado del driver
+2. **1, 3 y 2 no son una rotacion**: son `CPU_ACCESS_REQUIRED`, los dos juntos, y
+   `NO_CPU_ACCESS`. El patron que se vio era el de las combinaciones de los
+   tres primeros bits
+
+**Y la etiqueta de AMD es engañosa.** `protected by 0x%016llx` sugiere un estado
+de proteccion y no lo es: imprime los flags con los que **el usuario creo** el
+buffer. Quien lea ese nodo sin saberlo concluirá lo contrario de lo que dice.
+
+**LO QUE NO SE AFIRMA, Y SE DICE**
+
+Se observan **138 valores distintos en el rango 1..138**, y el bit mas alto que
+aparece es el 7. Con los 7 bits **con nombre** serian 128 combinaciones
+posibles, luego **el bit 4 tambien se usa y AMD no le puso nombre**: es un hueco
+en su numeracion, no un flag nuestro. De ahi que 138 quepa.
+
+No se afirma que las 138 sean todas las combinaciones: son 138 de las 256 del
+rango, y cuales dependen de lo que pidio cada asignacion.
+
+**LO QUE ESTO ABRE, Y NO ESTA CERRADO**
+
+`EXPLICIT_SYNC` (bit 7) es el unico flag de sincronizacion de los bits bajos, y
+es precisamente el que aparece en el valor mas alto de la captura. Si el nodo
+etiqueta "protected by" y hay un flag de sync ahi, la pregunta sensata es si el
+scheduler usa `bo->flags & EXPLICIT_SYNC` para decidir como pasarlo. Eso **no**
+esta cerrado y no se afirma.
+
+`LAST_VERIFIED: 2026-10-02 - .ko 0x3ff50, /sys/kernel/btf/amdgpu via pahole,
+amdgpu_drm.h, captura de revkit/capturas/amdgpu_sa_info.txt`.
+
 ## EV-18 · El anillo GFX tiene 2048 dwords y estaba vacío
 
 ```

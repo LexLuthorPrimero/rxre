@@ -585,6 +585,38 @@ def main():
         _PTE.PTE_ADDR_MASK_GFX8 == 0x000000FFFFFFF000,
         "(constante=0x%016x)" % _PTE.PTE_ADDR_MASK_GFX8)
 
+    # --- F13: "protected by" es amdgpu_bo::flags en el offset 0x248
+    #
+    # Depende de dos cosas externas: /tmp/amdgpu_loaded.ko y
+    # /sys/kernel/btf/amdgpu. Por eso es OMIT y no FALLA cuando no estan: son
+    # dependencias legitimas, como el corpus lo es para pm4dec.
+    import subprocess as _sb
+    import re as _re7
+    _KO7 = "/tmp/amdgpu_loaded.ko"
+    _BTF7 = "/sys/kernel/btf/amdgpu"
+    if os.path.exists(_KO7):
+        _d7 = _sb.run(["objdump", "-d", "--disassemble="
+                       "amdgpu_sa_bo_dump_debug_info", _KO7],
+                      capture_output=True, text=True)
+        chk("F13: la funcion carga el campo en el offset 0x248",
+            "248(%rdi)" in _d7.stdout,
+            "(objdump rc=%d)" % _d7.returncode)
+    else:
+        print("  OMIT  sin /tmp/amdgpu_loaded.ko no se comprueba el offset "
+              "de F13")
+    if os.path.exists(_BTF7) and _sb.run(["command", "-v", "pahole"],
+                                          capture_output=True).returncode == 0:
+        _p7 = _sb.run(["pahole", "-C", "amdgpu_bo", _BTF7],
+                      capture_output=True, text=True)
+        _m7 = _re7.search(r"u64\s+flags;\s+/\*\s*(\d+)\s+(\d+)\s*\*/",
+                          _p7.stdout)
+        chk("F13: en la BTF, flags esta en el offset 584 = 0x248",
+            _m7 is not None and int(_m7.group(1)) == 0x248,
+            "(encontrado=%s)" % (_m7.group(1) if _m7 else None,))
+    else:
+        print("  OMIT  sin /sys/kernel/btf/amdgpu o pahole no se comprueba "
+              "el layout del struct")
+
     # --- la convergencia de 5 vias sobre el vm_flush
     #
     # Es el dato con mas fuentes independientes de toda la sesion. Si una via
