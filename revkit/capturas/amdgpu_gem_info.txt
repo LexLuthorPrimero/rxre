@@ -1,0 +1,62 @@
+pid     1705 command sway:
+		0x00000001:      4325376 byte GTT pin count 1 exported as ino:19 CPU_ACCESS_REQUIRED CPU_GTT_USWC VRAM_CLEARED	write fence:419:39857   signalled
+	read fence:3:39747   signalled
+
+		0x00000002:        16384 byte GTT pin count 1 exported as ino:21 CPU_ACCESS_REQUIRED CPU_GTT_USWC VRAM_CLEARED	read fence:3:337   signalled
+
+		0x00000003:        16384 byte GTT pin count 1 exported as ino:24 CPU_ACCESS_REQUIRED CPU_GTT_USWC VRAM_CLEARED	read fence:3:270   signalled
+	kernel fence:284:12   signalled
+
+pid     1705 command sway:
+pid     1705 command sway:
+pid     1705 command sway:
+		0x00000001:         4096 byte GTT CPU_ACCESS_REQUIRED VRAM_CLEARED	write fence:419:39858   signalled
+
+		0x00000002:      2097152 byte VRAM NO_CPU_ACCESS CPU_GTT_USWC VRAM_CLEARED	write fence:419:39858   signalled
+
+		0x00000003:      2097152 byte GTT CPU_ACCESS_REQUIRED VRAM_CLEARED	write fence:419:39858   signalled
+	write fence:419:10   signalled
+
+		0x00000004:      2097152 byte VRAM VISIBLE CPU_GTT_USWC VRAM_CLEARED	write fence:419:39858   signalled
+	write fence:419:10   signalled
+
+		0x00000005:      4325376 byte GTT pin count 1 exported as ino:19 CPU_ACCESS_REQUIRED CPU_GTT_USWC VRAM_CLEARED	write fence:419:39857   signalled
+	read fence:3:39747   signalled
+
+		0x00000006:         4096 byte GTT CPU_ACCESS_REQUIRED VRAM_CLEARED
+		0x00000007:      2097152 byte VRAM VISIBLE CPU_ACCESS_REQUIRED CPU_GTT_USWC VRAM_CLEARED	write fence:419:39858   signalled
+
+		0x00000008:      2097152 byte GTT CPU_ACCESS_REQUIRED CPU_GTT_USWC VRAM_CLEARED	write fence:419:3414   signalled
+	write fence:419:10   signalled
+
+		0x00000009:      2097152 byte VRAM NO_CPU_ACCESS CPU_GTT_USWC VRAM_CLEARED	write fence:419:39858   signalled
+	write fence:419:10   signalled
+
+		0x0000000a:         4096 byte GTT CPU_ACCESS_REQUIRED VRAM_CLEARED	write fence:417:11   signalled
+
+		0x0000000b:      2097152 byte VRAM NO_CPU_ACCESS CPU_GTT_USWC VRAM_CLEARED	write fence:419:102   signalled
+
+		0x0000000c:      2097152 byte GTT CPU_ACCESS_REQUIRED CPU_GTT_USWC VRAM_CLEARED	write fence:419:39858   signalled
+
+		0x0000000d:        16384 byte GTT pin count 1 exported as ino:21 CPU_ACCESS_REQUIRED CPU_GTT_USWC VRAM_CLEARED	read fence:3:337   signalled
+
+		0x0000000e:      2097152 byte VRAM NO_CPU_ACCESS CPU_GTT_USWC VRAM_CLEARED	write fence:419:39785   signalled
+
+		0x0000000f:      4345856 byte VRAM NO_CPU_ACCESS CPU_GTT_USWC VRAM_CLEARED	write fence:419:10   signalled
+
+		0x00000010:         4096 byte GTT CPU_ACCESS_REQUIRED VRAM_CLEARED	write fence:426:3   signalled
+
+		0x00000011:      2097152 byte GTT CPU_ACCESS_REQUIRED CPU_GTT_USWC VRAM_CLEARED	write fence:419:39836   signalled
+
+		0x00000012:      2097152 byte VRAM VISIBLE NO_CPU_ACCESS CPU_GTT_USWC VRAM_CLEARED	write fence:419:39542   signalled
+	write fence:419:108   signalled
+
+		0x00000013:      4345856 byte VRAM VISIBLE NO_CPU_ACCESS CPU_GTT_USWC VRAM_CLEARED	write fence:419:39858   signalled
+	write fence:426:3   signalled
+
+		0x00000015:        16384 byte GTT pin count 1 exported as ino:24 CPU_ACCESS_REQUIRED CPU_GTT_USWC VRAM_CLEARED	read fence:3:270   signalled
+	kernel fence:284:12   signalled
+
+		0x0000001a:      2097152 byte GTT CPU_ACCESS_REQUIRED CPU_GTT_USWC VRAM_CLEARED	write fence:419:39858   signalled
+
+pid     1020 command systemd-logind:

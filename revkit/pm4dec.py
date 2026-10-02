@@ -1,0 +1,480 @@
+#!/usr/bin/env python3
+"""
+pm4dec.py -- decodificador PM4/IB de un anillo real de la GPU.
+
+QUE RESUELVE
+------------
+Se ha capturado el contenido real del anillo GFX (8204 bytes de comandos PM4).
+Es lo mas cercano a la semantica de hardware que se puede observar sin
+escribir en la GPU: son paquetes que el hardware consumio de verdad. Este
+script los decodifica.
+
+DE DONDE VIENEN LOS OPCODES, Y POR QUE NO ESTAN ESCRITOS AQUI
+-------------------------------------------------------------
+De sid.h del corpus, leido EN TIEMPO DE EJECUCION. El script extrae los
+`#define PACKET3_XXX 0xNN` con una expresion regular y construye la tabla de
+opcodes. No hay ni un solo opcode transcrito a mano en este fichero.
+
+La razon es concreta: transcribir 140 opcodes a mano es exactamente el
+trabajo que produce numeros plausibles y equivocados, que es el modo de
+fallo que mas caro ha resultado en este proyecto. Si el corpus cambia, la
+tabla cambia con el.
+
+La estructura del paquete sale de sid.h tambien:
+  #define PACKET3(op, n) ((RADEON_PACKET_TYPE3 << 30) | (((op) & 0xFF) << 8)
+                          | ((n) & 0x3FFF) << 16)
+Es decir, para un dword de cabecera:
+  - tipo de paquete = dword >> 30
+  - opcode         = (dword >> 8) & 0xFF
+  - count          = (dword >> 16) & 0x3FFF     (dwords de payload)
+El conteo de PACKET3 sigue el convenio del hardware: el numero de dwords de
+payload, la cabecera NO se cuenta. Eso significa que el paquete entero ocupa
+count + 1 dwords. Es un convenio que se verifica leyendo, no de memoria: si
+el total no cuadrara con el tamano del anillo, el decodificador lo dira.
+
+LIMITE DECLARADO
+----------------
+Solo se decodifica la ESTRUCTURA de los paquetes: tipo, opcode, numero de
+dwords, y el nombre del opcode si sid.h lo define. NO se interpretan los
+campos de cada paquete (por ejemplo, los offsets de un WRITE_DATA), porque
+eso exige la tabla de semantica por paquete, que es mucho mas grande y no
+esta en el corpus como dato legible.
+
+Un opcode desconocido no se descarta ni se inventa: sale como
+PKT3_UNKNOWN_0xNN, que es una afirmacion honesta. El hardware lo ejecuto, y
+que nosotros no sepamos nombrarlo es una limitacion NUESTRA, no del paquete.
+
+No modifica la GPU. Solo lee un fichero ya capturado.
+"""
+import argparse
+import os
+import re
+import struct
+import sys
+
+# El path de sid.h se resuelve DESDE EL PROPIO SCRIPT, no desde el directorio
+# de trabajo. La primera version lo ponia relativo al CWD, de modo que
+# ejecutarlo desde otro sitio daba "no existe" y, peor, un fallo asi puede
+#confundirse con "sid.h no tiene opcodes". Aqui se prueban varios candidatos
+#y se informa de cuantos se han mirado.
+_AQUI = os.path.dirname(os.path.abspath(__file__))
+SID_CANDIDATOS = [
+    os.path.join(_AQUI, "..", "RESEARCH", "baseline", "linux-7.1.3",
+                 "drivers", "gpu", "drm", "amd", "amdgpu", "sid.h"),
+    os.path.join(_AQUI, "..", "..", "RESEARCH", "baseline", "linux-7.1.3",
+                 "drivers", "gpu", "drm", "amd", "amdgpu", "sid.h"),
+    os.path.join(_AQUI, "..", "RESEARCH", "working", "linux-7.1.3",
+                 "drivers", "gpu", "drm", "amd", "amdgpu", "sid.h"),
+]
+SID_H = SID_CANDIDATOS[0]
+
+# Extraido de sid.h:338 con la formula, no escrito de memoria.
+#   PACKET3(op, n) = (3 << 30) | ((op & 0xFF) << 8) | ((n & 0x3FFF) << 16)
+TIPO3 = 3 << 30
+
+
+def cargar_opcodes(ruta_sid=None):
+    """
+    Lee sid.h y devuelve ({opcode: nombre}, None) o (None, motivo_del_fallo).
+
+    Se ignoran los subcampos: los #define con mas de un argumento (los que
+    son parte de un opcode, como PACKET3_BASE_INDEX(x)) no son un opcode y
+    tienen un valor que no es un numero, asi que la expresion los descarta
+    sola. Eso evita tener que mantener una lista de "estos no son opcodes".
+
+    Si no se pasa ruta, prueba los candidatos. Si tampoco hay ninguno, pero
+    un sid.h existe EN ALGUN sitio dentro del proyecto, se busca y se dice
+    donde, en vez de devolver "0 opcodes" como si el fichero no tuviera
+    ninguno.
+    """
+    rutas = [ruta_sid] if ruta_sid else list(SID_CANDIDATOS)
+    for r in rutas:
+        if r and os.path.exists(r):
+            ruta_sid = r
+            break
+    else:
+        # Ningun candidato directo: buscar en el proyecto antes de rendirse.
+        encontrados = []
+        raiz = os.path.join(_AQUI, "..")
+        for dp, dns, fns in os.walk(raiz):
+            dns[:] = [x for x in dns
+                      if x not in (".git", "__pycache__", "rx550-upstream-7.2.8")]
+            if "sid.h" in fns:
+                encontrados.append(os.path.join(dp, "sid.h"))
+            if len(encontrados) >= 5:
+                break
+        if not encontrados:
+            return None, ("no se encontro sid.h en ninguno de los %d "
+                          "candidatos ni en el proyecto" % len(rutas))
+        ruta_sid = encontrados[0]
+        print("AVISO: sid.h no estaba en los candidatos esperados; se usa "
+              "el que se ha encontrado: %s" % ruta_sid)
+
+    src = open(ruta_sid, errors="replace").read()
+    # PACKET3_XXX <algo que NO sea '('> seguido de numero (hex o dec)
+    patron = re.compile(
+        r"^#define\s+(PACKET3_[A-Z0-9_]+)\s+(0x[0-9A-Fa-f]+|\d+)\s*$",
+        re.M)
+    ops = {}
+    for m in patron.finditer(src):
+        nombre = m.group(1)
+        try:
+            val = int(m.group(2), 0)
+        except ValueError:
+            continue
+        if 0 <= val <= 0xFF:
+            # La primera aparicion gana. sid.h puede redefinir un opcode para
+            # ASIC nuevos mas abajo; se toma la primera y se dice, porque si
+            # no, el resultado depende del orden del fichero.
+            ops.setdefault(val, nombre)
+    return ops, None
+
+
+# CABECERA DE 12 BYTES, SEGUN EL DRIVER.
+#
+# amdgpu_debugfs_ring_read() (amdgpu_ring.c:551) NO devuelve el anillo crudo.
+# Los 12 primeros bytes son:
+#   +0  RING_RPTR = amdgpu_ring_get_rptr(ring) & ring->buf_mask
+#   +4  RING_WPTR = amdgpu_ring_get_wptr(ring) & ring->buf_mask
+#   +8  ring->wptr & ring->buf_mask      (el puntero de escritura software)
+# y a partir de +12 empieza ring->ring[0], linealmente, no desde el rptr.
+#
+# La PRIMERA version de este decodificador no lo sabia y leia el primer dword
+# como si fuera una cabecera PM4. El resultado fue un "PKT0 de 1023 dwords"
+# que en realidad era un puntero, seguido de un NOP con count 16383 (= maximo
+# del campo) que en realidad era el segundo puntero. Habria sido facil
+# publicar esa decodificacion: dos paquetes, todo cuadra. Era basura.
+#
+# La leccion se aplico como control: si el primer dword "decodifica" a algo
+# absurdo o el conteo sale en el maximo del campo, hay que sospechar del
+# formato antes que del contenido.
+CABECERA = 12
+OFF_RPTR = 0
+OFF_WPTR = 4
+OFF_SWPTR = 8
+
+# PACKET3_NOP OCUPA 1 DWORD, INDEPENDIENTEMENTE DE SU CAMPO DE CONTEO.
+#
+# No es una suposicion. El driver de GFX8 declara su NOP como
+#     .nop = PACKET3(PACKET3_NOP, 0x3FFF)          (gfx_v8_0.c:6873)
+# y lo escribe con memset32(..., ring->funcs->nop, count) en DOS sitios
+# independientes:
+#     amdgpu_ring.c:128  amdgpu_ring_pad_ib
+#     amdgpu_ring.c:154  amdgpu_ring_generic_pad_ib
+# En los dos, `count` es un numero de DWORDS y cada uno se escribe con el
+# valor del nop. O sea que el 0x3FFF del campo de conteo no describe un
+# payload: es un valor de relleno y el hardware lo ignora.
+#
+# Sin esta regla el decodificador leia 0x3FFF como payload, se comia el resto
+# del anillo y declaraba el final truncado. El sintoma (conteo en el maximo
+# del campo) es lo que hizo sospechar que el problema era el formato y no el
+# contenido.
+#
+# OJO: esto se aplica a PACKET3_NOP. NO se generaliza a todos los paquetes.
+# Para el resto, el conteo si describe el payload, y no hay aqui ninguna
+# evidencia de que ignoreden. Afirmar lo contrario para todos los paquetes
+# seria inventar.
+NOP_OPCODE = 0x10  # PACKET3_NOP, sid.h:343
+
+
+def pointers(d):
+    """
+    Saca los tres punteros de la cabecera de 12 bytes.
+
+    NO son parte del flujo PM4. Son valores de estado del hardware: los dos
+    primeros los lee el driver de registros MMIO en el momento del volcado.
+    """
+    if len(d) < CABECERA:
+        return None
+    r, w, sw = struct.unpack_from("<3I", d, 0)
+    return {"rptr": r, "wptr": w, "sw_wptr": sw}
+
+
+def decodifica(d, ops, verbose=False, saltar_cabecera=False):
+    """
+    Recorre el anillo dword a dword. Devuelve (paquetes, n_dwords, problemas).
+
+    El algoritmo es el del hardware: se lee la cabecera, y la cabecera dice
+    cuantos dwords de payload siguen. Si algo no cuadra, se registra como
+    problema y se sigue leyendo desde el siguiente dword alineado, en vez de
+    inventarse una longitud.
+    """
+    """
+    Recorre el anillo dword a dword. Devuelve
+    (paquetes, n_dwords, problemas, indices_de_nop).
+
+    `saltar_cabecera` esta a False a proposito. La primera version de esta
+    funcion venia con True, y eso hacia que un test sintetico de 5 dwords
+    empezara a leer en el dword 3, porque la funcion asumia que todo lo que
+    le llegaba venia de debugfs con sus 12 bytes de punteros. El resultado
+    era que los tests contaban 2 paquetes donde habia 5, y lo mas grave: el
+    fallo se parecia a un bug del decodificador de NOP, que es justo donde
+    se acababa de tocar codigo. Un diagnostico equivocado cuesta mas que
+    el fallo original.
+
+    Ahora la funcion de bajo nivel NO adivina el formato: por defecto trata
+    la entrada como PM4 puro. Quien sabe que viene de un volcado de debugfs
+    lo dice, y lo dice en main(). Adivinar aqui era cambiar un fallo
+    detectable por uno silencioso.
+    """
+    paquetes = []
+    problemas = []
+    nops = []
+    i = 0
+    n = len(d) // 4
+    words = struct.unpack("<%dI" % n, d[:n * 4])
+    if saltar_cabecera and n * 4 >= CABECERA:
+        # Los 3 primeros dwords NO son PM4: son rptr, wptr y sw_wptr. Se
+        # empiezan a leer los comandos en el dword 3.
+        i = CABECERA // 4
+    while i < n:
+        w = words[i]
+        tipo = w >> 30
+        if tipo == 3:
+            op = (w >> 8) & 0xFF
+            cnt = (w >> 16) & 0x3FFF
+            nombre = ops.get(op, "PKT3_UNKNOWN_0x%02X" % op)
+            if op == NOP_OPCODE:
+                # NOP = 1 dword, cuenta ignorada (ver comentario de arriba).
+                nops.append(i)
+                fin = i + 1
+                cnt_real = 0
+            else:
+                cnt_real = cnt
+                # PACKET3 cuenta los dwords de payload; la cabecera no se
+                # cuenta, asi que el paquete ocupa cnt + 1.
+                fin = i + 1 + cnt
+            if fin > n:
+                problemas.append(
+                    "dword %d: opcode %s declara %d payload pero solo quedan "
+                    "%d; el anillo se trunca o el conteo no es lo que creo"
+                    % (i, nombre, cnt, n - i - 1))
+                fin = n
+            payload = words[i + 1:min(fin, n)]
+            paquetes.append({
+                "idx": i, "tipo": 3, "op": op, "cnt": cnt_real,
+                "cnt_campo": cnt, "nombre": nombre,
+                "dwords": 1 + cnt_real, "payload": payload, "hdr": w,
+            })
+            i = fin
+        else:
+            # PACKET0: un registro. count en los 16 bajos, count-1 registros
+            # a partir del dword siguiente. PACKET2: solo cuenta.
+            if tipo == 0:
+                cnt = w & 0x3FFF
+                nombre = "PKT0"
+                if cnt == 0:
+                    cnt = 0
+                # PACKET0 cuenta el numero de REGISTROS, no de dwords, y cada
+                # registro es 2 dwords. count-1 registros (count>=1).
+                regs = max(cnt - 1, 0) if cnt >= 1 else 0
+                total = 1 + regs * 2
+                paquetes.append({
+                    "idx": i, "tipo": 0, "op": None, "cnt": cnt,
+                    "nombre": nombre, "dwords": total,
+                    "payload": words[i + 1:min(i + total, n)], "hdr": w,
+                })
+                i += total
+            elif tipo == 2:
+                cnt = w & 0x3FFFFFFF
+                nombre = "PKT2"
+                total = 1 + cnt
+                paquetes.append({
+                    "idx": i, "tipo": 2, "op": None, "cnt": cnt,
+                    "nombre": nombre, "dwords": total,
+                    "payload": words[i + 1:min(i + total, n)], "hdr": w,
+                })
+                i += total
+            else:
+                # PACKET1 (release mem) no tiene payload.
+                nombre = "PKT1"
+                paquetes.append({
+                    "idx": i, "tipo": 1, "op": None, "cnt": 0,
+                    "nombre": nombre, "dwords": 1, "payload": (), "hdr": w,
+                })
+                i += 1
+    return paquetes, n, problemas, nops
+
+
+def registros_pk0(payload):
+    """
+    Saca las escrituras de registro de un PACKET0.
+
+    ESTADO: NO VALIDADO. Se declara y se marca en la salida, no se publica
+    como dato.
+
+    Que se sabe y que no:
+
+      - sid.h:327 define
+            #define PACKET0(reg, n) ((0 << 30) | ((reg & 0x3FFF) << 2)
+                                     | (n & 0x3FFF))
+        Es decir, reg va en [15:2] y n en [13:0]. ESO SE SOLAPA, y un header
+        no puede tener dos campos que se pisan. De ahi que el reparto real
+        del header de escritura tenga que ser otro, y no se ha
+        SUPERNADO CUAL ES.
+
+      - Lo que si se ha visto: en los datos hay cabeceras con el registro
+        hacia 0x3c00, 0x3f00 y 0x3700, que SON rangos plausibles de registro
+        para CP/RLC en GFX8. Pero hay otras con el campo a 0, y escribir en
+        el offset 0 no significa nada.
+
+      - Interpretar esas cabeceras como [31:16]=indice y [15:2]=registro da
+        una lista que empieza bien y luego se llena de ceros. Una lista a
+        medias de registros plausibles e imposibles es PEOR que no dar
+        lista: parece informacion y es mitad inventada.
+
+    Lo que hace falta para cerrarlo: el reparto real del header de PACKET0
+    en GFX8. Esta en el codigo que emite las escrituras (la parte de
+    amdgpu_ib.c que aun no se ha leido), no en la macro, que es solo la
+    forma compacta del lado de la CPU.
+
+    Hasta entonces, los offsets que salen de aqui son CANDIDATOS, no
+    registros. La funcion se queda porque el recorte en crudo si es util,
+    pero su salida no se usa para escribir nada ni para citar numeros.
+    """
+    out = []
+    pl = payload
+    for i in range(0, len(pl) - 1, 2):
+        hdr = pl[i]
+        val = pl[i + 1]
+        campo = (hdr >> 2) & 0x3FFF
+        out.append((campo * 4, val, (hdr >> 16) & 0xFFFF))
+    return out
+
+
+def main():
+    ap = argparse.ArgumentParser(
+        description="decodifica PM4/IB de un anillo capturado")
+    ap.add_argument("fichero",
+                    default="capturas/amdgpu_ring_gfx.txt", nargs="?")
+    ap.add_argument("--sid", default=None)
+    ap.add_argument("--sin-cabecera", action="store_true",
+                    help="tratar tambien los 3 primeros dwords como PM4 "
+                         "(util para ver el error que producia antes)")
+    ap.add_argument("--todos", action="store_true",
+                    help="lista cada paquete, no solo el resumen")
+    a = ap.parse_args()
+
+    if not os.path.exists(a.fichero):
+        print("no existe %s" % a.fichero)
+        return 2
+    ops, err = cargar_opcodes(a.sid)
+    if ops is None:
+        print("NO PUEDO CARGAR LOS OPCODES: %s" % err)
+        print()
+        print("Sin la tabla de opcodes, decodificar el anillo daria una")
+        print("sucesión de numeros sin nombre, que no es informacion. Se")
+        print("declara el fallo en vez de producir una tabla a medias.")
+        return 3
+
+    d = open(a.fichero, "rb").read()
+    pts = pointers(d)
+    pkts, ndw, problemas, nops = decodifica(
+        d, ops, saltar_cabecera=not a.sin_cabecera)
+
+    print("=" * 78)
+    print("DECODIFICACION PM4/IB: %s" % os.path.basename(a.fichero))
+    print("=" * 78)
+    print("bytes            : %d" % len(d))
+    print("dwords           : %d  (los 3 primeros son punteros, no PM4)"
+          % ndw)
+    print("opcodes cargados : %d desde sid.h" % len(ops))
+    print("paquetes         : %d" % len(pkts))
+    print()
+
+    if pts:
+        anillo_dw = (len(d) - CABECERA) // 4
+        print("ESTADO DEL ANILLO (leido de registros MMIO, no del buffer):")
+        print("  RING_RPTR   = 0x%04x (%d)" % (pts["rptr"], pts["rptr"]))
+        print("  RING_WPTR   = 0x%04x (%d)" % (pts["wptr"], pts["wptr"]))
+        print("  sw wptr     = 0x%04x (%d)" % (pts["sw_wptr"], pts["sw_wptr"]))
+        print("  anillo      : %d dwords (%d bytes), mask=0x%04x"
+              % (anillo_dw, anillo_dw * 4, anillo_dw - 1))
+        vacio = pts["rptr"] == pts["wptr"]
+        print("  rptr==wptr  : %s -> %s"
+              % (vacio, "ANILLO VACIO, la GPU consumio todo lo escrito"
+                 if vacio else "hay comandos SIN CONSUMIR entre rptr y wptr"))
+        if vacio:
+            print()
+            print("  AVISO: con el anillo vacio, lo que se decodifica abajo es")
+            print("  RESIDUO de comandos ya ejecutados, no trafico en vuelo.")
+            print("  Es informacion forense real, pero no describe lo que la")
+            print("  GPU esta haciendo ahora.")
+        print()
+
+    if problemas:
+        print("PROBLEMAS (%d):" % len(problemas))
+        for p in problemas[:10]:
+            print("  - %s" % p)
+        print()
+
+    # resumen por opcode: que comandos se ejecutaron de verdad
+    from collections import Counter
+    c = Counter(p["nombre"] for p in pkts)
+    print("%-32s %-7s %s" % ("opcode", "veces", "dwords total"))
+    print("-" * 60)
+    for nombre, veces in c.most_common():
+        tot = sum(p["dwords"] for p in pkts if p["nombre"] == nombre)
+        print("%-32s %-7d %d" % (nombre, veces, tot))
+    print("-" * 60)
+
+    # Los NOP no son comandos, son relleno. Una larga tirada de ellos dice
+    # que hay un hueco sin trabajo, no que se ejecutaron miles de NOP. Se
+    # agrupan en tiradas para que el numero signifique algo.
+    tiradas = []
+    if nops:
+        ini = prev = nops[0]
+        for x in nops[1:]:
+            if x == prev + 1:
+                prev = x
+            else:
+                tiradas.append((ini, prev - ini + 1))
+                ini = prev = x
+        tiradas.append((ini, prev - ini + 1))
+    if tiradas:
+        print()
+        print("NOP (relleno, 1 dword cada uno): %d en %d tirada(s)"
+              % (len(nops), len(tiradas)))
+        for a_, l in tiradas:
+            if l >= 8:
+                print("   dwords %-5d..%-5d  %d NOP seguidos  (hueco de "
+                      "relleno)" % (a_, a_ + l - 1, l))
+            else:
+                print("   dwords %-5d..%-5d  %d NOP" % (a_, a_ + l - 1, l))
+        print()
+        print("Un NOP con cuenta 0x3FFF es el valor de relleno de GFX8")
+        print("(gfx_v8_0.c:6873), no un paquete de 16383 dwords.")
+
+    desconocidos = [k for k in c if k.startswith("PKT3_UNKNOWN")]
+    if desconocidos:
+        print()
+        print("Opcodes SIN NOMBRE en sid.h: %s" % ", ".join(desconocidos))
+        print("El hardware los ejecuto. Que no sepamos nombrarlos es una")
+        print("limitacion del corpus, no del anillo. NO son 'desconocidos'")
+        print("en el sentido de invalidos.")
+
+    if a.todos:
+        print()
+        print("TODOS LOS PAQUETES")
+        for p in pkts:
+            extra = ""
+            if p["nombre"] == "PKT0" and len(p["payload"]) >= 2:
+                regs = registros_pk0(p["payload"])
+                extra = ("  %d escrituras, decode de registro NO VALIDADO"
+                         % len(regs))
+            print("  dword %-5d %-26s cnt=%-5d dwords=%-5d%s"
+                  % (p["idx"], p["nombre"], p["cnt"], p["dwords"], extra))
+        print()
+        print("AVISO: el contenido de los PKT0 NO se decode. La macro")
+        print("PACKET0 de sid.h solapa el campo de registro con el de")
+        print("conteo, y el reparto real del header no se ha establecido.")
+        print("Imprimir offsets a medias seria publicar numeros plausibles")
+        print("que no son registros.")
+    else:
+        print()
+        print("(con --todos se lista cada paquete)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

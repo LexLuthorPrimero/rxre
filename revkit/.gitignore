@@ -1,0 +1,11 @@
+# Artefactos de captura de hardware.
+#
+# NO se versiona amdgpu_vbios.txt: es el firmware con derechos de AMD, leido
+# de la GPU. Lo que se versiona es su sha256, en HALLAZGOS-2026-10-02.md, para
+# que cualquiera pueda comprobar que el analisis se hizo sobre ESE ROM y no
+# sobre otro. El binario se recupera con:
+#     RX550_SUDO_PASS=... python3 captura.py
+#
+# Los .err son la salida de error de cada nodo, no evidencia: se ignoran.
+capturas/*.err
+capturas/amdgpu_vbios.txt

@@ -115,6 +115,65 @@ if [ -d "$BTFQ" ]; then
 fi
 echo
 
+# --- herramientas de observacion y de VBIOS -------------------------------
+#
+# Se anaden con fecha 2026-10-02, tras ganar acceso root al debugfs.
+#
+# autotest de integro: tiene que poder detectar su propia mutacion, y se
+# comprueba con mutaciones reales fuera de este script (ver el historial).
+# Si algun dia el detector se rompe, este control falla y no se puede usar
+# la herramienta como autoridad.
+echo "--- integridad y VBIOS (nuevas) ---"
+run "integro: autotest (detector de corrupcion)"  python3 integro.py autotest
+# cn7 depende de sid.h, que vive en el corpus del kernel, no en revkit. En un
+# clon sin corpus devuelve 2 (OMITIDO), que NO es lo mismo que fallar. Se
+# distingue aqui para que una dependencia ausente no se reporte como una
+# herramienta rota: confundiendolas es como un 0 que parece un 1.
+cn7_out=$(python3 cn7.py 2>&1); cn7_rc=$?
+if [ "$cn7_rc" -eq 0 ]; then
+    RESULTADOS+=("OK    cn7: controles de pm4dec")
+    printf '  %-46s OK\n' "cn7: controles de pm4dec"
+elif [ "$cn7_rc" -eq 2 ]; then
+    RESULTADOS+=("OMIT  cn7: controles de pm4dec (sin corpus)")
+    printf '  %-46s OMITIDO (falta sid.h)\n' "cn7: controles de pm4dec"
+    echo "$cn7_out" | head -1 | sed 's/^/       /'
+else
+    fallos=$((fallos+1))
+    RESULTADOS+=("FALLO cn7: controles de pm4dec (rc=$cn7_rc)")
+    printf '  %-46s FALLO rc=%d\n' "cn7: controles de pm4dec" "$cn7_rc"
+    echo "$cn7_out" | head -20 | sed 's/^/       /'
+fi
+# atomrom se valida con un ROM SINTETICO, no con el VBIOS real. El VBIOS es
+# firmware con derechos y no esta versionado, asi que una validacion que
+# dependiera de el fallaria en un clon limpio. El autotest ademas comprueba
+# que el validador RECHAZA las corrupciones, que con el fichero real no se
+# puede hacer.
+run "atomrom: autotest (ROM sintetico)"          python3 atomrom.py autotest
+# Y luego, si el VBIOS esta disponible en esta maquina, se valida el de verdad.
+if [ -f capturas/amdgpu_vbios.txt ]; then
+    run "atomrom: validar el VBIOS real"            python3 atomrom.py rom capturas/amdgpu_vbios.txt
+    run "atomrom: inventariar tablas"              python3 atomrom.py tablas capturas/amdgpu_vbios.txt
+else
+    echo "  atomrom: VBIOS real ausente (no versionado)     OMITIDO, el"
+    echo "           autotest con ROM sintetico ya valida el"
+    echo "           parser. Para el real: captura.py"
+fi
+echo
+
+# el plan de captura debe ser coherente, pero su ejecucion pide sudo, asi que
+# aqui SOLO se comprueba la coherencia, sin leer la GPU.
+echo "--- coherencia del plan de captura (sin sudo) ---"
+if python3 -c "import captura,sys; f=captura.check_captura(); sys.exit(1 if f else 0)" 2>/dev/null; then
+    RESULTADOS+=("OK    captura: plan coherente")
+    printf '  %-46s OK\n' "captura: plan coherente (sin sudo)"
+else
+    fallos=$((fallos+1))
+    RESULTADOS+=("FALLO captura: plan incoherente")
+    printf '  %-46s FALLO\n' "captura: plan incoherente"
+    python3 -c "import captura; [print('       -',f) for f in captura.check_captura()]"
+fi
+echo
+
 echo "=== resultado ==="
 for r in "${RESULTADOS[@]}"; do echo "  $r"; done
 echo
