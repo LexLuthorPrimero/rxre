@@ -8,7 +8,7 @@
 
 ## Cuestión principal
 
-`190` destapó que esta placa registra `uvd_v6_3` y `vce_v3_4`, y `191` revelo que sus
+`198` destapó que esta placa registra `uvd_v6_3` y `vce_v3_4`, y `191` revelo que sus
 tablas de función tienen 17 y 16 campos. El nombre del bloque sugiere un fichero
 `uvd_v6_3.c` y `vce_v3_4.c`.
 
@@ -85,7 +85,7 @@ const struct amdgpu_ip_block_version vce_v3_4_ip_block = {
 es completamente legible.** Los "ficheros que faltan" eran el Equivalente de buscar
 `gfx_v8_1.c` en una placa donde el bloque se llama `gfx_v8_0`.
 
-Esto es la misma lección de `144` y `156`, aplicada a un caso nuevo: **un grep sobre
+Esto es la misma lección de `231` y `232`, aplicada a un caso nuevo: **un grep sobre
 un nombre de fichero no prueba que una capacidad esté ausente.** La capacidad se
 busca por el mecanismo, y aquí el mecanismo dice "alias".
 
@@ -175,7 +175,7 @@ devolverá un nombre de fichero plausible.
 - **Advertencia metodológica reutilizable**: el número de versión del log identifica
   el hardware, **no** el fichero de código. Resolver por versión devuelve un
   nombre plausible y equivocado, que es la forma de error más difícil de detectar.
-- **Confirma por cuarta vez la lección de `144`/`156`**: la capacidad se busca por
+- **Confirma por cuarta vez la lección de `231`/`232`**: la capacidad se busca por
   el mecanismo. `uvd_v6_3` no tiene fichero porque su código se llama `uvd_v6_0`.
 
 ## Evidencia

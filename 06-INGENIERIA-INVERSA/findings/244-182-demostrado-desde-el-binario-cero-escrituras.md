@@ -11,7 +11,7 @@
 **ausencia de fichero**: no existe `ip_discovery.bin` para GCN3.
 
 Es un argumento de segundo orden: un fichero que no está, más un razonamiento
-sobre qué lo habría escrito. `185`, `190` y `203` se apoyan todos en ese valor.
+sobre qué lo habría escrito. `239`, `198` y `203` se apoyan todos en ese valor.
 
 **Se puede medir en el binario.** `objdump -d` sobre el `.ko` da 2.33 millones de
 líneas, y el campo tiene un offset fijo en `struct amdgpu_device`.
@@ -94,7 +94,7 @@ grep -rn "amdgpu_discovery_set_ip_blocks" *.c *.h | grep -v amdgpu_discovery.c
 amdgpu_device.c:1994:   r = amdgpu_discovery_set_ip_blocks(adev);
 ```
 
-**Un único llamante**, y es la rama `default:` del switch de ASIC. `190` ya
+**Un único llamante**, y es la rama `default:` del switch de ASIC. `198` ya
 verificó el dispatch:
 
 ```c
@@ -142,7 +142,7 @@ escritura.**
 | `0x5d518` = `ip_versions[GC_HWIP][0]` | `PROVEN` — co-localización con fuente |
 | Los `cmp` son constantes `IP_VERSION` compiladas | `PROVEN` — inmediatos 0x0B050400 etc. |
 | `amdgpu_discovery_set_ip_blocks` tiene un solo llamante | `PROVEN` — grep |
-| Ese llamante es la rama `default:` | `PROVEN` — `190` |
+| Ese llamante es la rama `default:` | `PROVEN` — `198` |
 | `ip_versions[GC_HWIP][0]` nunca se escribe en esta placa | `PROVEN_CADENA` — estático + inalcanzable |
 | Que un escritor dinámico no sería visible | `LIMITE` — declarado en la docstring |
 | Que no haya otras rutas de escritura | `NOT_DETERMINED` |
@@ -186,7 +186,7 @@ escritura.**
 ## UNLOCKS
 
 - **`182` sube de clase**: de *inferido por un fichero ausente* a **medido en el
-  binario**. Con ello `185`, `190` y `203` dejan de apoyarse en un segundo orden.
+  binario**. Con ello `239`, `198` y `203` dejan de apoyarse en un segundo orden.
 - **Una herramienta general**: `struct_rw.py` responde "¿este campo se inicializa
   alguna vez?" para cualquier struct del driver, sin source, sin root y sin tocar la
   GPU. Es reutilizable, y no hay nada parecido en el kit.

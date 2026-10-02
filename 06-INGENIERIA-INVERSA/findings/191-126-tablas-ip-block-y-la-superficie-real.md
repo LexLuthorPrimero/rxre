@@ -8,7 +8,7 @@
 
 ## Cuestión principal
 
-`190` Izzyó que el kernel registra **9** bloques IP, no 6, y que tres de ellos
+`198` Izzyó que el kernel registra **9** bloques IP, no 6, y que tres de ellos
 —`dm`, `uvd_v6_3`, `vce_v3_4`— nunca se habían mirado. Eso abre bloques enteros
 del hardware: decodificación de vídeo, codificación, y display.
 
@@ -128,7 +128,7 @@ Los tests 1-5 (layout, anclas, símbolos) **pasaban con el bug 1 presente**,
 porque ninguno leía un puntero. Solo el test 6 —que exige que
 `gfx_v8_0_ip_block.funcs` resuelva a `gfx_v8_0_ip_funcs`— lo cazó.
 
-**Es la misma lección de `185`, por tercera vez**: el self-test tiene que
+**Es la misma lección de `239`, por tercera vez**: el self-test tiene que
 comprobar el dato **extraído**, no la estructura de quien lo extrae. Lo reescribí
 para que el aserto sea sobre el valor final.
 

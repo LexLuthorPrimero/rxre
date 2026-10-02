@@ -57,7 +57,7 @@ comprueba su propia lógica, no la unicidad de su entrada.
 
 ## Causa
 
-Ya estaba identificada y documentada en mi hallazgo `190`: hay **dos numeradores
+Ya estaba identificada y documentada en mi hallazgo `198`: hay **dos numeradores
 sin coordinar**.
 
 | numerador | flock | fichero de reserva |
@@ -85,9 +85,9 @@ contenido.
 Eso significa dos cosas distintas:
 
 1. **Quien renumeró lo hizo bien** — no duplicó, reasignó.
-2. **Pero no dejó tabla de reenvío**, así que cada referencia interna a `144`,
-   `185` o `202` escrita en el momento de aquella iteración apunta hoy a un
-   hallazgo distinto. Mi `247` dice *"`202` queda RETRACTADO"* y ese `202` ya no es
+2. **Pero no dejó tabla de reenvío**, así que cada referencia interna a `231`,
+   `239` o `242` escrita en el momento de aquella iteración apunta hoy a un
+   hallazgo distinto. Mi `247` dice *"`242` queda RETRACTADO"* y ese `242` ya no es
    el documento que retracté.
 
 ## Qué se necesita para cerrarlo
@@ -144,7 +144,7 @@ mezclar ámbitos sigue en pie. Lo que hago es dejar medido y documentado.
   identificador no único hace que las contradicciones, la evidencia, la matriz y las
   dependencias **no se puedan resolver de forma fiable**, aunque cada herramienta
   sea correcta.
-- **Une la cadena de colisiones de `190` con una medición**: ya sabía que había dos
+- **Une la cadena de colisiones de `198` con una medición**: ya sabía que había dos
   numeradores; ahora sé **cuántos** números están dañados.
 - **Un requisito nuevo, y es de la herramienta**: comprobar unicidad **antes** de
   reservar, no confiar en el sello de `max+1`, que es exactamente el patrón que

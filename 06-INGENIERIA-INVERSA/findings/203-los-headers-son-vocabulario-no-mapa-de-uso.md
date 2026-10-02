@@ -7,7 +7,7 @@
 
 ## Cuestión principal
 
-`202` afirmó, a partir del **número de defines**:
+`242` afirmó, a partir del **número de defines**:
 
 > *`bif_5_1_d.h` tiene **3188 defines `ix` de 3549: el 90%**. Un driver propio que
 > solo sepa hacer `*(volatile u32 *)(base + offset)` **no puede hablar con BIF ni
@@ -46,7 +46,7 @@ TOTAL                      13895    1311    9.4%  7288           127
 ```
 
 **Los `ix` son vocabulario casi vestigial: 127 de 7288, el 1.7%.** BIF define 3188
-`ix` y el driver referencia **21**. La afirmación de `202` queda **retractada**.
+`ix` y el driver referencia **21**. La afirmación de `242` queda **retractada**.
 
 ## Tres cosas que salen del perfil y que no eran obvias
 
@@ -128,7 +128,7 @@ extremo por defecto, no el extremo filtrado.
 ## Desfalsificación
 
 - **(a)** Las cifras → refutable con `aperture --uso`.
-- **(b)** La retractación de `202` → refutable buscando `ixGCK_MCLK_FUSES`:
+- **(b)** La retractación de `242` → refutable buscando `ixGCK_MCLK_FUSES`:
   **cero usos** en todo el driver.
 - **(c)** Que UVD/VCE sean 85% → refutable contando a mano los `mmUVD`/`mmVCE`
   de `uvd_v6_0.c` y `vce_v3_0.c`.
@@ -144,7 +144,7 @@ extremo por defecto, no el extremo filtrado.
   `1311` **usados**. Confundirlas es un error de un orden de magnitud.
 - **Los `ix` dejan de ser un requisito**: con el 1.7% de uso, un driver propio no
   necesita el camino indexado para hablar con BIF ni SMU. **Retira una
-  obligación que `202` declaraba.**
+  obligación que `242` declaraba.**
 - **Un patrón de control reutilizable**: en un filtro, el aserto debe fallar
   **si salen demasiados**, no si salen pocos. "Pocos" es un resultado real;
   "muchos" delata un extractor que ya no filtra. El filtro por defecto es el

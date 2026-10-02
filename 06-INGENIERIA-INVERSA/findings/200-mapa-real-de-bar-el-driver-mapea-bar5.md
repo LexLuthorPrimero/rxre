@@ -7,7 +7,7 @@
 
 ## Cuestión principal
 
-`190` vio en el log del kernel `register mmio size: 262144` y lo contrastó con mi
+`198` vio en el log del kernel `register mmio size: 262144` y lo contrastó con mi
 resumen anterior, que decía **"BAR2 2 MiB es la apertura MMIO"**. No pude
 arbitrarlo: `lspci -v` no devolvía nada y `resource2` de sysfs daba "sin permiso".
 Quedó declarado como discrepancia abierta.
@@ -110,7 +110,7 @@ alcanzabilidad aunque esté presente.
 
 ## Lo que esto no es
 
-**No hay contradicción con `169`.** `169`Established que BAR0 = 256 MiB y que
+**No hay contradicción con `236`.** `236`Established que BAR0 = 256 MiB y que
 `fpfn = 65536` páginas, y eso sigue siendo cierto: la tabla confirma **BAR0 =
 268435456 bytes = 256 MiB** exactamente. Ese hallazgo no se toca.
 
@@ -122,7 +122,7 @@ porque describen lo mismo.
 
 ## La lección, y por qué la pongo aunque ya sea la quinta vez
 
-**No cerré la discrepancia cuando tenía la evidencia para hacerlo.** En `190` la
+**No cerré la discrepancia cuando tenía la evidencia para hacerlo.** En `198` la
 dejé abierta por "no tener permiso", cuando el fichero que faltaba era
 `resource` (el agregado) y no `resource2` (uno solo). `resource2` da permiso
 denegado; **`resource` se lee sin problemas**.

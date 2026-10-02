@@ -288,6 +288,10 @@ def main():
         # mientras el defecto sigue vivo. Se ejecuta a mano hasta que se arregle.
         ("findings_index: unicidad y tabla de reenvio",
          ["findings_index.py", "--self-test"], 1, 1),
+        # Alcance del regex y lista de ficheros propios. El control negativo
+        # importa: una lista vacia significaria "no toco nada", no "todo".
+        ("refs_repair: alcance y lista propia",
+         ["refs_repair.py", "--self-test"], 1, 1),
         # La reserva de numeros de hallazgo. num_collision mide 37 duplicados
         # y esta sesion choco 3 veces (111, 119, 120) con otra escribiendo.
         # El self-test RESERVA y LIBERA de verdad: comprobar que el numero no
