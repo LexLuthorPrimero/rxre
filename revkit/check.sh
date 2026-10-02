@@ -243,6 +243,14 @@ echo
 
 # el plan de captura debe ser coherente, pero su ejecucion pide sudo, asi que
 # aqui SOLO se comprueba la coherencia, sin leer la GPU.
+echo "--- la telemetria de hardware de la GPU, con las unidades verificadas ---"
+# gputel mide la cadena de HARDWARE, que bootcheck no puede: el (driver dijo que
+# arranco bien) no es lo mismo que (el hardware quedo donde deberia). Y trae dos
+# trampas de unidad que ya han sido medidas en esta maquina.
+if [ -f ./gputel.py ]; then
+    run "gputel: self-test de unidades y de muestreo" ./gputel.py --self-test
+fi
+
 echo "--- el arranque, validado contra el log, con control positivo incluido ---"
 # bootcheck responde a la pregunta que un driver propio necesita para validar su
 # propio arranque: arranco bien? Y trae su propio control: si el log no es

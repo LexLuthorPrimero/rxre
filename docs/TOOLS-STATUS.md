@@ -3147,3 +3147,59 @@ se desincronizan, que es la clase de error que vengo pagando desde EV-35.
 salta es el mismo sitio donde se acaba de escribir. El control y el error estan en la
 misma accion, y por eso el control no llego a tiempo. **Hay que releer lo que uno
 acaba de escribir, y releer no es lo mismo que pasar el control.**
+
+## `gputel.py` (RK-13): la cadena de hardware, con las unidades verificadas
+
+**Que resuelve.** `bootcheck` valida lo que el driver **imprimo**. `gputel` mide
+lo que el hardware **hizo**: relojes, tension, potencia, temperatura, y los
+limites de potencia. Es la primera lectura de hardware real accesible sin root en
+esta maquina, porque `/sys/kernel/debug/dri/` sigue en `EACCES`.
+
+```
+gputel.py --self-test
+gputel.py [--n=N] [--intervalo=S] [--card=cardN]
+   por defecto n=5, intervalo=1.0 s, card1
+   rc 4 si no hay arbol hwmon: eso es INVALID, y NO es "cero"
+```
+
+**LAS UNIDADES, Y LAS DOS QUE ESTABAN MAL.**
+
+```
+freq*_input   Hz        <-- NO la convencion de hwmon (MHz)
+power*_input  uW        <-- NO mW: 35000000 seria 35 kW, imposible
+power*_cap*   uW        limite del hardware, no muestra
+in0_input     mV · temp*_input mC · fan*_input RPM · pwm* /255
+```
+
+**Y UN CONTROL DE PLAUSIBILIDAD**, disfrazado de rango fisico: un cap de potencia
+tiene que caer entre 5 y 500 W. Si alguien vuelve a cambiar la escala, salta
+**antes** de que el numero llegue a un documento. Y el control se prueba con la
+unidad **erronea** a proposito, porque con la correcta no puede fallar.
+
+**`VALIDATED`. 23 vectores, cuatro mutaciones cazadas sobre copias:**
+
+```
+T1  la potencia vuelve a mW                       3 controles en rojo
+T2  se quita la conversion Hz -> MHz              1 control  en rojo
+T3  la plausibilidad deja de juzgar                1 control  en rojo
+T4  se acepta resumir con una sola muestra        1 control  en rojo
+original                                           23 OK, rc=0
+```
+
+**TRES DEFECTOS DE DISENO Y TRES DE TEST, y el patron se repite.**
+
+1. **El lector de ficheros era fijo**, con lo que tres muestras de un fichero que
+   no cambia dan tres valores identicos y el recorrido es 0 siempre: **la
+   herramienta era incriticable sin hardware**. Ahora el lector se **inyecta**.
+2. **`LIMITE_PPM` se comparaba contra PORCENTAJE**: 20000 ppm contra `2.0 %`
+   daba `> 200`, un umbral que no podia pasar. **Un umbral con la unidad
+   equivocada es un control que no mide nada y encima da sensacion de medir.**
+3. Los tests **afirmaban sobre los datos en vez de sobre el comportamiento**, con
+   lo que T1 y T4 pasaban: T1 llevaba la unidad escrita a mano mientras la real
+   vive en la tabla `MEDIDAS`, y T4 miraba el numero de muestras en vez del
+   texto que sale por pantalla. **Un control tiene que leer el valor del sitio
+   donde vive, y tiene que ejecutar el camino que dice comprobar.**
+
+**LIMITE DECLARADO en la salida.** No mide un techo. La GPU no se ha puesto bajo
+carga, asi que los relojes maximos son `NOT_DETERMINED`. Y `gpu_busy_percent` es
+lo que el driver **afirma**, no una medida.

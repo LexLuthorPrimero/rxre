@@ -3053,3 +3053,80 @@ error que vengo pagando desde EV-35.
 check.sh 40 (con bootcheck dentro) | cn7 97 | cn8 33 | gfx8blocks 24/24 |
 gchwip_alcance 21/21 | bootcheck 10/10 y rc=0 contra el log real.
 GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.
+
+---
+
+## 2026-10-02 · opencode · RK-13 `gputel`: el reposo real de la GPU, y dos trampas de unidad
+
+```
+OBJECT   revkit/gputel.py, revkit/check.sh, docs/CURRENT-STATE.md,
+         docs/TOOLS-STATUS.md
+ACTION   TOOL NEW + VALIDATED + PRIMERA MEDICION DE HARDWARE DEL PROYECTO
+TRACK    RUNTIME, SOLO LECTURA (sysfs hwmon, PCI config) · WRITE_EXECUTION=NONE
+MODIFICATIONS=0 · GPU INTACTA · NIVEL 2
+```
+
+**POR QUE, Y NO ES EXTRAPOLAR.** bootcheck valida la cadena de SOFTWARE: que el
+driver imprimiera lo que debia. Eso no dice que el HARDWARE quedara donde debia.
+Los registros de GMC siguen en EACCES (F12 sin cambio), pero el arbol hwmon SI es
+legible sin root, y es la primera lectura de hardware real disponible aqui.
+
+**TRAMPA DE UNIDAD 1: LA CONVENCION MIENTE.** freq1_input = 1070150000. Si fuera
+MHz, que es lo que dice la convencion de hwmon, serian 1070150000 MHz. **Real:
+1070.15 MHz.** Este arbol publica frecuencias en Hz. Un numero mil veces mayor es
+un resultado falso con toda la apariencia de estar bien.
+
+**TRAMPA DE UNIDAD 2, Y ESTA CASI ME PUBLICA 11 KW.** power1_input = 11133000 y
+power1_cap = 35000000. Como mW: consumo 11,13 kW y cap 35 kW, fisicamente
+imposible. Como uW: consumo 11,133 W y cap 35 W, coherente con la clase de esta
+placa. Lo resuelve la COHERENCIA INTERNA, no la convencion: un cap de 35 W es
+justo la clase del RX550, y _min=0 con _max=_default=_cap es el patron de un
+unico limite fijo. **PROVEN_DERIVED por coherencia, no PROVEN desde el
+productor**: el fichero que registra los canales no esta en este corpus, y lo he
+buscado antes de afirmar nada.
+
+**EL REPOSO REAL, MEDIDO.** Ocho muestras a 1 s con gpu_busy_percent=0 y CERO
+clientes de render: sclk 996,7 -> 1068,8 MHz (mediana 1039,7; recorrido 6,9 %,
+oscilacion real), mclk **300,00 MHz clavado**, vddgfx 812 -> 881 mV (7,9 %),
+PPT 6,03 -> 7,04 W (16,4 %), edge 38,0 C estable, pwm 75/255, cap **35 W**.
+
+**EL DATO INTERESANTE ES LA ASIMETRIA: la memoria baja a 300 MHz y el nucleo no.**
+Con el GPU al 0 %, la memoria desciende y se queda; sclk **no baja**, oscila
+alrededor de 1040 MHz, y vddgfx oscila con el. **El estado DPM de memoria y el de
+nucleo no se comportan igual en esta placa**, y mirando solo una de las dos
+unidades se conclude mal el ahorro en reposo. Item 38 medido en hardware, que es
+la primera vez que se mide en vez de derivarlo del codigo.
+
+**Y UN REFINAMIENTO QUE SALIO DE LA MEDIDA, no de la teoria.** La primera version
+marcaba la temperatura como inestable con 2,6 % de recorrido. Era ARTEFACTO DE
+GRANULARIDAD: el sensor informa en pasos de 1000 mC, y 37 -> 38 C es un paso, no
+una oscilacion. Ahora se informa del recorrido ABSOLUTO y del SALTO DE
+CUANTIZACION deducido del menor incremento no nulo, y se distingue "un paso de
+cuantizacion" de "oscilacion real". **Un umbral solo porcentual confunde al sensor
+por senal, y un umbral por si solo no dice de que magnitud.**
+
+**TRES DEFECTOS DE DISENO Y TRES DE TEST, y el patron se repite.**
+1. El lector de ficheros era fijo: tres muestras de un fichero que no cambia dan
+   tres valores identicos, el recorrido es 0 siempre, y **la herramienta era
+   incriticable sin hardware**. Ahora el lector se INYECTA.
+2. LIMITE_PPM se comparaba contra PORCENTAJE: 20000 ppm contra 2,0 % daba > 200,
+   un umbral que no podia pasar. **Un umbral con la unidad equivocada es un
+   control que no mide nada y encima da sensacion de medir.**
+3. Los tests afirmaban sobre los DATOS en vez de sobre el COMPORTAMIENTO: T1
+   llevaba la unidad escrita a mano mientras la real vive en la tabla MEDIDAS, y
+   T4 miraba el numero de muestras en vez del texto que sale. **Un control tiene
+   que leer el valor del sitio donde vive, y ejecutar el camino que dice
+   comprobar.**
+
+VALIDADO: 23 vectores, cuatro mutaciones cazadas (T1 3 en rojo, T2 1, T3 1, T4 1).
+Con un control de plausibilidad que se prueba con la unidad ERRONEA a proposito,
+porque con la correcta no puede fallar.
+
+**LO QUE SIGUE SIN CAMBIAR:** los registros de GMC siguen en EACCES, con lo que la
+comparacion "el driver dijo que arranco bien" contra "los registros dicen que el
+hardware quedo bien" sigue sin poder hacerse. Y eso lo declara bootcheck en su
+propia salida, que es donde un limite debe estar.
+
+check.sh 41 (con bootcheck y gputel dentro) | cn7 97 | cn8 33 | gfx8blocks 24/24 |
+gchwip_alcance 21/21 | bootcheck 10/10 | gputel 23/23.
+GPU INTACTA. WRITE_EXECUTION NONE. MODIFICATIONS 0.

@@ -1076,3 +1076,80 @@ siendo `NOT_DETERMINED` sin lectura de registros. Y el GTT que anuncia el arranq
 **5907 MiB**, es la cifra `MemTotal/2` de `243`, no la ventana GART reservada de
 256 MiB: **dos cosas distintas con dos numeros parecidos**, que es la confusion
 mas probable de esta linea.
+
+## Ronda 2026-10-02 (tarde 15) · la cadena de hardware: el reposo real de esta GPU,
+y dos trampas de unidad
+
+`TRACK=RUNTIME` (solo lectura: sysfs hwmon y PCI config)
+`WORK_CLASS=READ_ONLY/EVIDENCE` · `WRITE_EXECUTION=NONE` · `MODIFICATIONS=0`
+`GPU INTACTA` · registro: antes = nada escrito; despues = nada escrito
+
+**POR QUE, Y NO ES UNA EXTRAPOLACION.** `bootcheck` valida la cadena de
+**software**: que el driver imprimio lo que debia. Eso no dice nada de que el
+**hardware** quedara donde deberia. Los registros de GMC siguen bloqueados
+(`/sys/kernel/debug/dri/` -> `EACCES`, F12 sin cambio), pero el arbol
+**hwmon si es legible sin root**, y es la primera lectura de hardware real
+disponible en esta maquina.
+
+**TRAMPA DE UNIDAD 1, Y LA CONVENCION MIENTE.** ```
+leido:    freq1_input = 1070150000
+si fuera MHz (que es lo que dice la convencion de hwmon):  1070150000 MHz
+real:                                                              1070.15 MHz
+```
+Este arbol publica las frecuencias en **Hz**, no en MHz. Un numero mil veces
+mayor es un resultado falso con toda la apariencia de estar bien.
+
+**TRAMPA DE UNIDAD 2, Y ESTA CASI ME PUBLICA 11 KW.** ```
+power1_input = 11133000     power1_cap = 35000000     power1_cap_min = 0
+como mW:   consumo 11,13 kW      cap 35 kW              -> FISICAMENTE IMPOSIBLE
+como uW:   consumo 11,133 W      cap 35 W               -> coherente con clase RX550
+```
+Lo resuelve la **coherencia interna**, no la convencion: un cap de 35 W es
+justo la clase de esta placa, y `_min = 0` con `_max = _default = _cap` es el
+patron de un unico limite fijo. **`PROVEN_DERIVED` por coherencia, no `PROVEN`
+desde el productor**: el fichero que registra los canales (`drm_htmon`) **no esta
+en este corpus**, y lo he buscado antes de afirmar nada.
+
+**EL REPOSO REAL DE ESTA GPU, MEDIDO.** Ocho muestras, 1 s, con
+`gpu_busy_percent = 0` y **cero** clientes de render abiertos:
+
+```
+medida    n   min            mediana        max           recorrido
+sclk      8   996.70 MHz     1039.66 MHz    1068.82 MHz   6.9 %  (72.1 MHz)  oscilacion
+mclk      8   300.00 MHz     300.00 MHz     300.00 MHz    0 %
+vddgfx    8   812 mV         868 mV         881 mV        7.9 %  (69 mV)     oscilacion
+PPT       8   6.030 W        6.137 W        7.035 W       16.4 % (1.005 W)   oscilacion
+edge      8   38.0 C         38.0 C         38.0 C        0 %
+pwm       8   75/255         75/255         75/255        -
+PPT-cap     35000000 uW = 35.000 W    limite, leido 1 vez
+```
+
+**EL DATO INTERESANTE ES LA ASIMETRIA.** Con el GPU al 0 % de ocupacion, **la
+memoria desciende a 300 MHz y se queda ahi, pero el nucleo no baja: sclk
+oscila entre 997 y 1069 MHz alrededor de 1040**. Y `vddgfx` oscila con el,
+812 a 881 mV, que es la tension siguiendo al reloj, no un estado propio. O sea
+que en esta placa **el estado DPM de memoria y el de nucleo no se comportan
+igual**, y con solo mirar una de las dos unidades se obtiene una conclusion
+falsa sobre el ahorro en reposo. Es el item 38 (DPM) medido en el hardware, y
+**es la primera vez que se mide en vez de derivarlo del codigo**.
+
+**LIMITE, Y ES EL QUE IMPORTABA.** Esto **no es un techo**: la GPU nunca se ha
+puesto bajo carga, luego `sclk` y `mclk` maximos son `NOT_DETERMINED`. Y
+`gpu_busy_percent` es **lo que el driver AFIRMA**, no una medida. Los limites de
+potencia si son constantes del hardware y estan medidos: **35 W**.
+
+**Y UN REFINAMIENTO QUE SALIO DE LA MEDIDA, no de la teoria.** La primera
+version marcaba la temperatura como "inestable" con un 2,6 % de recorrido. Eso
+era un **artefacto de granularidad**: el sensor informa en pasos de 1000 mC, y
+37 -> 38 C es **un paso**, no una oscilacion. Ahora la herramienta informa del
+recorrido **absoluto** y del **salto de cuantizacion** deducido del menor
+incremento no nulo entre muestras, y distingue "recorrido de UN paso de
+cuantizacion" de "oscilacion real". **Un umbral solo porcentual confunde al
+sensor por senal**, y un umbral por si solo no dice de que magnitud.
+
+**Y LO QUE SIGUE SIN CAMBIAR.** Los registros de GMC siguen en `EACCES`. Asi que
+la comparacion "el driver dijo que arranco bien" contra "los registros dicen que
+el hardware quedo bien" **sigue sin poder hacerse**, y sigue siendo el
+`NOT_DETERMINED` que `bootcheck` declara en su propia salida.
+
+`GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 2 (solo lectura).`
