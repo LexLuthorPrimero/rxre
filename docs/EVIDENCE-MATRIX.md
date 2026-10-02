@@ -2242,6 +2242,110 @@ documentacion.
 
 `LAST_VERIFIED: 2026-10-02 - gfx_v8_0.c:6191-6207, vid.h:180, gmc_8_2_sh_mask.h`.
 
+## EV-26 · El productor del invalidate, y el mapeo VMID → bit
+
+```
+TYPE    OBSERVATION + DERIVATION
+STATE   PROVEN_DERIVED
+```
+
+`gmc_v8_0_emit_flush_gpu_tlb` (gmc_v8_0.c:668-683) es el emisor, y son cinco
+líneas. Se llega por indirección, no por nombre: la macro
+`amdgpu_gmc_emit_flush_gpu_tlb` (amdgpu_gmc.h:371) es un puntero a función, y
+la implementación de GFX8 se asigna en `gmc_v8_0.c:1736`.
+
+```c
+if (vmid < 8)
+        reg = mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR + vmid;
+else
+        reg = mmVM_CONTEXT8_PAGE_TABLE_BASE_ADDR + vmid - 8;
+amdgpu_ring_emit_wreg(ring, reg, pd_addr >> 12);
+
+/* bits 0-15 are the VM contexts0-15 */
+amdgpu_ring_emit_wreg(ring, mmVM_INVALIDATE_REQUEST, 1 << vmid);
+```
+
+**El mapeo VMID → bit del invalidate, PROVEN.** El comentario del driver
+afirma "bits 0-15 are the VM contexts0-15" y escribe `1 << vmid`. Eso solo es
+correcto si `INVALIDATE_DOMAIN_i` está en el bit `i`. Comprobado en el header:
+
+| generación | `SHIFT[i] == i` en los 16 |
+|---|---|
+| `gmc_6_0` · `gmc_7_0` · `gmc_7_1` · `gmc_8_1` · `gmc_8_2` | sí, en las cinco |
+
+Cinco generaciones con el mismo invariante. `1 << vmid` no es una coincidencia
+que funciona: es el contrato del campo.
+
+Esto responde **por qué** el invalidate no necesita campo `FUNCTION` (finding
+106): va dirigido por bit, no por selector de modo. Un `FUNCTION` habría sobrado.
+
+Direcciones (`gmc_8_2_d.h`, la generación que incluye `gfx_v8_0.c:41-42`):
+
+| registro | offset |
+|---|---|
+| `mmVM_CONTEXT8_PAGE_TABLE_BASE_ADDR` | `0x50e` |
+| `mmVM_INVALIDATE_REQUEST` | `0x51e` |
+| `mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR` | `0x54f` |
+
+Los bloques de contextos 0 y 8 están separados (`0x54f..0x556` para VMID 0-7,
+`0x50e..0x515` para 8-15). El `if (vmid < 8)` existe por eso, y no por el
+registro del invalidate, que es único.
+
+Con `vmid = 7` y `pd_addr = 0x1_0025_8000` (una de las ocho direcciones
+observadas en el anillo, EV-21), el bloque completo es de 14 dwords:
+
+| dword | valor | qué es |
+|---|---|---|
+| 2 | `0x556` | `PTBA[7]` |
+| 3 | `0x100258` | `pd_addr >> 12` |
+| 6 | `0x51e` | `VM_INVALIDATE_REQUEST` |
+| 7 | `0x00000080` | `1 << 7` |
+| 9 | `0x00000000` | control del WAIT_REG_MEM: **dword cero** |
+
+Detalle completo, con la cadena de includes y los bytes del anillo, en
+`revkit/VM-FLUSH-GFX8.md`.
+
+`LAST_VERIFIED: 2026-10-02 - gmc_v8_0.c:668-683, gmc_8_2_sh_mask.h, cn7`.
+
+## EV-27 · "el hardware lee exactamente count" queda REFUTADO por el anillo
+
+```
+TYPE    MEASUREMENT
+STATE   REFUTED (la hipotesis) · PROVEN (el recuento)
+```
+
+Si el hardware se detuviera tras `count` payload, el séptimo dword del bloque
+`WAIT_REG_MEM` (`0x00000020`, el poll interval) sería una cabecera tipo 0 con
+`count = 32` — el count de tipo 0 está en los bits **bajos**, no en `[29:16]` —
+y el siguiente paquete empezaría en el dword 47. El dword 47 es `0x00001040`:
+tipo 0 otra vez, con count 4160. A partir de ahí el anillo no contiene ningún
+paquete más.
+
+Recorriendo el anillo entero de las dos formas:
+
+| lectura | paquetes tipo 2/3 válidos | cabeceras tipo 0 espurias |
+|---|---|---|
+| `count` exactos (5) | **3** | **2** |
+| los 6 payload | **11** | **0** |
+
+Once paquetes válidos frente a tres, y **cero** dwords espurios en 2051. La
+lectura de seis es la única que deja el anillo con sentido.
+
+Un driver propio que asumiera "exactamente `count`" perdería el anillo en el
+primer `WAIT_REG_MEM`, ocho veces por bloque.
+
+**Lo que queda abierto, y es corto**: si el count es `payload - 1` (lee 6
+siempre) o si el hardware trata los dwords tipo 0 como no-op y los salta. Con
+esta captura **no se distinguen**: los dos dan 11 paquetes y 0 espurias.
+
+Y ahí está el nudo, porque si la respuesta fuera "lee 6 siempre", el emisor de
+`vm_flush` —que escribe 5 y declara 5— **se comería un dword del paquete
+siguiente**. O el count significa otra cosa, o uno de los dos emisores tiene un
+defecto. Los tres son compatibles con lo observado.
+
+`LAST_VERIFIED: 2026-10-02 - revkit/cn7.py, bytes crudos de
+capturas/amdgpu_ring_gfx.txt dwords 8..14`.
+
 ## EV-18 · El anillo GFX tiene 2048 dwords y estaba vacío
 
 ```
@@ -2277,11 +2381,11 @@ TYPE    OBSERVATION
 STATE   PROVEN_DERIVED
 ```
 
-Cuatro paquetes distintos, en cuatro emisores distintos:
+CUATRO paquetes distintos, en cuatro emisores distintos:
 
-| paquete | `count` declarado | dwords escritos |
+| paquete | `count` declarado | payload escritos |
 |---|---|---|
-| `WAIT_REG_MEM` | 5 | 6 |
+| `WAIT_REG_MEM` (HDP flush) | 5 | **6** |
 | `COND_EXEC` | 3 | 5 |
 | `INDIRECT_BUFFER` | 2 | 3 |
 | `WRITE_DATA` | 3 | 4 |
@@ -2289,9 +2393,30 @@ Cuatro paquetes distintos, en cuatro emisores distintos:
 El último dword queda **fuera** del conteo declarado, y lo hace el código
 fuente de forma consistente, no un error de decodificación.
 
-Que el hardware lea 5 o 6, 3 o 5, es `NOT_DETERMINED`. Lo que sí se sabe
-es que el valor **está en el buffer, en el orden correcto**, y que `count`
-no lo cuenta.
+**Matiz de 2026-10-02, y corrige la lectura plana de esta misma fila.** El
+off-by-one **no es una propiedad del tipo de paquete, es del emisor.** El
+driver tiene dos emisores de `WAIT_REG_MEM` y no coinciden:
+
+| emisor | payload | `count` | ¿off-by-one? |
+|---|---|---|---|
+| `gfx_v8_0_emit_hdp_flush` (gfx_v8_0.c:6046) | **6** | 5 | sí |
+| `gfx_v8_0_ring_emit_vm_flush` (gfx_v8_0.c:6199) | **5** | 5 | **no** |
+
+El de HDP flush escribe `ref_and_mask` **dos veces** y por eso se pasa en uno.
+El de vm flush no. Un driver propio que copie "la forma del paquete" sin mirar
+el emisor se equivoca en uno de los dos.
+
+Confirmado con los bytes crudos del anillo, no solo con la fuente: dwords 8..14
+son **siete** dwords consecutivos con `count = 5` en la cabecera, y el séptimo
+(`0x00000020`) es el poll interval, presente en el buffer y fuera del conteo.
+
+Que el hardware lea 5 o 6 queda resuelto en EV-27: **no lee 5**, queda
+refutado por el propio anillo. Lo que sigue abierto es si lee 6 siempre o
+trata los tipo 0 como no-op.
+
+Que el hardware lea `count` o `count + 1` en los **otros** tres paquetes sigue
+`NOT_DETERMINED`. Lo que sí se sabe en todos los casos es que el valor **está
+en el buffer, en el orden correcto**, y que `count` no lo cuenta.
 
 `LAST_VERIFIED: 2026-10-02 - revkit/pm4dec.py, HALLAZGOS-2026-10-02.md §13`.
 
