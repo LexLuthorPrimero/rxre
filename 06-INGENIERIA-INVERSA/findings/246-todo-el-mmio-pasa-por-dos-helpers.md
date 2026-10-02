@@ -4,6 +4,12 @@
 `WRITE_EXECUTION=NONE` · `MODIFICATIONS=0` · `RUNTIME=NOT_RUN` · `GPU INTACTA`
 `CORPUS=/tmp/amdgpu_loaded.ko` · `HARDWARE_SCOPE=HOST-C/RX550/0000:01:00.0`
 `DESARROLLA=la diferencia entre registros definidos y registros usados de 203`
+`CORREGIDO_POR=247` -- el 35% de captura era la medicion INCOMPLETA:
+con la forma `lea 0x<off>(%reg),%esi` sube al **40%** (5710 de 14374). Y este
+hallazgo es cota inferior **por dos causas**, no una: ademas del 35%-+, hay
+**397 nombres de funcion definidos mas de una vez** (`static` en varios ficheros), y
+`mmio_map._funcion()` devuelve la primera coincidencia **sin avisar**. `kgd_hqd_sdma_load`
+tiene 4 definiciones. El error va en la direccion silenciosa: SUBA ESTIMA.
 
 ## Cuestión principal
 

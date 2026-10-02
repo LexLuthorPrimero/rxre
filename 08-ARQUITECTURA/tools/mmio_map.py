@@ -58,6 +58,7 @@ ASM = "/tmp/opencode/ko_dr.asm"
 
 RE_FUNC = re.compile(r"^[0-9a-f]{16} <(.+)>:")
 RE_MOV_ESi = re.compile(r"^\s*[0-9a-f]+:\s+mov\s+\$0x([0-9a-f]+),%esi\b")
+RE_LEA_ESi = re.compile(r"^\s*[0-9a-f]+:\s+lea\s+0x([0-9a-f]+)\(%[a-z0-9]+\),%esi\b")
 RE_CALL = re.compile(r"R_X86_64_PLT32\s+(amdgpu_device_[a-z_]*reg)-0x4")
 
 # Los helpers, y si son LECTURA o ESCRITURA. wait_on_rreg lee con espera, asi que
@@ -152,8 +153,9 @@ def _funcion(ruta, nombre):
     if not os.path.exists(ruta):
         return None
     salida = False
-    ultimo = None          # (offset_hex, distancia)
+    ultimo = None
     dist = 0
+    bucle = False
     acc = []
     with open(ruta, encoding="utf-8", errors="replace") as fh:
         for linea in fh:
@@ -162,13 +164,19 @@ def _funcion(ruta, nombre):
                 if salida:
                     break
                 salida = m.group(1) == nombre
-                ultimo, dist = None, 0
+                ultimo, dist, bucle = None, 0, False
                 continue
             if not salida:
                 continue
             mm = RE_MOV_ESi.match(linea)
             if mm:
                 ultimo, dist = int(mm.group(1), 16), 0
+                bucle = False
+                continue
+            ml = RE_LEA_ESi.match(linea)
+            if ml:
+                ultimo, dist = int(ml.group(1), 16), 0
+                bucle = True
                 continue
             if ultimo is not None:
                 dist += 1
@@ -178,8 +186,9 @@ def _funcion(ruta, nombre):
                 tipo = "R" if sym in LECTURA else ("W" if sym in ESCRITURA else "?")
                 if ultimo is not None and dist <= MAX_DIST:
                     acc.append({"offset": ultimo, "tipo": tipo,
-                                "dist": dist, "sym": sym})
-                    ultimo, dist = None, 0
+                                "dist": dist, "sym": sym,
+                                "bucle": bucle})
+                    ultimo, dist, bucle = None, 0, False
     if not salida:
         return None
     return {"nombre": nombre, "accesos": acc}
@@ -191,19 +200,26 @@ def recorrer(ruta):
         return None
     total = 0
     funcs = {}
+    bucles = {}
     func = None
     ultimo, dist = None, 0
+    bucle = False
     with open(ruta, encoding="utf-8", errors="replace") as fh:
         for linea in fh:
             m = RE_FUNC.match(linea)
             if m:
                 func = m.group(1)
                 funcs.setdefault(func, 0)
-                ultimo, dist = None, 0
+                ultimo, dist, bucle = None, 0, False
                 continue
             mm = RE_MOV_ESi.match(linea)
             if mm:
                 ultimo, dist = int(mm.group(1), 16), 0
+                continue
+            ml = RE_LEA_ESi.match(linea)
+            if ml:
+                ultimo, dist = int(ml.group(1), 16), 0
+                bucle = True
                 continue
             if ultimo is not None:
                 dist += 1
@@ -214,8 +230,10 @@ def recorrer(ruta):
                 if ultimo is not None and dist <= MAX_DIST:
                     funcs[func] += 1
                     total += 1
-                ultimo, dist = None, 0
-    return total, funcs
+                    if bucle:
+                        bucles[func] = bucles.get(func, 0) + 1
+                ultimo, dist, bucle = None, 0, False
+    return total, funcs, bucles
 
 
 def main(argv):
@@ -239,7 +257,7 @@ def main(argv):
                   % (a["tipo"], a["offset"], a["dist"], a["sym"]))
         return 0
 
-    total, funcs = recorrer(ASM)
+    total, funcs, bucles = recorrer(ASM)
     print("accesos MMIO atribuidos: %d" % total)
     print("funciones con al menos uno: %d" % sum(1 for v in funcs.values() if v))
     print()

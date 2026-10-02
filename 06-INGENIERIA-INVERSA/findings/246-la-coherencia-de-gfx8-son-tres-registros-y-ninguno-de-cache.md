@@ -98,17 +98,30 @@ de `gfx_v8_0.c:6212`, que el anillo compute no emite porque `usepfp` es falso.**
 **⇒ `vi.h:27` dice `#define VI_FLUSH_GPU_TLB_NUM_WREG 3`, pero `gmc_v8_0_emit_flush_gpu_tlb` sólo
 hace 2 `amdgpu_ring_emit_wreg`, y `gmc_v7_0.c` igual: 2.** `PROVEN`.
 
-**⇒ Con un WREG de GFX8 medido en 5 dwords, el presupuesto declarado es 3·5 + 9 = 24 dwords y el
-gasto real es 2·5 + 7 + 2 = 19 en el anillo GFX y 17 en el compute.** `PROVEN_DERIVED`.
+**⇒ Y el multiplicador del presupuesto, 5, es correcto: `gfx_v8_0_ring_emit_wreg`
+(`gfx_v8_0.c:6349`) escribe exactamente 5 dwords — `PACKET3(PACKET3_WRITE_DATA, 3)`, `cmd`,
+`reg`, `0` y `val`—, porque `vid.h:105` define `PACKET3(op, n)` como una única dword con el
+recuento de operandos en los bits altos.** `PROVEN`.
 
-**⇒ `PROVEN_DERIVED. El driver reserva 5 dwords de margen por VM flush, y ese margen es la
-prueba de que el 3 no es un error de lectura sino una reserva deliberada. Es exactamente el tipo
-de sobre-reserva que hace un driver correcto y que un driver propio debe decidir
-explícitamente: si reserva de menos, el ring se solapa.** `PROVEN_DERIVED`.
+**⇒ Con esas dos medidas, el presupuesto declarado es 3·5 + 9 = 24 dwords para el anillo GFX y
+3·5 + 7 = 22 para el compute, y el gasto real contado paquete a paquete es
+2·5 + 6 + 1 = 17 y 2·5 + 6 = 16.** `PROVEN_DERIVED`.
 
-**⇒ Y el WREG de GFX8 mide 5 dwords porque `gfx_v8_0_ring_emit_wreg` escribe `PACKET3(PACKET3_WRITE_DATA, 3)`
-seguido de `cmd`, `reg`, `0` y `val`, y `vid.h:105` define `PACKET3(op, n)` como una única
-dword con `n` en los bits altos.** `PROVEN`.
+**⇒ `PROVEN_DERIVED. El margen es de 7 dwords en el anillo GFX y 6 en el compute, y la diferencia
+entre ambos márgenes es exactamente el `PFP_SYNC_ME`. El excedente se explica entero por una
+sola cosa: el driver reserva 3 WREG donde emite 2, es decir 5 dwords de más.** `PROVEN_DERIVED`.
+
+**⇒ Y ese excedente es correcto y es lo que hay que replicar. Un `emit_frame_size` corto
+provoca que dos frames se solapen en el ring, y el síntoma de eso no es un fallo visible sino
+corrupción intermitente: por eso el driver reserva de más en vez de ajustar al tightness.** `PROVEN_DERIVED`.
+
+| | WREG | `WAIT_REG_MEM` | `PFP_SYNC_ME` | total |
+|---|---|---|---|---|
+| real anillo GFX | 2 × 5 = 10 | 1+5 = 6 | 1 | **17** |
+| real anillo compute | 2 × 5 = 10 | 1+5 = 6 | — | **16** |
+| declarado GFX (`6881`) | 3 × 5 = 15 | +9 | (incluido) | **24** |
+| declarado compute (`6929`) | 3 × 5 = 15 | +7 | — | **22** |
+| **margen** | **5** | 3 / 2 | 1 | **7 / 6** |
 
 **⇒ Y el contraste con SOC15: `soc15.h:34` `SOC15_FLUSH_GPU_TLB_NUM_WREG 6` y `soc15.h:35`
 `SOC15_FLUSH_GPU_TLB_NUM_REG_WAIT 3`, y `gfx_v9_0.c` tiene un término `* 7` de REG_WAIT que GFX8
@@ -166,6 +179,12 @@ Un driver propio para Polaris12 no puede portar esa parte de gfx10, porque el ha
 **⇒ Y el mecanismo que sustituye a esa operación es la semántica de la propia carga, no un
 registro. Eso no se deduce del corpus: es `NOT_DETERMINED`, y es el punto que queda abierto de §G.** `NOT_DETERMINED`.
 
+**⇒ `PROVEN_DERIVED`. Y hay un dato que acota mucho ese `NOT_DETERMINED`: el comentario de
+`gmc_v9_0.c:2178` afirma que «Vega20+XGMI caches PTEs in TC and TLB», lo que implica por
+contraposición que en GFX8 las PTEs **no** se cachean en la Text Cache. La capa de caché que
+§G no puede describir en GFX8 no es la de datos de shader, sino la de las propias tablas de
+página, y está ausente por diseño del ASIC.** `PROVEN_DERIVED`.
+
 ## 6 · La puerta que decide el camino, y por qué no se abre aquí
 
 **⇒ `amdgpu_gmc.h:371` es un macro que salta a la tabla de GMC:
@@ -177,13 +196,29 @@ y `gmc_v8_0.c:1736` asigna `.emit_flush_gpu_tlb = gmc_v8_0_emit_flush_gpu_tlb`.*
 `amdgpu_gmc.c:730` añade un flush de tipo 2 y otro de tipo 0 según dos banderas
 (`flush_tlb_needs_extra_type_2`, `flush_tlb_needs_extra_type_0`).** `PROVEN`.
 
-**⇒ `PROVEN_DERIVED. Para GFX8 esas dos banderas valen cero: el comentario del propio driver en
-`amdgpu_gmc.c:723` las llama corrección de Navi 1x, y el árbol de Navi no aplica a Polaris12.
-El camino de GFX8 es el directo, sin trabajo diferido y sin doble flush.** `PROVEN_DERIVED`.
+**⇒ `PROVEN`. Y la razón de que las dos valgan cero en GFX8 es condicional y explícita, no una
+suposición: `gmc_v9_0.c:2183` asigna `flush_tlb_needs_extra_type_2` con la condición
+`amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(9, 4, 0) && adev->gmc.xgmi.num_physical_nodes`,
+y ese es el único punto de todo el árbol que la pone a `true`. Para Polaris12, GC_HWIP es 8, así
+que la condición es falsa por construcción.** `PROVEN`.
+
+**⇒ `PROVEN_ABSENT`. Y `flush_tlb_needs_extra_type_0` es un campo muerto: sus 5 apariciones en
+todo el árbol son la declaración (`amdgpu_gmc.h:366`) y cuatro lecturas en `amdgpu_gmc.c`
+(`:734`, `:803`, `:819`, `:831`). No hay ni una sola asignación en ningún ASIC.** `PROVEN_ABSENT`.
+
+**⇒ Y el comentario que explica el porqué es la mejor pista de toda §G, en `gmc_v9_0.c:2178`:
+«Vega20+XGMI caches PTEs in TC and TLB. Add a heavy-weight TLB flush (type 2), which flushes
+both.». Es decir, el flush pesado existe porque en Vega20 las PTEs se cachean en la Text Cache,
+y en GFX8 no se cachean, y por eso no hay flush pesado.** `PROVEN_DERIVED`.
+
+**⇒ `PROVEN_DERIVED. Ésta es la respuesta de §G a por qué GFX8 no necesita lo que gfx10 sí:
+en GFX8 la page table no pasa por la Text Cache, así que invalidar la TLB basta. La coherencia
+de las PTEs en GFX8 es de una sola capa, y en Vega20 es de dos. El driver propio hereda esa
+diferencia gratis si replica el camino de GFX8.** `PROVEN_DERIVED`.
 
 **⇒ Y `flush_tlb_needs_extra_type_0` está condicionado a `flush_type == 2`
-(`amdgpu_gmc.c:733`), de modo que para los dos primeros niveles de página la ruta normal es la
-de una sola llamada.** `PROVEN_DERIVED`.
+(`amdgpu_gmc.c:734`), pero como el campo nunca se pone a `true` esa condición es inerte: 4 de las
+5 líneas que lo consultan no pueden ejecutar su rama en ningún ASIC de este driver.** `PROVEN_DERIVED`.
 
 ## 7 · Lo que queda abierto
 
@@ -211,10 +246,21 @@ semántica de hardware y no de código del driver.** `PROVEN_DERIVED`.
 `vid.h:105` es una sola dword con el recuento en los bits altos, y el reparto real es 6 dwords
 para el `WAIT_REG_MEM` de 5 operandos, no 7.** `ERROR`.
 
-**⇒ `ERROR`. Di que `emit_frame_size` sobraba por el `NUM_WREG = 3` y que el gasto real eran 19
-dwords sin comprobar antes cuánto mide un `PACKET3`. El orden correcto era leer `vid.h:105` y
-contar las escrituras reales, que es lo que hice después.** `ERROR`.
+**⇒ `ERROR`. Di que el gasto real eran 19 dwords en el anillo GFX y 17 en el compute. Los valores
+correctos, contados por programa contra el fichero, son 17 y 16. La causa del error fue buscar
+`gfx_v8_0_ring_emit_wreg` en la línea equivocada —la 6884 en vez de la 6349— y obtener «0
+escrituras», que el script aceptó como medida válida en lugar de como señal de que no había
+encontrado la función.** `ERROR`.
 
-**⇒ Y el patrón es el mismo de `204`: la conclusión escrita antes de mirar el resultado del
-programa. Los dos números que aquí importan —24 declarado y 19 real— sólo son correctos porque
-al final los dejó contar el programa, línea a línea, contra el fichero.** `ERROR`.
+**⇒ Y ése es el fallo de método, que es el que importa: un script que devuelve 0 porque no
+encontró lo que buscaba produce un número falso con apariencia de número. La defence correcta
+es comprobar que la función se localizó antes de usar su recuento.** `ERROR`.
+
+**⇒ `ERROR`. Atribuí `flush_tlb_needs_extra_type_0 = 0` en GFX8 al comentario sobre un bug de
+Navi 1x. Ese comentario es de otra cosa: la asignación real está en `gmc_v9_0.c:2183` y su
+condición es `GC_HWIP == IP_VERSION(9, 4, 0)`, y además `flush_tlb_needs_extra_type_0` no se
+asigna en ningún ASIC del árbol, sino que es un campo muerto.** `ERROR`.
+
+**⇒ Y los tres errores tienen la misma forma y el mismo sitio: la conclusión escrita antes de
+mirar el resultado del programa, y aceptada sin comprobar que el programa había encontrado lo
+que decía medir.** `ERROR`.
