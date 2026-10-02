@@ -2945,6 +2945,78 @@ esta cerrado y no se afirma.
 `LAST_VERIFIED: 2026-10-02 - .ko 0x3ff50, /sys/kernel/btf/amdgpu via pahole,
 amdgpu_drm.h, captura de revkit/capturas/amdgpu_sa_info.txt`.
 
+## EV-34 · La BTF del módulo complementa al corpus para los layouts de struct
+
+```
+TYPE    OBSERVATION (BTF del modulo cargado) + MEASUREMENT
+STATE   PROVEN para lo que afirma
+```
+
+**El mecanismo, y por qué existe.** `/sys/kernel/btf/<modulo>` es la BTF que el
+kernel expone **por objeto**. La sección `.BTF` del `.ko` está **partida** —le
+falta la base— y `pahole` sobre el `.ko` falla con *"Malformed BTF string
+section, did you forget to provide base BTF?"*. La combinada sí está, y
+`/sys/kernel/btf/amdgpu` son 3.88 MB, legibles por todos, sin root.
+
+Es **NIVEL 2**: leer un fichero de `/sys`, sin instrumentación.
+
+**Lo que resuelve y el corpus no.** `struct amdgpu_bo` no está en el corpus —ni
+`.h` ni `.c`— y su layout sale entero de la BTF. Eso fue lo que cerró F13:
+`flags` en el offset **584 = 0x248**.
+
+**Lo que el corpus resuelve y la BTF solo confirma.** `amdgpu_vm_bo_base` y
+`amdgpu_vm` sí están en `amdgpu_vm.h`, y la BTF los da con todos sus offsets. Es
+una comprobación gratuita.
+
+**Y el límite real de `tools/struct_layout.py`, diagnosticado**
+
+Da `TAMANO None, CONFIANZA NULA` en `amdgpu_vm_bo_base` y en `amdgpu_vm`, con
+seis tipos sin resolver:
+
+```
+struct rb_root_cached sin medir    struct mutex sin medir
+spinlock_t sin medir               struct amdgpu_mem_stats sin medir
+struct list_head sin medir  (x2)
+```
+
+Es decir: **no resuelve los tipos primitivos del kernel**, y por eso falla en
+todo struct que incruste uno —que son casi todos los structs internos del
+driver, y en particular los de la ruta GPUVM.
+
+**LA HIPÓTESIS QUE PROBÉ Y ERA FALSA.** La causa parecía ser la raíz parcial:
+`RESEARCH/baseline/linux-7.1.3` no tiene `include/linux/`, y `struct_layout.py`
+busca en `<kernel>/include` (línea 1599). Repetido con
+`RESEARCH/kernelbuild/linux-7.1.3`, que **sí** tiene `list.h`, `mutex.h`,
+`spinlock.h` y `rbtree.h`:
+
+```
+baseline/linux-7.1.3     TAMANO None  CONFIANZA NULA  [list_head sin medir]
+kernelbuild/linux-7.1.3  TAMANO None  CONFIANZA NULA  [list_head sin medir]
+```
+
+Idéntico. **No es un problema de raíz: es un límite de la herramienta.** Se
+registra la hipótesis porque probarla y descartarla es lo que sostiene la
+segunda conclusión.
+
+**LO QUE LA HERRAMIENTA HACE BIEN, Y ES LO IMPORTANTE**
+
+Degrada a `CONFIANZA NULA` con la lista de lo que no resolvió. No devuelve un
+número inventado. Es el mismo comportamiento correcto que `pm4census` con
+`SIN MEDIR`, y es lo que hace que se pueda confiar en lo que sí dice.
+
+**CÓMO SE USA, Y ES COMPLEMENTARIO, NO SUSTITUTO**
+
+| fuente | cuando |
+|---|---|
+| corpus (`struct_layout.py`) | el struct está en el `.h` y sus tipos también |
+| `/sys/kernel/btf/amdgpu` | siempre, y además da los **tamaños de los tipos del kernel** |
+
+Para un driver propio, un layout de struct no se deduce: se lee. Y ahora hay dos
+lecturas independientes donde antes había una sola, y esa era parcial.
+
+`LAST_VERIFIED: 2026-10-02 - pahole v1.30 sobre /sys/kernel/btf/amdgpu,
+struct_layout.py sobre baseline y kernelbuild`.
+
 ## EV-18 · El anillo GFX tiene 2048 dwords y estaba vacío
 
 ```

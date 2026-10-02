@@ -2561,3 +2561,51 @@ Es la misma forma que el caso de `0xBCC` de EV-22: un offset corto existe en
 varios bloques de ASIC, y el resolvedor por bloque acierta mientras el
 resolvedor por árbol no.
 
+### `/sys/kernel/btf/<modulo>`: el complemento que le falta a `struct_layout.py`
+
+`/sys/kernel/btf/amdgpu` son 3.88 MB de BTF **combinada**, legible por todos,
+sin root. La sección `.BTF` del `.ko` está partida y `pahole` sobre el `.ko`
+falla con *"Malformed BTF string section, did you forget to provide base
+BTF?"*. La combinada la compone el kernel en tiempo de carga.
+
+**Que resuelve**: los layouts de struct **del driver cargado**, con nombres de
+campo y offsets, incluidos los **tipos primitivos del kernel** que el corpus no
+resuelve.
+
+```
+pahole -C amdgpu_bo /sys/kernel/btf/amdgpu
+  u64  flags;   /*  584  8 */      <-- el offset 0x248, el que cerró F13
+```
+
+**Y el límite de `tools/struct_layout.py`, para no esperar de él lo que no
+hace**:
+
+```
+struct_layout.py --struct amdgpu_vm_bo_base
+  TAMANO None   CONFIANZA NULA
+  tipos no resueltos: ['struct list_head sin medir']
+
+struct_layout.py --struct amdgpu_vm
+  tipos no resueltos: ['struct rb_root_cached sin medir', 'struct mutex sin medir',
+                       'spinlock_t', 'struct amdgpu_mem_stats sin medir',
+                       'struct list_head sin medir', 'struct list_head sin medir']
+```
+
+No resuelve los tipos primitivos del kernel. **No es un problema de raíz**: se
+probó con `baseline/linux-7.1.3` (parcial, sin `include/linux/`) y con
+`kernelbuild/linux-7.1.3` (completo, con `list.h`, `mutex.h`, `spinlock.h`),
+y el resultado es idéntico.
+
+Lo que hace **bien** es degradar a `CONFIANZA NULA` con la lista de lo que no
+resolvió, en vez de devolver un número. Por eso se puede confiar en lo que sí
+dice, y por eso `CONFIANZA NULA` debe leerse como "esto no lo sé", nunca como 0.
+
+**Uso recomendado**: las dos son complementarias, no intercambiables.
+
+| fuente | cuando |
+|---|---|
+| `struct_layout.py` | el `.h` del struct **y** los tipos que incruste están en el corpus |
+| `/sys/kernel/btf/amdgpu` | siempre, y además da los tamaños de los tipos del kernel |
+
+Para un driver propio, un layout no se deduce: se lee. Ahora hay dos lecturas
+independientes donde antes había una, y era parcial.
