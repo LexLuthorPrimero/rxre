@@ -297,7 +297,7 @@ efimeros.
 
 ---
 
-## 7. FIRMWARE INFO DEL VBIOS, CRUZADA CON EL KERNEL
+## 6. FIRMWARE INFO DEL VBIOS, CRUZADA CON EL KERNEL
 
 Tabla `FirmwareInfo` en `0x9974`, campo #5 de la master data table
 (`atombios.h:2789`). Estructura `_ATOM_FIRMWARE_INFO_V1_2` (atombios.h:2982).
@@ -358,6 +358,74 @@ Clasificacion: `NOT_DETERMINED` para la relacion. No `REFUTED`.
 Ademas: `amdgpu_bios.c` no llama a `amdgpu_atom_parse`, asi que el driver de
 7.1.3 **no decodifica** estos campos por si mismo. El cruce es mio, no del
 driver, y eso hay que decirlo para no atribuirle una capacidad que no tiene.
+
+---
+
+## 7. VRAM_INFO: LA MEMORIA FISICA DE ESTA TARJETA
+
+Tabla `VRAM_Info` en `0xa30a`, `usStructureSize=986`, rev 2.2, campo #29 de la
+master data table.
+
+### La revision manda, y hubo que respetarla
+
+La tabla declara **rev 2.2**, asi que la estructura correcta es
+`_ATOM_VRAM_INFO_HEADER_V2_2` (atombios.h:8027). La primera vez se aplico
+`_ATOM_VRAM_INFO_V4`, que era la que estaba a mano, y salio
+`ucChannelWidth=5` y `ucMemorySize=0`: numeros que parecian campos y no lo
+eran.
+
+Ademas, el header V2_2 trae `ucVramModuleVer`, que aqui vale **8**, y eso dice
+que los modulos son `ATOM_VRAM_MODULE_V8`. No es una suposicion: lo declara
+el propio dato.
+
+### Valores leidos (un solo modulo de VRAM)
+
+| campo | valor | |
+|---|---|---|
+| `usMemorySize` | **2048** | MB, coincide con el kernel |
+| `strMemPNString` | **`H5GC8H24AJR`** | part number fisico |
+| `usEnableChannels` | 3 | |
+| `usMcRamCfg` | 0x60A2 | NOOFBANK/NOOFRANKS/NOOFROWS/NOOFCOLS |
+| `ulChannelMapCfg` | 0x10 | mmMC_SHARED_CHREMAP |
+| `ucChannelNum` | 1 | |
+| `ucBankCol` | 10 | bank=2 (16bank), col=2 (10 bit) |
+| `ucDensity` | 99 | |
+| `ucRowNum` | 11 | |
+
+### El contraste, por tres vias
+
+| fuente | valor |
+|---|---|
+| VBIOS `usMemorySize` | 2048 MB |
+| kernel `amdgpu_vram_mm` `total` | 2048 MiB |
+| kernel `amdgpu_vram_mm` `size` | 2147483648 bytes |
+
+Tres fuentes, el mismo numero. `PROVEN`.
+
+El contraste esta dentro de la herramienta: si no coinciden sale con rc=5, y
+si no puede comprobarlo sale con rc=4. Un codigo 0 sin haber comprobado
+seria una corroboracion falsa.
+
+### `H5GC8H24AJR`
+
+Es un part number real de GDDR5 de Samsung, y identifica la memoria fisica
+de esta tarjeta. No es una inferencia: es un dato del firmware.
+
+Es el unico punto donde el VBIOS dice algo sobre el hardware que el driver
+no dice. El driver solo ve "2 GiB"; el VBIOS ve WHICH 2 GiB.
+
+### Lo que NO se afirma
+
+- `ucMemoryType = 0x50`. El nibble alto es 5, que en la documentacion de las
+  structs mas antiguas significa DDR5/GDDR5, pero `ATOM_VRAM_MODULE_V8` solo
+  dice `MEM_TYPE_DDR2/DDR3/GDDR3/GDDR5` sin dar la codificacion. El nibble
+  bajo, segun el comentario de las structs viejas, "must not be used for
+  now". **No se traduce a un nombre de tipo.**
+- `ucChannelWidth = 5`. El comentario dice 0=16bit, 1=32bit, 2=64bit. Un 5
+  no encaja en esa lista. **Se imprime el valor crudo y se deja.**
+
+Los dos se imprimen sin interpretar. Un campo cuyo comentario no casa con
+el valor no se convierte en un tipo de memoria inventado.
 
 ---
 
@@ -470,3 +538,29 @@ Se anotan porque el patron se repite y conviene reconocerlo.
     hace desconfiar de una corroboracion que era real, y el reflejo seria
     tirar el dato bueno. Se arreglo guardando los valores crudos en el
     primer recorrido, para que el segundo no tenga que recalcular offsets.
+
+13. **La estructura equivocada para la revision de la tabla.** VRAM_Info
+    declara rev 2.2 y se decodifico como V4, que era la que estaba a mano.
+    Salieron `ucChannelWidth=5` y `ucMemorySize=0`. Se corrigio leyendo que
+    la 2.2 tiene su propia estructura, y que ademas dice en el dato
+    (`ucVramModuleVer = 8`) cual es la de los modulos.
+
+    Leer una tabla con la estructura de otra revision no da un error: da
+    numeros que tienen forma de campo.
+
+14. **El offset de un campo de struct, buscado a ojo.** `usMemorySize` se
+    leia en +26 en vez de +20, y daba 24832 MB en lugar de 2048. El offset
+    ahora se calcula sumando el tamano de cada campo en el orden del struct.
+
+    24832 no es un valor de memoria que se note mirando, porque lleva
+    decimales implicitos y nadie sabe de memoria cual deberia ser. Solo se
+    vio al contrastar con el kernel.
+
+15. **Un control que no discriminaba.** El contraste de la unidad de clocks
+    no tenia caso negativo: si se forzaban los dos valores para que casasen,
+    decia "COINCIDEN" igual. `cn8.py` lo resuelve con un mutante (el factor
+    de 100 a 10) y con un VBIOS sintetico que declara 1024 MB contra un
+    kernel de 2048. Los dos tienen que fallar.
+
+    Un control que solo sabe decir "OK" no controla: pasa igual cuando todo
+    va bien y cuando la herramienta esta rota.

@@ -148,6 +148,23 @@ else
     printf '  %-46s FALLO rc=%d\n' "cn7: controles de pm4dec" "$cn7_rc"
     echo "$cn7_out" | head -20 | sed 's/^/       /'
 fi
+# cn8 tiene casos NEGATIVOS: un mutante de la unidad de clocks y un VBIOS
+# sintetico con otra VRAM tienen que hacer fallar el contraste. Un control
+# que solo dice "cuando todo va bien, OK" no comprueba nada.
+cn8_out=$(python3 cn8.py 2>&1); cn8_rc=$?
+if [ "$cn8_rc" -eq 0 ]; then
+    RESULTADOS+=("OK    cn8: controles de atomrom")
+    printf '  %-46s OK\n' "cn8: controles de atomrom"
+elif [ "$cn8_rc" -eq 2 ]; then
+    RESULTADOS+=("OMIT  cn8: controles de atomrom (sin VBIOS)")
+    printf '  %-46s OMITIDO (falta el VBIOS)\n' "cn8: controles de atomrom"
+    echo "$cn8_out" | head -1 | sed 's/^/       /'
+else
+    fallos=$((fallos+1))
+    RESULTADOS+=("FALLO cn8: controles de atomrom (rc=$cn8_rc)")
+    printf '  %-46s FALLO rc=%d\n' "cn8: controles de atomrom" "$cn8_rc"
+    echo "$cn8_out" | head -20 | sed 's/^/       /'
+fi
 # atomrom se valida con un ROM SINTETICO, no con el VBIOS real. El VBIOS es
 # firmware con derechos y no esta versionado, asi que una validacion que
 # dependiera de el fallaria en un clon limpio. El autotest ademas comprueba
@@ -163,6 +180,10 @@ if [ -f capturas/amdgpu_vbios.txt ]; then
     # contrastar: en ambos casos los valores se imprimen pero NO se dan por
     # buenos. Un error de unidades no da error, da un numero con decimales.
     run "atomrom: firmware info + contraste unidad" python3 atomrom.py firmware capturas/amdgpu_vbios.txt
+    # vram: usMemorySize del VBIOS tiene que coincidir con la VRAM que el
+    # kernel ve en amdgpu_vram_mm. Si no coinciden, el VBIOS describiria otra
+    # tarjeta, y eso habria que saberlo antes de usar nada de lo suyo.
+    run "atomrom: VRAM_Info + parte number"        python3 atomrom.py vram capturas/amdgpu_vbios.txt
     # pm4dec sobre el anillo real: el decode tiene que salir limpio, sin
     # problemas de truncamiento. Con el PKT0 mal tratado, esto no cuadraba.
     run "pm4dec: anillo GFX real"                   python3 pm4dec.py capturas/amdgpu_ring_gfx.txt

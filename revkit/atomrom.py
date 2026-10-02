@@ -667,10 +667,142 @@ def cmd_firmware(d, a):
     return 0 if unidad_ok else 5
 
 
+# ATOM_VRAM_MODULE_V8, atombios.h. El offset de CADA campo se calcula aqui
+# sumando el tamano del anterior, en el orden del struct. Calcularlo a mano
+# fue el error: se leyo usMemorySize en +26 en vez de +20, y salia 24832 MB
+# en lugar de 2048. Un offset buscado a ojo no es un offset, es una
+# suposicion con formato de dato.
+VRAM_MODULE_V8 = [
+    ("ulChannelMapCfg", 4), ("usModuleSize", 2), ("usMcRamCfg", 2),
+    ("usEnableChannels", 2), ("ucExtMemoryID", 1), ("ucMemoryType", 1),
+    ("ucChannelNum", 1), ("ucChannelWidth", 1), ("ucDensity", 1),
+    ("ucBankCol", 1), ("ucMisc", 1), ("ucVREFI", 1), ("usReserved", 2),
+    ("usMemorySize", 2), ("ucMcTunningSetId", 1), ("ucRowNum", 1),
+]
+VRAM_V8_PN_OFFSET = 44      # strMemPNString[20]
+VRAM_V8_TOTAL = 64          # con alineacion
+
+
+def cmd_vram(d, a):
+    """
+    Decodifica la tabla VRAM_Info y contrasta el tamano con lo que la GPU
+    tiene installed.
+
+    LA REVISION MANDA
+    -----------------
+    El VBIOS declara rev 2.2 en VRAM_Info, asi que la estructura correcta es
+    _ATOM_VRAM_INFO_HEADER_V2_2 (atombios.h:8027), NO _ATOM_VRAM_INFO_V4, que
+    es la que estaba a mano. Leer V4 sobre una tabla 2.2 da numeros que
+    parecen campos pero no lo son: salio ucChannelWidth=5 y ucMemorySize=0.
+
+    Y el V2_2 dice explicitamente ucVramModuleVer, que aqui vale 8, asi que
+    los modulos son ATOM_VRAM_MODULE_V8. Eso lo dice el propio dato, no una
+    suposicion.
+    """
+    v = valida(d)
+    mt = v["data_table"]
+    off = u16(d, mt + HEADER_COMUN + 2 * 28)      # campo #29: VRAM_Info
+    print("=" * 78)
+    print("VRAM_INFO  (_ATOM_VRAM_INFO_HEADER_V2_2, atombios.h:8027)")
+    print("=" * 78)
+    if off == 0:
+        print("VRAM_Info no esta en este VBIOS (offset 0).")
+        return 1
+    print("tabla en 0x%04x  usStructureSize=%d rev=%d.%d"
+          % (off, u16(d, off), u8(d, off + 2), u8(d, off + 3)))
+    p = off + 4
+    for nm in ("usMemAdjustTblOffset", "usMemClkPatchTblOffset",
+               "usMcAdjustPerTileTblOffset", "usMcPhyInitTableOffset",
+               "usDramDataRemapTblOffset", "usReserved1"):
+        print("  %-28s = 0x%04x" % (nm, u16(d, p)))
+        p += 2
+    nmod = u8(d, p); p += 1
+    print("  %-28s = %d" % ("ucNumOfVRAMModule", nmod))
+    print("  %-28s = %d" % ("ucMemoryClkPatchTblVer", u8(d, p))); p += 1
+    modver = u8(d, p); p += 1
+    print("  %-28s = %d" % ("ucVramModuleVer", modver))
+    p += 1   # ucMcPhyTileNum
+    print()
+    if modver != 8:
+        print("ucVramModuleVer = %d, y este script solo decodifica la 8." % modver)
+        print("Se dice en vez de aplicar un layout que no es el de este VBIOS.")
+        return 1
+    print("ATOM_VRAM_MODULE_V8 (atombios.h), %d modulo(s):" % nmod)
+    print()
+    for k in range(nmod):
+        base = p + k * VRAM_V8_TOTAL
+        # El offset de cada campo se acumula desde `base`. La primera version
+        # imprimia todos los campos desde el mismo sitio hacia m += 0, con lo
+        # que salia el mismo valor para todos y parecía un decode.
+        off_m = base
+        for nm, sz in VRAM_MODULE_V8:
+            val = u8(d, off_m) if sz == 1 else u16(d, off_m)
+            extra = ""
+            if nm == "usMemorySize":
+                extra = "  -> %d MB" % val
+            elif nm == "ucMemoryType":
+                extra = "  -> tipo %d" % (val & 0xF)
+            print("    %-20s @+%-3d = %-8d%s" % (nm, off_m - base, val, extra))
+            off_m += sz
+        pn = d[base + VRAM_V8_PN_OFFSET:base + VRAM_V8_PN_OFFSET + 20]
+        print("    %-20s @+%-3d = %r" % ("strMemPNString", VRAM_V8_PN_OFFSET,
+                                        pn.split(b"\x00")[0]))
+        print()
+    print("LO QUE SE PUEDE AFIRMAR")
+    vbios_mb = u16(d, p + 20)
+    print("  usMemorySize = %d MB es el tamano que declara el VBIOS para la"
+          % vbios_mb)
+    print("  memoria de esta tarjeta.")
+    print()
+    # CONTRASTE CON LA VRAM REAL, en cada ejecucion.
+    #
+    # El VBIOS podria estar describiendo otra tarjeta, o el kernel podria
+    # estar viendo algo distinto de lo que el VBIOS dice. Son dos fuentes
+    # que se pueden contradecir, y hasta que se cruzan no se sabe.
+    #
+    # amdgpu_vram_mm lo publica el kernel. Se busca "total: NMiB" y se
+    # compara. Si no esta el fichero, se sale con codigo 4: el decode es
+    # valido pero la CORROBORACION no esta hecha, y eso no es lo mismo.
+    vm = "capturas/amdgpu_vram_mm.txt"
+    if not os.path.exists(vm):
+        print("  NO CONTRASTADO: falta %s" % vm)
+        print("  El valor del VBIOS es legitimo, pero no se ha comprobado")
+        print("  contra el kernel. Saliendo con codigo 4.")
+        return 4
+    import re as _re
+    txt = open(vm, errors="replace").read()
+    mt = _re.search(r"total:\s*(\d+)MiB", txt)
+    if not mt:
+        print("  NO CONTRASTADO: no se encontro 'total: NMiB' en %s" % vm)
+        print("  Puede que el formato haya cambiado. Saliendo con codigo 4.")
+        return 4
+    kernel_mb = int(mt.group(1))
+    coincide = (kernel_mb == vbios_mb)
+    print("  CONTRASTE con amdgpu_vram_mm (lo que ve el kernel):")
+    print("    VBIOS  usMemorySize          = %d MB" % vbios_mb)
+    print("    kernel total                 = %d MiB" % kernel_mb)
+    print("    -> %s" % ("COINCIDEN" if coincide else "NO COINCIDEN"))
+    pn = d[p + VRAM_V8_PN_OFFSET:p + VRAM_V8_PN_OFFSET + 20].split(b"\x00")[0]
+    print()
+    print("  strMemPNString = %r es el part number fisico de la memoria." % pn)
+    print("  Es un dato del firmware, no una inferencia: identifica la")
+    print("  GDDR5 concreta que lleva esta tarjeta.")
+    print()
+    print("LO QUE NO SE AFIRMA")
+    print("  ucMemoryType = 0x%02x y ucChannelWidth = %d no tienen"
+          % (u8(d, p + 11), u8(d, p + 13)))
+    print("  interpretacion establecida. El comentario del header dice que")
+    print("  el nibble bajo de ucMemoryType 'must not be used for now', y")
+    print("  ucChannelWidth se documenta como 0=16bit 1=32bit 2=64bit, asi")
+    print("  que un 5 no encaja. Se imprime el valor crudo y se deja asi.")
+    return 0 if coincide else 5
+
+
 def main():
     ap = argparse.ArgumentParser(
         description="parseo del VBIOS ATOM de la RX550")
-    ap.add_argument("cmd", choices=["rom", "tablas", "firmware", "autotest"])
+    ap.add_argument("cmd", choices=["rom", "tablas", "firmware", "vram",
+                                    "autotest"])
     ap.add_argument("fichero", nargs="?", default="capturas/amdgpu_vbios.txt")
     a = ap.parse_args()
     # El autotest fabrica su propio ROM y no necesita el fichero de disco.
@@ -686,6 +818,8 @@ def main():
     d = open(a.fichero, "rb").read()
     if a.cmd == "firmware":
         return cmd_firmware(d, a)
+    if a.cmd == "vram":
+        return cmd_vram(d, a)
     if a.cmd == "rom":
         return cmd_rom(d, a)
     return cmd_tablas(d, a)
