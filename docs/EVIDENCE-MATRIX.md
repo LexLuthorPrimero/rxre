@@ -2633,6 +2633,77 @@ Que converjan por vias independientes es lo que sostiene la fila. La， de que
 el hardware lee `count+1` es EV-30; el censo explica por qué 43 de 50 emisores
 tienen la misma forma.
 
+
+### EV-30 corroborado en el BINARIO cargado, y el limite de esa via
+
+`/tmp/amdgpu_loaded.ko`, el modulo que el kernel tiene cargado, con
+`ko_immediate.py` (de otra sesion, construida para un discriminante suyo).
+
+```
+gfx_v8_0_ring_emit_vm_flush  @0x147830   9 stores
+   0xC0053C00   0x00000000   0x0000051E   0x00000000
+   0x00000000   0x00000000   0x00000020   0xC0004200   0x00000000
+```
+
+**Los mismos 9 dwords, en el mismo orden, que `pm4_emit` deriva del fuente.** Es
+el mismo resultado que mi cuenta con `grep -n` y que `count_vmflush_dw`, pero
+salido de los bytes que ejecuta la maquina.
+
+Y el HDP flush, que es el otro emisor de `WAIT_REG_MEM`:
+
+```
+gfx_v8_0_ring_emit_hdp_flush  @0x14ece0   4 stores
+   0xC0053C00   0x00001537   0x00001538   0x00000020
+```
+
+`0x1537` y `0x1538` son los mismos `mmGPU_HDP_FLUSH_REQ` y `_DONE` que yo lei
+en los dwords 10 y 11 del anillo capturado.
+
+**CONVERGENCIA, cinco vias, y cada una mas fuerte que la anterior**
+
+| via | que es | dwords del WAIT_REG_MEM del vm_flush |
+|---|---|---|
+| conteo a mano con `grep -n` | lectura | 7 (cabecera + 6) |
+| `count_vmflush_dw.py` | aritmetica sobre el codigo | 7 |
+| `pm4_emit.py` | evaluacion de constantes del fuente | 7 |
+| `ko_immediate.py` | **los bytes del modulo cargado** | 7 |
+| el anillo GFX capturado | lo que ejecuto la GPU | 7 |
+
+La quinta no aplica al vm_flush, porque no hay ninguno capturado: los 8
+`WAIT_REG_MEM` del anillo GFX son de HDP flush. Y aun asi el binario y el
+anillo coinciden en los valores comunes: cabecera `0xC0053C00` y poll `0x20`.
+
+**LO QUE ESTA VIA NO PUEDE HACER, Y ES IMPORTANTE**
+
+`ko_immediate` cuenta **inmediatos**, no dwords emitidos. Su potencia depende de
+la funcion:
+
+| funcion | stores que ve | dwords que emite | le faltan |
+|---|---|---|---|
+| `ring_emit_vm_flush` | 9 | 9 | ninguno |
+| `ring_emit_hdp_flush` | 4 | 7 | el control y los dos `ref_and_mask` |
+| `ring_emit_wreg` | 2 | 5 | `cmd`, `reg` y `val`, que son de runtime |
+
+`vm_flush` se verifica **completo** porque todos sus dwords son constantes de
+tiempo de compilacion. Las otras dos no, y no por un fallo de la herramienta:
+`ref_and_mask` viene de `get_hdp_flush_mask()` en runtime, y `reg` y `val` son
+parametros de la funcion.
+
+**CONSECUENCIA PARA EL DISCRIMINANTE QUE DEJO OTRA SESION**
+
+`findings/121` nombro como siguiente paso, textual: *"desensamblar
+`gfx_v8_0_ring_emit_vm_flush` en `/tmp/amdgpu_loaded.ko` y verificar que los 19
+dwords aparecen como inmediatos"*.
+
+La respuesta es que **9 de los 19 pueden aparecer como inmediatos, y aparecen**.
+Los otros 10 son las dos llamadas anidadas a `emit_wreg`, y sus dwords son
+valores de runtime: no pueden estar en el binario como inmediatos por
+definicion. `count_vmflush_dw` si los cuenta, porque trabaja sobre el codigo.
+
+Y el nombre del simbolo es **`gfx_v8_0_ring_emit_hdp_flush`**, no
+`gfx_v8_0_emit_hdp_flush`. Con el nombre corto la herramienta responde "simbolo
+no encontrado" y parece que la funcion no existe.
+
 `LAST_VERIFIED: 2026-10-02 - gfx_v8_0.c:838-864, amdgpu_ring.c:756-768,
 amdgpu_ring.h:432, bytes del anillo de compute dwords 3..6, cn7`.
 

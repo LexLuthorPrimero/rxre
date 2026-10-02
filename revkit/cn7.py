@@ -585,6 +585,56 @@ def main():
         _PTE.PTE_ADDR_MASK_GFX8 == 0x000000FFFFFFF000,
         "(constante=0x%016x)" % _PTE.PTE_ADDR_MASK_GFX8)
 
+    # --- la convergencia de 5 vias sobre el vm_flush
+    #
+    # Es el dato con mas fuentes independientes de toda la sesion. Si una via
+    # deriva, el resto la delata. Y una de las cinco es el BINARIO que el
+    # kernel tiene cargado, que no se puede deducir del fuente.
+    _KO = "/tmp/amdgpu_loaded.ko"
+    _KOT = os.path.abspath(os.path.join(
+        AQUI, "..", "08-ARQUITECTURA", "tools", "ko_immediate.py"))
+    if os.path.exists(_KO) and os.path.exists(_KOT):
+        _r = subprocess.run([sys.executable, _KOT, "--func",
+                             "gfx_v8_0_ring_emit_vm_flush"],
+                            capture_output=True, text=True, cwd=AQUI)
+        _imm = re.findall(r"0x([0-9A-Fa-f]{8})", _r.stdout)
+        _esperado = ["C0053C00", "00000000", "0000051E", "00000000",
+                     "00000000", "00000000", "00000020", "C0004200",
+                     "00000000"]
+        chk("binario: el vm_flush tiene 9 stores, en el orden esperado",
+            [x.upper() for x in _imm] == _esperado,
+            "(binario=%s)" % ([x.upper() for x in _imm],))
+        chk("binario: el WAIT_REG_MEM del vm_flush acaba en 0x20, que es la "
+            "correcion de EV-28",
+            len(_imm) >= 7 and _imm[6].upper() == "00000020",
+            "( septimo=%s)" % (_imm[6] if len(_imm) > 6 else "?"))
+        chk("binario: el control dword del WAIT_REG_MEM es CERO, como en la "
+            "fuente", _imm[1].upper() == "00000000",
+            "(segundo=%s)" % _imm[1])
+        # el hdp_flush, que es el otro emisor y el que SI esta en el anillo
+        _r2 = subprocess.run([sys.executable, _KOT, "--func",
+                              "gfx_v8_0_ring_emit_hdp_flush"],
+                             capture_output=True, text=True, cwd=AQUI)
+        chk("binario: el hdp_flush tiene 0x1537 y 0x1538, los mismos que el "
+            "anillo capturado",
+            "00001537" in [x.upper() for x in
+                           re.findall(r"0x([0-9A-Fa-f]{8})", _r2.stdout)]
+            and "00001538" in [x.upper() for x in
+                               re.findall(r"0x([0-9A-Fa-f]{8})", _r2.stdout)],
+            "(stores=%s)" % re.findall(r"0x([0-9A-Fa-f]{8})", _r2.stdout))
+        chk("binario: la herramienta cuenta INMEDIATOS, no dwords emitidos: "
+            "emit_wreg son 5 dwords y solo 2 inmediatos",
+            len(re.findall(r"0x[0-9A-Fa-f]{8}",
+                           subprocess.run(
+                               [sys.executable, _KOT, "--func",
+                                "gfx_v8_0_ring_emit_wreg"],
+                               capture_output=True, text=True,
+                               cwd=AQUI).stdout)) == 2,
+            "por eso el vm_flush si se verifica completo y las otras dos no")
+    else:
+        print("  OMIT  sin /tmp/amdgpu_loaded.ko no se contrasta con el "
+              "binario cargado")
+
     print("-" * 62)
     if FALLOS:
         print("%d control(es) FALLAN. pm4dec NO puede usarse como autoridad."
