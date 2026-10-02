@@ -2988,3 +2988,68 @@ la confusion mas probable de esa linea; lo dejo escrito para que no la cometa ot
 
 check.sh 39 | cn7 97 | cn8 33 | gfx8blocks 24/24 | gchwip_alcance 21/21.
 GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 2 (solo lectura). MODIFICATIONS 0.
+
+---
+
+## 2026-10-02 · opencode · RK-12 `bootcheck`: el arranque validado, con el control DENTRO de la herramienta
+
+```
+OBJECT   revkit/bootcheck.py, revkit/check.sh, docs/TOOLS-STATUS.md
+ACTION   TOOL NEW + VALIDATED · READONLY · WRITE_EXECUTION=NONE · GPU INTACTA
+```
+
+**LOS CUATRO `dev_err` DE FASE SON UN OBSERVABLE GENERICO.** Dicen "esta placa no
+arranco bien". Un driver propio necesita exactamente eso para validar su propio
+arranque, y no habia ninguna herramienta que lo hiciera.
+
+**EL DISENO, Y SALE DE DOS ERRORES MIOS DE ESTA MISMA RONDA.**
+
+La entrada es un FICHERO, no una tuberia. Si la herramienta ejecutara journalctl ella
+misma, un fallo de su propio pipeline seria indistinguible de un arranque limpio, que
+es exactamente el error de NR-2026-10-02-d2. Con fichero se puede probar contra logs
+SINTETICOS, y ahi si se ve si el control funciona.
+
+Y **C0 va primero y gobierna el resultado**: si el log no contiene nada reconocible,
+la herramienta NO dice "cero fallos", dice INVALID_RESULT y sale con rc=4. **UN CERO
+SIN PRUEBA NO SE REPORTA**, y el 0 de C2 aparece siempre al lado de C0, que es su
+control.
+
+**VALIDADO.** 10 vectores, cinco mutaciones cazadas sobre copias: sin C0 (4 en rojo),
+C2 invertido (5), un bloque menos en la lista (rc=1), la regex tolerando doble espacio
+(1, y es justo el test que fija el bug), ASIC equivocado (3, y la ejecucion real da
+rc=3). Original 10 OK.
+
+**Y UN TEST QUE ES UN BUG FIJADO.** El ultimo vector comprueba que un doble espacio
+entre ">" y "(" hace que la linea NO cuente como bloque: es el bug que me produjo la
+falsa contradiccion de EV-42, aqui declarado como comportamiento esperado.
+Convertir una trampa silenciosa en un test es la diferencia entre un artefacto y una
+costumbre.
+
+**CONTRA EL LOG REAL:** 1211 lineas, 68 de amdgpu, 9 bloques, 0 fallos de fase, ASIC
+POLARIS12. Los cuatro controles en verde, rc=0.
+
+**EL LIMITE, DICHO EN LA PROPIA SALIDA.** Esto dice lo que el driver IMPRIMIO, no lo
+que el hardware HIZO. Que ninguna fase fallo NO es que el hardware quedara bien: eso
+sigue NOT_DETERMINED sin lectura de registros. Y es la muestra de UN arranque, que es
+justo lo que 243 y 258 ya sufreron con MemTotal.
+
+**TRES DEFECTOS MIOS EN LA HERRAMIENTA, y el tercero solo se ve si te relees.**
+Escribi cirilico en un comentario, la misma clase de contaminacion que acababa de
+ampliar el guardIAN. Inmediatamente despues de ampliarlo: el defecto estaba en el
+production, no en el control. Escribi un control como "(not C0) and C0", que es
+SIEMPRE falso: un control que no puede pasar. Y un len() sobre un bool.
+
+**EL PRIMERO ES EL QUE MAS DICE: ampliar un guardIAN no sirve si la fuente que lo salta
+es el mismo sitio donde se acaba de escribir.** El control y el error estan en la
+misma accion, y por eso el control no llego a tiempo. Hay que releer lo que uno acaba
+de escribir, y releer no es lo mismo que pasar el control.
+
+**Y LO QUE ESTA HECHO PARA QUE NO SE DESINCRONICE:** la lista de bloques esperados no
+esta inventada aqui, viene de gfx8blocks.py mas lo OBSERVED de EV-42. Si el kernel
+cambiara la lista, esta herramienta falla, y eso es lo correcto: una lista de bloques
+copiada a mano en dos sitios es dos sitios que se desincronizan, que es la clase de
+error que vengo pagando desde EV-35.
+
+check.sh 40 (con bootcheck dentro) | cn7 97 | cn8 33 | gfx8blocks 24/24 |
+gchwip_alcance 21/21 | bootcheck 10/10 y rc=0 contra el log real.
+GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.

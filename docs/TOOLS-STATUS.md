@@ -3063,3 +3063,87 @@ el bloque no es la tabla, el bloque no es el fichero, y el bloque no esta en
 `amdgpu/`. El self-test comprueba **los nombres de los ficheros** donde se
 definen los diez, no solo que exista tabla, precisamente porque el fallo que
 cae es "no lo he mirado en el sitio correcto", no "no existe".
+
+## `bootcheck.py` (RK-12): el arranque como observable reutilizable, con su control dentro
+
+**Que resuelve.** Los cuatro `dev_err` de fase de inicializacion son un
+**observable generico** de "esta placa no arranco bien". Un driver propio necesita
+exactamente esa comprobacion para validar su propio arranque, y no habia ninguna
+herramienta que la hiciera.
+
+```
+bootcheck.py --self-test
+bootcheck.py --log <fichero>          # por defecto stdin
+   rc 0 los cuatro controles pasan
+      3 algun control en rojo
+      4 INVALID_RESULT: el log no es reconocible, y NO es lo mismo que un arranque limpio
+```
+
+**LOS CUATRO CONTROLES**
+
+```
+C0  el log es de esta placa y es legible           <-- CONTROL, no resultado
+C1  estan los 9 bloques de Polaris12, con su tabla
+C2  ninguna fase de inicializacion fallo
+C3  el kernel nombro POLARIS12
+```
+
+**EL DISENO, Y SALE DE DOS ERRORES MIOS DE LA RONDA ANTERIOR.**
+
+1. **La entrada es un FICHERO, no una tuberia.** Si la herramienta ejecutara
+   `journalctl` ella misma, un fallo de su propio pipeline seria indistinguible de
+   un arranque limpio. Eso es exactamente el error de `NR-2026-10-02-d2`, donde dos
+   ceros falsos salieron de una redireccion metida en una variable. Con fichero de
+   entrada se puede probar contra logs **sinteticos**, y ahi si se ve si el control
+   funciona.
+2. **C0 va primero y gobierna el resultado.** Si el log no contiene nada
+   reconocible, la herramienta **no dice "cero fallos"**: dice `INVALID_RESULT` y
+   sale con `rc=4`. **Un cero sin prueba no se reporta**, y el 0 de C2 aparece
+   siempre al lado de C0, que es su control.
+
+**`VALIDATED`. 10 vectores, cinco mutaciones cazadas sobre copias.**
+
+```
+R1  sin el control C0                        4 controles en rojo
+R2  C2 invertido (pasaria un arranque roto)  5 controles en rojo
+R3  un bloque de menos en la lista esperada  selftest rc=1
+R4  la regex pasa a tolerar doble espacio    1 control  en rojo, y es el que fija el bug
+R5  ASIC esperado equivocado                3 controles, y la ejecucion real da rc=3
+original                                     10 OK, rc=0
+```
+
+**Y UN TEST QUE ES UNA BUG FIJADO.** El ultimo vector comprueba que un **doble
+espacio** entre `>` y `(` hace que la linea **no** cuente como bloque. Es el bug que
+me produjo la falsa contradiccion de EV-42, y aqui esta **declarado como
+comportamiento esperado**. Convertir una trampa silenciosa en un test es la
+diferencia entre un artefacto y una costumbre.
+
+**CONTRA EL LOG REAL.** `1211` lineas, `68` de amdgpu, **9** bloques, **0** fallos de
+fase, ASIC `POLARIS12`: los cuatro controles en verde, `rc=0`.
+
+**LIMITE DECLARADO en la propia salida, que es la parte que importa.** Esto dice lo
+que el driver **IMPRIMIO**, no lo que el hardware **HIZO**. Que ninguna fase fallo
+**no es** que el hardware quedara bien: eso sigue `NOT_DETERMINED` sin lectura de
+registros. Y es la muestra de **un** arranque: un verde no garantiza que los otros
+arranquen igual, que es justo lo que `243` y `258` ya sufrieron con `MemTotal`.
+
+**POR QUE LA LISTA DE BLOQUES NO ESTA INVENTADA AQUI.** Viene de `gfx8blocks.py` mas
+lo `OBSERVED` en EV-42, y si el kernel cambiara la lista esta herramienta falla. Eso
+es lo correcto: una lista de bloques copiada a mano en dos sitios es dos sitios que
+se desincronizan, que es la clase de error que vengo pagando desde EV-35.
+
+**Defectos mios en esta herramienta, tres, y los tres los encontre yo al releerla:**
+
+1. Escribi cinco caracteres **cirilicos** en un comentario, la misma clase
+   de contaminacion que acababa de ampliar el guardIAN. No los cito: el
+   guardiano es absoluto y no tiene escape, y meter un caracter para
+   ilustrar el defecto es justo lo que el control prohibe. Inmediatamente despues de
+   ampliarlo: el defecto estaba en el Production, no en el control.
+2. Escribi un control como `(not C0) and C0`, que es **siempre falso**: un control
+   que no puede pasar. Y era redundante con el de al lado, que si distingue.
+3. Un `len()` sobre un `bool` en un caso limite.
+
+**El primero es el que mas dice:** ampliar un guardián no sirve si la fuente que lo
+salta es el mismo sitio donde se acaba de escribir. El control y el error estan en la
+misma accion, y por eso el control no llego a tiempo. **Hay que releer lo que uno
+acaba de escribir, y releer no es lo mismo que pasar el control.**

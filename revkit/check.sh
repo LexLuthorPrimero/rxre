@@ -243,6 +243,15 @@ echo
 
 # el plan de captura debe ser coherente, pero su ejecucion pide sudo, asi que
 # aqui SOLO se comprueba la coherencia, sin leer la GPU.
+echo "--- el arranque, validado contra el log, con control positivo incluido ---"
+# bootcheck responde a la pregunta que un driver propio necesita para validar su
+# propio arranque: arranco bien? Y trae su propio control: si el log no es
+# reconocible dice INVALID_RESULT en vez de "cero fallos", porque un cero sin
+# prueba no es un resultado (NR-2026-10-02-d2).
+if [ -f ./bootcheck.py ]; then
+    run "bootcheck: self-test sobre logs SINTETICOS" ./bootcheck.py --self-test
+fi
+
 echo "--- la superficie de inicializacion: que bloques IP existen en esta placa ---"
 # gfx8blocks responde a la pregunta previa: de los 84 bloques que el driver sabe
 # instanciar, cuales existen en Polaris12. De ahi sale el conjunto vivo que usa
