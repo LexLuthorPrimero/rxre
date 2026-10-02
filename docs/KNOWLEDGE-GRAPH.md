@@ -483,3 +483,60 @@ dos headers" salió de un patrón mal escrito (`amdgpu*.c`), es decir de un
 productor que no examinó nada. Está bien formado y no significa nada. Pasó en esta
 misma ronda, y por eso los controles nuevos que dependen de ficheros externos
 **OMITen** si no encuentran el fichero, en vez de pasar en verde.
+
+## 13 · La version de IP de GFX8 es 0, y de ahi cuelgan cuatro decisiones de
+init
+
+`2026-10-02` · EV-39 · `PROVEN` salvo donde se dice
+
+La arista que faltaba era el valor. Con el valor, tres decisiones que antes eran
+"el codigo hace X" pasan a "el codigo hace X **porque** el valor es 0", y una
+afirmacion de hardware heredada se separa de su consecuencia.
+
+```
+STRUCT amdgpu_device { uint32_t ip_versions[MAX_HWIP][HWIP_MAX_INSTANCE]; }
+   |  reservado por devm_drm_dev_alloc -> kzalloc(sizeof(struct amdgpu_device))
+   |  -> nace a 0
+   v
+READER amdgpu_ip_version(adev, GC_HWIP, 0) = ip_versions[GC_HWIP][0] & ~0xFFU
+   |
+   |  Writers: 8 valores FIJOS, todos 9.x/10.x, en amdgpu_discovery.c
+   |           (2811, 2840, 2870, 2887, 2917, 2954, 2986, 3019)
+   |  Ninguno en la ruta VI.  ip_versions[GC_HWIP][0] == 0     <-- PROVEN
+   |
+   +--> A) amdgpu_vm.c:1157   0 < IP_VERSION(9,0,0)  == TRUE
+   |        -> params.needs_flush = true en TODA actualizacion de page table
+   |        -> confirma y EXPLICA el "invalidate siempre obligatorio" de 085
+   |
+   +--> B) amdgpu_vm.h:122/137/140   0 >= IP_VERSION(12,0,0) == FALSE
+   |        -> los 4 codificadores de PTE/PDE toman la rama legacy
+   |        -> NO usar bit 56 (PRT) ni bit 63 (PDE como PTE): son de gfx12
+   |
+   +--> C) amdgpu_discovery.c:2680  switch sin caso para 0, default: break;
+   |        -> no se anade mes_*_ip_block   -> enable_mes = false
+   |        -> MES PROVEN_ABSENT en Polaris12
+   |        -> corrobora EV-38bis: no hay codificador de PTE/PDE en MES
+   |        -> y no hay ni mes_v9_* ni mes_v10_*: 0 ficheros de 3 existentes
+   |
+   +--> D) la Hardware Claim "el bloque de 8 PTE es atomico" (comentario de
+            amdgpu_vm.c:1155, unica fuente del driver)
+            -> la CONSECUENCIA es PROVEN (via A)
+            -> la CAUSA     es NOT_INDEPENDENTLY_CORROBORATED
+```
+**La distinction D es el nudo del grafo.** Una rama puede estar `PROVEN` y su
+explicacion no. Si el driver que escribo pone el porque equivocado, el dia que el
+ASIC cambie el porque, el codigo seguira funcionando y nadie sabra por que dejo
+de funcionar. Por eso `NECESITA` distingue esas dos cosas y el grafo las separa.
+
+**Segunda arista, sobre el censo** (`411` sitios contados mal, ver
+`NR-2026-10-02-z`): una comparacion puede ser constante **y** estar en codigo que
+no se ejecuta. De las 46 que reporta `ipver_zero.py`, **5 estan en
+`amdgpu_mes.c` sin llamador alcanzable**; quedan **41** que gobiernan la placa.
+La constante es propiedad de la *expresion*; el alcance es propiedad del *grafo de
+llamadas*. Son dos preguntas y hay que hacerlas por separado.
+
+**Tercera arista, de estructura del corpus:** `baseline/` y `working/` solo tienen
+`drivers/gpu/drm/amd/`. El core de DRM esta unicamente en `kernelbuild/`, que es
+la raiz completa. Sin esa arista, el eslabon `kzalloc` de A parecia `NOT_AVAILABLE`
+y toda la cadena caia a `NOT_DETERMINED` por una limitacion mia del corpus. En un
+grafo, **el alcance de un nodo es un atributo del nodo**.

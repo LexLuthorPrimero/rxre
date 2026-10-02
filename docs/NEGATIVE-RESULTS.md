@@ -1121,3 +1121,100 @@ TERCERA, y es la que mas se me daba por buena
   averiguarlo
 
 ```
+
+## NR-2026-10-02-x · El "TLB de GFX8 entra en bloques de 8 PTE" tiene UNA sola
+fuente, y no es un registro
+
+`CLASSIFICATION=NEGATIVE_RESULT` · `TRACK=STATIC` · `WRITE_EXECUTION=NONE` ·
+`RUNTIME=NOT_RUN` · `GPU INTACTA` · `CORPUS=RESEARCH/baseline + kernelbuild`
+
+**El resultado negativo.** `185`/`190` de otra sesion presentan como afirmacion de
+**hardware** que "en GFX8 y anteriores cualquier bloque de 8 PTE con un bit valid
+metido entra en el TLB". Segui el rastro de la frase por el camino que obliga la
+regla de lectura completa y no se sostiene como `PROVEN`:
+
+```
+frases "8 PTE block" en TODO el driver amdgpu ................... 1   (amdgpu_vm.c:1155)
+registros de TLB en asic_reg/gmc/gmc_8_{1,2}_sh_mask.h ......... 188, pero TODOS del
+   L1 del shader: MC_VM_MX_L1_TLB_CNTL, MC_VM_MB_L1_TLB{0,1}_DEBUG,
+   EFFECTIVE_L1_TLB_SIZE, EFFECTIVE_L1_QUEUE_SIZE
+   ninguna mention de page table, PTE, PDE ni de granularidad
+agrupacion o alineacion de PTE de 8 en el codigo .............. ninguna
+```
+**Clasificacion correcta, que no contradice a la otra sesion sino que la acota:**
+
+| objeto | estado | por que |
+|---|---|---|
+| lo que el **driver cree** | `PROVEN` | el comentario esta, literal, y es el unico sitio |
+| lo que el **hardware hace** | `NOT_INDEPENDENTLY_CORROBORATED` | una fuente, sin contraprueba |
+
+**Lo que NO hago, y es el motivo de escribir esto.** El busqueda fallo, luego la
+ausencia de corroboracion es `NOT_FOUND`, y `NOT_FOUND` **no** es
+`PROVEN_ABSENT`: no afirmo que el hardware no tenga esa granularidad, afirmo que
+**en este corpus no hay una segunda fuente**. Una afirmacion de hardware
+sostenida por un comentario upstream sigue siendo una afirmacion de hardware, pero
+debe ir marcada como heredada, porque para un driver propio la diferencia es entre
+*"se por que"* y *"copie por que"*.
+
+**Lo que si queda `PROVEN`, y no depende del comentario:** en esta placa toda
+actualizacion de page table pide flush de TLB. `amdgpu_vm.c:1157` es
+`0 < IP_VERSION(9,0,0)`, cierto por construccion. Ver EV-39.
+
+---
+
+## NR-2026-10-02-y · MES no se instancia en GFX8, y el `switch` que lo decide lee
+el valor degenerado
+
+`CLASSIFICATION=NEGATIVE_RESULT` · `TRACK=STATIC` · `WRITE_EXECUTION=NONE` ·
+`RUNTIME=NOT_RUN` · `GPU INTACTA` · `CORPUS=RESEARCH/baseline/linux-7.1.3`
+
+**Ausencia `PROVEN_ABSENT`, con el mecanismo.** `amdgpu_discovery.c:2678-2714`:
+
+```
+static int amdgpu_discovery_set_mes_ip_blocks(struct amdgpu_device *adev)
+{
+        switch (amdgpu_ip_version(adev, GC_HWIP, 0)) {   <-- LEE GC_HWIP
+        case IP_VERSION(11,0,0) ... case IP_VERSION(11,5,4):  mes_v11_0_ip_block
+        case IP_VERSION(12,0,0) ... case IP_VERSION(12,0,1):  mes_v12_0_ip_block
+        case IP_VERSION(12,1,0):                            mes_v12_1_ip_block
+        default: break;
+        }
+```
+13 casos, todos `11.x` o `12.x`, `default: break;`. Con `GC_HWIP == 0` no casa
+ninguno: no se anade ningun `mes_*_ip_block` y `enable_mes` queda en falso.
+
+Y no es solo que falte un caso para GFX8: **`mes_v9_*.c` y `mes_v10_*.c` no
+existen** en el driver. Los unicos tres ficheros son `mes_v11_0.c`, `mes_v12_0.c`,
+`mes_v12_1.c`, y `amdgpu_mes_init()` solo se llama desde esos tres. El grafo de
+llamadas cierra por si solo.
+
+**Por que lo anoto aparte del EV-39:** porque la razon es contraintuitiva. La
+respuesta ingenua es "este ASIC no aparece en la lista de MES"; la real es que **la
+lista se consulta con el valor degenerado de la version de IP**. Un driver propio
+que numerase ASICs por version de IP tendria aqui el mismo fallo: con la version
+a 0, ningun `case` casa y el `default` silencioso se lleva por delante el bloque
+entero. **Un `default: break;` en un `switch` de inicializacion es un sitio de
+perdida silenciosa, y no avisa.**
+
+---
+
+## NR-2026-10-02-z · Mi censo de `GC_HWIP` era 5,2 veces mayor, por contar
+ficheros que no se ejecutan
+
+`CLASSIFICATION=ERROR` · `TRACK=STATIC` · `WRITE_EXECUTION=NONE` · `GPU INTACTA`
+
+```
+mi grep ingenuo   260 sitios de GC_HWIP en amdgpu/*.c *.h
+                   27 con '>='   123 con '=='   14 con '<'   96 sin operador en linea
+                   (los 96 son switch o validaciones multilinea)
+ipver_zero.py      50 sitios, en 18 ficheros que SI se ejecutan en GFX8
+                   46 comparaciones (8 SIEMPRE, 38 NUNCA) + 4 switch
+```
+El numero bueno es 50. El mio es incorrecto porque conte tambien `gfx_v9_0.c`,
+`gfx_v10_*.c` y `nv_*`, que en esta placa no entran. Ratio **5,2**.
+
+**Es la quinta vez en la sesion que mezclar generaciones produce un falso
+positivo**: `sid.h` en EV-35, `gmc_v6_0.c` en el control de mascara, `pm4census`
+con 7.2.8, el bloque SDMA, y ahora esto. El patron no cambia y por eso la regla
+tampoco: **contar apariciones en un arbol no es contar cosas que se ejecutan.**
+Un nombre de fichero no es un dato, es una suposicion con formato de dato.

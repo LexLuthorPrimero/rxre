@@ -2500,3 +2500,90 @@ original                                 14 OK, rc=0
 ```
 `check.sh` 36 con el selftest dentro | `cn7` 97 | `cn8` 33 | `selfcheck` 30/30.
 GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.
+
+---
+
+## 2026-10-02 · opencode · EV-39: `GC_HWIP` vale 0, y de ahi salen el flush de TLB, la rama de los codificadores y la ausencia de MES
+
+```
+OBJECT   docs/EVIDENCE-MATRIX.md (EV-39, NO stageado), CURRENT-STATE.md,
+         NEGATIVE-RESULTS.md, KNOWLEDGE-GRAPH.md, TOOLS-STATUS.md
+ACTION   EVIDENCE (cadena cerrada de 5 eslabones) + CORRECTION DE ALCANCE
+TRACK    STATIC · WRITE_EXECUTION=NONE · RUNTIME=NOT_RUN · GPU INTACTA
+```
+
+**LA CADENA, Y EL ESLABON QUE FALTABA.** La otra sesion dio por hecho que
+`ip_versions[GC_HWIP][0] == 0` en Polaris12. Es cierto, y se prueba en cinco
+eslabones, todos de esta sesion: `devm_drm_dev_alloc` -> `kzalloc(
+sizeof(struct amdgpu_device))` -> el array nace a cero -> `amdgpu_ip_version` lo
+lee tal cual -> **nadie lo escribe en la ruta VI** (los ocho escritores son
+valores fijos `9.x`/`10.x`).
+
+El eslabon que faltaba en cualquier lectura ingenua es el `kzalloc`: no basta con
+que nadie escriba el campo, hace falta que **el `struct` entero se reserve a
+cero**. Y hay que ir a `kernelbuild` a verlo, porque **el core de DRM no esta en
+`baseline` ni en `working`**, que son arboles parciales con solo
+`drivers/gpu/drm/amd/`. De no haberlo mirado, EV-39 entera habria quedado
+`NOT_DETERMINED` por una limitacion mia del corpus, y habria declarado ausente
+algo que existe.
+
+**LO QUE CIERRA.** El flush de TLB en la actualizacion de page tables no es
+"solo que el codigo lo hace": hay causa, y es que `0 < IP_VERSION(9,0,0)` es cierto
+por construccion, porque `IP_VERSION(mj,mn,rv)` es `(mj<<24)|..` y para ningun
+ASIC real vale 0. Y los cuatro codificadores de PTE/PDE caen al lado legacy, asi
+que mi driver **no** debe usar el bit 56 para PRT ni el bit 63 para PDE-como-PTE:
+son campos de gfx12.
+
+**LO QUE SE ESTRECHA, SIN CONTRADECIR A OTRA SESION.** La granularidad de 8 PTE
+del TLB de GFX8 la otra sesion la presenta como propiedad del hardware. He
+seguido el rastro: es el **unico** sitio del driver que lo dice, los 188 registros
+de TLB de los headers GMC son **todos del L1 del shader**, y no hay codigo que
+dependa de la alineacion a 8 como contraprueba. La clasificacion correcta es
+**una sola fuente**: el comentario de upstream. La consecuencia queda `PROVEN`, la
+causa no. Para un driver propio la diferencia es entre *"se por que"* y *"copie
+por que"*.
+
+**Y LO NUEVO, QUE ES DE MI DOMINIO.** **MES es inalcanzable en Polaris12**, y por
+un motivo que no es "este ASIC no esta en la lista":
+`amdgpu_discovery_set_mes_ip_blocks()` selecciona el bloque **leyendo
+`GC_HWIP`**, con 13 casos todos `11.x`/`12.x` y `default: break;`. Con el valor 0
+no casa ninguno. Y `mes_v9_*.c` / `mes_v10_*.c` no existen: hay tres ficheros
+MES y son los tres de `11.x`/`12.x`. Eso corrobora **EV-38bis desde una direccion
+que no habia usado**: ahi segui el codificador vivo por `sdma_v3_0_ip_funcs`; aqui
+pregunte si existe hardware de VM-ops en MES. No existe.
+
+**Un `default: break;` en un `switch` de inicializacion es perdida silenciosa**, y
+no avisa. Anotado, porque un driver propio que numerase ASICs por version de IP
+tendria el mismo fallo.
+
+**UN EJE QUE LE FALTA AL CENSO.** De las 46 comparaciones que reporta
+`ipver_zero.py`, **5 estan en `amdgpu_mes.c` sin llamador alcanzable**: quedan
+**41** que gobiernan la placa. La herramienta clasifica la *expresion*, no el
+*alcance*, y no lo declara. Una columna de alcanzabilidad es lo que le falta, y es
+el mismo eje que me hizo fallar a mi.
+
+**QUINTA VEZ QUE MEZCLAR GENERACIONES DA UN NUMERO FALSO.** Mi grep dio 260 sitios
+de `GC_HWIP`; el bueno es 50 en 18 ficheros que si se ejecutan. Countaba
+`gfx_v9_0.c`, `gfx_v10_*.c`, `nv_*`. El patron no cambia: `sid.h` en EV-35,
+`gmc_v6_0.c` en el control de mascara, `pm4census` con 7.2.8, el bloque SDMA, y
+esto. **Contar apariciones en un arbol no es contar cosas que se ejecutan.**
+
+**DOS DEFECTOS MIOS, MEDIDOS EN ESTA MISMA RONDA.** El script de escritura metio
+cuatro caracteres CJK sin querer y **el guardián los cazo antes de escribir
+nada**: es la primera vez que veo funcionar ese control en mi propio flujo, y
+funciona porque lo escribi sin probarlo antes. Y la correccion de los residuos
+llevo tres intentos, porque cada vez que lo hacia a mano metia un error distinto
+(una cadena que no existia, un salto de linea que no habia visto). A la tercera
+imprime el contexto exacto y lo arreglo. **Menos es mejor que a mano, incluso
+en un script de una sola vez.**
+
+**LO QUE NO HE HECHO Y POR QUE.** `EVIDENCE-MATRIX.md` lleva EV-39 escrito, con
++18 fences y la paridad conservada (225 -> 243, ambos impares, la deuda heredada no
+crece), pero **no se stagea**: otra sesion tiene modificada esa coma de ancho
+completo y `pub.sh` stagea ficheros enteros, asi que stagearlo se llevaria su
+linea. El contenido va en los seis documentos limpios. La linea ajena es exactamente
+una: una coma de ancho completo en "La", cambiada a coma normal. No la
+cito para no meter el caracter que el guardiano prohibe; que la resuelva quien
+escribio.
+
+`GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.

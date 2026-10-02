@@ -577,3 +577,70 @@ positivo: `sid.h` en EV-35, `gmc_v6_0.c` en el control de la máscara,
 `pm4census` con 7.2.8, y ahora el SDMA. La regla que sale es una sola: **en un
 control, un nombre de fichero no es un dato, es una suposición con formato de
 dato.**
+
+## Ronda 2026-10-02 (tarde 8) · EV-39 · `GC_HWIP` vale 0, y de ahi sale el flush
+
+**LO QUE PASA DE `NOT_DETERMINED`/`DERIVATION` A `PROVEN`**
+
+1. `amdgpu_ip_version(adev, GC_HWIP, 0) == 0` en esta placa. `PROVEN`, con la
+   cadena de cinco eslabones en `EVIDENCE-MATRIX.md` (EV-39). El eslabon que
+   faltaba era el `kzalloc`: no basta con que nadie escriba el campo, hace falta
+   que el `struct` entero se reserve a cero, y se reserva con
+   `devm_drm_dev_alloc` -> `kzalloc(sizeof(struct amdgpu_device))`.
+
+2. **El flush de TLB en la actualizacion de page tables es incondicional**, y ya
+   no es solo "el codigo lo hace": hay causa. `amdgpu_vm.c:1157` compara `0 <
+   IP_VERSION(9,0,0)`, que es cierto por construccion, porque `IP_VERSION(mj,..)`
+   es `(mj<<24)|..` y para ningun ASIC real vale 0. Confirma y **explica** el
+   "SB page walker invalidate siempre obligatorio" de `085`.
+
+3. **Los cuatro codificadores de PTE/PDE toman la rama legacy.** `AMDGPU_PTE_PRT_FLAG`,
+   `AMDGPU_PDE_BFS_FLAG` y `AMDGPU_PDE_PTE_FLAG` bifurcan sobre `GC_HWIP >=
+   12.0.0`, que aqui es falso. Mi driver propio **no** debe usar el bit 56 para
+   PRT ni el bit 63 para PDE-como-PTE: son campos de gfx12.
+
+**LO QUE SE ESTRECHA**
+
+4. La granularidad de 8 PTE del TLB de GFX8 pasa de "propiedad del hardware" a
+   `NOT_INDEPENDENTLY_CORROBORATED`: una sola fuente (el comentario de
+   `amdgpu_vm.c:1155`, unico lugar del driver que lo dice), sin registro que lo
+   describa en `asic_reg/gmc/gmc_8_{1,2}_sh_mask.h` y sin codigo que dependa de la
+   alineacion a 8 como contraprueba. **La consecuencia queda `PROVEN`; la causa no.**
+   Y la distincion importa: *"se por que"* frente a *"copie por que"*.
+
+**LO NUEVO, Y ES DE MI DOMINIO**
+
+5. **MES es inalcanzable en Polaris12** (`PROVEN_ABSENT`), y por un motivo que
+   no es "este ASIC no esta en la lista":
+   `amdgpu_discovery_set_mes_ip_blocks()` selecciona el bloque leyendo
+   **`GC_HWIP`**, con 13 casos todos `11.x`/`12.x` y `default: break;`. Con el
+   valor 0 no casa ninguno. Y no existe `mes_v9_*.c` ni `mes_v10_*.c`: los unicos
+   tres son `v11_0`, `v12_0`, `v12_1`.
+
+   Esto corrobora **EV-38bis desde una direccion que no habia usado**. Ahi segui el
+   codificador vivo por `sdma_v3_0_ip_funcs`; aqui pregunte si existe hardware de
+   VM-ops en MES. No existe, luego no hay codificador de PTE/PDE en MES. Dos
+   caminos, la misma conclusion.
+
+6. **Un eje que el censo de versiones no mide**: una comparacion puede ser
+   constante *y* estar en codigo que no se ejecuta. De las 46 comparaciones que
+   reporta `ipver_zero.py`, **5 estan en `amdgpu_mes.c`, sin ningun llamador
+   alcanzable desde la ruta VI**. Se quedan **41** las que gobiernan esta placa.
+   La herramienta no es incorrecta: no mide alcance, y su docstring solo declara
+   que no evalua `switch`.
+
+**Y UN HECHO DE ESTRUCTURA DEL CORPUS, QUE NO ES SECUNDARIO**
+
+7. `baseline/` y `working/` son arboles **PARCIALES**: solo `drivers/gpu/drm/amd/`.
+   El core de DRM solo esta en `kernelbuild/`, que es la raiz completa. Sin mirar
+   `kernelbuild` habria declarado el eslabon 3 ausente cuando existe, y EV-39
+   entera habria quedado `NOT_DETERMINED` por una limitacion mia. **"No lo
+   encontre en `baseline`" es `NOT_AVAILABLE`, nunca `PROVEN_ABSENT`.**
+
+**Quinta vez que mezclar generaciones da un numero falso.** Mi grep dio 260 sitios
+de `GC_HWIP`; el numero bueno es 50 en 18 ficheros. Countaba ficheros que en esta
+placa no se ejecutan (`gfx_v9_0.c`, `gfx_v10_*.c`, `nv_*`). Es el mismo patron que
+`sid.h` en EV-35, `gmc_v6_0.c` en el control de mascara, `pm4census` con 7.2.8 y
+el SDMA. **Contar apariciones en un arbol no es contar cosas que se ejecutan.**
+
+`GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.`

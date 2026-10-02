@@ -2894,3 +2894,44 @@ la puerta sin tocarla.
 4. La asercion de ese caso exigia que no quedara nada stageado, cuando lo correcto
    es que **desaparezca el ajeno**: `f.txt` si pertenece y debe quedarse. Una
    puerta que se llevara tambien lo suyo seria peor.
+
+## `ipver_zero.py` (otra sesion): que mide bien, y que no mide
+
+**NO la he tocado.** Vive en `08-ARQUITECTURA/tools/`, que es de otra sesion. Solo
+la he ejecutado y le he medido los limites, que es lo que se documenta aqui.
+
+**Contrato verificado por mi, no de palabra:** `READONLY=yes`, `WRITES_FILES=no`,
+`WRITES_SYSFS=no`, `MUTATES_CORPUS=no`, `WRITES_GPU=no`. Ejecutada sobre
+`RESEARCH/baseline`, sin efectos.
+
+**`VALIDATED` por su propio selftest:** 16 vectores, 4 controles, 2 de pipeline,
+`rc=0`. Y el selftest cubre justo el fallo que haria la herramienta inerte: el
+docstring avisa de que sin parentesis escapados la regex no casa nada, y el
+selftest lo detecta. Es un ejemplo de lo que debe hacer una comprobacion de
+herramienta, y por eso lo cito.
+
+**Salida real medida:** 18 ficheros comunes, 50 sitios = 46 comparaciones
+(8 SIEMPRE, 38 NUNCA) + 4 `switch` no evaluados. Los 8 y los 4 casan con lo que
+la otra sesion corrigio en `185` y `190`.
+
+**Limite 1, ya declarado por la propia herramienta.** Los `switch` no se evaluan: se
+listan. Correcto, porque un `switch` sobre un valor degenerado no casa ningun caso
+y eso es informacion, no una comparacion que se pueda chiffrar. Aun asi, listarlos
+deja al lector el trabajo, y el resultado bonito ("8 SIEMPRE") no dice que hay 4
+sitios sin clasificar.
+
+**Limite 2, que NO declara, y es el que me ha servido.** Clasifica la
+**expresion**, no el **alcance**. Una comparacion puede ser `SIEMPRE`/`NUNCA` y
+estar en codigo que en esta placa no se ejecuta nunca: de sus 46 comparaciones,
+**5 estan en `amdgpu_mes.c`** (`682, 683, 755, 756, 758`), cuyas funciones
+enclosing no tienen ningun llamador alcanzable desde la ruta VI. Se quedan **41**
+comparaciones que gobiernan el comportamiento real. La herramienta es correcta
+sobre lo que afirma y **silenciosa** sobre lo que no mide.
+
+**Por que lo anoto en vez dearlo.** Un censo de 46 que en realidad son 41 no es un
+error de la herramienta: es un **eje que le falta**, y es el mismo eje que me hizo
+fallar con mi propio grep de 260 (`NR-2026-10-02-z`). La leccion general es que un
+inventario necesita una columna de *alcanzabilidad*, y ningun inventario que yo haya
+escrito la tiene. Propuesta, no hecha: anadir a `ipver_zero.py` una columna
+`alcance` con la funcion enclosing y si tiene llamador en ficheros ejecutables.
+**No la implemento: el fichero es de otra sesion y no esta en mi lock.**
