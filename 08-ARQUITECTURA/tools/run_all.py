@@ -203,6 +203,13 @@ def main():
          ["corpus_gap.py"], 26, 0),
         ("corpus_gap: control negativo",
          ["corpus_gap.py", "--self-test"], 0),
+        # La tabla (device_id, revision) -> chip_id, leida del .ko cargado.
+        # Es la que 050 dio por ausente porque hwmgr.c no esta en el corpus.
+        # Devuelve 2 sin .ko y 3 si el layout deducido no encaja, y los dos
+        # son datos: no se puede leer != no hay tabla.
+        ("tabla de ASIC desde el binario", ["asic_table.py"], 26, 0),
+        ("asic_table: control negativo",
+         ["asic_table.py", "--self-test"], 0),
         # LA INTEGRIDAD CON HUELLA, no solo con git status.
         #
         # `--git` responde 0 cuando `git status --porcelain RESEARCH/` esta
