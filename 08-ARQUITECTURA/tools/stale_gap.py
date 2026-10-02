@@ -751,10 +751,40 @@ def _resolver(fr, cc):
         # RESUELTA_AQUI: la respuesta esta en el MISMO documento.
         propias = [h for h in hits if h["doc"] == f["doc"]]
         otras = [h for h in hits if h["doc"] != f["doc"]]
+        # RESUELTA_AQUI EXIGE ALINEACION DE SLOT, IGUAL QUE RESUELTA_OTRO.
+        #
+        # Sin esta condicion, dos filas consecutivas de la MISMA tabla se
+        # emparejan y se declaran resolver entre si:
+        #
+        #   052:137  "| contenido de `src_data[0]` en cada caso | NOT_DETERM. |"
+        #   052:138  "| diferencia entre 0x92 y 0x93 | REFUTED en 047      |"
+        #
+        # No se contradicen: son dos preguntas del mismo tema y solo una esta
+        # resuelta. "Que contiene" y "que diferencia hay" no son la misma
+        # pregunta, y la respuesta de una no contesta a la otra.
+        #
+        # Es la misma trampa que 017/072, pero DENTRO de un documento, donde el
+        # sujeto es identico por construccion y solo difiere el texto de la
+        # fila. Lo que se compara es el texto, no el nombre.
         despues = [h for h in propias if h["linea"] > f["linea"]]
-        if despues:
+        # AQUI SE EXIGE ALINEACION POSITIVA, no solo ausencia de conflicto.
+        #
+        # Para RESUELTA_OTRO basta con que no haya conflicto, porque son dos
+        # documentos y el cruce es una busqueda: si no se puede afirmar que
+        # sean preguntas distintas, se cruza. Pero RESUELTA_AQUI dice "este
+        # documento se contradice consigo mismo", y ESO es una acusacion: no
+        # basta con no tener evidencia en contra.
+        #
+        # Con "no conflicto" (None), las dos filas de 052 se declaraban
+        # RESUELTA_AQUI: ninguna tiene verbo reconocible, asi que el slot es
+        # DESCONOCIDO en las dos, el veredicto es None, y la regla lo aceptaba.
+        # Ningun documento se contradice consigo mismo porque no se pudo
+        # clasificar la pregunta.
+        alineadas = [h for h in despues if _misma_pregunta(f, h) is True]
+        if alineadas:
             f["clase"] = "RESUELTA_AQUI"
-            f["resolucion"] = sorted(despues, key=lambda h: h["linea"])[0]
+            f["resolucion"] = sorted(alineadas,
+                                     key=lambda h: h["linea"])[0]
             continue
         if otras:
             # NO SE ELIGE EL PRIMERO. La primera version tomaba
@@ -928,9 +958,9 @@ _VERBO_EXISTE = re.compile(
     r"|\b(?:existe|existencia|ubicad\w*|offset|definid\w*|direcci[oó]n)\b",
     re.I)
 _VERBO_SEMANTICA = re.compile(
-    r"\b(?:puede|pueden|puede(n)?\s+dar|sirve|significa\w*|que hace|"
-    r"para que sirve|ocupa|representa|describe|efecto de hardware|"
-    r"comportamiento|necesita|requiere)\b",
+    r"\b(?:puede|pueden|sirve|significa\w*|que hace|para que sirve|ocupa|"
+    r"representa|describe|efecto de hardware|comportamiento|necesita|"
+    r"requiere|queda|resuelto|medido|determinado)\b",
     re.I)
 _VERBO_Uso = re.compile(
     r"\b(?:el driver|se usa|usa \d|lecturas?|escrito por|"

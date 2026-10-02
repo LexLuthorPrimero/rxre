@@ -174,7 +174,19 @@ def selftest():
                           "falta medirlo.\n")
     doc("t2-respuesta.md", "Se midio: `mmX_OTRO` = 42. `PROVEN`.\n")
     # 3. contradiccion consigo mismo: el mismo doc dice las dos.
-    doc("t3-propia.md", "Sobre `mmX_AQUI`:\n`NOT_DETERMINED` al principio.\n"
+    #
+    #    Las dos lineas llevan verbo, a proposito. RESUELTA_AQUI exige
+    #    alineacion POSITIVA de slot, no solo ausencia de conflicto: decir que
+    #    un documento se contradice consigo mismo es una ACUSACION, y no se
+    #    hace porque no se pudo clasificar la pregunta.
+    #
+    #    La primera version de este caso no tenia verbo en ninguna linea, y la
+    #    herramienta lo aceptaba. Con el filtro mas estricto, dos filas de la
+    #    misma tabla con el mismo sujeto se declaraban "autodeclaradas
+    #    resueltas" sin que nadie lo hubiera dicho. Un documento no se
+    #    contradice porque a la herramienta le falte un verbo.
+    doc("t3-propia.md", "Sobre `mmX_AQUI`:\n"
+                        "que significa sigue `NOT_DETERMINED` al principio.\n"
                         "Tres lineas mas tarde queda `PROVEN` resuelto.\n")
     # 4. sin sujeto: la linea dice el estado y nada mas, y las lineas anteriores
     #    no tienen sujeto ni frase que lo sea.
@@ -424,6 +436,36 @@ def selftest():
     ok = r10j == ["OTRO_SIMBOLO_OTRA_PREGUNTA"]
     print(f"  {'distinta pregunta':12} 'puede' != '= 0x51f'          "
           f"{r10j if r10j else '(nada)'}  {'OK' if ok else 'FALLA <<<'}")
+    fallos += 0 if ok else 1
+
+    # 10m. DOS FRONTERAS DEL MISMO DOCUMENTO, SUJETO COMPARTIDO.
+    #
+    #     El caso real, y es el que produjo un falso positivo al arreglar 052:
+    #
+    #       052:137  "| contenido de src_data[0] en cada caso | NOT_DETERMINED |"
+    #       052:138  "| diferencia entre 0x92 y 0x93 | REFUTED en 047 |"
+    #
+    #     Dos filas de la MISMA tabla, con el mismo sujeto, y la segunda ya
+    #     resuelta. La herramienta las empareja y dice RESUELTA_AQUI: "este
+    #     documento se contradice consigo mismo".
+    #
+    #     NO se contradicen. Son dos preguntas del mismo tema, y una esta
+    #     resuelta mientras la otra no. "Que contiene" y "que diferencia hay"
+    #     son preguntas distintas, y la respuesta de una no contesta a la otra.
+    #
+    #     Es la misma trampa que 017/072, pero dentro de un documento. El
+    #     Criterion de slot tambien la separa: el sujeto es el simbolo, asi que
+    #     lo que se compara es el TEXTO de cada fila, no solo el nombre.
+    doc("t10m-dos.md",
+        "| contenido de `mmX_DOS` en cada caso | `NOT_DETERMINED`, RUNTIME |\n"
+        "| diferencia entre `mmX_DOS` casos | `REFUTED` — comparten handler |\n")
+    fr10m, _ = _clasificar_en(tmp)
+    r10m = [(f["linea"], f["clase"]) for f in fr10m if f["sujeto"] == "mmX_DOS"]
+    # lo que importa es que NO se declaren RESUELTA_AQUI entre si
+    auto = [c for c in r10m if c[1] == "RESUELTA_AQUI"]
+    ok = not auto
+    print(f"  {'2 filas misma tabla':12} no se auto-declaran resueltas {r10m}"
+          f"  {'OK' if ok else 'FALLA <<<'}")
     fallos += 0 if ok else 1
 
     # 10j-2. dos preguntas DE SEMANTICA si se cruzan, aunque una mencione "bits".
