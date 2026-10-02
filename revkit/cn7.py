@@ -455,6 +455,50 @@ def main():
         chk("EV-27: lo que SI cae es tratar el tipo 0 como cabecera",
             _m3[0] < _m1[0] and _m3[1] > _m1[1],
             "(M3=%s vs M1=%s)" % (_m3, _m1))
+
+        # --- EL TEST DEL RING: el unico sitio donde el count se resuelve
+        # desde el hardware y no desde el codigo.
+        #
+        # gfx_v8_0_ring_test_ring (gfx_v8_0.c:838-864) reserva 3 dwords y
+        # escribe:
+        #     PACKET3(PACKET3_SET_UCONFIG_REG, 1)      <- count declara 1
+        #     mmSCRATCH_REG0 - PACKET3_SET_UCONFIG_REG_START
+        #     0xDEADBEEF
+        # despues sondea mmSCRATCH_REG0 hasta que lea 0xDEADBEEF, que antes
+        # habia puesto a 0xCAFEDEAD. Si el hardware no ejecutara el tercer
+        # dword, la lectura nunca seria 0xDEADBEEF, el test daria ETIMEDOUT, y
+        # amdgpu_ring_test_helper (amdgpu_ring.c:765) pondria sched.ready = 0:
+        # el anillo no se usaria nunca.
+        # El anillo de compute ESTA USADO. Luego el hardware consumio los 3.
+        _comp = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             "capturas", "amdgpu_ring_comp_1.3.1.txt")
+        if os.path.exists(_comp):
+            _rc = open(_comp, "rb").read()
+            _wc = list(struct.unpack("<%dI" % (len(_rc) // 4), _rc))
+            chk("test_ring: el anillo de compute empieza con el "
+                "SET_UCONFIG_REG del test",
+                ((_wc[3] >> 30) & 3) == 3 and ((_wc[3] >> 8) & 0xFF) == 0x79
+                and ((_wc[3] >> 16) & 0x3FFF) == 1 and _wc[4] == 0x40
+                and _wc[5] == 0xDEADBEEF,
+                "d3=%s op=%s cnt=%s d4=%s d5=%s"
+                % (hex(_wc[3]), hex((_wc[3] >> 8) & 0xFF),
+                   (_wc[3] >> 16) & 0x3FFF, hex(_wc[4]), hex(_wc[5])))
+            # 0xc040 (mmSCRATCH_REG0, gfx_8_0_d.h:454) - 0xc000
+            # (PACKET3_SET_UCONFIG_REG_START, vid.h:353) = 0x40
+            chk("y el desplazamiento 0x40 es mmSCRATCH_REG0(0xc040) menos "
+                "START(0xc000)",
+                0xc040 - 0xc000 == _wc[4],
+                "(0xc040-0xc000 = 0x%x, anillo = 0x%x)"
+                % (0xc040 - 0xc000, _wc[4]))
+            # Y por eso el count es payload-1: declaro 1, escribio 2.
+            chk("el count declara 1 y se escribieron 2 payload: por eso el "
+                "hardware lee count+1",
+                ((_wc[3] >> 16) & 0x3FFF) + 2 == 3,
+                "(count=%d, payload escritos=2, total=%d)"
+                % ((_wc[3] >> 16) & 0x3FFF, 3))
+            chk("tras el test viene relleno, no trabajo: el anillo estaba "
+                "rellenado",
+                _wc[6] == 0xffff1000, "(d6=%s)" % hex(_wc[6]))
     else:
         print("  OMIT  sin capturas/amdgpu_ring_gfx.txt no se prueba el "
               "off-by-one sobre el anillo real")

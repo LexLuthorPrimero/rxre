@@ -2471,6 +2471,87 @@ valores que aparecen son `0x20` y `4`, y ambos son menores que 2.
 `LAST_VERIFIED: 2026-10-02 - gfx_v8_0.c:6046, 6174, 6199, 6212, 6349, 6924-6935,
 bytes crudos del anillo, cn7`.
 
+## EV-30 · El `count` de PM4 es payload menos uno, y lo demuestra el test del ring
+
+```
+TYPE    OBSERVATION + DERIVATION
+STATE   PROVEN_DERIVED
+```
+
+El anillo de **compute** capturado empieza con la auto-prueba del anillo, y eso
+resuelve la pregunta que el anillo de GFX no podia (EV-27).
+
+`gfx_v8_0_ring_test_ring` (gfx_v8_0.c:838-864) reserva **3** dwords:
+
+```c
+WREG32(mmSCRATCH_REG0, 0xCAFEDEAD);
+r = amdgpu_ring_alloc(ring, 3);
+amdgpu_ring_write(ring, PACKET3(PACKET3_SET_UCONFIG_REG, 1));
+amdgpu_ring_write(ring, mmSCRATCH_REG0 - PACKET3_SET_UCONFIG_REG_START);
+amdgpu_ring_write(ring, 0xDEADBEEF);
+amdgpu_ring_commit(ring);
+for (i = 0; i < adev->usec_timeout; i++) {
+        tmp = RREG32(mmSCRATCH_REG0);
+        if (tmp == 0xDEADBEEF) break;
+        udelay(1);
+}
+if (i >= adev->usec_timeout) r = -ETIMEDOUT;
+```
+
+Y los bytes del anillo de compute, dwords 3..5:
+
+| dword | valor | contra el emisor |
+|---|---|---|
+| 3 | `0xc0017900` | opcode `0x79` = `PACKET3_SET_UCONFIG_REG` (vid.h:352), `count = 1` |
+| 4 | `0x00000040` | `mmSCRATCH_REG0` `0xc040` (gfx_8_0_d.h:454) − `START` `0xc000` (vid.h:353) = `0x40` |
+| 5 | `0xDEADBEEF` | el valor literal del test |
+
+**Cuadra al dword, en los tres campos.**
+
+**El `count` declara 1 payload y se escriben 2. Y el hardware consumió los dos,
+porque si no el test no podría pasar.** La cadena es completa y no admite
+interpretación alternativa:
+
+1. antes del test, `mmSCRATCH_REG0` vale `0xCAFEDEAD`
+2. si el hardware leyera exactamente `count` = 1 payload, ejecutaría el
+   `PACKET3_SET_UCONFIG_REG` con el desplazamiento `0x40`, o sea **escribiría
+   `0xDEADBEEF` en otro sitio**, y el `0xDEADBEEF` del tercer dword sería un
+   paquete suelto. La lectura de `mmSCRATCH_REG0` nunca devolvería `0xDEADBEEF`
+3. entonces el bucle agotaría `usec_timeout` y `r = -ETIMEDOUT`
+4. `amdgpu_ring_test_helper` (amdgpu_ring.c:756-768) hace
+   `ring->sched.ready = !r`: **el anillo no se usaría nunca**
+5. el anillo de compute **está usado**. Luego el test pasó, luego el hardware
+   consumió los 3 dwords
+
+`amdgpu_ring_test_ring` es una macro a `funcs->test_ring`
+(amdgpu_ring.h:432), sin condiciones de salto: no hay vía por la que el test se
+evite.
+
+**Conclusión: el campo `count` de un paquete PM4 cuenta el payload MENOS UNO.**
+Un driver propio que escriba `count` = número de payload, como haría leer la
+documentación literal del campo, **se come un dword del paquete siguiente en
+cada paquete que emita.**
+
+Corolario que reordena EV-28: `gfx_v8_0_ring_emit_vm_flush` es el **único**
+emisor de GFX8 que escribe exactamente `count` payload (5 con `count = 5`). Con
+la regla de este documento, **leería un dword de más**, que es la cabecera
+`PACKET3(PACKET3_PFP_SYNC_ME, 0)` de gfx_v8_0.c:6212.
+
+O la regla no es universal entre opcodes, o el `vm_flush` de GFX8 tiene un
+off-by-one. **Un driver propio no puede copiar ninguna de las dos sin
+decidirlo**, y F12b baja de "duda de documentación" a "una de dos, con la
+decisión explícita".
+
+**Lo que NO se cierra aquí**: que el `count` sea payload−1 para *todos* los
+opcodes queda `CORROBORATED`, no `PROVEN`. Está probado para
+`SET_UCONFIG_REG`, con cadena completa. Los emisores de `WAIT_REG_MEM` y
+`WRITE_DATA` tienen la misma forma y AMD cuenta su extensión **escrita** en
+`.emit_frame_size` (`7 +` para `hdp_flush` y para `pipeline_sync`), lo que apunta
+en el mismo sentido, pero eso es una reserva de espacio y no una medición.
+
+`LAST_VERIFIED: 2026-10-02 - gfx_v8_0.c:838-864, amdgpu_ring.c:756-768,
+amdgpu_ring.h:432, bytes del anillo de compute dwords 3..6, cn7`.
+
 ## EV-18 · El anillo GFX tiene 2048 dwords y estaba vacío
 
 ```

@@ -33,89 +33,68 @@ VALOR
   implementar el page walker sin suposición
 ```
 
-## F12b · Por qué el hardware lee `count` dwords o `count + 1`
+## F12b · El `count` de PM4: payload menos uno, y una excepción sin resolver
 
 ```
-ACTUALIZADO 2026-10-02. La pregunta original ("lee el dword de más, o lo
-ignora") está REFUTADA en su forma de lectura literal. Lo que queda son dos
-hipótesis que esta captura NO distingue, y una tercera que se abre de nuevo
+ACTUALIZADO 2026-10-02. CERRADA en su mayor parte por EV-30, con una pregunta
+derivada que queda abierta y es más pequeña que la original.
 
-LO QUE QUEDA REFUTADO
-  "el hardware lee exactamente `count` payload dwords". El anillo real lo
-  desmiente: con esa lectura hay 3 paquetes válidos y 2 cabeceras tipo 0
-  espurias; leyendo los 6 payload hay 11 válidos y 0 espurias. Y a partir del
-  dword 47 el anillo no contiene ningún paquete. Ver EV-27
+LO QUE SE CIERRA
+  el campo `count` de un paquete PM4 cuenta el payload MENOS UNO. Lo demuestra
+  el test del anillo, que es el unico sitio donde la pregunta se responde desde
+  el hardware y no desde el codigo:
 
-LO QUE SE SABE AHORA, Y NO SE SABIA
-  1. el poll interval es un CAMPO de 16 bits [15:0] del payload, no un
-     relleno. Macro `PACKET3_WAIT_REG_MEM__POLL_INTERVAL` en soc15d.h:212 y
-     nvd.h:202
-  2. el driver lo pone en 4 o en 0x20 SEGÚN EL PROPÓSITO, no según el ASIC:
-     4 solo en pipeline_sync (espera sobre memoria), 0x20 solo en hdp_flush y
-     vm_flush (espera sobre registro). Consistente en gfx_v6_0, v7_0 y v8_0 con
-     literales fijos, y en gfx9 a gfx12 con el helper parametrizado
-     Si el hardware no lo leyera, la diferencia sería ruido de estilo. Si lo
-     lee, un driver propio que copie 0x20 donde va 4 sonsona al ritmo
-     equivocado en una sincronización real
-     CORROBORATED por correlación. El corpus NO dice por qué
-  3. existe `mmCP_WAIT_REG_MEM_TIMEOUT` = 0xc074 en gfx_8_0_d.h:498, registro
-     de 32 bits, y desde gfx9 un source ID
-     CP_ME_WAIT_REG_MEM_POLL_TIMEOUT = 192 (0xC0)
-     NINGÚN `.c` del driver lo lee ni lo escribe. El presupuesto de reintentos
-     lo pone el hardware por defecto, no el driver
+  gfx_v8_0_ring_test_ring (gfx_v8_0.c:838-864) reserva 3 dwords y escribe
+  PACKET3(SET_UCONFIG_REG, 1) + 0x40 + 0xDEADBEEF. count declara 1, se
+  escriben 2. Los bytes del anillo de compute cuadran al dword: opcode 0x79,
+  0xc040 - 0xc000 = 0x40, y 0xDEADBEEF
 
-LAS DOS HIPÓTESIS QUE NO SE DISTINGUEN CON ESTA CAPTURA
-  H1  el count significa payload - 1, y el hardware lee 6 siempre
-  H2  el hardware trata los dwords tipo 0 como no-op y los salta
-  con este anillo dan los mismos 11 paquetes y 0 espurias
+  si el hardware leyera exactamente 1 payload, el 0xDEADBEEF no se ejecutaria,
+  el sondeo de mmSCRATCH_REG0 nunca leeria 0xDEADBEEF, el test daria ETIMEDOUT,
+  y amdgpu_ring_test_helper (amdgpu_ring.c:756-768) pondria sched.ready = 0.
+  El anillo de compute esta usado: luego el test paso y el hardware consumio 3
 
-POR QUÉ NO PUEDO ESCOGER ENTRE ELLAS, Y POR QUÉ IMPORTA
-  si es H1, el emisor de `vm_flush` —que escribe 5 y declara 5— se comería un
-  dword del paquete SIGUIENTE. Y ese emisor existe y es el que espera al
-  invalidate de TLB
-  O el count significa algo distinto de lo que parece, o uno de los dos
-  emisores tiene un defecto. Los tres son compatibles con lo observado
-  un driver propio NO PUEDE elegir a ciegas entre las dos
+  y el test no se puede saltar: amdgpu_ring_test_ring es una macro a
+  funcs->test_ring (amdgpu_ring.h:432), sin condiciones
 
-LO QUE FALTA Y DÓNDE ESTÁ
-  con esta captura no se puede. Necesita un anillo donde el dword siguiente a
-  un WAIT_REG_MEM sea distinguishable: un caso donde H1 y H2 den lecturas
-  distintas. Y hace falta observar qué hace el hardware al agotarse
-  mmCP_WAIT_REG_MEM_TIMEOUT, porque eso define el comportamiento en el peor
-  caso
+LO QUE SE RETIRA DE ESTA FRONTERA
+  que el anillo de GFX no distingue count de count+1. No distinguió: los dos
+  modelos dan 11 paquetes y 0 espurias, porque el dword sobrante siempre va
+  seguido de una cabecera valida. Era EV-27, ya retirada
 
-LO QUE NO ESTÁ EN EL CORPUS, CON SU ÁMBITO
-  cómo sondea el hardware, qué significa numéricamente el poll interval, y si
-  el count incluye o excluye el dword de poll: `NOT_FOUND` en los tres corpus
-  completos (baseline/linux-7.1.3, kernelbuild/linux-7.1.3 con Documentation/,
-  rx550-upstream-7.2.8/linux-7.2.8)
-  un layout campo-a-campo de WAIT_REG_MEM para gfx8: `NOT_FOUND`. El único es
-  gfx_v12_1_pkt.h:105-133, de otro ASIC, y sin el campo de poll interval
-  el único layout numerado de POLL_INTERVAL es el de ACQUIRE_MEM
-  (soc15d.h:392-401), donde el campo es el dword número 7 y el count declarado
-  es 5. Mismo patrón que el off-by-one del HDP flush, en otro paquete.
-  CORROBORATED, no PROVEN: que ese dword no se consuma es lectura mía
-
-DATO DE CONTEXTO QUE ABAJA LA EXPECTATIVA DE RESPUESTA
-  display/dc/dcn20/dcn20_vmid.c:46-52 dice, textual:
-    "TODO: Confirm timeout / poll interval with hardware team"
-  es de dcn20 y de un bucle de CPU, no de GFX8 ni de un paquete PM4. Pero es
-  la única mención de "poll interval" como concepto abierto en todo el corpus,
-  y es una admisión de que AMD tampoco lo tenía confirmado
-
-QUÉ LO DISCRIMINARÍA, EN ORDEN DE COSTE
-  1. ESTÁTICO y BARATO: un anillo donde el dword tras un WAIT_REG_MEM sea
-     distinguible. Con eso, H1 y H2 ya no dan lo mismo y se elige sin hardware
-  2. ESTÁTICO: si algún ASIC posterior cambió el count de estos emisores.
-     gfx9+ usa el helper parametrizado: mirar si.count coincide con lo escrito
-     en ACQUIRE_MEM, que el driver escribe con count 5 y 6 payload
-  3. RUNTIME (NIVEL 3): leer mmCP_WAIT_REG_MEM_TIMEOUT antes y después de un
-     vm_flush, y ver si se agota. Es el caso de fallo, no el normal
+LO QUE QUEDA ABIERTO, Y ES MAS PEQUEÑA
+PREGUNTA
+  `gfx_v8_0_ring_emit_vm_flush` es el UNICO emisor de GFX8 que escribe
+  exactamente `count` payload (5 con count=5). Los otros seis escriben count+1.
+  Con la regla de EV-30, este leeria un dword de mas: la cabecera
+  PACKET3(PACKET3_PFP_SYNC_ME, 0) de gfx_v8_0.c:6212
+  Es un off-by-one real en el driver de AMD, o la regla no es universal entre
+  opcodes?
+ESTADO
+  NOT_DETERMINED, con las dos hipotesis vivas y una consecuencia distinta en cada
+  una
+POR QUE NO SE PUEDE DECIDIR ESTATICAMENTE
+  hace falta un anillo real que contenga un vm_flush. En las cuatro capturas
+  que hay no hay ninguno: los 8 WRITE_DATA del anillo GFX van todos a
+  mmHDP_DEBUG0, y el de compute es la auto-prueba. Buscado explicitamente por
+  WRITE_DATA a 0x51e y 0x556: cero apariciones en las cuatro
+  NOT_OBSERVED, no PROVEN_ABSENT
+  y el test no se puede repetir sin tocar la GPU, que es NIVEL 3 y no esta
+  autorizado en esta ronda
+LO QUE LO DISCRIMINARIA
+  1. ESTATICO y BARATO: el mismo test del anillo, pero sobre SET_UCONFIG_REG en
+     otro contexto, o cualquier otro emisor de GFX8 con la forma opuesta. Si
+     hay un emisor mas que escriba exactamente count, la regla no es universal
+     y ya esta: basta un caso
+  2. ESTATICO: leer si algun ASIC posterior cambio el count de estos emisores.
+     gfx9+ usa el helper parametrizado `*_wait_reg_mem()`; si algunos count
+     changed entre gfx8 y gfx9, eso es una pista sobre cual es el valor correcto
+  3. RUNTIME (NIVEL 3): capturar un anillo con un vm_flush emitido, o leer
+     mmCP_WAIT_REG_MEM_TIMEOUT antes y despues de un invalidate
 VALOR
-  alto y en aumento. Antes era una duda de documentación; ahora tiene un campo
-  de 16 bits, un presupuesto de reintentos que el driver no programa, un
-  reparto de valores por propósito, y un caso donde el driver parece
-  inconsistente consigo mismo
+  bajo para el driver propio, ALTO como aviso: significa que copiar el codigo
+  de AMD al pie de la letra puede fallar justo en la ruta de TLB, que es la
+  mas critica
 ```
 
 ## F13 · Qué son los `0x20` de `protected by` en `amdgpu_sa_info`

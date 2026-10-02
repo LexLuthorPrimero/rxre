@@ -513,24 +513,32 @@ REGLA
   registro ausente
 ```
 
-## NR-2026-10-02-e · `0xDEADBEEF` de `WRITE_DATA` es de un test, no del anillo
+## NR-2026-10-02-e · CORREGIDO: el `0xDEADBEEF` SÍ está en un anillo, el de compute
 
 ```
 QUÉ SE PROBÓ
-  `gfx_v8_0.c:891-894` emite `PACKET3_WRITE_DATA` con valor `0xDEADBEEF`.
-  Se buscó ese valor en el anillo GFX capturado
-RESULTADO
-  cero apariciones en 2051 dwords
-QUÉ ES
-  ese código es un TEST UNITARIO. El anillo capturado es trabajo real
-POR QUÉ SE ESCRIBE
-  el patrón de sincronización por valor centinela es real y se usa en
-  varios motores (`amdgpu_jpeg.c:207`, `amdgpu_vcn.c:575`), pero en
-  ESTE anillo no aparece. Traerlo como si estuviera sería importar un
-  dato de un test a una medición
-COMO SE USA ESTO
-  `pm4dec.py --escribe` lo busca de verdad en cada ejecución y dice que no
-  está, con el motivo. No lo da por supuesto en ningún momento
+  se buscó 0xDEADBEEF en el anillo GFX capturado
+RESULTADO QUE DI
+  cero apariciones en 2051 dwords, y la conclusión "ese código es un TEST
+  UNITARIO, el anillo capturado es trabajo real"
+POR QUÉ ESTA MAL
+  la busqueda se hizo en UN anillo de los cuatro que hay. En el de compute esta en
+  el dword 5, y es la auto-prueba del anillo ejecutándose
+  no es un test unitario: es `gfx_v8_0_ring_test_ring` (gfx_v8_0.c:838-864),
+  que escribe en el anillo de verdad y sondea el registro hasta que responde
+QUÉ QUEDA EN PIE
+  que 0xDEADBEEF no esta en el anillo GFX: eso si se midio y es cierto
+  que el valor viene de codigo de test: tambien cierto
+QUÉ NO SE SOSTIENE
+  que el valor no aparezca en ningun anillo, y por tanto que no se pueda usar
+  para seguir trabajo real. La prueba es una observacion RUNTIME, y es de las
+  pocas que hay: el anillo de compute guarda la ejecucion del test
+POR QUÉ PASÓ
+  el mismo patron de siempre, y esta vez el mas tonto: se concluyo sobre un
+  anillo lo que no se puede concluir sobre cuatro. `NOT_FOUND` en el ambito
+  recorrido, que es lo que se debio escribir, no una afirmacion general
+CÓMO SE USA AHORA
+  es la evidencia que cierra EV-30. Ver EVIDENCE-MATRIX.md EV-30
 ```
 
 ## NR-2026-10-02-f · `PKT0` no existe en el driver amdgpu
