@@ -941,3 +941,24 @@ La regla practica que se deduce: si una referencia entre acentos graves no
 cabe en la linea, el problema no es la linea, es que hay que mover el texto
 entero. Un control que solo se ejecuta a veces no es un control: este se
 ejecuta en `check.sh`, y dos veces ha hecho falta que lo atrapara.
+
+### Y un error de procedimiento, aqui mismo
+
+`git commit --amend` se lanzo para arreglar un backtick, y no corrigio lo
+que se pretendia: tomo el commit `ed6d8eb` de **otra sesion** que estaba
+encima, y absorbio mi correccion dentro de el.
+
+Lo que paso es que se estaba amendando sin mirar de quien era HEAD, y en un
+repositorio donde varias sesiones escriben a la vez esa suposicion no se
+puede hacer.
+
+La secuencia correcta habia sido:
+
+1. Ver de quien es HEAD **antes** de amendar.
+2. Si no es mio, commit nuevo y no amend.
+3. Comprobar que la correccion sigue en HEAD **despues**, no suponerlo.
+
+Se comprobo despues, y la correccion si estaba en HEAD porque el amend la
+absorbio. Pero llego por casualidad, no por procedimiento: el resultado fue
+correcto y el metodo no lo fue. Un acierto por suerte no se puede repetir, y
+lo que se repite es el metodo.
