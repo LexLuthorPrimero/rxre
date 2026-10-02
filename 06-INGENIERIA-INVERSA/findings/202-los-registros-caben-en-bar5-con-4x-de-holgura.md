@@ -125,6 +125,49 @@ Es la misma forma que `192`/`144`: *buscar por el nombre del símbolo en vez de 
 el mecanismo*. Aquí el "nombre" era el prefijo, y aun así el primer criterio que
 elegí —la máscara de bits— parecía más mecanico y era peor.
 
+## Corroboración independiente — y por qué es más débil de lo que parece
+
+Otra sesión publicó `202-la-ventana-de-registros-es-bar5-y-el-log-lo-dice.md`, que
+**llegó a la misma conclusión que mi `200` por su cuenta**: la ventana de
+registros es BAR5, no BAR2, y el log del kernel lo dice. Colisionamos en el número
+porque los dos estábamos persiguiendo la discrepancia que `190` dejó abierta.
+
+**Eso parece una corroboración fuerte, y no lo es.** Su cita es
+`amdgpu_device.c:3995-3997`, y en este corpus:
+
+```
+$ sed -n '3995p' amdgpu_device.c
+			/* Initialize clocks */
+```
+
+**Su cita no resuelve.** El bloque real está en `3812-3818`, bajo el comentario
+`/* Registers mapping */`:
+
+```
+$ sed -n '3812p' amdgpu_device.c
+	if (adev->asic_type >= CHIP_BONAIRE) {
+$ sed -n '3995p' amdgpu_device.c
+			/* Initialize clocks */
+```
+
+Y hay **tres** ocurrencias de `asic_type >= CHIP_BONAIRE` (1182, 1259, 3812), así
+que un número de línea aislado no identifica el mecanismo ni aunque casara.
+
+Comprobé que no fuera un árbol distinto: `RESEARCH/working` y `RESEARCH/baseline`
+son **idénticos** (mismo md5 en `amdgpu_device.c`). No es que leyeran otra copia.
+
+**La lección, y es la generalización de la de arriba.** Dos hallazgos que coinciden
+en la **conclusión** no son dos hallazgos que coincidan en la **evidencia**. Si su
+cita no resuelve, no se sabe que verificaran el mismo código: podrían haber llegado
+a BAR5 por un camino distinto —quizá equivocado— que casó con la respuesta buena.
+**La coincidencia de la respuesta no valida el razonamiento que produjo.**
+
+Eso es más fuerte que lo de "una afirmación plausible sin valor al lado", porque
+aquí el valor competitor **existe** y aun así no se comprobó. La corroboración
+parecía gratis porque alguien había llegado antes a lo mismo. **Llegar antes es
+justo el caso en el que hay que mirar la cita, porque es donde cuela la falsa
+corroboración.**
+
 ## Un error que casi cometo, y que NO es una corrección a `192`
 
 Mientras construía esta herramienta busqué las cabeceras de registro con

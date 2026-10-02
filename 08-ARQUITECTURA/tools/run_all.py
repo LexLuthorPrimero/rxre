@@ -258,6 +258,12 @@ def main():
          ["ip_surface.py", "--bloque", "gfx_v8_0_ip_block"], 18, 0),
         ("ip_surface: control negativo",
          ["ip_surface.py", "--self-test"], 1, 1),
+        # Prueba con adversario real: si el limite de apertura fuera falso, el
+        # maximo de offset de alguna cabecera lo superaria y rc seria 3.
+        ("apertura BAR5: todos los registros caben",
+         ["aperture.py", "--todos"], 0, 0),
+        ("aperture: control negativo",
+         ["aperture.py", "--self-test"], 1, 1),
         # La reserva de numeros de hallazgo. num_collision mide 37 duplicados
         # y esta sesion choco 3 veces (111, 119, 120) con otra escribiendo.
         # El self-test RESERVA y LIBERA de verdad: comprobar que el numero no
