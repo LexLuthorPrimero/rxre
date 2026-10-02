@@ -1018,3 +1018,61 @@ ha comprobado, y `status.hw` por bloque no se ha leido. Es `NOT_DETERMINED`, no
 `PROVEN`.
 
 `GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.`
+
+## Ronda 2026-10-02 (tarde 14) · EV-43 cerrado · los nueve bloques
+inicializaron sin un solo fallo, y el control que lo hace creible
+
+`TRACK=RUNTIME` (solo lectura: `journalctl -k -b`, `dmesg` no legible)
+`WORK_CLASS=READ_ONLY/EVIDENCE` · `WRITE_EXECUTION=NONE` · `MODIFICATIONS=0`
+`GPU INTACTA`
+
+**LA MEDIDA, Y QUE CIERRA EL `NOT_DETERMINED` DE EV-43.** EV-43 dejo el orden de
+inicializacion `PROVEN` por lectura y dejo abierto si las nueve llamadas habian
+devuelto exito. El observable es directo, porque **el propio driver imprime un
+`dev_err` por cada fase que falle**, con el nombre del bloque:
+
+```
+amdgpu_device.c:2049  early_init of IP block <%s> failed %d
+amdgpu_device.c:2315  sw_init    of IP block <%s> failed %d
+amdgpu_device.c:2135  hw_init    of IP block <%s> failed %d   (phase1)
+amdgpu_device.c:2162  hw_init    of IP block <%s> failed %d   (phase2)
+amdgpu_device.c:2680  late_init  of IP block <%s> failed %d
+```
+Son las **unicas** vias de fallo de esas fases: cada una va seguida de
+`goto init_failed` o de `return r`. En el arranque real de esta placa:
+
+```
+fallos de fase de init ("of IP block <...> failed") .......  0
+```
+**ASI QUE: las nueve fases de los nueve bloques devolvieron exito.** `OBSERVED`.
+
+**Y EL CONTROL POSITIVO, QUE ES LA PARTE QUE HACE CREIBLE EL CERO.** Un cero sin
+control no es un resultado, es una ausencia sin causa. La **misma** invocacion, con
+la **misma** tuberia, sobre el **mismo** arranque:
+
+```
+lineas totales del canal .................. 1204
+lineas de amdgpu ............................ 62
+'detected ip block' (busco y ENCUENTRO) .....  9   <- control positivo
+'TMZ' (control que EV-190 §249 dio por verificado) ...  1  <- control ajeno reproducido
+'POLARIS12' ...................................  1
+fallos de fase de init ......................  0   <- mi resultado
+```
+El canal lee. Dos pipelines identicos con dos criterios distintos dan 9 y 1 sobre lo
+que existe, y 0 sobre lo que busco. **El 0 es una ausencia real: no es un permiso, ni
+un SIGPIPE, ni un productor vacio, ni un consumidor que fallo en silencio.**
+
+**Y UN HECHO QUE SE DEDUCE DE NO HABERSE CAIDO.** `amdgpu_device_ip_hw_init_phase2`
+(`amdgpu_device.c:2159`) llama `funcs->hw_init(...)` **sin comprobar si es NULL**, a
+diferencia de los tres guards que si pone antes. Como la particion es
+`AMDGPU_IP_BLK_MASK_ALL` en nivel `DEFAULT`, los nueve bloques pasan esos guards y
+llegarian a esa llamada. Si alguno tuviera esa ranura a NULL, el driver habria
+reventado. **No revanto, luego los nueve tienen `hw_init` no nulo.**
+`PROVEN_DERIVED` por ausencia de fallo, y es una deduccion, no una lectura.
+
+**LIMITE, DICHO.** Esto prueba que **ninguna fase fallo**. No prueba que el hardware
+haya quedado en el estado que esas funciones establecen: eso es otra cosa, y sigue
+siendo `NOT_DETERMINED` sin lectura de registros. Y el GTT que anuncia el arranque,
+**5907 MiB**, es la cifra `MemTotal/2` de `243`, no la ventana GART reservada de
+256 MiB: **dos cosas distintas con dos numeros parecidos**, que es la confusion
+mas probable de esta linea.

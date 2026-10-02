@@ -2919,3 +2919,72 @@ solo elINSTANCE.
 
 check.sh 39 | cn7 97 | cn8 33 | gfx8blocks 24/24 | gchwip_alcance 21/21.
 GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.
+
+---
+
+## 2026-10-02 · opencode · EV-43 cerrado, y dos errores mios que casi contaminan el
+resultado
+
+```
+OBJECT   docs/CURRENT-STATE.md, docs/NEGATIVE-RESULTS.md
+ACTION   VALIDATION (cierre del NOT_DETERMINED de EV-43) + 2 x ERROR propio
+TRACK    RUNTIME, SOLO LECTURA (journalctl -k -b) · WRITE_EXECUTION=NONE
+MODIFICATIONS=0 · GPU INTACTA
+```
+
+**EV-43 CERRADO.** El driver imprime un dev_err por cada fase de init que falle, con
+el nombre del bloque, y son las unicas vias de fallo de esas fases. En el arranque
+real hay **0**. Asi que los nueve bloques inicializaron sin un solo fallo:
+`OBSERVED`.
+
+**Y EL CONTROL POSITIVO, QUE ES LO QUE LO HACE CREIBLE.** La MISMA invocacion con la
+MISMA tuberia devuelve: 1204 lineas totales, 62 de amdgpu, **9** bloques, **1** linea
+de TMZ. El canal lee. Dos pipelines identicos dan 9 y 1 sobre lo que existe, y 0
+sobre lo que busco. **El 0 es una ausencia real: no es permiso, ni SIGPIPE, ni
+productor vacio.**
+
+**Y UN HECHO DEDUCIDO DE NO HABERSE CAIDO.** hw_init_phase2 llama funcs->hw_init SIN
+comprobar NULL, a diferencia de los tres guards que si pone. Con la particion
+AMDGPU_IP_BLK_MASK_ALL los nueve llegan ahi, luego los nueve tienen esa ranura no
+nula. PROVEN_DERIVED por ausencia de fallo.
+
+**PRIMER ERROR MIO: LEI UN TITULO EN VEZ DE LEER EL HALLAZGO.** El arranque dice
+"TMZ feature not supported" y el hallazgo 190 se titula "TMZ confirmado en runtime".
+iba a registrar una CONTRADICCION. El hallazgo dice lo contrario de lo que sugiere el
+titulo: confirma que TMZ esta DESACTIVADO, y cita la misma linea. **Sin
+contradiccion: convergencia.** Undécima vez que un titulo es un indice y no un
+dato.
+
+**PERO SI HAY APORTACION MIA EN ESO: es la TERCERA consecuencia independiente del
+mismo GC_HWIP == 0.** Con el valor a 0 cae (1) en la rama legacy de los codificadores
+de PTE/PDE, (2) hace el flush de TLB incondicional, y (3) desactiva TMZ. TRES
+consumidores distintos, un solo valor. Para un driver propio que hardcodee nada de
+esto, las tres se resuelven con la misma decision.
+
+**SEGUNDO ERROR MIO, Y MAS GRAVE PORQUE AFECTABA AL RESULTADO.** Para medir los
+fallos de init meti journalctl con su redireccion DENTRO de una variable de shell.
+Los dos ceros que salian eran falsos, e indistinguibles de ceros reales: el pipeline
+no leia nada y el consumidor terminaba con exito. "Failed to add match
+'2>/dev/null'". **Sin el control positivo no lo habria visto**: en cuanto compare el
+0 con las 9 lineas que el mismo canal deberia dar, se rompio la illusion, porque
+nadie tiene 9 bloques y 0 bloques a la vez.
+
+**TRES REGLAS QUE SALEN DE AHI, y que son mas generales que este hallazgo.**
+1. Una variable de comandos NO debe contener una tuberia ni una redireccion. Es la
+   forma mas facil de tener un pipeline que "funciona" y no lee nada.
+2. Todo cero necesita un control positivo EN EL MISMO PIPELINE. Un control en otro
+   comando prueba otra cosa.
+3. grep -c que da 0 y grep -c que da 0 son indistinguibles mientras no sepas que el
+   canal lee. Por eso el control va en la MISMA linea de comando que el resultado.
+
+**Y UNA COMPROBACION QUE AHORRO TRABAJO:** iba a presentar como nuevo el "vm size is
+64 GB, 2 levels, block size is 10-bit, fragment size is 9-bit", y antes de escribirlo
+busque si ya estaba. **Ya estaba**: docs/AGENTS-ADDENDA.md tiene block_size = 10, NO
+9 con su derivacion completa, y CONTRADICTIONS.md cita la linea exacta. **Septima vez
+que algo parece nuevo y ya esta registrado**, y el chequeo costo un comando. Lo que
+tampoco es nuevo: "5907M of GTT memory ready" es la cifra MemTotal/2 de 243, y NO la
+ventana GART reservada de 256 MiB. Dos cosas distintas con numeros parecidos, que es
+la confusion mas probable de esa linea; lo dejo escrito para que no la cometa otro.
+
+check.sh 39 | cn7 97 | cn8 33 | gfx8blocks 24/24 | gchwip_alcance 21/21.
+GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 2 (solo lectura). MODIFICATIONS 0.

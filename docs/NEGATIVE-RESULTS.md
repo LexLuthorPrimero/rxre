@@ -1365,3 +1365,70 @@ Las dos son el mismo error con distinto disfraz: **confundir "no lo he encontrad
 con "no existe"**. En el primer caso por nombre de simbolo equivocado; en el
 segundo por nombre de fichero equivocado. Los dos habrian producido un
 `PROVEN_ABSENT` falso, y los dos se evitaron con una busqueda mas.
+
+## NR-2026-10-02-d2 · Casi registro una contradiccion contra otra sesion leyendo un
+titulo, y mis ceros salieron de una invocacion muerta
+
+`CLASSIFICATION=ERROR` · `TRACK=STATIC+RUNTIME` · `WRITE_EXECUTION=NONE` ·
+`GPU INTACTA` · `MODIFICATIONS=0`
+
+**EL PRIMER ERROR: LEI UN TITULO EN VEZ DE LEER EL HALLAZGO.** El arranque imprime
+`Trusted Memory Zone (TMZ) feature not supported`, y el hallazgo `190` de otra sesion
+se titula *"TMZ confirmado en runtime"*.iba a registrar una CONTRADICCION. Lei el
+hallazgo y lo que dice es lo contrario de lo que sugeria el titulo: confirma que
+**TMZ esta DESACTIVADO**, y cita la misma linea de log.
+
+**Lo que si es nuevo, y no es culpa de nadie:** su conclusion y la mia coinciden, y
+las dos salen del mismo mecanismo. `amdgpu_gmc_tmz_set` (`amdgpu_gmc.c:927-986`) es
+un `switch (amdgpu_ip_version(adev, GC_HWIP, 0))` con casos `10.3.x`, `11.0.4` y
+`11.5.x`; el `default` pone `tmz_enabled = false`. Con `GC_HWIP == 0` (EV-39) se cae
+en el `default`.
+
+**⇒ Y aqui si hay una aportacion mia: es la TERCERA consecuencia independiente del
+mismo valor degenerado.** Con `GC_HWIP == 0` cae (1) en la rama legacy de los
+codificadores de PTE/PDE (EV-39 §3), (2) hace el flush de TLB incondicional (EV-39
+§2), y (3) desactiva TMZ. **Tres consumidores distintos, un solo valor.** Para un
+driver propio que hardcodee nada de esto, las tres se resuelven con la misma decision.
+
+**La leccion, y es la undécima vez:** **un título es un indice, no un dato.** Es el
+mismo error que una linea que no es un sitio, y que un nombre de fichero no es una
+identidad. Un título se escribe para.stringify un resultado, y puede acortarlo.
+
+**EL SEGUNDO ERROR, Y ES MAS GRAVE PORQUE AFECTABA AL RESULTADO.** Para medir si el
+arranque tenia fallos de init,WRAP `journalctl` en una variable de shell con su
+redireccion dentro:
+
+```
+J="timeout 90 journalctl -k -b --no-pager 2>/dev/null"
+echo "fallos ... $($J | grep -cE 'of IP block <.*> failed')"      ->  0
+echo "bloques ... $($J | grep -c 'detected ip block')"           ->  0
+```
+**Los dos ceros son falsos, y no hay forma de distinguirlos de un cero real.** El
+problema de `sh` era `Failed to add match '2>/dev/null'`, y el pipeline entero estaba
+roto: cero lineas producidas, cero-lineas encontradas, exito del consumidor.
+
+**Sin el control positivo no lo habria visto.** En cuanto compare el "0" con las
+**9** lineas de bloques que el mismo canal deberia dar, se rompio la illusion:
+nadie tiene 9 bloques y 0 bloques a la vez. **Un cero se vuelve creible cuando el
+mismo canal devuelve algo no trivial para otro criterio.**
+
+Repetido sin la variable:
+
+```
+lineas totales del canal .......... 1204
+lineas de amdgpu ................... 62
+'detected ip block' ............... 9    <- control positivo, MISMO pipeline
+'TMZ' (control de EV-190) .......... 1    <- control ajeno, reproducido
+fallos de fase de init ............. 0    <- el resultado
+```
+
+**TRES REGLAS, y las tres salen de aqui.**
+
+1. **No meter una redireccion dentro de una variable de comandos.** Una variable
+   deberia contener argumentos, no una tuberia. Es la forma mas facil de tener un
+   pipeline que "funciona" y no lee nada.
+2. **Todo cero necesita un control positivo en el MISMO pipeline**, no en otro. Un
+   control en otro comando prueba otra cosa.
+3. **`grep -c` que devuelve 0 y `grep -c` que devuelve 0 son indistinguibles a
+   menos que sepas que el canal lee.** Por eso el control va en la MISMA linea de
+   comando que el resultado, con el mismo criterio de estilo.
