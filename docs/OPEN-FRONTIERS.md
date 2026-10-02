@@ -9,28 +9,60 @@
 ## F12 · La PTE de esta GPU, observada
 
 ```
-PREGUNTA      Para una VA concreta que el hardware está usando, ¿qué entrada de
-              page table la traduce y a qué página física apunta?
-ESTADO        NOT_DETERMINED, y ahora con la cadena completa hasta el borde
-LO QUE SE SABE
-  la operación está cerrada hasta el último paso (EV-20):
-    addr = vram_base + cursor.start     amdgpu_vm.c:1228
-    vram_base = 0                       gmc_v8_0.c:1176
-    value = addr & 0x000000FFFFFFF000    amdgpu_gmc.c:173 + gmc_v8_0.c:1134
-  y hay 8 VA reales observadas en el anillo, con vmid=7 (EV-21)
-LO QUE FALTA
-  el contenido de la tabla. Ni qué PTE corresponde a 0x1_0025_8000, ni si
-  hay PDE o solo PTE, ni qué flags de acceso lleva
-POR QUÉ NO SE PUEDE EN ESTA RONDA
-  `amdgpu_vm_info` en 7.1.3 lista BOs y no vuelca entradas; `amdgpu_gart` no
-  existe en este driver (NR-2026-10-02-b). Con root tampoco: es
-  `NOT_AVAILABLE` por esta vía, no `PROVEN_ABSENT`
-QUÉ LO DISCRIMINARÍA
-  un observador de la memoria de la GPU. Con eso, la VA 0x1_0025_8000 y su
-  PTE se leen en cadena, y se cierra la frontera F2b
+ACTUALIZADO 2026-10-02. EL OBSERVADOR EXISTE, y no por debugfs: por el BAR. Esta
+frontera estaba en NOT_AVAILABLE y no lo esta.
+
+LO QUE SE ABRE
+  el log de arranque dice, textual y con la direccion:
+      PCIE GART of 256M enabled (table at 0x000000F400900000)
+      VRAM: 2048M 0x000000F400000000 - 0x000000F47FFFFFFF
+      BAR=256M con RAM=2048M
+
+  offset de la tabla dentro de VRAM = 0x900000 = 9 MiB
+  ventana del BAR                   = 256 MiB = 0x10000000
+  => cabe, y con holgura
+
+  **la tabla de page table del GART es legible por CPU en el offset 0x900000
+  de resource0.** Ese es el observador que esta frontera llevaba buscando desde
+  el principio, y estaba en el log de arranque
+
+POR QUÉ ESTABA EN NOT_AVAILABLE, Y POR QUÉ ERA FALSO
+  se buscó solo por debugfs: `amdgpu_vm_info` lista BOs y no vuelca entradas, y
+  `amdgpu_gart` no existe en 7.1.3 (NR-2026-10-02-b). La conclusión correcta
+  habría sido "no hay observador por ESTA vía", y se escribió como si no lo
+  hubiera por ninguna. Es la cuarta vez que un NOT_AVAILABLE de una vía se
+  generaliza a todas
+ESTADO AHORA
+  `BLOCKED_BY_CREDENTIAL`, que NO es lo mismo que `NOT_AVAILABLE`
+  `resource0` es `-rw------- root root`, este proceso corre como uid 1000, y la
+  variable `RX550_SUDO_PASS` se perdio al reiniciar el servidor
+  leer el BAR es NIVEL 2 en la jerarquia del propio AGENTS.md: "leer
+  registros, sysfs, debugfs, iomem, lspci, tracepoints, observar sin modificar".
+  Autorizado. Es un `dd` de 64 bytes en el offset 0x900000
+RIESGO, Y POR QUÉ ES DISTINTO DEL DE `amdgpu_regs*`
+  2 de 3 reinicios del servidor correlacionaron con leer `amdgpu_regs*`. Eso es
+  lectura de REGISTROS MMIO, que es otra cosa que leer la BAR de VRAM. Aun asi:
+  una sola lectura acotada, con estado registrado antes y despues, y sin
+  repetirla. Si apareciera cualquier cosa rara, se para y se dice
+QUÉ SE HARÍA EN CONCRETO, Y QUÉ CERRARÍA
+  1. `dd` de 64 bytes en el offset 0x900000 de resource0, con sudo. 64 bytes =
+     8 entradas de GART. Es lectura pura
+  2. cada palabra de 8 bytes, con `revkit/pte.py dump`: da la PA de destino, si
+     el bit VALID está puesto, y qué flags trae
+  3. eso cierra a la vez:
+       F12   el contenido de la tabla, el último eslabón de VA -> PA
+       F2b   la semántica de cada bit, porque el alcance ya está cerrado en 15
+             flags (ver F2b, que `revkit/pte.py para-gfx8` ya resolvió)
+     y de paso el caso de F14: cuánta RAM del sistema se puede direccionar, que
+     es lo que la GART traduce
+QUÉ SE SABE YA, Y NO NECESITA LA LECTURA
+  la geometría, del propio log: `vm size 64 GB, 2 levels, block size 10-bit,
+  fragment 9-bit`. Con 2^10 paginas de 4 KiB por entrada, cada entrada de nivel
+  superior cubre 4 GiB; y cada PTE cubre 2^9 paginas = 2 MiB por fragmento
+  la tabla tiene 65536 entradas, y 65536 × 4 KiB = 256 MiB exacto
 VALOR
-  alto: es el último eslabón de la traducción, y con él se puede
-  implementar el page walker sin suposición
+  alto, y mas alto de lo que estaba: no es una frontera abierta, es una lectura
+  pendiente de una credencial
 ```
 
 ## F12b · El `count` de PM4: payload menos uno, y una excepción sin resolver

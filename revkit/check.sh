@@ -220,6 +220,15 @@ if [ -f capturas/amdgpu_vbios.txt ]; then
     # rompe, pero no hay de donde volver. No hace fallar check.sh por ahora,
     # porque arreglarlo es decision de quien escribio esos ficheros, no del
     # kit. Se imprime para que deje de ser invisible.
+    # klog: el log de arranque como fuente. Es NIVEL 0 (solo lee texto), y
+    # es donde estaba la direccion de la tabla GART que F12 daba por
+    # inobservable. rc=1 significa "la tabla esta fuera del BAR", que en esta
+    # maquina NO es el caso.
+    klog_out=$(python3 klog.py gart 2>&1); klog_rc=$?
+    printf '  %-46s %s\n' "klog: tabla GART legible por BAR" \
+        "rc=$klog_rc (0 legible, 1 fuera del BAR, 4 no comprobable)"
+    echo "$klog_out" | grep -E "tabla GART|offset dentro|cabe en el BAR" \
+        | sed 's/^/       /'
     cust_out=$(python3 sello.py --custodia 2>&1); cust_rc=$?
     printf '  %-46s %s\n' "custodia: sellado vs commiteado" \
         "rc=$cust_rc (0 todo con version, 1 sellado SIN commit)"

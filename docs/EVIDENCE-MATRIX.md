@@ -2609,6 +2609,92 @@ Ninguna de las 7 es una excepción a la regla, así que la conclusión de EV-30
 **no tiene contraejemplo en el fichero de esta GPU**.
 
 
+## EV-32 · El log de arranque da las direcciones reales, y la tabla GART cae dentro del BAR
+
+```
+TYPE    OBSERVATION
+STATE   PROVEN (lo que dice el log) · el lector, BLOCKED_BY_CREDENTIAL
+```
+
+El log del kernel de este arranque (`journalctl -k -b`) tiene 80 líneas de
+`amdgpu`, y **no las había mirado**. Aporta direcciones físicas y de GPU que no
+teníamos de ninguna otra fuente:
+
+```
+amdgpu: vm size is 64 GB, 2 levels, block size is 10-bit, fragment size is 9-bit
+amdgpu: VRAM: 2048M 0x000000F400000000 - 0x000000F47FFFFFFF (2048M used)
+amdgpu: GART: 256M 0x000000FF00000000 - 0x000000FF0FFFFFFF
+amdgpu: 5907M of GTT memory ready.
+amdgpu: [drm] Detected VRAM RAM=2048M, BAR=256M
+amdgpu: [drm] GART: num cpu pages 65536, num gpu pages 65536
+amdgpu: [drm] PCIE GART of 256M enabled (table at 0x000000F400900000).
+amdgpu: detected ip block number 1 <gmc_v8_1_0> (gmc_v8_0)
+```
+
+**LO MÁS VALIOSO: la tabla GART está dentro de la ventana del BAR.**
+
+| | |
+|---|---|
+| PA de la tabla GART | `0x000000F400900000` |
+| PA base de VRAM | `0x000000F400000000` |
+| offset dentro de VRAM | `0x900000` = 9 MiB |
+| ventana del BAR | 256 MiB = `0x10000000` |
+| ¿cabe? | **sí**, y con holgura |
+
+Es decir: **la tabla de page table del GART es legible por CPU a través de
+`resource0`, en el offset `0x900000`.** Ese es el observador que F12 llevaba
+buscando. No existe por debugfs, pero existe por BAR.
+
+**Estado de la lectura**: `BLOCKED_BY_CREDENTIAL`, no `NOT_AVAILABLE`.
+`resource0` es `-rw------- root root`; este proceso corre como uid 1000, y la
+variable `RX550_SUDO_PASS` se perdió al reiniciar el servidor. Es una
+credencial ausente, no una capacidad ausente: con root es un `dd` de 64 bytes.
+Leer el BAR es NIVEL 2 en la jerarquía del propio AGENTS.md ("leer iomem,
+observar sin modificar"), así que está autorizado.
+
+LO QUE CORROBORA O PRECISA
+
+| dato del log | qué precisa o corrobora |
+|---|---|
+| `vm size 64 GB, 2 levels, block 10, fragment 9` | la geometría GPUVM ya cerrada |
+| `VRAM: 2048M 0xF400000000..0xF47FFFFFFF` | PA de VRAM, que no teníamos |
+| `GART: 256M 0xFF00000000..0xFF0FFFFFFF` | la VA del GART, y su tamaño de EV-23 |
+| `num cpu pages = num gpu pages = 65536` | 65536 × 4 KiB = 256 MiB, cuadra exacto |
+| `BAR=256M` con `RAM=2048M` | por qué el BAR es 256 y la VRAM 2 GiB (EV-23) |
+| `detected ip block 1 <gmc_v8_1_0>` | el ASIC instancia **GMC 8.1** |
+| `5907M of GTT memory ready` | el límite de RAM del sistema mapeable |
+
+Sobre GMC: `gfx_v8_0.c` incluye `gmc_8_2_d.h` y `gmc_8_2_sh_mask.h` (líneas
+41-42), pero el bloque que el ASIC instancia es **`gmc_v8_1_0`**. No es una
+contradicción: el fichero de GFX8 incluye la última generación disponible. Y
+para lo que importa, el invariante de EV-26 (`INVALIDATE_DOMAIN_i` en el bit `i`)
+está comprobado en `gmc_8_1` **y** en `gmc_8_2`.
+
+DOS TRAMPAS QUE ESTA FILA DEJA ESCRITAS
+
+1. **El 9 aparece dos veces y no es lo mismo.** El offset de la tabla es
+   `0x900000` = 9 MiB, y `fragment_size` es 9 **bits**. Un `grep` de "9" las
+   juntaría. Son magnitudes distintas: uno es una dirección, el otro un campo
+   de la PTE
+2. **65536 y 16 no están relacionados.** La GART tiene 65536 = 2^16 entradas, y
+   el invalidate tiene 16 dominios. Los dos son 16 y no tienen nada que ver: uno
+   es el TAMAÑO de la tabla, el otro cuántos contextos de VM se pueden
+   invalidar de una vez
+
+ESPACIOS DE DIRECCIÓN, QUE NO HAY QUE MEZCLAR
+
+| espacio | rango |
+|---|---|
+| PA de VRAM, la que ve la MC | `0xF400000000` .. `0xF47FFFFFFF` |
+| VA del GART | `0xFF00000000` .. `0xFF0FFFFFFF` |
+| VA de VRAM, observada en el anillo | `0x000100258000` .. `0x000100278600` |
+
+El FB en 4 GiB de EV-21 es la **VA**, restando `0x100000000`; la `0xF4...` es
+**PA**. Son la misma página de VRAM descrita en dos espacios, y la tabla GART
+está en el de PA.
+
+`LAST_VERIFIED: 2026-10-02 - journalctl -k -b, 80 lineas de amdgpu`.
+
 ## EV-18 · El anillo GFX tiene 2048 dwords y estaba vacío
 
 ```

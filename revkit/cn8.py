@@ -33,6 +33,7 @@ import tempfile
 AQUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, AQUI)
 import atomrom as A  # noqa: E402
+import klog as _K  # noqa: E402
 
 FALLOS = []
 
@@ -294,6 +295,67 @@ def main():
         chk("custodia: sin repo git da rc=4, NO 0",
             r.returncode == 4 and "NOT_APPLICABLE" in r.stdout,
             "(rc=%d)" % r.returncode)
+
+    # --- klog.py: el log de arranque como fuente, y sus limites
+    #
+    # No se puede probar contra el log real sin que el resultado dependa de si
+    # el kernel arranco con esas lineas. Se usa un log sintetico, con los tres
+    # casos: dentro del BAR, fuera del BAR, y log incompleto.
+    import tempfile as _tf3
+
+    _LOGS = (
+        "amdgpu 0000:01:00.0: VRAM: 2048M 0x000000F400000000 - "
+        "0x000000F47FFFFFFF (2048M used)\n"
+        "amdgpu 0000:01:00.0: GART: 256M 0x000000FF00000000 - "
+        "0x000000FF0FFFFFFF\n"
+        "amdgpu 0000:01:00.0: [drm] Detected VRAM RAM=2048M, BAR=256M\n"
+        "amdgpu 0000:01:00.0: [drm] PCIE GART of 256M enabled "
+        "(table at 0x000000F400900000).\n")
+    _LOG_FUERA = (
+        "amdgpu 0000:01:00.0: VRAM: 2048M 0x000000F400000000 - "
+        "0x000000F47FFFFFFF (2048M used)\n"
+        "amdgpu 0000:01:00.0: [drm] Detected VRAM RAM=2048M, BAR=256M\n"
+        "amdgpu 0000:01:00.0: [drm] PCIE GART of 256M enabled "
+        "(table at 0x000000F410000000).\n")
+    _LOG_INCOMPLETO = (
+        "amdgpu 0000:01:00.0: [drm] Detected VRAM RAM=2048M, BAR=256M\n")
+
+    def _klog(log):
+        with _tf3.TemporaryDirectory() as _td:
+            _p = os.path.join(_td, "fake.log")
+            with open(_p, "w") as _h:
+                _h.write(log)
+            _py = (
+                "import sys,argparse\n"
+                "sys.path.insert(0,%r)\n"
+                "import klog\n"
+                "klog.log_amdgpu=lambda p='amdgpu',boot=True: "
+                "[l for l in open(%r,errors='replace') if p in l]\n"
+                "sys.exit(klog.cmd_gart(argparse.Namespace(cmd='gart',"
+                "patron='amdgpu')))\n" % (AQUI, _p))
+            return subprocess.run([sys.executable, "-c", _py],
+                                  capture_output=True, text=True, cwd=AQUI)
+
+    r = _klog(_LOGS)
+    chk("klog: con la tabla dentro del BAR da rc=0 y la direccion",
+        r.returncode == 0 and "0x00F400900000" in r.stdout
+        and "ES LEGIBLE" in r.stdout, "(rc=%d)" % r.returncode)
+    r = _klog(_LOG_FUERA)
+    chk("klog: con la tabla FUERA del BAR da rc=1, no 0",
+        r.returncode == 1 and "FUERA de la ventana" in r.stdout,
+        "(rc=%d)" % r.returncode)
+    r = _klog(_LOG_INCOMPLETO)
+    chk("klog: log incompleto da rc=4 (no comprobable), NO 0",
+        r.returncode == 4 and "NO SE ENCONTRARON" in r.stdout,
+        "(rc=%d)" % r.returncode)
+    chk("klog: 0xF400000000 es PA de VRAM y 0xFF00000000 es VA del GART",
+        _K.clasifica(0xF400000000) == "PA de VRAM"
+        and _K.clasifica(0xFF00000000) == "VA del GART",
+        "(%s / %s)" % (_K.clasifica(0xF400000000),
+                       _K.clasifica(0xFF00000000)))
+    chk("klog: una direccion sin clasificar devuelve None, no un espacio "
+        "inventado", _K.clasifica(0x12345678) is None,
+        "(%s)" % (_K.clasifica(0x12345678),))
 
     print("-" * 66)
     if FALLOS:
