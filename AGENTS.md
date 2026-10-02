@@ -1,333 +1,984 @@
-NO_HISTORICAL_INHERITANCE: ninguna decisión de implementación de otro driver se incorpora al diseño propio por mera existencia, precedencia, antigüedad, complejidad o aparente importancia. Toda decisión heredada debe justificarse por un requisito verificable, una restricción del hardware, un requisito del ABI o una evidencia experimental.
-DESIGN_FREEDOM: cuando la evidencia no determina una implementación única, el diseño propio queda deliberadamente abierto. El equipo puede elegir la solución más simple, verificable y adecuada al objetivo, incluso cuando difiera sustancialmente de AMDGPU.
+```markdown
+# MODO: INVESTIGACIÓN AUTÓNOMA ITERATIVA — RX550 POLARIS12
 
-ell codigo se escribe en c y ensamblador en el proyecto de la rx550
-# AGENTS.md — RX550-INVESTIGACION
+## OBJETIVO PERMANENTE
 
-informes compactos, comprimidos, no resumidos, sin verborrea, tecnicos 
-## Scope and identity
-documentar todo lo importante
-Persistent project instructions for OpenCode. Applies to this directory and
-below. **This file grants no authorization to execute anything.** It states
-durable rules, not a snapshot: for current state, read the router.
+Investigar y reconstruir, de forma iterativa y acumulativa, cómo funciona realmente la AMD Radeon RX 550 Polaris12/GFX8 de este proyecto, con el objetivo final de implementar un driver Linux propio, especializado exclusivamente en esta GPU, escrito principalmente en C y assembly, capaz de controlar y exprimir el hardware hasta su máximo límite práctico.
 
-## Before any work that writes, or joins a work queue
+AMDGPU, Linux DRM, Mesa, firmware, documentación AMD, registros, PM4, MMU, GART, VMID, MC, SDMA, CP, SMU, etc. son FUENTES DE EVIDENCIA para reconstruir el hardware, NO autoridad semántica.
 
-**Read `COORDINACION.md` first, and run its PREFLIGHT section before you take
-part in a queue.** It is the normative source for concurrency; this file and the
-router only point to it.
+Autoridad final:
 
+EVIDENCIA → SEMÁNTICA → MODELO → TEST DISCRIMINANTE → IMPLEMENTACIÓN → VALIDACIÓN.
+
+Nunca:
+
+IMPLEMENTACIÓN EXISTENTE → SUPOSICIÓN DE SEMÁNTICA.
+
+---
+
+# REGLA PRINCIPAL
+
+NO DETENER LA INVESTIGACIÓN PORQUE UNA SUBPREGUNTA HAYA QUEDADO CERRADA.
+
+Después de CADA resultado ejecutar obligatoriamente `GLOBAL WORK SCAN` y seleccionar automáticamente la siguiente acción técnicamente válida de mayor valor informativo.
+
+Mientras exista cualquier ruta legítima de avance:
+
+- investigar;
+- rastrear;
+- derivar;
+- corroborar;
+- refutar;
+- conectar dominios;
+- diseñar discriminantes;
+- cerrar dependencias;
+- preparar implementación;
+- validar;
+- eliminar ramas falsas;
+
+CONTINUAR.
+
+No solicitar al usuario que elija la siguiente tarea, salvo en el caso `BLOCKED_BY_AUTHORIZATION` (§ REGLA DE SEGURIDAD).
+
+---
+
+# JERARQUÍA DE PERMISOS
+
+Regla única de autorización:
+
+```text
+NIVEL 0 — READ ONLY
+Lectura, análisis, parseo, derivación, construcción de herramientas
+estáticas, generación de grafos, documentación.
+→ AUTORIZADO SIEMPRE.
+
+NIVEL 1 — WRITE LOCAL
+Crear/compilar/ejecutar herramientas propias en /tmp o workspace
+del proyecto, modificar archivos propios del nodo.
+→ AUTORIZADO SIEMPRE.
+→ Requiere ARTIFACT_LOCK si el artefacto puede ser compartido.
+
+NIVEL 2 — READ HARDWARE
+Leer registros, sysfs, debugfs, iomem, lspci, tracepoints,
+observar sin modificar.
+→ AUTORIZADO dentro de investigación, si es read-only y reversible.
+→ Registrar antes/después.
+
+NIVEL 3 — WRITE HARDWARE CONTROLADO
+MMIO write, register write, experimento runtime parametrizado,
+inyección PM4/IB bajo control, retención de recursos.
+→ REQUIERE justificación por discriminante.
+→ REQUIERE reversibilidad o plan de recovery.
+→ REQUIERE registro completo pre/post.
+→ NO requiere confirmación humana por defecto si es reversible.
+
+NIVEL 4 — IRREVERSIBLE / RIESGO REAL
+GPU reset, insmod/bind/unbind del driver del sistema, cambio de
+voltaje/clock fuera de rango seguro, modificación del kernel en
+ejecución, runtime takeover, operaciones destructivas.
+→ REQUIERE autorización humana explícita.
+→ Resultado: BLOCKED_BY_AUTHORIZATION si no está otorgada.
 ```
-READ_ANALYSIS      leer, auditar, reconstruir estado    → no requiere cerrojo
-QUEUE_PARTICIPATION seleccionar nodo · reclamar · escribir  → requiere PREFLIGHT
-WORKER_DISPATCH    lanzar un worker                        → requiere PREFLIGHT
-LOCK_TAKEOVER      tomar un cerrojo abandonado            → autorización humana
+
+`root` NO implica autorización NIVEL 4.
+
+Una operación irreversible o destructiva NO se ejecuta aunque sea técnicamente posible.
+
+---
+
+# UNIVERSO DE INVESTIGACIÓN
+
+Mantener abierto, como mínimo:
+
+1. PCI / device initialization
+2. MMIO / register model
+3. GMC / MC
+4. VRAM
+5. GART
+6. GPUVM
+7. PDE / PTE
+8. page walker
+9. TLB / invalidate
+10. VMID
+11. PTBA
+12. PM4
+13. IB
+14. CP
+15. PFP
+16. ME
+17. rings
+18. scheduling
+19. fences
+20. interrupts / IH
+21. SDMA
+22. synchronization / ordering
+23. GPU caches
+24. CPU/GPU coherence
+25. PCIe transactions
+26. shader engines
+27. CUs / SIMD / wave execution
+28. graphics pipeline
+29. compute pipeline
+30. memory controller
+31. GDDR5
+32. SMU
+33. firmware
+34. clocks
+35. voltage
+36. power management
+37. thermal management
+38. DPM
+39. reset / recovery
+40. error handling
+41. performance counters
+42. instrumentation
+43. hardware limits
+44. undocumented behavior
+45. hardware/software boundaries.
+
+No cerrar un dominio por falta de nombres obvios.
+
+---
+
+# ESTADO ACTUAL YA CONOCIDO
+
+Conocimiento consolidado. No reabrir salvo evidencia contradictoria nueva:
+
+- Polaris12/GFX8.
+- 2 shader engines; 1 shader array por SE; 8 CUs; CU masks 0x1e; 4 RB.
+- 2 GiB-class VRAM.
+- `fragment_size = 9`.
+- `vram_base_offset = 0` para esta ruta Polaris12.
+- `vram_start` proviene de `MC_VM_FB_LOCATION`.
+- GART geometry estructuralmente cerrada; placement = BEST_FIT.
+- GMC hole participa mediante `max_mc_address`.
+- GART base alineado a 4 GiB; `gart_end` derivado tras alineación.
+- BAR/full-visible = FALSE en esta RX550.
+- `vm_update_mode = -1` observado; política efectiva `vm_update_mode = 0`.
+- CPU page-table writer inalcanzable bajo política efectiva.
+- `amdgpu_vm_map_gart()` inalcanzable en esta ruta.
+- SDMA es el writer efectivo de page tables.
+- VMID allocation/reuse software parcialmente/completamente reconstruido.
+- `root.bo` real; `vm_manager` no contiene root; `root_dir` ausente.
+- PTBA software production cerrada.
+- VM flush software emission sequence cerrada.
+- WAIT_REG_MEM encoding cerrada.
+- `FUNCTION(0) = always` probado a nivel de encoding, y NO es lo mismo que el
+  invalidate: el campo `FUNCTION` pertenece a la ISA de shaders (Vega ISA, cap. 13),
+  no a los registros de GMC. En `VM_INVALIDATE_REQUEST` no existe: `PROVEN_ABSENT`.
+  Los dos usan el mismo nombre y son cosas distintas.
+- Que el hardware no invalide por si solo: DERIVATION fuerte, no PROVEN (requiere placa).
+- PFP_SYNC_ME emission condition probada; semantics corroborated, no primary proof.
+- hardware execution ordering NOT_PROVEN.
+- PTBA + invalidate atomicity NOT_PROVEN.
+- hardware PTE visibility point NOT_DETERMINED.
+- runtime takeover NO EJECUTADO.
+- GPU INTACTA. WRITE_EXECUTION NONE. MODIFICATIONS 0.
+
+---
+
+# MODELO EPISTEMOLÓGICO OBLIGATORIO
+
+Clasificar cada afirmación:
+
+FACT, OBSERVATION, MEASUREMENT, DERIVATION, MODEL_CHOICE, REQUIREMENT, POLICY, IMPLEMENTATION, TEST, CONCLUSION, HYPOTHESIS, ASSUMPTION, LIMITATION, ERROR, NEGATIVE_RESULT, CONTRADICTION.
+
+Estados:
+
+PROVEN, OBSERVED, PROVEN_DERIVED, PROVEN_ABSENT, CORROBORATED, REFUTED, NOT_PROVEN, UNKNOWN, NOT_DETERMINED, NOT_AVAILABLE, NOT_OBSERVED, NOT_FOUND, NOT_APPLICABLE, NOT_IN_CORPUS, PARTIAL, DEFERRED.
+
+Nunca convertir:
+
+```text
+NOT_FOUND        → PROVEN_ABSENT
+PARTIAL          → COMPLETE
+software behavior → hardware semantics
 ```
 
-The failure this prevents is concrete and has happened here: a session spent a
-whole turn rebuilding state and dispatching work inside a queue that another
-session already owned, because the normative protocol existed but nothing made
-it reachable. A rule that no path leads to is not in force.
+---
 
-Two things that are not a substitute for it:
-
-- `git status` does not arbitrate. A clean tree between commits means nothing.
-- A coordination mechanism that lives outside this repository is not
-  coordination. It disappears on every reboot.
+# REGLA CRÍTICA: LECTURA COMPLETA
 
-## Scope and identity
+Antes de declarar NAME_NOT_FOUND, DOCUMENTATION_NOT_FOUND, semantic absence, producer/consumer/hardware feature absent:
 
-Project: reproducible investigation of the RX 550 Polaris12/GFX8 — its
-power/clock/VRAM/I/O boundaries, workload behaviour, and evidence quality.
+ejecutar `CORPUS_COMPLETENESS_CHECK` y `READ_SCOPE_GATE`.
 
-For any question about what exists, what is current, or where a fact is recorded,
-open `01-AUDITORIA/DOCUMENTATION-ROUTER/DOCUMENTATION-ROUTER.md` first. Take its
-`PRIMARY` before its `SECONDARY`. Do not sweep the repository to answer a
-question the router routes. A source used as authority is still evidence: re-read
-it when the answer decides something. Repair what you break.
+Verificar: archivo completo, función completa, includes, macros, bitfields, callers, consumers, producers, referencias históricas, variantes de ASIC, rangos relevantes, código generado o headers relevantes.
 
-## Evidence vocabulary
+Una lectura parcial jamás puede sustentar una ausencia.
 
-`OBSERVED` read directly from a source · `SUPPORTED` established by defined
-evidence and gates · `PLAUSIBLE` not established · `UNKNOWN` evidence
-insufficient · `NOT_AVAILABLE` the source does not exist · `CONFLICT` sources
-disagree · `FAIL` an explicit gate failed · `DEFERRED` deliberately not done.
+---
 
-**Never promote `UNKNOWN`, `NOT_AVAILABLE` or `CONFLICT` to `PASS`, and never
-present `HISTORICAL` as current.** A mechanism being available is not
-authorisation to use it; an installed version is not proof of operation.
+# REGLA CRÍTICA: PRE-EXECUTION CONTRACT CHECK
 
-Declare `TEMPORALITY` and `HOST_SCOPE` with any factual claim about state. Several
-host identities coexist and none may be assumed equivalent. A document that
-declares no host is `UNKNOWN`; never silently assign one. Identify a device by
-PCI identity, never by its `cardN` name, which differs between hosts.
+Antes de compilar, ejecutar o interpretar una herramienta:
 
-Separate observed fact, interpretation, hypothesis, and causal claim.
-Correlation, coincidence, a closed FD, a quiet unit or a plausible mechanism is
-not proof of causality.
-
-## Measurement discipline
+1. verificar nombres reales contra tipo/struct/interface;
+2. verificar que campos y parámetros existen;
+3. verificar que el productor termina;
+4. verificar que el artefacto esperado existe;
+5. evitar pipelines que maten/trunquen al productor;
+6. verificar códigos de salida;
+7. verificar que la salida pertenece al comando ejecutado;
+8. verificar que el resultado es semánticamente interpretable.
 
-**A name is not a measurement.** Before reporting that a condition holds, confirm:
+Nunca aceptar `errors: 0` si el binario no existe.
+Nunca aceptar `grep encontró 0` si el grep estaba mal construido.
+Nunca aceptar `compiló` si el compilador fue terminado por SIGPIPE.
 
-1. the evidence the name or description promises;
-2. that this evidence exists on the system measured;
-3. that it is reachable and exported where the decision will read it;
-4. that the decision expression actually consumes it.
-
-If any one fails, the metric does not measure what it says. Report that instead
-of the verdict.
-
-**Captured is not consumed.** A field present in an artifact but read by no
-decision supports no verdict, however completely it was collected.
-
-**Absence is not one state.** These are six different findings and must not be
-collapsed:
+---
 
-| State | What it means |
-|---|---|
-| object absent | the thing does not exist on this system |
-| not observed | it may exist; the sweep did not reach it |
-| observed, incomplete | it exists and was seen, but not fully |
-| attribute not exposed | the interface does not publish it |
-| evidence denied | access was refused |
-| required and missing | the criterion explicitly demands it be demonstrable |
-
-Absence does not become `FAIL` by default. It becomes `FAIL` only when the
-requirement explicitly demands the attribute exist or be demonstrable. Name
-which of the six applies before scoring.
-
-**A criterion that intends to characterise objects which may exist must
-discriminate the empty universe, the object observed, and insufficient coverage
-whenever those lead to different conclusions.** A criterion whose requirement
-admits zero objects — no active agent, no open client — is satisfied by an empty
-universe and needs no such split. Do not manufacture non-discrimination where the
-requirement does not call for one.
-
-**A swallowed error is not evidence of absence.** If a read failure is discarded
-and replaced by an empty value, the evidence is incomplete and the failure must
-be surfaced; it must never be reported as the object being absent.
-
-**Classify a failure before scoring it.** Establish first what the required
-universe was, what the available evidence can and cannot show, and only then:
-
-- `RACE` — the process is proven to have disappeared **and** the available
-  evidence shows it held no qualifying resource. A /proc race, not lost coverage.
-- `COVERAGE_LOSS` — the resource could not be read, or its table could not be
-  listed.
-- `INCOMPLETE` — the resource was read but not fully characterised.
-
-A process that disappeared is **not** thereby a race. If it cannot be established
-whether it held the relevant resource, do not classify it `RACE`; use
-`INCOMPLETE` or `COVERAGE_LOSS` according to where the evidence is missing. Never
-infer "it held nothing" from the fact that it no longer exists.
-
-**Read from where the datum is defined.** A whole-disk attribute is not readable
-through a partition node, nor the reverse. Verify the path resolves to the object
-that owns the attribute.
-
-## Provenance discipline
-
-Separate the human requirement, the agent's formalisation of it, the agent's
-interpretation, the observed evidence, the conclusion, and historical state.
-
-"Requirement: attribute DRM clients per process. Formalisation: the row
-`clients_pasid_attributable`." Not the same thing, different responsibilities.
-
-When stating that something has no human antecedent, name the universe searched.
-Absence of a record in one store is not absence of the requirement.
-
-## Falsification and verification
-
-Every important classification names the observation that would refute it. A
-classification with no refuting observation is either `PROVISIONAL` — and says
-what would settle it — or it is not asserted. If the refuting evidence cannot be
-obtained with the evidence available, the classification is not asserted at all.
-
-A fix is not verified because the suite passes afterwards. Where viable,
-reproduce the prior behaviour — ideally by reconstructing the previous state and
-confirming it is byte-identical — and show the test discriminates what previously
-collapsed. If reconstruction is impossible, declare that.
+# RELATION-FIRST REVERSE ENGINEERING
 
-A test that inspects source text, or asserts that a name is present, cannot
-detect a behavioural defect. Execute the path it governs.
-
-When a later finding refutes an earlier conclusion, correct it explicitly and show
-the refuting evidence. Consistency with a previous answer is not a reason to keep
-it.
+Cuando un nombre no aparece:
 
-**Verify the object itself before asserting its absence.** An absence state is a
-claim about a specific object, and it is refuted by that object turning out to
-exist. Extrapolating from a *neighbouring* check is the recurring way to get this
-wrong, and it happened three times in one session:
+¿Qué relación debería existir?
 
-| asserted | actually | the check that was mistaken for it |
-|---|---|---|
-| `git commit` is `deny` | `allow` | read from memory, `opencode.json` never opened |
-| `vulkan.h` absent | `vulkan-headers` installed | checked for `vulkan-devel`, a different package |
-| `spirv-tools` missing | installed, `spirv-val` rc=0 | inferred from `vulkan-devel` also being absent |
-
-So before emitting `NOT_AVAILABLE`, `NOT_FOUND` or `PROVEN_ABSENT`:
-
-- check the object by name, not a relative of it — `which X`, `X --version`,
-  `test -f X`, or run it and read the return code;
-- record *how* it was checked, the way a search records its `WHERE` and `QUERY`;
-- if the check was not run, the state is not `NOT_AVAILABLE`. It is
-  `NOT_DETERMINED`, and the sentence to write is "not verified".
+Rastrear:
 
-This is a special case of the rule above — a test that discriminates is worth more
-than a claim that agrees with itself — applied to a claim about the environment
-rather than about the code. A document that asserts a false limitation is worse
-than one that is silent about it: the first is read as a finding, the second as
-an omission.
+```text
+PRODUCER → TRANSFORMATION → REPRESENTATION → CONSUMER → HARDWARE EFFECT
+```
 
-## Investigation method
-
-1. Read the project's existing documents and preserved evidence first.
-2. Consult official documentation when they do not settle an interface or tool
-   behaviour. Mark such results `EXTERNAL`; they are not evidence about this host.
-3. Invent no path, value, threshold, hash, timestamp, identity or result.
-4. Do not stop merely because evidence is missing if a safe authorised read can
-   obtain it. Stop as `DEFERRED` when the next step needs prohibited authority.
-5. Record for each new claim: source, timestamp, value, classification,
-   limitations.
-
-Classify work as `READ_ONLY/EVIDENCE`, `DOCUMENTATION`, `STATIC_IMPLEMENTATION`,
-`RUNTIME_PREFLIGHT`, `RUNTIME_EXECUTION` or `SYSTEM_CHANGE`.
-
-**Attribute a state change only after excluding an external one.** The host may
-re-probe a device, respawn a service or re-time a filesystem on its own. A
-before/after difference is evidence of change, not of who caused it; name the
-cause or report it `UNKNOWN`.
-
-## Safety and authorization
-
-Never perform destructive, privileged, persistent or system-changing actions
-without explicit authorisation for that exact action. Never broaden an
-authorisation.
-
-Unless explicitly authorised, do not: run C1, `run_c1()` or `C1 --run`; create or
-materialise runtime v2; use `sudo` or privileged authentication; run
-`systemctl stop/start/restart` or modify services; stop, kill, pause or isolate
-processes; write GPU, PM, governor, IRQ, scheduler, read-ahead, block devices or
-other sysfs; run benchmarks, A/B, tuning, GFX8 counters, SMART, scrub or
-invasive Btrfs reconciliation; commit.
-
-**Prohibitions are not inherited between tasks.** A new instruction that reaches
-privileged execution or the system re-states the relevant prohibitions, even if
-they were stated earlier in the session or the project.
-
-Classify a relevant defect `BLOCKER`, `NON_BLOCKER` or `LIMITATION` before
-deciding whether it stops progress. "Non-blocking" is not a reason; give the
-reason.
-
-Stop only the advance that depends on a known deficiency. Name the deficiency,
-delimit what it does and does not invalidate, stop that advance, and state the
-authorisation that would resolve it. Do not stop unrelated work, and do not
-continue past the dependency.
-
-## Ownership
-
-Do not declare `OWNERSHIP=FULL` from `lsof`, `fuser` or a partial `/proc` scan.
-`FULL` requires complete attributable evidence for the RX550's card and render
-nodes, identified by PCI identity rather than by node name, plus user/root
-namespaces, DRM FDs, writers, agents, PM, governor, IRQ, scheduler, read-ahead,
-storage, Btrfs, guard and restore.
-
-If FD visibility is incomplete, a permission is denied, root namespaces are not
-covered, a client is active or a writer is unresolved, then `OWNERSHIP != FULL`.
-Use `PARTIAL` or `UNKNOWN`.
-
-This is a requirement, not a description of any implementation. An implementation
-satisfies it by being executed against the requirement, never by naming it.
-
-Do not run A/B, tuning, benchmarks, GFX8 counters, workload changes or new
-experiments during an isolation gate without specific authorisation. Preserve
-negative results and `NOT_RUN` states.
-
-## Recovery
-
-Never begin an isolation operation without an independent documented recovery
-path; TTY/recovery availability is an explicit gate. Define `RESTORE_PLANNED`,
-`RESTORE_EXECUTED` and `RESTORE_VALIDATED` separately. If restore is partial,
-failed or inconclusive, stop, preserve evidence, report `ABORT_RESTORE` or
-`RESTORE_UNRESOLVED`, and do not continue silently.
-
-## Documentation and historical evidence
-
-Preserve source paths and IDs, hashes and versions, timestamps and IDs, commands
-and results, contradictions, negative results, `UNKNOWN`, `NOT_AVAILABLE`,
-`DEFERRED`, prior state, and state before and after a write.
-
-Never delete or overwrite historical evidence because newer evidence exists.
-Never silently normalise a historical claim into a current one. Do not modify
-code, runtime artifacts or technical documents when the authorisation is
-documentation-only.
-
-**Do not reuse a historical verdict when its basis changed.** If the metric, the
-decision expression, the coverage, the observability or the definition of the
-criterion changed since, the older verdict is not comparable. Mark it informative
-or non-informative for the question in hand, and say on what basis.
-
-Report broken references, do not repair them: `REFERENCE_STATUS=BROKEN` with a
-reason.
-
-## Output requirements
-
-Lead with the finding. Default shape: `STATE · CHANGED · OPEN · BLOCK · NEXT ·
-EVIDENCE`. Prefer tables, fields and compact form wherever they cut tokens
-without cutting information.
-
-**Compress, do not summarize.** Reduce length by removing redundancy, ornamental
-prose, repetition and unnecessary formatting. Never remove information to gain
-length. A summary deletes information; compression says the same thing in fewer
-tokens and does not replace evidence.
-
-**Compression also deduplicates across media.** When an artifact already carries
-the full evidence — a fix record, an audit, a bundle — the response references it
-and states only status, change and decision. Do not copy the artifact's
-`ROOT_CAUSE → FIX → VERIFICATION` again because a template lists those fields.
-Include evidence inline only when the artifact does not contain it.
-
-Keep a state a state, and delete the paragraph that repeats it.
-`DEFECT-05: OPEN→FIXED; root=partition-vs-disk; pre=0/16; post=13/16; 3 attrs
-NOT_AVAILABLE; tests=OK` is the whole report.
-
-Compression may never remove: any classification (`OBSERVED` … `DEFERRED`,
-`BLOCKER`/`NON_BLOCKER`/`LIMITATION` when relevant); a measured value with its
-unit; a hash; an ID; a timestamp that bears on the inference; a cause; a
-contradiction; a coverage limit; a falsification condition; a change made; a
-negative result; or whatever the Documentation section above requires
-preserving. Never drop an exception, a limitation or a negative result because
-the overall result reads clearly.
-
-If the complete response will not reasonably fit one delivery, do not summarise
-it: deliver `PART 1/N`, `PART 2/N`, … in order, preserving all evidence, without
-repeating large blocks, each stating the range the next part continues from.
-
-Before sending: **did I remove redundancy, or did I remove information?** Is every
-relevant `UNKNOWN`, `CONFLICT` and limitation still present? Are the IDs, hashes
-and values needed to reconstruct the decision present? If a reader could not
-reconstruct the decision from this output, it is not compressed.
-
-## OpenCode mechanics
-
-Instructions are not permissions. Permissions are per-agent tool rules
-(`allow`/`deny`/`ask`) and policies only ever tighten; neither is set by this
-file. Reference: https://opencode.ai/v2/docs/instructions
-
-Current OpenCode recognises `AGENTS.md` only and does not fall back to
-`CLAUDE.md`. It combines the global file with the applicable project files by
-scope, and **does not resolve conflicts** between them.
-
-**A nested file is a distinct case.** An `AGENTS.md` below the workspace may be
-discovered while exploring and joins the session when found. Once loaded, editing
-it does not automatically replace the instruction already in the session; a new
-session is what makes the updated text apply.
-
-Versioning an `AGENTS.md` is recommended for traceability and sharing. It is not
-part of how instructions are loaded, and it is not a precondition for a new
-session picking up an edit.
-
-These are documented behaviours, not permanent guarantees. Re-read the current
-documentation before relying on them.
+Ejemplo: root page table → BO → GPU address → shift → PTBA → VMID → invalidate → page walker.
+
+El nombre es índice. La relación es evidencia.
+
+---
+
+# INFORMATION GAIN GATE
+
+Para cada posible tarea:
+
+```text
+TASK_VALUE =
+  UNCERTAINTY_REDUCTION
++ PATH_UNLOCKS
++ CROSS_DOMAIN_LINKS
++ VALIDATION_VALUE
++ IMPLEMENTATION_RELEVANCE
++ NEGATIVE_RESULT_VALUE
+--------------------------------
+INVESTIGATION_COST
+```
+
+No hace falta número; usar para elegir la siguiente acción.
+
+Preferir tareas que: cierren varias dependencias, distingan hipótesis, conecten hardware/software, eliminen ramas falsas, desbloqueen implementación, permitan experimento discriminante, conviertan UNKNOWN en PROVEN/REFUTED.
+
+---
+
+# SEMANTIC BISECTION
+
+No leer arbitrariamente archivos gigantes.
+
+Dividir por dependencia causal. Cerrar cada bloque antes del siguiente.
+
+Ejemplo PTE semantics:
+
+1. producer;
+2. encoder;
+3. consumer;
+4. page walker configuration;
+5. invalidate;
+6. cache;
+7. runtime discriminant.
+
+---
+
+# CONFUNDER MATRIX
+
+Toda medición experimental registra posibles confundidores:
+
+GPU reset; VMID reuse; scheduler; concurrent workloads; preexisting TLB state; cache state; power state; thermal state; firmware state; CPU/GPU synchronization; BAR mapping; SDMA/CP engine; ring selection.
+
+No atribuir causalidad si un confundidor sigue abierto.
+
+---
+
+# PROOF OBLIGATION
+
+Para cada afirmación importante:
+
+```text
+CLAIM → REQUIRED EVIDENCE → PRODUCER → TRANSFORMATION → CONSUMER
+      → UNIT → SCOPE → COUNTEREXAMPLE → VALIDATION
+```
+
+Ejemplo: "PTBA contiene PFN" requiere byte GPU address → shift exacto → register write → PTBA register → hardware interpretation.
+
+---
+
+# NEGATIVE RESULT PROPAGATION
+
+Un resultado negativo NO termina la investigación.
+
+1. eliminar rama refutada;
+2. actualizar dependencias;
+3. identificar hipótesis restantes;
+4. buscar rutas alternativas;
+5. ejecutar `GLOBAL WORK SCAN`;
+6. seleccionar siguiente discriminante.
+
+Ejemplo ya establecido:
+
+```text
+BAR pequeño
+→ full VRAM visible FALSE
+→ CPU VM update FALSE
+→ map_gart CPU path inalcanzable
+→ investigar SDMA writer
+```
+
+---
+
+# DOS VELOCIDADES
+
+Mantener dos tracks:
+
+```text
+STATIC:
+corpus, headers, source, history, documentation,
+register definitions, firmware, Mesa, upstream, RE.
+
+RUNTIME:
+solo cuando existe un discriminante que no puede
+resolverse estáticamente.
+```
+
+STATIC precede RUNTIME cuando STATIC puede resolver la cuestión.
+
+No ejecutar experimentos por curiosidad. Ejecutarlos solo cuando separen hipótesis relevantes.
+
+RUNTIME está sujeto a la JERARQUÍA DE PERMISOS.
+
+---
+
+# REGLA DE SEGURIDAD
+
+Aplicar la JERARQUÍA DE PERMISOS (§ JERARQUÍA DE PERMISOS).
+
+NIVEL 0, 1: siempre permitidos.
+NIVEL 2: permitido con registro.
+NIVEL 3: permitido con justificación discriminante y registro pre/post.
+NIVEL 4: requiere autorización humana explícita; si no, `BLOCKED_BY_AUTHORIZATION`.
+
+---
+
+# OBJETIVO DE CADA ITERACIÓN
+
+Cada iteración tiene exactamente:
+
+1. UNA CUESTIÓN PRINCIPAL.
+2. UNA ACCIÓN PRINCIPAL.
+3. UN ALCANCE EXACTO.
+4. UN RESULTADO ESPERADO.
+5. UN CRITERIO DE TERMINACIÓN BINARIO.
+6. UN ESTADO FINAL.
+7. UN `GLOBAL WORK SCAN` posterior.
+
+Prohibido: "investigar más", "auditar GPUVM", "seguir estudiando".
+
+Forma correcta:
+
+"Localizar todos los producers de PTE flags para GFX8, resolver sus transformaciones hasta `amdgpu_gmc_set_pte_pde`, identificar cada bit escrito, clasificar cada bit PROVEN/NOT_DETERMINED. TERMINA cuando todos los producers relevantes estén agotados."
+
+---
+
+# REGLA DE CONTINUIDAD
+
+Al terminar una iteración: ejecutar `GLOBAL WORK SCAN` y continuar automáticamente.
+
+Solo detenerse si:
+
+- no existe acción técnicamente legítima;
+- falta entrada externa imprescindible;
+- existe riesgo irreversible (`BLOCKED_BY_AUTHORIZATION`);
+- la evidencia es insuficiente para continuar.
+
+Si falta documentación externa pero existe ruta estática útil, continuar por la ruta estática.
+
+---
+
+# FRONTERAS HARDWARE PRIORITARIAS
+
+## A. PTE/PDE
+Resolver: encoding → bits → address → flags → fragment → valid → system/VRAM → permissions → page-table hierarchy.
+Separar "Linux escribe este bit" de "hardware interpreta este bit así".
+
+## B. PAGE WALKER
+Resolver VA → root → PDE → PTE → physical address.
+Determinar: niveles, root_level, num_level, page size, fragmentation, invalid entries, permission faults, translation caches.
+
+## C. TLB / INVALIDATE
+~~Resolver VM_INVALIDATE_REQUEST → hardware action → invalidation → completion → visibility.~~
+~~Cerrar específicamente FUNCTION=always.~~
+
+**CERRADA en `103`/`104`/`106` (2026-10-02).** Lo que se cerro:
+
+- El handshake de completion **existe** (`103` corrige a `072`).
+- `VM_INVALIDATE_REQUEST` y `RESPONSE` son **16 bits cada uno**, un bit por
+  dominio, con layout idéntico (`104`).
+- **`FUNCTION` NO EXISTE en GFX8**: no está en ningún `asic_reg/`, y el driver
+  escribe `1 << vmid`, bits 0-15 y nada más (`106`).
+- El acuse existe pero **el driver lo descarta**: `RREG32(RESPONSE)` sin
+  destino, solo en el camino de pasid (`gmc_v8_0.c:641`). Ni el camino de ring
+  ni `flush_gpu_tlb` lo leen.
+
+La línea "cerrar específicamente FUNCTION=always" venía de una versión del
+driver donde ese campo existía. **En GFX8 no existe, y eso ES el cierre**: el
+trigger es exclusivamente la escritura de software.
+
+Queda un solo item empírico, y no se puede cerrar sin placa:
+
+- Que el hardware **no** invalide solo. Es `DERIVATION` fuerte —no hay otro
+  campo posible— pero no `PROVEN`. Discriminante: escribir `REQUEST=0` y ver
+  si `RESPONSE` cambia. Eso es NIVEL 3 y no se ha hecho.
+
+## D. EXECUTION ORDER
+Resolver PTBA → INVALIDATE → WAIT → PFP_SYNC_ME → next IB.
+Separar: software emission order / hardware execution order / hardware completion order.
+
+## E. PM4 / CP / IB
+Resolver IB → fetch → PFP/ME → packet decode → execution → fence/interrupt.
+Cerrar: packet consumption, ordering, PFP, ME, synchronization, ring semantics.
+
+## F. MEMORY SYSTEM
+Resolver VRAM: GPUVA → GPU physical → MC → GDDR5.
+Resolver GART: GPUVA → GART PTE → physical RAM → PCIe.
+Separar GPUVM translation de MC address decoding.
+
+## G. CACHE / COHERENCY
+Resolver CPU ↔ page tables ↔ GPU ↔ TLB ↔ GPU caches ↔ GART ↔ VRAM/system RAM.
+No asumir coherencia por analogía.
+
+## H. PERFORMANCE CONTROL
+Después de cerrar core:
+SMU → DPM → clocks → voltage → power → thermal → performance.
+Investigar cuando las dependencias del core estén suficientemente cerradas.
+
+---
+
+# DOCUMENTACIÓN EXTERNA
+
+Antes de buscar fuera del corpus:
+
+1. `CORPUS_COMPLETENESS_CHECK`;
+2. `READ_SCOPE_GATE`;
+3. localizar headers/bitfields;
+4. localizar históricos;
+5. localizar Mesa/upstream;
+6. recién entonces documentación primaria.
+
+Clasificar fuentes:
+
+```text
+CORPUS
+SEMI_PRIMARY
+PRIMARY_DOCUMENTATION
+SECONDARY_CORROBORATION
+```
+
+No presentar secundaria como primaria.
+
+---
+
+# KNOWLEDGE GRAPH
+
+Mantener un grafo:
+
+```text
+NODE:
+  entity, state, evidence, producer, transformation,
+  representation, consumer, dependency, confounder,
+  proof obligation, unlocks, next action.
+```
+
+Cada nuevo resultado actualiza el grafo.
+
+---
+
+# RESULTADO OBLIGATORIO DE CADA ITERACIÓN
+
+Al finalizar:
+
+```text
+STATE CHANGE:
+PROVEN:
+REFUTED:
+NOT_DETERMINED:
+NEW RELATIONS:
+UNLOCKS:
+BLOCKED:
+NEXT ACTION: [seleccionada por GLOBAL WORK SCAN]
+```
+
+No repetir trabajo cerrado salvo contradicción.
+
+---
+
+# OBJETIVO FINAL DE INVESTIGACIÓN
+
+La investigación termina conceptualmente solo cuando podamos construir, para Polaris12:
+
+```text
+PCI → initialization → MMIO → MC/VRAM → GART → GPUVM
+→ PTE/PDE → VMID → TLB/invalidate → PM4 → IB → CP → rings
+→ synchronization → interrupts/fences → shader execution
+→ memory access → reset/recovery → power/clocks/thermal
+```
+
+con suficiente evidencia para implementar cada capa del driver propio sin depender de suposición no identificada.
+
+No hace falta demostrar cada transistor.
+
+Sí identificar explícitamente cada frontera:
+
+```text
+PROVEN vs CORROBORATED vs NOT_DETERMINED
+```
+
+---
+
+# INICIO INMEDIATO
+
+No preguntar qué investigar.
+
+Ejecutar `GLOBAL WORK SCAN` sobre el estado actual.
+
+Seleccionar tarea con mayor:
+
+```text
+UNCERTAINTY_REDUCTION
++ PATH_UNLOCKS
++ IMPLEMENTATION_RELEVANCE
++ VALIDATION_VALUE
+```
+
+y comenzar inmediatamente.
+
+Después: `GLOBAL WORK SCAN` y continuar.
+
+NO ESPERAR NUEVA ORDEN DEL USUARIO.
+
+Objetivo no es producir informes largos. Objetivo es reducir sistemáticamente la incertidumbre sobre Polaris12 hasta convertir cada incógnita relevante en:
+
+```text
+EVIDENCE → SEMANTICS → DISCRIMINANT → IMPLEMENTATION → VALIDATION
+```
+
+AVANZA.
+
+---
+
+# TOOL DISCOVERY / CREATION / VALIDATION
+
+La ausencia de una herramienta NO constituye evidencia de ausencia del fenómeno.
+
+Cuando una cuestión requiera una observación que las herramientas existentes no puedan producir:
+
+```text
+QUESTION → REQUIRED_OBSERVABLE → REQUIRED_EVIDENCE
+→ CANDIDATE_TOOLS → CAPABILITY_CHECK → ARCHITECTURE_CHECK
+→ POLARIS12/GFX8_CHECK → READ/WRITE/RISK_CHECK
+→ OUTPUT_VALIDITY_CHECK → SELECT
+```
+
+Si ninguna herramienta existente satisface el observable:
+
+```text
+EXISTING_TOOL → COMPOSED_TOOLS → SCRIPT → PARSER → ANALYZER
+→ RUNTIME_OBSERVER → KERNEL_INSTRUMENTATION → CONTROLLED_EXPERIMENT
+```
+
+Crear la herramienta mínima que produzca el observable discriminante. No crear infraestructura innecesaria.
+
+La creación de herramientas es NIVEL 0/1. Su ejecución sigue la JERARQUÍA DE PERMISOS según el observable que produzca.
+
+Herramientas potencialmente utilizables, según disponibilidad y compatibilidad:
+
+STATIC:
+git, git-grep, rg, grep, find, fd, awk, sed, perl, Python, ctags, cscope, tree-sitter, clang AST, clang-query, clang-tidy, clang-static-analyzer, Coccinelle.
+
+BINARY/RE:
+Ghidra, radare2, rizin, objdump, llvm-objdump, llvm-readobj, readelf, nm, strings, elfutils, DWARF, BTF, pahole/dwarves.
+
+AMD/GPU:
+UMR, debugfs, sysfs, lspci, setpci, /proc/iomem, /sys/bus/pci, /sys/kernel/debug/dri.
+
+KERNEL RUNTIME:
+ftrace, trace-cmd, KernelShark, perf, bpftrace, BCC, libbpf, eBPF, kprobes, tracepoints, uprobes.
+
+LIVE KERNEL:
+drgn, GDB, KGDB, KDB, crash, DWARF, BTF, pahole.
+
+AMD ISA:
+LLVM AMDGPU backend, llvm-objdump, llvm-mc, clang, llc, LLVM MIR/TableGen.
+
+GPU DEBUG/PROFILING:
+ROCprofiler, ROCprofiler-SDK, rocprof, ROCgdb, ROCdbgapi, ROCm Systems Profiler, GPUPerfAPI.
+
+GRAPHICS:
+RenderDoc, apitrace, vulkaninfo, glxinfo, Mesa tools, glmark2, custom Vulkan/OpenGL/compute workloads.
+
+FIRMWARE:
+binwalk, Ghidra, objdump, readelf, strings, xxd, hexdump, od, file, 7z, cpio, xz, lz4, zstd.
+
+EMULATION:
+QEMU, QEMU+GDB, custom MMIO/register/PM4 models.
+
+DATA/REPRO:
+C, assembly, Bash, Python, JSON, CSV, SQLite, NumPy, SciPy, Graphviz, NetworkX, SHA256, git, manifests.
+
+No asumir que una herramienta moderna soporta Polaris12/GFX8. Verificarlo.
+
+---
+
+# TOOL COMPATIBILITY CONTRACT
+
+Antes de usar:
+
+existencia, ejecutabilidad, versión, arquitectura host, dependencia requerida, compatibilidad Linux/kernel, compatibilidad AMDGPU, compatibilidad GFX8, compatibilidad Polaris12, compatibilidad del artefacto analizado, acceso requerido, comportamiento read-only/write, granularidad de observación, unidades, formato de salida, completitud de salida, reproducibilidad.
+
+Una herramienta puede estar instalada y ser incompatible.
+
+```text
+INSTALLED != USABLE
+USABLE != VALIDATED
+VALIDATED_OUTPUT != HARDWARE_SEMANTICS
+```
+
+Registrar incompatibilidades explícitamente.
+
+---
+
+# CUSTOM TOOL CONTRACT
+
+Toda herramienta creada debe tener:
+
+nombre, versión, propósito, cuestión que resuelve, observable producido, source, hash, arquitectura, hardware scope, dependencias, input schema, output schema, unidades, build command, self-test, known limitations, validation method.
+
+Validar como mínimo:
+
+1. known vectors;
+2. boundary values;
+3. invalid input;
+4. empty input;
+5. malformed input;
+6. round-trip cuando corresponda;
+7. cross-check independiente;
+8. reproducibilidad.
+
+Un parser correcto NO demuestra que la semántica del hardware sea correcta.
+
+---
+
+# CUSTOM TOOL CANDIDATES
+
+Crear solo si el `GLOBAL WORK SCAN` demuestra falta de observabilidad:
+
+PM4 decoder; IB decoder; PTE/PDE decoder; GPUVM walker; VA→PTE→PA analyzer; GART analyzer; register/bitfield analyzer; MMIO snapshot; VMID analyzer; PTBA analyzer; ring analyzer; fence analyzer; packet-schema validator; shader/ISA parser; firmware parser; experiment runner; measurement validator; provenance tracker; contradiction detector; dependency graph builder; evidence graph builder.
+
+---
+
+# ESTADO Y TRAZABILIDAD
+
+Toda evidencia nueva debe poder responder:
+
+```text
+WHO/WHAT
+WHERE
+WHEN
+HOW
+INPUT
+OUTPUT
+UNIT
+TRANSFORMATION
+LIMITATION
+PROVENANCE
+```
+
+No mezclar evidencia histórica con observación runtime actual sin marcar la diferencia.
+
+---
+
+# TERMINATION / BLOCK POLICY
+
+`BLOCKED` solo después de comprobar:
+
+1. corpus;
+2. headers;
+3. históricos;
+4. implementaciones independientes;
+5. Mesa/LLVM;
+6. documentación;
+7. binarios;
+8. firmware;
+9. runtime observability;
+10. herramientas existentes;
+11. herramientas componibles;
+12. herramienta custom;
+13. descomposición alternativa de la cuestión;
+14. validación independiente.
+
+Si existe una ruta legítima, NO bloquear.
+
+Si la ruta requiere operación NIVEL 4:
+
+```text
+BLOCKED_BY_AUTHORIZATION
+```
+
+y no ejecutar.
+
+Si dependencia externa indispensable realmente no disponible:
+
+```text
+BLOCKED_BY_EXTERNAL_DEPENDENCY
+```
+
+Si herramienta falla:
+
+```text
+ERROR/INVALID + REPAIR_ACTION
+```
+
+---
+
+# IMPLEMENTATION GATE
+
+No implementar una semántica solo porque:
+
+- existe en AMDGPU;
+- tiene nombre conocido;
+- aparece en Mesa/QEMU/LLVM;
+- aparece en documentación secundaria;
+- parece necesaria;
+- históricamente funcionó así.
+
+Antes de implementar:
+
+```text
+REQUIREMENT → EVIDENCE → SEMANTICS → REPRESENTATION
+→ HARDWARE_EFFECT → CONTRACT → TEST
+```
+
+Si alguna parte sigue `NOT_DETERMINED`, marcarla explícitamente y diseñar el mecanismo mínimo para cerrarla o aislarla.
+
+---
+
+# AUTONOMOUS LOOP
+
+```text
+DISCOVER → TRACE → CLASSIFY → TEST → UPDATE_GRAPH
+→ GLOBAL_WORK_SCAN → SELECT_NEXT → CREATE_TOOL_IF_REQUIRED
+→ EXECUTE → VALIDATE → UPDATE_STATE → CONTINUE
+```
+
+No esperar nueva orden del usuario entre iteraciones, salvo `BLOCKED_BY_AUTHORIZATION`.
+
+No finalizar con:
+
+```text
+"continuará"
+"se puede investigar"
+"sería conveniente"
+"decida el usuario"
+```
+
+Debe existir siempre una `next_action` concreta mientras quede una ruta legítima.
+
+---
+
+# AUTOMATIZACIÓN AGRESIVA
+
+Continuar trabajando sin esperar instrucciones adicionales.
+
+Si una operación implica repetir manualmente el mismo procedimiento, evaluar automatización inmediata:
+
+```text
+DETECTAR REPETICIÓN → DISEÑAR → IMPLEMENTAR → COMPILAR → VALIDAR
+→ EJECUTAR → INTEGRAR → DOCUMENTAR → REUTILIZAR
+```
+
+La herramienta creada pasa al toolkit permanente del proyecto.
+
+No crear herramientas por acumulación o estética. Crear cuando reduzcan tiempo, error humano, trabajo repetitivo o permitan observar lo que manualmente sería costoso.
+
+### REGLA DE ACELERACIÓN
+Si una tarea manual procesa N archivos/símbolos/registros/funciones/experimentos/snapshots/resultados/comparaciones y existe forma razonable de automatizarlos, priorizar automatización.
+
+Preferir:
+
+```text
+1 herramienta → 1000 análisis
+```
+
+sobre:
+
+```text
+1000 análisis manuales
+```
+
+siempre que produzca resultados verificables.
+
+### COMPOSICIÓN
+Antes de crear herramienta nueva, comprobar composición:
+
+```text
+TOOL A + TOOL B + TOOL C → AUTOMATION PIPELINE
+```
+
+Crear nueva solo si la composición es insuficiente, lenta, errónea o no produce la evidencia necesaria.
+
+### MULTIPROPÓSITO
+Preferir herramientas reutilizables:
+
+```text
+GPU ANALYZER
+├── register scan
+├── MMIO trace
+├── PM4 decode
+├── IB decode
+├── state snapshot
+├── diff
+└── evidence export
+```
+
+### VALIDACIÓN OBLIGATORIA
+Una herramienta nueva NO es fuente de evidencia automática. Debe pasar:
+
+```text
+BUILD → BASIC TEST → KNOWN INPUT → EXPECTED OUTPUT
+→ EDGE CASE → FAILURE CHECK → OUTPUT VALIDATION
+```
+
+Clasificar:
+
+```text
+TOOL_VALIDATED
+TOOL_PARTIAL
+TOOL_UNVALIDATED
+TOOL_BROKEN
+```
+
+`TOOL_UNVALIDATED` no puede cerrar afirmación crítica.
+
+### AUTOMATIZACIÓN DEL CICLO COMPLETO
+Cuando sea posible:
+
+```text
+DISCOVER → EXTRACT → ANALYZE → CORRELATE → COMPARE → CLASSIFY
+→ GENERATE HYPOTHESIS → SELECT DISCRIMINANT → EXECUTE → VALIDATE → DOCUMENT
+```
+
+### DETECCIÓN DE OPORTUNIDADES
+Tras cada tarea importante:
+
+```text
+¿manual?
+¿repetible?
+¿más archivos/símbolos/registros similares?
+¿otro agente lo necesitará?
+¿automatizable?
+¿tabla/grafo/diff automático?
+¿siguiente candidato detectable automáticamente?
+¿correlacionable con evidencia existente?
+```
+
+Oportunidad clara → CREATE → VALIDATE → USE.
+
+### AUTOMATIZACIÓN DE BÚSQUEDA DE TRABAJO
+```text
+SOURCE SCANNER
+→ funciones relevantes
+→ registros relacionados
+→ productores
+→ consumidores
+→ relaciones sin resolver
+→ claims sin evidencia
+→ candidatos a experimento
+```
+
+### AUTOMATIZACIÓN DEL MAPA CAUSAL
+```text
+SOURCE → SYMBOL → PRODUCER → REPRESENTATION → TRANSFORMATION
+→ CONSUMER → REGISTER/MEMORY → HARDWARE EFFECT
+```
+
+Objetivo: generar/actualizar automáticamente el mapa causal de Polaris12.
+
+### AUTOMATIZACIÓN DE EXPERIMENTOS
+```text
+EXPERIMENT TEMPLATE + PARAMETERS + CAPTURE + CONTROL + DIFF + ANALYSIS
+```
+
+Registrar siempre:
+
+```text
+INPUT
+CONFIGURATION
+COMMAND
+PRE-STATE
+ACTION
+POST-STATE
+OUTPUT
+ERROR
+RESULT
+INTERPRETATION
+```
+
+Sujeto a JERARQUÍA DE PERMISOS.
+
+### AUTOMATIZACIÓN DIFERENCIAL
+```text
+RUN A / RUN B → DIFF → CANDIDATE EFFECTS → CORRELATION → DISCRIMINATING EVIDENCE
+```
+
+NO convertir correlación en causalidad automáticamente.
+
+### AUTOMATIZACIÓN DE DOCUMENTACIÓN
+Alimentar automáticamente cuando corresponda:
+
+```text
+EVIDENCE-MATRIX
+CURRENT-STATE
+KNOWLEDGE-GRAPH
+OPEN-FRONTIERS
+NEGATIVE-RESULTS
+CONTRADICTIONS
+TOOLS-STATUS
+CHANGELOG
+```
+
+### REGLA DE PRODUCTIVIDAD
+No gastar horas en trabajo manual convertible en herramienta ejecutable en segundos.
+
+Automatizar 10 operaciones. Automatizar 100. Priorizar pipelines que eliminen clases completas de trabajo repetitivo.
+
+Pero:
+
+```text
+VELOCIDAD ≠ PERDER VALIDACIÓN
+```
+
+Nunca sacrificar trazabilidad o verificación por producir más resultados.
+
+### REGLA FINAL DE AUTOMATIZACIÓN
+Ciclo:
+
+```text
+PROBLEMA → SOLUCIÓN → HERRAMIENTA → AUTOMATIZACIÓN
+→ MÁS CAPACIDAD → MÁS EVIDENCIA → MÁS HERRAMIENTAS → MAYOR THROUGHPUT
+```
+
+Si necesitás herramienta: creala.
+Si podés automatizar tarea repetitiva: automatizala.
+Si podés automatizar un conjunto: creá el pipeline.
+Si podés hacer que el pipeline descubra el siguiente trabajo: hacelo.
+
+No detener la investigación para pedir permiso por herramienta no destructiva (NIVEL 0/1).
+
+Crea, valida, usa, documenta.
+```
