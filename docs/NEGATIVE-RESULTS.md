@@ -933,3 +933,28 @@ CLASIFICACIÓN
   miembro de enum sin consumidor en esta versión del driver. NO es un defecto:
   el case existe, así que si alguien lo usara funcionaría
 ```
+
+## NR-2026-10-02-r · Una lista de 17 opcodes escrita a mano, que no era ni 16 ni una regla
+
+QUE PASO
+  llevaba rondando en mi grafo una lista de "los opcodes que cuelgan de RE-30".
+  NUNCA se conto. Al medirla, al abrir esta misma ronda, la lista era arbitraria:
+
+  - de sus 17 nombres, OMITIA 8 paquetes que si llevan count literal:
+    EVENT_WRITE, INDIRECT_BUFFER_CONST, PFP_SYNC_ME, RELEASE_MEM, SET_BASE,
+    SURFACE_SYNC, SWITCH_BUFFER, UNMAP_QUEUES
+  - e INCLUIA los dos casos composicionales mas duros: SET_CONTEXT_REG con
+    `2 | ext->reg_count`, y WRITE_DATA con `3 | cnt_ce | cnt_de`
+
+REALIDAD
+  la pregunta estaba mal planteada. `vid.h` no documenta payload por paquete, y
+  PACKET3(op, n) es generico: TODO PACKET3 lleva campo count. No hay un
+  subconjunto de opcodes que "cuelguen" de la regla; los 26 distintos que emite
+  gfx_v8_0.c cuelgan de la misma regla de cabecera
+CLASIFICACION
+  la lista se RETIRA. Y el numero "16", que era como lo tenia anotado, era otro
+  numero plausible y falso: la lista tenia 17
+POR QUE OCURRIO
+  porque "que opcodes llevan count" es la pregunta que uno se hace al leer
+  codigo, y contestarla leyendo codigo da una lista que parece justificada. La
+  pregunta que si tiene respuesta es "cuantas emisiones hay", y esa se mide

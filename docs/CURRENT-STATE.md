@@ -270,7 +270,7 @@ habían mirado. Ni GPU, ni MMIO, ni insmod. `GPU INTACTA` · `WRITE_EXECUTION NO
 | | |
 |---|---|
 | el campo `count` de un paquete PM4 cuenta el payload **menos uno** | `PROVEN_DERIVED` (EV-30) |
-| emisiones de `gfx_v8_0.c` que reconcilian | **50 de 50** |
+| emisiones de `gfx_v8_0.c` que reconcilian | **49 de 49** |
 | confirmación de hardware | el test del anillo, en el anillo de **compute** |
 
 El test del anillo (`gfx_v8_0_ring_test_ring`) reserva 3 dwords, declara `count=1`
@@ -413,3 +413,38 @@ original.
 
 **Sin tocar hardware.** Todo es lectura de fuente. `EV-21`..`EV-30` intactas: el
 contenido del IB y el `count` no entran en esta decisión.
+
+---
+
+## Ronda 2026-10-02 (tarde 4) · EV-37 · el censo era 49, y NOP es la excepcion
+
+**"50 de 50" estaba mal, en 5 sitios de 4 documentos.** `6078`
+(`INDIRECT_BUFFER_CONST`) y `6080` (`INDIRECT_BUFFER`) son las **dos ramas del
+mismo `if/else`** sobre un `header` unico, y solo se escribe una: lo que viene
+despues son siempre 3 escrituras, con `count = 2`. El numero de sitios de emision
+distintos es **49**, y la aritmetica cierra exacta: 43 automaticas + 6 a mano.
+
+**La septima "sin reconciliar" era ese brazo duplicado.** El texto decia siete con
+una tabla de seis. Por eso el recuento no cuadraba y no se veia.
+
+**`NOP` NO obedece `count = payload − 1`.** El relleno se escribe `.nop =
+PACKET3(PACKET3_NOP, 0x3FFF)`: el campo `count` va a todos-unos **a proposito**.
+"49 de 49" no incluye los 3 sitios de `NOP`, asi que el veredicto no lo afirma.
+Quien escriba un driver tiene que saber que `NOP` es relleno.
+
+**Lo que de verdad importa: `pm4census` lee otro fichero.** Sin `--kernel` reporta
+7209 lineas, que es la copia de **`rx550-upstream-7.2.8`**, no el 7.1.3 que corre
+el host. Los tres arboles del corpus tienen el mismo `gfx_v8_0.c` byte a byte, asi
+que no hay ambiguedad: es que la herramienta mide otra cosa y lo etiqueta como "el
+fichero que esta GPU ejecuta".
+
+**Y una lista mia retirada**: los "17 opcodes que cuelgan de RE-30" omitian 8
+paquetes que si llevan `count` e incluian los dos casos composicionales mas duros.
+La pregunta estaba mal planteada: **todos** los PACKET3 llevan campo `count`; lo
+que distingue es quien tiene payload.
+
+**Deficit heredado, medido y atribuido**: `EVIDENCE-MATRIX.md` tiene un numero
+impar de fences desde antes de hoy (181 en `bfbc393`, 209 ahora; cada ronda anade
+un numero par). No lo localizo y **retiro** la linea 1985 que tenia anotada: era
+una localizacion inventada por un metodo que no puede darla. Queda
+`NOT_DETERMINED` y declarado, no reparado.

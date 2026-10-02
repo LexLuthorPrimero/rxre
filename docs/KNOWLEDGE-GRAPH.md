@@ -384,7 +384,7 @@ SET_CONTEXT_REG, SET_SH_REG, SET_UCONFIG_REG, SET_CONFIG_REG,
 DISPATCH_DIRECT, PREAMBLE_CNTL, MAP_QUEUES, SET_RESOURCES, CLEAR_STATE
 ```
 
-**50 de 50 emisiones de `gfx_v8_0.c` reconciled** (`tools/pm4census.py`), con
+**49 de 49 emisiones de `gfx_v8_0.c` reconciled** (`tools/pm4census.py`), con
 la confirmación de hardware en `SET_UCONFIG_REG` y el resto por forma. La
 regla es de una línea y es lo primero que un driver propio tiene que respetar.
 

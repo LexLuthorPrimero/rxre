@@ -2726,11 +2726,33 @@ por `grep -n`:
 macro `PACKET3_UNMAP_QUEUES_DOORBELL_OFFSET0`, y 6086 está dentro del `if` que
 precede a la emisión.)
 
-**Las seis cumplen `payload = count + 1`. Con eso el veredicto pasa de 43 de 50
-a 50 de 50 emisiones de `gfx_v8_0.c`.**
+**La séptima, y por qué no era una séptima.** El texto de aquí decía *"las siete
+restantes"* con una tabla de **seis** filas. La que faltaba era `6078`,
+`PACKET3(INDIRECT_BUFFER_CONST, 2)`, y no es una emisión independiente: `6077` a
+`6080` es un `if/else` sobre el mismo `header`.
 
-Las siete estaban sin reconciliar por **dos puntos ciegos concretos** de la
-herramienta, y ambos son comportamiento correcto:
+```
+6077  if (ib->flags & AMDGPU_IB_FLAG_CE)
+6078          header = PACKET3(PACKET3_INDIRECT_BUFFER_CONST, 2);
+6079  else
+6080          header = PACKET3(PACKET3_INDIRECT_BUFFER, 2);
+...
+6092  amdgpu_ring_write(ring, header);   <-- UNA sola escritura
+```
+
+Se escribe **uno** de los dos, según el flag del IB, y lo que viene después son
+siempre **3** escrituras (`6092` gpu_address bajo, `6097` alto, `6098` control).
+Con `count = 2`, payload 3: **ambas ramas cumplen**. `pm4census` las cuenta como
+dos emisiones porque ve dos `PACKET3(`, y por eso su total es 50 y el mío 49.
+
+**El recuento correcto es 49, no 50.** Dos de las 50 ocurrencias que ve
+`pm4census` —`6078` y `6080`— son las dos ramas del mismo `if/else`, o sea **una
+sola emisión**. Con eso, 50 − 1 = 49 sitios de emisión distintos, y la aritmética
+cierra exacta: **43 reconciliadas por la herramienta + 6 resueltas a mano = 49**.
+
+Las 7 que `pm4census` dejaba sin reconciliar eran, por tanto, **6 emisiones
+independientes más ese brazo duplicado**. Estaban sin reconciliar por **dos puntos
+ciegos concretos** de la herramienta, y ambos son comportamiento correcto:
 
 1. su patrón de escritura es `\bamdgpu_ring_write\s*\(\s*ring\b`
    (tools/pm4census.py:218), que **solo** reconoce escrituras a una variable
@@ -2746,8 +2768,16 @@ número inventado**. Un reconocedor que no cubre lo que existe no produce ceros
 herramienta dice explícitamente evitar. Falló estrechas y a la vista; no
 falló por debajo.
 
-Ninguna de las 7 es una excepción a la regla, así que la conclusión de EV-30
+Ninguna de esas 6 es una excepción a la regla, así que la conclusión de EV-30
 **no tiene contraejemplo en el fichero de esta GPU**.
+
+**Y una salvedad que este recuento no cubre: el `NOP` no obedece la regla.** En
+`gfx_v8_0.c` el relleno de anillo se escribe como `.nop = PACKET3(PACKET3_NOP,
+0x3FFF)`, y `0x3FFF` es un valor **de relleno**, no una cuenta: el campo `count`
+va deliberadamente a todos-unos. `pm4census` no lo cuenta por eso, y hace bien, así
+que "49 de 49" no incluye los 3 sitios de `NOP` y **no afirma que el `NOP` cumpla
+`count = payload − 1`**. Quien escriba un driver tiene que saber que `NOP` es
+relleno, no un paquete con 16383 dwords de carga.
 
 
 ## EV-32 · El log de arranque da las direcciones reales, y la tabla GART cae dentro del BAR
@@ -3562,6 +3592,93 @@ habría sido falsa.
 consecuencia es de diseño: el modo explícito **no** compra sincronización
 gratis; hay que satisfacer las dependencias por otra vía.
 
+## EV-37 · El censo de emisiones de `gfx_v8_0.c` es 49, no 50; y el `NOP` no obedece la regla
+
+```
+TYPE    MEASUREMENT sobre el corpus + CORRECTION de un numero propio repetido
+STATE   PROVEN para el recuento de ocurrencias y de sitios de emision
+        CORRECTION aplicada en 5 sitios de 4 documentos
+        NOTA sobre NOP: count = 0x3FFF es relleno, no cuenta
+ORIGEN  al verificar una cuenta mia que llevaba rondando: "16 (o 17) opcodes
+        cuelgan de RE-30", nunca comprobada contra el censo
+```
+
+**POR QUÉ ESTA RONDA.** Tenía una afirmación anotada desde hacía días —*"los
+opcodes que cuelgan de RE-30"*— escrita **a mano**, sin contar. Al medirla, la
+lista era arbitraria: de 17 nombres, **omitía 8 paquetes que sí llevan `count`
+literal** (`EVENT_WRITE`, `INDIRECT_BUFFER_CONST`, `PFP_SYNC_ME`, `RELEASE_MEM`,
+`SET_BASE`, `SURFACE_SYNC`, `SWITCH_BUFFER`, `UNMAP_QUEUES`) e incluía los **dos
+casos composicionales más duros** (`SET_CONTEXT_REG` con `2 | ext->reg_count` y
+`WRITE_DATA` con `3 | cnt_ce | cnt_de`). La lista se retira.
+
+**LO CORRECTO, Y ES MÁS PEQUEÑO QUE LA LISTA.** `vid.h` no documenta payload por
+paquete, y `PACKET3(op, n)` es genérico: **todo** PACKET3 lleva campo `count`. No
+hay un subconjunto de "opcodes que cuelgan de la regla": los **26** distintos que
+emite `gfx_v8_0.c` cuelgan de la misma regla de cabecera. Lo que decide es quién
+tiene payload no nulo.
+
+**EL CENSO COMPLETO sobre `linux-7.1.3`, con control de completitud primero.**
+
+```
+ocurrencias de PACKET3( en el fichero   : 56   (0 sin casar: 56/56)
+  forma escritura directa               : 51
+  forma asignacion (x = PACKET3(...))   :  5
+     L6078 + L6080  las dos ramas de un mismo if/else -> 1 emision
+     L6873, L6919, L6954  .nop = PACKET3(NOP, 0x3FFF), uno por tipo de anillo
+```
+
+`pm4census` ve **50** de esas 56. Las **6** que no ve, con su causa:
+
+| líneas | por qué no la ve |
+|---|---|
+| `4162` | `PACKET3(PACKET3_SET_CONTEXT_REG,` — el `count` está en la línea siguiente |
+| `6873`, `6919`, `6954` | `.nop = PACKET3(PACKET3_NOP, 0x3FFF)` — centinela de relleno |
+| `7165`, `7198` | `count` es la variable `cnt_ce` / `cnt_de`, no un literal |
+
+Las tres primeras no son un fallo de la herramienta: **no son cuentas**.
+
+**LA CORRECCIÓN QUE IMPORTA.** `pm4census` reportaba 43 de 50 reconciliadas. Mi
+documentación decía *"50 de 50"*, y eso estaba en **5 sitios de 4 documentos**.
+La aritmética real: de las 7 sin reconciliar, **6** son emisiones independientes y
+resueltas a mano, y la séptima (`6078`) **es el otro brazo del mismo `if/else`
+que `6080`**, o sea no es una emisión distinta. `pm4census` cuenta 50 porque ve
+dos `PACKET3(`; el número de sitios distintos es **49**, y
+
+```
+43 (automaticas) + 6 (a mano) = 49
+```
+
+Exactamente. Corregido a **49 de 49** en `CURRENT-STATE`, `KNOWLEDGE-GRAPH`,
+`OPEN-FRONTIERS` y `EVIDENCE-MATRIX`.
+
+**`NOP` ES LA EXCEPCIÓN, Y HACE FALTA DECIRLO.** El relleno se escribe
+`.nop = PACKET3(PACKET3_NOP, 0x3FFF)`: el campo `count` va a `0x3FFF` **a
+propósito**, como valor de relleno. `NOP` **no** cumple `count = payload − 1`, y
+"49 de 49" **no incluye** los 3 sitios de `NOP`, así que el veredicto no lo
+afirma. Para un driver propio: `NOP` es relleno de anillo, no un paquete con
+16383 dwords.
+
+**PROCEDENCIA: `pm4census` por defecto mide OTRO FICHERO.** Medido, no supuesto:
+
+```
+RESEARCH/{baseline,working,kernelbuild}/linux-7.1.3/.../gfx_v8_0.c
+    7206 lineas   sha256 2427f5b5fcb44778   <- los TRES identicos, byte a byte
+rx550-upstream-7.2.8/linux-7.2.8/.../gfx_v8_0.c
+    7209 lineas   sha256 fd1f3e4bddff86ce   <- OTRO fichero
+```
+
+`pm4census` sin `--kernel` reporta **7209 líneas**: está leyendo **linux-7.2.8
+upstream**, no el 7.1.3 que corre el host (`uname -r` =
+`7.1.3-200.nobora.fc44`). Con `--kernel RESEARCH/baseline/linux-7.1.3` reporta
+7206 y sus números de línea cuadran. Además `--fichero <ruta>` está **roto**:
+devuelve **0 emisiones y 0 líneas leídas**, con la advertencia correcta de que un
+cero así no es una medida.
+
+No se toca `pm4census` —es de otra sesión y tiene su propio ciclo—, pero **la
+etiqueta "el fichero que esta GPU ejecuta" es falsa en la invocación por
+defecto**, y eso es justo lo que hace que una cifra buena se aplique al fichero
+equivocado.
+
 ## Herramientas (contrato y estado; detalle en TOOLS-STATUS.md)
 
 | ID | Herramienta | STATE | Verificado |
@@ -3588,3 +3705,31 @@ gratis; hay que satisfacer las dependencias por otra vía.
 | RK-08 | `huerfanos.py` | `FUNCIONAL`, rc=1 por diseño | 296/2608 símbolos sin definición local; rc=2 si no se ha recorrido nada |
 | RK-10 | `btfsnap.py` | `VALIDATED` | guarda los layouts de 12 structs desde la BTF, con sha256/versión como procedencia; 6 casos de fallo con rc comprobados y `--selftest` probado con mutante (rc=1). El layout persiste tras el reinicio, la BTF no |
 | RK-09 | `cn7.py`, `cn8.py` | `VALIDATED` | 81 + 30 controles; los negativos usan mutación real, no `if False` cosmético. 3 mutantes medidos: M1 (tabla de `sid.h`) tumba 5 controles, M2 (sin filtro `__`) tumba 1, M3 (aviso siempre activo) tumba 1 |
+### Deficit heredado de formato: `EVIDENCE-MATRIX.md` tiene un numero IMPAR de fences
+
+Medido y atribuido, porque una nota anterior mia senalaba la linea 1985 y era
+inexacta:
+
+```
+bfbc393 (fin de mi ronda anterior)   181 fences   impar
+ccf9739 (otra sesion)                181          impar
+c6cfc76 (EV-35, mio)                 189          impar
+HEAD tras EV-36                      199          impar
+ahora                                209          impar
+```
+El imbalance es ANTERIOR a hoy y no lo introduce lo escrito hoy: cada ronda anade
+un numero PAR de fences, con lo que la paridad se conserva.
+
+LOCALIZACION: `NOT_DETERMINED`. Un recorrido que alterna un estado abrir/cerrar
+por cada fence no puede localizarlo, porque en cuanto la paridad viene rota todo
+lo posterior queda invertido: senala 3668, que es un bloque balanceado. Mi nota
+anterior decia "linea 1985" y era una localizacion inventada por un metodo que
+no puede darla. Se retira el numero y se declara `NOT_DETERMINED`.
+
+No solo este: medido en el mismo momento, tambien tienen numero impar
+CONTRADICTIONS.md (81) y MASTER-RESEARCH-STATUS.md (13). Los demas 14 documentos
+de `docs/` dan par. Se listan para que el deficit sea un hecho medido del
+conjunto y no una sospecha sobre un fichero.
+
+No se arregla: el documento lo editan varias sesiones a la vez, y un cierre de
+fence en la posicion equivocada partiria el bloque de otra. Se declara.

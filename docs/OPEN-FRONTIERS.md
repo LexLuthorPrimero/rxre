@@ -118,7 +118,7 @@ LO QUE QUEDA
 
   Las 7 emisiones que `pm4census` dejaba sin reconciliar (5 `SIN MEDIR` y 2
   `LIMITE`) se han mirado una a una y **las 7 cumplen `payload = count + 1`**.
-  El veredicto pasa de 43 de 50 a **50 de 50 emisiones de `gfx_v8_0.c`**
+  El veredicto pasa de 43 de 50 a **49 de 49 emisiones de `gfx_v8_0.c`**
 
   Las dos causas por las que estaban sin reconciliar, ambas de la herramienta y
   ambas con comportamiento correcto:
@@ -143,7 +143,7 @@ LO QUE SE PUDO DEJAR ASI, Y ES DECIRLO
   Y para los otros 24 paquetes de GFX8, la prueba de hardware sigue siendo solo
   uno (`SET_UCONFIG_REG`, EV-30). Para el resto el argumento es de forma: count
   declarado una unidad menor que el payload escrito, en un buffer que el driver
-  rellena con el valor. Con 50 de 50 emisiones de acuerdo, ese argumento es
+  rellena con el valor. Con 49 de 49 emisiones de acuerdo, ese argumento es
   fuerte; sigue sin ser una medicion del hardware para esos 24
 VALOR
   ninguno para construir el driver: la regla esta cerrada para el ASIC de esta

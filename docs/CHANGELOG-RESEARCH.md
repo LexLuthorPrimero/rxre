@@ -2125,3 +2125,49 @@ Y la cuarta forma, distinta: F12 se dio por inobservable sin abrir
 Las cuatro son la misma: **el dato estaba a un comando de distancia y no se
 busco**, y en las cuatro el resultado salia plausible. Un resultado plausible
 que no se ha contrastado con lo que ya existe en el arbol no es un resultado.
+
+---
+
+## 2026-10-02 · opencode · EV-37 · el censo es 49 de 49, no 50 de 50
+
+OBJECT   revkit — ninguna; esto es una cuenta mia que nadie habia comprobado
+ACTION   MEASURE + CORRECTION en 5 sitios de 4 documentos
+ORIGEN   al verificar por fin una lista de opcodes escrita a mano desde hacia dias
+
+**OLD STATE → NEW STATE**
+
+- "50 de 50 emisiones de `gfx_v8_0.c` reconcilian", repetido en 5 sitios de 4
+  documentos. → NEW: **49 de 49 sitios de emision distintos**. La razon: `6078`
+  (`INDIRECT_BUFFER_CONST`) y `6080` (`INDIRECT_BUFFER`) son las **dos ramas del
+  mismo `if/else`** sobre un unico `header`, y solo se escribe uno.
+  `pm4census` cuenta 50 porque ve dos `PACKET3(`.
+- El texto decia "las 7 restantes" con una tabla de 6 filas. → NEW: la septima
+  era precisamente el brazo duplicado. Con eso la aritmetica cierra exacta:
+  **43 automaticas + 6 a mano = 49**.
+- Una lista propia de 17 opcodes "que cuelgan de RE-30". → NEW: **retirada**,
+  ver `NR-2026-10-02-r`.
+
+**La salvedad que faltaba, y es la importante: `NOP` NO obedece la regla.** El
+relleno se escribe `.nop = PACKET3(PACKET3_NOP, 0x3FFF)`: el campo `count` va a
+`0x3FFF` a proposito, como valor de relleno. "49 de 49" **no incluye** los 3
+sitios de `NOP` y no afirma que cumpla `count = payload − 1`. Para un driver
+propio: `NOP` es relleno de anillo, no un paquete con 16383 dwords.
+
+**PROCEDENCIA, y esto importa mas que la cifra.** Los tres arboles del corpus
+tienen un `gfx_v8_0.c` **byte-identico** (sha `2427f5b5`, 7206 lineas), pero
+existe una cuarta copia, `rx550-upstream-7.2.8/linux-7.2.8`, con **7209 lineas**
+(sha `fd1f3e4b`). `pm4census` **sin `--kernel`** reporta 7209: esta leyendo
+**linux-7.2.8**, no el 7.1.3 que corre el host. Con `--kernel` a 7.1.3 reporta
+7206 y cuadra. Ademas `--fichero <ruta>` esta roto: 0 emisiones y 0 lineas
+leidas. No se toca `pm4census` —es de otra sesion—, pero su etiqueta *"el
+fichero que esta GPU ejecuta"* es **falsa en la invocacion por defecto**, que es
+justo lo que hace que una cifra buena se aplique al fichero equivocado.
+
+**Reconciliacion con `findings/135` de otra sesion, que NO era contradiccion.** 135
+cuenta 20 paquetes alcanzables; yo cuento 26 emitidos. Su universo son los **119
+definidos en `sid.h`**, y de mis 26 solo 20 estan en `sid.h`. Los 6 restantes son
+exactamente los que EV-35 demostro que `sid.h` no declara. Su 20 y mi 26 son el
+mismo hecho sobre universos distintos, y EV-35 explica la diferencia.
+
+**Sin cambio de bloqueos**: `F12` sigue sin credencial y sin anillo con
+`vm_flush`. `RX550_SUDO_PASS` ausente, comprobado otra vez esta ronda.
