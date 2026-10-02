@@ -45,8 +45,33 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+AMD = os.path.join(ROOT, "RESEARCH", "working", "linux-7.1.3",
+                   "drivers", "gpu", "drm", "amd", "amdgpu")
 ASIC = os.path.join(ROOT, "RESEARCH", "working", "linux-7.1.3",
                     "drivers", "gpu", "drm", "amd", "include", "asic_reg")
+
+_CACHE = {}
+
+
+def codigo_driver():
+    """Todo el .c/.h del driver en un solo string, cacheado.
+
+    Importa porque la medicion de USO es una busqueda de nombre sobre ~625
+    ficheros: sin cachearla, cada cabecera rebarre el arbol entero.
+    """
+    if "src" not in _CACHE:
+        trozos = []
+        for d in (AMD,):
+            for f in sorted(os.listdir(d)):
+                if f.endswith((".c", ".h")):
+                    try:
+                        with open(os.path.join(d, f), encoding="utf-8",
+                                  errors="replace") as fh:
+                            trozos.append(fh.read())
+                    except OSError:
+                        pass
+        _CACHE["src"] = "\n".join(trozos)
+    return _CACHE["src"]
 
 # La apertura que el driver REALMENTE mapea: BAR5, 256 KiB. Ver hallazgo 200.
 APERTURA = 0x40000
@@ -186,13 +211,30 @@ def self_test():
         fails.append("filtro ix incompleto: %d define(s) sin ix por encima de "
                      "32 MiB, p.ej. %s" % (len(rotas), rotas[0]))
 
+    # 8. ANCLA EXTERNA del modo --uso, con lo medido a mano sobre 625 ficheros:
+    #    ixPCIE_SCRATCH_OVRD (de bif_5_1_d.h) SI aparece en el codigo del driver,
+    #    e ixGCK_MCLK_FUSES (de smu_7_1_3_d.h) NO. Medido a mano: de 5500 ix
+    #    definidos, 84 referenciados. Si el extractor de uso se rompe y no
+    #    encontrara NADA, daria 0 y este aserto lo detectaria.
+    src = codigo_driver()
+    cab = escanear("bif/bif_5_1_d.h") or []
+    nombres = [n for n, _v in cab if es_indirecto(n)]
+    if not nombres:
+        fails.append("modo uso: no se extrajo ningun ix de bif_5_1_d.h")
+    else:
+        usados = [n for n in nombres if n in src]
+        if len(usados) > len(nombres) * 0.5:
+            fails.append("modo uso: %d de %d ix de bif_5_1_d.h salen usados; el "
+                         "medido a mano es ~20 de 3188" % (len(usados), len(nombres)))
+        eq("codigo del driver no vacio", len(src) > 1000000, True)
+
     if fails:
         print("self-test FALLA (%d)" % len(fails))
         for f in fails:
             print("   " + f)
         return 1
     print("self-test OK (2 vectores de apertura, 4 de extraccion, "
-          "1 ancla, 3 del clasificador, 3 controles)")
+          "2 anclas, 3 del clasificador, 1 del modo uso, 4 controles)")
     return 0
 
 
@@ -205,6 +247,36 @@ def io_lines(ruta):
 def main(argv):
     if "--self-test" in argv:
         return self_test()
+
+    if "--uso" in argv:
+        src = codigo_driver()
+        print("codigo del driver leido: %d bytes" % len(src))
+        print()
+        print("%-24s %7s %7s %7s   %-14s %-14s"
+              % ("cabecera", "MMIO", "usados", "%", "ix", "ix usados"))
+        print("-" * 76)
+        tmm = tmu = tix = tixu = 0
+        for bloque, rel in PLACA:
+            cab = escanear(rel)
+            if cab is None:
+                continue
+            mm = [n for n, _v in cab if not es_indirecto(n)]
+            ix = [n for n, _v in cab if es_indirecto(n)]
+            mu = [n for n in mm if n in src]
+            xu = [n for n in ix if n in src]
+            print("%-24s %7d %7d %6.1f%%   %-14d %-14d"
+                  % (rel.split("/")[-1], len(mm), len(mu),
+                     100.0 * len(mu) / max(len(mm), 1), len(ix), len(xu)))
+            tmm += len(mm); tmu += len(mu); tix += len(ix); tixu += len(xu)
+        print("-" * 76)
+        print("%-24s %7d %7d %6.1f%%   %-14d %-14d"
+              % ("TOTAL", tmm, tmu, 100.0 * tmu / max(tmm, 1), tix, tixu))
+        print()
+        print("Ojo con lo que esto significa: los headers son un VOCABULARIO, no un")
+        print("mapa de uso. Que un registro este definido no dice que el driver lo")
+        print("toque, y la cifra de MMIO usados (%d de %d) es la relevante."
+              % (tmu, tmm))
+        return 0
 
     objetivos = PLACA
     if "--cabecera" in argv:

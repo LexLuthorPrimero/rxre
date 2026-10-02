@@ -4,6 +4,11 @@
 `WRITE_EXECUTION=NONE` · `MODIFICATIONS=0` · `RUNTIME=NOT_RUN` · `GPU INTACTA`
 `CORPUS=RESEARCH/working/linux-7.1.3` · `HARDWARE_SCOPE=HOST-C/RX550/0000:01:00.0`
 `DESARROLLA=usa el BAR5 de 200 como limite duro`
+`RETRACTADO_POR=203` -- la seccion "BIF es casi todo indexado" queda
+RETRACTADA: 3188 defines `ix` no es 90% de acceso, es 90% de **vocabulario**.
+Medido: de 7288 `ix` definidos, el driver referencia **127 (1.7%)**. BIF define 3188 y
+usa 21. Un driver propio **no** necesita el camino indexado para hablar con BIF ni
+SMU: esa obligacion queda retirada.
 
 ## Cuestión principal
 
