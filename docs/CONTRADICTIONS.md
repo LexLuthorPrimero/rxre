@@ -847,3 +847,53 @@ CÓMO SE RESUELVE
   una afirmación retirada en silencio reaparece. Y EV-25 queda como fila
   nueva con lo que se encontró al mirar el emisor que faltaba
 ```
+
+## Contradiccion 82 · "faltan bloques en el log" — resuelta: eran recortes, no captura
+
+`CLASSIFICATION=CONTRADICTION` · `RESUELTA` · `TRACK=RUNTIME` (solo lectura)
+`GPU INTACTA` · `WRITE_EXECUTION=NONE`
+
+**LA CONTRADICCION, tal como se presento.** EV-40 dedujo del brazo
+`case CHIP_POLARIS12:` de `vi.c` **diez** bloques: ocho incondicionales y dos
+condicionados. Al confrontarlo con las lineas de `detected ip block` que hay
+**citadas dentro del proyecto**, solo aparecian cinco o seis, y faltaban
+`uvd_v6_3`, `vce_v3_4` y `amdgpu_vkms`.
+
+**LAS HIPOTESIS, y por que no se eligio ninguna por intuicion:**
+
+```
+H1  la derivacion estatica de EV-40 es incorrecta y sobran bloques
+H2  los bloques se harvestean en esta placa y no se instancian
+H3  las lineas existen pero los recortes del proyecto estan filtrados
+H4  mi propia busqueda de las lineas tiene un fallo
+```
+**EL DISCRIMINANTE, y por que separates las cuatro antes de resolver:** H2 esta
+descartada **estaticamente** sin necesitar runtime, porque `amdgpu_ip.c:228-239` solo
+suprime por harvest a los tipos **VCN** y **JPEG**, y UVD/VCE no son esos tipos. Los
+tipos UVD y VCE no tienen mascara de harvest en esa funcion. Asi que H2 era falsa antes
+de mirar nada.
+
+**LA RESOLUCION.** Captura real del kernel en ejecucion:
+
+```
+journalctl -k -b | grep 'detected ip block'   ->  9 lineas
+  0 common_v1_0_0 (vi_common)      1 gmc_v8_1_0  (gmc_v8_0)     2 ih_v3_0_0  (tonga_ih)
+  3 gfx_v8_0_0    (gfx_v8_0)       4 sdma_v3_1_0 (sdma_v3_0)    5 smu_v1_0_0 (powerplay)
+  6 dce_v1_0_0    (dm)             7 uvd_v6_3_0 (uvd_v6_0)     8 vce_v3_4_0 (vce_v3_0)
+```
+**H3 y H4 son las que explainsn la aparente contradiccion, y las dos a la vez.** Los
+recortes del proyecto estaban filtrados (H3), y mi regex de busqueda exigia **un**
+espacio entre `>` y `(`, mientras dos de las lineas del proyecto tienen **dos**
+espacios, de modo que las perdi a mi (H4). **Dos errores de observacion apilados
+produjeron la falsa contradiccion; ninguno estaba en la derivacion.**
+
+**ESTADO.** `RESUELTA`. EV-40 se confirma bloque por bloque. Y de paso queda
+`OBSERVED` un hecho que no estaba: **la placa tiene Display Core** (`dce_v1_0_0`), y
+las cuatro condiciones de `amdgpu_device_has_dc_support` quedan medidas.
+
+**LO QUE ESTA CONTRADICCION ENSEÑA, y que es lo reutilizable:** antes de tratar un
+recorte como una captura hay que contar el conjunto. Siete lineas citadas en el
+proyecto frente a nueve reales no es una discrepancia de datos: es una discrepancia de
+**recogida**, y se distingue mirando el recuento, no la interpretacion. Ademas
+`dmesg` en esta maquina **devuelve 0 lineas** (sin permiso) mientras que
+`journalctl -k -b` si lee: la via de lectura importa tanto como la lectura.

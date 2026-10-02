@@ -856,3 +856,72 @@ entradas de EV-40: **una llamada por puntero no aparece en ningun grep**, y por 
 las 145 no cubren este salto.
 
 `GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.`
+
+## Ronda 2026-10-02 (tarde 12) · EV-42 · EV-40 corroborado en runtime, y esta
+placa tiene Display Core
+
+`TRACK=RUNTIME` (solo lectura: `journalctl -k -b`, `modinfo`, `/boot/config`)
+`WORK_CLASS=READ_ONLY/EVIDENCE` · `WRITE_EXECUTION=NONE` · `MODIFICATIONS=0`
+`GPU INTACTA` · registro: antes = nada escrito; despues = nada escrito.
+
+**LA OBSERVACION.** Nueve lineas del kernel en ejecucion, no un recorte:
+
+```
+oct 02 14:55:03 amdgpu 0000:01:00.0: detected ip block number 0 <common_v1_0_0> (vi_common)
+oct 02 14:55:03 amdgpu 0000:01:00.0: detected ip block number 1 <gmc_v8_1_0>   (gmc_v8_0)
+oct 02 14:55:03 amdgpu 0000:01:00.0: detected ip block number 2 <ih_v3_0_0>    (tonga_ih)
+oct 02 14:55:03 amdgpu 0000:01:00.0: detected ip block number 3 <gfx_v8_0_0>   (gfx_v8_0)
+oct 02 14:55:03 amdgpu 0000:01:00.0: detected ip block number 4 <sdma_v3_1_0>  (sdma_v3_0)
+oct 02 14:55:03 amdgpu 0000:01:00.0: detected ip block number 5 <smu_v1_0_0>   (powerplay)
+oct 02 14:55:03 amdgpu 0000:01:00.0: detected ip block number 6 <dce_v1_0_0>   (dm)
+oct 02 14:55:03 amdgpu 0000:01:00.0: detected ip block number 7 <uvd_v6_3_0>   (uvd_v6_0)
+oct 02 14:55:03 amdgpu 0000:01:00.0: detected ip block number 8 <vce_v3_4_0>   (vce_v3_0)
+```
+El formato lo imprime `amdgpu_ip.c:241-245`: entre `<>` va `ip_block_name(...)` con
+`major/minor/rev` del IP, y entre parentesis va **`funcs->name`**, o sea el nombre
+de la **tabla de funciones**, no el del fichero.
+
+**CORROBORACION DE EV-40, sin discrepancias.** Mis ocho incondicionales estan los
+ocho: `vi_common`, `gmc_v8_1`, `tonga_ih`, `gfx_v8_0`, `sdma_v3_1`, `pp_smu` (que
+imprime como `powerplay`), `uvd_v6_3`, `vce_v3_4`. Los nombres entre parentesis son
+justo las tablas que midio `gfx8blocks --funcs`, included `gmc_v8_0` para un bloque
+`gmc_v8_1` y `uvd_v6_0` para un bloque `uvd_v6_3`. **EV-40 pasa de `PROVEN` por
+lectura a `OBSERVED`**, y la derivacion estatica y la ejecucion coinciden bloque por
+bloque. La numeracion empieza en **0**: `num_ip_blocks` no reserva el indice 0.
+
+**Y UN HECHO QUE NO TENIA: ESTA PLACA TIENE DISPLAY CORE.** `dce_v1_0_0` esta
+instanciado, o sea que `dm_ip_block` **se activo**, y eso es una de las dos ramas
+condicionadas de EV-40. Las cuatro condiciones de
+`amdgpu_device_has_dc_support` (`amdgpu_device.c:3446-3453`) quedan resueltas:
+
+```
+CONFIG_DRM_AMD_DC=y                        SI   /boot/config-$(uname -r)
+adev->enable_virtual_display == false       SI   por elVkms ausente (ver abajo)
+AMD_HARVEST_IP_DMU_MASK puesto              NO   (si lo estuviera, return false)
+amdgpu_device_asic_has_dc_support(P12)      SI   (unico camino que queda)
+```
+**Y UNA COMPROBACION CRUZADA QUE NO HABIA PEDIDO.** En `vi.c:2115-2120` la forma es
+un `if` **y un `else if`**:
+
+```
+if (adev->enable_virtual_display)   amdgpu_device_ip_block_add(adev, &amdgpu_vkms_ip_block);
+else if (has_dc_support(adev))      amdgpu_device_ip_block_add(adev, &dm_ip_block);
+```
+O sea que **`amdgpu_vkms` y `dm` son mutuamente excluyentes por construccion**. Y el
+runtime muestra `dm` presente y `amdgpu_vkms` ausente, que es exactamente lo que ese
+codigo exige. **Son dos predicciones independientes saliendo de una sola lectura
+estatica, y las dos se cumplen.** Eso no es una coincidencia: es la prueba de que la
+lectura estatica del brazo de Polaris12 es correcta hasta en su estructura de control.
+
+**LO QUE NO ESTA, Y TAMBIEN ES DATO.** `amdgpu_vkms` **no** esta instanciado, luego
+`enable_virtual_display` es falso en esta placa. No hay virtual display.
+
+**EL NUMERO: 9 = 8 incondicionales + 1 condicionado.** Ni mas ni menos.
+
+**LO QUE ESTO CORRIGE, Y ES LO IMPORTANTE.** Al contrastar mi lista estatica con los
+recortes de log que hay en el proyecto, seemed a faltar `uvd_v6_3`, `vce_v3_4` y
+`amdgpu_vkms`, y eso parecia una contradiccion. **No lo era: los recortes del proyecto
+no eran la captura.** Mis dos regex de busqueda ademas habian descartado dos lineas
+por un **espacio doble** entre `>` y `(`. Con la captura real, la contradiccion se
+disuelve en un comando. **Un recorte no es una captura, y una linea que no aparece
+en mis grep no es una linea que no exista.** Novena vez.

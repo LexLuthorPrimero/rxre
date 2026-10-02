@@ -2796,3 +2796,65 @@ sugiera lo contrario.
 
 `check.sh` 39 | `cn7` 97 | `cn8` 33 | `gfx8blocks` 24/24 | `gchwip_alcance` 21/21.
 GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.
+
+---
+
+## 2026-10-02 · opencode · EV-42: EV-40 corroborado en runtime, y la placa tiene Display Core
+
+```
+OBJECT   docs/CURRENT-STATE.md, docs/CONTRADICTIONS.md
+ACTION   EVIDENCE (OBSERVED de 9 bloques) + CONTRADICTION (resuelta)
+TRACK    RUNTIME, SOLO LECTURA (journalctl -k -b, modinfo, /boot/config)
+WRITE_EXECUTION=NONE · MODIFICATIONS=0 · GPU INTACTA
+```
+
+**EL PRIMER RUNTIME DE ESTA RONDA, Y CORROBORA LO QUE HABIA DERIVADO ESTATICAMENTE.**
+Nueve lineas reales del kernel: los OCHO incondicionales de EV-40 estan los ocho, con
+los mismos nombres de tabla que midio gfx8blocks --funcs, incluido gmc_v8_0 para un
+bloque gmc_v8_1 y uvd_v6_0 para un bloque uvd_v6_3. EV-40 pasa de PROVEN por lectura a
+OBSERVED. La numeracion empieza en 0: num_ip_blocks no reserva el indice 0.
+
+**Y UN HECHO QUE NO TENIA: LA PLACA TIENE DISPLAY CORE.** dce_v1_0_0 esta
+instanciado, o sea que dm_ip_block se activo. Con eso quedan medidas las cuatro
+condiciones de amdgpu_device_has_dc_support: CONFIG_DRM_AMD_DC=y, enable_virtual_
+display falso, sin harvest DMU, y asic_has_dc_support(Polaris12) cierto.
+
+**LA COMPROBACION CRUZADA QUE NO HABIA PEDIDO.** vi.c:2115-2120 es un `if` seguido de
+un `else if`, luego amdgpu_vkms y dm son MUTUAMENTE EXCLUYENTES por construccion. El
+runtime muestra dm presente y vkms ausente, que es lo que el codigo exige. **Dos
+predicciones independientes de una sola lectura estatica, las dos cumplidas.** Eso
+valida la lectura hasta en su estructura de control, no solo en sus nombres.
+
+**9 = 8 incondicionales + 1 condicionado. Ni mas ni menos.** Y amdgpu_vkms ausente
+significa que no hay virtual display en esta placa.
+
+**LA CONTRADICCION, Y COMO SE RESOLVIO, que es la parte que importa.** Al contrastar
+mi lista estatica con las lineas citadas DENTRO del proyecto, parecian faltar uvd_v6_3,
+vce_v3_4 y amdgpu_vkms. Antes de elegir explicacion, escribi cuatro hipotesis y las
+descarte una a una. H2 (harvest) se descarta ESTATICAMENTE sin mirar nada:
+amdgpu_ip.c:228-239 solo suprime por harvest los tipos VCN y JPEG, y UVD/VCE no son
+esos. La resolucion: capturar de verdad.
+
+Y el resultado es que **H3 y H4 explicaban la falsa contradiccion, y las dos a la vez.**
+Los recortes del proyecto estaban filtrados, y mi propia regex exigia UN espacio entre
+">" y "(" mientras dos lineas tienen DOS espacios, de modo que las perdi yo.
+**Dos errores de observacion apilados.** Ninguno estaba en la derivacion, y sin la
+captura real habria publicado que mi EV-40 sobraba en tres bloques.
+
+**NOVENA VEZ, Y LA REGLA QUE SALE:** un recorte no es una captura. Siete lineas
+citadas en el proyecto frente a nueve reales no es una discrepancia de datos, es una
+discrepancia de RECOGIDA, y se distingue contando, no interpretando. Y en esta
+maquina **dmesg devuelve 0 lineas** sin permiso mientras que **journalctl -k -b si
+lee**: la VIA de lectura importa tanto como la lectura. Eso confirma de paso la
+limitacion que arrastraba F12, donde habia que leer el kernel.
+
+TAMBIEN: el fingerprint (HARDWARE-FINGERPRINT.md, de hoy) ya declara TARGET_MATCH=si
+con los nueve campos del contrato verificados. **No lo he vuelto a hacer ni duplicado**:
+el prompt maestro lo pide como primera operacion, el artefacto ya existe con veredicto,
+y rehacerlo no seria progreso sino coste. Lo que si he hecho es cruzarlo con mis
+resultados nuevos, y no aparece contradiccion: 0x699F mapea a CHIP_POLARIS12 por
+driver_data en amdgpu_drv.c:2041 (los "0, 0" de esa linea son class y class_mask, NO
+un rango de revision), asi que el rev 0xc7 de la placa es irrelevante para la
+identificacion del ASIC. Casi lo doy por raro al verlos.
+
+GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 2 (solo lectura). MODIFICATIONS 0.
