@@ -357,6 +357,39 @@ def main():
         "inventado", _K.clasifica(0x12345678) is None,
         "(%s)" % (_K.clasifica(0x12345678),))
 
+    # --- los hallazgos tienen que verse desde MAS DE UN sitio
+    #
+    # Una fila de evidencia que solo esta en EVIDENCE-MATRIX es invisible para
+    # quien lee CURRENT-STATE o KNOWLEDGE-GRAPH, que son por donde entra la
+    # gente. Es el mismo fallo que "el dato estaba a un comando de distancia y
+    # no se busco", commemoration en la otra direccion: el dato existe y no
+    # se ve.
+    _RAIZ = os.path.abspath(os.path.join(AQUI, ".."))
+    _docs = os.path.join(_RAIZ, "docs")
+
+    def _tiene(patron, *ficheros):
+        for _f in ficheros:
+            _p = os.path.join(_docs, _f)
+            if not os.path.exists(_p):
+                return False, "%s no existe" % _f
+            with open(_p, errors="replace") as _h:
+                if patron in _h.read():
+                    return True, "%s" % _f
+        return False, "ninguno de %s lo tiene" % (ficheros,)
+
+    _ok, _d = _tiene("payload", "CURRENT-STATE.md")
+    chk("la regla del count aparece en CURRENT-STATE, no solo en la matriz",
+        _ok, "(buscado 'payload' en CURRENT-STATE.md: %s)" % _d)
+    _ok, _d = _tiene("0x900000", "KNOWLEDGE-GRAPH.md", "CURRENT-STATE.md")
+    chk("el offset de la tabla GART aparece en KNOWLEDGE-GRAPH o CURRENT-STATE",
+        _ok, "(buscado '0x900000': %s)" % _d)
+    _ok, _d = _tiene("klog", "TOOLS-STATUS.md")
+    chk("la herramienta nueva aparece en TOOLS-STATUS", _ok,
+        "(buscado 'klog': %s)" % _d)
+    _ok, _d = _tiene("2026-10-02", "CHANGELOG-RESEARCH.md")
+    chk("el CHANGELOG tiene entrada de hoy", _ok,
+        "(buscado '2026-10-02': %s)" % _d)
+
     print("-" * 66)
     if FALLOS:
         print("%d control(es) FALLAN. Las herramientas implicadas no son"

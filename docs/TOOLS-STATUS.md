@@ -2505,3 +2505,28 @@ LO QUE ESTE CHECK NO HACE
   token adecuado para `RE-43` es una lectura, y aquí sólo se comprueba que sea un
   token
   no reescribe nada.  `--sync` sigue tocando sólo contadores
+
+### Herramientas de `revkit/` (segunda ronda de 2026-10-02)
+
+| ID | Herramienta | STATE | Verificado |
+|---|---|---|---|
+| RK-10 | `sello.py` | `TOOL_VALIDATED` | `custodia` da 106/139/4958/0; rc 0/1/2/3/4 con semántica distinta cada uno; 2 mutaciones detectadas |
+| RK-11 | `klog.py` | `TOOL_VALIDATED` | 6 controles con log sintético: dentro del BAR rc=0, fuera rc=1, log incompleto rc=4; las 3 mutaciones detectadas |
+| RK-12 | `pte.py` | `TOOL_VALIDATED` | `para-gfx8` cierra el alcance de F2b (15 flags); `dump` **corregido**, tenía el layout hardcodeado |
+
+**Límite de `sello.py --custodia`**, y es el que más fácil se lee mal: para
+"recuperable" mira `git ls-tree -r HEAD`, **no** `git ls-files`. El índice de git
+es estado compartido entre sesiones en este proyecto, y un fichero stageado sin
+commitear aparece en `ls-files` y no es recuperable porque no existe en ningún
+commit.
+
+**Límite de `pte.py dump`**, ya corregido pero conviene recordarlo: la tabla de
+campos que imprime es la **unión de todas las generaciones**, no el layout de
+GFX8. Para GFX8 el campo de dirección acaba en el bit 39 (`pte_addr_mask =
+0x000000FFFFFFF000`, 28 bits, ventana de 256 MiB), no en el 47. La asimetría es
+que `para-gfx8` **sí** filtra por alcance y `dump` no. `dump` ahora deriva el
+ancho de la máscara y avisa de que la tabla es genérica.
+
+**Límite de `klog.py`**: lee texto del log, no hardware. Su único efecto es
+decir **si el observador existe y dónde**. La lectura de la tabla GART por BAR
+es NIVEL 2 y está en otro sitio, con su credencial.

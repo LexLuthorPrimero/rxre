@@ -1871,3 +1871,79 @@ b7ed0c1  01:10  el push constant faltaba; el test daba SIGSEGV. AD-14 corrige el
    diferencias". R-4B v2.3 es INCONCLUSIVE, nunca SUPPORTED. El régimen E1/E3/E5 es
    [NO REPRODUCIBLE], no una especificación
 ```
+
+## 2026-10-02 · Ronda del log de arranque y del toolkit (segunda sesion del dia)
+
+Sin hardware nuevo: todo lo de esta ronda sale de artefactos que ya estaban en
+el arbol y no se habian mirado. `GPU INTACTA` · `WRITE_EXECUTION NONE`.
+
+### Cerrado
+
+- **El `count` de un paquete PM4 es el payload MENOS UNO** (`EVIDENCE-MATRIX`
+  EV-30). No por lectura del codigo: por el test del anillo, observado en
+  hardware. El anillo de compute empieza con la auto-prueba, y el test depende
+  de que el tercer dword se ejecute; si el hardware leyera exactamente `count`,
+  el test daria ETIMEDOUT y `sched.ready` quedaria a 0. El anillo esta usado,
+  luego el hardware consumio los tres. `PROVEN_DERIVED`, con cadena completa
+- **La regla no tiene excepciones** (EV-28, **retirada**). Las 50 emisiones de
+  `gfx_v8_0.c` reconcilian, incluidas las 7 que `pm4census` dejaba `SIN MEDIR`.
+  Y el veredicto de `pm4census` ya lo decia antes
+- **F12b cerrada** para el ASIC de esta GPU
+- **F2b, el alcance**: 15 flags de PTE con consumo demostrado en GFX8, 4
+  definidos sin consumidor alcanzable y clasificados `NOT_APPLICABLE`. Lo
+  resolvio `revkit/pte.py para-gfx8`, una herramienta de este mismo revkit que no
+  se habia ejecutado
+
+### Retirado, y por que
+
+- **EV-27**: afirmaba que "el hardware lee exactamente `count`" estaba
+  `REFUTED`. No lo sostiene: los dos modelos dan 11 paquetes, y lo que cae es
+  tratar un tipo 0 como cabecera, que ya se sabia falso
+- **EV-28**: afirmaba que `vm_flush` era el unico emisor exacto. Escribe **seis**
+  payload, no cinco; el error fue mapear numeros de linea leyendo un volcado
+  numerado en vez de `grep -n`
+- **EV-21**: `length_dw` no es constante (344, 1104, 1488) y la alineacion no es
+  `0x600` sino `0x200`. Se habia escrito mirando el primer IB
+- **EV-22**: el `WRITE_DATA` ocupa **cinco** dwords, no cuatro, y su `cmd` es
+  `0x40100000`, sin `WR_ONE_ADDR`
+- **EV-18**: la estructura del anillo se repite; el contenido no
+- **NR-2026-10-02-e**: `0xDEADBEEF` **si** esta en un anillo, el de compute. Se
+  busco en uno de los cuatro
+
+### Nuevo
+
+- **EV-26**: `gmc_v8_0_emit_flush_gpu_tlb` es el productor del invalidate, y el
+  mapeo VMID -> bit del dominio queda `PROVEN`: `INVALIDATE_DOMAIN_i` esta en el
+  bit `i` en las cinco generaciones de GMC. Tambien explica por que el
+  invalidate no necesita campo `FUNCTION`
+- **EV-29**: el IB codifica una VA de **48 bits**, porque el emisor enmascara la
+  parte alta a `& 0xFFFF`. Y sus ocho `length_dw` no son iguales
+- **EV-32**: el log de arranque da las direcciones fisicas, y la tabla GART cae
+  **dentro de la ventana del BAR**. Es el observador que F12 llevaba buscando
+- **NR-2026-10-02-i**: 139 de los 245 ficheros sellados no tienen version detras.
+  El sello detecta la corrupcion, el commit la recupera, y hacen falta los dos
+
+### Herramientas
+
+| | que resuelve |
+|---|---|
+| `revkit/sello.py` | el sello de evidencia, y un 2x2 de custodia: detecta frente a recupera |
+| `revkit/klog.py` | el log de arranque como fuente, con las direcciones clasificadas por espacio |
+| `revkit/pte.py` (corregido) | `dump` tenia el layout de PTE hardcodeado, sin filtro de ASIC: 36 bits donde GFX8 tiene 28 |
+
+### La leccion que mas veces se pago
+
+**No consultar el toolkit antes de medir.** Tres veces en la sesion, y las tres
+salieron caras:
+
+1. `pm4census.py` ya media la convencion de `count`, y monte una tabla a mano
+   que lo contradecia
+2. `count_vmflush_dw.py` ya contaba los dwords del vm_flush
+3. `revkit/pte.py` ya cerraba el alcance de F2b, y es **mia**
+
+Y la cuarta forma, distinta: F12 se dio por inobservable sin abrir
+`journalctl -k -b`, donde estaba la direccion que la hacia observable.
+
+Las cuatro son la misma: **el dato estaba a un comando de distancia y no se
+busco**, y en las cuatro el resultado salia plausible. Un resultado plausible
+que no se ha contrastado con lo que ya existe en el arbol no es un resultado.

@@ -259,3 +259,60 @@ propone exactamente el guard que falta (comprobar el ancestro antes del `mkdir`)
 dice que no lo aplica porque `COORDINACION.md` es ley operativa. Sigue sin aplicarse.
 **Es la acción con más probabilidad de volver a causar daño y la más barata de
 arreglar.**
+
+## 0.b · Cambio de la segunda ronda de 2026-10-02
+
+Todo lo de esta ronda sale de artefactos que **ya estaban en el árbol** y no se
+habían mirado. Ni GPU, ni MMIO, ni insmod. `GPU INTACTA` · `WRITE_EXECUTION NONE`.
+
+**Una regla de PM4, resuelta, que cambia cómo se escribe cualquier cosa**
+
+| | |
+|---|---|
+| el campo `count` de un paquete PM4 cuenta el payload **menos uno** | `PROVEN_DERIVED` (EV-30) |
+| emisiones de `gfx_v8_0.c` que reconcilian | **50 de 50** |
+| confirmación de hardware | el test del anillo, en el anillo de **compute** |
+
+El test del anillo (`gfx_v8_0_ring_test_ring`) reserva 3 dwords, declara `count=1`
+y escribe 2 payload, y después sondea `mmSCRATCH_REG0` hasta que lea
+`0xDEADBEEF`. Si el hardware leyera exactamente `count`, no se ejecutaría el
+tercer dword, el test daría `ETIMEDOUT` y `sched.ready` quedaría a 0, con lo que
+el anillo no se usaría nunca. El anillo de compute **está usado**.
+
+**Un observador que se daba por inexistente**
+
+| | |
+|---|---|
+| tabla GART (PA) | `0x000000F400900000`, del log de arranque |
+| offset dentro de VRAM | `0x900000` = 9 MiB |
+| ventana del BAR | 256 MiB |
+| ¿legible por CPU? | **sí**, por `resource0` en ese offset |
+
+F12 pasó de `NOT_AVAILABLE` a `BLOCKED_BY_CREDENTIAL`: `resource0` es root-only
+y este proceso corre como uid 1000. **Es una credencial ausente, no una
+capacidad ausente**, y leer el BAR es NIVEL 2 según el propio AGENTS.md.
+
+**Direcciones del arranque, que no estaban en ninguna otra fuente**
+
+```
+VRAM (PA)   0xF400000000 .. 0xF47FFFFFFF
+GART (VA)   0xFF00000000  .. 0xFF0FFFFFFF
+GART        65536 páginas x 4 KiB = 256 MiB, exacto
+BAR         256 MiB con RAM 2048 MiB
+GTT         5907 MiB de RAM del sistema
+bloque GMC  gmc_v8_1_0
+```
+
+**Y una correction al project's own state**: el ASIC instancia **`gmc_v8_1_0`**,
+aunque `gfx_v8_0.c` incluye los headers `gmc_8_2`. No hay contradicción, y el
+invariante del invalidate está comprobado en ambas generaciones.
+
+**Lo que se retiró en esta ronda**, y es lo que más importa para el que lea el
+log: cinco afirmaciones propias que eran falsas, entre ellas un `REFUTED` que no
+se sostenía (EV-27) y una tabla que decía que `vm_flush` era una excepción
+(EV-28, y era por un `grep -n` que no hice).
+
+**La lección, cuatro veces**: el dato estaba a un comando de distancia y no se
+buscó. Tres herramientas del árbol ya hacían el trabajo —`pm4census.py`,
+`count_vmflush_dw.py` y `revkit/pte.py`, que es mía—, y F12 se dio por
+inobservable sin abrir `journalctl -k -b`.

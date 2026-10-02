@@ -5,7 +5,7 @@
 >
 > `RE-xx` referencia a [`EVIDENCE-MATRIX.md`](EVIDENCE-MATRIX.md). `N-xx` a las fronteras
 > de [`OPEN-FRONTIERS.md`](OPEN-FRONTIERS.md).
-> `LAST_VERIFIED: 2026-10-01 11:20 -03:00`
+> `ACTUALIZADO 2026-10-02 - revkit/` · `LAST_VERIFIED: 2026-10-02`
 
 ---
 
@@ -355,3 +355,93 @@ RE-02 sin ack         -> N1/N2 Runtime
 Es el mismo patrón que la línea BC3, que tiene cerrada la aritmética y abierta la
 pregunta del sampler. En los dos casos lo que falta es el silicio, y en los dos casos
 no se va a conseguir leyendo más rápido.
+
+## 9 · Cadena del count de PM4: regla cerrada el 2026-10-02
+
+```
+RE-30  count de un paquete PM4 = payload MENOS UNO            PROVEN
+         ▲
+         │ cornerstone: si esto fuera "payload", un driver propio se
+         │ comeria un dword del paquete siguiente en cada paquete
+         │
+    ┌────┴───────────────┬──────────────────┬──────────────────┐
+    │                    │                  │                  │
+producer           consumidor           hardware           Validación
+PACKET3(op,N)      payload = N+1        lee N+1 payload   RE-30: anillo de
+el driver escribe  dwords               verificado con el  compute, el test
+N+1 siempre                              TEST DEL RING,      del anillo, que
+        │                                                     sin el DEADBEEF
+        │                                                     no pasa y el
+        ▼                                                     anillo no se usa
+RE-28 (retirada)   la excepcion era
+no habia ninguna   falsa: vm_flush
+excepcion          escribe 6, no 5
+        │
+        ▼
+todo lo que use count en PM4: WAIT_REG_MEM, WRITE_DATA, CONTEXT_CONTROL,
+INDIRECT_BUFFER, COND_EXEC, COPY_DATA, EVENT_WRITE_EOP, ACQUIRE_MEM,
+SET_CONTEXT_REG, SET_SH_REG, SET_UCONFIG_REG, SET_CONFIG_REG,
+DISPATCH_DIRECT, PREAMBLE_CNTL, MAP_QUEUES, SET_RESOURCES, CLEAR_STATE
+```
+
+**50 de 50 emisiones de `gfx_v8_0.c` reconciled** (`tools/pm4census.py`), con
+la confirmación de hardware en `SET_UCONFIG_REG` y el resto por forma. La
+regla es de una línea y es lo primero que un driver propio tiene que respetar.
+
+## 10 · Cadena de observación de la page table: el observador existe
+
+```
+N-12  el contenido de la PTE, observado          BLOCKED_BY_CREDENTIAL
+        ▲
+        │ YA NO es "no hay observador". Es "falta la credencial"
+        │
+   ┌────┴─────────────┬──────────────────┬────────────────────┐
+   │                   │                  │                    │
+productor           representación     consumidor        lo que falta
+RE-30              RE-32              el page walker    un sudo dd de
+pd_addr           tabla GART en       de la GPU         64 bytes en el
+     │            VRAM offset 0x900000      │             offset 0x900000
+     │                   │                  │                    │
+     └──► VM_CONTEXT0_PAGE_TABLE_BASE_ADDR  │                    │
+          + vmid, valor pd_addr >> 12       │                    │
+                  │                         │                    │
+                  └────────► RE-20: value = addr & 0x000000FFFFFFF000
+                                            │                    │
+                            bits 12..39 = 28 bits, ventana 256 MiB
+                                    │                    │
+                                    └──► N-2b: semántica de cada bit
+                                         (alcance ya PROVEN, 15 flags)
+                                                  │
+                                                  └──► N-14: cuánta RAM
+                                                       se puede direccionar
+```
+
+**Lo que cambió el 2026-10-02**: `N-12` estaba en `NOT_AVAILABLE` porque solo
+se buscó por debugfs. El log de arranque da la dirección de la tabla GART, y
+esa dirección cae **dentro de la ventana del BAR**, o sea que es legible por
+CPU sin instrumentación nueva.
+
+Y lo que sigue bloqueado es de otra naturaleza: `resource0` es root-only y este
+proceso corre como uid 1000. Es una credencial, no una capacidad. Leer el BAR
+es NIVEL 2 según el propio AGENTS.md.
+
+**Los tres nodos que dependen de esto** — `N-2b` semántica, `N-14` RAM
+direccionable, y el dimensionado del page walker propio — se abren con una sola
+lectura de 64 bytes. Es el punto de mayor apalancamiento que queda en el
+proyecto.
+
+## 11 · Dependencias rotas que este grafo ahora refleja
+
+```
+RE-30  ──►  todo lo que emite PM4 en gfx_v8_0.c
+  depende de: ninguna otra regla. Es una hoja del grafo.
+
+N-12  ──►  N-2b, N-14, page walker propio
+  depende de: una credencial (root), no de conocimiento
+
+RE-26  ──►  la traducción VA->PA y el invalidate
+  EV-26 (VMID -> bit n) es independiente de EV-30 (count). Se cruzaron en dos sitios esta
+  sesion, porroutes distintas, y no hay arista real entre ellos: el invalidate lo produce
+  gmc_v8_0_emit_flush_gpu_tlb, y ese codigo escribe REGISTERES, no paquetes.
+  La unica arista real es el vm_flush, que escribe las dos cosas
+```
