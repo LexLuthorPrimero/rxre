@@ -151,11 +151,12 @@ encuentra, la puerta equivocada se repite**.
 
 ## Confounders
 
-- **`resource` devuelve 13 filas, no 7.** Un dispositivo PCIe expone 6 BARs + ROM.
-  Las 13 filas hacen sospechar que el índice→BAR no es 1:1. **Pero la coincidencia
-  con el log lo confirma**: el driver lee el índice 5, y la fila del índice 5 es
-  la que tiene `0xf7d00000`. Si el mapeo estuviera desplazado, no casaría.
-  **Lo dejo declarado**: no sé qué son las 6 filas de más.
+- **`resource` devuelve 13 filas, no 7.** **RESUELTO**: el conteo varía por
+  dispositivo —`0000:00:01.0`, `0000:00:1c.0` y `0000:00:1c.5` tienen **17**— así
+  que "13 ≠ 7" **no era una inferencia válida** sobre el índice→BAR. Las filas 6 a
+  12 están todas a cero (sin asignar). La evidencia que decide sigue siendo la
+  coincidencia: el driver lee el índice 5, y el índice 5 es el que tiene
+  `0xf7d00000`. Si el mapeo estuviera desplazado, no casaría.
 - **No he ejecutado la lectura desde el driver.** La coincidencia base+tamaño es
   fuerte pero no es una lectura directa de `adev->rmmio`. Un `dev_info` adicional
   en runtime lo cerraría del todo, y no lo he hecho.
@@ -172,7 +173,7 @@ encuentra, la puerta equivocada se repite**.
 - **(c)** El umbral `0x5289` → refutable con `amdgpu_acp.c:245`.
 - **(d)** Que la layout no cambiara → refutable si `resource` no casara con el log.
   **Verificado por coincidencia.**
-- **(e)** Las 13 filas → **no resueltas**, declarado arriba.
+- **(e)** Las 13 filas → **resuelto**: el conteo varía por dispositivo.
 
 ## UNLOCKS
 
@@ -189,7 +190,7 @@ encuentra, la puerta equivocada se repite**.
 - **La lección, la quinta vez**: un punto abierto que en realidad es resoluble es
   peor que un error, porque el error se encuentra y la puerta equivocada se
   repite. `resource2` no; `resource` sí.
-- **Siguiente paso**: las 13 filas de `resource` frente a las 7 esperadas.
+- **Cerrado**: las 13 filas de `resource` no eran un problema (ver confounder).
 
 ## Evidencia
 
