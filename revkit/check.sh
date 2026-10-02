@@ -215,6 +215,16 @@ if [ -f capturas/amdgpu_vbios.txt ]; then
     printf '  %-46s %s\n' "sello: integridad de la evidencia" \
         "rc=$sello_rc (0 OK, 1 movido, 2 roto)"
     echo "$sello_out" | grep -E "^  (OK|MOVIDO|ROTO) " | sed 's/^/       /'
+    # custodia: el sello DETECTA la corrupcion, el commit RECUPERA la perdida.
+    # rc=1 significa que hay evidencia sellada SIN version: se detecta si se
+    # rompe, pero no hay de donde volver. No hace fallar check.sh por ahora,
+    # porque arreglarlo es decision de quien escribio esos ficheros, no del
+    # kit. Se imprime para que deje de ser invisible.
+    cust_out=$(python3 sello.py --custodia 2>&1); cust_rc=$?
+    printf '  %-46s %s\n' "custodia: sellado vs commiteado" \
+        "rc=$cust_rc (0 todo con version, 1 sellado SIN commit)"
+    echo "$cust_out" | grep -E "^  (sellado|commiteado|ni sello|stageados)" \
+        | sed 's/^/       /'
 else
     echo "  atomrom: VBIOS real ausente (no versionado)     OMITIDO, el"
     echo "           autotest con ROM sintetico ya valida el"

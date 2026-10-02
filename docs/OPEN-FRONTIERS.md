@@ -559,10 +559,10 @@ ESTADO 2026-10-01, PARCIALMENTE CERRADO, y conviene separar las dos mitades
 ## F11 · Un número plausible de una herramienta con self-test verde
 
 ```
-ACTUALIZADO 2026-10-02. Esta frontera se materialize CINCO veces en una sesion, y
-las cinco por el mismo mecanismo: un numero que salio bien, de una herramienta
-con todos sus controles en verde, y que era falso por un factor o por un
-supuesto. La leccion ya no es hipotetica
+ACTUALIZADO 2026-10-02. Esta frontera se materialize SEIS veces en una sesion, y
+las seis por el mismo mecanismo: un numero que salio bien, de una herramienta
+con todos sus controles en verde, y que era falso por un factor, por un
+supuesto o por su ambito. La leccion ya no es hipotetica
 
 LOS CINCO CASOS, con su numero real
   1. `atomrom` leia `usMemorySize` en +26 en vez de +20: `24832 MB` en lugar de
@@ -578,19 +578,37 @@ LOS CINCO CASOS, con su numero real
   5. `huerfanos` con una raiz inexistente imprimia `NINGUNO: todos los
      simbolos tienen definicion`. Un corpus no recorrido se leia como un
      corpus completo
+  6. `integro.py` desde `revkit/` imprimia `0 ficheros de texto sin
+     seguimiento`. Cierto, y sin significado: su `--raiz` por defecto es
+     relativo al CWD, asi que escaneaba 48 ficheros de `revkit`, no los 272
+     del proyecto. Se veio porque en el mismo momento `git` decia 297
 
-LO QUE LOS CINCO TIENEN EN COMUN
-  un self-test verde NO es una garantia. En los cinco casos la herramienta
+LO QUE LOS SEIS TIENEN EN COMUN
+  un self-test verde NO es una garantia. En los seis casos la herramienta
   pasaba todos sus controles y estaba equivocada. Lo que los distingue es
-  que en cuatro habia un dato EXTERNO con el que contrastar, y ese contraste
+  que en cinco habia un dato EXTERNO con el que contrastar, y ese contraste
   no estaba en el self-test
 
-EL CAMBIO DE FONTE, POR CASO
+LO QUE EL CASO 6 ENSENA Y LOS OTROS CINCO NO
+  los cinco anteriores fueron errores de calculo: un offset, una unidad, una
+  regex, una unidad mal, un arbol mal. Este es distinto: el numero era
+  correcto y el AMBITO era el equivocado
+  un 0 es el resultado mas peligroso que puede dar una herramienta, porque
+  se lee como "todo bien" y no dispara ninguna pregunta. Un numero mal
+  grande se nota; un 0 no
+  la regla que sale de ahi: un 0 tiene que poder distinguirse de "no se ha
+  recorrido nada", y una herramienta que recorta directorios tiene que
+  IMPRIMIR cuantos ha saltado, no solo cuantos ha recorrido. `integro.py` ya
+  lo imprimia ("directorios saltados: .git, RESEARCH, ...") y bastaba mirar
+
+EL CAMBIO DE FUENTE, POR CASO
   1. contraste con `amdgpu_vram_mm` (el kernel dice 2048 MiB)
   2. contraste con `amdgpu_pm_info` (SCLK 214, MCLK 300)
   3. contraste con el codigo: `PKT0` no aparece en el driver
   4. el rango `[lo,hi)` tiene que medir lo que dice `size`
   5. distinguir `0 ficheros leidos` de `0 huecos`
+  6. distinguir `0 sin seguimiento en revkit/` de `0 sin seguimiento en el
+     proyecto`, y para eso hay que mirar el ambito, no el resultado
 
 LA REGLA QUE SE ADOPTA
   una herramienta que afirma un numero tiene que poder contrastarlo contra

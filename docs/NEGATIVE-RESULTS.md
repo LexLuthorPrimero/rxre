@@ -614,3 +614,116 @@ CÓMO SE CIERRA
   el fichero EVIDENCE-MANIFEST.sha256 entre esos 20, y queda pendiente
   verificarlo (NR-2026-10-02-g)
 ```
+
+## NR-2026-10-02-i · 139 de 245 ficheros sellados no tienen version detras
+
+```
+QUÉ SE MEDIÓ
+  cruce del sello de evidencia con git, que no se habia hecho nunca
+RESULTADO
+  sellado + commiteado   (detecta y recupera)      106
+  sellado SIN commit      (detecta, NO recupera)    139
+  commiteado SIN sello   (recupera, no detecta)    4958
+  ni sello ni commit      (ni detecta ni recupera)     0
+  stageados sin commitear                             0
+DISTRIBUCION DE LOS 139
+  06-INGENIERIA-INVERSA/findings/   85
+  tools/                             40
+  08-ARQUITECTURA/                    9
+  07-DRIVER/                          5
+POR QUÉ EL 2x2 Y NO UN NUMERO
+  "cuantos hay sellados" no significa nada. Lo que significa es si un
+  fichero se puede RECUPERAR, y para eso hacen falta dos cosas distintas:
+    el sello DETECTA que se corrompio
+    el commit  RECUPERA lo que habia antes
+  tener solo el sello es una garantia a medias: el dia que el fichero se
+  corrompe, la herramienta lo dice y no hay de donde volver. Eso es
+  exactamente como se perdio el 050
+POR QUÉ NO SE ARREGLA AQUI
+  los 139 ficheros son de otras sesiones. `git add` de ellos seria meter su
+  trabajo en mi commit, que ya ha pasado dos veces (NR-2026-10-02-h y -j).
+  La decision de si se versionan es de quien los escribio
+CÓMO SE CIERRA
+  `revkit/sello.py --custodia --todos` lista los 139 uno a uno. Versionar los
+  que valen, decidir explicitamente los que son efimeros, y sellar despues
+COMO SE MIDE, Y QUE NO SE CONfunde
+  `git ls-files` lista el INDICE, que en este proyecto es estado compartido
+  entre sesiones. Para "recuperable" hay que mirar `git ls-tree -r HEAD`: un
+  fichero stageado sin commitear aparece en `ls-files` y no es recuperable,
+  porque no existe en ningun commit. Medir con ls-files daria 4959 en vez de
+  4958, y sobre todo diria "recuperable" de algo que no lo es
+```
+
+## NR-2026-10-02-j · El indice de git es estado compartido, y ya ha costado dos veces
+
+```
+QUÉ PASÓ
+  stageé 4 ficheros mios (`revkit/sello.py`, `revkit/cn8.py`,
+  `revkit/check.sh`, `docs/NEGATIVE-RESULTS.md`) y, antes de que
+  commitease, otra sesion hizo `git commit`. HEAD paso de d2c4a89 a
+  75c61d5 y mi commit llevaba el titulo del trabajo de la otra sesion
+  ("toolkit: versionado no es lo mismo que propio")
+  75c61d5 contiene 6 ficheros: 4 mios y 2 de 08-ARQUITECTURA/tools
+POR QUÉ PASA
+  no hay lock de git. `.write-lock/` protege ficheros, y existe porque el
+  proyecto aprendio a necesitarlo, pero `.git/index` es un unico fichero
+  compartido por todas las sesiones: quien commitea se lleva lo que haya
+  stageado, sea suyo o no
+ES LA SEGUNDA VEZ
+  la primera esta en el historial de la sesion con `ed6d8eb`. Dos de dos
+ veces. No es un accidente: es la consecuencia de que el commit es la unidad
+  de escritura y el indice es de todos
+LO QUE SE HIZO
+  NO `--amend`. Rehacer el commit habria movido el trabajo de la otra sesion
+  y habria creado el mismo problema al reves. Se acepta el commit con el
+  titulo equivocado y se registra el hecho. El contenido esta ahi y es
+  correcto; lo que se pierde es la atribucion
+LO QUE SE DEBERIA HACER
+  antes de stagear, comprobar si el indice ya tiene cosas de otros:
+    git diff --cached --name-only
+  Si hay algo que no es mio, stagear con rutas explicitas, o esperar a que
+  la otra sesion commitee primero. `git add <dir>` es lo que amplia el
+  alcance sin querer
+```
+
+## NR-2026-10-02-k · `integro.py` dijo "0 sin seguimiento" porque se ejecuto en el sitio equivocado
+
+```
+QUÉ PASÓ
+  `python3 integro.py escanear --rastrear` desde `revkit/` imprimio
+  "0 ficheros de texto sin seguimiento", y su autotest, en verde
+REALIDAD
+  272 ficheros de texto sin seguimiento en el proyecto. Desde la raiz:
+  122 en 06-INGENIERIA-INVERSA, 51 en 04-IMPLEMENTACION, 44 en tools,
+  40 en 08-ARQUITECTURA, 15 en 03-EXPERIMENTOS, 9 en 07-DRIVER
+POR QUÉ
+  `integro.py` tiene `--raiz` con default `".."`, relativo al CWD. Ejecutado
+  desde `revkit/` escanea `revkit/`: 48 ficheros de texto, todos versionados,
+  0 sin seguimiento. El 0 era cierto y no significaba nada
+POR QUÉ SE ESCRIBE
+  es la sexta vez que este proyecto se hace lo mismo (F11). Y esta tiene una
+  forma concreta: un número verde cuyo ÁMBITO no es el que se cree. Un 0 es
+  el resultado más peligroso, porque se lee como "todo bien" y no lleva a
+  preguntar nada
+  aqui se noto porque 0 no cuadraba con los 297 que había pedido git en el
+  mismo momento. Si no se hubiera pedido el segundo número, el 0 se habria
+ aceptado como bueno y el número real no se habría sapido nunca
+REGLA
+  un 0 se tiene que poder distinguir de un "no se ha recorrido nada". Una
+  herramienta que recorta directorios tiene que IMPRIMIR cuántos ha saltado,
+  no solo cuántos ha recorrido. `integro.py` los imprime: "directorios
+  saltados: .git, RESEARCH, ...". Eso es lo que hacia falta mirar
+LO QUE SE HIZO
+  nada con `integro.py`: la herramienta era correcta. El error fue mío al no
+  mirar la cabecera de la salida, que dice exactamente el ámbito que escaneó
+```
+
+## NOTA: el `050` sigue perdido
+
+```
+`06-INGENIERIA-INVERSA/findings/050-la-frontera-ordenada-por-su-via-de-cierre.md`
+  8619 bytes, 8619 NUL, 0 imprimibles, no esta en git, no esta en el sello
+Irrecuperable. Su contenido no existe en ninguna parte de este arbol.
+Los 139 de NR-2026-10-02-i estan en la misma situacion, pero todavia
+tienen contenido: por eso son una amenaza y el 050 es una perdida.
+```

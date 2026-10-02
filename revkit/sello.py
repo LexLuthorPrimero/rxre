@@ -55,6 +55,9 @@ import sys
 
 MANIFIESTO = "../docs/EVIDENCE-MANIFEST.sha256"
 
+# Raiz por defecto, relativa al SCRIPT (ver la nota de --raiz en main).
+RAIZ_POR_DEFECTO = ".."
+
 # Rutas cuyo cambio se espera y no es deriva. Se declaran de forma explicita
 # y se pueden anadir, pero nunca se anaden a ciegas: cada una es una
 # decision, y por eso esta en codigo y no en un parametro.
@@ -127,25 +130,148 @@ def es_evidencia_candidata(ruta_rel):
     return True
 
 
+def custodia(raiz, entradas, silencioso=False, a_todos=False):
+    """Cruza el sello con git y dice, para cada fichero de evidencia,
+    si su corrupcion se DETECTA y si se puede RECUPERAR.
+
+    Son dos preguntas distintas y una no implica la otra:
+
+      DETECTAR   el manifiesto tiene el sha256. Si el fichero cambia, se nota.
+      RECUPERAR  hay una version commiteada. Si se pierde, se vuelve.
+
+    Un fichero sellado y sin commit es el caso peligroso: se detecta que se
+    rompio y no hay de donde volver. Es exactamente como se perdio el 050.
+
+    Por que `ls-tree` y no `ls-files`
+    ---------------------------------
+    `git ls-files` lista el INDICE, que en este proyecto es estado compartido
+    entre sesiones: una sesion stagea y otra commitea. Un fichero stageado sin
+    commitear aparece en `ls-files` y NO es recuperable, porque todavia no
+    existe en ningun commit. Para "recuperable" hay que mirar HEAD, y para eso
+    `ls-tree -r HEAD`.
+    """
+    import subprocess as _sp
+
+    sellados = set(rel for _h, rel in entradas)
+
+    def _git(*args):
+        return _sp.run(("git",) + args, cwd=raiz, capture_output=True,
+                       text=True)
+
+    r = _git("rev-parse", "--git-dir")
+    if r.returncode != 0:
+        if not silencioso:
+            print("CUSTODIA DE LA EVIDENCIA")
+            print("  NOT_APPLICABLE: %s no es un repositorio git" % raiz)
+            print("  No se puede decir nada sobre recuperabilidad.")
+        return 4
+
+    r = _git("ls-tree", "-r", "--name-only", "HEAD")
+    if r.returncode != 0:
+        if not silencioso:
+            print("CUSTODIA DE LA EVIDENCIA")
+            print("  NOT_AVAILABLE: `git ls-tree HEAD` fallo (rc=%d)"
+                  % r.returncode)
+            print("  Puede no haber commits todavia.")
+        return 4
+
+    commiteados = set(l.strip() for l in r.stdout.split("\n") if l.strip())
+
+    # indice menos HEAD = stageado sin commitear. No es recuperable y no es
+    # error: se imprime aparte para que no se confunda con la custodia.
+    r = _git("ls-files")
+    indice = set(l.strip() for l in r.stdout.split("\n") if l.strip())
+    sin_commit = indice - commiteados
+
+    ambos = sellados & commiteados
+    sellado_sin_commit = sellados - commiteados
+    commit_sin_sello = commiteados - sellados
+    ni_uno = set()  # por construccion: todo lo sellado esta en un lado o en otro
+
+    if not silencioso:
+        print("=" * 78)
+        print("CUSTODIA DE LA EVIDENCIA")
+        print("=" * 78)
+        print("El sello DETECTA la corrupcion.  El commit RECUPERA la perdida.")
+        print("Son preguntas distintas, y una no implica la otra.")
+        print()
+        print("  %-46s %d" % ("sellado + commiteado  (detecta y recupera)",
+                              len(ambos)))
+        print("  %-46s %d" % ("sellado SIN commit     (detecta, NO recupera)",
+                              len(sellado_sin_commit)))
+        print("  %-46s %d" % ("commiteado SIN sello  (recupera, no detecta)",
+                              len(commit_sin_sello)))
+        print("  %-46s %d" % ("ni sello ni commit   (ni detecta ni recupera)",
+                              len(ni_uno)))
+        print()
+        print("  stageados sin commitear: %d  (no es error: no hay commit aun)"
+              % len(sin_commit))
+        print()
+
+    if sellado_sin_commit and not silencioso:
+        from collections import Counter as _Ct
+        c = _Ct()
+        for r_ in sorted(sellado_sin_commit):
+            c[r_.split("/")[0] + "/" if "/" in r_ else "(raiz)"] += 1
+        print("SELLADOS SIN COMMIT, por directorio (lo expuesto a perdida):")
+        for k, n in c.most_common():
+            print("  %-46s %d" % (k, n))
+        print()
+        # Y los ficheros uno a uno, porque la accion que esta herramienta
+        # exige es decidir fichero a fichero. Solo dar el recuento por
+        # directorio hace imposible cumplirla. Un control cn8 detecto
+        # esto: el recuento estaba bien pero los nombres no salian.
+        _todos = sorted(sellado_sin_commit)
+        _top = _todos if a_todos else _todos[:40]
+        print("SELLADOS SIN COMMIT, uno a uno (%d de %d%s):"
+              % (len(_top), len(_todos),
+                 "" if a_todos else ", se muestran 40"))
+        for r_ in _top:
+            print("  %s" % r_)
+        if not a_todos and len(_todos) > 40:
+            print("  ... y %d mas (--todos para verlos)"
+                  % (len(_todos) - 40))
+        print()
+        print("  Si uno de estos se corrompe, el sello lo dira y no habra")
+        print("  version de la que volver. El 050 se perdio asi.")
+        print()
+
+    return 1 if sellado_sin_commit else 0
+
+
 def main():
     ap = argparse.ArgumentParser(
         description="verifica el sello de evidencia")
-    ap.add_argument("--raiz", default="..",
-                    help="raiz del proyecto, relativo al script")
+    ap.add_argument("--raiz", default=None,
+                    help="raiz del proyecto; por defecto '..' relativo al "
+                         "script, y si se da valor, relativo al CWD")
     ap.add_argument("--manifiesto", default=None)
     ap.add_argument("--nuevos", action="store_true",
                     help="lista tambien la evidencia sin sellar")
     ap.add_argument("--actualizar", default=None, metavar="FICHERO",
                     help="escribe un manifiesto NUEVO; no toca el anterior")
+    ap.add_argument("--custodia", action="store_true",
+                    help="cruza el sello con git: detecta vs recupera")
+    ap.add_argument("--todos", action="store_true",
+                    help="con --custodia, lista los 139 sin truncar a 40")
     a = ap.parse_args()
 
     aqui = os.path.dirname(os.path.abspath(__file__))
-    # --raiz se resuelve DESDE EL SCRIPT, no desde el directorio de trabajo,
-    # para que la herramienta sea componible y se pueda probar sobre un
-    # arbol de mentira. Con rutas relativas al CWD, probarla sobre otro
-    # arbol era imposible sin copiar el script.
-    raiz = os.path.abspath(a.raiz) if os.path.isabs(a.raiz) else \
-        os.path.abspath(os.path.join(aqui, a.raiz))
+    # SEMANTICA DE --raiz, que estuvo mal dos veces:
+    #   sin flag   -> relativo al SCRIPT, para que `python3 revkit/sello.py`
+    #                funcione desde cualquier directorio, incluida la raiz del
+    #                proyecto, donde el default `..` debe seguir dando la raiz
+    #                del proyecto y no su padre
+    #   con flag   -> relativo al CWD, que es lo que espera cualquiera que
+    #                escribe `--raiz .`. Antes resolvia contra el script en los
+    #                dos casos, con lo que `--raiz .` sobre un arbol de prueba
+    #                apuntaba a revkit/ y fallaba con un error que no tenia
+    #                nada que ver con lo que se estaba probando
+    if a.raiz is None:
+        raiz = os.path.abspath(os.path.join(aqui, RAIZ_POR_DEFECTO))
+    else:
+        raiz = os.path.abspath(a.raiz) if os.path.isabs(a.raiz) else \
+            os.path.abspath(os.path.join(os.getcwd(), a.raiz))
     # El manifiesto se busca en la raiz indicada, y si no esta, en docs/ de
     # esa raiz. Antes se resolvia siempre contra la raiz del script, con lo
     # que --raiz no servia para nada.
@@ -162,6 +288,11 @@ def main():
         return 2
 
     entradas, malformadas = lee_manifiesto(manifiesto)
+    # --custodia es independiente del chequeo de integridad: responde a otra
+    # pregunta y tiene otro codigo de salida. Si comparten rc, un rc=1 seria
+    # ambiguo entre "la evidencia se movio" y "la evidencia no tiene version".
+    if a.custodia:
+        return custodia(raiz, entradas, a_todos=a.todos)
     print("=" * 78)
     print("SELLO DE EVIDENCIA")
     print("=" * 78)

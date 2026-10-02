@@ -210,6 +210,91 @@ def main():
         chk("sello: fichero ROTO da rc=2, no 1", r.returncode == 2,
             "(rc=%d)" % r.returncode)
 
+    # --- custodia: sellado y commiteado son dos preguntas distintas --------
+    #
+    # El caso que importa NO es "el sello cuadra", sino "hay version de este
+    # fichero". El 050 se perdio por tener el sello y no el commit.
+    import subprocess as _sp2
+    with _tf2.TemporaryDirectory() as _td4:
+        _r2 = os.path.join(_td4, "repo")
+        os.makedirs(os.path.join(_r2, "docs"))
+        os.makedirs(os.path.join(_r2, "ev"))
+
+        def _git(*a):
+            return _sp2.run(("git",) + a, cwd=_r2, capture_output=True,
+                             text=True)
+
+        _git("init", "-q", ".")
+        _git("config", "user.email", "cn8@control")
+        _git("config", "user.name", "cn8")
+
+        def _sella(nombres):
+            with open(os.path.join(_r2, "docs", "EVIDENCE-MANIFEST.sha256"),
+                      "w") as _mf:
+                for _n in nombres:
+                    _p = os.path.join(_r2, "ev", _n)
+                    _mf.write("%s  ev/%s\n"
+                              % (_hl.sha256(open(_p, "rb").read())
+                                 .hexdigest(), _n))
+
+        for _n in ("a.md", "b.md"):
+            with open(os.path.join(_r2, "ev", _n), "w") as _h:
+                _h.write("contenido de %s\n" % _n)
+        _sella(("a.md", "b.md"))
+        _git("add", "-A")
+        _git("commit", "-qm", "init")
+
+        _cp = [sys.executable, os.path.join(AQUI, "sello.py"),
+               "--raiz", _r2, "--custodia"]
+        r = subprocess.run(_cp, capture_output=True, text=True)
+        chk("custodia: todo sellado y commiteado da rc=0",
+            r.returncode == 0, "(rc=%d)" % r.returncode)
+
+        # Un fichero sellado que NUNCA se commitea: se detecta la
+        # exposicion. Este es el caso real de los 139.
+        with open(os.path.join(_r2, "ev", "c.md"), "w") as _h:
+            _h.write("nunca commiteado\n")
+        _sella(("a.md", "b.md", "c.md"))
+        r = subprocess.run(_cp, capture_output=True, text=True)
+        chk("custodia: sellado SIN commit da rc=1 y lo nombra",
+            r.returncode == 1 and "ev/c.md" in r.stdout,
+            "(rc=%d, lo nombra=%s)"
+            % (r.returncode, "ev/c.md" in r.stdout))
+
+        # Un fichero commiteado y despues MODIFICADO: sigue siendo
+        # recuperable, porque HEAD tiene la version anterior. El sello lo
+        # dira por separado como MOVIDO. Las dos preguntas no se confunden.
+        with open(os.path.join(_r2, "ev", "a.md"), "w") as _h:
+            _h.write("CAMBIADO\n")
+        _git("add", "ev/a.md")
+        r = subprocess.run(_cp, capture_output=True, text=True)
+        chk("custodia: staged sin commit sigue siendo recuperable "
+            "(tiene version en HEAD)",
+            r.returncode == 1 and "ev/a.md" not in
+            r.stdout.split("SELLADOS SIN COMMIT")[1]
+            if "SELLADOS SIN COMMIT" in r.stdout else r.returncode == 1,
+            "(rc=%d)" % r.returncode)
+        r2 = subprocess.run([sys.executable, os.path.join(AQUI, "sello.py"),
+                             "--raiz", _r2], capture_output=True, text=True)
+        chk("custodia: y el sello lo reporta como MOVIDO aparte",
+            r2.returncode == 1 and "MOVIDO" in r2.stdout,
+            "(rc=%d)" % r2.returncode)
+
+    # Sin repo git: NOT_APPLICABLE, NUNCA 0. Un 0 aqui habria dicho "todo
+    # recuperable" sin haber comprobado nada. Es la clase de error que este
+    # kit lleva cinco veces contando.
+    with _tf2.TemporaryDirectory() as _td5:
+        _r3 = os.path.join(_td5, "sinnogit")
+        os.makedirs(os.path.join(_r3, "docs"))
+        _mf = os.path.join(_r3, "docs", "EVIDENCE-MANIFEST.sha256")
+        open(_mf, "w").write("# sin entradas\n")
+        r = subprocess.run([sys.executable, os.path.join(AQUI, "sello.py"),
+                            "--raiz", _r3, "--custodia"],
+                           capture_output=True, text=True)
+        chk("custodia: sin repo git da rc=4, NO 0",
+            r.returncode == 4 and "NOT_APPLICABLE" in r.stdout,
+            "(rc=%d)" % r.returncode)
+
     print("-" * 66)
     if FALLOS:
         print("%d control(es) FALLAN. Las herramientas implicadas no son"
