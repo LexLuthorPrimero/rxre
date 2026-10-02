@@ -2395,3 +2395,58 @@ original                                                 97 OK, rc=0
 ```
 
 `check.sh` 35 | `cn7` 97 | `cn8` 32 | `selfcheck` 30/30. GPU INTACTA.
+
+---
+
+## 2026-10-02 · opencode · pub.sh, y dos procedure-fallos mios al probarlo
+
+```
+OBJECT   revkit/pub.sh (nuevo) + docs/TOOLS-STATUS.md
+ACTION   NEW TOOL (la puerta de salida) + declaracion de dos fallos propios
+```
+
+**POR QUÉ LA PUERTA.** El orden que yo seguia a mano era suite, anexar,
+`git add`, commit. **El paso 1 corria sobre un arbol que ya no era el que se
+commiteaba.** Paso dos veces en la sesion: un fence sin cerrado y dos bloques con
+la paridad rota entraron en commits con la suite en verde. `cn8` tenia los
+controles que lo habrian cazado y no se ejecutaron despues de anexar. El control
+existia; faltaba que alguien lo ejecutara cuando importa.
+
+**Y LA PUERTA ENCONTRÓ ALGO AL CONSTRUIRSE**: `CN-R12` ("sin CJK ni cirilico")
+estaba en FALLO porque **yo habia metido un caracter CJK en el propio `pub.sh` al
+escribirlo**. En el repositorio hay 35 ficheros con CJK, casi todos de otras
+sesiones; el control mira `revkit`, y el unico culpable nuevo era este.
+
+**Cuatro defectos propios del script**, cazados al usarlo: `cd` antes de resolver
+rutas; comparacion absoluto-contra-relativo; `RAIZ` sin normalizar, con lo que
+todo salia "fuera"; y `grep -c || echo 0` imprimiendo el 0 dos veces.
+
+**VALIDACION DE LA NEGATIVA**, que es lo que importa en una puerta:
+
+```
+fence sin cerrar en un documento     rc=2, no commitea, nada stageado
+caracter CJK en un fichero de revkit rc=2, no commitea
+arbol limpio                         rc=0, commitea
+rutas sin cambios                    rc=4
+mensaje de una linea                 rc=3, sin correr nada
+```
+
+**Y DOS FALLOS DE PROCEDENCIA MIOS AL PROBARLA** (`NR-2026-10-02-w`):
+
+1. **Use la herramienta de produccion como banco de pruebas.** Las pruebas de
+   mutacion acababan con el arbol limpio, asi que la puerta commiteaba de verdad.
+   Dos commits "uno dos tres" entraron en la historia. Uno se deshizo; **el otro
+   no**, porque otra sesion commiteo encima y el `reset --soft` quedo sin efecto.
+   `f4e7493` sigue siendo ancestro de HEAD.
+2. **El codigo esta a salvo y la traza esta mal.** El `pub.sh` de HEAD es
+   **identico** a `f4e7493`, con todas las correcciones. Pero el commit que lleva
+   el codigo tiene el mensaje "uno dos tres", y el commit con el mensaje real
+   lleva solo la documentacion. Se declara en vez de fingir que no ha pasado: no se
+   reescribe historia compartida porque eso tocaria commits de otras sesiones.
+
+**Lo que no se hizo y es lo que debia hacerse**: probar la puerta sobre un clon
+del arbol, como se hizo con el resto de pruebas de mutacion, y nunca contra el
+arbol real.
+
+check.sh rc=0 35 | cn7 rc=0 97 | cn8 rc=0 33 | selfcheck rc=0 30/30
+GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.

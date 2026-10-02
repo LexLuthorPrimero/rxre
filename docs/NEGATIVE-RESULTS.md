@@ -1085,3 +1085,39 @@ LO QUE SE HACE
      sean visibles en vez de romper la paridad en silencio
   3. los dos sentidos estan probados: un fence de linea sin cerrar FALLA, y un
      ``` en prosa NO FALLA
+
+## NR-2026-10-02-w · Usé la herramienta de producción como banco de pruebas, y una prueba commiteó
+
+```
+QUÉ PASÓ
+  al probar `pub.sh` usé `pub.sh` para commitear. Las pruebas de mutación
+  terminaban con un árbol limpio, así que la puerta, que commitea en verde,
+  commiteaba de verdad
+REALIDAD
+  dos commits con el mensaje "uno dos tres" entraron en la historia. Uno fue
+  deshicho con `reset --soft`; el otro NO, porque otra sesión commiteó encima y
+  el reset quedó sin efecto. `f4e7493` sigue siendo ancestro de HEAD
+CLASIFICACIÓN
+  el código no se perdió: el `pub.sh` de HEAD es idéntico a `f4e7493`, con
+  todas las correcciones. Lo que queda mal es la PROCEDENCIA y la traza
+POR QUÉ IMPORTA MÁS QUE EL COMMIT
+  porque una herramienta que muta el árbol y luego lo publica es una
+  herramienta que puede publicar cualquier cosa. `pub.sh` no distingue "árbol
+  que quiero publicar" de "árbol que dejé limpio para probar"
+LO QUE SE DEBERÍA HACER, y no se hizo
+  probar la puerta sobre un CLON del árbol, como se hizo con las otras pruebas de
+  mutación de la sesión, y nunca contra el árbol real
+SEGUNDA LECCIÓN, del mismo incidente
+  `git reset --soft` en un `.git/index` COMPARTIDO no es una operacion
+  atomica desde el punto de vista de la sesion: entre el reset y el commit
+  contrario, otra sesión puede commitear y dejar el reset sin efecto. Por eso
+  `reset --soft` para deshacer un commit propio es de las operaciones mas
+  peligrosas de este arbol, mas que un add equivocado
+TERCERA, y es la que mas se me daba por buena
+ aneecia: el mensaje del commit no es decorativo
+  si el commit real y el que lleva el codigo son distintos, el que lleva el
+  codigo tiene el mensaje equivocado y el otro miente sobre lo que hizo. Con un
+  mensaje unico,`tú` tienes que saber cual es. Con dos, el lector tiene que
+  averiguarlo
+
+```
