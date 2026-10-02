@@ -234,8 +234,14 @@ def main():
     #   2. la direccion del registro en un dword a cero
     # Por eso se deriva del driver y no de una suposicion.
 
+    # Layout de WRITE_DATA segun gfx_v8_0_ring_emit_wreg (gfx_v8_0.c:6349):
+    #     PACKET3(WRITE_DATA, 3) | cmd | reg | 0 | val      -> 5 dwords
+    # Son 5 dwords con 3 payload declarados: el `0` y el `val` quedan fuera.
+    # Y `cmd` es WRITE_DATA_ENGINE_SEL(1) | WR_CONFIRM = 0x40100000: esta
+    # variante NO pone WR_ONE_ADDR. Las dos cosas las salio el contraste con
+    # el anillo real, no la lectura del header.
     def _wreg(reg, val, eng=1):
-        return [pk3(0x37, 3), (1 << 20) | (eng << 30) | (1 << 16), reg, val]
+        return [pk3(0x37, 3), (1 << 20) | (eng << 30), reg, 0, val]
 
     VMID, PD = 7, 0x1_0025_8000
     PTBA = 0x54f + VMID          # mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR + vmid
@@ -244,25 +250,36 @@ def main():
         + [pk3(0x3C, 5), 0, INVAL, 0, 0, 0x20]
     pk, _, pr, _ = P.decodifica(struct.pack("<%dI" % len(vm_flush), *vm_flush),
                                 ops)
-    chk("vm_flush: se decodifica en 3 paquetes, sin problemas",
-        len(pk) == 3 and not pr, "(pk=%d pr=%s)" % (len(pk), pr))
-    chk("vm_flush: los dos primeros son WRITE_DATA",
-        [p["nombre"] for p in pk[:2]] == ["PACKET3_WRITE_DATA"] * 2)
-    if len(pk) >= 3 and all(p["nombre"] == "PACKET3_WRITE_DATA"
-                            for p in pk[:2]):
-        chk("vm_flush: el 1o escribe la PTBA de vmid 7 (0x556) con pd_addr>>12",
-            pk[0]["payload"][1] == PTBA and pk[0]["payload"][2] == (PD >> 12),
-            "(reg=%s val=%s)" % (hex(pk[0]["payload"][1]),
-                                 hex(pk[0]["payload"][2])))
-        chk("vm_flush: el 2o escribe VM_INVALIDATE_REQUEST con 1<<vmid",
-            pk[1]["payload"][1] == INVAL and pk[1]["payload"][2] == (1 << VMID),
-            "(reg=%s val=%s)" % (hex(pk[1]["payload"][1]),
-                                 hex(pk[1]["payload"][2])))
+    # Con el emit_wreg real (5 dwords, count=3) el vm_flush NO decodifica en
+    # 3 paquetes. Cada WRITE_DATA deja su `val` fuera del conteo declarado, y
+    # eso tambien es off-by-one. El orden real es:
+    #   WRITE_DATA(PTBA) | valor | WRITE_DATA(INVALIDATE) | valor | WAIT_REG_MEM
+    chk("vm_flush: 5 paquetes, sin problemas (los 2 valores quedan sueltos)",
+        len(pk) == 5 and not pr, "(pk=%d pr=%s)" % (len(pk), pr))
+    chk("vm_flush: el orden es WD, valor, WD, valor, WAIT_REG_MEM",
+        [p["nombre"].split("(")[0] for p in pk] ==
+        ["PACKET3_WRITE_DATA", "PKT0", "PACKET3_WRITE_DATA", "PKT0",
+         "PACKET3_WAIT_REG_MEM"],
+        "(%s)" % [p["nombre"].split("(")[0] for p in pk])
+    if len(pk) == 5:
+        # payload del WRITE_DATA = [cmd, reg, 0]; el valor va FUERA
+        chk("vm_flush: el 1o WRITE_DATA apunta a la PTBA de vmid 7 (0x556)",
+            pk[0]["payload"][1] == PTBA,
+            "(reg=%s)" % hex(pk[0]["payload"][1]))
+        chk("vm_flush: su valor suelto es pd_addr>>12 = 0x%08x" % (PD >> 12),
+            pk[1]["nombre"].startswith("PKT0") and pk[1]["hdr"] == (PD >> 12),
+            "(suelto=%s)" % hex(pk[1].get("hdr", 0)))
+        chk("vm_flush: el 2o WRITE_DATA apunta a VM_INVALIDATE_REQUEST (0x51e)",
+            pk[2]["payload"][1] == INVAL,
+            "(reg=%s)" % hex(pk[2]["payload"][1]))
+        chk("vm_flush: su valor suelto es 1<<vmid = 0x%02x" % (1 << VMID),
+            pk[3]["nombre"].startswith("PKT0") and pk[3]["hdr"] == (1 << VMID),
+            "(suelto=%s)" % hex(pk[3].get("hdr", 0)))
         chk("vm_flush: el WAIT_REG_MEM tiene control dword CERO",
-            pk[2]["payload"][0] == 0, "(=%s)" % hex(pk[2]["payload"][0]))
+            pk[4]["payload"][0] == 0, "(=%s)" % hex(pk[4]["payload"][0]))
         chk("vm_flush: vigila VM_INVALIDATE_REQUEST con ref=0 mask=0",
-            pk[2]["payload"][1] == INVAL and pk[2]["payload"][2] == 0
-            and pk[2]["payload"][3] == 0)
+            pk[4]["payload"][1] == INVAL and pk[4]["payload"][2] == 0
+            and pk[4]["payload"][3] == 0)
 
     # El caso que hace que esto no sea decorativo: en el driver hay DOS
     # emisores de WAIT_REG_MEM y NO coinciden. Este escribe 6 payload y
@@ -281,8 +298,7 @@ def main():
     if wm2:
         # pm4dec NO mide el off-by-one: `dwords` es la extension DECLARADA
         # (cabecera + count), no la escrita. Lo que delata el dword de mas es
-        # que se sale del paquete y aparece como un dword suelto. Asi que lo
-        # que se mide es el sobrante, no `dwords`.
+        # que se sale del paquete y aparece como un dword suelto.
         chk("hdp_flush: count=5 pero el 0x20 se sale del paquete y queda "
             "como dword suelto (el off-by-one del emisor)",
             wm2[0]["cnt"] == 5 and len(wm2[0]["payload"]) == 5
@@ -290,12 +306,19 @@ def main():
             "(cnt=%s len=%d, sobrantes=%d)"
             % (wm2[0].get("cnt"), len(wm2[0].get("payload", [])),
                sum(1 for p in pk2 if p["nombre"].startswith("PKT0"))))
+        chk("hdp_flush: el WRITE_DATA tambien se pasa en uno (5 dwords, "
+            "count=3)",
+            any(p["nombre"] == "PACKET3_WRITE_DATA" and p["cnt"] == 3
+                and p["dwords"] == 4 for p in pk2),
+            "(los WRITE_DATA: %s)" % [(p.get("cnt"), p.get("dwords"))
+                                      for p in pk2
+                                      if p["nombre"] == "PACKET3_WRITE_DATA"])
     if pk and pk[-1]["nombre"] == "PACKET3_WAIT_REG_MEM":
-        chk("vm_flush: en cambio declara 5, escribe 5 y NO deja sobrante",
+        chk("vm_flush: su WAIT_REG_MEM declara 5 y ocupa 6, SIN sobrante, "
+            "a diferencia de los otros dos emisores",
             pk[-1]["cnt"] == 5 and pk[-1]["dwords"] == 6
-            and len(pk[-1]["payload"]) == 5 and len(pk) == 3,
-            "(cnt=%s dwords=%s paquetes=%d)"
-            % (pk[-1].get("cnt"), pk[-1].get("dwords"), len(pk)))
+            and len(pk[-1]["payload"]) == 5,
+            "(cnt=%s dwords=%s)" % (pk[-1].get("cnt"), pk[-1].get("dwords")))
 
     # Y el discriminante que REFUTA "el hardware lee exactamente count":
     # sobre el anillo real, leer 5 produce menos paquetes validos y cabeceras
@@ -343,6 +366,27 @@ def main():
                 "que se lleva el resto del anillo",
                 (_w[14] >> 30) & 3 == 0 and (_w[14] & 0xFFFF) == 32,
                 "tipo=%d cnt=%d" % ((_w[14] >> 30) & 3, _w[14] & 0xFFFF))
+        # El WRITE_DATA del anillo, que es donde se corrigio mi sintético:
+        # son 5 dwords (hdr, cmd, reg, 0, val) con count=3, y el cmd NO
+        # lleva WR_ONE_ADDR. Las dos cosas se leisieron mal antes.
+        if _n > 26:
+            chk("anillo real: WRITE_DATA en 22..26 = 5 dwords con count=3",
+                ((_w[22] >> 30) & 3) == 3 and ((_w[22] >> 8) & 0xFF) == 0x37
+                and ((_w[22] >> 16) & 0x3FFF) == 3 and _w[25] == 0
+                and _w[24] == 0xBCC,
+                "hdr=%s op=%s cnt=%s d24=%s d25=%s d26=%s" % (
+                    hex(_w[22]), hex((_w[22] >> 8) & 0xFF),
+                    (_w[22] >> 16) & 0x3FFF, hex(_w[24]), hex(_w[25]),
+                    hex(_w[26])))
+            chk("anillo real: cmd = WR_CONFIRM|ENGINE(1) = 0x40100000, "
+                "SIN WR_ONE_ADDR",
+                _w[23] == 0x40100000, "(cmd=%s)" % hex(_w[23]))
+            chk("emit_wreg construye el mismo bloque de 5 dwords",
+                _wreg(0xBCC, _w[26]) == [_w[22], _w[23], _w[24], _w[25],
+                                          _w[26]],
+                "(sintetico=%s vs real=%s)"
+                % ([hex(x) for x in _wreg(0xBCC, _w[26])],
+                   [hex(_w[i]) for i in range(22, 27)]))
     else:
         print("  OMIT  sin capturas/amdgpu_ring_gfx.txt no se prueba el "
               "off-by-one sobre el anillo real")

@@ -2346,6 +2346,64 @@ defecto. Los tres son compatibles con lo observado.
 `LAST_VERIFIED: 2026-10-02 - revkit/cn7.py, bytes crudos de
 capturas/amdgpu_ring_gfx.txt dwords 8..14`.
 
+## EV-28 · El off-by-one es en 5 de 6 emisores, y `vm_flush` es el exacto
+
+```
+TYPE    MEASUREMENT
+STATE   PROVEN (recuento) · NOT_DETERMINED (qué lee el hardware)
+```
+
+Contando las llamadas reales a `amdgpu_ring_write` de cada emisor de GFX8, no
+suponiendo:
+
+| emisor | payload escritos | `count` | diferencia |
+|---|---|---|---|
+| `gfx_v8_0_emit_hdp_flush` (:6046) | 6 | 5 | **+1** |
+| `gfx_v8_0_ring_emit_pipeline_sync` (:6174) | 6 | 5 | **+1** |
+| `gfx_v8_0_ring_emit_vm_flush` (:6199) | **5** | 5 | **0** |
+| `gfx_v8_0_ring_emit_wreg` (:6349) | 4 | 3 | **+1** |
+| `COND_EXEC` | 4 | 3 | **+1** |
+| `INDIRECT_BUFFER` | 3 | 2 | **+1** |
+
+`vm_flush` es **el único exacto**. Y no es una casualidad de mi lectura: es el
+único cuyo `WAIT_REG_MEM` va seguido de inmediato de una cabecera de paquete
+válida, `PACKET3(PACKET3_PFP_SYNC_ME, 0)` (gfx_v8_0.c:6212), porque
+`usepfp` es cierto en el anillo GFX. Ese es el anillo que describen
+`ring_funcs` en :6901 y :6938, o sea ruta de producción: `emit_vm_flush`
+está en la tabla real, no en un test.
+
+**El nudo, y por qué sigue abierto:**
+
+- Si el hardware leyera `count + 1` payload, `vm_flush` **se comería la
+  cabecera del `PFP_SYNC_ME`**, y la ruta de invalidate de TLB dejaría de
+  funcionar. Es código en producción sobre silicio real, así que eso no pasa.
+- Si el hardware leyera exactamente `count`, entonces los **cinco** emisores
+  con `+1` dejan un dword suelto detrás de cada paquete, y ese dword hay que
+  tratarlo como no-op.
+
+Las dos lecturas son compatibles con el anillo capturado, porque en todos los
+casos el dword sobrante va seguido de una cabecera válida: si es no-op, se
+salta y sigue; si se consume como payload, también sigue.
+
+**Corroboración de AMD, con una reserva.** En `.emit_frame_size`
+(gfx_v8_0.c:6924-6935) AMD cuenta `7 +` para `hdp_flush` y `7 +` para
+`pipeline_sync`: header + 6 payload, o sea **la extensión completa escrita,
+incluyendo el poll interval**. Es la señal más fuerte de que el dword extra es
+parte del paquete a efectos del hardware.
+
+La reserva es que `emit_frame_size` es una **reserva de espacio para el
+ring**, no una afirmación sobre cómo parsea el hardware. Que se reserve de más
+es seguro; no implica semántica. Por eso queda `CORROBORATED`, no `PROVEN`.
+
+**Lo que sí decide el asunto**, y está especificado en F12b: un anillo donde el
+dword sobrante de un `WAIT_REG_MEM` sea un número grande en vez de `0x20` o
+`4`. Bajo "no-op de 1 dword" se salta; bajo "`count+1`" se consume como payload
+y el paquete siguiente se descoloca. Esta captura no lo discrimina porque los
+valores que aparecen son `0x20` y `4`, y ambos son menores que 2.
+
+`LAST_VERIFIED: 2026-10-02 - gfx_v8_0.c:6046, 6174, 6199, 6212, 6349, 6924-6935,
+bytes crudos del anillo, cn7`.
+
 ## EV-18 · El anillo GFX tiene 2048 dwords y estaba vacío
 
 ```
@@ -2483,9 +2541,40 @@ TYPE    OBSERVATION
 STATE   PROVEN
 ```
 
-Ocho `PACKET3_WRITE_DATA`, todos con `dst_sel = 0`, que según `sid.h:379`
-significa **registro**, no memoria; `WR_CONFIRM = 1`, `engine = 1` (PFP) y
-dirección `0xBCC`.
+Ocho `PACKET3_WRITE_DATA`, todos con `dst_sel = 0` (según `sid.h:379`,
+**registro**, no memoria), `WR_CONFIRM = 1`, `engine = 1` (PFP) y dirección
+`0xBCC`.
+
+**CORRECCIÓN 2026-10-02: esta fila estaba mal en el recuento.** El emisor
+`gfx_v8_0_ring_emit_wreg` (gfx_v8_0.c:6349-6372) escribe **cinco** dwords, no
+cuatro:
+
+```c
+amdgpu_ring_write(ring, PACKET3(PACKET3_WRITE_DATA, 3));
+amdgpu_ring_write(ring, cmd);
+amdgpu_ring_write(ring, reg);
+amdgpu_ring_write(ring, 0);          /* <- este dword no estaba en mi lectura */
+amdgpu_ring_write(ring, val);
+```
+
+Es **header + 4 payload con `count = 3`**, o sea el mismo patrón de "uno más
+de lo que declara". Confirmado con los bytes crudos del anillo (dwords
+22..26):
+
+| dword | valor | |
+|---|---|---|
+| 22 | `0xc0033700` | header `WRITE_DATA`, `count = 3` |
+| 23 | `0x40100000` | `WR_CONFIRM \| ENGINE_SEL(1)` |
+| 24 | `0x00000bcc` | `mmHDP_DEBUG0` |
+| 25 | `0x00000000` | el cero del driver, fuera del conteo |
+| 26 | `0x00000001` | el valor, también fuera del conteo |
+
+Y un segundo error en la misma fila: **`cmd` es `0x40100000`, no
+`0x40110000`.** Esta variante de GFX8 **no** pone `WR_ONE_ADDR`
+(`1 << 16`). Sevio al comparar con el anillo real, no al leer el header.
+
+Lo que **sigue en pie**: `dst_sel = 0` significa registro, y `0xBCC` es
+`mmHDP_DEBUG0`.
 
 `0xBCC = mmHDP_DEBUG0`, resuelto por coherencia entre generaciones del
 bloque OSS: `oss_1_0`, `oss_2_0`, `oss_2_4`, `oss_3_0`, `oss_3_0_1` lo
