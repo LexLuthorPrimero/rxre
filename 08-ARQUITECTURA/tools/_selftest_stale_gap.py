@@ -468,6 +468,55 @@ def selftest():
           f"  {'OK' if ok else 'FALLA <<<'}")
     fallos += 0 if ok else 1
 
+    # 10n. EL ENUNCIADO SEPARADO DEL COMENTARIO.
+    #
+    #     El caso real, y es la clase de error mas sutil que ha tenido esta
+    #     herramienta: no un fallo de patron, sino de ALCANCE.
+    #
+    #       017:146  "| Si `VM_INVALIDATE_RESPONSE` puede dar completion
+    #                  observable por dominio | `NOT_DETERMINED` | El hardware
+    #                  lo publica y el driver lo ignora. Nadie lo ha leido
+    #                  observando el valor. RUNTIME. |"
+    #
+    #     La PREGUNTA es "puede dar completion": SEMANTICA. Pero la celda
+    #     tercera dice "el driver lo ignora" (USO) y "el valor" (VALOR), y con
+    #     USO comprobado primero, la fila era USO.
+    #
+    #     Contra su propia respuesta: 072:117 dice "el driver lo lee 0 veces",
+    #     que es USO. Las dos USO, la herramienta daba por CERRADA una frontera
+    #     que sigue abierta.
+    #
+    #     Y lo importante: cambiar el orden de los patrones NO lo arregla. En
+    #     una tabla el enunciado va antes y el comentario despues, asi que
+    #     cualquier orden fijo deja ganar a una de las dos celdas. Lo que hay
+    #     que hacer es NO MEZCLARLAS: el slot se calcula sobre el enunciado.
+    doc("t10n-com.md",
+        "| Si `mmX_COM` puede dar completion observable | `NOT_DETERMINED` | "
+        "El driver lo ignora. Nadie lo ha leido observando el valor. |")
+    doc("t10n-resp.md", "| El driver lo lee **0 veces** | `PROVEN_ABSENT` |")
+    fr10n, _ = _clasificar_en(tmp)
+    r10n = [f["clase"] for f in fr10n if f["sujeto"] == "mmX_COM"]
+    # Lo que se mide es que NO se cierre. Con enunciado y respuesta en slots
+    # distintos, el veredicto es False y la frontera queda VIVA: la respuesta
+    # ni siquiera es candidata. Y esa es la clase mas fuerte de las que
+    # significan "no hagas nada con esto".
+    #
+    # La primera version de este control esperaba RESUELTA_SIN_VERIFICAR, y
+    # fallo por una razon util: confundi "no verificable" con "verificada
+    # como distinta". Un control que espera lo mas debil cuando lo que sale es
+    # lo mas fuerte hace que se relaje el criterio para que pase.
+    ok = r10n == ["VIVA"]
+    print(f"  {'enunciado':12} el comentario no vota el slot      "
+          f"{r10n if r10n else '(nada)'}  {'OK' if ok else 'FALLA <<<'}")
+    fallos += 0 if ok else 1
+
+    # 10n-2. y una fila SIN tabla sigue usando todo el texto, porque no hay
+    #        commentary que separar.
+    ok = S._slot("el driver usa `mmY` y eso es `NOT_DETERMINED`") == "USO"
+    print(f"  {'sin tabla':12} todo el texto cuenta como enunciado "
+          f"{'OK' if ok else 'FALLA <<<'}")
+    fallos += 0 if ok else 1
+
     # 10j-2. dos preguntas DE SEMANTICA si se cruzan, aunque una mencione "bits".
     #
     #     Este es el caso que el filtro por palabras SUELTAS descartaba:
@@ -544,7 +593,7 @@ def selftest():
     if fallos:
         print(f"  RESULTADO: TOOL_BROKEN -- {fallos} controles fallan")
         return 1
-    print(f"  RESULTADO: TOOL_VALIDATED -- {len(casos) + 15} controles pasan.")
+    print(f"  RESULTADO: TOOL_VALIDATED -- {len(casos) + 17} controles pasan.")
     print()
     print("  Los controles que evitan relaciones FALSAS, del mas grave al")
     print("  menos:")

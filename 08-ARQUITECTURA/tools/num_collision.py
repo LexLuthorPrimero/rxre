@@ -161,85 +161,24 @@ def refs_ambiguas(por_num):
 
 
 def self_test():
-    print("=" * 74)
-    print("SELF-TEST de num_collision: control negativo")
-    print("=" * 74)
-    fallos = 0
-    tmp = "/tmp/opencode/nc_selftest"
-    os.makedirs(tmp, exist_ok=True)
-    for f in os.listdir(tmp):
-        os.remove(os.path.join(tmp, f))
+    """Delega en su propio fichero. Ver `_selftest_num_collision.py`.
 
-    def doc(n, texto):
-        with open(os.path.join(tmp, n), "w") as fh:
-            fh.write(texto)
+    POR QUE NO ESTA AQUI. Esta herramienta declara `READONLY=yes`, y es cierto
+    para el modo que produce evidencia: sin argumentos, solo lee. El self-test
+    necesita escribir, y mientras vivia aqui el validador de contratos leia el
+    codigo, encontraba las escrituras y tenia razon en que el contrato mentia.
 
-    # (a) caso limpio: numeros unicos -> 0 colisiones
-    doc("001-a.md", "sin referencias\n")
-    doc("002-b.md", "sin referencias\n")
-    old = FIND
-    import builtins
-    try:
-        # se prueban las funciones puras con datos inyectados
-        p1 = {"001": ["001-a.md"], "002": ["002-b.md"]}
-        col = [k for k, v in p1.items() if len(v) > 1]
-        ok = not col
-        print(f"  {'numeros unicos':22} 0 colisiones            "
-              f"{'OK' if ok else 'FALLA <<<'}")
-        fallos += 0 if ok else 1
+    Hay tres salidas y solo una es buena:
 
-        # (b) dos documentos con el mismo numero -> colision
-        p2 = {"033": ["033-a.md", "033-b.md", "033-c.md"]}
-        col2 = [k for k, v in p2.items() if len(v) > 1]
-        ok = col2 == ["033"]
-        print(f"  {'numero triplicado':22} colision detectada     "
-              f"{'OK' if ok else 'FALLA <<<'}")
-        fallos += 0 if ok else 1
-
-        # (c) la cuenta de documentos por numero
-        ok = len(p2["033"]) == 3
-        print(f"  {'cuenta correcta':22} 3 documentos en 033     "
-              f"{'OK' if ok else 'FALLA <<<'}")
-        fallos += 0 if ok else 1
-
-        # (d) hash: dos ficheros con el MISMO numero y el MISMO contenido
-        #     serian el mismo documento duplicado. Con contenido distinto, no.
-        doc("033-x.md", "contenido uno\n")
-        doc("033-y.md", "contenido dos\n")
-        hx = hashlib.sha256(open(os.path.join(tmp, "033-x.md"), "rb").read())
-        hy = hashlib.sha256(open(os.path.join(tmp, "033-y.md"), "rb").read())
-        ok = hx.hexdigest() != hy.hexdigest()
-        print(f"  {'hash distingue':22} mismo numero, distinto hash "
-              f"{'OK' if ok else 'FALLA <<<'}")
-        fallos += 0 if ok else 1
-
-        # (e) y el patron de nombre no acepta basura
-        ok = _NOMBRE.match("no-es-un-numero.md") is None
-        ok = ok and _NOMBRE.match("047-cosa.md").groups() == ("047", "cosa")
-        print(f"  {'patron de nombre':22} rechaza lo que no es        "
-              f"{'OK' if ok else 'FALLA <<<'}")
-        fallos += 0 if ok else 1
-
-        # (f) una cita `033:397` NO cuenta como referencia inequivoca, pero
-        #     `033-pm4-...md:397` si cuenta como fichero concreto
-        ok = _CITA.search("ver 033:397") is not None
-        ok = ok and _CITA.search("ver d033-abc.md:397") is None
-        print(f"  {'cita de numero':22} '033:397' si, 'd033-x.md:397' no "
-              f"{'OK' if ok else 'FALLA <<<'}")
-        fallos += 0 if ok else 1
-    finally:
-        import shutil
-        shutil.rmtree(tmp, ignore_errors=True)
-
-    print()
-    if fallos:
-        print(f"  RESULTADO: TOOL_BROKEN -- {fallos} controles fallan")
-        return 1
-    print("  RESULTADO: TOOL_VALIDATED -- 6 controles pasan.")
-    print("    NOTA: los controles usan datos inyectados, no el corpus real.")
-    print("    Eso es correcto para una funcion pura: el resultado sobre el")
-    print("    corpus lo da el modo normal, y es un DATO, no un control.")
-    return 0
+      1. `WRITES_FILES=yes` aqui. El contrato pasaria a ser cierto pero mas
+         debil: afirmaria que la herramienta puede escribir cuando en el uso
+         real casi nunca puede.
+      2. Degradar el self-test a memoria. Se pierde lo unico que lo hace util.
+      3. Moverlo a su propio fichero. Es la correcta, y ya se hizo en
+         `stale_gap`.
+    """
+    import _selftest_num_collision as T
+    return T.self_test()
 
 
 def main():

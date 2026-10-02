@@ -985,16 +985,45 @@ _VERBO_VALOR = re.compile(
 def _slot(texto):
     """La clase de pregunta. 'DESCONOCIDO' si no se reconoce el verbo.
 
-    EL ORDEN IMPORTA, y no es arbitrario: los patrones van de mas especifico a
-    mas general. "el driver" antes que "usa" evita que "el driver usa este
-    registro" se lea como un simple "usa", y "significa" antes que "valor"
-    evita que "que significa su valor" se lea como una pregunta de valor.
+    EL ORDEN IMPORTA, Y NO ES ARBITRARIO: lo que decide es que un verbo de
+    PREGUNTA gane a un verbo de MENCION.
+
+    El caso real que lo fija, de 017:146:
+
+        | Si `VM_INVALIDATE_RESPONSE` puede dar completion observable por
+          dominio | `NOT_DETERMINED` | El hardware lo publica y el driver lo
+          ignora. Nadie lo ha leido observando el valor. RUNTIME. |
+
+    La PREGUNTA es "puede dar completion": SEMANTICA. Pero la celda tercera
+    menciona "el driver lo ignora" (USO) y "el valor" (VALOR), y con USO en
+    primero, la fila se clasificaba como USO. Contra su propia respuesta
+    --072:117 dice "el driver lo lee 0 veces", que es USO-- y la herramienta
+    daba por cerrada una frontera abierta.
+
+    Y el ERROR NO ERA EL ORDEN, ERA LA REGLA. Cualquier orden fijo falla: en
+    una tabla la celda del enunciado va antes y las de commentary van despues,
+    asi que un orden que pone "USO" antes simplemente porque es mas comun gana
+    siempre.
+
+    LA REGLA: se separa el ENUNCIADO del COMENTARIO. El enunciado es lo que
+    hay ANTES del primer estado de cierre o de apertura de la linea; el
+    comentario, lo que viene despues. El slot se calcula solo sobre el
+    enunciado.
+
+        enunciado  "Si `X` puede dar completion observable por dominio"
+        comentario  "El hardware lo publica y el driver lo ignora. Nadie lo ha
+                     leido observando el valor."
+
+    Asi el orden deja de importar para este caso, porque el comentario ya no
+    participa. Y en una celda sin tabla, todo es enunciado, que es lo
+    correcto: no hay comentario que separar.
     """
+    enunciado = texto.split("|")[1] if texto.count("|") >= 3 else texto
     for pat, nombre in ((_VERBO_Uso, "USO"),
                         (_VERBO_SEMANTICA, "SEMANTICA"),
                         (_VERBO_VALOR, "VALOR"),
                         (_VERBO_EXISTE, "EXISTENCIA")):
-        if pat.search(texto):
+        if pat.search(enunciado):
             return nombre
     return "DESCONOCIDO"
 

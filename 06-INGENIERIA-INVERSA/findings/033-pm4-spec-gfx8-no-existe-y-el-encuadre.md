@@ -394,8 +394,9 @@ construccion es lo que importa, y ya se tiene.
 | `pkt_is_type3` exige opcode `< 0x80` | `PROVEN` |
 | Esa asercion vale para GFX8 | **`REFUTED`** — 12/74 opcodes ≥ `0x80`, uno vivo |
 | `COND_EXEC` campos nombrados | sigue `NOT_DETERMINED` |
-| `RELEASE_MEM` dword extra GFX9 | sigue `NOT_DETERMINED` |
-| `VM_INVALIDATE_RESPONSE`, `INT_SEL=2` | sigue `NOT_DETERMINED` |
+| `RELEASE_MEM` dword extra GFX9 | `PROVEN` en `029:239` — GFX8 tiene 6 payload (`gfx_v8_0.c:6239` emite `F=5`), GFX9 tiene 7. El dword extra de GFX9 es el que no existe en GFX8 |
+| `VM_INVALIDATE_RESPONSE` | `= 0x51f`, igual en GMC 8.1 y 8.2: `PROVEN` en `072:116` |
+| `INT_SEL = 2` | sigue `NOT_DETERMINED` — el campo existe en GFX8 (`CP_EOP_DONE_DATA_CNTL`, bits `[26:24]`), pero no aparece como valor de ejemplo ni con comentario en ninguna cabecera (`072:107`) |
 
 ## 6 · Confounders
 
