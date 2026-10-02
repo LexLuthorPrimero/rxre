@@ -181,8 +181,19 @@ def pointers(d):
     """
     Saca los tres punteros de la cabecera de 12 bytes.
 
-    NO son parte del flujo PM4. Son valores de estado del hardware: los dos
-    primeros los lee el driver de registros MMIO en el momento del volcado.
+    NO son parte del flujo PM4.
+
+    Y NO son lectura directa de hardware, cosa que una version anterior de
+    este docstring afirmaba. Lo que son:
+
+      RING_RPTR -> *ring->rptr_cpu_addr        espejo en CPU
+      RING_WPTR -> *ring->wptr_cpu_addr        espejo
+                  RREG32(mmCP_RB0_WPTR)        solo si use_doorbell es falso
+      sw wptr   -> ring->wptr                  variable del driver
+
+    Es decir, estado del driver espejado en memoria de CPU. Que coincidan
+    entre si demuestra que el driver los mantiene sincronizados, no lo que
+    este haciendo el hardware.
     """
     if len(d) < CABECERA:
         return None
@@ -384,22 +395,48 @@ def main():
 
     if pts:
         anillo_dw = (len(d) - CABECERA) // 4
-        print("ESTADO DEL ANILLO (leido de registros MMIO, no del buffer):")
-        print("  RING_RPTR   = 0x%04x (%d)" % (pts["rptr"], pts["rptr"]))
-        print("  RING_WPTR   = 0x%04x (%d)" % (pts["wptr"], pts["wptr"]))
-        print("  sw wptr     = 0x%04x (%d)" % (pts["sw_wptr"], pts["sw_wptr"]))
+        # CORRECCION IMPORTANTE sobre lo que esto demuestra.
+        #
+        # Una version anterior de este texto decia "leido de registros
+        # MMIO". Es FALSO, y era una lectura muy attractiva de hacer:
+        #
+        #   RING_RPTR -> *ring->rptr_cpu_addr  (gfx_v8_0.c:6008)  espejo en CPU
+        #   RING_WPTR -> *ring->wptr_cpu_addr si ring->use_doorbell,
+        #                si no RREG32(mmCP_RB0_WPTR)   (gfx_v8_0.c:6019)
+        #   sw wptr   -> ring->wptr, variable del driver
+        #
+        # O sea: los tres son estado del driver espejado en CPU. Solo
+        # RING_WPTR llega a ser MMIO, y unicamente si use_doorbell es falso.
+        #
+        # Por tanto "rptr == wptr" NO es una lectura del hardware: es
+        # coherencia interna del driver. Si el hardware estuviera retrasado,
+        # este volcado no lo detectaria. Decirlo asi evita convertir un
+        # espejo en una observacion de hardware, que es la confusion que
+        # este proyecto corrige una y otra vez.
+        print("ESTADO DEL ANILLO (punteros del driver, NO lectura directa")
+        print("de hardware; ver la nota de abajo):")
+        print("  RING_RPTR   = 0x%04x (%d)  [espejo rptr_cpu_addr]"
+              % (pts["rptr"], pts["rptr"]))
+        print("  RING_WPTR   = 0x%04x (%d)  [espejo, salvo sin doorbell]"
+              % (pts["wptr"], pts["wptr"]))
+        print("  sw wptr     = 0x%04x (%d)  [variable del driver]"
+              % (pts["sw_wptr"], pts["sw_wptr"]))
         print("  anillo      : %d dwords (%d bytes), mask=0x%04x"
               % (anillo_dw, anillo_dw * 4, anillo_dw - 1))
+        print()
+        print("  NOTA: RREG32(mmCP_RB0_WPTR) solo ocurre si use_doorbell es")
+        print("  falso (gfx_v8_0.c:6011-6019). Con doorbell, tambien es un")
+        print("  espejo. El tamano del anillo SI es dato del ASIC; los")
+        print("  punteros son estado del driver.")
         vacio = pts["rptr"] == pts["wptr"]
         print("  rptr==wptr  : %s -> %s"
-              % (vacio, "ANILLO VACIO, la GPU consumio todo lo escrito"
+              % (vacio, "sin nada pendiente segun el driver (NO prueba que "
+                        "el hardware lo haya consumido)"
                  if vacio else "hay comandos SIN CONSUMIR entre rptr y wptr"))
         if vacio:
             print()
-            print("  AVISO: con el anillo vacio, lo que se decodifica abajo es")
-            print("  RESIDUO de comandos ya ejecutados, no trafico en vuelo.")
-            print("  Es informacion forense real, pero no describe lo que la")
-            print("  GPU esta haciendo ahora.")
+            print("  AVISO: lo que se decodifica abajo es RESIDUO de comandos")
+            print("  ya ejecutados, no trafico en vuelo.")
         print()
 
     if problemas:

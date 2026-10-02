@@ -131,14 +131,34 @@ sw wptr    = 0x0200 (512)
 anillo     = 2048 dwords (8192 bytes), mask=0x07ff
 ```
 
-Tres punteros distintos (dos de hardware, uno de software) coinciden
-exactamente. **PROVEN** por redundancia: no es un valor que dependa de una
-sola lectura.
+### Que es lectura de hardware y que no
 
-`rptr == wptr` significa **anillo vacio**: la GPU consumio todo lo que el
-driver escribio. Lo que queda en el buffer es residuo de comandos ya
-ejecutados, no trafico en vuelo. Se dice explicitamente para que nadie lea
-esto como lo que la GPU esta haciendo ahora.
+Esto importa mas que los valores, asi que se separa:
+
+| puntero | origen | naturaleza |
+|---|---|---|
+| `RING_RPTR` | `*ring->rptr_cpu_addr` (gfx_v8_0.c:6008) | espejo en CPU |
+| `RING_WPTR` | `*ring->wptr_cpu_addr` si hay doorbell, si no `RREG32(mmCP_RB0_WPTR)` (gfx_v8_0.c:6019) | **MMIO, condicional** |
+| `sw wptr` | `ring->wptr` | variable del driver |
+
+O sea: **los tres NO son lectura directa de hardware**. `RING_RPTR` es una
+copia en CPU, y `RING_WPTR` solo llega a ser `RREG32(mmCP_RB0_WPTR)` si
+`ring->use_doorbell` es falso. Con doorbell activo, tambien es un espejo.
+
+La lectura corregida: los tres punteros son **estado del driver, espejado en
+CPU**, no el estado del hardware leido en ese momento. Coinciden porque el
+driver los mantiene sincronizados, que es justo lo que se comprobaria.
+
+Esto **no** es una observacion de hardware de CP_RB_RPTR ni de CP_RB_WPTR.
+Marcarlo como tal habria sido el error facil: "el anillo esta vacio" suena a
+lectura de hardware y en realidad es coherencia interna del driver.
+
+Lo que SI es dato de hardware, y por otro camino: el **tamano** del anillo,
+2048 dwords con mask 0x07FF, que viene de la configuracion del ASIC.
+
+`rptr == wptr` significa que, segun el driver, no queda nada pendiente de
+ejecutar. Si el hardware estuviera por detrás, esta lectura no lo
+detectaria: es un punto ciego conocido.
 
 ### Estructura del residuo
 
@@ -348,3 +368,18 @@ Se anotan porque el patron se repite y conviene reconocerlo.
    empezaba a leer en el dword 3 y contaba 2 paquetes donde habia 5. El
    fallo se parecia a un bug del NOP, justo donde se acababa de tocar
    codigo. Ahora la funcion no adivina y quien sabe el contexto lo dice.
+
+10. **Convertir un espejo en una lectura de hardware.** `pm4dec.py`
+    imprimia "ESTADO DEL ANILLO (leido de registros MMIO, no del buffer)"
+    y `HALLAZGOS` decia "dos de hardware". Es falso: `RING_RPTR` viene de
+    `*ring->rptr_cpu_addr` y `RING_WPTR` de `*ring->wptr_cpu_addr`
+    salvo que `use_doorbell` sea falso, caso en el que si es
+    `RREG32(mmCP_RB0_WPTR)` (gfx_v8_0.c:6008, 6011-6019).
+
+    Los tres son estado del driver espejado en CPU. Que coincidan demuestra
+    que el driver los sincroniza, no que el hardware haya consumido. El
+    error era especialmente tentador porque "el anillo esta vacio" suena a
+    observacion, y porque una lectura de CP_RB_RPTR habria cerrado de
+    verdad algo que aqui no se cierra.
+
+    Lo que SI es dato del ASIC es el tamano: 2048 dwords, mask 0x07FF.
