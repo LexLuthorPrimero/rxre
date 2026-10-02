@@ -244,6 +244,13 @@ def main():
          ["fw_ipver.py", "--placa", "polaris12"], 19, 3),
         ("fw_ipver: control negativo",
          ["fw_ipver.py", "--self-test"], 1, 1),
+        # Que rama toma CADA comparacion de GC_HWIP con el valor 0. Es la
+        # auditoria completa que 182 dejo a medias: 94 sitios con veredicto
+        # mecanico, no una muestra de tres leidos a mano.
+        ("GC_HWIP con valor 0: rama por sitio",
+         ["ipver_zero.py", "--resumen"], 6, 0),
+        ("ipver_zero: control negativo",
+         ["ipver_zero.py", "--self-test"], 1, 1),
         # La reserva de numeros de hallazgo. num_collision mide 37 duplicados
         # y esta sesion choco 3 veces (111, 119, 120) con otra escribiendo.
         # El self-test RESERVA y LIBERA de verdad: comprobar que el numero no
