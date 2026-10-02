@@ -199,6 +199,15 @@ if [ -f capturas/amdgpu_vbios.txt ]; then
     # avisa si no interpreta todas las lineas, si hay mas de un IB en uso por
     # pool, o si un rango no cuadra con su size. rc=1 si algo falla.
     run "ibpools: pools de IB del driver"            python3 ibpools.py
+    # huerfanos mide la COBERTURA del corpus: cuantos simbolos usa el driver
+    # sin definicion local. Sale con rc=1 a proposito, porque un corpus
+    # incompleto es un dato, no un error de la herramienta, y check.sh lo
+    # trata como FALLO para que se vea en el resumen. El valor 1 esta
+    # documentado en la propia salida.
+    huerf_out=$(python3 huerfanos.py 2>&1); huerf_rc=$?
+    printf '  %-46s %s\n' "huerfanos: cobertura del corpus" \
+        "rc=$huerf_rc (1 = corpus incompleto, es lo esperado)"
+    echo "$huerf_out" | grep -E "^SIN DEFINICION" | sed 's/^/       /'
 else
     echo "  atomrom: VBIOS real ausente (no versionado)     OMITIDO, el"
     echo "           autotest con ROM sintetico ya valida el"

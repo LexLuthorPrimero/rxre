@@ -141,6 +141,31 @@ def main():
         finally:
             os.rename(guard, fichero)
 
+    # huerfanos: cobertura del corpus. El caso negativo importa: si la
+    # herramienta diese "completo" al recibir una raiz que no existe, un
+    # corpus no recorrido pareceria un corpus sin huecos.
+    try:
+        import importlib.util as _il
+        _s = _il.spec_from_file_location("huerfanos",
+                                         os.path.join(AQUI, "huerfanos.py"))
+        H = _il.module_from_spec(_s)
+        _s.loader.exec_module(H)
+        _def, _usa, _lei = H._recorre(H.CORPUSES)
+        chk("huerfanos recorre el corpus", _lei > 500, "(leidos=%d)" % _lei)
+        chk("huerfanos encuentra usos", len(_usa) > 1000,
+            "(usos=%d)" % len(_usa))
+        # amdgpu_bo_reserve tiene que estar SIN definicion local, porque
+        # amdgpu_bo.c NO esta en el corpus. Es el caso que demuestra que el
+        # numero mide incompletitud del corpus y no bugs del driver.
+        chk("huerfanos: amdgpu_bo_reserve sin definicion (su .c falta)",
+            "amdgpu_bo_reserve" in _usa and "amdgpu_bo_reserve" not in _def)
+        chk("huerfanos: amdgpu_ring_patch_cond_exec sin definicion",
+            "amdgpu_ring_patch_cond_exec" in _usa
+            and "amdgpu_ring_patch_cond_exec" not in _def)
+    except Exception as e:
+        print("  FALLA huerfanos no se pudo cargar: %s" % e)
+        FALLOS.append("huerfanos")
+
     print("-" * 66)
     if FALLOS:
         print("%d control(es) FALLAN. atomrom NO es autoridad hasta"
