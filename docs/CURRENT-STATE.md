@@ -715,3 +715,52 @@ aunque no se ejecute nunca. Por eso **esta cifra es 4, no 7**: ver la correccion
 en `NEGATIVE-RESULTS.md`.
 
 `GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.`
+
+## Ronda 2026-10-02 (tarde 10) · los 145 puntos de entrada del driver en esta placa
+
+El driver entra al hardware casi todo por **puntero a funcion**. Ese camino es
+invisible para cualquier indice de llamadas por nombre, y es el que un driver
+propio tiene que implementar primero.
+
+**LOS DIEZ BLOQUES, SUS DIEZ TABLAS, Y NINGUNA SE LLAMA COMO SU BLOQUE**
+
+```
+bloque               tabla                        funciones  definida en
+vi_common_ip_block   vi_common_ip_funcs                 11   amdgpu/vi.c
+gmc_v8_1_ip_block    gmc_v8_0_ip_funcs                 17   amdgpu/gmc_v8_0.c
+tonga_ih_ip_block    tonga_ih_ip_funcs                 15   amdgpu/tonga_ih.c
+gfx_v8_0_ip_block    gfx_v8_0_ip_funcs                 19   amdgpu/gfx_v8_0.c
+sdma_v3_1_ip_block   sdma_v3_1_ip_funcs                 19   amdgpu/sdma_v3_0.c
+pp_smu_ip_block      pp_ip_funcs                       12   pm/powerplay/amd_powerplay.c
+amdgpu_vkms_ip_block amdgpu_vkms_ip_funcs                9   amdgpu/amdgpu_vkms.c
+uvd_v6_3_ip_block    uvd_v6_3_ip_funcs                 15   amdgpu/uvd_v6_0.c
+vce_v3_4_ip_block    vce_v3_4_ip_funcs                 18   amdgpu/vce_v3_0.c
+dm_ip_block          amdgpu_dm_funcs                   10   display/amdgpu_dm/amdgpu_dm.c
+                                                        ---   145 en total
+```
+**TRES IDENTIDADES DISTINTAS, Y LAS TRES SE ROMPEN EN ESTA PLACA.**
+
+1. **El bloque no es la tabla.** `gfx_v8_0_ip_block` y `gfx_v8_1_ip_block`
+   comparten `.funcs = &gfx_v8_0_ip_funcs`. `gmc_v8_1_ip_block` usa
+   `gmc_v8_0_ip_funcs`. `dm_ip_block` usa `amdgpu_dm_funcs`. `pp_smu_ip_block` usa
+   `pp_ip_funcs`.
+2. **El bloque no es el fichero.** De los diez, **cuatro estan definidos en un
+   fichero con otro nombre**: `gmc_v8_1_ip_block` en `gmc_v8_0.c`,
+   `sdma_v3_1_ip_block` en `sdma_v3_0.c`, `uvd_v6_3_ip_block` en `uvd_v6_0.c`,
+   `vce_v3_4_ip_block` en `vce_v3_0.c`.
+3. **El bloque no esta en `amdgpu/`.** `pp_smu_ip_block` esta en
+   `amd/pm/powerplay/` y `dm_ip_block` en `amd/display/amdgpu_dm/`. Buscando
+   dentro de `amdgpu/` la herramienta decia "SIN TABLA" de dos bloques que **si
+   existen**: no era una ausencia, era un alcance.
+
+**La superficie de init abarca cuatro subsistemas**: `amdgpu/`, `pm/powerplay/`,
+`display/amdgpu_dm/` y `include/`. Para un driver propio, "encender la placa" no
+es un fichero: son cuatro.
+
+**LIMITE DECLARADO.** Solo las tablas `.funcs` de los bloques. **No** cubre los
+fops de DRM, los `dma_buf_ops`, los `file_operations`, sysfs ni debugfs, que
+tambien entran por puntero y son la via por la que el **kernel** llama al driver.
+Un `evict` de VRAM, por ejemplo, no pasa por ninguna tabla `.funcs`. Es
+`NOT_IN_CORPUS` para esta cuenta, no `PROVEN_ABSENT`.
+
+`GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.`

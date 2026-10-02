@@ -205,6 +205,101 @@ def ruta_exclusiva(carpeta):
     return True
 
 
+
+def tablas_y_funcs(carpeta, bloques):
+    """Para cada bloque, su tabla .funcs y las funciones que se registran en ella.
+
+    Que resuelve, y por que hace falta: el driver llama a casi todo por PUNTERO a
+    funcion, a traves de las tablas `*_ip_funcs`. Un indice de llamadas por texto
+    NO las ve, con lo que "no hay ninguna llamada a esta funcion" no significa
+    "esta funcion no se ejecuta": significa "nadie la llama por nombre".
+
+    Y hay dos trampas mas, medidas en este mismo ASIC:
+
+      * el BLOQUE y la TABLA no son lo mismo. `gfx_v8_0_ip_block` y
+        `gfx_v8_1_ip_block` comparten `.funcs = &gfx_v8_0_ip_funcs`.
+      * el BLOQUE y el FICHERO no son lo mismo. De los 10 bloques de esta placa,
+        4 estan definidos en un fichero con otro nombre: `gmc_v8_1_ip_block` en
+        `gmc_v8_0.c`, `sdma_v3_1_ip_block` en `sdma_v3_0.c`,
+        `uvd_v6_3_ip_block` en `uvd_v6_0.c`, `vce_v3_4_ip_block` en `vce_v3_0.c`.
+        Si se buscara el bloque por el nombre del fichero, 4 de 10 no se
+        encontrarian. Un nombre de fichero no es un dato.
+
+    Devuelve {bloque: (tabla, [funciones])}.
+    """
+    out = {}
+    # MEDIDO, y es la diferencia entre "no existe" y "no lo he mirado": dos de
+    # los diez bloques NO estan en amdgpu/. `pp_smu_ip_block` se define en
+    # amd/pm/powerplay/amd_powerplay.c y `dm_ip_block` en
+    # amd/display/amdgpu_dm/amdgpu_dm.c. Buscando solo dentro de amdgpu/ la
+    # herramienta decia "SIN TABLA" de dos bloques que SI existen. No es que no
+    # existan: es que no los mire. La raiz de busqueda sube a drm/amd/.
+    raiz = os.path.dirname(carpeta.rstrip("/"))
+    cands = []
+    for base, _dirs, files in os.walk(raiz):
+        for f in files:
+            if f.endswith(".c"):
+                cands.append(os.path.relpath(os.path.join(base, f), raiz))
+    for bloque in bloques:
+        # MEDIDO: la llave de apertura va en la LINEA SIGUIENTE en todos estos
+        # ficheros ("static const struct amdgpu_ip_block_version X_ip_block ="),
+        # asi que un patron que exija "={" al final de la linea no casa con
+        # ninguno. Es el mismo descuido que en la firma de las funciones.
+        patron_def = re.compile(r"^\w[\w \*]*?%s\s*=\s*\{?\s*$" % re.escape(bloque))
+        patron_funcs = re.compile(r"\.funcs\s*=\s*&(\w+)")
+        encontrado = False
+        for f in cands:
+            ls = _leer(os.path.join(raiz, f))
+            for n, l in enumerate(ls):
+                if patron_def.match(l.strip()) and                         re.match(r"^(const|static)", l):
+                    # recorrer el cuerpo del bloque hasta la llave de cierre
+                    cuerpo = []
+                    # si la linea de definicion ya abre la llave, el cuerpo empieza
+                    # en la siguiente; si no, empieza una linea despues. Se
+                    # resuelve mirando, no suponiendo.
+                    ini_cuerpo = n + 1
+                    if not l.rstrip().endswith("{"):
+                        ini_cuerpo = n + 2
+                    for k in range(ini_cuerpo, min(ini_cuerpo + 30, len(ls))):
+                        cuerpo.append(ls[k])
+                        if ls[k].strip() == "};":
+                            break
+                    mt = patron_funcs.search("\n".join(cuerpo))
+                    tabla = mt.group(1) if mt else None
+                    if not tabla:
+                        out[bloque] = (f, None, [])
+                        encontrado = True
+                        break
+                    # ahora la tabla
+                    pat_t = re.compile(r"^\w[\w \*]*?%s\s*=\s*\{?\s*$" % re.escape(tabla))
+                    for ff in cands:
+                        lss = _leer(os.path.join(raiz, ff))
+                        for n2, l2 in enumerate(lss):
+                            if pat_t.match(l2.strip()):
+                                funcs = []
+                                ini_c2 = n2 + 1
+                                if not l2.rstrip().endswith("{"):
+                                    ini_c2 = n2 + 2
+                                for k in range(ini_c2, min(ini_c2 + 40, len(lss))):
+                                    if lss[k].strip() == "};":
+                                        break
+                                    mf = re.match(r"^\.(\w+)\s*=\s*(\w+)\s*,?\s*$",
+                                                 lss[k].strip())
+                                    if mf and mf.group(2) != "NULL":
+                                        funcs.append((mf.group(1), mf.group(2)))
+                                out[bloque] = (ff, tabla, funcs)
+                                encontrado = True
+                                break
+                        if encontrado:
+                            break
+                    if encontrado:
+                        break
+            if encontrado:
+                break
+        if not encontrado:
+            out[bloque] = (None, None, [])
+    return out
+
 def selftest():
     """Vectores conocidos y controles de fallo. Un control que no puede fallar
     es peor que ninguno, asi que cada rama tiene su negativo."""
@@ -371,6 +466,37 @@ def selftest():
     finally:
         shutil.rmtree(t, ignore_errors=True)
 
+    # --- superficie de entrada por puntero a funcion ------------------------
+    import contextlib
+    import io as _io
+    pol2 = [x[0] for x in bloques(_leer(os.path.join(DEFAULT_CORPUS, "vi.c")),
+                                    "CHIP_POLARIS12")]
+    info = tablas_y_funcs(DEFAULT_CORPUS, pol2)
+    con_tabla = {b: info.get(b, (None, None, [])) for b in pol2}
+    chk("los 10 bloques de POLARIS12 tienen tabla .funcs",
+        len(pol2) == 10 and all(v[2] for v in con_tabla.values()))
+    # REGRESION medida: buscar solo dentro de amdgpu/ dejaba a pp_smu y dm SIN
+    # tabla, y decia "no existen" de dos bloques que si existen. Se comprueba el
+    # nombre de los ficheros donde estan, no solo que haya tabla.
+    chk("pp_smu_ip_block se busca FUERA de amdgpu/ (powerplay)",
+        con_tabla["pp_smu_ip_block"][0].endswith("powerplay/amd_powerplay.c"))
+    chk("dm_ip_block se busca FUERA de amdgpu/ (display)",
+        con_tabla["dm_ip_block"][0].endswith("amdgpu_dm/amdgpu_dm.c"))
+    chk("gfx_v8_1_ip_block usa la tabla gmc_v8_0_ip_funcs de OTRO bloque",
+        con_tabla["gmc_v8_1_ip_block"][1] == "gmc_v8_0_ip_funcs")
+    chk("pp_smu_ip_block NO usa una tabla con su propio nombre",
+        con_tabla["pp_smu_ip_block"][1] == "pp_ip_funcs")
+    total = sum(len(v[2]) for v in con_tabla.values())
+    chk("145 funciones registradas en las 10 tablas", total == 145)
+    # el modo completo no falla
+    buf = _io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            rc0 = main(["--funcs"])
+        chk("main --funcs -> rc=0", rc0 == 0)
+    except SystemExit:
+        chk("main --funcs -> rc=0", False)
+
     print("  ---")
     print("  vectores OK: %d   controles en rojo: %d" % (ok, fallan))
     return 1 if fallan else 0
@@ -382,6 +508,34 @@ def main(argv):
     carpeta = DEFAULT_CORPUS
     if "--corpus" in argv:
         carpeta = argv[argv.index("--corpus") + 1]
+    if "--funcs" in argv:
+        filas0 = bloques(_leer(os.path.join(carpeta, "vi.c")), "CHIP_POLARIS12")
+        nombres = [x[0] for x in filas0]
+        info = tablas_y_funcs(carpeta, nombres)
+        total = 0
+        print("gfx8blocks --funcs: la superficie de entrada por PUNTERO a funcion")
+        print("  cada bloque -> su tabla .funcs -> las funciones que registra")
+        print("  " + "-" * 76)
+        for b in nombres:
+            f, tabla, funcs = info.get(b, (None, None, []))
+            if not funcs:
+                print("  %-24s SIN TABLA o sin funciones  (fichero %s)" % (b, f))
+                continue
+            total += len(funcs)
+            print("  %-24s %s  (%d funciones, en %s)"
+                  % (b, tabla, len(funcs), f))
+            for campo, fn in funcs:
+                print("        .%-22s %s" % (campo, fn))
+        print("  " + "-" * 76)
+        print("  bloques con tabla: %d   funciones registradas: %d"
+              % (sum(1 for b in nombres if info.get(b, (0, 0, []))[2]), total))
+        print("  LIMITE: solo las tablas .funcs de los bloques. NO cubre los fops")
+        print("  de DRM, los sysfs, el debugfs ni los ioctls, que tambien entran")
+        print("  por puntero y son la via por la que el KERNEL llama al driver.")
+        if total == 0:
+            print("  ERROR/INVALID: 0 funciones. No es un resultado.")
+            return 3
+        return 0
     etiqueta = "CHIP_POLARIS12"
     for a in argv:
         if a.startswith("--asic="):

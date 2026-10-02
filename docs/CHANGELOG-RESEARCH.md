@@ -2658,3 +2658,76 @@ salida tiene que mirar la salida.
 `check.sh` 39 (con las dos herramientas dentro) | `cn7` 97 | `cn8` 33 |
 `selfcheck` 30/30 | `gfx8blocks --self-test` 17/17 | `gchwip_alcance --self-test`
 21/21. `GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.
+
+---
+
+## 2026-10-02 · opencode · los 145 puntos de entrada por puntero a funcion, y un punto fijo que no funciona
+
+```
+OBJECT   revkit/gfx8blocks.py (modo --funcs), docs/CURRENT-STATE.md,
+         docs/NEGATIVE-RESULTS.md, docs/TOOLS-STATUS.md
+ACTION   EVIDENCE (superficie de entrada) + NEGATIVE_RESULT (punto fijo) + TOOL
+TRACK    STATIC · WRITE_EXECUTION=NONE · RUNTIME=NOT_RUN · GPU INTACTA
+```
+
+**LOS 145.** Los diez bloques de la placa registran **145 funciones** en sus diez
+tablas `.funcs`. Para un driver propio esa es la primera lista que hay que
+tener: por ahi entra el driver al hardware, y por ahi no entra ni un solo
+`grep` de llamadas por nombre.
+
+**TRES IDENTIDADES QUE SE ROMPEN EN ESTA PLACA, LAS MEDIDAS:**
+
+- el bloque **no es** la tabla: `gfx_v8_0_ip_block` y `gfx_v8_1_ip_block`
+  comparten `gfx_v8_0_ip_funcs`; `gmc_v8_1_ip_block` usa `gmc_v8_0_ip_funcs`;
+  `dm_ip_block` usa `amdgpu_dm_funcs`; `pp_smu_ip_block` usa `pp_ip_funcs`.
+- el bloque **no es** el fichero: cuatro de diez estan definidos en un fichero con
+  otro nombre (`gmc_v8_1` en `gmc_v8_0.c`, `sdma_v3_1` en `sdma_v3_0.c`,
+  `uvd_v6_3` en `uvd_v6_0.c`, `vce_v3_4` en `vce_v3_0.c`).
+- el bloque **no esta en `amdgpu/`**: `pp_smu_ip_block` esta en `amd/pm/powerplay/`
+  y `dm_ip_block` en `amd/display/amdgpu_dm/`. Buscando solo en `amdgpu/` la
+  herramienta decia "SIN TABLA" de dos bloques que **si existen**. No era una
+  ausencia: era un alcance. Y la superficie de init son **cuatro subsistemas**.
+
+**Y UN RESULTADO NEGATIVO QUE ME HA COSTADO MAS QUE EL POSITIVO.** Para recuperar
+los 3 descartables que la regla de un salto pierde, implemente la propagacion de
+muerte por el grafo de llamadores. **No funciona, por dos motivos distintos:**
+
+- Con la frontera estrecha cascada y declaro muertos `amdgpu_vmid_mgr_init`
+  (llamado desde `amdgpu_vm.c:2876`, dentro de `amdgpu_vm_init`, que corre en toda
+  GPU), `amdgpu_sdma_is_shared_inv_eng` y `amdgpu_gfx_is_compute_multipipe_capable`.
+  **Un punto fijo sobre una frontera incompleta no es conservador: envenena todo
+  lo que cuelgue de una semilla mala.**
+- Con la frontera ancha da **0**, porque no puede atravesar
+  `mes_v11_0_init_microcode`, que solo se invoca desde una tabla y por eso nunca
+  aparece como llamada: una entrada `.init_microcode = fn,` no lleva parentesis.
+
+**Retiro el modo y lo dejo desconectado, con el motivo escrito en el sitio.**
+Publicar un modo que devuelve 0 por el motivo equivocado es peor que no
+publicarlo: un 0 aqui no es un resultado, es un fallo con apariencia de resultado.
+La herramienta vuelve a la regla de un salto, con sus 4 descartables verificados a
+mano. **Cuatro por hecho valen mas que siete por propagacion elegante sobre datos
+que ya he medido que no son fiables.**
+
+**LO QUE FALTA, escrito para no repetirlo:** la frontera tiene que incluir las
+entradas de las tablas de bloques MUERTOS como raices muertas. El intento dio 1003
+raices y no capturo `mes_v11_0_init_microcode`. Es trabajo pequeno y localizable,
+no un problema de fondo.
+
+**DOS MUTACIONES QUE NO CAZAN Y POR QUE NO ES UN HUECO DEL TEST.** Una solo
+anadia un comentario `MUTADO` sin cambiar nada: una mutacion inerte no puede
+fallar. La otra volvia vacio un control con `or True`: un control vacio no puede
+fallar por definicion. **Instrumentar un control para que no pueda fallar es
+retirarlo dejandolo puesto.** Enseñar las dos es parte del resultado.
+
+**Y UN ERROR DE HERRAMIENTA QUE CASO CON LOS DATOS.** Al anadir las raices, mi
+parche sustituyo el `muertos = set()` de `main()` por el de
+`puntos_fijos_muerte()`, y dejo `_con_frontera` sin definir dentro de la funcion:
+`NameError` al ejecutar. Lo **reverti entero** desde `454df1f` en vez de seguir
+parcheando un fichero que ya habia roto tres veces. La version commiteada estaba
+validada con 21 vectores y 4 mutaciones, y el trabajo util de esta ronda estaba
+en `gfx8blocks.py`, que es otro fichero. **Volver atras no es rendirse: es dejar de
+añadir riesgo a un fichero que ya funcionaba.**
+
+`check.sh` 39 | `cn7` 97 | `cn8` 33 | `gfx8blocks --self-test` 24/24 |
+`gfx8blocks --funcs` 10 bloques, 145 funciones | `gchwip_alcance --self-test`
+21/21. `GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.

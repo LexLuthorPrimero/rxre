@@ -3029,3 +3029,37 @@ placa"--, que si es solido. **Un filtro que descarta necesita hechos, no
 aproximaciones.** Esta es la correccion de razonamiento mas importante de la
 ronda, y llego por el lado equivocado: primero cerre el grafo, y el grafo no
 resolvia el problema que yo creia.
+
+## `gfx8blocks.py --funcs`: la superficie de entrada por puntero a funcion
+
+Amplia `gfx8blocks.py`, que ya resolvia que bloques existen, a **que funciones
+registra cada bloque en su tabla `.funcs`**. De 10 bloques salen **145 funciones**.
+
+```
+gfx8blocks.py --funcs
+   por bloque: nombre, tabla .funcs, numero de funciones y FICHERO donde se define
+   rc 0 con lista, 3 si salen 0 funciones
+```
+**`VALIDATED`. 24 vectores.** Mutaciones sobre copias: `Q1` buscar las tablas solo
+dentro de `amdgpu/` cae (1 control), y la deduccion de que el bloque y su tabla
+se llaman igual cae y **deja a 5 de 10 bloques sin tabla**, que es la medida de
+cuanto importa.
+
+**Dos mutaciones NO cazadas, y las dos eran mutaciones mias, no huecos:**
+
+- Una que solo anadia un comentario `MUTADO` sin cambiar nada. **Una mutacion
+  inerte no puede fallar**, y su no-captura no dice nada del test.
+- Una que volvia vacio un control (`or True`). **Un control vacio no puede
+  fallar por definicion.** Instrumentar un control para que no pueda fallar es
+  retirar el control dejandolo puesto.
+
+**LIMITE DECLARADO en la propia salida:** solo las tablas `.funcs`. No los fops
+de DRM, ni `dma_buf_ops`, ni `file_operations`, ni sysfs ni debugfs, que tambien
+entran por puntero y son la via del kernel. Evict de VRAM, por ejemplo, no pasa
+por ninguna tabla `.funcs`.
+
+**LO QUE ESTA HECHO PARA QUE NO SE REPITA** (los tres casos aparecen aqui):
+el bloque no es la tabla, el bloque no es el fichero, y el bloque no esta en
+`amdgpu/`. El self-test comprueba **los nombres de los ficheros** donde se
+definen los diez, no solo que exista tabla, precisamente porque el fallo que
+cae es "no lo he mirado en el sitio correcto", no "no existe".

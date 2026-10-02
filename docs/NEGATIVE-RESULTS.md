@@ -1259,3 +1259,68 @@ mas honesta.
 analisis de alcance, y **7** si se cuentan las tres que la regla de un salto no
 alcanza. Los 7 siguen siendo `PROVEN` por lectura manual; el 4 es lo que se puede
 afirmar sin analisis manual.
+
+## NR-2026-10-02-b2 · El punto fijo de muerte sobre el grafo de llamadores: dos
+mediciones, dos fallos distintos, ninguno recuperable todavia
+
+`CLASSIFICATION=NEGATIVE_RESULT` · `TRACK=STATIC` · `WRITE_EXECUTION=NONE` ·
+`GPU INTACTA` · `CORPUS=RESEARCH/baseline`
+
+**La idea.** La regla que usa `gchwip_alcance.py` ("todos los llamadores estan en
+ficheros cuyo bloque no se instancia") es sound pero de **un solo salto**, y por
+ello pierde 3 de los 7 descartables reales: el intermediario
+(`amdgpu_mes_suspend`) vive en `amdgpu_mes.c`, que no es fichero de bloque. La
+correccion obvia es propagar la muerte hacia atras por el grafo de llamadores: si
+todos los llamadores de `f` estan muertos, `f` esta muerto.
+
+Se implemento y **no funciona**. Dos mediciones distintas:
+
+### Fallo 1 · con la frontera estrecha, cascada y falsos positivos graves
+
+```
+sitios que el punto fijo dio por INALCANZABLES, y NO lo son:
+  amdgpu_ids.c:586   amdgpu_vmid_mgr_init
+        <- amdgpu_vm.c:2876, dentro de amdgpu_vm_init, que corre en TODA GPU
+  amdgpu_sdma.c:526  amdgpu_sdma_is_shared_inv_eng
+        <- amdgpu_gmc.c:676, en el camino de flush de TLB
+  amdgpu_gfx.c:160   amdgpu_gfx_is_compute_multipipe_capable
+        <- amdgpu_gfx.c:209
+```
+**La causa**, y es una leccion general: la frontera de punteros contenia **solo**
+las tablas `.funcs` de los bloques vivos, sin el cierre de llamadas directas. Con
+el recall del 96,2% ya medido, una frontera incompleta hace que el punto fijo
+declare muerto todo lo que cuelgue de una semilla mal clasificada. **Un punto fijo
+sobre una frontera incompleta no es conservador: envenena todo lo que depende de
+una semilla mala.**
+
+### Fallo 2 · con la frontera ancha, cero descartables
+
+Anadiendo los fops, `dma_buf_ops` y `file_operations` a la frontera, el falso
+positivo desaparece, pero el punto fijo pasa a devolver **0**. La causa es un hueco
+concreto y localizable:
+
+```
+mes_v11_0_init_microcode   NO aparece NUNCA en el indice de llamadas,
+                           porque solo se invoca desde la tabla mes_v11_0_ip_funcs
+                           y una entrada de tabla ".init_microcode = fn," no es
+                           una llamada: no lleva parentesis.
+```
+Sin poder atravesar esa funcion, la propagacion no llega a
+`amdgpu_mes_init_microcode`, y sin ella no hay descarte. Se anadio un intento de
+tratar las entradas de las tablas **muertas** como raices, y tampoco funcio: dio
+1003 raices pero **no capturo `mes_v11_0_init_microcode`**.
+
+**DECISION.** Se retira el modo. Se deja el codigo escrito y **desconectado**, con
+el motivo escrito en el sitio, y la herramienta vuelve a la regla de un salto,
+que esta verificada a mano en sus 4 descartables. **Publicar un modo que devuelve
+0 por el motivo equivocado es peor que no publicarlo**: un 0 aqui no es un
+resultado, es un fallo con apariencia de resultado.
+
+**LO QUE FALTA PARA PODER USARLO**, y queda escrito para no repetirlo: la
+frontera tiene que incluir **las entradas de las tablas de bloques MUERTOS como
+raices muertas**, y el extractor de esas tablas tiene que resolverse bien. Es
+trabajo pequeno y localizable; no es un problema de fondo.
+
+**Y LA REGLA QUE SE LLEVA.** Un filtro que descarta necesita **hechos por paso**,
+no propagaciones élégante sobre datos que ya se ha medido que no son fiables.
+Cuatro por hecho, verificados a mano, valen mas que siete por propagacion.
