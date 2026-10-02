@@ -222,6 +222,12 @@ def main():
          ["pm4_emit.py", "--frame-size"], 0),
         ("pm4_emit: control negativo",
          ["pm4_emit.py", "--self-test"], 0),
+        # La reserva de numeros de hallazgo. num_collision mide 37 duplicados
+        # y esta sesion choco 3 veces (111, 119, 120) con otra escribiendo.
+        # El self-test RESERVA y LIBERA de verdad: comprobar que el numero no
+        # este duplicado sin tocar el disco seria un test de mentira.
+        ("findnum: control negativo",
+         ["findnum.py", "--self-test"], 0),
         # La tabla (device_id, revision) -> chip_id, leida del .ko cargado.
         # Es la que 050 dio por ausente porque hwmgr.c no esta en el corpus.
         # Devuelve 2 sin .ko y 3 si el layout deducido no encaja, y los dos

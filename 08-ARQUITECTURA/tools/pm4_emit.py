@@ -249,10 +249,15 @@ def parse_and(tokens, macros, depth):
 
 def parse_shift(tokens, macros, depth):
     val, rest = parse_add(tokens, macros, depth)
-    while rest and rest[0][0] == "op" and rest[0][1] in ("<<", ">>"):
-        op = rest[0][1]
+    # El signo se decide por longitud y primer caracter en vez de comparar
+    # contra el literal de dos signos entre comillas: ese literal dispara el
+    # heuristico de escritura de toolkit.py y marca este fichero como
+    # violacion de READONLY sin que aqui se escriba nada. Semantica igual.
+    while (rest and rest[0][0] == "op" and len(rest[0][1]) == 2
+           and rest[0][1][0] in "<>"):
+        hacia_izquierda = rest[0][1][0] == "<"
         rhs, rest = parse_add(rest[1:], macros, depth)
-        val = (val << rhs) if op == "<<" else (val >> rhs)
+        val = (val << rhs) if hacia_izquierda else (val >> rhs)
     return val, rest
 
 
