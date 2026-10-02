@@ -111,6 +111,58 @@ subestimado silencioso se planifica.
 
 Anotado en el fichero de `246`.
 
+## Verificación del 397, y un error de método que casi lo deroga
+
+Escribí este hallazgo contando cabeceras del desensamblado de objdump. Al día
+siguiente lo puse a prueba y **casi lo retracté**, porque consultando `ip_surface`
+salía **cero** nombres repetidos. Cero es un número limpio y yo iba a retractar 397
+por un cero.
+
+**El cero era falso, y el error era mío, no de los datos.** El parser de
+`ip_surface` guarda los símbolos en un **`dict` indexado por nombre**:
+
+```python
+self.sim[nombre] = (shndx, val, size, info & 0xF)   # <-- pisa el anterior
+```
+
+Un `dict` indexado por nombre **no puede representar dos símbolos con el mismo
+nombre**. Esos duplicados son **estructuralmente invisibles**: no es que no
+existieran, es que **el instrumento no tiene dónde ponerlos**. Y `c.items()` sobre
+un `dict` no puede devolver duplicados por construcción.
+
+Midiendo desde el `.symtab` crudo:
+
+```
+entradas de .symtab con nombre     : 43502
+nombres con >1 entrada TOTAL       : 2553
+FUNCIONES (STT_FUNC) con >1 entrada : 397      <-- el numero de este hallazgo
+kgd_hqd_sdma_load                  : 4 entradas STT_FUNC
+```
+
+**397 y 4, exactamente.** El hallazgo queda en pie, y el mecanismo por el que casi
+se cayó es el más instructivo de esta ronda.
+
+### La lección, y generaliza
+
+**Un `0` que viene de la estructura del instrumento y no de los datos no es una
+medición: es una afirmación falsa con forma de resultado.** Es peor que el `0` del
+caso de la ambigüedad, porque ahí `0` significaba "no sé" y aquí `0` parecía una
+**refutación**, que es el caso donde el error se propaga: yo iba a publicar una
+retractación de algo que era cierto.
+
+Tres diferencias queyster valen la pena:
+
+| | dónde falla | qué parece |
+|---|---|---|
+| `readelf` trunca nombres | el dato | un "no existe" |
+| `dict` indexado por nombre | el instrumento | un **0** limpio |
+| `objdump -d` sin reubicaciones | el dato | "el hardware no lo hace" |
+
+**Los tres devolvieron algo con apariencia de respuesta.** En los tres, la pregunta
+mal planteada se parecía a una respuesta válida. Y en los tres, el primer impulso
+—aceptar el número y construir encima— habría producido un hallazgo falso, no un
+error visible.
+
 ## Los sitios en bucle, y qué son
 
 | función | en bucle | total | qué hace |
