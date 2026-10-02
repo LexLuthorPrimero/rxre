@@ -248,10 +248,19 @@ solo se ve el resultado final no permite saber cuánto se comprobó.
 
 ## Límite común
 
-Ninguna de estas herramientas lee MMIO. `/sys/kernel/debug/dri` está en `0400`
-y sin `sudo` no hay acceso, así que el camino de runtime completo sigue
-cerrado. Todo lo de aquí es estático más lo que el kernel ya publicó en sysfs
-y en el log.
+Ninguna de estas herramientas escribe en la GPU ni en un registro.
+
+`amdgpu_iomem` da `EPERM` incluso con root, y `amdgpu_vm_info` en 7.1.3 no
+vuelca page tables: solo lista BOs. El volcado de PTE reales sigue
+`NOT_AVAILABLE` por esta vía, que no es lo mismo que inaccesible en el
+hardware.
+
+`amdgpu_regs` no se lee: 2 de 3 reinicios del servidor correlacionaron con
+su lectura. Se documenta como correlación, no como causa.
+
+Los punteros del anillo (`RPTR`, `WPTR`) **no** son lectura de MMIO: son
+espejos en CPU que mantiene el driver. `pm4dec` lo dice explícitamente, y
+fue un error mío leerlos como hardware en una primera versión.
 
 Lo que sí cierra huecos sin hardware: **otra generación del mismo driver**.
 `verdiff.py` la usa, y ha servido para corroborar por segunda fuente dos
@@ -264,8 +273,139 @@ cadenas de emisión y para acotar una pregunta de layout de registro.
 ./check.sh rapido    solo lo que no reindexa
 ```
 
-9 validaciones en ~14 s. Continúa tras un fallo, para que un fallo no oculte
+25 validaciones. Continúa tras un fallo, para que un fallo no oculte
 los demás.
+
+Tres estados posibles, y no se confunden:
+
+| estado | qué es |
+|---|---|
+| `OK` | la validación pasó |
+| `FALLO` | la validación se ejecutó y falló |
+| `OMIT` | no se pudo ejecutar por una dependencia ausente |
+
+`OMIT` no cuenta como `OK`. `cn7` necesita `sid.h`, que vive en el corpus
+del kernel y no viaja con `revkit`; en un clon sin corpus sale `OMIT`, no
+`FALLO`, porque una dependencia ausente no es una herramienta rota.
+
+### Herramientas de acceso al hardware
+
+Desde que hay acceso root al debugfs, cuatro herramientas observan la
+máquina. Ninguna escribe: la lista de nodos es una constante del código y
+solo se abren en lectura.
+
+### `mmo.py` — un nodo de debugfs, a mano
+
+```
+RX550_SUDO_PASS=... ./mmo.py lista
+RX550_SUDO_PASS=... ./mmo.py capacidades      qué se lee y qué no, con el modo real
+RX550_SUDO_PASS=... ./mmo.py nodo amdgpu_firmware_info
+RX550_SUDO_PASS=... ./mmo.py nodo amdgpu_regs --guardar capturas/x.txt
+```
+
+La contraseña va en la variable de entorno `RX550_SUDO_PASS`, nunca en un
+argumento (un argumento aparece en `/proc/PID/cmdline`).
+
+`capacidades` es el comando que hay que usar primero: comprueba el modo real
+de cada nodo contra la lista blanca. Se incluyen los que **escriben** para
+dejar constancia de que se conocen y no se tocan.
+
+### `captura.py` — snapshot de todo lo legible, de una vez
+
+```
+RX550_SUDO_PASS=... ./captura.py            los 21 nodos de texto
+RX550_SUDO_PASS=... ./captura.py --solo amdgpu_vm_info
+```
+
+Una sola sesión de sudo, 0,3 s para 19 nodos. Cada volcado queda como
+fichero, así que se analiza las veces que haga falta sin volver a tocar la
+GPU.
+
+`amdgpu_regs` está **excluido a propósito**: se reinició el servidor 2 de 3
+veces correlacionadas con su lectura. No se ha probado que la lectura lo
+cause, pero la correlación basta para no arriesgarse. Se dice como
+correlación, no como causa.
+
+### `integro.py` — corrupción y riesgo de pérdida
+
+```
+./integro.py escanear            texto corrupto, perdido o truncado
+./integro.py escanear --rastrear  además, ficheros sin seguimiento en git
+./integro.py autotest            sus propios controles
+```
+
+Solo controla ficheros de **texto**. Un NUL en un ELF o un `.pyc` es lo
+normal; reportarlo daría 180 falsos positivos y un informe con 180 falsos
+positivos no se lee.
+
+Distingue cuatro cosas que se confunden:
+
+| tipo | qué es |
+|---|---|
+| `PERDIDO` | todo NUL, no hay texto dentro: ir a otra copia |
+| `TRUNCADO` | hay texto bueno y luego cola de NUL: recuperable truncando |
+| `CORRUPTO` | NUL dispersos |
+| `NO SEGUIMIENTO` | sano, pero sin versión en git |
+
+Nació de un hecho: `revkit/mmo.py` tenía 1232 bytes nulos al final tras un
+reinicio, y el módulo era **válido**, así que un parser lo daba por bueno.
+Solo lo detectaba leer los bytes.
+
+### `atomrom.py` — el VBIOS
+
+```
+./atomrom.py autotest         con un ROM sintético, sin el VBIOS real
+./atomrom.py rom              los 4 controles que hace el driver
+./atomrom.py tablas           inventario de las 35 tablas
+```
+
+Los offsets salen de `atom.h` y `atombios.h`, no de memoria, y cada uno
+remite a su línea. Valida contra los mismos cuatro controles que ejecuta
+`amdgpu_atom_parse()`.
+
+El autotest existe porque el VBIOS **no se versiona** (derechos AMD): una
+validación que dependiera de él fallaría en un clon limpio. Y porque un
+validador que solo sabe decir «sí» no valida: el autotest comprueba también
+que **rechaza** ROM corruptos.
+
+### `pm4dec.py` y `cn7.py` — decodificación PM4
+
+```
+./pm4dec.py capturas/amdgpu_ring_gfx.txt
+./pm4dec.py capturas/amdgpu_ring_gfx.txt --todos
+./cn7.py                       13 controles
+```
+
+Los 74 opcodes se extraen de `sid.h` **en tiempo de ejecución**. No hay ni
+uno transcrito a mano: transcribir 140 opcodes es exactamente el trabajo que
+produce números plausibles y equivocados.
+
+Dos reglas que vienen del corpus y no de memoria:
+
+- `PACKET3_NOP` ocupa **1 dword** aunque su campo de conteo diga `0x3FFF`.
+  Es el valor de relleno de GFX8 (`gfx_v8_0.c:6873`), escrito con `memset32`
+  en `amdgpu_ring.c:128` y `:154`.
+- Un dword de tipo 0 en el anillo GFX **no es un `PKT0`**. `PKT0` no
+  aparece en todo el driver: el driver escribe registros con
+  `PACKET3_SET_CONTEXT_REG` y compañía.
+
+### `dires.py` — direcciones de registro
+
+```
+./dires.py 0x1537 --bloque bif
+./dires.py --contar
+```
+
+`regs.py` indexa los **campos** (MASK, SHIFT) pero no las **direcciones**, y
+sin direcciones no se puede comprobar que un paquete escriba donde dice. Los
+headers están en `include/asic_reg/`, ordenados por bloque, no en el
+directorio de amdgpu.
+
+Trae autocomprobación: busca `0x1537`/`0x1538`, que se sabe que son
+`mmGPU_HDP_FLUSH_REQ`/`_DONE` de BIF 4.1, y si no los encuentra sale con
+rc=3 en vez de seguir. El control existe porque la primera versión tenía el
+filtro de sufijo mal (`".d.h"` en vez de `"_d.h"`) y devolvía una lista vacía
+para BIF, que es justo el bloque de esta GPU. Un filtro mal escrito no avisa.
 
 ## Errores que estas herramientas cometieron durante su construcción
 
@@ -288,14 +428,54 @@ Están aquí porque el patrón se repite:
    `include/linux/pci.h` de 2879, marcando como error una cita correcta.
 6. **El primer `check.sh` apuntaba a `cn6.py` en el directorio equivocado** y
    falló con «No such file». Lo detectó él mismo al ejecutarse.
+7. **`atomrom` colocaba la master data table en `base`** en vez de en
+   `usMasterDataTableOffset`, y leía `usStructureSize=36` donde el layout
+   exige 74. Lo útil no es que lo corrigiera: es que **avisó sola** de que
+   los nombres no eran de fiar y no publicó el inventario. Un NoAnswer con
+   explicación vale más que 35 tablas con aspecto de respuesta.
+8. **`captura` contaba un fallo de autenticación como resultado**: con
+   contraseña incorrecta imprimía «con contenido: 0, vacíos: 0, error: 0» y
+   salía con rc=0. Ahora sale con rc=4 y el stderr de sudo. Es el modo de
+   fallo dominante del proyecto: un cero que parece un resultado.
+9. **`captura --solo` no era `--solo`**: pedía un nodo y capturaba tres. El
+   nombre de la opción decía una cosa y el código hacía otra.
+10. **`dires` tenía el filtro de sufijo mal**: `".d.h"` en vez de `"_d.h"`. No
+    daba error: devolvía una lista vacía para BIF, el bloque de esta GPU, y
+    eso parece un resultado legítimo. Ahora lleva autocomprobación.
+11. **Un control que no detectaba su propia mutación**: el de `integro` que
+    comprobaba que un `.o` no saliera entre los ficheros de texto pasaba
+    tanto si el filtro funcionaba como si estaba roto, porque en ambos casos
+    `.o` no llegaba a la lista. Se reescribió para mirar `clasifica()`
+    directamente, y se verificó con mutaciones reales.
+12. **`integro` con un sniff mal calibrado**: la primera regla daba por
+    binario un texto truncado con cola de NUL — que es justo la corrupción
+    que hay que detectar. Falló 2 de 7 casos. Un sniff mal calibrado no
+    falla: deja de ver cosas.
+13. **`pm4dec` publicaba un `NOT_DETERMINED` disfrazado de dato**: leía un
+    dword tipo 0 como cabecera de `PKT0` y sacaba «42 escrituras de registro»
+    con direcciones como `0x0000`, que no son registros. Se parecía a un
+    resultado y era la mitad inventado.
 
 ## Requisitos
 
 Python 3 sin dependencias externas. Todo el resto es el corpus y sysfs.
 
+Para las herramientas de hardware hace falta `sudo` y la variable
+`RX550_SUDO_PASS`. El valor **no** se guarda en el repositorio: es de la
+máquina, no del proyecto.
+
 ## Límite común
 
-Ninguna de estas herramientas lee MMIO. `/sys/kernel/debug/dri` está en `0400`
-y sin `sudo` no hay acceso, así que el camino de runtime completo sigue
-cerrado. Todo lo de aquí es estático más lo que el kernel ya publicó en sysfs
-y en el log.
+Ninguna de estas herramientas escribe en la GPU ni en un registro.
+
+`amdgpu_iomem` da `EPERM` incluso con root, y `amdgpu_vm_info` en 7.1.3 no
+vuelca page tables: solo lista BOs. El volcado de PTE reales sigue
+`NOT_AVAILABLE` por esta vía, que no es lo mismo que inaccesible en el
+hardware.
+
+`amdgpu_regs` no se lee: 2 de 3 reinicios del servidor correlacionaron con
+su lectura. Se documenta como correlación, no como causa.
+
+Los punteros del anillo (`RPTR`, `WPTR`) **no** son lectura de MMIO: son
+espejos en CPU que mantiene el driver. `pm4dec` lo dice explícitamente, y
+fue un error mío leerlos como hardware en una primera versión.

@@ -123,7 +123,12 @@ echo
 # comprueba con mutaciones reales fuera de este script (ver el historial).
 # Si algun dia el detector se rompe, este control falla y no se puede usar
 # la herramienta como autoridad.
-echo "--- integridad y VBIOS (nuevas) ---"
+echo "--- integridad, VBIOS y direcciones (nuevas) ---"
+# dirs lleva autocomprobacion dentro: busca 0x1537/0x1538, que se sabe que
+# son mmGPU_HDP_FLUSH_REQ/DONE de BIF 4.1. Si no los encuentra sale rc=3. El
+# control existe porque un filtro mal escrito devuelve una lista vacia, y una
+# lista vacia parece un resultado legitimo.
+run "dires: indice de direcciones (autocomprobado)" python3 dires.py 0x1537 --bloque bif
 run "integro: autotest (detector de corrupcion)"  python3 integro.py autotest
 # cn7 depende de sid.h, que vive en el corpus del kernel, no en revkit. En un
 # clon sin corpus devuelve 2 (OMITIDO), que NO es lo mismo que fallar. Se
