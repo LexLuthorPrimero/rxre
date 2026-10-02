@@ -138,6 +138,34 @@ _ASG = re.compile(r"^([A-Za-z_][A-Za-z0-9_.]{2,})\s*[:=]\s*")
 _BOLD = re.compile(r"\*\*([A-Za-z_][A-Za-z0-9_]{2,40})\*\*")
 _MAYU = re.compile(r"(?<![`\w])([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)(?![`\w])")
 
+# EL SUJETO DE UNA FRONTERA PUEDE SER UNA FRASE.
+#
+# De las 86 fronteras que salian SIN_SUJETO, 18 estan en TABLA y el sujeto es
+# la primera celda, escrita en prosa y SIN backticks:
+#
+#   020:131  | Que el hardware execute 19 dw | `NOT_DETERMINED` — RUNTIME |
+#   026:158  | La reserva alcanza con preemption en VF | `NOT_DETERMINED` |
+#
+# El sujeto es "Que el hardware ejecute 19 dw", no un identificador. Y eso es
+# un sujeto MEJOR que un identificador: es una pregunta, y una pregunta se
+# puede cerrar, repetir y medir. Un identificador es un indice.
+#
+# NO SE APLICA A NINGUNA OTRA CLASE, solo a la de fronteras: para cruzar dos
+# documentos, una frase no es clave. Por eso la tabla tiene dos campos
+# distintos y no un unico `sujeto`:
+#
+#   etiqueta  la clave de cruce: identificador, o None si es frase
+#   texto     lo que dice, siempre
+#
+# Confundirlos obligaba a elegir: o se renuncia a la frase y se pierde el
+# sujeto, o se usa la frase como clave y el cruce no encuentra nada. Las dos
+# salidas pierden algo, y solo por no haber separado los dos papeles.
+#
+# LA REGLA ES DELIMITAR LA FILA. En una tabla de Markdown, la primera celda de
+# la fila del estado es el sujeto. No se busca en toda la linea, porque en una
+# tabla de clasificacion hay otras celdas con backticks y ganaría la que no es.
+_CELDA = re.compile(r"^\s*\|\s*([^|]{3,120}?)\s*\|")
+
 
 def _sujetos_negrita(linea):
     """Identificadores de la linea que PODRIAN ser sujeto."""
@@ -443,6 +471,52 @@ def sujeto_de(line, previa, previa2):
     return None
 
 
+# UNA FRASE, NO UN IDENTIFICADOR.
+#
+# El sujeto de una frontera en tabla suele ser una PREGUNTA escrita en prosa:
+#
+#     | Que el hardware ejecute 19 dw | `NOT_DETERMINED` — RUNTIME |
+#
+# Esa es la fuente de 18 de las fronteras que antes salian SIN_SUJETO, y es un
+# sujeto MEJOR que un identificador: es una pregunta, y una pregunta se puede
+# cerrar, repetir y medir. Un identificador es un indice.
+#
+# Pero una frase no sirve como CLAVE de cruce, porque en dos documentos la
+# misma frontera se escribe distinto. De ahi `etiqueta_de`.
+#
+# LO QUE ESTA HACIENDO ESTA MAL, Y POR QUE NO SE ARREGLA CON UNA FRASE SUELTA:
+# el recorte condicional ("Que X" -> "X") es correcto solo si las dos formas
+# Keeps el mismo verbo y el mismo sujeto. "Que la cola arranque sola" recortado
+# da "la cola arranque sola", y la forma sin condicional "La cola arranca sola"
+# NO coincide: `arranque` y `arranca` son el mismo verbo en distinto tiempo.
+#
+# Arreglar eso con una regla de conjugacion es empezar de nuevo: la regla
+# tendria que saber que Spanish tiene cuatro tiempos verbales. La solucion
+# honesta es NO recortar, y que la frase sea legible sin ser clave de cruce.
+_CELDA = re.compile(r"^\s*\|\s*([^|]{3,160}?)\s*\|")
+_COND = re.compile(r"^(que|si|cuando|como)\s+", re.I)
+
+
+def etiqueta_de(linea):
+    """Si la linea es una fila de tabla, la primera celda es el sujeto.
+
+    Se devuelve TAL CUAL, sin recortar el condicional. La razon esta en el
+    comentario de arriba: recortar funciona para "Que X" frente a "X", pero
+    rompe en cuanto el verbo se conjuga, y no hay forma de arreglarlo sin
+    saber conjugar.
+    """
+    m = _CELDA.match(linea)
+    if not m:
+        return None
+    celda = m.group(1).strip()
+    # una celda que es solo un estado no es un sujeto
+    if _EST_RE.fullmatch(celda.strip("`")):
+        return None
+    if len(celda) < 6:
+        return None
+    return celda
+
+
 def extraer():
     """[(frontera)] con su sujeto, su estado y donde esta."""
     out = []
@@ -461,8 +535,13 @@ def extraer():
             prev = ls[i - 1] if i >= 1 else ""
             prev2 = ls[i - 2] if i >= 2 else ""
             s = sujeto_de(l, prev, prev2)
+            # Cuarto recurso: la primera celda de una fila de tabla. Ver
+            # `etiqueta_de`: el sujeto de una frontera puede ser una FRASE
+            # ("que el hardware ejecute 19 dw"), y eso es un sujeto mejor que
+            # un identificador, porque es una pregunta y se puede cerrar.
+            et = etiqueta_de(l) or etiqueta_de(prev)
             out.append(dict(doc=doc, linea=i + 1, sujeto=s,
-                            estado=est[0], todos=est,
+                            etiqueta=et, estado=est[0], todos=est,
                             texto=l.strip()[:150]))
     return out
 
@@ -541,6 +620,10 @@ def claims_cerrados():
             prev = ls[i - 1] if i >= 1 else ""
             prev2 = ls[i - 2] if i >= 2 else ""
             s = sujeto_de(l, prev, prev2)
+            # Si no hay sujeto identificable, se prueba con la primera celda de
+            # una fila de tabla, que es la forma mayoritaria de las que faltan.
+            if not s:
+                s = etiqueta_de(l) or etiqueta_de(prev)
             if not s:
                 continue
             for v in variantes(s):
@@ -553,6 +636,14 @@ def _resolver(fr, cc):
     """La regla de clasificacion. Aislada para que el self-test la reutilice."""
     for f in fr:
         if not f["sujeto"]:
+            # SIN identificador, pero con la primera celda de una tabla: la
+            # frontera tiene sujeto y es una FRASE. Eso no la hace cruzable,
+            # pero si la hace DESCRIBIBLE, que es lo que importa para poder
+            # arreglarla.
+            if f.get("etiqueta"):
+                f["clase"] = "SUJETO_EN_FRASE"
+                f["resolucion"] = None
+                continue
             f["clase"] = "SIN_SUJETO"
             f["resolucion"] = None
             continue
@@ -654,13 +745,14 @@ def main():
     print(f"claims cerrados indexados     : {len(cc)}")
     print()
     orden = ["RESUELTA_AQUI", "RESUELTA_OTRO", "NO_CRUZABLE",
-             "SIN_SUJETO", "VIVA"]
+             "SUJETO_EN_FRASE", "SIN_SUJETO", "VIVA"]
     print(f"{'clase':16} {'n':>5} {'que significa':44}")
     print("-" * 74)
     sig = {
         "RESUELTA_AQUI": "el mismo doc se contradice consigo mismo",
         "RESUELTA_OTRO": "otro doc ya lo cerrO; el NOT_DET esta obsoleto",
         "NO_CRUZABLE": "lo que hay entre backticks no es un sujeto",
+        "SUJETO_EN_FRASE": "sujeto en prosa: se puede leer, no cruzar",
         "SIN_SUJETO": "no dice de que; no se puede cerrar ni repetir",
         "VIVA": "sin resolver: trabajo real",
     }

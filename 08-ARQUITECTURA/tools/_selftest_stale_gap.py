@@ -331,6 +331,56 @@ def selftest():
           f"{r10g if r10g else '(nada)'}  {'OK' if ok else 'FALLA <<<'}")
     fallos += 0 if ok else 1
 
+    # 10h. EL SUJETO EN FRASE, Y QUE NO SEA CRUZABLE.
+    #
+    #     El sujeto de una frontera puede ser una FRASE, no un identificador:
+    #
+    #       | Que el hardware ejecute 19 dw | `NOT_DETERMINED` — RUNTIME |
+    #
+    #     Eso es un sujeto MEJOR: es una pregunta, y una pregunta se puede
+    #     cerrar, repetir y medir. Un identificador es solo un indice.
+    #
+    #     Pero una frase no sirve como clave de cruce. Por eso la herramienta
+    #     separa los dos papeles en vez de forzar la frase a ser clave:
+    #     obligarla a cruzarse no encuentra nada, y quedarse sin el sujeto
+    #     pierde una frontera que si se puede leer.
+    doc("t10h-frase.md", "| Que el hardware ejecute 19 dw | `NOT_DETERMINED` "
+                         "— requiere RUNTIME |")
+    fr10h, _ = _clasificar_en(tmp)
+    r10h = [f for f in fr10h if f.get("etiqueta")]
+    ok = bool(r10h) and r10h[0]["clase"] == "SUJETO_EN_FRASE"
+    print(f"  {'sujeto frase':12} se lee pero no se cruza       "
+          f"{r10h[0]['clase'] if r10h else '(nada)'}"
+          f"  {'OK' if ok else 'FALLA <<<'}")
+    fallos += 0 if ok else 1
+
+    # 10i. la frase NO se recorta, y el control demuestra por que.
+    #
+    #     La primera version recortaba el condicional: "Que X" -> "X", para que
+    #     las dos formas de la misma frontera cruzaran. Suena correcto y no lo
+    #     es: funciona si el verbo es el mismo, y rompe en cuanto se conjuga.
+    #
+    #     | Que la cola arranque sola |  ->  "la cola arranque sola"
+    #     "La cola arranca sola"                  "la cola arranca sola"
+    #
+    #     `arranque` y `arranca` son el mismo verbo en distinto tiempo. Para
+    #     arreglarlo haria falta una regla que supiera que el espanol tiene
+    #     cuatro tiempos verbales, que es empezar de nuevo.
+    #
+    #     El control falla a proposito si se recortase, y por eso mide LAS DOS
+    #     cosas: que el recorte no existe, y que la frase completa se conserva
+    #     intacta, que es lo que la hace legible.
+    e1 = S.etiqueta_de("| Que la cola arranque sola | `NOT_DETERMINED` |")
+    e2 = S.etiqueta_de("La cola arranca sola: `PROVEN` medido.")
+    conserva = e1 is not None and "arranque" in e1
+    print(f"  {'sin recorte':12} la frase se conserva entera    {e1!r}"
+          f"  {'OK' if conserva else 'FALLA <<<'}")
+    fallos += 0 if conserva else 1
+    no_corta = e2 is None or "arranca" in e2
+    print(f"  {'prosa no tabla':12} no inventa etiqueta           {e2!r}"
+          f"  {'OK' if no_corta else 'FALLA <<<'}")
+    fallos += 0 if no_corta else 1
+
     # 10c. la AFIRMACION frente a la MENCION.
     #
     #     Cuarto fallo real, encontrado al verificar a mano las 30 obsoletas
@@ -367,7 +417,7 @@ def selftest():
     if fallos:
         print(f"  RESULTADO: TOOL_BROKEN -- {fallos} controles fallan")
         return 1
-    print(f"  RESULTADO: TOOL_VALIDATED -- {len(casos) + 10} controles pasan.")
+    print(f"  RESULTADO: TOOL_VALIDATED -- {len(casos) + 15} controles pasan.")
     print()
     print("  Los controles que evitan relaciones FALSAS, del mas grave al")
     print("  menos:")
