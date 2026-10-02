@@ -105,28 +105,41 @@ def escanear(fname):
         lineas = fh.readlines()
 
     filas = []
-    # Una ventana por linea: la linea actual MAS la siguiente, para que una
-    # condicion de dos lineas quepa. Recorrer (linea, linea+1) como dos
-    # ventanas CONTADABA CADA SITIO DOS VECES, porque el mismo texto se
-    # encuentra desde las dos. Con una sola ventana por linea, cada sitio se
-    # cuenta una vez, desde la linea donde empieza.
+    # Una ventana por linea: la actual MAS la siguiente, para que una condicion
+    # de dos lineas quepa. PERO una coincidencia solo cuenta si empieza DENTRO
+    # de la linea de la ventana. Sin esa condicion, una coincidencia que empieza
+    # en la linea N+1 se conta dos veces: desde la ventana N y desde la N+1.
+    # Eso duplicaba los switch (que ocupan una linea entera) y por eso
+    # seguian apareciendo 8 switches donde hay 4.
     for n, linea in enumerate(lineas, 1):
-        if True:
-            txt = linea + (lineas[n] if n < len(lineas) else "")
+        if not linea.strip():
+            continue
+        sig = lineas[n] if n < len(lineas) else ""
+        txt = linea + sig
+        limite = len(linea)
 
-            for m in REL_RE.finditer(txt):
-                filas.append((n, "IP_VERSION_MAJ_MIN_REV %s %s" % (
-                    m.group(1), m.group(2)), True, "comparacion"))
-            for m in MAJ_RE.finditer(txt):
-                filas.append((n, "IP_VERSION_MAJ %s %s" % (
-                    m.group(1), m.group(2)), True, "comparacion"))
-            for m in SIMPLE_RE.finditer(txt):
-                op, maj, mi, rev = m.groups()
-                ver = ipv(int(maj), int(mi), int(rev))
-                filas.append((n, "%s IP_VERSION(%s,%s,%s)" % (op, maj, mi, rev),
-                              evaluar(op, ver), "comparacion"))
-            if SWITCH_RE.search(txt):
-                filas.append((n, "switch (...)", None, "switch"))
+        def solo_aqui(m, limite=limite):
+            return m.start() < limite
+
+        for m in REL_RE.finditer(txt):
+            if not solo_aqui(m):
+                continue
+            filas.append((n, "IP_VERSION_MAJ_MIN_REV %s %s" % (
+                m.group(1), m.group(2)), True, "comparacion"))
+        for m in MAJ_RE.finditer(txt):
+            if not solo_aqui(m):
+                continue
+            filas.append((n, "IP_VERSION_MAJ %s %s" % (
+                m.group(1), m.group(2)), True, "comparacion"))
+        for m in SIMPLE_RE.finditer(txt):
+            if not solo_aqui(m):
+                continue
+            op, maj, mi, rev = m.groups()
+            ver = ipv(int(maj), int(mi), int(rev))
+            filas.append((n, "%s IP_VERSION(%s,%s,%s)" % (op, maj, mi, rev),
+                          evaluar(op, ver), "comparacion"))
+        if SWITCH_RE.search(txt) and solo_aqui(SWITCH_RE.search(txt)):
+            filas.append((n, "switch (...)", None, "switch"))
     return filas
 
 

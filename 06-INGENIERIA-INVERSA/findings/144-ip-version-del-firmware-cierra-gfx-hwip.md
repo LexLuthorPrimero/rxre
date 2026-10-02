@@ -1,4 +1,9 @@
 # 144 · `GFX_HWIP` no existe, pero el IP version está en el firmware: **8.0**, y coincide con el driver en tres bloques
+`CONFIRMADO_POR=190` -- la ausencia de `ip_discovery.bin` para GCN3 es la
+CAUSA de que `ip_versions[GC_HWIP][0]` valga 0. Localizado en el dispatch:
+`CHIP_POLARIS12` va a `vi_set_ip_blocks` (`amdgpu_device.c:1990`), y el **unico**
+escritor de `ip_versions[][]` es `amdgpu_discovery`, que solo corre en el
+`default:`. Ademas: mi lista de 6 bloques IP era incompleta -- son **9**.
 
 `CLASSIFICATION=DOCUMENTATION` · `TRACK=STATIC + BINARY` · `WORK_CLASS=READ_ONLY/EVIDENCE`
 `WRITE_EXECUTION=NONE` · `MODIFICATIONS=0` · `RUNTIME=NOT_RUN` · `GPU INTACTA`

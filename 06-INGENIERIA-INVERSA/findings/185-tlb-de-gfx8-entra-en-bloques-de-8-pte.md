@@ -4,6 +4,10 @@
 `WRITE_EXECUTION=NONE` · `MODIFICATIONS=0` · `RUNTIME=NOT_RUN` · `GPU INTACTA`
 `CORPUS=RESEARCH/working/linux-7.1.3` · `HARDWARE_SCOPE=HOST-C/RX550/0000:01:00.0`
 `DESARROLLA=el UNLOCK de 182 (auditar las comparaciones en ficheros comunes)`
+`CORRIGIDO_POR=190` -- los 13 SIEMPRE verdaderas son **8**, y los 8 switch
+son **4**. El doble conteo seguia activo para las coincidencias que empiezan en
+la linea N+1: se atribuian a la ventana N y a la N+1. Los 8 se verificaron a mano
+(`amdgpu_ids.c:582-590`: la condicion esta entera en la linea 586).
 
 ## Cuestión principal
 
