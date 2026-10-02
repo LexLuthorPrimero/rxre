@@ -4,6 +4,13 @@
 `WRITE_EXECUTION=NONE` · `MODIFICATIONS=0` · `RUNTIME=LOG_READ_ONLY` · `GPU INTACTA`
 `CORPUS=RESEARCH/working/linux-7.1.3` · `HARDWARE_SCOPE=HOST-C/RX550/0000:01:00.0`
 `DESARROLLA=los 8 switch que 185 dejo sin evaluar`
+`COLISION_DE_NUMERO=SI` -- otra sesion reservo tambien el 190 para
+`190-tres-correcciones-de-la-poda.md`. Ha renumerado su fichero a 198 pero su
+H1 INTERIOR sigue diciendo `# 190`. Este fichero (190-dos-registros-...) es el mio.
+CAUSA RAIZ: hay DOS numeradores sin coordinar. `08-ARQUITECTURA/tools/findnum.py`
+usa flock + ficheros .res (4 usos de flock); `tools/nextnum.py` de la otra sesion
+no tiene NINGUNA referencia a flock, .res ni _reservas. Dos contadores
+independientes garantizan colisiones. No he tocado su fichero: es su ambito.
 
 ## Cuestión principal
 
