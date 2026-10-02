@@ -264,6 +264,11 @@ def main():
          ["aperture.py", "--todos"], 0, 0),
         ("aperture: control negativo",
          ["aperture.py", "--self-test"], 1, 1),
+        # Balance lectura/escritura de un offset de struct en el binario. El
+        # control pareado esta en el propio self-test: las dos regex de direccion
+        # no pueden casar la misma linea.
+        ("struct_rw: control de direccion",
+         ["struct_rw.py", "--self-test"], 1, 1),
         # La reserva de numeros de hallazgo. num_collision mide 37 duplicados
         # y esta sesion choco 3 veces (111, 119, 120) con otra escribiendo.
         # El self-test RESERVA y LIBERA de verdad: comprobar que el numero no

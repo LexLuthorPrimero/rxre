@@ -1,4 +1,10 @@
 # 182 · En Polaris12 `ip_versions[GC_HWIP]` vale **0**: trescientas comparaciones de versión degeneran, y eso **corrige `144`**
+`MEDIDO_POR=244` -- este valor deja de ser una DEDUCCION y pasa a ser
+una MEDIDA en el binario: `ip_versions[GC_HWIP][0]` esta en el offset 0x5d518 de
+`struct amdgpu_device`, se lee **345 veces** en el desensamblado del `.ko` y se
+escribe **0 veces** con indice estatico. El unico escritor con indice dinamico es
+`amdgpu_discovery.c:1640`, y su unico llamante (`amdgpu_device.c:1994`) es la rama
+`default:` del switch de ASIC, que `CHIP_POLARIS12` no toma.
 
 `CLASSIFICATION=DOCUMENTATION` · `TRACK=STATIC` · `WORK_CLASS=READ_ONLY/EVIDENCE`
 `WRITE_EXECUTION=NONE` · `MODIFICATIONS=0` · `RUNTIME=NOT_RUN` · `GPU INTACTA`
