@@ -572,7 +572,83 @@ empieza KFD. Es coherente con un job de KMS en el anillo GFX.
 
 ---
 
-## 10. ERRORES PROPIOS ENCONTRADOS EN ESTA SESION
+## 10. GART: 256 MiB, Y POR QUE
+
+`gmc_v8_0.c:588-608` decide el tamano de la GART. Para **Polaris12**
+expresamente:
+
+```c
+case CHIP_POLARIS12: /* all engines support GPUVM */
+default:
+    adev->gmc.gart_size = 256ULL << 20;
+```
+
+El comentario explica el porque: en Polaris10/11/12 y Vega10 **todos los
+motores soportan GPUVM**, asi que la GART no tiene que ser grande para
+podermapper RAM del sistema; 256 MiB basta porque el acceso pasa por la GPU
+VM y no por el hueco de BAR.
+
+Los chips con 1024 MiB (Tonga, Fiji, Carrizo, Stoney) son los que tienen
+UVD o VCE **sin** soporte de GPUVM, y para ellos la GART tiene que cubrir
+el acceso a RAM por la via antigua.
+
+**Estado: `PROVEN_DERIVED`.** El valor y su justificacion estan ambos en el
+corpus, y el valor se puede contrastar en runtime cuando se tenga el
+observador.
+
+Esto explica ademas por que el BAR es de 256 MB (lspci lo reporta como
+`Memory at e0000000 [size=256M]`) mientras la VRAM es de 2 GiB: la GART y
+el BAR son cosas distintas, y el BAR es solo la ventana de CPU sobre la
+VRAM.
+
+---
+
+## 11. LOS POOLS DE IB DEL DRIVER
+
+`amdgpu_sa_info` no es memoria de shader, pese al nombre. Es
+`amdgpu_ib.c:486-498`, que vuelca los tres pools de IB:
+
+| pool | buffers | bytes | rango fisico |
+|---|---|---|---|
+| `DELAYED` | 654 | 572768 | 0xff0034e000 – 0xff003dfa00 |
+| `IMMEDIATE` | 0 | – | vacio |
+| `DIRECT` | 35 | 62976 | 0xff0054e000 – 0xff0055e800 |
+
+635744 bytes de IBs vivos, en RAM del sistema a direccion fisica
+(`0xff00...`, no VAs de GPU).
+
+### Lo que se ve
+
+- **Tamano dominante: 1024 bytes**, 547 veces. Es el IB de trabajo normal
+  que el driver reutiliza.
+- **Los buffers son casi todos contiguos**: 546 de 654 tienen hueco 0 con
+  el siguiente. El driver asigna en bloques.
+- **Un IB en uso por pool**, marcado con `>`:
+  - `DELAYED`, 1024 bytes, contexto 383
+  - `DIRECT`, 4096 bytes, contexto 22
+- **57 contextos distintos**, y **ninguno usa mas de un pool**. Una
+  submission no tiene buffers en varias etapas simultaneamente.
+
+### Lo que NO se interpreta
+
+El campo `protected by 0x...` tiene **138 valores distintos** (1 a 0x8A).
+
+La cadena `protected by` **no existe en el corpus**. Se comprobo con grep
+en las tres raices: `amdgpu_sa_bo_dump_debug_info` se LLAMA desde
+`amdgpu_ib.c:491` y **no esta definido** en ninguna. Es una implementacion
+del driver cargado que no se tiene.
+
+Por eso el campo se cuenta pero no se interpreta. Es `NOT_IN_CORPUS`, no
+`NOT_FOUND`: la funcion se llama y existe, pero su codigo no esta.
+
+Un mal analisis tomo los tres primeros valores (1, 3, 2) como una
+rotacion de bits de proteccion. No lo es: es un contador, y el "patron" era
+como empieza una secuencia. Un patron en los tres primeros datos no es un
+patron.
+
+---
+
+## 12. ERRORES PROPIOS ENCONTRADOS EN ESTA SESION
 
 Se anotan porque el patron se repite y conviene reconocerlo.
 

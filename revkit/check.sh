@@ -191,6 +191,11 @@ if [ -f capturas/amdgpu_vbios.txt ]; then
     # contra la VRAM real. Si el layout estuviera mal, caerian fuera y daria
     # rc=5, asi que el contraste discrimina de verdad.
     run "pm4dec: direcciones de GPU vs VRAM"        python3 pm4dec.py capturas/amdgpu_ring_gfx.txt --direcciones
+    # ibpools: analiza amdgpu_sa_info, que son los buffers de IB del driver
+    # con direcciones FISICAS del sistema. Lleva autocomprobacion dentro:
+    # avisa si no interpreta todas las lineas, si hay mas de un IB en uso por
+    # pool, o si un rango no cuadra con su size. rc=1 si algo falla.
+    run "ibpools: pools de IB del driver"            python3 ibpools.py
 else
     echo "  atomrom: VBIOS real ausente (no versionado)     OMITIDO, el"
     echo "           autotest con ROM sintetico ya valida el"
