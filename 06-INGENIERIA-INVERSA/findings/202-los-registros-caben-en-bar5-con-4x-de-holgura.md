@@ -197,13 +197,66 @@ corrección pareciera inevitable.
 Y el sitio donde el error era fácil: `192` **sí** afirma algo cercano y verdadero
 (`dc/` vacío), así que la afirmación falsa se apoyaba en algo real.
 
-## El hueco que sí es real, y que no es de `192`
+## El hueco que declaré, resuelto: los registros de SDMA 3.1 sí estaban medidos
 
-**SDMA 3.1 no tiene cabecera de registros en el corpus, y su `.c` no incluye
-ninguna.** `asic_reg/sdma/` solo tiene `4_4_0` y `4_4_2`. El espacio de registros
-de SDMA en esta placa queda **fuera de esta medición**.
+Este hallazgo declaró un hueco: *"`SDMA 3.1` no tiene cabecera de registros y su
+`.c` no incluye ninguna. Queda fuera de la medición."* **Es falso.**
 
-Eso sí es un hueco, y no lo cubre ningún hallazgo anterior.
+Dos errores encadenados, y los dos míos.
+
+**Error 1 — leí el nombre del fichero, no el mecanismo.** `asic_reg/sdma/` solo
+tiene `4_4_0` y `4_4_2`, y **no existen `sdma_v3_1.c` ni `sdma_v3_1.h`**.
+Concluí que faltaban. Pero mirando dónde se declara el bloque:
+
+```
+sdma_v3_0.c:1693  const struct amdgpu_ip_block_version sdma_v3_1_ip_block =
+                  { ... .funcs = &sdma_v3_0_ip_funcs, };
+```
+
+**`sdma_v3_1_ip_block` está declarado dentro de `sdma_v3_0.c`**, con la tabla de
+funciones del v3_0. **Tercer caso del mismo patrón** (UVD 6.3→v6_0,
+VCE 3.4→v3_0, ahora SDMA 3.1→v3_0). Y `sdma_v3_0.c` **sí** incluye cuatro
+cabeceras de registro: `oss_3_0_d.h`, `gmc_8_1_d.h`, `gfx_8_0_d.h`,
+`bif_5_0_d.h`.
+
+**Error 2 — patrón de grep equivocado, que encendió el error 1.** Busqué
+`RREG_SDMA`/`WREG_SDMA` y salió **cero**, así que concluí que el fichero no tocaba
+registros. SDMA usa los accesores genéricos **`RREG32`/`WREG32`**, no `RREG_`: hay
+**62** usos. **Un cero por patrón equivocado es un cero que no significa nada.**
+
+Y el registro que toca da la clave:
+
+```c
+tmp = RREG32(mmSRBM_SOFT_RESET);
+WREG32(mmSRBM_SOFT_RESET, tmp);
+```
+
+`mmSRBM_SOFT_RESET = 0x398`, y está en **`oss/oss_3_0_d.h`**, no en un header de
+SDMA. Ahí están los **85** defines `mmSDMA_*` / `mmSRBM_*` de esta placa:
+
+```
+mmSDMA_CONFIG          0xf91
+mmSDMA_POWER_GATING    0x3416
+mmSDMA_PGFSM_CONFIG    0x3417
+mmSDMA_PGFSM_READ      0x3419    <- el mas alto
+```
+
+**Los registros de SDMA 3.1 en GCN8 están definidos en el header OSS.** Por eso
+`asic_reg/sdma/` solo tiene 4.4.x: el directorio dedicado `sdma/` aparece en
+generaciones posteriores, cuando el espacio creció y necesitó fichero propio.
+
+**El hueco no existe.** SDMA 3.1 **ya estaba medido**, por `oss_3_0_d.h`, que
+además es la cabecera que fija el **máximo global** de toda la medición
+(`0x00FE35`). **El bloque que yo creí excluido era el que marcaba el límite.**
+
+**La lección, la misma de `192` por cuarta vez.** Declaré un hueco porque una
+búsqueda por **nombre** salió vacía. La capacidad estaba ahí, con otro nombre, en
+otro fichero, con otro prefijo. **Un grep vacío no es evidencia de ausencia: es
+evidencia de que no sé cómo se llama.**
+
+Y lo peor: lo declaré en un hallazgo cuyo tema es precisamente **medir la
+superficie completa**. Dejarse un hueco sin mirar, en la medición que lo pide, es
+contradecirse a uno mismo en la misma página.
 
 ## Clasificación
 
@@ -218,6 +271,7 @@ Eso sí es un hueco, y no lo cubre ningún hallazgo anterior.
 | `uvd_6_0_d.h` y `vce_3_0_d.h` están en `asic_reg/`, con 106 y 45 defines | `PROVEN` |
 | Que la apertura deba ser mayor por necesidad | `REFUTADO` — sobra 4× |
 | Que un driver propio necesite el camino indexado | `DERIVATION` — de las proporciones |
+| SDMA 3.1 usa los registros de `oss_3_0_d.h` (85 defines `mmSDMA_*`) | `PROVEN` — `sdma_v3_0.c` usa `RREG32(mmSRBM_*)` |
 | Que no haya registros usados por el driver fuera de sus cabeceras | `NOT_DETERMINED` |
 
 ## Confounders
@@ -227,10 +281,11 @@ Eso sí es un hueco, y no lo cubre ningún hallazgo anterior.
   Necessary (si algo no cabe, no cabe), **no suficiente** (que todo lo definido quepa
   no prueba que todo lo usado quepa). Lo digo porque es la asimetría que hace que
   esto sea un test con adversario y no un inventario.
-- **`SDMA 3.1` no tiene cabecera.** `asic_reg/sdma/` solo tiene `4_4_0` y `4_4_2`, y
-  `sdma_v3_1.c` **no incluye ninguna cabecera de registro**. El espacio de
-  registros de SDMA en esta placa queda **fuera de esta medición**. No lo he
-  resuelto.
+- ~~**`SDMA 3.1` no tiene cabecera.** `asic_reg/sdma/` solo tiene `4_4_0` y
+  `4_4_2`, y `sdma_v3_1.c` **no incluye ninguna cabecera de registro**.~~
+  **FALSO, y era el hueco que este hallazgo declaraba. Resuelto en la sección
+  "El hueco que declaré, resuelto", abajo: los registros de SDMA 3.1 sí estaban
+  medidos.**
 - **DM/DC tampoco está medido.** `dce_10_0_d.h` está, pero el bloque registrado es
   `dm` (DC), y sus cabeceras son otra cosa. `dce_10_0` es el DCE legacy, que esta
   placa no usa.
@@ -248,6 +303,7 @@ Eso sí es un hueco, y no lo cubre ningún hallazgo anterior.
 - **(d)** El filtro no deja pasar no-offsets → refutable con el control del self-test.
 - **(e)** El regex pierde un define → **refutable, y probablemente cierto**. No
   resuelto.
+- **(f)** El "hueco" de SDMA 3.1 → **refutado por mí mismo**: era falso.
 
 ## UNLOCKS
 
@@ -258,8 +314,8 @@ Eso sí es un hueco, y no lo cubre ningún hallazgo anterior.
   diseño, no un detalle.
 - **La aceptación de 256 KiB queda justificada por el lado del hardware**, no solo
   por el log: el contenido real de los registros ocupa el 25% de la apertura.
-- **Un hueco real**: SDMA 3.1 sin cabecera de registros. No lo cubre ningún
-  hallazgo anterior.
+- **SDMA 3.1 no era un hueco**: sus registros viven en `oss_3_0_d.h`, que ya
+  estaba medido y que fija el máximo global de la medición.
 - **La corrección que casi escribo y no escribí**: afirmar que `192` se equivocaba
   de dónde vivían las cabeceras. `192` no dice eso. Es un ejemplo de que la
   temática compartida basta para que una corrección falsa parezca inevitable.
