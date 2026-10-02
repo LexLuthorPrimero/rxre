@@ -2747,3 +2747,71 @@ nada.
 3 sin `pahole`, 4 nada resoluble, 5 `--structs` vacío), y `--selftest` **provocado**
 con un mutante que reinstala la sustitución silenciosa: sale `rc=1`.
 Registrado en `check.sh`.
+
+## `pub.sh`: la puerta de salida, porque el orden de los pasos era el fallo
+
+**EL FALLO QUE CIERRA, y es medido, no previsto.** El orden que yo seguia a mano
+era:
+
+```
+1. correr la suite      2. anexar los documentos del turno
+3. git add              4. git commit
+```
+El paso 1 corria sobre un arbol **que ya no era el que se iba a commitear**.
+Pasó dos veces en la misma sesion: en una, mi NR abrio un fence sin cerrar y
+entro en un commit con la suite en verde; en la otra, dos bloques quedaron con la
+paridad rota. `cn8` tenia los controles que lo habrian cazado —los_controls
+existen desde la ronda anterior— y no se ejecutaron despues de anexar. **El
+control existia; lo que faltaba era que alguien lo ejecutara en el momento que
+importa.**
+
+Un hueco de proceso se cierra con estructura, no con disciplina.
+
+**USO**
+
+```
+pub.sh <fichero-de-mensaje> <ruta> [<ruta> ...]
+```
+El mensaje va en un **fichero**, no en un heredoc: se puede revisar antes de
+publicar, y un mensaje improvisado en el momento de publicar es justo cuando uno
+se precipita. Se exigen **3 lineas** con texto: un commit de una linea no deja
+constancia de por que se hizo.
+
+Las rutas se stagean **de forma explicita**, nunca `git add .` ni
+`git add <dir>`: el arbol lo editan varias sesiones a la vez y un add de directorio
+se llevo 20 ficheros ajenos en `d2c4a89`. Y despues se **verifica** que nada
+fuera de las rutas se ha colado, en vez de confiar en que `git add -- rutas` hace
+lo que parece.
+
+**CODIGOS**: `0` verde y commit hecho · `2` la suite fallo, **no** se commitea ·
+`3` uso incorrecto · `4` no habia cambios en las rutas dadas · `5` fallo de git.
+
+**VALIDACION: la puerta tiene que poder negarse.** Probada en los dos sentidos,
+sobre el arbol de trabajo y con la suite real:
+
+```
+M-A  fence sin cerrar en un documento          rc=2, NO COMMITEA, nada stageado
+M-B  caracter CJK en un fichero de revkit      rc=2, NO COMMITEA
+     arbol limpio                              rc=0, commitea
+     rutas sin cambios                         rc=4
+```
+Y con la suite en verde pero el mensaje de una linea, `rc=3` sin llegar a correr
+nada: la puerta se cierra antes de gastar cuatro validaciones.
+
+**Cuatro defectos propios que tuvo, cazados al usarla**
+
+1. `cd "$AQUI"` antes de resolver las rutas: `git add docs/...` fallaba con *"no
+   concuerda con ningun archivo"*. Las rutas se resuelven **antes** del `cd`.
+2. La comprobacion de "fuera de las rutas" comparaba rutas absolutas contra
+   nombres de git relativos, y decia que el unico fichero stageado estaba fuera
+   de la ruta que se habia pedido, que era ese mismo fichero.
+3. `RAIZ="$AQUI/.."` sin normalizar: el prefijo era `.../revkit/..` y no casaba
+   con ninguna ruta real, con lo que **todo** salia "fuera".
+4. `grep -c ... || echo 0` imprimia `0` **dos veces**, porque `grep -c` sale con 1
+   cuando no encuentra nada.
+
+Y uno que no es del script sino del árbol, que encontró la puerta al construirse:
+`CN-R12` ("sin CJK ni cirilico") estaba en `FALLO` porque **yo habia metido un
+caracter CJK en el propio `pub.sh` al escribirlo**. Habia 35 ficheros con CJK en
+el repositorio, casi todos de otras sesiones; el control mira `revkit`, y el unico
+culpable nuevo era este fichero nuevo.
