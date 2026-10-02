@@ -134,20 +134,43 @@ consecutivos (`0x1537` y `0x1538`) porque el handshake es de un solo bit.
 
 ### Una salvedad que hay que dejar escrita
 
+**RETIRADA 2026-10-02.** Esta seccion afirmaba que
 `WAIT_REG_MEM_OPERATION` **no esta definido para GFX8 en ninguna parte del
-corpus**. El driver lo usa en gfx_v8_0.c:6048, pero:
+corpus**. Es falso. La version correcta es:
 
-- `gfx_8_1_pkt.h` **no existe** en el corpus (se comprobo con `find`).
-- La unica definicion es `gfx_v12_1_pkt.h:119`, que es de GFX12.1.
+- `gfx_8_0.c` **no** incluye `soc15d.h`, asi que esa no es la suya. Incluye
+  `vid.h` en su linea 35, y ahi esta definida.
+- **`amdgpu/vid.h:180`: `#define WAIT_REG_MEM_OPERATION(x) ((x) << 6)`**
 
-Asi que la formula `((x) & 0x3) << 6` se ha tomado de la variante de otro
-ASIC. Que el resultado cuadre al bit con el paquete real es evidencia fuerte
-de que el reparto es el mismo, pero no es una lectura directa del header de
-GFX8.
+  Su comentario da los dos valores, `0 wait_reg_mem` y `1 wr_wait_wr_reg`, y
+  coinciden con los dos que el driver usa: `/* wait */` y
+  `/* write, wait, write */`. Es la definicion que le toca a GFX8.
+- Ademas `soc15d.h:191`, `cikd.h:307` y `nvd.h:180` dicen lo mismo. Cuatro
+  definiciones independientes coinciden en `((x) << 6)`.
+- La unica que difiere es `gfx_v12_1_pkt.h:119`, de GFX12.1, con mascara de
+  2 bits: `(((x) & 0x3) << 6)`. Esa es la que se habia tomado.
+
+Por que se fallo: el error fue de **alcance de busqueda**, no de criterio.
+Mire el unico fichero que ya sabia que no existia, en vez de hacer
+
+```
+grep -rn "define.*WAIT_REG_MEM_OPERATION" <raiz del corpus>
+```
+
+que da cinco ficheros. Un `NOT_IN_CORPUS` puesto dentro de una fila de
+evidencia, con su `STATE` puesto, es una ausencia afirmada con la seguridad de
+una medicion. Ver `docs/CONTRADICTIONS.md` C-014.
+
+Clasificacion corregida: la procedencia de la macro para GFX8 es `PROVEN`, por
+lectura directa de `vid.h:180` mas la cadena de includes. Ya no es
+corroboracion indirecta ni `NOT_IN_CORPUS`. La descomposicion de los bits
+observados sigue siendo `PROVEN`, pero por una razon distinta: ya no depende
+de que "cuadre al bit" con un paquete de otro ASIC.
 
 Clasificacion honesta: la descomposicion de los bits observados es
-`PROVEN` por coincidencia exacta; la procedencia del nombre de la macro
-para GFX8 es `NOT_IN_CORPUS` con corroboracion indirecta.
+`PROVEN`, y la procedencia del nombre de la macro para GFX8 tambien, por
+lectura directa de `vid.h:180` y la cadena de includes. La salvedad de arriba
+esta RETIRADA y no queda ninguna pendiente en este punto.
 
 ### Lo que esto CONFIRMA, y lo que ya no
 
@@ -229,10 +252,11 @@ repeticion de 8 bloques, cada uno alineado a 256 dwords, concuerda con
 | FUNCTION ocupa [2:0], 3 bits, 7 valores | `PROVEN` (sid.h:398) |
 | `OPERATION(1)` = write, wait, write | `OBSERVED` |
 | ENGINE=1 = PFP en este paquete | `OBSERVED` |
-| `OPERATION` para GFX8: header ausente del corpus | `NOT_IN_CORPUS` |
+| `OPERATION` para GFX8: header ausente del corpus | RETIRADO 2026-10-02, es `PROVEN` en `vid.h:180` |
+| la variante de vm flush (control dword 0) no esta en la captura | `NOT_OBSERVED`, no `PROVEN_ABSENT` |
 | hay 6 dwords escritos con count declarado 5 | `OBSERVED` |
 | que lee el hardware: 5 o 6 | `NOT_DETERMINED` |
-| que hace el hardware con la espera | `NOT_DETERMINED` |
+| que hace el hardware con la espera | `PARTIAL`: con `FUNCTION(0)` no compara, espera a que `VM_INVALIDATE_REQUEST` cambie. Como lo detecta, `NOT_DETERMINED` |
 
 ## Lo que este documento cambia respecto a WAIT-REG-MEM.md
 
@@ -242,8 +266,52 @@ repeticion de 8 bloques, cada uno alineado a 256 dwords, concuerda con
 
 Pero la razon que se dio entonces, "el campo es de dos bits y por tanto
 `always` no cabe", **era falsa**, y este documento la retira. `FUNCTION`
-tiene tres bits y siete valores, con `always` en el 0. Lo que el corpus
-muestra es que GFX8 no lo emite nunca, que no es lo mismo.
+tiene tres bits y siete valores, con `always` en el 0 (`sid.h:398-406`).
+
+**Y la segunda mitad de esa frase tambien era falsa, y la retiro aqui.**
+
+~~Lo que el corpus muestra es que GFX8 no lo emite nunca.~~
+
+**GFX8 si lo emite.** `gfx_v8_0.c:6201`:
+
+```c
+amdgpu_ring_write(ring, (WAIT_REG_MEM_OPERATION(0) | /* wait */
+                 WAIT_REG_MEM_FUNCTION(0) |  /* always */
+                 WAIT_REG_MEM_ENGINE(0)));   /* me */
+```
+
+dentro de `gfx_v8_0_ring_emit_vm_flush` (gfx_v8_0.c:6191), y el comentario
+del driver dice para que: `/* wait for the invalidate to complete */`.
+
+Error de alcance de busqueda otra vez: para saber si se emitia habia que
+hacer `grep -n WAIT_REG_MEM_FUNCTION gfx_v8_0.c`, que da tres lineas. Ver
+`docs/CONTRADICTIONS.md` C-014.
+
+## El segundo emisor: el `WAIT_REG_MEM` que espera al invalidate
+
+Hay **dos** formas de este paquete en GFX8, y solo se habiamirado una:
+
+| | HDP flush | vm flush |
+|---|---|---|
+| `OPERATION` | 1 `wr_wait_wr_reg` | 0 `wait_reg_mem` |
+| `FUNCTION` | 3 `==` | **0 `always`** |
+| `ENGINE` | 1 `pfp` | 0 `me` |
+| control dword | `0x143` | **`0x000`** |
+| registro | `mmGPU_HDP_FLUSH_DONE` | `mmVM_INVALIDATE_REQUEST` |
+| ref / mask | `ref_and_mask` | `0` / `0` |
+| sitio | gfx_v8_0.c:6046 | gfx_v8_0.c:6199 |
+
+**El control dword del vm flush es cero**: con `FUNCTION(0)`, `OPERATION(0)` y
+`ENGINE(0)` no queda ni un bit puesto. Es la forma "esperar sin comparar
+contra nada", que es lo unico que tiene sentido si lo que esperas es "a que
+pase algo" y no "a que valga X".
+
+El anillo capturado contiene 8 de estos, todos `0x143`, o sea **todos de HDP
+flush**. La variante de vm flush no aparece en esa captura: no se ha observado
+en hardware. `NOT_OBSERVED`, no `PROVEN_ABSENT`.
 
 Lo que **no** cambia: el significado hardware de cada valor de `FUNCTION`.
-Este documento no lo cierra, y no se presenta como si lo hiciera.
+Este documento no lo cierra, y no se presenta como si lo hiciera. Lo que si
+aclara es **para que se usa** el valor `always`, que era la pregunta abierta
+como `hardware trigger de always: NOT_DETERMINED`: no es un trigger, es una
+espera, y espera a que el invalidate de TLB haya terminado.

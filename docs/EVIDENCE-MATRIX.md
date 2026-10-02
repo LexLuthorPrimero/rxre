@@ -2120,19 +2120,127 @@ para un anillo GFX (gfx_v8_0.c:5243-5246).
 
 `0x143 = FUNCTION(3) | OPERATION(1) << 6 | ENGINE(1) << 8`.
 
-**Corrige una afirmación anterior**: `WAIT-REG-MEM.md` decía que
-`FUNCTION` ocupaba `[1:0]`, dos bits, y que por tanto `always` era
-inalcanzable. Es falso: `sid.h:398-406` da `((x) << 0)` con **siete**
-valores y `0 = always`. `always` es codificable; lo que el corpus muestra es
-que GFX8 **no lo emite nunca**, que es otra afirmación y mucho más débil.
+**DOS RETIRADAS EN ESTA FILA, las dos propias, y las dos del mismo tipo**
 
-Salvedad: `WAIT_REG_MEM_OPERATION` **no está definido para GFX8** en el
-corpus (`gfx_8_1_pkt.h` no existe); la definición usada es
-`gfx_v12_1_pkt.h:119`, de otro ASIC. Que el resultado cuadre al bit es
-evidencia fuerte de que el reparto es el mismo, pero no es lectura directa
-del header de GFX8. `NOT_IN_CORPUS`.
+```
+RETIRADA 1  "GFX8 no emite nunca always"
+  lo escribi en EV-17 y lo repeti en CONTRADICTIONS C-013 como conclusion
+  vigente. Es FALSO. gfx_v8_0.c:6201 emite
+      WAIT_REG_MEM_FUNCTION(0) | /* always */
+  dentro de gfx_v8_0_ring_emit_vm_flush (gfx_v8_0.c:6191), y el comentario
+  del propio driver dice para que: "wait for the invalidate to complete"
+  Si se emite. Lo que sigue en pie de C-013 es lo otro: `always` es el
+  valor 0 y es codificable. Lo que no se sostiene es que este driver no lo
+  emita nunca, y esa era la unica afirmacion que sobrevivia de la retractada
+
+RETIRADA 2  "WAIT_REG_MEM_OPERATION no esta definido para GFX8" (NOT_IN_CORPUS)
+  lo marque NOT_IN_CORPUS basandome en que `gfx_8_1_pkt.h` no existe. Es
+  FALSO. Hay CUATRO definiciones en el corpus, y la que le toca a GFX8 es
+  `vid.h:180`, que gfx_v8_0.c incluye en su linea 35:
+      amdgpu/vid.h:180  #define WAIT_REG_MEM_OPERATION(x)  ((x) << 6)
+  Su comentario da los dos valores, 0 wait_reg_mem y 1 wr_wait_wr_reg, y
+  coinciden con los que usa el driver ("wait" y "write, wait, write")
+  ademas `soc15d.h:191`, `cikd.h:307` y `nvd.h:180` dicen lo mismo. Solo
+  `gfx_v12_1_pkt.h:119` difiere, con mascara de 2 bits, y es de otro ASIC
+  por donde entro el error: mire el unico fichero que ya sabia que no
+  existia, en vez de hacer el grep sobre el corpus entero
+
+POR QUE PASO, Y ES LO IMPORTANTE
+  las dos son la misma regla incumplida, y es la REGLA CRITICA DE LECTURA
+  COMPLETA del propio AGENTS.md: "Una lectura parcial jamas puede sustentar
+  una ausencia"
+  1. para afirmar que no lo emitia habia que hacer
+       grep -n WAIT_REG_MEM_FUNCTION gfx_v8_0.c
+     que da tres lineas, una de ellas el `always`. No lo hice
+  2. para afirmar que no estaba definido habia que hacer
+       grep -rn "define.*WAIT_REG_MEM_OPERATION" sobre TODO el corpus
+     que da cinco ficheros. Mire uno solo
+  lo grave del caso 2 es que el NOT_IN_CORPUS iba DENTRO de una fila de
+  evidencia, con su STATE puesto. Un NOT_IN_CORPUS sin grep de corpus
+  completo es una ausencia afirmada con la seguridad de una medicion
+```
+
+Lo que **mantiene** esta fila: los siete valores de `sid.h:398-406` con
+`always` = 0, y que el anillo capturado contenga solo la variante de HDP
+flush (`0x143`), que es la unica que se ha observado en hardware.
 
 `LAST_VERIFIED: 2026-10-02 - revkit/WAIT-REG-MEM-REAL.md, pm4dec.py`.
+Retiradas el 2026-10-02, misma fecha, tras `grep` de corpus entero.
+
+`LAST_VERIFIED: 2026-10-02 - revkit/WAIT-REG-MEM-REAL.md, pm4dec.py`.
+
+## EV-25 · El `WAIT_REG_MEM` que espera al invalidate tiene control dword CERO
+
+```
+TYPE    OBSERVATION + DERIVATION
+STATE   PROVEN_DERIVED
+```
+
+`gfx_v8_0_ring_emit_vm_flush` (gfx_v8_0.c:6191-6207) emite **una segunda
+forma** de `WAIT_REG_MEM`, distinta de la del HDP flush:
+
+```c
+amdgpu_gmc_emit_flush_gpu_tlb(ring, vmid, pd_addr);   /* el invalidate */
+/* wait for the invalidate to complete */
+amdgpu_ring_write(ring, PACKET3(PACKET3_WAIT_REG_MEM, 5));
+amdgpu_ring_write(ring, (WAIT_REG_MEM_OPERATION(0) | /* wait */
+                 WAIT_REG_MEM_FUNCTION(0) |  /* always */
+                 WAIT_REG_MEM_ENGINE(0)));   /* me */
+amdgpu_ring_write(ring, mmVM_INVALIDATE_REQUEST);
+amdgpu_ring_write(ring, 0);       /* ref  */
+amdgpu_ring_write(ring, 0);       /* mask */
+amdgpu_ring_write(ring, 0x20);    /* poll interval */
+```
+
+| | HDP flush | vm flush |
+|---|---|---|
+| `OPERATION` | 1 `wr_wait_wr_reg` | 0 `wait_reg_mem` |
+| `FUNCTION` | 3 `==` | **0 `always`** |
+| `ENGINE` | 1 `pfp` | 0 `me` |
+| control dword | `0x143` | **`0x000`** |
+| registro vigilado | `mmGPU_HDP_FLUSH_DONE` | `mmVM_INVALIDATE_REQUEST` |
+| ref / mask | `ref_and_mask` | `0` / `0` |
+| sitio | gfx_v8_0.c:6046 | gfx_v8_0.c:6199 |
+
+**El dword de control del vm flush es cero.** Con `FUNCTION(0)`, `OPERATION(0)`
+y `ENGINE(0)`, no queda ni un bit puesto: la forma "esperar a que pase algo" en
+estado inicial. No es un dato raro, es la unica manera de que un
+`wait_reg_mem` espere algo sin comparar contra nada.
+
+Eso responde a la pregunta que AGENTS.md llevaba abierta como
+`hardware trigger de always: NO_DETERMINED`. No es un trigger: es una
+**espera**, y espera a la conclusion del invalidate de TLB. El hardware no
+dispara nada; el driver deja un paquete que no retorna hasta que el registro
+`VM_INVALIDATE_REQUEST` ha cambiado.
+
+**Conexion con finding 106** (otra sesion, `daec702`): aquel concluyo que
+`VM_INVALIDATE_REQUEST` no tiene campo `FUNCTION`. Es correcto y queda
+corroborado aqui con la generacion que le toca a GFX8: `gfx_v8_0.c` incluye
+`gmc/gmc_8_2_d.h` y `gmc_8_2_sh_mask.h`, y en `gmc_8_2` los unicos campos de
+`VM_INVALIDATE_REQUEST` son `INVALIDATE_DOMAIN_0..15`, uno por bit, shifts 0 a
+15. **Ningun campo por encima del bit 15, en las cinco generaciones de GMC
+(6_0, 7_0, 7_1, 8_1, 8_2), todas con exactamente 16 dominios.**
+
+Por tanto hay **dos `FUNCTION` distintos** y no se contradicen:
+
+| | `WAIT_REG_MEM_FUNCTION` | `INVALIDATE_REQUEST__FUNCTION` |
+|---|---|---|
+| donde | `sid.h:398` (PM4, paquete) | registros GMC (MMIO) |
+| existe | si, 7 valores | **no** |
+| `always` | valor 0 | no aplica |
+
+El proyecto los tuvo confundidos durante semanas. La distincion es de **tipo**,
+no de ASIC: una es un campo de un opcode de PM4, la otra sería un registro.
+
+**Lo que sigue abierto, y es F12b con nombre propio**: el `poll interval`
+`0x20` sigue fuera del `count` declarado (5 vs 6, EV-19), y aqui es donde mas
+importa, porque es la granularidad con la que el hardware sondea si el
+invalidate ha terminado. Si el hardware no lee ese dword de mas, la espera no
+sondea: se queda esperando hasta el siguiente paquete. Es `NOT_DETERMINED`, y
+es la razon por la que esa frontera tiene valor de hardware y no de
+documentacion.
+
+`LAST_VERIFIED: 2026-10-02 - gfx_v8_0.c:6191-6207, vid.h:180, gmc_8_2_sh_mask.h`.
 
 ## EV-18 · El anillo GFX tiene 2048 dwords y estaba vacío
 

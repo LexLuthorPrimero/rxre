@@ -770,3 +770,80 @@ QUÉ NO SE TOCA
   la conclusión de que GFX8 no emite `always` sigue en pie y en
   `WAIT-REG-MEM.md`, con el mismo `STATE`
 ```
+
+## C-014 · Dos ausencias afirmadas con un solo `grep` de un fichero
+
+```
+QUÉ DECÍA
+  dos cosas, ambas en EV-17, ambas con su STATE puesto como si fueran
+  mediciones:
+  1. "GFX8 no emite nunca `always`"
+  2. "`WAIT_REG_MEM_OPERATION` NO está definido para GFX8, NOT_IN_CORPUS"
+QUÉ ES FALSO
+  1. `gfx_v8_0.c:6201` emite `WAIT_REG_MEM_FUNCTION(0) /* always */`, dentro
+     de `gfx_v8_0_ring_emit_vm_flush`. El comentario del driver dice para
+     qué: "wait for the invalidate to complete"
+  2. está en `amdgpu/vid.h:180`, que `gfx_v8_0.c` incluye en su línea 35:
+        #define WAIT_REG_MEM_OPERATION(x)  ((x) << 6)
+     El comentario da `0 wait_reg_mem`, `1 wr_wait_wr_reg`, y coinciden con
+     los dos valores que el driver usa. Además `soc15d.h:191`, `cikd.h:307`
+     y `nvd.h:180` dicen lo mismo
+
+QUÉ NO SE TOCA
+  lo de C-013 sigue en pie en su mitad buena: `always` es el valor 0 y es
+  codificable, `sid.h:398-406` da siete valores en tres bits. Lo que se
+  retira es la conclusión de que GFX8 no lo emite nunca, que era lo único
+  que quedaba en pie de la corroboración que construí en C-013
+
+POR QUÉ PASÓ, Y QUE ES LO NUEVO
+  las dos son la misma regla, la REGLA CRÍTICA DE LECTURA COMPLETA del
+  AGENTS.md: "Una lectura parcial jamás puede sustentar una ausencia"
+  1. para decir que no lo emitía: `grep -n WAIT_REG_MEM_FUNCTION gfx_v8_0.c`
+     da tres líneas, una es el `always`
+  2. para decir que no estaba definido: `grep -rn` de la definición sobre
+     TODO el corpus da cinco ficheros. Yo miré uno solo: el que ya sabía
+     que no existía, `gfx_8_1_pkt.h`
+  El caso 2 es el grave, porque el `NOT_IN_CORPUS` iba dentro de una fila de
+  evidencia con su STATE. Una ausencia afirmada con la seguridad de una
+  medición. Y hay un agravante: ya lo había hecho una vez en esta sesión,
+  con los punteros del anillo (retirada la afirmación de que eran MMIO), y
+  en aquel caso también busqué donde sabía que no estaba
+
+LO QUE SE APRENDE, Y ES OPERATIVO
+    la diferencia entre "no está" y "no lo he buscado donde toca" no la da
+  la confianza del que escribe, la da el número de sitios recorridos. El
+  fallo no es de criterio, es de alcance de búsqueda
+  la regla que sale: una afirmación de ausencia lleva el comando de
+  búsqueda en la propia fila, con el alcance, para que otro pueda repetirla
+  y ver que se ha recorrido lo mismo. Sin eso, `NOT_IN_CORPUS` y
+  `PROVEN_ABSENT` son la misma palabra escrita con distinta confianza
+
+QUÉ RESOLVIÓ ELLO, ADEMÁS DE LAS DOS RETIRADAS
+  mirar el segundo emisor destapó EV-25: hay DOS formas de `WAIT_REG_MEM`
+  en GFX8, y la que importa para el invalidate es la que no se estaba
+  mirando. La del HDP flush tiene control `0x143`; la del vm flush tiene
+  control CERO, con `FUNCTION(0) always` y `ref`/`mask` a cero
+  eso responde a la pregunta que AGENTS.md llevaba abierta como
+  `hardware trigger de always: NO_DETERMINED`. No es un trigger: es una
+  espera. El hardware no dispara nada; el driver deja un paquete que no
+  retorna hasta que `VM_INVALIDATE_REQUEST` ha cambiado
+
+Y DE PASO, UNA CONCILIACIÓN ENTRE SESIONES
+  finding 106 de otra sesión (`daec702`) concluye que
+  `VM_INVALIDATE_REQUEST` no tiene campo `FUNCTION`. Es CORRECTO, y queda
+  corroborado en la generación que le toca a GFX8: `gfx_v8_0.c` incluye
+  `gmc_8_2_d.h` y `gmc_8_2_sh_mask.h`, donde los únicos campos de
+  `VM_INVALIDATE_REQUEST` son `INVALIDATE_DOMAIN_0..15`, shifts 0 a 15.
+  Ninguno por encima del bit 15, en las cinco generaciones de GMC
+
+  NO hay contradicción entre 106 y EV-17, porque son dos `FUNCTION`
+  distintos: uno es un campo de un opcode de PM4 (`sid.h:398`), el otro
+  sería un registro MMIO. se habían confundido durante semanas. Lo que hace
+  falta no era elegir uno, era decir sobre cuál se estaba hablando
+
+CÓMO SE RESUELVE
+  2026-10-02. Las dos afirmaciones están retiradas de forma VISIBLE dentro
+  de EV-17, con el comando de búsqueda que las refuta al lado. No se borran:
+  una afirmación retirada en silencio reaparece. Y EV-25 queda como fila
+  nueva con lo que se encontró al mirar el emisor que faltaba
+```
