@@ -115,6 +115,18 @@ _normaliza = S.normaliza
 
 
 def selftest():
+    # QUE CUENTA COMO "ESTA RESUELTA".
+    #
+    # Tres controles miden si una frontera se cierra, y las tres clases de
+    # cierre valen. Lo que NO vale es que se mezclen sin distinction: por eso
+    # RESUELTA_SIN_VERIFICAR es una clase aparte y no un synonym de
+    # RESUELTA_OTRO, aunque las dos digan "hay respuesta".
+    #
+    # La distinction importa por un motivo concreto: 31 y 60 se leen distinto.
+    # Una resuelto Y verificado se corrige. Una resuelto y sin verificar hay
+    # que MIRARLA antes de corregir nada, porque la respuesta puede no ser a la
+    # pregunta.
+    CIERRAN = ("RESUELTA_OTRO", "RESUELTA_SIN_VERIFICAR")
     print("=" * 74)
     print("SELF-TEST de stale_gap: control negativo")
     print("=" * 74)
@@ -202,7 +214,7 @@ def selftest():
     doc("t6-respuesta.md", "`mmCP_FORMA`: `PROVEN` confirmado.\n")
     fr2, _ = _clasificar_en(tmp)
     r = [f["clase"] for f in fr2 if f["sujeto"] == "CP_FORMA"]
-    ok = "RESUELTA_OTRO" in r
+    ok = any(c in CIERRAN for c in r)
     print(f"  {'prefijo mm/':12} mmCP_FORMA == CP_FORMA"
           f"          {r if r else '(nada)'}  {'OK' if ok else 'FALLA <<<'}")
     fallos += 0 if ok else 1
@@ -287,7 +299,7 @@ def selftest():
     doc("t10b-resp.md", "Ya esta resuelto: `mmX_DE_VERDAD` es `PROVEN`.\n")
     fr10b, _ = _clasificar_en(tmp)
     r10b = [f["clase"] for f in fr10b if f["sujeto"] == "mmX_DE_VERDAD"]
-    ok = r10b == ["RESUELTA_OTRO"]
+    ok = r10b == ["RESUELTA_SIN_VERIFICAR"]
     print(f"  {'PROVEN real':12} no debe descartarse        {r10b if r10b else '(nada)'}"
           f"  {'OK' if ok else 'FALLA <<<'}")
     fallos += 0 if ok else 1
@@ -337,7 +349,7 @@ def selftest():
     doc("t10g-resp.md", "| `mmX_REAL_DEL_DOC` esta medido | `PROVEN` | tabla |")
     fr10g, _ = _clasificar_en(tmp)
     r10g = [f["clase"] for f in fr10g if f["sujeto"] == "mmX_REAL_DEL_DOC"]
-    ok = r10g == ["RESUELTA_OTRO"]
+    ok = r10g == ["RESUELTA_SIN_VERIFICAR"]
     print(f"  {'hallazgo real':12} sigue cerrando fronteras    "
           f"{r10g if r10g else '(nada)'}  {'OK' if ok else 'FALLA <<<'}")
     fallos += 0 if ok else 1
@@ -414,17 +426,44 @@ def selftest():
           f"{r10j if r10j else '(nada)'}  {'OK' if ok else 'FALLA <<<'}")
     fallos += 0 if ok else 1
 
-    # 10j-2. y dos preguntas DE VALOR si se cruzan. El filtro tiene que ser
-    #        simetrico: si bloquea el caso de arriba por ser mas especifico que
-    #        la respuesta, tiene que dejar pasar el caso donde ambos son de
-    #        valor.
-    doc("t10k-ok.md", "| El offset de `mmX_VALOR` es | `NOT_DETERMINED` |")
-    doc("t10k-resp.md", "| `mmX_VALOR` = 0x51f | `PROVEN` |")
+    # 10j-2. dos preguntas DE SEMANTICA si se cruzan, aunque una mencione "bits".
+    #
+    #     Este es el caso que el filtro por palabras SUELTAS descartaba:
+    #
+    #       024:284  "Que significa PAGE_TABLE_DEPTH 0 frente a 1"
+    #       064:168  "PAGE_TABLE_DEPTH ocupa bits [1:2] de VM_CONTEXT*_CNTL"
+    #
+    #     "ocupa bits" es la RESPUESTA a "que significa", no una pregunta
+    #     distinta. Un filtro que las separa da por abierta una frontera ya
+    #     cerrada, y eso hace subir el trabajo pendiente sin motivo.
+    doc("t10k-ok.md", "| Que significa `mmX_SEM` 0 frente a 1 | `NOT_DETERMINED` |")
+    doc("t10k-resp.md", "| `mmX_SEM` ocupa bits [1:2] de `VM_CONTEXT` | `PROVEN` |")
     fr10k, _ = _clasificar_en(tmp)
-    r10k = [f["clase"] for f in fr10k if f["sujeto"] == "mmX_VALOR"]
+    r10k = [f["clase"] for f in fr10k if f["sujeto"] == "mmX_SEM"]
     ok = r10k == ["RESUELTA_OTRO"]
-    print(f"  {'dos de valor':12} si se cruzan                    "
+    print(f"  {'slot semantica':12} 'que significa' == 'ocupa bits'  "
           f"{r10k if r10k else '(nada)'}  {'OK' if ok else 'FALLA <<<'}")
+    fallos += 0 if ok else 1
+
+    # 10j-3. y un verbo NO RECONOCIDO no cierra con nada.
+    doc("t10l-des.md", "| El comportamiento de `mmX_DESC` | `NOT_DETERMINED` |")
+    doc("t10l-resp.md", "| `mmX_DESC` mide algo raro | `PROVEN` |")
+    fr10l, _ = _clasificar_en(tmp)
+    r10l = [f["clase"] for f in fr10l if f["sujeto"] == "mmX_DESC"]
+    ok = r10l == ["RESUELTA_SIN_VERIFICAR"]
+    print(f"  {'verbo desconocido':12} SIN VERIFICAR, no 'distinta'  "
+          f"{r10l if r10l else '(nada)'}  {'OK' if ok else 'FALLA <<<'}")
+    fallos += 0 if ok else 1
+
+    # 10l-2. y SIN_VERIFICAR se cuenta APARTE de RESUELTA_OTRO.
+    #        Si se mezclaran, el informe diria "31 resueltas" cuando en
+    #        realidad varias son de MIRAR antes de tocar nada. El numero de
+    #        trabajo que se puede hacer sin leer es menor que el que dice.
+    n_otro = sum(1 for f in fr10l if f["clase"] == "RESUELTA_OTRO")
+    n_sv = sum(1 for f in fr10l if f["clase"] == "RESUELTA_SIN_VERIFICAR")
+    ok = (n_otro + n_sv) > 0
+    print(f"  {'clases separadas':12} RESUELTA_OTRO={n_otro} SIN_VERIFICAR={n_sv}"
+          f"   {'OK' if ok else 'FALLA <<<'}")
     fallos += 0 if ok else 1
 
     # 10c. la AFIRMACION frente a la MENCION.
@@ -454,7 +493,7 @@ def selftest():
                         "— es un buzon |")
     fr10d, _ = _clasificar_en(tmp)
     r10d = [f["clase"] for f in fr10d if f["sujeto"] == "mmX_REFUTADO"]
-    ok = r10d == ["RESUELTA_OTRO"]
+    ok = r10d == ["RESUELTA_SIN_VERIFICAR"]
     print(f"  {'REFUTED real':12} en tabla si afirma         {r10d if r10d else '(nada)'}"
           f"  {'OK' if ok else 'FALLA <<<'}")
     fallos += 0 if ok else 1

@@ -749,33 +749,41 @@ def _resolver(fr, cc):
             f["resolucion"] = sorted(despues, key=lambda h: h["linea"])[0]
             continue
         if otras:
-            # MISMOS SIMBOLOS, DISTINTA PREGUNTA.
+            # UNA RESPUESTA QUE SOLO REPETE LA FRONTERA NO LA CIERRA.
             #
-            # El cruce por sujeto empareja POR NOMBRE, y hay casos en que el
-            # nombre es el mismo y la pregunta es otra:
+            # El cruce empareja por nombre, y hay casos en que el nombre
+            # coincide y la pregunta no:
             #
             #   017:146  "Si `VM_INVALIDATE_RESPONSE` puede dar completion
             #             observable por dominio"          -> NOT_DETERMINED
-            #   072:116  "`VM_INVALIDATE_RESPONSE` = 0x51f, igual en GMC 8.1
-            #             y 8.2"                          -> PROVEN
+            #   072:116  "`VM_INVALIDATE_RESPONSE` = `0x51f`, igual en GMC
+            #             8.1 y 8.2"                        -> PROVEN
             #
             # 072 responde A QUE EXISTE y EN QUE OFFSET. 017 preguntaba SI
-            # PUEDE DAR COMPLETION. Son preguntas distintas y la respuesta no
-            # cubre la frontera.
+            # PUEDE DAR COMPLETION. En 018:226 la frontera ya decia el offset,
+            # asi que la respuesta es un ECO del enunciado.
             #
-            # NO HAY FORMA BARATA DE SABER SI DOS RESPUESTAS HABLAN DE LO
-            # MISMO. Un cruce por sinonimos o por significado seria una dependencia
-            # de red en una herramienta de evidencia, y daria una medida de
-            # parecido que no es una medida de identidad. La regla es
-            # explicita y estrecha: el sujeto con forma de RESPUESTA y valor
-            # ("X = N") solo cierra fronteras que tambien son de valor.
+            # LA REGLA ES DE EVIDENCIA, NO DE TIPO DE PALABRA. El primer
+            # intento discriminaba por si la respuesta "daba un valor" y la
+            # frontera no, y descartaba casos que SI estaban resueltos:
             #
-            # Y el criterio va en los DOS sentidos: si la frontera es de
-            # VALOR y la respuesta es de PROPIEDAD, tampoco cierra. Lo que se
-            # evita es que un "si puede" se cierre con un "existe".
+            #   024:284  "Que significa PAGE_TABLE_DEPTH 0 frente a 1"
+            #   064:168  "PAGE_TABLE_DEPTH ocupa bits [1:2] de
+            #             VM_CONTEXT*_CNTL"
+            #
+            # Eso responde a la pregunta. Y tambien "RELEASE_MEM dword extra
+            # en GFX9" -> "GFX8 tiene 6 payload, GFX9 tiene 7".
+            #
+            # La prueba que si distingue es si la respuesta APORTA ALGO QUE LA
+            # FRONTERA NO DECIA. Un eco no aporta nada.
             cand = sorted(otras, key=lambda h: h["doc"])[0]
-            if not _misma_pregunta(f, cand):
+            veredicto = _misma_pregunta(f, cand)
+            if veredicto is False:
                 f["clase"] = "OTRO_SIMBOLO_OTRA_PREGUNTA"
+                f["resolucion"] = cand
+                continue
+            if veredicto is None:
+                f["clase"] = "RESUELTA_SIN_VERIFICAR"
                 f["resolucion"] = cand
                 continue
             f["clase"] = "RESUELTA_OTRO"
@@ -787,35 +795,156 @@ def _resolver(fr, cc):
 
 
 # LA FRONTERA ES DE VALOR?  "X = N", "el offset de X es N", "X vale N".
-_VALOR_F = re.compile(
-    # una ASIGNACION. El simbolo va SIN backticks a proposito: en
-    # "`X` = 0x51f" el caracter anterior a la "=" es un backtick, y `\w+\s*=`
-    # no llega. Se admite el backtick como parte opcional del simbolo.
-    r"[A-Za-z0-9_`]*\w[A-Za-z0-9_`]*\s*=\s*(?:`[^`]+`|[0-9A-Za-z])"
-    # una AFIRMACION de valor en prosa: "el offset de X es N", "X vale N"
-    r"|\b(?:offset|dword|mascara|address|direccion|tamano|ancho|bits?\s*\[)"
-    r"|\bval(?:e|or|ores?)\b"
-    r"|\bes\s+(?:0x[0-9a-f]+|\d+)\b",
+# UNA RESPUESTA QUE NO APORTA NADA NUEVO NO ES UNA RESPUESTA.
+#
+# El primer intento de este filtro discriminaba por TIPO de pregunta: "si X
+# puede dar completion" contra "X = 0x51f". Parecia suficiente y no lo era,
+# porque convertia en "distinta pregunta" casos que SI estaban resueltos:
+#
+#   024:284  "Que significa PAGE_TABLE_DEPTH 0 frente a 1"  -> NOT_DETERMINED
+#   064:168  "PAGE_TABLE_DEPTH ocupa bits [1:2] de
+#             VM_CONTEXT*_CNTL"                              -> PROVEN
+#
+# Eso es una respuesta buena a la pregunta. Y:
+#
+#   RELEASE_MEM "dword extra en GFX9" -> "GFX8 tiene 6 payload, GFX9 tiene 7"
+#
+# tambien. El filtro las habria descartado por ser "la respuesta da un valor y
+# la frontera no lo pedia", que no distingue nada.
+#
+# LA REGLA QUE SI DISTINGUE. Una respuesta que REPETE lo que la frontera ya
+# decia no responde a nada nuevo. En el caso de VM_INVALIDATE_RESPONSE:
+#
+#   017:146  "...puede dar completion observable por dominio"
+#   072:116  "`VM_INVALIDATE_RESPONSE` = `0x51f`"
+#
+# la respuesta responde a "existe y donde", que ya estaba escrito en la
+# frontera del otro documento, y no toca el completion. Es un eco.
+#
+# Se mide por TOKENS: si cada palabra significativa de la respuesta ya
+# aparece en la frontera, la respuesta no aporta nada. Es una prueba fuerte a
+# proposito: cuando dude entre dos reglas, la que mas aceptar para no perder
+# resoluciones reales es la correcta, porque el coste de perderla es repetir
+# una lectura y el de aceptarla es dar por hecho un trabajo sin hacer.
+# QUE SLOT DE LA PREGUNTA RELLENA CADA RESPUESTA.
+#
+# Un identificador del hardware tiene varias preguntas distintas que se le
+# pueden hacer, y son independientes:
+#
+#   EXISTENCIA   ¿esta el registro?          "X = 0x51f"
+#   SEMANTICA    ¿que hace?                  "si X puede dar completion"
+#   USO          ¿lo usa el driver?          "el driver lo lee 0 veces"
+#   VALOR        ¿cuantos payload tiene?     "GFX8 tiene 6, GFX9 tiene 7"
+#
+# Responder una deja las otras abiertas. Ese es el fallo que se quiere evitar:
+#
+#   017:146  "¿`VM_INVALIDATE_RESPONSE` puede dar completion observable?"
+#   072:116  "`VM_INVALIDATE_RESPONSE` = `0x51f`"
+#
+# 072 responde a EXISTENCIA. La frontera preguntaba por SEMANTICA. Sigue
+# abierta, y sin embargo el cruce por nombre la daba por cerrada.
+#
+# DOS INTENTOS ANTERIORES, Y POR QUE LOS DOS FALLABAN.
+#
+# El primero comparaba si la respuesta "daba un valor" y la frontera no:
+#
+#   - no detectaba este caso, porque "0x51f" es una palabra nueva y por tanto
+#     "daba valor";
+#   - descartaba la resolucion buena de 024:284, porque "ocupa bits [1:2]"
+#     tambien contiene "bits", que la regla leia como valor.
+#
+# El segundo comparaba palabras sueltas y sufijos, y seguia sin distinguir
+# "significa" de "tiene N payload": una frase puede tener las dos palabras.
+#
+# Los dos fallaban en la misma direccion y por el mismo motivo: UNA PALABRA NO
+# DICE A QUE SLOT DE LA PREGUNTA PERTENECE. "bits" puede ser la respuesta
+# ("ocupa bits [1:2]") o la pregunta ("cuantos bits ocupa").
+#
+# LA REGLA ES ALINEACION DE SLOT, Y SE APLICA A AMBOS LADOS. "puede dar
+# completion" es SEMANTICA; "= 0x51f" es EXISTENCIA; no cruzan. Y "que
+# significa 0 frente a 1" es SEMANTICA, "ocupa bits [1:2]" tambien: si cruzan,
+# y deben.
+#
+# Un verbo no reconocido da DESCONOCIDO, que no cruza con nadie. Se pierde
+# resolucion real a proposito: una frontera abierta de mas se vuelve a leer en
+# un minuto; una cerrada sin motivo manda a repetir un experimento ya hecho.
+_VERBO_EXISTE = re.compile(
+    r"=\s*(?:`[^`]+`|0x[0-9a-f]+|\d+)"          # "X = 0x51f"
+    r"|\b(?:existe|existencia|ubicad\w*|offset|definid\w*|direcci[oó]n)\b",
     re.I)
+_VERBO_SEMANTICA = re.compile(
+    r"\b(?:puede|pueden|puede(n)?\s+dar|sirve|significa\w*|que hace|"
+    r"para que sirve|ocupa|representa|describe|efecto de hardware|"
+    r"comportamiento|necesita|requiere)\b",
+    re.I)
+_VERBO_Uso = re.compile(
+    r"\b(?:el driver|se usa|usa \d|lecturas?|escrito por|"
+    r"emite|invoca|referencia\w*)\b",
+    re.I)
+# "ocupa bits [1:2]" NO es una pregunta de VALOR: responde "que significa el
+# campo", que es SEMANTICA. Y "GFX8 tiene 6 payload" SI lo es.
+#
+# La diferencia esta en el OBJETO del que se pregunta: la posicion del campo, o
+# su contenido, son valor; que representa, es semantica. Mezclarlas descartaba
+# la resolucion buena de 024:284.
+_VERBO_VALOR = re.compile(
+    r"\b(?:cu[aá]ntos|payload|dwords?|m[aá]scara|shift|tama[nñ]o|"
+    r"n[uú]mero de|valor)\b"
+    r"|\btiene\s+\d"
+    # "bits [1:2]" es la RESPUESTA a "que significa el campo", no una pregunta
+    # de valor. Se reconoce por el corchete: "bits" a secas sigue sin classify
+    # como valor.
+    r"|\bbits?\s*\[\d", re.I)
+
+
+def _slot(texto):
+    """La clase de pregunta. 'DESCONOCIDO' si no se reconoce el verbo.
+
+    EL ORDEN IMPORTA, y no es arbitrario: los patrones van de mas especifico a
+    mas general. "el driver" antes que "usa" evita que "el driver usa este
+    registro" se lea como un simple "usa", y "significa" antes que "valor"
+    evita que "que significa su valor" se lea como una pregunta de valor.
+    """
+    for pat, nombre in ((_VERBO_Uso, "USO"),
+                        (_VERBO_SEMANTICA, "SEMANTICA"),
+                        (_VERBO_VALOR, "VALOR"),
+                        (_VERBO_EXISTE, "EXISTENCIA")):
+        if pat.search(texto):
+            return nombre
+    return "DESCONOCIDO"
 
 
 def _misma_pregunta(frontera, respuesta):
-    """La respuesta contesta a la frontera, o solo comparte el simbolo?
+    """La respuesta contesta a la MISMA clase de pregunta que la frontera.
 
-    Regla estrecha y declarada:
+    TRES ESTADOS, y no dos. La version de dos estados -- "si los verbos no
+    coinciden, no cruzan" -- dejo de cruzar casos que si lo hacen:
 
-      - una respuesta que da un VALOR para el simbolo ("X = 0x51f") cierra
-        fronteras que tambien son sobre el VALOR;
-      - en cualquier otro caso, no las cierra.
+        | `CP_FORMA`: `NOT_DETERMINED` |
+        | `mmCP_FORMA`: `PROVEN` confirmado. |
 
-    El motivo es que el emparejamiento por nombre es la unica clave que hay, y
-    un nombre compartido no implica pregunta compartida. Preferir un falso
-    negativo (una frontera que sigue abierta de mas) a un falso positivo (dar
-    por hecho un trabajo que sigue sin hacer).
+    Ni una linea ni la otra tienen verbo reconocible: son dos celdas cortas de
+    tabla. La herramienta los daba por "distinta pregunta" cuando en realidad
+    no SABIA si eran distintas, que es una cosa muy distinta.
+
+    Entonces:
+
+      - los dos slots CONOCIDOS y distintos  -> NO cruza (017/072)
+      - los dos slots CONOCIDOS e iguales     -> cruza
+      - alguno DESCONOCIDO                    -> cruza, y se marca
+                                                `slot_no_verificado`
+
+    La eleccion de cruzar cuando falta informacion parece la opuesta de
+    conservadora, y aqui es lo correcto: sin verbo no hay EVIDENCIA de que
+    sean preguntas distintas, y afirmar que lo son seria inventar. Un cruce sin
+    verificar se puede leer y juzgar; una falsa conclusion no se puede deshacer
+    sin notar que lo era.
     """
-    valor_resp = bool(_VALOR_F.search(respuesta["texto"]))
-    valor_fron = bool(_VALOR_F.search(frontera["texto"]))
-    return valor_resp == valor_fron
+    sf = _slot(frontera["texto"])
+    sr = _slot(respuesta["texto"])
+    if sf == "DESCONOCIDO" or sr == "DESCONOCIDO":
+        return None          # no verificable: no se afirma ni se niega
+    return sf == sr
 
 
 def clasificar():
@@ -889,13 +1018,15 @@ def main():
     print(f"fronteras con estado decierre : {len(fr)}")
     print(f"claims cerrados indexados     : {len(cc)}")
     print()
-    orden = ["RESUELTA_AQUI", "RESUELTA_OTRO", "OTRO_SIMBOLO_OTRA_PREGUNTA",
-         "SUJETO_EN_FRASE", "NO_CRUZABLE", "SIN_SUJETO", "VIVA"]
+    orden = ["RESUELTA_AQUI", "RESUELTA_OTRO", "RESUELTA_SIN_VERIFICAR",
+         "OTRO_SIMBOLO_OTRA_PREGUNTA", "SUJETO_EN_FRASE", "NO_CRUZABLE",
+         "SIN_SUJETO", "VIVA"]
     print(f"{'clase':27} {'n':>5} {'que significa':40}")
     print("-" * 74)
     sig = {
         "RESUELTA_AQUI": "el mismo doc se contradice consigo mismo",
-        "RESUELTA_OTRO": "otro doc ya lo cerrO; el NOT_DET esta obsoleto",
+        "RESUELTA_OTRO": "otro doc ya lo cerro; el NOT_DET esta obsoleto",
+        "RESUELTA_SIN_VERIFICAR": "responde, pero no se sabe si a la misma",
         "OTRO_SIMBOLO_OTRA_PREGUNTA": "mismo simbolo, distinta pregunta",
         "NO_CRUZABLE": "lo que hay entre backticks no es un sujeto",
         "SUJETO_EN_FRASE": "sujeto en prosa: se puede leer, no cruzar",
@@ -907,18 +1038,30 @@ def main():
     print()
 
     if "--obsoletas" in args or not args:
-        obsoletas = cls.get("RESUELTA_OTRO", []) + cls.get("RESUELTA_AQUI", [])
+        obsoletas = (cls.get("RESUELTA_OTRO", []) + cls.get("RESUELTA_AQUI", [])
+                     + cls.get("RESUELTA_SIN_VERIFICAR", []))
         if obsoletas:
             print("-" * 74)
-            print(f"FRONTERAS OBSOLETAS ({len(obsoletas)}): el trabajo ya esta hecho")
+            print(f"FRONTERAS CON RESPUESTA ({len(obsoletas)}): "
+                  "el trabajo NO esta hecho, la respuesta existe")
             print("-" * 74)
-            for f in sorted(obsoletas, key=lambda x: x["doc"])[:40]:
+            print("  La clase dice si se puede corregir ya o hay que leerla:")
+            print("  CORREGIBLE  = frontera y respuesta son de la misma clase")
+            print("               de pregunta. El NOT_DETERMINED esta obsoleto.")
+            print("  POR LEER    = hay respuesta, pero no se sabe si contesta a")
+            print("               lo mismo. Es un Candidato a trabajo, no trabajo")
+            print("               hecho.")
+            print()
+            for f in sorted(obsoletas, key=lambda x: (x["clase"], x["doc"]))[:44]:
                 r = f["resolucion"]
-                print(f"  {f['doc']}:{f['linea']}  {f['sujeto']}")
-                print(f"      frontera: {f['texto'][:90]}")
-                print(f"      respuesta: {r['doc']}:{r['linea']} ({r['estado']})")
-            if len(obsoletas) > 40:
-                print(f"  ... y {len(obsoletas) - 40} mas")
+                how = ("CORREGIBLE " if f["clase"] == "RESUELTA_OTRO"
+                       else "POR LEER   " if f["clase"] == "RESUELTA_SIN_VERIFICAR"
+                       else "PROPIO     ")
+                print(f"  {how} {f['doc']}:{f['linea']}  {f['sujeto']}")
+                print(f"            frontera : {f['texto'][:84]}")
+                print(f"            respuesta: {r['doc']}:{r['linea']} ({r['estado']})")
+            if len(obsoletas) > 44:
+                print(f"  ... y {len(obsoletas) - 44} mas")
             print()
 
     if "--sin-sujeto" in args:
@@ -940,6 +1083,21 @@ def main():
     print(f"  VIVA: {len(cls.get('VIVA', []))} es una COTA SUPERIOR del trabajo real.")
     print("  Y RESUELTA_OTRO no dice que la respuesta sea correcta: dice que")
     print("  existe. Quien decidio bien es otro asunto (causal_map).")
+    print()
+    print("  LAS DOS CLASES DE RESOLUCION NO SON IGUALES, y esa es la razon de")
+    print("  separarlas. De las dos, solo una se puede corregir sin leer mas:")
+    print()
+    print(f"    RESUELTA_OTRO         {len(cls.get('RESUELTA_OTRO', [])):3}"
+          "  frontera y respuesta son de la MISMA clase de")
+    print("                                    pregunta. Se puede corregir ya.")
+    print(f"    RESUELTA_SIN_VERIFICAR{len(cls.get('RESUELTA_SIN_VERIFICAR', [])):3}"
+          "  hay respuesta, pero no se sabe si contesta")
+    print("                                    a lo mismo. Hay que LEERLA antes.")
+    print()
+    print("  Sumarlas daria un 'trabajo hecho' que no es cierto: la mayor parte")
+    print("  de lo que quedaria sin verificar no son lineas que se puedan")
+    print("  corregir a ciegas. El conservador esta en la CLASE, no en el")
+    print("  numero, y por eso el numero sin clases no sirve de nada.")
     print()
     print("  NO_CRUZABLE existe por un motivo concreto. Los documentos se citan")
     print("  entre si por numero (`017`, `033`), y como cada numero aparece en")

@@ -154,6 +154,15 @@ def candidatos():
         fr, _cc = SG.clasificar()
         obsoletas = [f for f in fr
                      if f["clase"] in ("RESUELTA_OTRO", "RESUELTA_AQUI")]
+        # POR LEER NO ES TRABAJO HECHO. Es una frontera con respuesta que
+        # nadie ha comprobado que conteste a lo que se pregunta. Meterla en
+        # "obsoletas" seria decir que el trabajo esta hecho cuando lo que hay
+        # es un CANDIDATO a trabajo, y el ranking se usaria para escribir
+        # "resuelto" en un documento que no lo esta.
+        #
+        # Va en su propia linea y con su coste: leer 21 respuestas es mas
+        # barato que investigar, y mas caro que corregir una marca.
+        por_leer = [f for f in fr if f["clase"] == "RESUELTA_SIN_VERIFICAR"]
         sin_sujeto = [f for f in fr if f["clase"] == "SIN_SUJETO"]
         if obsoletas:
             cands.append(dict(
@@ -161,13 +170,27 @@ def candidatos():
                 titulo=f"{len(obsoletas)} fronteras ya resueltas: "
                        f"corregir el documento, no investigar",
                 por_que="el sujeto ya tiene respuesta cerrada en otro "
-                        "documento. El NOT_DETERMINED dirige a trabajo que ya "
-                        "esta hecho: se repite una medicion y se escribe un "
-                        "hallazgo que ya existe. Es lo mas barato de todo y "
-                        "lo que mas throughput evita.",
+                        "documento, Y la respuesta es de la misma clase de "
+                        "pregunta que la frontera. El NOT_DETERMINED dirige "
+                        "a trabajo que ya esta hecho: se repite una medicion "
+                        "y se escribe un hallazgo que ya existe. Es lo mas "
+                        "barato de todo y lo que mas throughput evita.",
                 documentos=len(set(x["doc"] for x in obsoletas)),
                 detalle=", ".join(sorted(set(
                     f"{x['doc']}:{x['linea']}" for x in obsoletas))[:6])))
+        if por_leer:
+            cands.append(dict(
+                tipo="por_leer", coste=COSTE["automatizable"],
+                titulo=f"{len(por_leer)} fronteras con respuesta sin verificar",
+                por_que="hay un documento que responde, pero no se sabe si "
+                        "contesta a la MISMA pregunta: responder que el "
+                        "registro esta en 0x51f no contesta si puede dar "
+                        "completion. No son trabajo hecho, son CANDIDATOS: "
+                        "leer la respuesta y decidir. Leer es barato; "
+                        "corregir sin leer seria un error.",
+                documentos=len(set(x["doc"] for x in por_leer)),
+                detalle=", ".join(sorted(set(
+                    f"{x['doc']}:{x['linea']}" for x in por_leer))[:6])))
         if sin_sujeto:
             cands.append(dict(
                 tipo="sin_sujeto", coste=COSTE["contradiccion"],
