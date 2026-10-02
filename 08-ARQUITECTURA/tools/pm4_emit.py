@@ -377,12 +377,26 @@ def eval_call(expr, macros):
                 else int(expr)) & 0xFFFFFFFF
     except ValueError:
         pass
-    if "(" not in expr:
+    # Identificador simple: se resuelve por nombre. Si NO es un identificador
+    # simple, tiene que pasar por el parser, porque puede ser una expresion
+    # con operadores y sin ninguna llamada a macro ("5 << 8", "a | b & c").
+    # Sin esta distincion, esas expresiones iban a resolve() y fallaban.
+    if re.match(r"^[A-Za-z_]\w*$", expr):
         return resolve(expr, macros)
+    if "(" not in expr:
+        v, leftover = parse_or(tokenize(expr), macros, 0)
+        if leftover:
+            raise Unresolved(expr + " (cola: %s)" % leftover[0][1])
+        return v
 
     head = re.match(r"^([A-Za-z_]\w*)\s*\(", expr)
     if not head:
-        return resolve(expr, macros)
+        # Empieza por un literal o un operador, no por un nombre: es una
+        # expresion general con llamadas dentro. El parser la resuelve entera.
+        v, leftover = parse_or(tokenize(expr), macros, 0)
+        if leftover:
+            raise Unresolved(expr + " (cola: %s)" % leftover[0][1])
+        return v
     name = head.group(1)
     open_at = head.end() - 1
     close_at = matching_paren(expr, open_at)

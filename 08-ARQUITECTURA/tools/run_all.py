@@ -222,6 +222,18 @@ def main():
          ["pm4_emit.py", "--frame-size"], 0),
         ("pm4_emit: control negativo",
          ["pm4_emit.py", "--self-test"], 0),
+        # CONTRASTE ESTATICO vs BINARIO. Es el unico control de todo el
+        # proyecto que compara la aritmetica de pm4_emit con el codigo real
+        # del modulo cargado en memoria: si un valor calculado no aparece en
+        # los bytes de la funcion, rc=1 y sale FALLA.
+        #
+        # rc_tol=3: sin /tmp/amdgpu_loaded.ko esta herramienta no puede
+        # observar nada. Eso es un estado del entorno, no un defecto del
+        # metodo, y se deja a la vista en vez de declararse catastrophe.
+        ("PM4 estatico vs codigo del .ko",
+         ["ko_immediate.py", "--compare-all"], 19, 3),
+        ("ko_immediate: control negativo",
+         ["ko_immediate.py", "--self-test"], 1, 1),
         # La reserva de numeros de hallazgo. num_collision mide 37 duplicados
         # y esta sesion choco 3 veces (111, 119, 120) con otra escribiendo.
         # El self-test RESERVA y LIBERA de verdad: comprobar que el numero no
