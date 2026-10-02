@@ -281,6 +281,13 @@ def main():
          ["fingerprint.py", "--completo"], 0, 0),
         ("fingerprint: parser con 3 controles negativos",
          ["fingerprint.py", "--self-test"], 1, 1),
+        # Validacion de la herramienta de integridad del registro de hallazgos.
+        # El self-test pasa. El RECUENTO de colisiones NO se mete como check
+        # que deba pasar: findings_index devuelve 1 mientras existan las 65
+        # colisiones de 259, y anadirlo aqui haria que run_allDijera "todo bien"
+        # mientras el defecto sigue vivo. Se ejecuta a mano hasta que se arregle.
+        ("findings_index: unicidad y tabla de reenvio",
+         ["findings_index.py", "--self-test"], 1, 1),
         # La reserva de numeros de hallazgo. num_collision mide 37 duplicados
         # y esta sesion choco 3 veces (111, 119, 120) con otra escribiendo.
         # El self-test RESERVA y LIBERA de verdad: comprobar que el numero no
