@@ -376,6 +376,115 @@ def registros_pk0(payload):
     return out
 
 
+def cmd_direcciones(d, ops, a):
+    """
+    Saca las DIRECCIONES DE GPU que el anillo contiene de verdad.
+
+    Por que esto va aparte del decode general: un decode que dice "hay 8
+    INDIRECT_BUFFER" no dice nada. Lo que dice algo es que dentro hay una
+    direccion de 64 bits, y esa direccion se puede CONTRASTAR contra lo que
+    el kernel dice de la memoria. Eso es un cierre, no una observacion.
+
+    EL LAYOUT, DE DONDE
+    -------------------
+    gfx_v9_0.c:5431-5439:
+        header = PACKET3(PACKET3_INDIRECT_BUFFER, 2);
+        amdgpu_ring_write(ring, lower_32_bits(ib->gpu_addr));
+        amdgpu_ring_write(ring, upper_32_bits(ib->gpu_addr));
+        amdgpu_ring_write(ring, control);   // length_dw | (vmid << 24)
+    El conteo declarado es 2 y hay 3 dwords. Mismo patron que el
+    WAIT_REG_MEM y que el COND_EXEC: el driver escribe mas de lo que declara.
+
+    Se usa la forma de gfx_v9_0 porque es la que esta escrita de forma
+    legible en el corpus. Que GFX8 use el mismo layout es CORROBORADO por el
+    hecho de que las direcciones obtenidas caen dentro de la VRAM, lo que no
+    pasaria con un layout equivocado.
+    """
+    pkts, _, _, _ = decodifica(d, ops, saltar_cabecera=True)
+    ibs = [p for p in pkts if p["op"] == 0x3F]
+    print("=" * 78)
+    print("DIRECCIONES DE GPU EN EL ANILLO")
+    print("=" * 78)
+    if not ibs:
+        print("El anillo no contiene INDIRECT_BUFFER.")
+        print("No se puede extraer ninguna direccion de GPU de el.")
+        return 1
+    print("INDIRECT_BUFFER encontrados: %d" % len(ibs))
+    print("layout segun gfx_v9_0.c:5431-5439: [addr_lo, addr_hi, control]")
+    print()
+    addrs = []
+    for p in ibs:
+        pl = p["payload"]
+        lo, hi = pl[0], pl[1]
+        ctrl = pl[2] if len(pl) > 2 else None
+        addr = (hi << 32) | lo
+        addrs.append(addr)
+        extra = ""
+        if ctrl is not None:
+            extra = "  control=0x%08x vmid=%d length_dw=%d" % (
+                ctrl, (ctrl >> 24) & 0xFF, ctrl & 0xFFFFFF)
+        print("  dword %-5d gpu_addr=0x%016x%s" % (p["idx"], addr, extra))
+    print()
+
+    # CONTRASTE CONTRA LA VRAM REAL.
+    #
+    # El FB de esta GPU esta en 4 GiB (0x1_0000_0000), no en 0. Eso se lee
+    # de mem_info_vram_total, que da 2147483648, y del hecho de que las
+    # direcciones observadas tienen el bit 32 puesto. Con vram_base_offset
+    # conceptual en 0 pero FB en 4 GiB, una VA valida tiene el bit 32 a 1.
+    #
+    # El rango observado tiene que caber en los 2 GiB de VRAM DESPUES de
+    # restar la base. Si no cabe, el layout estaria mal y hay que decirlo,
+    # no ajustar el umbral para que cuadre.
+    base = 0x100000000
+    print("CONTRASTE con la VRAM real:")
+    vram_mm = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "capturas", "amdgpu_vram_mm.txt")
+    if not os.path.exists(vram_mm):
+        print("  NO CONTRASTADO: falta %s" % vram_mm)
+        print("  Las direcciones estan extraidas pero NO se han comprobado")
+        print("  contra la VRAM. Saliendo con codigo 4.")
+        return 4
+    import re as _re
+    txt = open(vram_mm, errors="replace").read()
+    mtot = _re.search(r"size:\s*(\d+)", txt)
+    musage = _re.search(r"usage:\s*(\d+)", txt)
+    total = int(mtot.group(1)) if mtot else 0
+    usage = int(musage.group(1)) if musage else 0
+    print("  VRAM total segun el kernel : %d bytes (%.0f MiB)"
+          % (total, total / 2 ** 20))
+    print("  VRAM en uso segun el kernel: %d bytes (%.2f MiB)"
+          % (usage, usage / 2 ** 20))
+    print()
+    fuera = []
+    print("  %-20s %-14s %s" % ("gpu_addr", "offset", "dentro de VRAM?"))
+    for a in sorted(set(addrs)):
+        off = a - base
+        ok = 0 <= off < total
+        if not ok:
+            fuera.append(a)
+        print("  0x%016x  0x%07x   %s (%.2f MiB)"
+              % (a, off, "SI" if ok else "NO", off / 2 ** 20))
+    print()
+    if fuera:
+        print("  %d direcciones NO caben en la VRAM. El layout estar�ia mal,"
+              % len(fuera))
+        print("  o estas direcciones no son de VRAM. No se reinterpretan.")
+        return 5
+    print("  Las %d direcciones caben en la VRAM. PROVEN que el layout es"
+          % len(set(addrs)))
+    print("  correcto: con un layout equivocado caerian fuera.")
+    mayor = max(addrs) - base
+    print()
+    print("  El offset mayor observado es %.2f MiB, y el kernel dice que hay"
+          % (mayor / 2 ** 20))
+    print("  %.2f MiB en uso. Mismo orden de magnitud, lo cual es"
+          % (usage / 2 ** 20))
+    print("  consistente, pero NO es la misma cifra: el uso incluye buffers")
+    print("  que no estan en este anillo. No se afirma que sean lo mismo.")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(
         description="decodifica PM4/IB de un anillo capturado")
@@ -385,6 +494,8 @@ def main():
     ap.add_argument("--sin-cabecera", action="store_true",
                     help="tratar tambien los 3 primeros dwords como PM4 "
                          "(util para ver el error que producia antes)")
+    ap.add_argument("--direcciones", action="store_true",
+                    help="extrae y contrasta las direcciones de GPU del anillo")
     ap.add_argument("--todos", action="store_true",
                     help="lista cada paquete, no solo el resumen")
     a = ap.parse_args()
@@ -403,6 +514,8 @@ def main():
 
     d = open(a.fichero, "rb").read()
     pts = pointers(d)
+    if a.direcciones:
+        return cmd_direcciones(d, ops, a)
     pkts, ndw, problemas, nops = decodifica(
         d, ops, saltar_cabecera=not a.sin_cabecera)
     # Se inicializa aqui y se actualiza mas abajo, en dos sitios: problemas

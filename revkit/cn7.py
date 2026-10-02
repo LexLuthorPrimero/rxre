@@ -35,6 +35,7 @@ QUE COMPRUEBA
 import struct
 import sys
 import os
+import subprocess
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import pm4dec as P  # noqa: E402
@@ -42,11 +43,11 @@ import pm4dec as P  # noqa: E402
 FALLOS = []
 
 
-def chk(nombre, cond):
+def chk(nombre, cond, detalle=""):
     if cond:
         print("  OK    %s" % nombre)
     else:
-        print("  FALLA %s" % nombre)
+        print("  FALLA %s %s" % (nombre, detalle))
         FALLOS.append(nombre)
 
 
@@ -180,6 +181,44 @@ def main():
                       capture_output=True, text=True)
         chk("anillo de tamano correcto: NO avisa, rc=0",
             _r2.returncode == 0 and "potencia de dos" not in _r2.stdout)
+
+    # El contraste de direcciones tiene que DISCRIMINAR: con la base de VRAM
+    # equivocada, las direcciones tienen que caer fuera y salir con rc=5. Si
+    # la base fuera un valor que "siempre cuadra", este control no
+    # comprobaria nada.
+    anillo = os.path.join(aqui, "capturas", "amdgpu_ring_gfx.txt")
+    if os.path.exists(anillo):
+        r = subprocess.run([sys.executable,
+                            os.path.join(aqui, "pm4dec.py"), anillo,
+                            "--direcciones"], capture_output=True, text=True,
+                           cwd=aqui)
+        chk("direcciones del anillo caben en la VRAM, rc=0",
+            r.returncode == 0 and "caben en la VRAM" in r.stdout,
+            "(rc=%d)" % r.returncode)
+        # El mutante se escribe EN revkit, no en un temporal.
+        #
+        # pm4dec resuelve capturas/ con os.path.dirname(__file__), asi que una
+        # copia en /tmp no encuentra amdgpu_vram_mm.txt y sale con rc=4
+        # (falta el fichero) en vez del rc=5 del contraste. Es un fallo
+        # distinto que enmascara al que se quiere probar, y durante un rato
+        # estuve ajustando el rc en vez de mirar por que salia 4.
+        _p2 = os.path.join(aqui, "_pm4dec_mutante.py")
+        _s2 = open(os.path.join(aqui, "pm4dec.py")).read()
+        _m2 = _s2.replace("    base = 0x100000000", "    base = 0")
+        chk("el mutante cambia de verdad la base", _m2 != _s2)
+        try:
+            open(_p2, "w").write(_m2)
+            r2 = subprocess.run([sys.executable, _p2, anillo, "--direcciones"],
+                               capture_output=True, text=True, cwd=aqui)
+            chk("CASO NEGATIVO: base 0 -> NO caben, rc=5",
+                r2.returncode == 5 and "NO caben" in r2.stdout,
+                "(rc=%d) %s" % (r2.returncode, r2.stdout[-160:]))
+        finally:
+            if os.path.exists(_p2):
+                os.remove(_p2)
+    else:
+        print("  OMIT  sin capturas/amdgpu_ring_gfx.txt no se prueban las"
+              " direcciones")
 
     print("-" * 62)
     if FALLOS:

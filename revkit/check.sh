@@ -187,6 +187,10 @@ if [ -f capturas/amdgpu_vbios.txt ]; then
     # pm4dec sobre el anillo real: el decode tiene que salir limpio, sin
     # problemas de truncamiento. Con el PKT0 mal tratado, esto no cuadraba.
     run "pm4dec: anillo GFX real"                   python3 pm4dec.py capturas/amdgpu_ring_gfx.txt
+    # direcciones: extrae las GPU VA de los INDIRECT_BUFFER y las contrasta
+    # contra la VRAM real. Si el layout estuviera mal, caerian fuera y daria
+    # rc=5, asi que el contraste discrimina de verdad.
+    run "pm4dec: direcciones de GPU vs VRAM"        python3 pm4dec.py capturas/amdgpu_ring_gfx.txt --direcciones
 else
     echo "  atomrom: VBIOS real ausente (no versionado)     OMITIDO, el"
     echo "           autotest con ROM sintetico ya valida el"

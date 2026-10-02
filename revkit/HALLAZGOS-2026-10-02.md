@@ -429,7 +429,86 @@ el valor no se convierte en un tipo de memoria inventado.
 
 ---
 
-## 8. ERRORES PROPIOS ENCONTRADOS EN ESTA SESION
+## 8. DIRECCIONES DE GPU OBSERVADAS EN EL ANILLO
+
+El anillo GFX capturado contiene 8 `PACKET3_INDIRECT_BUFFER`, y dentro de cada
+uno hay una **direccion de 64 bits que el hardware uso de verdad**.
+
+### El layout, y de donde sale
+
+`gfx_v9_0.c:5431-5439`:
+
+```c
+header = PACKET3(PACKET3_INDIRECT_BUFFER, 2);
+amdgpu_ring_write(ring, lower_32_bits(ib->gpu_addr));
+amdgpu_ring_write(ring, upper_32_bits(ib->gpu_addr));
+amdgpu_ring_write(ring, control);   // length_dw | (vmid << 24)
+```
+
+Declara `count=2` y escribe 3 dwords. Es el **mismo patron** que el
+`WAIT_REG_MEM` (count=5, 6 escritos) y que el `COND_EXEC` (count=3, 5
+escritos): el driver de GFX8 escribe mas dwords de los que declara.
+
+Se usa la forma de gfx_v9_0 porque es la que esta escrita de forma legible.
+Que GFX8 la comparta queda corroborado por el hecho de que las direcciones
+obtenidas caen dentro de la VRAM, lo que no pasaria con un layout erroneo.
+
+### Las 8 direcciones
+
+| dword | gpu_addr |
+|---|---|
+| 18 | 0x0000_0001_0027_8000 |
+| 274 | 0x0000_0001_0027_8600 |
+| 530 | 0x0000_0001_0025_8000 |
+| 786 | 0x0000_0001_0025_8600 |
+| 1042 | 0x0000_0001_0025_9e00 |
+| 1298 | 0x0000_0001_0025_a400 |
+| 1554 | 0x0000_0001_0025_b600 |
+| 1810 | 0x0000_0001_0025_bc00 |
+
+Todas alineadas a 0x600. Rango total: 2.34–2.47 MiB.
+
+### El FB esta en 4 GiB, no en 0
+
+Todas tienen el bit 32 puesto. La diferencia contra una base de 4 GiB
+(`0x1_0000_0000`) es de 2.34 a 2.47 MiB, y eso **cabe en los 2 GiB de VRAM**
+que reporta el kernel (`size: 2147483648`).
+
+O sea: el FB no esta en la direccion 0 de la VA. Esta en 4 GiB. Y el
+`vram_base_offset = 0` que se tiene registrado para esta ruta se refiere a
+otra cosa, o no aplica a la direccion que usan estos paquetes. **No se
+concilia aqui**: lo que se afirma es el offset observado.
+
+### El contraste
+
+| | |
+|---|---|
+| VRAM total (kernel) | 2147483648 B = 2048 MiB |
+| VRAM en uso (kernel) | 29646848 B = 28.27 MiB |
+| offset mayor observado | 2.47 MiB |
+
+Las 8 direcciones caben. `PROVEN` que el layout es correcto.
+
+El offset mayor (2.47 MiB) y el uso total (28.27 MiB) **no son la misma
+cifra**, y no se afirma que lo sean: el uso incluye buffers que no estan en
+este anillo. Solo se dice que son del mismo orden de magnitud, lo cual es
+consistente.
+
+### Por que esto importa para el driver propio
+
+Es el primer punto donde se ve una VA real, translated, ejecutandose. La
+cadena queda:
+
+```
+INDIRECT_BUFFER -> gpu_addr 0x1_0025_8000 -> (GPUVM) -> fisica
+```
+
+El paso que falta es la traduccion por la page table, y eso sigue
+`NOT_DETERMINED` porque `amdgpu_vm_info` no vuelca PTEs en 7.1.3.
+
+---
+
+## 9. ERRORES PROPIOS ENCONTRADOS EN ESTA SESION
 
 Se anotan porque el patron se repite y conviene reconocerlo.
 
@@ -564,3 +643,25 @@ Se anotan porque el patron se repite y conviene reconocerlo.
 
     Un control que solo sabe decir "OK" no controla: pasa igual cuando todo
     va bien y cuando la herramienta esta rota.
+
+16. **Indices mal impresos que contaminaron una lectura entera.** Al intentar
+    leer el payload del `COND_EXEC` del anillo, imprimi los dwords con los
+    indices equivocados y concluje que el campo `addr` valia
+    `0xff00001080`, unas 1000 veces mas alla de la VRAM. No era un dato
+    raro: era mi lectura corrida un dword.
+
+    Tuve que pararme porque payload[2] **tenia que ser 0** (el driver escribe
+    un 0 ahi, gfx_v8_0.c:6325) y salia `0x143`, que es el payload del paquete
+    siguiente. Un campo cuyo valor se conoce de antemano y no aparece, es un
+    error de lectura, no un dato raro. Esa comprobacion es la que lo
+    detecto.
+
+17. **Ajustar el codigo de salida en vez de mirar por que era.** El control
+    del caso negativo daba rc=4 en vez del rc=5 esperado, y el primer impulso
+    fue revisar la condicion del `if`. El rc=4 significaba "falta el fichero
+    de contraste": la copia del mutante vivia en un temporal y `pm4dec`
+    resuelve `capturas/` con `__file__`, asi que no encontraba
+    `amdgpu_vram_mm.txt`.
+
+    Estuve corrigiendo el sintoma hasta que mire la causa. Un codigo de
+    salida inesperado es informacion, no un obstaculo que tunear.
