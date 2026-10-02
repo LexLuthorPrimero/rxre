@@ -3491,6 +3491,77 @@ M3 aviso siempre    rc=1    1 FALLA   <-- tumba el control del anillo GFX
 muerta y documentaba un retorno de 3 elementos cuando el real es de 4. No
 rompía nada, porque `__doc__` es el segundo, pero describía una firma que no existe.
 
+## EV-36 · `bo->flags & EXPLICIT_SYNC` no decide cómo pasar un IB: decide el modo de dependencia de fence
+
+```
+TYPE    MEASUREMENT sobre el corpus, con la premisa previa RETIRADA
+STATE   PROVEN para qué decide el flag (el modo de sync)
+        REFUTED para mi premisa anterior ("decide cómo pasar un IB")
+        PROVEN_ABSENT para cualquier llamador de AMDGPU_SYNC_ALWAYS
+PREGUNTA ORIGEN  una pregunta que yo mismo dejé abierta: ¿el scheduler usa
+                 bo->flags & EXPLICIT_SYNC (bit 7) para decidir cómo pasar un IB?
+```
+
+**LA PREMISA ERA FALSA, y esa es la mitad del resultado.** El flag no toca el IB.
+El orden del pipeline lo dice:
+
+```
+amdgpu_cs_vm_handling()   decide si hace falta actualizar la VM
+amdgpu_cs_sync_rings()    LEE bo->flags y elige el modo de sync
+trace_amdgpu_cs_ibs()
+amdgpu_cs_submit()        aqui se emiten los IB al anillo
+```
+
+`sync_rings` corre **antes** de `submit`, y solo puebla el grafo de
+dependencias: no escribe un solo dword.
+
+**QUÉ DECIDE EN REALIDAD.** `amdgpu_cs.c:1220`:
+
+```
+sync_mode = amdgpu_bo_explicit_sync(bo) ?
+        AMDGPU_SYNC_EXPLICIT : AMDGPU_SYNC_NE_OWNER;
+r = amdgpu_sync_resv(p->adev, &p->sync, resv, sync_mode, &fpriv->vm);
+```
+
+Y `amdgpu_sync_test_fence` (`amdgpu_sync.c:182`) para `EXPLICIT` hace
+`return false` **siempre**. O sea: en modo explícito **no se añade ninguna
+dependencia implícita**; la sincronización la hacen los items de sync
+explícitos, que se empujan luego al job. En `NE_OWNER` se salta un fence solo si
+es del mismo dispositivo **y** `fence_owner == owner`, y en cualquier otro caso se
+coge.
+
+**Un detalle que no es evidente y que importa para un driver propio**: antes del
+`switch`, la función descarta los fences de VM y de KFD cuando el `owner` no es
+`UNDEFINED`. Aquí el owner es `&fpriv->vm`, luego **los fences de actualización
+de VM nunca crean una dependencia de job por esta vía**. La actualización de VM se
+sincroniza por su propio camino, no por `amdgpu_cs_sync_rings`.
+
+**Los cuatro modos del enum, y cuál está muerto.** El enum tiene `ALWAYS`,
+`NE_OWNER`, `EQ_OWNER` y `EXPLICIT`, y hay **cinco** puntos de llamada reales:
+
+| modo | quién lo usa |
+|---|---|
+| `NE_OWNER` | `amdgpu_cs.c:1221`, `amdgpu_amdkfd_gpuvm.c:137` |
+| `EQ_OWNER` | `amdgpu_vm.c:1304` (`bo_update` al desenmapear: *"implicitly sync to command submissions in the same VM before unmapping"*), `amdgpu_vm.c:1582` |
+| `EXPLICIT` | `amdgpu_vm.c:1336`, `amdgpu_cs.c:1221` |
+| `ALWAYS` | **ninguno** |
+
+`AMDGPU_SYNC_ALWAYS` aparece **2 veces en todo el árbol**: su definición y su
+`case`. Sin ningún llamador, en los **tres** árboles (`baseline`, `working`,
+`kernelbuild`, 2 usos cada uno). `PROVEN_ABSENT` de llamador, no `NOT_FOUND`.
+
+**POR QUÉ GREP DEL NOMBRE NO SOBRA.** Buscar `EXPLICIT_SYNC` da 3 coincidencias y
+ninguna es el consumidor real: una es el `case` de un flag de GEM, otra es un
+`print` de diagnóstico, y la tercera es un **accesor**
+(`amdgpu_bo_explicit_sync`). El consumidor está una capa más abajo, en
+`amdgpu_cs.c`. Sin seguir la relación, la lectura natural —"nadie lo usa"—
+habría sido falsa.
+
+**LO QUE ESTO NO TOCA.** Ni el contenido del IB, ni el `count` de `EV-30`, ni los
+8 IB de `EV-29`. Es lógica de CPU, anterior a emitir. Para un driver propio la
+consecuencia es de diseño: el modo explícito **no** compra sincronización
+gratis; hay que satisfacer las dependencias por otra vía.
+
 ## Herramientas (contrato y estado; detalle en TOOLS-STATUS.md)
 
 | ID | Herramienta | STATE | Verificado |

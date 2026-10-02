@@ -386,3 +386,30 @@ y sale `rc=1`: un control que no puede fallar no sería un control.
 **Sin cambio de bloqueos**: `F12` sigue necesitando root —`RX550_SUDO_PASS`
 comprobada esta ronda, **ausente**, se perdió al reiniciar— y además un anillo
 con `vm_flush`, que no está en las 4 capturas. `F2b` y `F14` igual.
+
+---
+
+## Ronda 2026-10-02 (tarde 3) · EV-36 · la pregunta del EXPLICIT_SYNC, cerrada por su premisa
+
+Dejé abierta la pregunta de si `bo->flags & EXPLICIT_SYNC` decide cómo pasar un
+IB. **La premisa era falsa**, y se cierra por donde faltaba:
+
+- `amdgpu_cs_sync_rings()` corre **antes** de `amdgpu_cs_submit()`, que es donde
+  se emiten los IB, y no escribe un solo dword.
+- Lo que decide es el modo de dependencia de fence, y en `EXPLICIT`
+  `amdgpu_sync_test_fence` devuelve `false` **siempre**: **no hay dependencia
+  implícita**.
+- Los fences de VM y KFD se descartan antes del `switch` porque el owner es
+  `&fpriv->vm`: **los fences de actualización de VM nunca crean dependencia de
+  job por esta vía**.
+- `AMDGPU_SYNC_ALWAYS` es un **miembro muerto**: 2 apariciones en todo el árbol
+  (definición y `case`), en los tres árboles del corpus.
+
+**El fallo de método, que importa más**: busqué `EXPLICIT_SYNC` y encontré 3
+coincidencias, ninguna el consumidor real. Una era un accessor
+(`amdgpu_bo_explicit_sync`). "3 y ninguna lo usa" se lee como "no influye", y
+sí influye. Un accessor con nombre propio rompe la búsqueda por el símbolo
+original.
+
+**Sin tocar hardware.** Todo es lectura de fuente. `EV-21`..`EV-30` intactas: el
+contenido del IB y el `count` no entran en esta decisión.

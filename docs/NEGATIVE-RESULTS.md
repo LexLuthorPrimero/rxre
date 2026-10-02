@@ -891,3 +891,45 @@ DÓNDE ESTÁ APLICADO
   la causa —la barra sí— y queda como higiene, no como arreglo. Atribuirle la
   corrección habría sido inventar un arreglo que no ocurrió
 ```
+
+## NR-2026-10-02-p · Grep del nombre del flag: 3 aciertos, ninguno el consumidor
+
+```
+QUÉ PASÓ
+  preguntas si el scheduler usa bo->flags & AMDGPU_GEM_CREATE_EXPLICIT_SYNC
+  para decidir cómo pasar un IB. Busqué el nombre y encontré 3 coincidencias
+REALIDAD
+  el consumidor real es amdgpu_cs.c:1220, y no aparece por el nombre del flag.
+  De las 3: una es el case de un flag de GEM, otra un print de diagnóstico, y
+  la tercera el ACCESOR amdgpu_bo_explicit_sync (amdgpu_object.h:235)
+CLASIFICACIÓN
+  la pregunta estaba MAL PLANTEADA. El flag no decide cómo pasar el IB: elige
+  el modo de dependencia de fence, y en modo EXPLICIT no añade ninguna
+  dependencia implícita (amdgpu_sync_test_fence devuelve false siempre)
+POR QUÉ IMPORTA
+  "3 coincidencias y ninguna de ellas usa el flag" se lee como "el flag no
+  influence nada". Y sí influye. Sin seguir la relación nombre -> accesor ->
+  consumidor, la conclusión habría sido la contraria y con toda la seguridad
+REGLA
+  un accessor con un nombre propio rompe la búsqueda por el símbolo original.
+  Cuando se busca quién lee un campo, hay que buscar también el nombre del
+  helper, no solo el del campo
+```
+
+## NR-2026-10-02-q · `AMDGPU_SYNC_ALWAYS` es un miembro muerto del enum
+
+```
+QUÉ PASÓ
+  al recorrer los modos de amdgpu_sync_mode, ALWAYS no tenia ningún uso
+REALIDAD
+  PROVEN_ABSENT de llamador: aparece 2 veces en todo el árbol de linux-7.1.3,
+  la definición (amdgpu_sync.h:36) y su case (amdgpu_sync.c:207). Los otros tres
+  tienen 5 puntos de llamada reales entre ellos
+CONTROL DE AUSENCIA
+  buscado en .c, en .h y en el árbol entero, y contrastado en los TRES árboles
+  del corpus: baseline, working y kernelbuild, 2 apariciones en cada uno. Que
+  los tres coincidan hace improbable que sea un artefacto de una copia parcial
+CLASIFICACIÓN
+  miembro de enum sin consumidor en esta versión del driver. NO es un defecto:
+  el case existe, así que si alguien lo usara funcionaría
+```

@@ -149,6 +149,44 @@ siguen igual.
 
 ---
 
+## 2026-10-02 · opencode · EV-36 · el flag EXPLICIT_SYNC no decide cómo pasar un IB
+
+```
+OBJECT   revkit — ninguna; esto es una pregunta que yo mismo tenía abierta
+ACTION   ANSWER, con la premisa previa RETIRADA
+```
+
+**Pregunta que yo dejé abierta**: ¿el scheduler usa
+`bo->flags & AMDGPU_GEM_CREATE_EXPLICIT_SYNC` para decidir cómo pasar un IB?
+
+**OLD STATE → NEW STATE**
+
+- Pregunta abierta, sin respuesta. → NEW: **la premisa era falsa**.
+  `amdgpu_cs_sync_rings()` corre **antes** de `amdgpu_cs_submit()`, que es donde
+  se emiten los IB, y `sync_rings` no escribe un solo dword. El flag no toca el IB.
+- → NEW: lo que decide es el **modo de dependencia de fence**:
+  `AMDGPU_SYNC_EXPLICIT` frente a `AMDGPU_SYNC_NE_OWNER`
+  (`amdgpu_cs.c:1220`). Y en modo `EXPLICIT`, `amdgpu_sync_test_fence` devuelve
+  `false` **siempre**: **no se añade ninguna dependencia implícita**.
+- → NEW: los fences de VM y de KFD se descartan antes del `switch` cuando el
+  owner no es `UNDEFINED`. Aquí el owner es `&fpriv->vm`, luego **los fences de
+  actualización de VM nunca crean una dependencia de job por esta vía**.
+- → NEW: `AMDGPU_SYNC_ALWAYS` es un **miembro muerto del enum**. 2 apariciones en
+  todo el árbol —definición y `case`—, en los tres árboles del corpus. Los otros
+  tres modos tienen 5 puntos de llamada reales. `PROVEN_ABSENT` de llamador.
+
+**Por qué grep del nombre no bastaba**: `EXPLICIT_SYNC` da 3 coincidencias y
+ninguna es el consumidor real — una es un `case` de un flag de GEM, otra un
+`print`, y la tercera el **accesor** `amdgpu_bo_explicit_sync`. El consumidor está
+una capa más abajo, en `amdgpu_cs.c`. "3 coincidencias, ninguna usa el flag" se
+lee como "no influye", y sí influye. `NR-2026-10-02-p`.
+
+**Lo que NO toca**: ni el contenido del IB, ni el `count` de `EV-30`, ni los 8 IB
+de `EV-29`. Es lógica de CPU anterior a emitir. Para un driver propio: el modo
+explícito **no** compra sincronización gratis.
+
+---
+
 ## 2026-10-01 · agente de documentación · ROUND 1
 
 ### R-01 · Reconciliación de la contradicción interna de `PROYECTO_STATUS.md`
