@@ -9,6 +9,77 @@
 
 ---
 
+## 2026-10-02 · opencode · EV-35 · la tabla de opcodes de `pm4dec`
+
+```
+OBJECT   revkit/pm4dec.py (carga de opcodes) y su salida
+ACTION   CORRECTION + NEW LIMIT
+EVIDENCE EV-35; NR-2026-10-02-l, -m, -n, -o
+DEPENDENCIAS  lectura cruzada de findings/135 (otra sesion, commit 6f197ce)
+```
+
+**OLD STATE → NEW STATE**
+
+- La tabla de opcodes venía de **un solo** fichero, `sid.h`, elegido por costumbre.
+  → NEW: se elige leyendo el **grafo de includes** del `.c` que emite el anillo.
+  Para GFX8 eso es `vid.h`, porque `gfx_v8_0.c` incluye `vid.h` y ningún otro
+  header de opcodes. `PROVEN` sobre el corpus.
+- `0x49`, `0x58` y `0x79` salían como opcode desconocido, y los tres **están en el
+  anillo de compute capturado**. → NEW: nombrados. `PROVEN_ABSENT` en `sid.h`.
+- En cambio, leer `sid.h` nombraba **mal** `0x5F`, `0x60` y `0x61`: su numeración
+  de `LOAD_*` va una posición desplazada respecto de los otros cuatro headers.
+  → NEW: nombrados según `vid.h`. Este defecto lo **introduje yo** al arreglar el
+  anterior por mezclar los cinco headers, y lo detecté midiendo en vez de dar por
+  buena la primera versión.
+- El CLI imprimía `opcodes cargados : 74 desde sid.h` con la tabla de `vid.h`.
+  → NEW: `70 desde vid.h (lo que incluye gfx_v8_0.c)`. Etiqueta falsa corregida
+  en la salida, no en un comentario.
+- El CLI imprimía `paquetes : 17` para el anillo SDMA0, donde **0 de 118**
+  cabeceras aparentes reciben nombre. → NEW: avisa de que el paseo no aplica y de
+  que ese número no es una medida. `NOT_APPLICABLE` del paseo PM4 a SDMA.
+- La rama "la fuente incluye más de un header" de `cargar_opcodes()` se daba por
+  verificada. → NEW: `PROVEN_ABSENT` **medido sobre 625 ficheros**: 75 incluyen al
+  menos uno y ninguno incluye dos. La rama es **inalcanzable**, o sea declarada y
+  **no validada**.
+
+**Lo que NO cambia, comprobado y no supuesto.** De los 8 opcodes que usan
+`EV-21`..`EV-30` —incluido `0x3F = INDIRECT_BUFFER`, del que dependen los 8 IB de
+`EV-29`—, **0 de 8 dependen de la elección de cabecera**: los cinco headers
+coinciden. `EV-21`..`EV-30` quedan intactas.
+
+**UNLOCKS**
+
+- El anillo de compute ya se puede nombrar entero en vez de "2 paquetes".
+- La regla "el generador usa `__` para un sub-campo" queda utilizable para
+  cualquier generación, no solo GFX8.
+
+**RISKS**
+
+- La tabla de `vid.h` es la de **GFX8**. Para un anillo de un productor NAVI o MI
+  hay que pasar `fuente=`; si no, el nombre sería de otra generación. Queda
+  declarado, no resuelto.
+- Un `0` con el patrón pegado al componente sale bien formado y no significa nada.
+  Me pasó en esta misma ronda (`NR-2026-10-02-o`) y casi lo dejo como evidencia.
+
+**VALIDACIÓN**
+
+```
+cn7.py        rc=0   81 OK   0 FALLA
+mutante M1    rc=1    5 FALLA   (tabla de sid.h)
+mutante M2    rc=1    1 FALLA   (sin filtro "__")
+mutante M3    rc=1    1 FALLA   (aviso siempre activo)
+mutante M4    rc=1    2 FALLA   (capturas SDMA borradas; ya no pasa en vacio)
+check.sh      rc=0   34 OK
+cn8.py        rc=0   30 OK
+selfcheck.py  rc=0   30/30
+```
+
+**Corrección propia del mismo día**: `decodifica()` tenía dos docstrings seguidos;
+el primero era una expresión muerta y documentaba un retorno de 3 elementos
+cuando el real es de 4.
+
+---
+
 ## 2026-10-01 · agente de documentación · ROUND 1
 
 ### R-01 · Reconciliación de la contradicción interna de `PROYECTO_STATUS.md`

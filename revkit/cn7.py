@@ -32,6 +32,7 @@ QUE COMPRUEBA
    no adivina el formato. Este control existe porque el defectoOpposite
    (assumir cabecera) se manifesto como un fallo que PARECIA del NOP.
 """
+import glob
 import struct
 import sys
 import os
@@ -666,6 +667,130 @@ def main():
     else:
         print("  OMIT  sin /tmp/amdgpu_loaded.ko no se contrasta con el "
               "binario cargado")
+
+    # --- La tabla de opcodes: QUE HEADER, y por que ----------------------------
+    #
+    # No es cosmetico, en los dos sentidos opuestos. Con solo sid.h (lo que
+    # hacia antes) no se podian nombrar 0x49, 0x58 y 0x79, que salen en el anillo
+    # de COMPUTE. Y sid.h, que es de SI/GCN1, esta DESPLAZADO UNA POSICION en los
+    # tres LOAD_*: nombraria 0x5F/0x60/0x61 como LOAD_CONFIG/LOAD_CONTEXT/
+    # LOAD_SH cuando en GFX8 son LOAD_SH/LOAD_CONFIG/LOAD_CONTEXT. Un nombre
+    # equivocado con toda la apariencia de un dato es peor que "desconocido".
+    print()
+    print("  -- la tabla de opcodes de pm4dec --")
+    _ops, _cab = P.cargar_opcodes()
+    _cabs, _cerr = P.cabeceras_de_opcodes_de(P.FUENTE_GFX8)
+    chk("tabla de opcodes: dice que cabecera usa; no es una tabla anonima",
+        _cab == "vid.h", "(usa %r)" % (_cab,))
+    chk("tabla de opcodes: la cabecera sale del GRAFO DE INCLUDES de "
+        "gfx_v8_0.c, no de un orden fijo de ficheros",
+        _cabs == ["vid.h"] and _cerr is None,
+        "(gfx_v8_0.c incluye %r)" % (_cabs,))
+    chk("tabla de opcodes: nombra los 3 que sid.h NO podia (RELEASE_MEM, "
+        "ACQUIRE_MEM, SET_UCONFIG_REG)",
+        all(_ops.get(b) == n for b, n in (
+            (0x49, "PACKET3_RELEASE_MEM"),
+            (0x58, "PACKET3_ACQUIRE_MEM"),
+            (0x79, "PACKET3_SET_UCONFIG_REG"))))
+    chk("tabla de opcodes: YA NO usa los nombres desplazados de sid.h",
+        all(_ops.get(b) == n for b, n in (
+            (0x5F, "PACKET3_LOAD_SH_REG"),
+            (0x60, "PACKET3_LOAD_CONFIG_REG"),
+            (0x61, "PACKET3_LOAD_CONTEXT_REG"))),
+        "(sid.h daria LOAD_CONFIG/LOAD_CONTEXT/LOAD_SH)")
+    # Este control va contra nvd.h y NO contra la tabla por defecto, y es
+    # deliberado. Medido: sid.h, vid.h y cikd.h no tienen NINGUN define
+    # PACKET3_* con '__' que pase el resto de filtros (0 de 74, 0 de 70, 0 de
+    # 66), asi que para la tabla por defecto el filtro '__' no hace nada, y un
+    # control escrito ahi NUNCA PODRIA FALLAR. En nvd.h hay 109 de 229, 28 de
+    # ellos sobre el opcode 0x00; en soc15d.h, 58 de 128. El filtro carga el
+    # peso ahi, y es ahi donde se comprueba que siga puesto.
+    _nvd_ruta = os.path.join(P._directorio_amdgpu(), "nvd.h")
+    _con_guion = len([_l for _l in open(_nvd_ruta, errors="replace")
+                      if re.match(r"^#define\s+PACKET3_[A-Z0-9_]*__[A-Z0-9_]*"
+                                  r"\s+(0x[0-9A-Fa-f]+|\d+)\s*$", _l)])
+    _nvd_ops = P._leer_opcodes_de(_nvd_ruta)
+    chk("tabla de opcodes: el filtro '__' PESA y no es decorativo; nvd.h "
+        "define %d PACKET3_* con '__' y la tabla no deja entrar ninguno"
+        % _con_guion,
+        _con_guion > 0 and not [n for n in _nvd_ops.values() if "__" in n],
+        "(nvd.h: %d defines con '__' de 229, 28 sobre el opcode 0x00; en la "
+        "tabla quedan %d)"
+        % (_con_guion,
+           sum(1 for n in _nvd_ops.values() if "__" in n)))
+    _vid_ops = P._leer_opcodes_de(os.path.join(P._directorio_amdgpu(), "vid.h"))
+    chk("tabla de opcodes: PROVEN_ABSENT de defines con '__' en vid.h, que es "
+        "la cabecera que usa esta GPU; por eso el filtro no se nota aqui",
+        not [n for n in _vid_ops.values() if "__" in n]
+        and 0x00 not in _vid_ops)
+    chk("tabla de opcodes: los 3 opcodes que difieren entre generaciones "
+        "quedan listados como conflicto, para que la eleccion sea auditable",
+        all(v in P.CONFLICTOS_OPCODE for v in P.RENUMERADOS_SID))
+    _o2, _e2 = P.cargar_opcodes(fuente="fichero_que_no_existe.c")
+    chk("tabla de opcodes: una fuente inexistente FALLA, en vez de devolver "
+        "una tabla a medias",
+        _o2 is None and bool(_e2))
+    chk("tabla de opcodes: una fuente que no incluye ningun header de opcodes "
+        "tambien falla, en vez de caer a otro header por defecto",
+        P.cargar_opcodes(fuente="gfx_v8_0.h")[0] is None)
+
+    # El anillo SDMA NO es PM4: el paseo de pm4dec no significa nada ahi. Este
+    # control lo fija, y ademas avisa si algun dia apareciera un PACKET3.
+    # El patron va con os.path.join, que mete la barra, y NO pegado al
+    # componente: `capturas/*` y no `capturas*`. Pegado, glob no aplica el
+    # comodin al final y devuelve 0 ficheros, y un 0 de ficheros se lee igual
+    # que un 0 de cabeceras. Es NR-2026-10-02-o, y por eso aqui se cuenta lo
+    # que se ha abierto y se dice si no se ha abierto nada.
+    _sds = sorted(glob.glob(os.path.join(AQUI, "capturas",
+                                         "amdgpu_ring_sdma*.txt")))
+    if not _sds:
+        print("  OMIT  no hay capturas de anillo SDMA: el paseo PM4 en SDMA no "
+              "se comprueba, y NO cuenta como pasado")
+    _sd = set()
+    for _f in _sds:
+        _raw = open(_f, "rb").read()
+        _w = list(struct.unpack("<%dI" % (len(_raw) // 4), _raw))
+        _sd |= set((_w[i] >> 8) & 0xFF for i in range(3, len(_w) - 1)
+                   if (_w[i] >> 30) & 3 in (2, 3))
+    # Ni 0x00 ni 0xFF son un PACKET3: 0x00 no esta en la tabla (un opcode de
+    # paquete no vale 0) y 0xFF no lo define ningun header. Que en un anillo
+    # SDMA salgan dwords con bits[31:30] = 11 es en si la prueba de que se esta
+    # leyendo DATO y no una cabecera: el anillo de SDMA no es una secuencia
+    # PACKET3 y el paseo de pm4dec no significa nada ahi.
+    chk("anillo SDMA: no aporta NINGUN PACKET3 (solo 0x00 y 0xFF, que no son "
+        "opcodes), asi que el paseo de pm4dec no aplica ahi",
+        bool(_sds) and _sd <= {0x00, 0xFF},
+        "(%d capturas abiertas; cabeceras aparentes: %s)"
+        % (len(_sds), ["0x%02x" % b for b in sorted(_sd)]))
+
+    # El aviso de "el paseo no aplica" tiene que aparecer donde NO aplica y no
+    # aparecer donde SI. Un aviso que sale siempre no informa de nada, y uno que
+    # no sale nunca no cumple su funcion. Se comprueba en los dos sentidos.
+    #
+    # Si la captura no esta, esto NO puede pasar en silencio: seria un control
+    # que se approves sin haber comprobado nada, que es la forma de un 0 vacio
+    # dentro de un fichero verde. Se declara OMIT con su motivo.
+    def _aviso(nombre):
+        _f = os.path.join(AQUI, "capturas", "amdgpu_ring_%s.txt" % nombre)
+        if not os.path.exists(_f):
+            print("  OMIT  no existe %s: el aviso de pm4dec no se comprueba, "
+                  "y NO cuenta como pasado" % _f)
+            return None
+        return subprocess.run([sys.executable,
+                               os.path.join(AQUI, "pm4dec.py"), _f],
+                              capture_output=True, text=True, cwd=AQUI).stdout
+
+    _a_sdma = _aviso("sdma0")
+    _a_gfx = _aviso("gfx")
+    chk("pm4dec AVISA en el anillo de SDMA de que el paseo no aplica y de que "
+        "el numero de paquetes no es una medida",
+        (_a_sdma is not None) and ("NO APLICA A ESTE ANILLO" in _a_sdma))
+    chk("pm4dec NO AVISA en el anillo GFX, donde el paseo si aplica: un aviso "
+        "que saliera siempre no informaria de nada",
+        (_a_gfx is not None) and ("NO APLICA A ESTE ANILLO" not in _a_gfx))
+    chk("pm4dec dice DE QUE cabecera saca la tabla, y no dice 'sid.h' cuando la "
+        "tabla viene de vid.h (antes la etiqueta de la salida era falsa)",
+        (_a_gfx is not None) and ("desde vid.h" in _a_gfx))
 
     print("-" * 62)
     if FALLOS:

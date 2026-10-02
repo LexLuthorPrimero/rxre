@@ -3274,6 +3274,149 @@ Dos casos concretos que aparecieron por esta vía:
 
 `LAST_VERIFIED: 2026-10-02 - revkit/huerfanos.py, cn8`.
 
+## EV-35 · La numeración de opcodes de PACKET3 depende de la generación de ASIC, y la de GFX8 sale del grafo de includes, no de `sid.h`
+
+```
+TYPE    MEASUREMENT sobre el corpus + CORRECTION de un defecto propio
+STATE   PROVEN para el grafo de includes y para la numeración
+        PROVEN_ABSENT para 0x49/0x58/0x79 en sid.h
+        CORRECTION aplicada: pm4dec y RK-05
+ORIGEN  lectura cruzada del commit 6f197ce de otra sesion (findings/135)
+```
+
+**CÓMO SE ORIGINÓ.** Otra sesión publicó `findings/135`: de los 119 nombres
+`PACKET3_*` de `sid.h`, **62 no son opcodes** sino offsets y máscaras de campo,
+y el discriminante son **dos señales a la vez** —el valor cabe en 8 bits **y** el
+nombre no lleva sufijo de campo (`_ENA`, `_START`, `_END`, `_SHIFT`, `_MASK`,
+`_BASE_INDEX`)—, porque con una sola la cuenta sale 40 en vez de 36.
+
+Lo comprobé contra `pm4dec` y **no había falsos positivos**: sus 74 entradas
+pasaban las dos señales. Pero al comparar los 119 nombres de `sid.h` con la tabla
+cargada aparecía una diferencia de 19, y de ahí salió el defecto real.
+
+**EL DEFECTO, EN DOS PARTES.** `pm4dec` leía **solo** `sid.h`.
+
+**(a) Le faltaban tres opcodes que esta GPU ejecuta.** `PACKET3_RELEASE_MEM`
+(`0x49`), `PACKET3_ACQUIRE_MEM` (`0x58`) y `PACKET3_SET_UCONFIG_REG` (`0x79`)
+**no están en `sid.h`**: están en `vid.h`, `cikd.h`, `nvd.h` y `soc15d.h`, y los
+cuatro coinciden. Los tres aparecen en el anillo de **compute** capturado, que es
+el de la auto-prueba. Con la tabla anterior no se podía nombrar **ninguno** de los
+tres: salían como opcode desconocido.
+
+**(b) Y lo que añadí al principio empeoraba otras tres.** Al mezclar los cinco
+headers, `sid.h` quedaba ganando por ser el primero, y `sid.h` **está desplazado
+una posición** en los tres `LOAD_*`:
+
+| opcode | `sid.h` | `vid.h`, `cikd.h`, `nvd.h`, `soc15d.h` |
+|---|---|---|
+| `0x5F` | `LOAD_CONFIG_REG` | `LOAD_SH_REG` |
+| `0x60` | `LOAD_CONTEXT_REG` | `LOAD_CONFIG_REG` |
+| `0x61` | `LOAD_SH_REG` | `LOAD_CONTEXT_REG` |
+
+Esos nombres son **falsos para GFX8**, y falsos con la forma de un dato, que es
+peor que "desconocido". Fue un defecto que **introduje yo** al arreglar (a), y lo
+detecté al medir en vez de dar por buena la primera versión.
+
+**LA SELECCIÓN ES UNA MEDIDA, NO UNA PREFERENCIA.** Cabía elegir por mayoría
+(4 de 5 headers) y habría dado lo mismo, pero sería un heuristic. Lo que la
+resuelve es el **grafo de includes**, leído del corpus:
+
+```
+gfx_v8_0.c   incluye "vid.h" y NINGUN otro header de opcodes
+sid.h        <- si.c, gfx_v6_0.c, dce_v6_0.c            (SI / GCN1)
+cikd.h       <- gfx_v7_0.c, dce_v8_0.c                  (CIK / GCN3)
+nvd.h        <- gfx_v10_0.c, gfx_v11_0.c, gfx_v12_0.c   (NAVI)
+soc15d.h     <- gfx_v9_0.c, gfx_v11_0.c, gmc_v9_0.c      (Arcturus / MI)
+```
+
+`sid.h` es el header de SI/GCN1, y por eso su numeración va una posición
+detrás. Como `gfx_v8_0.c` es el emisor del anillo de GFX de esta placa, `vid.h` es
+su tabla **por construcción**. Eso **excluye** el resto, y no es una
+preferencia: son generaciones distintas de ASIC.
+
+**LO QUE LA ELECCIÓN DECIDE Y LO QUE NO.** Medido, sobre los 9 opcodes con más
+de un nombre entre generaciones:
+
+- **decide** en `0x5F`, `0x60`, `0x61`, `0x1E`, `0x33`, `0x36`, `0x3A`, `0x74`, `0x7A`
+- **no decide** en `0x49`, `0x58`, `0x79`: los cuatro headers que los definen
+  coinciden en el nombre
+
+O sea: la corrección cubre lo que `sid.h` no podía nombrar **y** evita lo que
+nombraba mal, sin que una cosa perjudique a la otra.
+
+**LO QUE NO QUEDA AFECTADO: `EV-21`..`EV-30`.** De los 8 opcodes que usan las
+evidencias previas —`0x10` `NOP` con `count = payload − 1`, `0x22` `COND_EXEC`,
+`0x28` `CONTEXT_CONTROL`, `0x37` `WRITE_DATA`, `0x3C` `WAIT_REG_MEM`, `0x3F`
+`INDIRECT_BUFFER` (los 8 IB), `0x47` `EVENT_WRITE_EOP`, `0x8B` `SWITCH_BUFFER`—
+**0 de 8 dependen de la elección de cabecera**: los cinco headers coinciden. En
+particular `0x3F = INDIRECT_BUFFER` coincide en los cinco, así que `EV-29` y
+`EV-30` quedan intactas.
+
+**EL FILTRO `__` PESA SOLO EN DOS GENERACIONES.** El generador del ASIC usa `_`
+simple para un opcode y `__` doble para un sub-campo, que es la segunda señal de
+`findings/135`:
+
+```
+cabecera   defines   con "__"   sobre opcode 0x00
+sid.h           74          0                      -
+vid.h           70          0                      -   <-- la de esta GPU
+cikd.h          66          0                      -
+nvd.h          229        109                     28
+soc15d.h       128         58                     17
+```
+
+Con `vid.h` el filtro **no hace nada**. Es código defensivo, y lo es porque en
+`nvd.h` y `soc15d.h` sin él entrarían 109 y 58 enumeraciones de campo, 28 de ellas
+sobre el opcode `0x00`, que no es ningún paquete. **Un control escrito contra la
+tabla por defecto no podría fallar nunca**, y por eso el control se escribe
+contra `nvd.h`, que es donde el filtro carga el peso.
+
+### Límites, declarados
+
+- `PROVEN_ABSENT` para el corpus, medido sobre **625 ficheros** (304 `.c` +
+  321 `.h`): 75 incluyen al menos un header de opcodes y **ninguno** incluye más
+  de uno, así que la rama de "más de una cabecera" de `cargar_opcodes()` es
+  **inalcanzable**. Existe y está declarada; **no está validada**, y se dice así.
+  El primer intento de medirlo devolvió `0` porque el patrón iba pegado al
+  componente (`amdgpu*.c`), y un `0` así no es un `0`: es `NR-2026-10-02-o`.
+- `CONFLICTOS_OPCODE` compara **entre** cabeceras, una tabla por fichero. Un
+  header que definiera dos nombres para el mismo valor **no** se vería, porque
+  `setdefault` conserva el primero. Es límite de ese diagnóstico, no de la tabla
+  que se usa para nombrar.
+- El umbral de "el paseo no aplica" (`con_nombre * 5 < aparientes`) es
+  `MODEL_CHOICE`, no un hecho. El anillo GFX real da 1,0 y el de SDMA 0,0, así que
+  cualquier umbral entre 0 y 1 separa estos dos casos de este corpus.
+- La tabla de `vid.h` es la de GFX8. Para un anillo emitido por un productor de
+  NAVI o MI habría que pasar `fuente=` con el `.c` que lo emite, que es lo que
+  hace la función.
+
+### Dos etiquetas falsas que también estaban en la salida
+
+Ambas son el mismo fallo que un opcode mal nombrado, y por eso se arreglan en el
+código y no en un comentario:
+
+1. `pm4dec` imprimía `opcodes cargados : 74 desde sid.h` con la tabla tomada de
+   `vid.h`. Ahora imprime `70 desde vid.h (lo que incluye gfx_v8_0.c)`.
+2. `pm4dec` imprimía `paquetes : 17` para el anillo **SDMA0**, donde de 118
+   cabeceras aparientes **0** reciben nombre: es DATO, no PM4. El número era
+   cierto y no significaba nada. Ahora avisa, y el aviso **no** sale en el anillo
+   GFX, que es el otro sentido en que puede fallar.
+
+### Validación por mutación, medida
+
+Los controles nuevos se provocaron sobre copia, nunca en el original:
+
+```
+original            rc=0   81 OK   0 FALLA
+M1 tabla de sid.h   rc=1    5 FALLA
+M2 sin filtro "__"  rc=1    1 FALLA
+M3 aviso siempre    rc=1    1 FALLA   <-- tumba el control del anillo GFX
+```
+
+`decodifica()` tenía además dos docstrings seguidos: el primero era una expresión
+muerta y documentaba un retorno de 3 elementos cuando el real es de 4. No
+rompía nada, porque `__doc__` es el segundo, pero describía una firma que no existe.
+
 ## Herramientas (contrato y estado; detalle en TOOLS-STATUS.md)
 
 | ID | Herramienta | STATE | Verificado |
@@ -3294,8 +3437,8 @@ Dos casos concretos que aparecieron por esta vía:
 | RK-02 | `mmo.py` | `TOOL_PARTIAL` | lista blanca validada contra el modo real de cada nodo; no se capturan `amdgpu_regs*` (ver EV-19) |
 | RK-03 | `integro.py` | `VALIDATED` | autotest con 7 controles; mutation testing: M1, M2 (no detectada al principio) y sniff de capturas |
 | RK-04 | `atomrom.py` | `VALIDATED` | autotest sobre ROM **sintético**, sin usar el VBIOS real; controles de unidad y de VRAM con caso negativo |
-| RK-05 | `pm4dec.py` | `VALIDATED` | 74 opcodes extraídos de `sid.h` en runtime; `cn7.py` con 19 controles, 2 de ellos negativos |
+| RK-05 | `pm4dec.py` | `VALIDATED` | **corregido 2026-10-02**: la tabla ya **no** sale de `sid.h`, sino de `vid.h`, que es lo que incluye `gfx_v8_0.c` (EV-35). 70 opcodes; antes 74 de `sid.h`, que no podía nombrar `0x49`, `0x58` ni `0x79`, y además nombraba mal `0x5F`, `0x60` y `0x61`. `cn7.py` con 81 controles, todos con mutación comprobada |
 | RK-06 | `dires.py` | `VALIDATED` | 587 164 direcciones, 30 ASIC; autocomprobación en cada ejecución (rc=3 si no encuentra 0x1537/0x1538) |
 | RK-07 | `ibpools.py` | `VALIDATED` | autocomprobación: avisa si no interpreta todas las líneas, si hay >1 IB en uso por pool, o si un rango no cuadra con `size` |
 | RK-08 | `huerfanos.py` | `FUNCIONAL`, rc=1 por diseño | 296/2608 símbolos sin definición local; rc=2 si no se ha recorrido nada |
-| RK-09 | `cn7.py`, `cn8.py` | `VALIDATED` | 19 + 12 controles; los negativos usan mutación real, no `if False` cosmético |
+| RK-09 | `cn7.py`, `cn8.py` | `VALIDATED` | 81 + 30 controles; los negativos usan mutación real, no `if False` cosmético. 3 mutantes medidos: M1 (tabla de `sid.h`) tumba 5 controles, M2 (sin filtro `__`) tumba 1, M3 (aviso siempre activo) tumba 1 |

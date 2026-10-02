@@ -802,3 +802,92 @@ LO QUE PARECE, Y NO PARECE
   tiene su propio ciclo. No se tocan. La lección es de método, no de que
   falten herramientas: faltan por no consultadas, no por no existir
 ```
+
+## NR-2026-10-02-l · Tres opcodes que esta GPU ejecuta NO están en `sid.h`
+
+```
+QUÉ SE BUSCABA
+  la tabla de opcodes de pm4dec, para poder nombrar los paquetes del anillo
+  de COMPUTE capturado
+QUÉ PASÓ
+  `PACKET3_RELEASE_MEM` (0x49), `PACKET3_ACQUIRE_MEM` (0x58) y
+  `PACKET3_SET_UCONFIG_REG` (0x79) salían como "opcode desconocido"
+REALIDAD
+  están en `vid.h`, `cikd.h`, `nvd.h` y `soc15d.h`, y los cuatro coinciden.
+  Los tres aparecen en el anillo de compute, que es el de la auto-prueba
+CLASIFICACIÓN
+  PROVEN_ABSENT en sid.h (buscados en los 5 headers con el formato exacto
+  del regex). No es "no lo encontré": es que el include graph sitúa `sid.h`
+  en SI/GCN1, y `gfx_v8_0.c` no lo incluye
+POR QUÉ IMPORTA
+  leer solo sid.h no es "una cabecera de entre varias": es LA cabecera de la
+  generación ANTERIOR. Faltaban 3 y sobraban 3 (0x5F, 0x60, 0x61 mal nombrados)
+```
+
+## NR-2026-10-02-m · El anillo de SDMA no es PM4, y `pm4dec` publicaba un número como si lo fuera
+
+```
+QUÉ PASÓ
+  `pm4dec` imprimía "paquetes : 17" para `amdgpu_ring_sdma0.txt` y
+  "paquetes : 1" para `amdgpu_ring_sdma1.txt`
+REALIDAD
+  de 118 cabeceras aparentes en sdma0, 0 reciben nombre; los bytes de opcode
+  son solo 0x00 y 0xFF, y ninguno de los dos es un PACKET3
+POR QUÉ
+  SDMA no codifica en PACKET3. Los dwords tienen bits[31:30] = 11 por ser
+  DATO, no por ser cabecera. El número era exacto y no significaba nada
+CLASIFICACIÓN
+  NOT_APPLICABLE del paseo PM4 a esos dos anillos. Es distinto del caso de
+  0xDEADBEEF en el anillo de compute: ahí el anillo SÍ es PM4 y hay un
+  centinela; en SDMA el anillo entero no es PM4
+LO QUE SE HIZO
+  `pm4dec` mide la fracción de cabeceras con nombre y avisa si es baja. El
+  aviso NO sale en el anillo GFX, que es el otro sentido en que puede fallar,
+  y hay un control que lo comprueba en los dos sentidos
+```
+
+## NR-2026-10-02-n · Una rama de `cargar_opcodes()` que no se puede probar
+
+```
+QUÉ PASÓ
+  escribí una guarda para el caso "la fuente incluye más de un header de
+  opcodes" y devuelve un error en vez de adivinar
+REALIDAD
+  barrido sobre 625 ficheros del árbol amdgpu (304 .c + 321 .h):
+  75 incluyen AL MENOS un header de opcodes, y 0 incluyen MÁS DE UNO.
+  Reparto: sid.h 7 ficheros, vid.h 14, cikd.h 11, nvd.h 6, soc15d.h 37
+CLASIFICACIÓN
+  la rama existe y es INALCANZABLE con este corpus. Declarada, NO validada.
+  Un test que pasara siempre no probaría la guarda, solo probaría que no
+  se ejecuta
+POR QUÉ SE DECLARA EN VEZ DE BORRARSE
+  porque el corpus es una foto. En otra versión del driver puede haber una
+  fuente que incluya dos, y entonces la guarda es la que evita un nombre
+  equivocado. Borrarla sería borrarla por no haber podido medirla
+```
+
+## NR-2026-10-02-o · Un `0` que no significaba nada: `glob` sin barra
+
+```
+QUÉ PASÓ
+  para medir lo de arriba escribí `glob.glob(base + "*.c")` y devolvió 0.
+  Escribí "0 de los ficheros incluyen dos headers" y lo di por bueno
+REALIDAD
+  base acaba en `amdgpu`, así que `base + "*.c"` es el patrón `amdgpu*.c`, y
+  eso no existe. Con la barra: `base + "/*.c"` → 304 ficheros.
+  glob solo interpreta comodines en el ÚLTIMO componente del path
+CLASIFICACIÓN
+  ERROR propio, y el peor de los que hecommitted en esta sesión: el 0 estaba
+  bien formado, salía por stdout, y no significaba nada. Peor que no medir
+POR QUÉ NO SE DETECTÓ SOLO
+  porque el 0 es un resultado plausible. Encaja con "aquí no hay ninguno", que
+  era justo lo que el barrido iba a encontrar
+REGLA QUE SALE
+  un recuento acompañado del número de elementos examinados. `0 de N` solo es
+  un dato si N se ha comprobado que no es 0. Antes escribí "0 de los 179"
+  con un 179 que tampoco había contado
+DÓNDE ESTÁ APLICADO
+  `_directorio_amdgpu()` devuelve ya `os.path.normpath()`. El normpath NO era
+  la causa —la barra sí— y queda como higiene, no como arreglo. Atribuirle la
+  corrección habría sido inventar un arreglo que no ocurrió
+```

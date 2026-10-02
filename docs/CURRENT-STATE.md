@@ -316,3 +316,40 @@ se sostenía (EV-27) y una tabla que decía que `vm_flush` era una excepción
 buscó. Tres herramientas del árbol ya hacían el trabajo —`pm4census.py`,
 `count_vmflush_dw.py` y `revkit/pte.py`, que es mía—, y F12 se dio por
 inobservable sin abrir `journalctl -k -b`.
+
+---
+
+## Ronda 2026-10-02 (tarde) · EV-35 · la tabla de opcodes de `pm4dec`
+
+**Cerrado**: la numeración de opcodes de PACKET3 **depende de la generación de
+ASIC**, y la de GFX8 no sale de `sid.h` sino de `vid.h`. No es una preferencia:
+`gfx_v8_0.c` incluye `vid.h` y ningún otro header de opcodes, medido sobre el
+grafo de includes del corpus. `PROVEN`.
+
+**Tres opcodes que faltaban y tres que estaban mal.** `0x49` `RELEASE_MEM`,
+`0x58` `ACQUIRE_MEM` y `0x79` `SET_UCONFIG_REG` no están en `sid.h` y sí salen en
+el anillo de compute capturado: ahora se nombran. Y `sid.h`, que es de SI/GCN1,
+numera los tres `LOAD_*` una posición desplazada, así que nombraba mal `0x5F`,
+`0x60` y `0x61`. El segundo defecto **lo introduje yo** al arreglar el primero,
+mezclando los cinco headers, y lo detecté midiendo el reparto de nombres en vez
+de dar por buena la primera versión que funcionaba.
+
+**Lo que no se mueve, comprobado y no supuesto**: de los 8 opcodes que usan
+`EV-21`..`EV-30`, **0 de 8** dependen de la elección de cabecera. `EV-29` y `EV-30`
+intactas.
+
+**El anillo SDMA no es PM4.** 0 de 118 cabeceras aparentes reciben nombre. Antes
+`pm4dec` publicaba `paquetes : 17` como si fuera una medida. Ahora avisa, y el
+aviso no sale en el anillo GFX.
+
+**Una rama declarada y no validada**: ninguna fuente del corpus (625 ficheros,
+304 `.c` + 321 `.h`) incluye más de un header de opcodes, así que la guarda de
+ambigüedad de `cargar_opcodes()` es inalcanzable. Existe, y se dice que no está
+probada.
+
+**La lección de la ronda, y es la duodécima vez**: un `0` con el patrón pegado al
+componente (`amdgpu*.c` en vez de `amdgpu/*.c`) sale bien formado, se imprime, y
+no significa nada. Casi lo dejo escrito como evidencia. Además escribí "0 de los
+179 ficheros" con un 179 que no había contado. A partir de aquí, **todo recuento
+lleva el número de elementos examinados, y los controles que dependen de ficheros
+externos OMITen si no los encuentran**.

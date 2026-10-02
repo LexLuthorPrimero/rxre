@@ -445,3 +445,41 @@ RE-26  ──►  la traducción VA->PA y el invalidate
   gmc_v8_0_emit_flush_gpu_tlb, y ese codigo escribe REGISTERES, no paquetes.
   La unica arista real es el vm_flush, que escribe las dos cosas
 ```
+
+## 12 · La numeración de un opcode depende de la generación, y eso es una arista
+
+```
+N-13  la GENERACION DEL ASIC  ──►  que opcode es 0x5F
+  medida: sid.h (SI/GCN1) dice LOAD_CONFIG_REG; vid.h, cikd.h, nvd.h y soc15d.h
+  dicen LOAD_SH_REG. Desplazados UNA posicion.
+  por que: `gfx_v8_0.c` incluye "vid.h" y ningun otro header de opcodes, asi que
+  para el anillo de GFX de esta placa la tabla correcta es la de vid.h POR
+  CONSTRUCCION, no por preferencia ni por mayoria.
+
+N-13' la GENERACION DEL ASIC  ──►  que opcode es 0x49 / 0x58 / 0x79
+  NO decide: los cuatro headers que los definen coinciden en el nombre.
+  Y los tres estan PROVEN_ABSENT en sid.h, y salen en el anillo de COMPUTE.
+
+N-13  NO toca  ──►  EV-21, EV-22, EV-28, EV-29, EV-30
+  0 de los 8 opcodes que usan dependen de la eleccion. 0x3F = INDIRECT_BUFFER
+  coincide en los cinco headers, que es de donde salen los 8 IB.
+  Compruebo la arista ANTES de toucharla, no despues.
+
+N-13  el Productor (.c)  ──►  la cabecera de opcodes
+  `cargar_opcodes(fuente=)` lo lee del include graph. Es la arista que convierte
+  "cual de los cinco headers" en "el que este driver compila". Sin ella habia que
+  elegir por mayoria, que es un MODELO_CHOICE con la misma respuesta aqui.
+
+N-14  que el anillo SEA PM4  ──►  que el paseo signifique algo
+  0 de 118 cabeceras aparentes en amdgpu_ring_sdma0 reciben nombre. SDMA no
+  codifica en PACKET3. Antes pm4dec publicaba "paquetes : 17" como si fuera medida.
+  Distinto de 0xDEADBEEF en el anillo de compute: ahi el anillo SI es PM4 y hay un
+  centinela; en SDMA el anillo entero no es PM4.
+```
+
+**Una arista más, que es de método y no del hardware**: un `0` debe ir siempre
+acompañado del número de elementos examinados. El `0` de "ninguna fuente incluye
+dos headers" salió de un patrón mal escrito (`amdgpu*.c`), es decir de un
+productor que no examinó nada. Está bien formado y no significa nada. Pasó en esta
+misma ronda, y por eso los controles nuevos que dependen de ficheros externos
+**OMITen** si no encuentran el fichero, en vez de pasar en verde.

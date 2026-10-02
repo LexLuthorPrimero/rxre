@@ -2609,3 +2609,55 @@ dice, y por eso `CONFIANZA NULA` debe leerse como "esto no lo sé", nunca como 0
 
 Para un driver propio, un layout no se deduce: se lee. Ahora hay dos lecturas
 independientes donde antes había una, y era parcial.
+
+## `pm4dec.py`: la tabla de opcodes ya no sale de `sid.h` (2026-10-02)
+
+**Defecto corregido.** La tabla se sacaba de un solo fichero, `sid.h`. Eso está
+mal por dos motivos opuestos, y con el mismo síntoma: un opcode mal nombrado.
+
+| | con solo `sid.h` | con `vid.h` (ahora) |
+|---|---|---|
+| `0x49` `RELEASE_MEM` | sin nombre | `PACKET3_RELEASE_MEM` |
+| `0x58` `ACQUIRE_MEM` | sin nombre | `PACKET3_ACQUIRE_MEM` |
+| `0x79` `SET_UCONFIG_REG` | sin nombre | `PACKET3_SET_UCONFIG_REG` |
+| `0x5F` | `LOAD_CONFIG_REG` **falso** | `LOAD_SH_REG` |
+| `0x60` | `LOAD_CONTEXT_REG` **falso** | `LOAD_CONFIG_REG` |
+| `0x61` | `LOAD_SH_REG` **falso** | `LOAD_CONTEXT_REG` |
+
+`sid.h` es el header de SI/GCN1 y su numeración va **una posición desplazada** en
+los tres `LOAD_*`. Los tres opcodes que sí faltan estaban en el anillo de
+**compute** capturado, así que no eran hipotéticos.
+
+**Cómo se decide ahora la cabecera.** Leyendo el **grafo de includes** del
+`.c` que emite el anillo, no por orden de ficheros:
+
+```
+gfx_v8_0.c  ->  vid.h   y ningun otro header de opcodes
+```
+
+`cargar_opcodes(fuente=...)` devuelve `(tabla, cabecera_usada)`, y la segunda
+pieza va también a la salida del CLI. Antes el CLI ponía `"desde sid.h"` fijo,
+que era **falso**: una etiqueta con la forma de un dato.
+
+**El filtro `__`.** El generador del ASIC usa `_` simple para un opcode y `__`
+doble para un sub-campo. Sin ese filtro, `nvd.h` metería 109 enumeraciones de
+campo (28 sobre el opcode `0x00`) y `soc15d.h` 58. Con `vid.h` **no hace nada**:
+`vid.h` tiene 0 de 70. Está por las otras dos generaciones, y el control que lo
+vigila se escribe contra `nvd.h` precisamente porque contra la tabla por defecto
+**no podría fallar nunca**.
+
+**Aviso de validez del paseo.** `pm4dec` ahora mide qué fracción de las
+cabeceras aparentes reciben nombre. En el anillo de **SDMA** son 0 de 118: ese
+anillo no es PM4, sus dwords son dato, y antes se publicaba `paquetes : 17` como
+si fuera una medida. El aviso **no** sale en el anillo GFX, que es el otro
+sentido en que puede fallar.
+
+**Uso.**
+
+```
+pm4dec.py <anillo>                      # usa la cabecera del emisor (vid.h)
+pm4dec.py --sid <ruta>/sid.h <anillo>   # fuerza una cabecera concreta
+```
+
+**Estado**: `VALIDATED`. `cn7.py` 81 controles, 0 fallos; 4 mutantes medidos que
+tumban 5, 1, 1 y 2 controles respectivamente.

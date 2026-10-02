@@ -58,63 +58,115 @@ import sys
 #confundirse con "sid.h no tiene opcodes". Aqui se prueban varios candidatos
 #y se informa de cuantos se han mirado.
 _AQUI = os.path.dirname(os.path.abspath(__file__))
-SID_CANDIDATOS = [
+_RAICES = [
     os.path.join(_AQUI, "..", "RESEARCH", "baseline", "linux-7.1.3",
-                 "drivers", "gpu", "drm", "amd", "amdgpu", "sid.h"),
+                 "drivers", "gpu", "drm", "amd", "amdgpu"),
     os.path.join(_AQUI, "..", "..", "RESEARCH", "baseline", "linux-7.1.3",
-                 "drivers", "gpu", "drm", "amd", "amdgpu", "sid.h"),
+                 "drivers", "gpu", "drm", "amd", "amdgpu"),
     os.path.join(_AQUI, "..", "RESEARCH", "working", "linux-7.1.3",
-                 "drivers", "gpu", "drm", "amd", "amdgpu", "sid.h"),
+                 "drivers", "gpu", "drm", "amd", "amdgpu"),
 ]
-SID_H = SID_CANDIDATOS[0]
+# Los headers que DEFINEN opcodes de PACKET3, uno por generacion de ASIC. La
+# lista esta para poder AUDITAR la eleccion; el que se usa se decide por el
+# grafo de includes, no por estar en esta lista.
+#
+# Que la numeracion de opcodes NO es estable entre generaciones, medido:
+#   sid.h    LOAD_CONFIG=0x5F  LOAD_CONTEXT=0x60  LOAD_SH=0x61   (SI/GCN1)
+#   vid.h    LOAD_SH=0x5F      LOAD_CONFIG=0x60    LOAD_CONTEXT=0x61
+#   cikd.h   igual que vid.h                                        (CIK/GCN3)
+#   nvd.h    LOAD_SH=0x5F      LOAD_CONFIG=0x60    LOAD_CONTEXT=0x61  (NAVI)
+#   soc15d.h igual que vid.h                                  (Arcturus/MI)
+#
+# sid.h esta DESPLAZADO UNA POSICION. Leerlo por costumbre daria un nombre
+# equivocado a 0x5F, 0x60 y 0x61, con toda la apariencia de un dato. Y con solo
+# sid.h, pm4dec tampoco puede nombrar PACKET3_RELEASE_MEM (0x49),
+# PACKET3_ACQUIRE_MEM (0x58) ni PACKET3_SET_UCONFIG_REG (0x79), que no estan
+# en sid.h y SI salen en el anillo de COMPUTE capturado.
+HEADERS_OPCODE = ["sid.h", "vid.h", "cikd.h", "nvd.h", "soc15d.h"]
+SID_CANDIDATOS = [os.path.join(r, h) for r in _RAICES for h in HEADERS_OPCODE]
+
+# El .c que produce los anillos de GFX de ESTE ASIC. El encabezado de opcodes se
+# saca de lo que ese fichero incluya, de modo que la eleccion es una MEDIDA del
+# grafo de includes y no una afirmacion escrita a mano en un comentario.
+FUENTE_GFX8 = "gfx_v8_0.c"
+
+# Los 3 bytes de opcode que sid.h nombraria MAL. Se guardan para que el control
+# CN-R29 pueda comprobar que la tabla ya no los nombra asi.
+RENUMERADOS_SID = (0x5F, 0x60, 0x61)
+
+# Relleno por cargar_opcodes(). Diagnostico: opcodes con MAS DE UN nombre segun
+# la generacion. Se calcula siempre y NO interviene en el nombre que devuelve la
+# tabla, porque mezclarlos seria justo el error que hay que evitar.
+CONFLICTOS_OPCODE = {}
 
 # Extraido de sid.h:338 con la formula, no escrito de memoria.
 #   PACKET3(op, n) = (3 << 30) | ((op & 0xFF) << 8) | ((n & 0x3FFF) << 16)
 TIPO3 = 3 << 30
 
 
-def cargar_opcodes(ruta_sid=None):
+def _directorio_amdgpu():
     """
-    Lee sid.h y devuelve ({opcode: nombre}, None) o (None, motivo_del_fallo).
+    Primer arbol de fuentes que exista, o None. El path se NORMALIZA.
 
-    Se ignoran los subcampos: los #define con mas de un argumento (los que
-    son parte de un opcode, como PACKET3_BASE_INDEX(x)) no son un opcode y
-    tienen un valor que no es un numero, asi que la expresion los descarta
-    sola. Eso evita tener que mantener una lista de "estos no son opcodes".
+    El normpath no es cosmetico, y hay una razon medida. `_RAICES` se construye
+    con os.path.join(_AQUI, "..", ...), asi que el path devuelto llevaba un ".."
+    dentro. Con ese path, glob.glob(base + "/*.c") devuelve CERO ficheros, y en
+    cambio base + "/*" devuelve 632. O sea: un barrido con glob sobre la ruta sin
+    normalizar examina NADA y reporta 0, que se lee como "no hay ninguno" cuando
+    en realidad hay 304.
 
-    Si no se pasa ruta, prueba los candidatos. Si tampoco hay ninguno, pero
-    un sid.h existe EN ALGUN sitio dentro del proyecto, se busca y se dice
-    donde, en vez de devolver "0 opcodes" como si el fichero no tuviera
-    ninguno.
+    Es la forma exacta de leer un 0 de un producer muerto: el numero sale bien
+    formado y no significa nada. Se comprobo en esta sesion, y por eso aqui se
+    normaliza una vez, en el sitio de donde sale el path.
     """
-    rutas = [ruta_sid] if ruta_sid else list(SID_CANDIDATOS)
-    for r in rutas:
-        if r and os.path.exists(r):
-            ruta_sid = r
-            break
-    else:
-        # Ningun candidato directo: buscar en el proyecto antes de rendirse.
-        encontrados = []
-        raiz = os.path.join(_AQUI, "..")
-        for dp, dns, fns in os.walk(raiz):
-            dns[:] = [x for x in dns
-                      if x not in (".git", "__pycache__", "rx550-upstream-7.2.8")]
-            if "sid.h" in fns:
-                encontrados.append(os.path.join(dp, "sid.h"))
-            if len(encontrados) >= 5:
-                break
-        if not encontrados:
-            return None, ("no se encontro sid.h en ninguno de los %d "
-                          "candidatos ni en el proyecto" % len(rutas))
-        ruta_sid = encontrados[0]
-        print("AVISO: sid.h no estaba en los candidatos esperados; se usa "
-              "el que se ha encontrado: %s" % ruta_sid)
+    for raiz in _RAICES:
+        if os.path.isdir(raiz):
+            return os.path.normpath(raiz)
+    return None
 
-    src = open(ruta_sid, errors="replace").read()
-    # PACKET3_XXX <algo que NO sea '('> seguido de numero (hex o dec)
+
+def cabeceras_de_opcodes_de(fuente):
+    """
+    Devuelve los headers de opcodes que `fuente` INCLUYE de verdad, leidos del
+    fuente. Esta es la razon por la que la tabla de opcodes no es "el header que
+    pone primero": es el header que el driver que emite este anillo compila.
+
+    Medido: gfx_v8_0.c incluye "vid.h" y NINGUN otro header de opcodes. sid.h
+    lo incluyen si.c, gfx_v6_0.c, dce_v6_0.c (SI/GCN1). cikd.h, gfx_v7_0.c
+    (CIK/GCN3). nvd.h, gfx_v10_0.c y siguientes (NAVI). soc15d.h, gfx_v9_0.c,
+    gfx_v11_0.c (Arcturus/MI).
+
+    Que son excludes, y no preferences, es lo que permite decir que sid.h
+    nombraria mal a 0x5F, 0x60 y 0x61 en un anillo de GFX8.
+
+    Devuelve (lista, motivo_del_fallo).
+    """
+    base = _directorio_amdgpu()
+    if not base:
+        return [], "no hay ningun arbol de fuentes amdgpu en _RAICES"
+    ruta = os.path.join(base, fuente)
+    if not os.path.exists(ruta):
+        return [], "no existe el fuente %s" % os.path.join(base, fuente)
+    with open(ruta, errors="replace") as h:
+        texto = h.read()
+    incluidos = set(re.findall(r'^\s*#\s*include\s+"([^"]+)"', texto, re.M))
+    ops = sorted(incluidos.intersection(HEADERS_OPCODE))
+    if not ops:
+        return [], ("%s no incluye ninguno de %s; sus includes son: %s"
+                    % (fuente, ", ".join(HEADERS_OPCODE),
+                       ", ".join(sorted(incluidos)) or "ninguno"))
+    return ops, None
+
+
+def _leer_opcodes_de(ruta):
+    """{opcode: nombre} de UN header, o ({}, motivo)."""
+    # PACKET3_XXX seguido de numero (hex o dec), a fin de linea. Un #define con
+    # mas de un argumento (PACKET3_BASE_INDEX(x)) no casa y se descarta solo.
     patron = re.compile(
         r"^#define\s+(PACKET3_[A-Z0-9_]+)\s+(0x[0-9A-Fa-f]+|\d+)\s*$",
         re.M)
+    with open(ruta, errors="replace") as h:
+        src = h.read()
     ops = {}
     for m in patron.finditer(src):
         nombre = m.group(1)
@@ -122,12 +174,129 @@ def cargar_opcodes(ruta_sid=None):
             val = int(m.group(2), 0)
         except ValueError:
             continue
-        if 0 <= val <= 0xFF:
-            # La primera aparicion gana. sid.h puede redefinir un opcode para
-            # ASIC nuevos mas abajo; se toma la primera y se dice, porque si
-            # no, el resultado depende del orden del fichero.
-            ops.setdefault(val, nombre)
-    return ops, None
+        if not 0 <= val <= 0xFF:
+            # Un opcode cabe en 8 bits (sid.h lo hace asia). Lo que no cabe es un
+            # OFFSET de rango de un sub-campo, como PACKET3_SET_CONTEXT_REG_START
+            # 0xA000, que no es un paquete.
+            continue
+        if "__" in nombre:
+            # El generador del ASIC usa `_` simple para un opcode y `__` doble
+            # para un sub-campo. Sin esta linea, nvd.h y soc15d.h meten 31
+            # nombres sobre el opcode 0x00, todos de la forma
+            # PACKET3_WAIT_REG_MEM__FUNCTION__ALWAYS_PASS, que son ENUMERACIONES
+            # de un campo. Y 0x00 no es ningun paquete: es un dword de dato.
+            continue
+        ops.setdefault(val, nombre)
+    return ops
+
+
+def auditar_conflictos():
+    """
+    Opcodes con MAS DE UN nombre segun la generacion: {opcode: {nombre: [hdr]}}.
+    Diagnostico puro. No se usa para nombrar: mezclar generaciones seria
+    justamente el error que hay que evitar. Sirve para que quede escrito que la
+    eleccion de cabecera importa, y por cuanta.
+    """
+    base = _directorio_amdgpu()
+    conf = {}
+    if not base:
+        return conf
+    votos = {}
+    for h in HEADERS_OPCODE:
+        ruta = os.path.join(base, h)
+        if not os.path.exists(ruta):
+            continue
+        for val, nombre in _leer_opcodes_de(ruta).items():
+            votos.setdefault(val, {}).setdefault(nombre, []).append(h)
+    for val, por_nombre in votos.items():
+        if len(por_nombre) > 1:
+            conf[val] = {n: hs for n, hs in sorted(por_nombre.items())}
+    return conf
+
+
+def cargar_opcodes(ruta=None, fuente=FUENTE_GFX8):
+    """
+    Devuelve ({opcode: nombre}, cabecera_usada) o (None, motivo_del_fallo).
+
+    SE LEE UN SOLO HEADER, el que `fuente` incluye de verdad, y se devuelve
+    cual se uso para que la salida se pueda auditar sola.
+
+    Por que uno y no todos. Con solo sid.h, como antes, no se podian nombrar
+    PACKET3_RELEASE_MEM (0x49), PACKET3_ACQUIRE_MEM (0x58) ni
+    PACKET3_SET_UCONFIG_REG (0x79), que salen en el anillo de COMPUTE. Con los
+    cinco a la vez, si, pero sid.h (que es de SI/GCN1) desplazado una posicion
+    nombraria mal a 0x5F, 0x60 y 0x61. Fijar la generacion por el grafo de
+    includes resuelve las dos cosas a la vez y no es una preferencia.
+
+    Con el criterio de `findings/135` de otra sesion (valor <= 0xFF Y nombre sin
+    sufijo de campo: _ENA, _START, _END, _SHIFT, _MASK, _BASE_INDEX), esta tabla
+    no introduce NI UN SOLO falso positivo sobre los 119 nombres de sid.h. Se
+    comprobo. Los que quedan fuera son macros de campo de CP_DMA con otros
+    sufijos (_SEL, _ENGINE, _CMD_*), que 135 si cuenta como opcodes.
+    """
+    global CONFLICTOS_OPCODE
+    CONFLICTOS_OPCODE = auditar_conflictos()
+
+    if ruta:
+        if not os.path.exists(ruta):
+            return None, "la ruta indicada no existe: %s" % ruta
+        return _leer_opcodes_de(ruta), os.path.basename(ruta)
+
+    cabs, err = cabeceras_de_opcodes_de(fuente)
+    if err:
+        # No se cae a otro header por defecto: haria falta saber de que ASIC se
+        # trata, y ese dato no se inventa.
+        return None, err
+    if len(cabs) > 1:
+        return None, ("%s incluye %d headers de opcodes (%s) y no se puede "
+                      "saber cual aplica: habria que elegir por generacion de "
+                      "forma explicita, no por adivinar"
+                      % (fuente, len(cabs), ", ".join(cabs)))
+    base = _directorio_amdgpu()
+    usada = os.path.join(base, cabs[0])
+    ops = _leer_opcodes_de(usada)
+    if not ops:
+        return None, ("%s existe pero no define ningun opcode que pase el "
+                      "filtro; eso NO es lo mismo que no tener opcodes"
+                      % usada)
+    return ops, cabs[0]
+
+
+def validez_del_paseo(d, ops):
+    """
+    Mide si el paseo PM4 tiene sentido en este anillo.
+    Devuelve (cabeceras_aparientes, con_nombre, bytes_sin_nombre).
+
+    POR QUE HACE FALTA. Un dword con bits[31:30] = 11 tiene la FORMA de una
+    cabecera PACKET3, pero no todo dword con esa forma ES una cabecera. Y hay dos
+    casos distintos, que no son el mismo problema:
+
+      - 0xDEADBEEF: la centinela que escribe la auto-prueba del anillo. Sus
+        bits[31:30] son 11 por casualidad del valor, y no es un paquete. Es un
+        centinela DENTRO de un anillo que si es PM4.
+      - el anillo de SDMA: no es una secuencia PACKET3 en absoluto. Sus dwords
+        tienen esa forma por ser dato, y el paseo entero no significa nada ahi.
+
+    Antes, pm4dec imprimia "paquetes: 17" para un anillo de SDMA sin decir nada.
+    Eso es un falso positivo con la forma de un dato: un numero que parece una
+    medida y no lo es. Se mide la fraccion de cabeceras que reciben nombre, y
+    si es minima se declara que el paseo no aplica, en vez de publicar el total.
+
+    Ojo con el umbral: es un MODELO_CHOICE, no un hecho. 1/5 se eligio porque en
+    el anillo GFX REAL la proporcion es 1 (todas las cabeceras tienen nombre) y
+    en el de SDMA es 0, asi que cualquier umbral entre 0 y 1 separa los dos
+    casos de este corpus. Con otro anillo podria no bastar.
+    """
+    if ops is None:
+        return (0, 0, set())
+    crudos = list(struct.unpack("<%dI" % (len(d) // 4), d))
+    aparientes = [w for w in crudos[CABECERA // 4:]
+                  if (w >> 30) & 3 in (2, 3)]
+    sin_nombre = {(w >> 8) & 0xFF for w in aparientes
+                  if ((w >> 8) & 0xFF) not in ops}
+    con_nombre = len(aparientes) - sum(
+        1 for w in aparientes if ((w >> 8) & 0xFF) not in ops)
+    return (len(aparientes), con_nombre, sin_nombre)
 
 
 # CABECERA DE 12 BYTES, SEGUN EL DRIVER.
@@ -202,14 +371,11 @@ def pointers(d):
 
 
 def decodifica(d, ops, verbose=False, saltar_cabecera=False):
-    """
-    Recorre el anillo dword a dword. Devuelve (paquetes, n_dwords, problemas).
-
-    El algoritmo es el del hardware: se lee la cabecera, y la cabecera dice
-    cuantos dwords de payload siguen. Si algo no cuadra, se registra como
-    problema y se sigue leyendo desde el siguiente dword alineado, en vez de
-    inventarse una longitud.
-    """
+    # Antes habia DOS docstrings seguidos: el primero era una expresion muerta
+    # (un string suelto, no el docstring) y ademas documentaba un retorno de 3
+    # elementos cuando el real es de 4. No rompia nada porque __doc__ es el
+    # segundo, pero el primero desconcertaba a quien leia el fichero y
+    # describia una firma que no existe. Se queda solo el bueno.
     """
     Recorre el anillo dword a dword. Devuelve
     (paquetes, n_dwords, problemas, indices_de_nop).
@@ -758,14 +924,18 @@ def main():
     if not os.path.exists(a.fichero):
         print("no existe %s" % a.fichero)
         return 2
-    ops, err = cargar_opcodes(a.sid)
+    # `cab` es el header del que sale la tabla. Antes el segundo valor era None
+    # en caso de exito y el texto decia "sid.h" fijo, que era falso: la tabla
+    # viene de vid.h. Ahora el nombre sale de ahi, no de una constante.
+    ops, cab = cargar_opcodes(a.sid)
     if ops is None:
-        print("NO PUEDO CARGAR LOS OPCODES: %s" % err)
+        print("NO PUEDO CARGAR LOS OPCODES: %s" % cab)
         print()
         print("Sin la tabla de opcodes, decodificar el anillo daria una")
         print("sucesión de numeros sin nombre, que no es informacion. Se")
         print("declara el fallo en vez de producir una tabla a medias.")
         return 3
+    fuente_declarada = a.sid if a.sid else FUENTE_GFX8
 
     d = open(a.fichero, "rb").read()
     pts = pointers(d)
@@ -785,8 +955,35 @@ def main():
     print("bytes            : %d" % len(d))
     print("dwords           : %d  (los 3 primeros son punteros, no PM4)"
           % ndw)
-    print("opcodes cargados : %d desde sid.h" % len(ops))
+    # El nombre del header va en la salida, no solo en el codigo. Antes ponia
+    # "sid.h" fijo y mentia: la tabla viene de vid.h. Una etiqueta falsa con la
+    # forma de un dato es el mismo fallo que un opcode mal nombrado, y por eso
+    # va ahi y no en un comentario.
+    print("opcodes cargados : %d desde %s (lo que incluye %s)"
+          % (len(ops), cab, fuente_declarada))
     print("paquetes         : %d" % len(pkts))
+
+    # ¿TIENE SENTIDO EL PASEO? Antes no se preguntaba, y por eso imprimia
+    # "paquetes: 17" para el anillo de SDMA, donde NINGUN dword es un PACKET3.
+    # El numero era certaino y no significaba nada. Ver validez_del_paseo().
+    _cabs, _nom, _sin = validez_del_paseo(d, ops)
+    if _cabs and _nom * 5 < _cabs:
+        print()
+        print("AVISO: ESTE PASEO PM4 NO APLICA A ESTE ANILLO, y el numero de")
+        print("  paquetes de arriba NO es una medida. No se retira, porque es lo")
+        print("  que el recorrido da, pero no se puede citar.")
+        print("  cabeceras con forma de paquete : %d" % _cabs)
+        print("  de esas, con opcode CON nombre  : %d" % _nom)
+        print("  bytes de opcode sin nombre    : %s"
+              % (["0x%02x" % b for b in sorted(_sin)],))
+        print("  Dos motivos posibles, y NO son el mismo problema:")
+        print("   - el anillo NO es PM4 (SDMA, por ejemplo): los dwords son")
+        print("     DATO con esos bits puestos, y el total no describe nada.")
+        print("   - el anillo SI es PM4 pero hay centinelas: 0xDEADBEEF tiene")
+        print("     bits[31:30] = 11 por casualidad y no es un paquete.")
+        print("  Cuadrar el total con lo que emitio el driver requiere ademas")
+        print("  que el resto de dwords se reconcilien, que es lo que hace")
+        print("  EV-30 para el anillo GFX: count = payload - 1, 50 de 50.")
     print()
 
     # ¿EL FICHERO ESTA COMPLETO?
