@@ -50,6 +50,22 @@ ROOT = "/home/lucas/Escritorio/RX550-INVESTIGACION"
 PROTECTED = [
     "RESEARCH/working/linux-7.1.3",
 ]
+# DONDE VIVE EL ESTADO, Y POR QUE NO ES /tmp.
+#
+# Antes vivia en tempfile.gettempdir(), y un reinicio del servidor lo borro:
+# `--verify` respondio "no hay referencia. ejecuta primero --snapshot" en un
+# proyecto que no habia tocado el corpus.
+#
+# El fallo no es que el fichero desaparezca: eso lo avisa. El fallo es que la
+# respuesta "no hay referencia" y la respuesta "el corpus cambio" son distintas,
+# y la primera se lee como la segunda o al reves. Un control de integridad que
+# pierde su referencia tiene que decirlo de forma inequivoca, y tenerla
+# DUPLICADA fuera de /tmp para no depender del arranque.
+#
+# Se guardan dos copias: una en el repositorio (sobrevive al reinicio, y es
+# versionable para poder auditar cuando se tomo) y otra en /tmp por
+# compatibilidad con quien ya tenga una hecha ahi.
+STATE_REPO = os.path.join(ROOT, ".corpus_guard_state.json")
 STATE = os.path.join(tempfile.gettempdir(), "corpus_guard_state.json")
 
 
@@ -75,16 +91,40 @@ def fingerprint():
 
 
 def load_state():
-    if os.path.exists(STATE):
+    """Lee la referencia. La del repositorio manda.
+
+    Si existen las dos y NO coinciden, eso se avisa: significa que alguien
+    regenero una y no la otra, y comparar contra la equivocada daria un
+    resultado que no significa nada. Prefiero fallar aqui, en voz alta, que
+    devolver un veredicto de integridad construido sobre una referencia
+    arbitraria.
+    """
+    leidas = {}
+    for etiqueta, ruta in (("repo", STATE_REPO), ("tmp", STATE)):
+        if not os.path.exists(ruta):
+            continue
         try:
-            return json.load(open(STATE))
+            leidas[etiqueta] = json.load(open(ruta))
         except (OSError, ValueError):
-            return None
+            leidas[etiqueta] = None
+    if "repo" in leidas and leidas["repo"] is not None:
+        if "tmp" in leidas and leidas["tmp"] is not None \
+                and leidas["tmp"] != leidas["repo"]:
+            print("AVISO: las dos referencias de corpus_guard DIFIEREN.")
+            print("       Se usa la del repositorio. Regenera la otra con")
+            print("       --snapshot si el estado real es el nuevo.")
+        return leidas["repo"]
+    if "tmp" in leidas and leidas["tmp"] is not None:
+        return leidas["tmp"]
     return None
 
 
 def save_state(fp):
-    json.dump(fp, open(STATE, "w"), indent=1)
+    json.dump(fp, open(STATE_REPO, "w"), indent=1)
+    try:
+        json.dump(fp, open(STATE, "w"), indent=1)
+    except OSError:
+        pass          # la copia de /tmp es cortesia, no garantia
 
 
 def diff(a, b):
@@ -149,7 +189,23 @@ def main():
 
     ref = load_state()
     if ref is None:
-        print("no hay referencia. ejecuta primero --snapshot")
+        # LAS TRES SITUACIONES SON DISTINTAS Y HAY QUE DECIRLAS.
+        #
+        # "no hay referencia" NO es "el corpus cambio", aunque se parezcan:
+        # una es que no tengo con que comparar, la otra es que comparo y algo
+        # difiere. La primera no dice nada del corpus; la segunda si.
+        # Confundirlas hace que se lea como "todo bien" o como "algo mal" segun
+        # quien lea, y ninguna de las dos es lo que ocurre.
+        print("NO SE PUDO VERIFICAR. No hay ninguna referencia.")
+        print()
+        print(f"  Estado del corpus: DESCONOCIDO (no intacto, tampoco modificado)")
+        print(f"  Referencia buscada en:")
+        print(f"    {STATE_REPO}")
+        print(f"    {STATE}")
+        print()
+        print("  Esto NO es un veredicto de integridad. Es que no hay")
+        print("  contra que comparar. Con --snapshot se crea una y a partir")
+        print("  de ahi si se puede verificar.")
         return 2
 
     if args[0] == "--check":

@@ -154,6 +154,21 @@ def main():
         # su SALIDA es la verificacion.
         ("fronteras obsoletas (trabajo ya hecho)", ["stale_gap.py"], 0),
         ("stale_gap: control negativo", ["stale_gap.py", "--self-test"], 0),
+        # LA INTEGRIDAD CON HUELLA, no solo con git status.
+        #
+        # `--git` responde 0 cuando `git status --porcelain RESEARCH/` esta
+        # vacio, y eso NO es una verificacion del corpus: solo comprueba que
+        # git no ve cambios. Si alguien regenera un fichero y lo commitea, o
+        # si el corpus se toco y luego se commiteo, `--git` dice que todo bien
+        # y no es cierto.
+        #
+        # `--verify` compara la huella de 2787 ficheros con una referencia, y
+        # devuelve 2 --distinto de 0-- cuando no hay ninguna referencia, para
+        # que "no puedo comprobarlo" no se lea como "todo bien". Esa
+        # distincion la hacia mal el propio corpus_guard, que antes devolvia
+        # un texto de una linea indistinguible del exito.
+        ("integridad del corpus (huella de 2787 ficheros)",
+         ["corpus_guard.py", "--verify"], 0),
     ]
     if quick:
         tools = tools[1:]
