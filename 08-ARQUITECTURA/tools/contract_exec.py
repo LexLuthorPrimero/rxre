@@ -156,9 +156,120 @@ def _join(nodo, consts):
     return "/".join(partes) if partes else None
 
 
+# ACCESO A LA BARRA DE REGISTROS. Un campo de CAPACIDAD se comprueba distinto que
+# uno de escritura: WRITES_FILES se ve en el open(), WRITES_GPU no esta en ningun
+# sitio del codigo -- hay que deducirlo de las llamadas.
+PATRONES_MMIO = ("mmap", "MAP_SHARED", "/dev/mem", "resource0", "pci_resource",
+                 "writel", "mmio", "0xF7D0")
+
+
+def acceso_mmio(herramienta):
+    """Como ACCEDE a la barra: ('texto', lineas) o ('binario', rutas) o None."""
+    ruta = os.path.join(TOOLS, herramienta)
+    if not os.path.isfile(ruta):
+        return None
+    if not herramienta.endswith(".py"):
+        # Un binario: se miran sus CADENAS, que es mas debil y se dice.
+        try:
+            with open(ruta, "rb") as fh:
+                datos = fh.read()
+        except OSError:
+            return None
+        rutas = []
+        for p in PATRONES_MMIO:
+            if p.encode() in datos:
+                rutas.append(p)
+        return ("binario", rutas) if rutas else None
+    # SIN COMENTARIOS NI DOCSTRINGS. Y esto no es un detalle: la primera version
+    # de esta funcion busco "/dev/mem" en el TEXTO y encontro que bench.py lo
+    # tiene. Lo tiene en una linea de comentario que dice, literalmente, "busco
+    # /dev/mem y no encontre nada". O sea: dos errores en direcciones opuestas --
+    # mi grep dio 0 porque lo coloque mal, y esta herramienta dio acceso porque
+    # conto una MENCION como un acceso, que es exactamente el fallo que llevo
+    # toda la sesion corrigiendo en toolkit.py.
+    #
+    # Un comentario no ejecuta nada. Por eso se quitan ANTES de buscar.
+    try:
+        arbol = ast.parse(open(ruta, encoding="utf-8").read())
+    except (SyntaxError, OSError):
+        return None
+    for n in ast.walk(arbol):
+        if isinstance(n, ast.Constant) and isinstance(n.value, str):
+            n.value = ""            #Includes docstrings y strings de analisis
+    codigo = ast.unparse(arbol) if hasattr(ast, "unparse") else None
+    if codigo is None:
+        return None
+    hits = [p for p in PATRONES_MMIO if p in codigo]
+    return ("codigo", hits) if hits else None
+
+
+def declaradas_sin_uso(profundidad=3):
+    """[{herramienta, declara, cadena, donde}] para WRITES_GPU=yes sin acceso."""
+    out = []
+    for f in sorted(os.listdir(TOOLS)):
+        if not f.endswith(".py"):
+            continue
+        ruta = os.path.join(TOOLS, f)
+        with open(ruta, encoding="utf-8", errors="replace") as fh:
+            cab = fh.read().split("\n")[:30]
+        declara = None
+        for l in cab:
+            if l.startswith("# CONTRACT: WRITES_GPU="):
+                declara = l.split("=", 1)[1].strip()
+        if declara != "yes":
+            continue
+        # seguir la cadena: la capacidad se hereda si el delegado la ejerce
+        pendientes, vistos = [(f, "propia")], set()
+        donde = None
+        while pendientes and None is (donde := donde):
+            actual, via = pendientes.pop(0)
+            if actual in vistos or len(vistos) > 40:
+                continue
+            vistos.add(actual)
+            acc = acceso_mmio(actual)
+            if acc is not None:
+                donde = (actual, via, acc)
+                break
+            import check_chain
+            pendientes += [(d, "via %s" % actual)
+                           for d in check_chain.invocadas(actual)]
+        out.append({"herramienta": f, "cadena": sorted(vistos),
+                    "donde": donde})
+    return out
+
+
 def main(argv):
     if "--self-test" in argv or "--self" in argv:
         return selftest()
+    if "--capacidad" in argv:
+        filas = declaradas_sin_uso()
+        print("CAPACIDAD DECLARADA SIN USO: WRITES_GPU=yes y nadie toca la barra")
+        print()
+        if not filas:
+            print("  ninguna herramienta declara WRITES_GPU=yes")
+            return 0
+        malas = 0
+        for f in filas:
+            if f["donde"] is None:
+                malas += 1
+                print("  %-22s DECLARADA_SIN_USO" % f["herramienta"])
+                print("      cadena revisada (%d): %s"
+                      % (len(f["cadena"]), ", ".join(f["cadena"][:6])))
+                print("      declara WRITES_GPU=yes y en NINGUN eslabon hay")
+                print("      acceso a la barra de registros.")
+            else:
+                h, via, acc = f["donde"]
+                print("  %-22s OK, acceso en %s (%s de %s): %s"
+                      % (f["herramienta"], h, acc[0], via, acc[1][:3]))
+        print()
+        if malas:
+            print("  DECLARADA_SIN_USO: %d. Un campo de capacidad puesto a yes sin"
+                  % malas)
+            print("  ejercerse deja de distinguir: el dia que aparezca una que SI")
+            print("  escriba y declare no, el mismo criterio no la vera.")
+            return 1
+        print("  ninguna capacidad declarada queda sin uso")
+        return 0
     print("CLASIFICACION DE ESCRITURAS: proyecto o no")
     print()
     print("  Criterio: TEMPORAL (mkstemp), o ruta absoluta FUERA del proyecto,")
