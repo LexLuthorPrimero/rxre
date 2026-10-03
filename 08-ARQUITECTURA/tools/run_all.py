@@ -133,6 +133,29 @@ def main():
         # en la salida, que ya lo esta. Un rojo con nombre es informacion; un
         # verde con excusas es ruido.
         ("contrato de las herramientas", ["toolkit.py"], 0),
+        # Lo de arriba FALLA, y el fallo es casi todo RUIDO que ya conozco:
+        # toolkit.py senala como escritura cosas que no son escrituras del
+        # proyecto. Su flag dice "si escribe ficheros DEL PROYECTO", y un
+        # tempfile.mkstemp o un fichero en /tmp no lo son.
+        #
+        #   doclint.py       mkstemp + unlink en su self-test
+        #   aperture.py      os.fdopen(_fd) con _fd de mkstemp
+        #   struct_rw.py     open("/tmp/opencode/ko.asm")
+        #   ipver_zero.py    if op == ">":      <- la regex de redireccion
+        #   pm4_emit.py      "> 8 bits" dentro de un string     matchea una
+        #                     COMPARACION y un TEXTO, no una escritura
+        #
+        # Lo que se hace aqui NO es relajar el contrato: es restar una lista
+        # EXPLICITA de falsos positivos conocidos, comprobada, y seguir
+        # fallando por cualquier otra cosa. Sin la lista, el rojo seria el mismo
+        # hoy y dentro de un mes, y ahi es donde un rojo que no cambia enseña a
+        # ignorar el semaforo -- que es justo el dano que toolkit.py dice querer
+        # evitar con su excepcion AJENA.
+        #
+        # Y NO se arregla la declaracion de esas herramientas: declaran bien.
+        # Cambiar WRITES_FILES a yes para que dejen de salir seria cambiar una
+        # declaracion correcta por una falsa.
+        ("contrato: sin falsos positivos conocidos", ["contract_filter.py"], 0),
         # El detector de contradicciones tiene que correr en CADA verificacion.
         # Si solo corre cuando me acuerdo, deja de ser un control y pasa a ser
         # una consulta: la contradiccion de block_size llego a tres documentos
