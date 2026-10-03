@@ -48,6 +48,7 @@ chk()  { if [ "$1" = "0" ]; then ok "$2" "$3"; else no "$2" "$3"; fi }
 #      desaparece del camino de decision.
 #   2. must() es el unico camino para comprobar algo. No existe `&& chk`, porque
 #      `&& chk` es exactamente lo queallows que una comprobacion no se ejecute.
+AUDIT_OBJ="$(mktemp)"
 SYMS="$(mktemp)"
 nm "$KO" > "$SYMS" 2>/dev/null || : > "$SYMS"
 
@@ -90,7 +91,7 @@ grep -q "cleanup_module" "$SYMS"; must $? T14 "cleanup_module presente en el .ko
 
 echo
 echo "AUDIT · acceso a hardware (debe estar AUSENTE)"
-# Se busca en el fuente del driver, no en comentarios de auditoría.
+# Se busca en el fuente del driver, no en comentarios de auditoria.
 BODY=$(strip_comments "$SRC"; strip_comments "$DRV/pci_resource.c")
 #  pci_iomap / pci_iounmap NO estan aqui: son MMIO_MAPPING, categoria propia
 #  de STATE 3, y se auditan mas abajo como PRESENCIA exigida.
@@ -105,15 +106,106 @@ for sym in ioremap ioremap64 pci_enable_device \
 done
 chk 0 HW "ninguna llamada de acceso a hardware en el cuerpo"
 
+# ── COBERTURA DEL AUDIT: todos los objetos del modulo, no dos a mano ─────────
+#
+# MEDIDO 2026-10-03: el audit de arriba mira $SRC y pci_resource.c. Eso son DOS
+# ficheros elegidos a mano, de los ocho que estaban en obj-m. Los otros seis no
+# los miraba nadie.  Y no era una omision menor: rx550_mmio_access.c, que es el
+# unico fichero que hace MMIO de verdad, no estaba en el alcance del audit.  El
+# audit decia "ninguna llamada de acceso a hardware" y la unica lectura del
+# hardware del modulo estaba fuera de su alcance.
+#
+# La lista de objetos se EXTRAE del Makefile. Escribirla a mano seria el mismo
+# defecto un nivel mas arriba: el dia que obj-m cambie, la lista no cambiaria y
+# el audit seguiria contando los objetos que ya no estan.
+#
+# Y el invariante no es "no hay readl en el modulo": el accessor TIENE que
+# leer.  El invariante es "solo el accessor declarado toca el dispositivo, y
+# ningun objeto mas".  Por eso hay una lista de excepcion, y por eso la lista
+# tiene que seguir contendo lo que dice contener.
+MMIO_EXENTOS="rx550_mmio_access.c"
+OBJS_RAW=$(awk '/^rx550_drv-objs[ 	]*:=/{
+                   for (i=1; i<=NF; i++) if ($i ~ /\.o$/) { gsub(/\\/,"",$i); print $i } }' "$DRV/Makefile")
+# El fichero se arma con printf, NO con "$cuerpo_obj$cuerpo". Dentro de comillas
+# dobles bash "\n" es una barra y una ene, no un salto de linea: la primera
+# version de este bloque metia todo en una sola linea y el awk de abajo no
+# encontraba nada.  Medido, no supuesto: el COB salia en FAIL con el accessor
+# teniendo readl en la linea 215 del cuerpo limpio.
+: > "$AUDIT_OBJ"
+n_obj=0
+for o in $OBJS_RAW; do
+  f="$DRV/${o%.o}.c"
+  if [ ! -f "$f" ]; then no "COB" "el objeto $o no tiene fuente: $f"; continue; fi
+  n_obj=$((n_obj + 1))
+  { printf '__FILE__ %s\n' "$f"; strip_comments "$f"; printf '\n'; } >> "$AUDIT_OBJ"
+done
+
+n_aud=0
+for f in $MMIO_EXENTOS; do
+  grep -q "^__FILE__ $DRV/$f$" "$AUDIT_OBJ" && n_aud=$((n_aud + 1))
+done
+chk $([ "$n_obj" -gt 0 ] && echo 0 || echo 1) COB \
+    "$n_obj objetos en obj-m, todos con fuente y ninguno sin auditar"
+# La excepcion tiene que seguir siendo excepcion de algo: si el accessor
+# declarado dejara de tener MMIO, la lista estaria admitting a un fichero que no
+# necesita excepcion, y la comprobacion habria perdido su motivo.
+hit_acc=0
+for sym in readl writel readq writeq; do
+  awk -v f="$DRV/rx550_mmio_access.c" -v sym="$sym" '
+      $0=="__FILE__ " f {dentro=1; next}
+      /^__FILE__ /  {dentro=0}
+      dentro && $0 ~ ("(^|[^A-Za-z0-9_])" sym "([^A-Za-z0-9_]|$)") {n++}
+      END {exit(n>0?0:1)}' "$AUDIT_OBJ" && hit_acc=1
+done
+# chk toma un CODIGO DE SALIDA, no un SI/NO: 0 es pasa.  hit_acc es 1 cuando
+# HA ENCONTRADO el MMIO, asi que hay que invertirlo.  La primera version pasaba
+# $hit_acc tal cual y por eso daba FAIL con el accessor teniendo readl delante.
+# Un check con el signo cambiado es peor que un check sin hacer: parece que
+# mide algo y mide lo contrario.
+chk $([ "$hit_acc" -eq 1 ] && echo 0 || echo 1) COB \
+    "el accessor declarado ($MMIO_EXENTOS) sigue siendo el que tiene MMIO"
+
+# Ningun objeto fuera de la excepcion puede tocar el dispositivo.
+n_hits=0
+for sym in ioremap ioremap64 readl writel readq writeq ioread8 iowrite8 \
+           request_irq request_threaded_irq dma_alloc_coherent dma_map_single; do
+  f=$(awk -v sym="$sym" '
+      $0 ~ /^__FILE__ / {f=$2; next}
+      $0 ~ ("(^|[^A-Za-z0-9_])" sym "([^A-Za-z0-9_]|$)") {
+         if (f ~ /rx550_mmio_access\.c$/) next
+         print f; exit }' "$AUDIT_OBJ")
+  if [ -n "$f" ]; then
+    no "HW-OBJ" "'$sym' aparece fuera del accessor, en ${f#$DRV/}"
+    n_hits=$((n_hits + 1))
+  fi
+done
+chk $([ "$n_hits" -eq 0 ] && echo 0 || echo 1) HW-OBJ \
+    "ningun objeto fuera del accessor toca el dispositivo ($n_obj objetos)"
+
 # Prueba a NIVEL DE ENLACE, no de texto: los símbolos indefinidos del .ko son
 # lo que el módulo realmente pide al kernel. Un test que sólo lee el fuente no
 # puede detectar una llamada de hardware añadida por otra vía.
 UNDEF=$(nm -u "$KO" 2>/dev/null | awk '{print $NF}' | sort -u)
 # nm -u tambien por fichero, por el mismo motivo que arriba: el pipeline de awk
 # no decide nada, pero que el lector de UNDEF sea el pipe si lo hacia.
+#  __readl / __writel / __readq / __writeq NO estan en la lista, y no por
+#  descuido: en x86-64 no existen como simbolos.  MEDIDO 2026-10-03 con un
+#  objeto de kernel minimo que llama a readl, writel, readq y writeq:
+#
+#      $ nm -u p.o
+#      U __fentry__
+#      U __x86_return_thunk
+#
+#  Ni uno de los cuatro aparece.  Se expanden en linea.  Buscarlos en nm -u era
+#  una comprobacion que no podia fallar en esta arquitectura, y una
+#  comprobacion que no puede fallar no es una comprobacion: es decoracion que
+#  ocupa sitio en el informe y da la sensacion de que el MMIO esta vigilado.
+#
+#  Lo que vigila el MMIO de verdad es HW-OBJ, arriba: el cuerpo de cada objeto,
+#  no sus simbolos.  Ese si puede fallar, y se ha roto a proposito para
+#  comprobarlo.
 for sym in __ioremap pci_enable_device pci_request_regions \
-           pci_alloc_irq_vectors \
-           __readl __writel __readq __writeq request_irq \
+           pci_alloc_irq_vectors request_irq \
            dma_alloc_coherent dma_map_single; do
   if printf '%s\n' "$UNDEF" | grep -qx "$sym"; then
     no "HW-L" "el .ko referencia el símbolo de hardware '$sym'"
@@ -153,7 +245,7 @@ printf '%s\n' "$UNDEF" | grep -qx "pci_iounmap" && \
 # cualquier parte del binario no probaría que sea la tabla.
 # `nm -a` NO es lo mismo que `nm`: añade simbolos de depuracion y su salida
 # tiene otra forma.  No se le sustituye por $SYMS.  Fichero propio.
-SYMA="$(mktemp)"; trap 'rm -f "$SYMS" "$SYMA"' EXIT
+SYMA="$(mktemp)"; trap 'rm -f "$SYMS" "$SYMA" "$AUDIT_OBJ"' EXIT
 nm -a "$KO" > "$SYMA" 2>/dev/null || : > "$SYMA"
 idt_addr=$(awk '/[rR] rx550_target_id_table$/{print "0x"$1; exit}' "$SYMA")
 if [ -z "$idt_addr" ]; then
