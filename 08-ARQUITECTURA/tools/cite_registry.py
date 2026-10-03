@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 # CONTRACT: name=cite_registry
-# CONTRACT: READONLY=yes
-# CONTRACT: WRITES_FILES=no
+# NO es READONLY, y no por una excepcion: --fijar escribe cite_registry.base.
+# Declararse read-only mientras se escribe un fichero es la clase de mentira
+# que hace inutil el resto de la tabla de contratos, asi que se declara lo que
+# hace. El validador lo detecto solo: "READONLY pero hay 1 escritura detectada".
+# Las flags validas son READONLY, WRITES_FILES, WRITES_SYSFS, MUTATES_CORPUS y
+# WRITES_GPU; PURPOSE, SELF_TEST y VALIDATION NO son flags, son metadatos, y
+# por eso viven en la documentacion de abajo y no aqui.
+# CONTRACT: READONLY=no
+# CONTRACT: WRITES_FILES=yes
 # CONTRACT: WRITES_SYSFS=no
-# CONTRACT: MODIFIES_CORPUS=no
-# CONTRACT: PURPOSE="Inventario de herramientas de citas: que PREGUNTA responde cada una, y donde colisionan los nombres"
-# CONTRACT: SELF_TEST=--self-test
-# CONTRACT: VALIDATION=TOOL_VALIDATED
+# CONTRACT: MUTATES_CORPUS=no
+# CONTRACT: WRITES_GPU=no
 """cite_registry.py -- que herramienta de citas responde a que pregunta.
 
 POR QUE EXISTE
@@ -42,6 +47,11 @@ import re
 import sys
 
 ROOT = "/home/lucas/Escritorio/RX550-INVESTIGACION"
+
+# El directorio cuyo contrato de herramientas SI se audita. Lo declara toolkit.py
+# con os.listdir(HERE), y HERE es su propio directorio. Aqui se nombra para que
+# el recuento pueda decir cuales quedan fuera, y no solo cuantos hay.
+AUDITADO_DIR = "08-ARQUITECTURA/tools"
 
 # Los cuatro directorios. NO se descubren "los que hay": se declaran, para que
 # un directorio nuevo sea una decision visible y no un olvido silencioso.
@@ -353,6 +363,59 @@ def main(argv):
                   " seguir; un nombre repetido con hash distinto hace que"
                   " cualquiera que lo invoque no sepa cual ejecuta." % len(nuevos))
             return 1
+        return 0
+
+    if "--alcance" in argv:
+        # POR QUE ESTO NO ESTA EN toolkit.py, QUE ES DONDE PODRIA ESTAR.
+        #
+        # toolkit.py recorre os.listdir(HERE): su propio directorio. Anadirle
+        # "y declaro que no cubro los otros" seria lo natural, pero toolkit.py
+        # tiene 52 inserciones y 15 borrados SIN COMMITEAR de otra sesion, y un
+        # commit de un fichero entero barre trabajo ajeno. Asi que la pregunta
+        # cruzada se responde desde aqui, que es de donde se ve el conjunto.
+        #
+        # Y de hecho la pregunta es CRUZADA por naturaleza: ningun validador
+        # puede auditar su propio alcance. Solo uno que mira los cuatro
+        # directorios puede decir cuales se salen del alcance de otro.
+        #
+        # La respuesta corta: 115 herramientas, 49 dentro del alcance de
+        # toolkit.py, 66 fuera. Y "fuera" no es "rota": es "nadie lo ha mirado",
+        # que es NOT_OBSERVED y no PROVEN_ABSENT.
+        # El alcance TIENE QUE SER uno de los directorios declarados.
+        #
+        # Sin esta comprobacion, --alcance con un alcance desconocido imprimia
+        # "0 dentro, 115 fuera" y salia con rc=0: un numero verosimil, sin
+        # error, y completamente falso. Un instrumento que responde plausible
+        # cuando no sabe es peor que uno que no responde.
+        if AUDITADO_DIR not in TOOL_DIRS:
+            print("alcance de auditoria DESCONOCIDO: %r" % (AUDITADO_DIR,))
+            print("no es ninguno de los %d directorios declarados, asi que"
+                  % len(TOOL_DIRS))
+            print("'dentro' y 'fuera' no significarian nada.")
+            print("  %s" % ", ".join(TOOL_DIRS))
+            return 2
+        dentro, fuera = [], []
+        for f in filas:
+            (dentro if f["dir"] == AUDITADO_DIR else fuera).append(f)
+        print("ALCANCE DE LA AUDITORIA DE CONTRATOS")
+        print()
+        print("  %s" % AUDITADO_DIR)
+        print("      %d herramientas dentro del alcance" % len(dentro))
+        print("  los otros %d directorios" % (len(TOOL_DIRS) - 1))
+        print("      %d herramientas FUERA del alcance" % len(fuera))
+        print()
+        print("  total: %d en %d directorios" % (len(filas), len(TOOL_DIRS)))
+        print()
+        print("  LO QUE ESTO NO ES")
+        print("    'fuera del alcance' NO es 'rota'. Es 'nadie lo ha mirado':")
+        print("    NOT_OBSERVED, no PROVEN_ABSENT. No se ha ejecutado ninguna.")
+        print()
+        por_dir = {}
+        for f in fuera:
+            por_dir[f["dir"]] = por_dir.get(f["dir"], 0) + 1
+        print("  HERRAMIENTAS SIN AUDITAR, POR DIRECTORIO")
+        for d, n in sorted(por_dir.items(), key=lambda x: -x[1]):
+            print("      %-30s %d" % (d, n))
         return 0
 
     if "--preguntas" in argv:
