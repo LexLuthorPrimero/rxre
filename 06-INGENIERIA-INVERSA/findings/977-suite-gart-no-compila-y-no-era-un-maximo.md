@@ -385,7 +385,38 @@ La defensa no es tener cuidado: es no usar `--amend` en un árbol compartido. Un
 commit rehecho es otro commit, con su hash nuevo, y el hash viejo sigue
 funcionando solo porque nadie lo había anotado todavía.
 
-## 12. Qué cambió de estado
+## 12. CORRECCION de este hallazgo por el 980
+
+Dos cosas de las que este documento afirma quedan desmentidas por
+`980-la-puerta-dice-hay-fallos-y-sale-con-cero.md`. No se borran: se anotan.
+
+```
+AFIRMADO AQUI                          CORREGIDO POR 979
+  "make -s run -> rc 0"                rc 0 DEL ARBOL DE TRABAJO, no del REPOSITORIO.
+                                        tests/test_static.sh es la ultima linea de `run` y
+                                        NUNCA ha estado en git: 0 commits en toda la
+                                        historia.  Un clon limpio ejecuta las 15 suites y
+                                        se muere en el ultimo paso.  El rc 0 de este
+                                        hallazgo no es reproducible.
+  "la puerta existe y mide 15 de 16"    La puerta EXISTIA pero no podia FALLAR:
+                                        test_static.sh:207 era `exit 0` sin condiciones.
+                                        Con `pci_request_regions(pdev, "rx550")` en el
+                                        cuerpo del driver -- que el audit prohibe --
+                                        imprime DOS FAIL y "HAY FALLOS", y `make test`
+                                        devuelve rc 0.  Las 34 aserciones estaticas eran
+                                        adorno.
+```
+
+Lo que NO cae: las 2 814 aserciones C se ejecutaron, se contaba bien, y las tres
+reparaciones de este documento (el `.c`, el `.h` y el `CHECK` invertido) siguen
+siendo correctas y comprobadas por mutación.
+
+La lección, y es la misma del §6.2 de este documento pero un escalón más arriba:
+**contar aserciones no es verificarlas, y que la puerta devuelva 0 no es que la
+puerta pueda fallar.** Las dos cosas necesitan evidencia, y ninguna de las dos se
+midió aquí.
+
+## 13. Qué cambió de estado
 
 ```
 RX550_GART_ENTRY_COUNT como cota global de rango   REFUTED   (contrafactual gartsize=1024)

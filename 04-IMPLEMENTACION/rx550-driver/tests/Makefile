@@ -42,7 +42,22 @@ AMDGPU=../../../RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/amdgpu
 # trabajo ajeno en vuelo, y no se tocan sus ficheros.
 # MEDIDO 2026-10-03: sigue sin compilar, por el mismo conflicto de typedef de
 # `u64` entre target_mem_host.h y el propio test.  No es de esta sesion.
-run: test_target_match test_resource test_regs test_vm test_fence test_submit \
+# `run` depende del .ko, y no solo por orden: test_static.sh audita el BINARIO
+# con `nm -u`, no el fuente.  MEDIDO 2026-10-03: corrido con `make -s run` desde
+# tests/ y el .ko era de antes del cambio, luego la mitad de enlace del audit
+# leía un binario que ya no correspondia al fuente.  Una comprobación que
+# inspecciona el estado que otro paso dejó, en vez del suyo, comprueba otra
+# cosa (mismo defecto que el caso 206 de run-all.sh).
+#
+# El Makefile de arriba ya lo hacia bien (`test: modules`); este no.  Con la regla
+# de abajo, el comando que documenta el hallazgo 977 —`cd tests && make -s run`—
+# reconstruye el modulo antes de auditarlo.
+KO := ../rx550_drv.ko
+
+$(KO):
+	$(MAKE) -C .. modules
+
+run: $(KO) test_target_match test_resource test_regs test_vm test_fence test_submit \
      test_mmio_access test_block_size test_gart_write test_ib_bridge \
      test_ib_composer test_pdb0 test_submission test_vmid0_gart \
      test_vmid1_pgt test_vmid1_pgt_backing
