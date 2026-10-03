@@ -65,9 +65,37 @@ import json
 HERE = os.path.dirname(os.path.abspath(__file__))
 REGISTRY = os.path.join(HERE, "TOOLKIT.json")
 
-# Los flags que una herramienta puede declarar
+# Los flags de CAPACIDAD que una herramienta puede declarar.
 FLAGS = ["READONLY", "WRITES_FILES", "WRITES_SYSFS", "MUTATES_CORPUS",
          "WRITES_GPU"]
+
+# Flags que NO son capacidad sino CONTRATO DE EJECUCION.
+#
+# MEDIDO 2026-10-03: ocho herramientas declaraban `EXIT_ON_SUCCESS=N` y el
+# validador las rechazaba con "FLAG DESCONOCIDO, el validador no sabe que
+# significa". Es el mismo error del finding 197 para WRITES_GPU: el campo existe
+# en el codigo, lo leen las herramientas, y el validador no lo nombra.
+#
+# Y el caso es peor que un flag no reconocido, porque `EXIT_ON_SUCCESS` SI tiene
+# verificador: `exit_contract.py` ejecuta la herramienta y comprueba que
+# devuelve ese codigo. Hay un contrato DECLARADO, un contrato EJERCIDO, y un
+# validador que dice que no existe.
+#
+# Se separan en dos listas porque se comportan distinto: FLAGS se resume y se
+# cuenta ("cuantas herramientas pueden tocar el hardware"), y estos no, porque
+# un codigo de salida no es una capacidad.
+CONTRATO_FLAGS = ["EXIT_ON_SUCCESS"]
+
+# Sub-clases de WRITES_GPU. Aplican SOLO cuando la herramienta declara
+# WRITES_GPU=yes; entonces la sub-clase dice COMO escribe. Medido el
+# 2026-10-03: 3 herramientas las declaran y el validador las rechazaba.
+#
+# WRITES_GPU_WORK = lanza trabajo a la GPU que altera su estado observable.
+# WRITES_GPU_MMIO = escribe en registros MMIO.
+#
+# El orden importa para el diagnostico: se nombra la sub-clase antes que la
+# capacidad, porque "escribe en MMIO" es accionable y "escribe en la GPU" no.
+SUBCLASES_GPU = ["WRITES_GPU_WORK", "WRITES_GPU_MMIO"]
 
 # Expresiones que delatan escritura. Debilis por construccion -- no distingue
 # "w" de "r+" bien, y no ve escrituras via subprocess -- pero es lo que hay sin
@@ -216,12 +244,13 @@ def validate(path, contract):
     # las comprobaciones 1..4 preguntan por flags concretos, asi que un flag
     # que nadie pregunta pasa desapercibido. Un contrato con una tecla que el
     # validador no conoce es un contrato que no se puede cumplir ni auditar.
+    conocidos = FLAGS + CONTRATO_FLAGS + SUBCLASES_GPU
     for k in contract:
         if k == "name" or k.startswith("_"):
             continue                   # _DUPLICADOS es interno, no un flag
-        if k not in FLAGS:
+        if k not in conocidos:
             probs.append(f"FLAG DESCONOCIDO '{k}': el validador no sabe "
-                         f"que significa. Flags validos: {FLAGS}")
+                         f"que significa. Flags validos: {conocidos}")
 
     # 1. un flag de GPU es inaceptable
     if contract.get("WRITES_GPU") == "yes":
@@ -335,6 +364,37 @@ def selftest():
     """
     import tempfile
     fails = []
+
+    # LA LISTA DE FLAGS CONOCIDOS. El autotest de arriba comprueba el PARSER,
+    # y el parser funciona: lee bien lo que hay en el encabezado. Lo que no
+    # comprobaba es la LISTA, y ahi es donde fallo el 2026-10-03: ocho
+    # herramientas declaraban EXIT_ON_SUCCESS y el validador lo rechazaba con
+    # "FLAG DESCONOCIDO". Mutando CONTRATO_FLAGS a [] el autotest seguia
+    # diciendo OK, porque no lo mira: comprobaba el parser, no la lista.
+    #
+    # El caso se construye sobre las herramientas REALES del arbol, no sobre
+    # una cadena inventada: si mañana alguien declara un flag nuevo y el
+    # validador no lo conoce, esto falla aqui y no en el informe de las 65.
+    for flag in CONTRATO_FLAGS + SUBCLASES_GPU:
+        if flag not in FLAGS + CONTRATO_FLAGS + SUBCLASES_GPU:
+            fails.append("flag declarado en una lista y ausente de la "
+                         "comprobacion: {0}".format(flag))
+    conocidos = set(FLAGS) | set(CONTRATO_FLAGS) | set(SUBCLASES_GPU)
+    for f in sorted(os.listdir(HERE)):
+        if not f.endswith(".py") or f == os.path.basename(__file__):
+            continue
+        try:
+            with open(os.path.join(HERE, f), encoding="utf-8",
+                      errors="replace") as fh:
+                txt = fh.read(4000)
+        except OSError:
+            continue
+        for m in re.finditer(r"^#\s*CONTRACT:\s*([A-Z_]+)\s*=", txt, re.M):
+            k = m.group(1)
+            if k not in conocidos:
+                fails.append("{0} declara {1} y el validador no lo conoce"
+                             .format(f, k))
+
     for content, esperado in SELFTEST:
         fn = os.path.join(tempfile.gettempdir(), "tk_selftest.py")
         with open(fn, "w") as _fh:
@@ -348,8 +408,8 @@ def selftest():
         for f in fails:
             print("   " + f)
         return 1
-    print("autotest OK ({} casos de parseo de contrato)".format(
-        len(SELFTEST)))
+    print("autotest OK ({} casos de parseo de contrato, {} flags conocidos "
+          "contra el arbol real)".format(len(SELFTEST), len(conocidos)))
     return 0
 
 
