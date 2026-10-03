@@ -21,7 +21,7 @@ HERE := $(shell pwd)
 # Esto es pertenencia al binario, NO ejecucion: el accessor sigue sin
 # llamada productiva desde el probe, y el mapeo del BAR no existe.
 obj-m := rx550_drv.o
-rx550_drv-objs := rx550_target.o pci_resource.o rx550_mmio_access.o
+rx550_drv-objs := rx550_target.o pci_resource.o rx550_mmio_access.o rx550_pdb0.o
 
 .PHONY: all modules test clean verify-kdir
 
