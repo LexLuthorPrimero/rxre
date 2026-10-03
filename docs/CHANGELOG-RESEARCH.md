@@ -4571,3 +4571,128 @@ menos un caso-- sigue sin detectar la baja si otro caso dispara el mismo
 mensaje. Queda escrito en la salida del propio autotest con la cuenta.
 
 check.sh rc=0 TODO CORRECTO. NO SE TOCO EL CORPUS NI LAS CAPTURAS.
+
+## 2026-10-03 · opencode · el comparador de la pptable, y una herramienta mia que moria en silencio
+
+OBJETIVO   Que emisor de PTEPDE corre en ESTE ASIC, y comprobar el nuestro
+           contra el, campo a campo, sin usar nuestro propio header como prueba
+PISTA      TOOLING · SOLO LECTURA sobre 07-DRIVER · GPU INTACTA
+
+LO QUE SE PIDIÓ Y LO QUE SALIÓ
+Se pidió construir un control que comparase el emisor PTEPDE nuestro contra el
+del driver de referencia. docs/IMPLEMENTATION-STATUS.md 2.1 dice exactamente que
+falta, y por que: las dos puntas del test leen RX550_SDMA_PTEPDE_DW del mismo
+header, y eso es coherencia, no validacion.
+
+Antes de escribirlo habia que saber cual era la referencia. Y al comprobarlo,
+la referencia que decia el documento era FALSA. Asi que el trabajo se partio en
+dos, y la primera mitad fue un error mio.
+
+PRIMERO: UNA HERRAMIENTA MIA MENTIA
+revkit/PTEPDE-GFX8.md afirmaba, con etiqueta PROVEN, que el emisor de POLARIS12
+es sdma_v4_0_vm_set_pte_pde y que su ultimo dword es count - 1. Las citas
+venian de revkit/ibtrace.py. Al reproducir su salida, la primera escritura
+aparecia en L1645 y en el fichero esta en L1649.
+
+MEDIDO: la herramienta contaba offsets desde la llave del cuerpo y los sumaba a
+la linea de la firma. Dos bases distintas. Todo numero de linea que imprimia
+estaba 4 por debajo, en toda funcion con firma multilinea. El conteo de
+escrituras era correcto y los opcodes tambien: solo los numeros mentian, y nada
+en la salida lo delata.
+
+Habia un segundo defecto, latente: _quita_comentarios sustitumbia un comentario
+de bloque de N lineas por un espacio, destruyendo sus N saltos de linea. MEDIDO:
+asi se destruye la estructura de lineas sobre la que despues se calculan
+numeros de linea que se atribuyen al texto original.
+
+Corregidos los dos, y con un ORACULO: ibtrace.py selftest recorre el corpus
+entero, toma la linea que la herramienta IMPRIME y exige que contenga la
+escritura que dice. Las dos rutas son independientes, asi que puede fallar de
+verdad. 6791 escrituras, 0 numeros incorrectos. Dos mutaciones del arreglo, dos
+cazadas.
+
+El oraculo tardo tres versiones en ser SONIDO, y las tres fallaron por el motivo
+equivocado al que yo buscaba: la primera exigia que la linea terminase en la
+expresion, imposible cuando la llamada ocupa dos lineas, y dio 983 falsas. La
+segunda exigia el primer argumento entero, que tampoco cabe si empieza en la
+linea anterior. Y en los dos casos el fallo PARECIA una expresion truncada
+cuando lo truncado eran 40 caracteres de MI PROPIO mensaje al imprimir. Un
+criterio de control tiene que ser viejo antes de ser convincente.
+
+SEGUNDO: LA CADENA QUE DICE CUAL CORRE
+emitref.py chain, cinco saltos:
+
+  vi.c      CHIP_POLARIS12 anade &sdma_v3_1_ip_block
+  sdma_v3_0.c   ese bloque .funcs = &sdma_v3_0_ip_funcs
+  sdma_v3_0.c   esa vtable .early_init = sdma_v3_0_early_init
+  sdma_v3_0.c   ese cuerpo pasa &sdma_v3_0_vm_pte_funcs
+  sdma_v3_0.c   esa tabla .set_pte_pde = sdma_v3_0_vm_set_pte_pde
+
+Dos cosas que el documento anterior no vio. La primera: .set_pte_pde NO esta en
+sdma_v3_0_ip_funcs, esta en sdma_v3_0_vm_pte_funcs, de tipo amdgpu_vm_pte_funcs,
+y se pasa por una LLAMADA dentro de early_init. Yo habia supuesto lo contrario y
+lo escribi como si lo supiera. Un salto imaginado habria comparado el codigo
+nuestro contra la tabla equivocada y habria dado verde.
+
+La segunda: case CHIP_POLARIS12 aparece OCHO veces en vi.c, en ocho tablas. Siete
+son de capacidades. La regla no es la primera etiqueta: es el UNICO brazo que
+anade bloques IP, y si hubiera mas de uno seria una contradiccion del corpus, no
+una eleccion. Concatenarlos mezclaba ASICs y daba un bloque equivocado sin avisar.
+
+TERCERO: LA COMPARACION
+emitref.py comparar, por PAPEL y no por texto, porque el corpus y el codigo
+nuestro describen el mismo campo con sintaxis distinta:
+
+  lower_32_bits(pe)        frente a   (__u32)(pe & 0xFFFFFFFFu)
+
+Los diez dwords coinciden en papel, el opcode coincide en NUMERO y el campo count
+es IDENT(count) en las dos fuentes. El ancho se saca CONTANDO los emits de la
+referencia, que es una segunda fuente: las dos puntas del test de la otra sesion
+leen la constante del mismo header.
+
+Y aqui estan las dos diferencias que quedan escritas: que el hardware espere
+count y no count - 1 es NOT_DETERMINED, porque solo lo dice un comentario
+upstream y hace falta runtime; y que rx550_pm4.c este bien en RUNTIME tambien.
+
+CUATRO CONTROLES QUE NO SE EJERCITABAN
+El selftest probaba el CLASIFICADOR, que es la mitad, y no la COMPARACION, que es
+la otra: un if a != b puesto a false no lo detectaba nada. Tambien el ancho, y la
+unicidad del brazo. Los tres se extrajeron a funcion y se probaron con entrada
+buena y mala. Es la cuarta vez en este proyecto que un control existe y no se
+ejerce.
+
+Diez vectores. Doce mutaciones de la herramienta, DOCE cazadas, cada una
+aplicada, verificada, parseada y ejecutada.
+
+LO QUE NO SE TOCO
+07-DRIVER/ es de otra sesion: se LEE. docs/IMPLEMENTATION-STATUS.md, que sigue
+diciendo EL NUMERO ESTA MAL y GRAVEDAD ALTA sobre un rx550_pm4.c:298 que ya no
+es la linea que emite, es de otra linea de trabajo: se INFORMA, no se arregla.
+C-011 era un ARBITRO y se ha caido: su premisa era correcta y su conclusion no,
+porque el codigo copio el fichero equivocado pero el ASIC usa el otro.
+
+check.sh rc=0 TODO CORRECTO, con las cinco validaciones nuevas dentro. Corpus y
+capturas sin modificar.
+
+Y LA PUERTA SE NEGO A PUBLICAR, Y TENIA RAZON
+La puerta ejecuta la suite sobre el arbol exacto y no se commitea si algo falla.
+Fallo selfcheck, con 0 OK y 0 FALLA, que es la senal de que no llego a ejecutar.
+El control muerto era CN-R8: vclaims separa Mesa de citas rotas.
+
+MEDIDO: ese control no media lo que decia medir. Recorria el arbol entero y
+exigia rc=0 y cero citas rotas. Es decir, media la LIMPIEZA DEL MUNDO, no el
+comportamiento de la herramienta. Y como las citas rotas del arbol dependen de
+lo que escriben otras sesiones, se rompio solo: 08-ARQUITECTURA/RE-INDEX.md,
+untracked, de otra sesion, trajo citas a ficheros que no existen en ninguna raiz.
+
+Un control que afirma medir una herramienta y mide el mundo se rompe por causas
+que no estan en su alcance. Ahora mide la herramienta, sobre cn-r8.fixture, con
+tres citas de resultado conocido escritas con bytes literales: una de Mesa que
+NO es rota, una rota de verdad, y una buena al corpus. El rc que se espera es 1,
+porque el fixture TIENE una cita rota: un control que espera exito sobre un
+fixture con un caso malo no esta probando el caso malo.
+
+Dos mutaciones de vclaims sobre una copia, dos cazadas. El original no se toco.
+
+Y esto va al final de una lista: la de los controles que miden el mundo en vez de
+la herramienta, y que por eso se rompen cuando el mundo cambia.

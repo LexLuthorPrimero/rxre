@@ -1,0 +1,22 @@
+# CN-R8 fixture
+
+Este fichero existe para que el control CN-R8 pueda medir a la HERRAMIENTA y
+no el ARBOL. Contiene tres citas con resultado conocido:
+
+1. Una fuente EXTERNA de Mesa, que NO es una cita rota:
+
+```
+si_blit.c:123
+```
+
+2. Una cita ROTA de verdad, a un fichero que no existe en ninguna raiz:
+
+```
+fichero_que_no_existe_jamas.c:7
+```
+
+3. Una cita BUENA al corpus, que no debe marcarse:
+
+```
+sdma_v3_0.c:996
+```

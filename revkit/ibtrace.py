@@ -186,9 +186,17 @@ def cuerpo_de_funcion(txt, nombre):
         if m.group("nombre") != nombre:
             i = j + 1
             continue
-        # el cuerpo empieza en la primera { tras el fin de la firma,
-        # buscado sobre el ORIGINAL, y se cuenta llaves ignorando
-        # comentarios: un { dentro de un /* */ descuadra el conteo.
+        # La llave del cuerpo se busca sobre el ORIGINAL y se cuentan llaves
+        # ignorando comentarios: un { dentro de un /* */ descuadra el conteo.
+        #
+        # MEDIDO 2026-10-03. Antes el cuerpo se cortaba en la LLAVE y se
+        # devolvia como inicio la linea de la FIRMA, asi que escrituras_de()
+        # contaba offsets desde la llave y cmd_func los sumaba a la firma: dos
+        # bases distintas. En sdma_v4_0_vm_set_pte_pde eso son 4 lineas de
+        # desviacion, y todo numero de linea que imprimia la herramienta era
+        # 4 MENOR que el real. PTEPDE-GFX8.md cita esos numeros como PROVEN.
+        # Ahora el cuerpo se ancla en la MISMA linea que se devuelve, con lo
+        # que el offset relativo y la linea base tienen un unico origen.
         k = txt.find("{", offs[j] + len(lineas[j]))
         if k < 0:
             return None, None, None
@@ -212,7 +220,7 @@ def cuerpo_de_funcion(txt, nombre):
                 if nivel == 0:
                     break
             p += 1
-        cuerpo = _quita_comentarios(txt[k:p + 1])
+        cuerpo = _quita_comentarios(txt[offs[i]:p + 1])
         return i + 1, txt[:p].count("\n") + 1, cuerpo
     return None, None, None
 
@@ -233,8 +241,19 @@ def _quita_comentarios(txt):
     paquetes de forma incorrecta hace que un "5 dwords" parezca "9", y eso
     se propaga a cualquier analisis que dependa del tamano del paquete.
     """
-    txt = re.sub(r"/\*.*?\*/", " ", txt, flags=re.S)
-    txt = re.sub(r"//[^\n]*", " ", txt)
+    # MEDIDO 2026-10-03: esto hacia re.sub(r"/\*.*?\*/", " ", txt, flags=re.S),
+    # que sustituye un comentario de bloque de N lineas por UN ESPACIO y
+    # DESTRUYE sus N saltos de linea. Todo numero de linea calculado despues
+    # sobre el texto limpio quedaba desplazado, sin que nada lo delatara: el
+    # conteo de escrituras era correcto y solo los numeros mentian.
+    # Ahora cada caracter se cambia por un espacio y los saltos se conservan:
+    # longitud y estructura de lineas no cambian, y un offset calculado sobre el
+    # texto limpio sigue siendo valido sobre el original.
+    def _a_espacios(m):
+        return re.sub(r"[^\n]", " ", m.group(0))
+
+    txt = re.sub(r"/\*.*?\*/", _a_espacios, txt, flags=re.S)
+    txt = re.sub(r"//[^\n]*", lambda m: " " * len(m.group(0)), txt)
     return txt
 
 
@@ -442,9 +461,89 @@ def cmd_sync(args):
     return 0
 
 
+def cmd_selftest(args):
+    """
+    ORACULO DE NUMEROS DE LINEA. Comprueba, sobre el corpus entero, que la linea
+    que la herramienta IMPRIME contiene de verdad la escritura que dice.
+
+    Por que existe: MEDIDO 2026-10-03. La herramienta imprimia numeros de linea
+    4 por debajo de los reales en toda funcion con firma multilinea, porque
+    contaba offsets desde la llave y los sumaba a la linea de la firma. El
+    conteo de escrituras era correcto, los opcodes estaban bien, y solo los
+    numeros mentian: nada en la salida delata un numero erroneo. Y
+    PTEPDE-GFX8.md los cito como PROVEN.
+
+    El oratorio NO vuelve a preguntar a la misma aritmetica que ya se rompio.
+    Pregunta al FICHERO: toma la linea que la herramienta dice, la limpia de
+    comentarios, y exige que termine en la expresion que la herramienta
+    escribio. Si el numero esta desplazado, esa linea no contiene esa
+    expresion, y falla. Las dos rutas son independientes, asi que el control
+    puede fallar de verdad.
+    """
+    malas = []
+    total = 0
+    _ok = [0]
+    for fn in ficheros():
+        if not fn.endswith(".c"):
+            continue
+        ruta = os.path.join(AMDKG, fn)
+        txt = open(ruta, encoding="utf-8", errors="replace").read()
+        lineas = txt.splitlines()
+        for nombre in nombres_funciones(txt):
+            ini, _fin, cuerpo = cuerpo_de_funcion(txt, nombre)
+            if not cuerpo:
+                continue
+            for rel, llamada, _a in escrituras_de(cuerpo):
+                total += 1
+                real = ini + rel
+                if not (1 <= real <= len(lineas)):
+                    malas.append("%s::%s dice L%d y el fichero tiene %d lineas"
+                                 % (fn, nombre, real, len(lineas)))
+                    continue
+                cruda = " ".join(_quita_comentarios(lineas[real - 1]).split())
+                # Criterio SONIDO, sin umbral: la ESCRITURA se detecta en la linea
+                # donde aparece el token de la llamada, asi que esa linea DEBE
+                # contenerlo. Si el numero de linea esta desplazado, el token no
+                # esta ahi y falla.
+                #
+                # eran INGENUOS y fallaron por el motivo contrario.
+                # equivocaron por el motivo contrario. El primero exigia que la
+                # linea terminase en la expresion, imposible cuando la llamada
+                # ocupa dos lineas: 983 escrituras correctas marcadas de malas.
+                # El segundo exigia el primer argumento entero, que tampoco cabe
+                # si el argumento empieza en la linea anterior. Y en los dos
+                # casos el fallo PARECIA una expresion truncada cuando lo
+                # truncado eran 40 caracteres de mi propio mensaje al imprimir.
+                # Un criterio de control tiene que ser viejo antes de ser
+                # convincing.
+                tok = re.match(r"[A-Za-z_][A-Za-z_0-9]*", llamada)
+                tok = tok.group(0) if tok else llamada
+                if tok not in cruda:
+                    malas.append("%s::%s dice L%d y en esa linea no esta la "
+                                 "llamada %s; hay [%s]"
+                                 % (fn, nombre, real, tok, cruda[-46:]))
+                else:
+                    _ok[0] += 1
+    print("ORACULO DE NUMEROS DE LINEA, sobre el corpus entero")
+    print("  escrituras comprobadas : %d" % total)
+    print("  numeros incorrectos    : %d" % len(malas))
+    for m in malas[:12]:
+        print("  MAL   %s" % m)
+    if len(malas) > 12:
+        print("  ... y %d mas" % (len(malas) - 12))
+    if not malas:
+        print("  OK    toda linea impresa contiene la escritura que dice")
+        return 0
+    print()
+    print("  INVALID: un numero de linea que no apunta a su escritura no es un")
+    print("  numero pequeño. Es una cita que no se sostiene.")
+    return 4
+
+
 def main():
     ap = argparse.ArgumentParser(description="traza secuencias de IB")
-    ap.add_argument("cmd", choices=["func", "todas", "diff", "sync"])
+    ap.add_argument("cmd", choices=["func", "todas", "diff", "sync",
+                                 "selftest"])
     ap.add_argument("args", nargs="*")
     a = ap.parse_args()
     print("opcodes conocidos cargados: %d" % len(OPCODES_CONOCIDOS))
@@ -460,6 +559,8 @@ def main():
         return cmd_sync(a.args)
     if a.cmd == "diff":
         return cmd_diff(a.args)
+    if a.cmd == "selftest":
+        return cmd_selftest(a.args)
     return 2
 
 

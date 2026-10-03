@@ -137,12 +137,64 @@ def r7_obs_deduplica():
 
 
 def r8_vclaims_externas():
-    rc, out, _ = ejecuta(["vclaims.py"])
-    ok = rc == 0 and "FUENTES EXTERNAS" in out and "0 rota" in out.replace(
-        "que NO resuelven: 0", "0 rota")
-    anota("CN-R8 vclaims separa Mesa de citas rotas", ok,
-          "rc=%d, declara 0 rotas y lista las externas" % rc)
-    return ok
+    """
+    CN-R8: vclaims CLASSIFICA bien, separando una fuente externa de Mesa de una
+    cita rota de verdad.
+
+    MEDIDO 2026-10-03: este control afirmaba medir eso, pero lo que hacia era
+    recorrer el arbol entero y exigir rc=0 y "0 citas rotas". Es decir, media la
+    LIMPIEZA DEL MUNDO, no el comportamiento de la herramienta. Y como las citas
+    rotas del arbol dependen de lo que escriben otras sesiones, el control se
+    rompio solo: 08-ARQUITECTURA/RE-INDEX.md, untracked y de otra sesion, trajo
+    citas a ficheros que no existen en ninguna raiz.
+
+    Un control que afirma medir una herramienta y mide el mundo se rompe por
+    causas que no estan en su alcance, y cuando se rompe hay que elegir entre
+    ignorarlo --y entonces no vale para nada-- o arreglarlo sin causa.
+
+    Ahora mide la herramienta, sobre cn-r8.fixture, que tiene tres citas con
+    resultado conocido written con bytes literales: una de Mesa que NO es rota,
+    una rota de verdad, y una buena al corpus. El rc que se espera es 1, porque
+    el fixture TIENE una cita rota: un control que espera exito sobre un fixture
+    con un caso malo no esta probando el caso malo.
+    """
+    rc, out, _ = ejecuta(["vclaims.py", "cn-r8.fixture"])
+    ext = re.search(r"FUENTES EXTERNAS[^:]*: (\d+)", out)
+    malas = re.search(r"NO resuelven: (\d+)", out)
+    if not ext or not malas:
+        anota("CN-R8 vclaims separa Mesa de citas rotas", False,
+              "no se pudo leer el recuento: %s" % out.strip()[-80:])
+        return False
+    n_ext, n_malas = int(ext.group(1)), int(malas.group(1))
+    if n_ext != 1:
+        anota("CN-R8 vclaims separa Mesa de citas rotas", False,
+              "esperaba 1 externa y conto %d" % n_ext)
+        return False
+    if n_malas != 1:
+        anota("CN-R8 vclaims separa Mesa de citas rotas", False,
+              "esperaba 1 rota y conto %d" % n_malas)
+        return False
+    if "si_blit.c" not in out:
+        anota("CN-R8 vclaims separa Mesa de citas rotas", False,
+              "la cita de Mesa no aparece como externa")
+        return False
+    if "fichero_que_no_existe_jamas.c" not in out:
+        anota("CN-R8 vclaims separa Mesa de citas rotas", False,
+              "la cita rota no aparece como rota")
+        return False
+    if rc != 1:
+        anota("CN-R8 vclaims separa Mesa de citas rotas", False,
+              "con una cita rota en el fixture el rc debe ser 1 y es %d" % rc)
+        return False
+    # y la buena NO debe marcarse: si lo estuviera, el fixture estaria
+    # distinguiendo mal, que es el defecto espejo
+    if "sdma_v3_0.c" in out.split("NO resuelven")[-1]:
+        anota("CN-R8 vclaims separa Mesa de citas rotas", False,
+              "una cita buena al corpus aparece como rota")
+        return False
+    anota("CN-R8 vclaims separa Mesa de citas rotas", True,
+          "rc=%d, 1 externa (Mesa) + 1 rota + 1 buena, sobre fixture" % rc)
+    return True
 
 
 def r9_vclaims_detecta_rango_malo():
