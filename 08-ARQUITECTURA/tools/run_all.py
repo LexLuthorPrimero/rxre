@@ -557,14 +557,21 @@ def main():
     # "esta herramienta no es mia": eso seria una heuristica sobre la autoria, y
     # la autoria no se deduce del codigo. Se declara quien esta bloqueando y por
     # que, para que dentro de un ano se pueda comprobar si sigue siendo cierto.
+    #
+    # Y SIN CIFRAS SUELTAS. Este texto se escribio cuando el recuento coincidia,
+    # y luego dejo de coincidir: decia "los MISMOS 7" cuando el filtro ya
+    # reportaba 18. Un numero pegado a su interpretacion envejece, y envejece
+    # hacia FALSO sin que nadie se entere. El numero vive en la salida del
+    # filtro, que se lee al lado; aqui solo va la causa.
     BLOQUEADO_POR_OTRA_SESION = {
         "contrato de las herramientas":
-            "toolkit.py: 5 SIN CONTRATO y 3 READONLY escribiendo, todas de "
+            "toolkit.py: SIN CONTRATO en 5 y READONLY escribiendo en 3, todas de "
             "otras sesiones (causal, citecheck, contradict, xref, scopeguard, "
             "hdrmap, inst_closure). Ninguna versionada menos una.",
         "contrato: sin falsos positivos conocidos":
-            "contract_filter.py sobre los MISMOS 7 problemas de toolkit.py. "
-            "Es el mismo fallo por la otra via: ver la linea roja de arriba.",
+            "Los mismos problemas de toolkit.py, por la otra via: contract_filter "
+            "los resta y aun asi quedan. Ver la linea roja de arriba, que trae el "
+            "recuento real.",
     }
 
     if bad:
