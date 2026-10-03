@@ -85,6 +85,12 @@ PERMITIDOS = (
     ("check_chain.py", "EXIT_ON_SUCCESS", "igual que exit_contract.py"),
     ("commitmsg_lint.py", "EXIT_ON_SUCCESS", "igual que exit_contract.py"),
     ("contract_filter.py", "EXIT_ON_SUCCESS", "igual que exit_contract.py"),
+    ("gfx8_opcode.py", "EXIT_ON_SUCCESS",
+     "Mismo caso que exit_contract.py: EXIT_ON_SUCCESS es un campo real del "
+     "esquema CONTRACT y lo verifica exit_contract.py ejecutando la "
+     "herramienta. Lo que se permite es el aviso de 'campo no conocido' de "
+     "toolkit.py, no la ausencia de comprobacion. Anadido al crear la "
+     "herramienta, no al cerrar el allowlist entero."),
     ("ipver_zero.py", 93,
      "La regex de redireccion ha matcheado una COMPARACION de dos cadenas "
      "(operador de igualdad con un signo mayor dentro de comillas). No hay "

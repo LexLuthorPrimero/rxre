@@ -270,6 +270,16 @@ def main():
          ["corpus_gap.py"], 26, 0),
         ("corpus_gap: control negativo",
          ["corpus_gap.py", "--self-test"], 0),
+        # La tabla de opcode GFX8 por familia. Convierte en dato lo que el
+        # diseno 013 dejo como ambiguedad. Se ejecutan los DOS modos porque
+        # --negativo es el que puede senalar un fallo: el camino informativo
+        # nunca devuelve error, asi que no probaria nada por si mismo.
+        ("gfx8_opcode: tabla por familia",
+         ["gfx8_opcode.py"], 0),
+        ("gfx8_opcode: auto-test",
+         ["gfx8_opcode.py", "--self-test"], 0),
+        ("gfx8_opcode: control negativo",
+         ["gfx8_opcode.py", "--negativo"], 0),
         # La contabilidad de tamano de anillo del propio driver, resuelta
         # estaticamente. El contraste es contra una cantidad INDEPENDIENTE
         # (los `emit_frame_size` comentados de gfx_v8_0.c), que es lo que
@@ -387,10 +397,21 @@ def main():
         # la ultima ejecucion, y avisa si alguno cambio. rc=1 y no es un fallo: es
         # un cambio. Lo que no es admisible es que pase inadvertido, porque
         # entonces un hallazgo sigue citando un fichero que ya no es ese.
+        #
         # rc esperado 0 en el caso normal; si sale 1, LEERLO antes de fiarse de
         # cualquier cifra medida sobre esos ficheros.
+        #
+        # POR QUE rc_tol=3 Y NO 0. contract_exec --vigilar tiene TRES salidas
+        # legitimas y no dos:
+        #   0  ningun fichero clasificado cambio            -> bien
+        #   3  cambio, pero SOLO en ficheros ajenos         -> se registra, no es mio
+        #   1  cambio en un fichero versionado o propio     -> FALLA de verdad
+        # Con rc_tol=0 se contaba como FALLA el caso 3, que es una actividad de
+        # otra sesion: bench.py y emisor.py cambiaron y no hay accion posible
+        # aqui. Con rc_tol=3 siguen entrando 0 y 3, y 1 sigue falling, que es
+        # lo unico que debe hacer que run_all diga que algo esta mal.
         ("vigilia: ningun fichero clasificado ha cambiado",
-         ["contract_exec.py", "--vigilar"], 0, 0, "aparato"),
+         ["contract_exec.py", "--vigilar"], 0, 3, "aparato"),
         ("capacidad: WRITES_GPU declarado sin uso",
          ["contract_exec.py", "--capacidad"], 3, 3, "aparato"),
         ("commitmsg_lint: sin residuos en 25 mensajes",
