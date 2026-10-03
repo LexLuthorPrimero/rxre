@@ -285,6 +285,56 @@ def sha1(herramienta):
 def main(argv):
     if "--self-test" in argv or "--self" in argv:
         return selftest()
+    if "--fragmento" in argv:
+        # LO QUE HACE, Y POR QUE EXISTE. Escribir el hash en la salida de la
+        # herramienta no sirve de nada si el hallazgo no lo lleva: un dato que
+        # llega tarde obliga a volver a mirar, y lo que obliga a volver a mirar
+        # es un coste que acaba con el dato sin usar. En 932 la afirmacion se
+        # escribio primero y el hash llego una iteracion DESPUES.
+        #
+        # Aqui se emite el fragmento con la tabla y las advertencias dentro, para
+        # que pegar sea copiar y no decidir nada. Que pasted sin decidir es el
+        # objetivo: cada decision que hay que tomar al pegar es una decision que
+        # se va a posponer.
+        import subprocess as sp
+        print("# Evidencia: clasificacion de escrituras por origen")
+        print()
+        print("Medido con `contract_exec.py --origen` sobre estos ficheros, con")
+        print("estos hashes **en el momento de la medicion**:")
+        print()
+        print("| herramienta | versionada | hash | escritura |")
+        print("|---|---|---|---|")
+        n_m = n_a = 0
+        for f in sorted(os.listdir(TOOLS)):
+            if not f.endswith(".py"):
+                continue
+            filas = clasificar(f)
+            if not filas:
+                continue
+            try:
+                v = sp.run(["git", "ls-files", "--error-unmatch",
+                            os.path.join(TOOLS, f)], cwd=ROOT,
+                           capture_output=True, timeout=60).returncode == 0
+            except Exception:
+                v = False
+            n_m += 1 if v else 0
+            n_a += 0 if v else 1
+            detalle = ", ".join("L%d %s" % (l, c[:8]) for l, c, _d in filas)
+            print("| `%s` | %s | `%s` | %s |"
+                  % (f, "si" if v else "**no**", sha1(f), detalle))
+        print()
+        print("- %d versionadas y %d no versionadas." % (n_m, n_a))
+        print("- **Si un hash no coincide, esta medicion no aplica a ese")
+        print("  fichero.** Es lo unico que el hash garantiza.")
+        if n_a < n_m:
+            print("- La mayoria son versionadas, o sea de herramientas escritas en")
+            print("  esta sesion: el criterio se apoya mas en lo que su autor")
+            print("  escribio que en lo que escribieron otros. La cifra de")
+            print("  versionadas es la que hay que citar.")
+        print("- `WRITES_FILES` se contrasta contra el codigo (AST).")
+        print("  `WRITES_SYSFS` y `WRITES_GPU` **no**: se verifican por")
+        print("  declaracion, y son la clase menos comprobada del contrato.")
+        return 0
     if "--origen" in argv:
         # DE QUE HERRAMIENTAS VIENEN LOS CASOS, Y POR QUE HACE FALTA DECIRLO.
         #
