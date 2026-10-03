@@ -22,6 +22,39 @@ ok()   { printf "  PASS  %-4s %s\n" "$1" "$2"; pass=$((pass+1)); }
 no()   { printf "  FAIL  %-4s %s\n" "$1" "$2"; fail=$((fail+1)); }
 chk()  { if [ "$1" = "0" ]; then ok "$2" "$3"; else no "$2" "$3"; fi }
 
+# ── POR QUE ESTE FICHERO USA UN FICHERO INTERMEDIO Y NO UN PIPE ────────────
+#
+# MEDIDO 2026-10-03. `nm "$KO" | grep -q simbolo` NO mide si el simbolo esta en
+# el .ko. Mide si el simbolo aparece antes de que el buffer de salida de nm se
+# haya vaciado, y con eso si grep le manda SIGPIPE antes de que nm termine.
+#
+#   nm escribe por tuberias con buffer COMPLETO de 4096 B. Si el .ko produce
+#   menos, nm hace una sola escritura al salir y no hay SIGPIPE posible. Si
+#   produce mas, nm escribe 4096 y el resto al salir; si grep -q encuentra la
+#   coincidencia en esos primeros 4096 y sale, la segunda escritura de nm recibe
+#   SIGPIPE.
+#
+#   MEDIDO en este arbol, con el mismo binario y el mismo patron:
+#       .ko de 3 objetos -> nm emite  3945 B -> estado del pipe  0  -> T13/T14 PASS
+#       .ko de 4 objetos -> nm emite  5216 B -> estado del pipe 141  -> T13/T14 CALLAD
+#
+# Y aqui esta lo grave: la forma era `nm | grep -q X && chk ...`. Con el pipe en
+# 141 el `&&` no se cumple, chk NO se llama, y no se incrementa ni pass ni fail.
+# La comprobacion deja de ejecutarse en silencio y la suite sigue diciendo
+# "34 PASS, 0 FAIL". Un control que se apaga solo es peor que uno que falla.
+#
+# El arreglo tiene dos partes, y las dos hacen falta:
+#   1. nm se resuelve UNA vez a un fichero, y se busca en el fichero. El pipe
+#      desaparece del camino de decision.
+#   2. must() es el unico camino para comprobar algo. No existe `&& chk`, porque
+#      `&& chk` es exactamente lo queallows que una comprobacion no se ejecute.
+SYMS="$(mktemp)"
+nm "$KO" > "$SYMS" 2>/dev/null || : > "$SYMS"
+
+# must <codigo> <etiqueta> <texto>  -- cuenta la comprobacion SIEMPRE.
+# chk se conserva para codigo existente; las comprobaciones nuevas usan must.
+must() { chk "$1" "$2" "$3"; }
+
 echo "T1-T9 · ejecutando la regla real (target_match.h)"
 gcc -O2 -Wall -Wextra -Werror -o "$HERE/test_target_match" "$HERE/test_target_match.c" || {
 	echo "  FAIL  build del test"; exit 1; }
@@ -52,10 +85,8 @@ chk 0 T12 "remove() obtiene el estado y comprueba que existe"
 # T13/T14 module_init / module_exit
 grep -q "module_pci_driver(rx550_target_pci_driver)" "$SRC" && \
 chk 0 T13 "module_init registra el pci_driver (module_pci_driver)"
-nm "$KO" 2>/dev/null | grep -q "__pfx_init_module\|init_module" && \
-chk 0 T13 "init_module presente en el .ko"
-nm "$KO" 2>/dev/null | grep -q "cleanup_module" && \
-chk 0 T14 "cleanup_module presente en el .ko (module_exit)"
+grep -q "__pfx_init_module\|init_module" "$SYMS"; must $? T13 "init_module presente en el .ko"
+grep -q "cleanup_module" "$SYMS"; must $? T14 "cleanup_module presente en el .ko (module_exit)"
 
 echo
 echo "AUDIT · acceso a hardware (debe estar AUSENTE)"
@@ -78,6 +109,8 @@ chk 0 HW "ninguna llamada de acceso a hardware en el cuerpo"
 # lo que el módulo realmente pide al kernel. Un test que sólo lee el fuente no
 # puede detectar una llamada de hardware añadida por otra vía.
 UNDEF=$(nm -u "$KO" 2>/dev/null | awk '{print $NF}' | sort -u)
+# nm -u tambien por fichero, por el mismo motivo que arriba: el pipeline de awk
+# no decide nada, pero que el lector de UNDEF sea el pipe si lo hacia.
 for sym in __ioremap pci_enable_device pci_request_regions \
            pci_alloc_irq_vectors \
            __readl __writel __readq __writeq request_irq \
@@ -118,7 +151,11 @@ printf '%s\n' "$UNDEF" | grep -qx "pci_iounmap" && \
 # La id_table se verifica ESTRUCTURALMENTE: se localiza el símbolo, se resuelve
 # el desplazamiento de su sección y se leen los u32 reales. Un substring en
 # cualquier parte del binario no probaría que sea la tabla.
-idt_addr=$(nm -a "$KO" 2>/dev/null | awk '/[rR] rx550_target_id_table$/{print "0x"$1; exit}')
+# `nm -a` NO es lo mismo que `nm`: añade simbolos de depuracion y su salida
+# tiene otra forma.  No se le sustituye por $SYMS.  Fichero propio.
+SYMA="$(mktemp)"; trap 'rm -f "$SYMS" "$SYMA"' EXIT
+nm -a "$KO" > "$SYMA" 2>/dev/null || : > "$SYMA"
+idt_addr=$(awk '/[rR] rx550_target_id_table$/{print "0x"$1; exit}' "$SYMA")
 if [ -z "$idt_addr" ]; then
   no IDT "no se encontró el símbolo rx550_target_id_table en el .ko"
 else
@@ -176,7 +213,7 @@ echo
 echo "COMP 4 · capa de recurso"
 PCODE=$(strip_comments "$DRV/pci_resource.c"; strip_comments "$SRC")
 for fn in target_res_discover target_res_claim_regions target_res_release; do
-  nm "$KO" 2>/dev/null | grep -qw "$fn" && chk 0 RES "simbolo presente: $fn" \
+  grep -qw "$fn" "$SYMS"; must $? RES "simbolo presente: $fn" \
                                   || no RES "falta el simbolo $fn"
 done
 # la BAR de registros es la unica que se reclama
