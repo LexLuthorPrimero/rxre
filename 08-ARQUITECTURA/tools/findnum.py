@@ -91,7 +91,20 @@ def reservations():
     for name in sorted(os.listdir(RESDIR)):
         if not name.endswith(".res"):
             continue
-        n = int(re.match(r"^(\d{3})-", name).group(1))
+        # \d{3,} y NO \d{3}. Este es el MISMO fallo que `used_numbers()` ya
+        # corrigio mas abajo en este fichero, y que se manifesto como un fallo de
+        # run_all el 2026-10-03: `.nextnum.lock` tiene una reserva `298` cuyo
+        # fichero de hallazgo ya no existe, y al cruzarse con un nombre de
+        # cuatro digitos, `re.match` devolvio None y `.group(1)` levanto
+        # AttributeError. El self-test murio antes de empezar.
+        #
+        # Un ancho de tres es un ancho EXACTO. La mitad de lectura de este
+        # fichero ya lo dice en `used_numbers()`, y `reservations()` no lo
+        # decia: la incoherencia estaba entre las dos mitades de la misma idea.
+        m = re.match(r"^(\d{3,})-", name)
+        if not m:
+            continue
+        n = int(m.group(1))
         with open(os.path.join(RESDIR, name), encoding="utf-8") as fh:
             lines = fh.read().split("\n")
         title = lines[1] if len(lines) > 1 else ""

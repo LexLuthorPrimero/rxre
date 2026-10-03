@@ -83,7 +83,12 @@ BLOQUEO = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     ".nextnum.lock")
 
-NUM_RX = re.compile(r"^(\d{3})[-_](.+)\.md$")
+# MEDIDO 2026-10-03: hay 9 hallazgos numerados 1000-1020 en disco. Con `{3}`
+# este patron NO los ve, y un numero de cuatro cifras no casa con el
+# separador: "1000-algo.md" empieza por "100", y despues viene "0", no "-".
+# Consecuencia medida: el allocator podia entregar un numero que ya existia
+# en disco. Ver 309.
+NUM_RX = re.compile(r"^(\d{3,})[-_](.+)\.md$")
 
 
 def proyecto() -> str:
@@ -130,7 +135,7 @@ def reservados() -> set:
         with open(BLOQUEO, encoding="utf-8", errors="replace") as fh:
             for l in fh:
                 l = l.strip()
-                if re.match(r"^\d{3}$", l):
+                if re.match(r"^\d{3,}$", l):
                     out.add(l)
     except OSError:
         pass
@@ -146,9 +151,9 @@ def reservar(n: str, d: str) -> dict:
     este no lo es nunca.
     """
     import fcntl
-    if not re.match(r"^\d{3}$", n):
+    if not re.match(r"^\d{3,}$", n):
         return {"n": n, "estado": "MALO", "ficheros": [],
-                "motivo": "el numero debe ser de 3 cifras"}
+                "motivo": "el numero debe tener 3 o mas cifras"}
     os.makedirs(os.path.dirname(BLOQUEO), exist_ok=True)
     fh = open(BLOQUEO, "a+")
     try:
@@ -485,8 +490,8 @@ def main() -> int:
 
     if args.check:
         n = args.check
-        if not re.match(r"^\d{3}$", n):
-            print("  ERROR: el numero debe ser de 3 cifras: %r" % n,
+        if not re.match(r"^\d{3,}$", n):
+            print("  ERROR: el numero debe tener 3 o mas cifras: %r" % n,
                   file=sys.stderr)
             return 2
         cands = list(ind.get(n, []))
