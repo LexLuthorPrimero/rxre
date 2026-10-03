@@ -1,12 +1,32 @@
-# tests — T1-T14, sin cargar el módulo.
+# tests — la puerta de las suites en C de esta línea de driver.
+#
+# ALCANCE DE LA PUERTA, y por que cambió el 2026-10-03
+#   Antes `run` ejecutaba 7 de las 16 suites que existen en este directorio.
+#   Las otras 9 no estaban en ninguna regla: nadie las compilaba, nadie las
+#   ejecutaba, y por eso nadie sabía si pasaban.  No es que estuvieran rotas:
+#   es que no había puerta detrás de ellas, y eso es peor que un rojo.
+#
+#   MEDIDO el 2026-10-03 (workspace 06, AGENT-06 DRIVER/PERF):
+#     16 test_*.c en el directorio
+#     15 compilan con -O2 -Wall -Wextra -Werror  -> 2814 aserciones, todas en verde
+#     1 no compila: test_mem, y es trabajo de otra sesion (ver abajo)
+#   Las 15 se ejecutaron DOS veces con salida IDENTICA y rc=0.
+#
+#   El defecto que justifica el cambio no era hipotetico: rx550_gart_write.c
+#   usaba RX550_GART_ENTRY_COUNT, una constante que ya no existe, y ese .c no
+#   lo compilaba NADIE.  Un fichero de produccion que no compila y que no esta
+#   en la cola de build es invisible por construccion.  Ver
+#   06-INGENIERIA-INVERSA/findings/977-suite-gart-no-compila-y-no-era-un-maximo.md
 #
 # test_target_match  se compila como userspace y EJECUTA target_match.h,
-#                    la misma función que usa el driver.
+#                    la misma funcion que usa el driver.
 # test_static.sh     compila ese test y luego inspecciona el .ko y el fuente.
 
 HERE := $(shell pwd)
 CC    ?= gcc
 CFLAGS ?= -O2 -Wall -Wextra -Werror -I..
+
+PM4DIR ?= ../../rx550-pm4
 
 .PHONY: run clean
 
@@ -20,7 +40,12 @@ AMDGPU=../../../RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/amdgpu
 # mismo workspace y su test_mem.c esta a medio escribir (no incluye target_mem.h
 # y target_mem_host.h duplica sus typedefs). No se bloquea la suite propia con
 # trabajo ajeno en vuelo, y no se tocan sus ficheros.
-run: test_target_match test_resource test_regs test_vm test_fence test_submit test_mmio_access
+# MEDIDO 2026-10-03: sigue sin compilar, por el mismo conflicto de typedef de
+# `u64` entre target_mem_host.h y el propio test.  No es de esta sesion.
+run: test_target_match test_resource test_regs test_vm test_fence test_submit \
+     test_mmio_access test_block_size test_gart_write test_ib_bridge \
+     test_ib_composer test_pdb0 test_submission test_vmid0_gart \
+     test_vmid1_pgt test_vmid1_pgt_backing
 	@./test_resource
 	@./test_regs $(CORPUS)/gfx_8_0_d.h $(CORPUS)/gfx_8_1_d.h
 	@./test_vm $(GMC)/gmc_8_2_sh_mask.h
@@ -34,6 +59,15 @@ run: test_target_match test_resource test_regs test_vm test_fence test_submit te
 	# obliga a que coincidan manana.  La linea 26, la de test_vm, sigue
 	# con gmc_8_2:  es otro test y otro objetivo.
 	@./test_mmio_access .. $(GMC)/gmc_8_1_d.h $(GMC)/gmc_8_1_sh_mask.h $(AMDGPU)/gmc_v8_0.c
+	@./test_block_size
+	@./test_gart_write
+	@./test_ib_bridge
+	@./test_ib_composer
+	@./test_pdb0
+	@./test_submission
+	@./test_vmid0_gart
+	@./test_vmid1_pgt
+	@./test_vmid1_pgt_backing
 	@./test_static.sh
 
 test_target_match: test_target_match.c ../target_match.h
@@ -46,5 +80,43 @@ test_target_match: test_target_match.c ../target_match.h
 test_mmio_access: test_mmio_access.c ../rx550_mmio_access.c ../rx550_vmid1_pgt.c ../rx550_vmid1_pgt_backing.c
 	$(CC) $(CFLAGS) -o $@ test_mmio_access.c ../rx550_mmio_access.c ../rx550_vmid1_pgt.c ../rx550_vmid1_pgt_backing.c
 
+# Las siguientes enlazan tambien codigo del driver.  Los conjuntos de ficheros
+# son MINIMOS, medidos quitando uno a uno hasta que el enlazador se queja: una
+# regla que lista mas de lo necesario construye un binario distinto del que
+# se midio, y entonces la puerta mide otra cosa.
+test_block_size: test_block_size.c ../rx550_vmid1_pgt.c ../rx550_vmid1_pgt_backing.c ../rx550_mmio_access.c
+	$(CC) $(CFLAGS) -o $@ test_block_size.c ../rx550_vmid1_pgt.c ../rx550_vmid1_pgt_backing.c ../rx550_mmio_access.c
+
+test_gart_write: test_gart_write.c ../rx550_gart_write.c ../rx550_vmid0_gart.c
+	$(CC) $(CFLAGS) -o $@ test_gart_write.c ../rx550_gart_write.c ../rx550_vmid0_gart.c
+
+# pm4.h vive en OTRO proyecto de esta misma linea (04-IMPLEMENTACION/rx550-pm4/),
+# no en el directorio del driver.  Por eso esta regla lleva -I aparte: sin el,
+# los dos .c que lo incluyen fallan con "No existe el fichero".  MEDIDO: es la
+# unica regla que necesita un -I que no sea "..".
+test_ib_bridge: test_ib_bridge.c ../rx550_ib_bridge.c $(PM4DIR)/pm4.c $(PM4DIR)/pm4.h
+	$(CC) $(CFLAGS) -I$(PM4DIR) -o $@ test_ib_bridge.c ../rx550_ib_bridge.c $(PM4DIR)/pm4.c
+
+test_ib_composer: test_ib_composer.c ../rx550_ib_composer.c ../rx550_submission.c
+	$(CC) $(CFLAGS) -o $@ test_ib_composer.c ../rx550_ib_composer.c ../rx550_submission.c
+
+test_pdb0: test_pdb0.c ../rx550_pdb0.c
+	$(CC) $(CFLAGS) -o $@ test_pdb0.c ../rx550_pdb0.c
+
+test_submission: test_submission.c ../rx550_submission.c
+	$(CC) $(CFLAGS) -o $@ test_submission.c ../rx550_submission.c
+
+test_vmid0_gart: test_vmid0_gart.c ../rx550_vmid0_gart.c
+	$(CC) $(CFLAGS) -o $@ test_vmid0_gart.c ../rx550_vmid0_gart.c
+
+test_vmid1_pgt: test_vmid1_pgt.c ../rx550_vmid1_pgt.c
+	$(CC) $(CFLAGS) -o $@ test_vmid1_pgt.c ../rx550_vmid1_pgt.c
+
+test_vmid1_pgt_backing: test_vmid1_pgt_backing.c ../rx550_vmid1_pgt_backing.c ../rx550_vmid1_pgt.c
+	$(CC) $(CFLAGS) -o $@ test_vmid1_pgt_backing.c ../rx550_vmid1_pgt_backing.c ../rx550_vmid1_pgt.c
+
 clean:
-	rm -f test_target_match test_resource test_regs test_vm test_fence test_submit test_mmio_access
+	rm -f test_target_match test_resource test_regs test_vm test_fence \
+	      test_submit test_mmio_access test_block_size test_gart_write \
+	      test_ib_bridge test_ib_composer test_pdb0 test_submission \
+	      test_vmid0_gart test_vmid1_pgt test_vmid1_pgt_backing

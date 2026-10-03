@@ -17,6 +17,26 @@
 #include <stdio.h>
 #include <string.h>
 
+/* EL TAMANO DE LA TABLA DE ESTE TEST ES UN FIXTURE, NO UN HECHO.
+ *
+ * Antes decia RX550_GART_ENTRY_COUNT, y ese identificador ya no existe:
+ * se retiro de rx550_vmid0_gart.h porque era una segunda autoridad de
+ * rango global.  El valor 65536 que traia era DERIVADO, no FACT:
+ *
+ *   amdgpu_gart.c:533  num_gpu_pages = gmc.gart_size / 4096
+ *   gmc_v8_0.c:595     CHIP_POLARIS12 -> gart_size = 256 MiB  ->  65536
+ *   gmc_v8_0.c:604-605 gart_size = amdgpu_gart_size << 20    ->  gartsize=1024
+ *                                                          da 262144
+ *   amdgpu_drv.c:293   module_param_named(gartsize, ..., 0600)
+ *
+ * osea que el "maximo" dependia de un parametro de modulo escribible por
+ * root.  Aqui 65536 es el tamano del ARRAY DE PRUEBA, y el array tiene
+ * que ser grande para que los casos de borde del final tengan donde
+ * mirar.  Lo que se prueba abajo no es "cual es el maximo", que no lo
+ * decide este componente, sino que los limites se comprueban contra el
+ * backing que el CALLER declara. */
+#define TABLE_N		65536u
+
 static int pass, fail;
 
 static void ok(const char *t) { printf("  PASS  %s\n", t); pass++; }
@@ -24,7 +44,7 @@ static void ko(const char *t) { printf("  FAIL  %s\n", t); fail++; }
 #define CHECK(c, n) do { if (c) ok(n); else ko(n); } while (0)
 
 /* el backing real de la tabla GART */
-static uint64_t big[RX550_GART_ENTRY_COUNT];
+static uint64_t big[TABLE_N];
 
 /* backing pequeño, con centinelas, para detectar salidas del rango */
 #define SMALL_N 4u
@@ -75,13 +95,13 @@ int main(void)
 
 	/* ── 1. lote válido ─────────────────────────────────────────── */
 	b.base = big;
-	b.entries = RX550_GART_ENTRY_COUNT;
+	b.entries = TABLE_N;
 	memset(big, 0, sizeof(big));
 	first.index = 0;
 	CHECK(rx550_gart_write(&b, first, lot, 4) == 4, "1. lote de 4 escrito");
 	CHECK(big[0] == lot[0] && big[3] == lot[3], "1. las 4 entradas están donde tocaba");
 	CHECK(big[4] == 0, "1. y NADA fuera del rango pedido");
-	CHECK(big[65535] == 0, "1. ni al final de la tabla");
+	CHECK(big[TABLE_N - 1u] == 0, "1. ni al final de la tabla");
 
 	/* ── 2. una entrada inválida -> cero escrituras ──────────────── */
 	{
@@ -136,24 +156,24 @@ int main(void)
 		      "2. PA por encima de 40 bits rechazada");
 	}
 
-	/* ── 3. first + count == 65536 -> exactamente el límite ──────── */
+	/* ── 3. first + count == TABLE_N -> exactamente el límite ─────── */
 	memset(big, 0, sizeof(big));
-	first.index = RX550_GART_ENTRY_COUNT - 4u;
+	first.index = TABLE_N - 4u;
 	CHECK(rx550_gart_write(&b, first, lot, 4) == 4,
-	      "3. last index == 65535: la última entrada es válida");
-	CHECK(big[65535] == lot[3], "3. y está escrita");
-	CHECK(big[65534] == lot[2], "3. la 65534 también");
+	      "3. last index == TABLE_N-1: la última entrada es válida");
+	CHECK(big[TABLE_N - 1u] == lot[3], "3. y está escrita");
+	CHECK(big[TABLE_N - 2u] == lot[2], "3. la penúltima también");
 
 	/* ── 4. uno más allá ────────────────────────────────────────── */
-	first.index = RX550_GART_ENTRY_COUNT - 4u + 1u;
+	first.index = TABLE_N - 4u + 1u;
 	CHECK(rx550_gart_write(&b, first, lot, 4) != 0,
-	      "4. last index == 65536: rechazado");
-	first.index = RX550_GART_INDEX_MAX;
+	      "4. last index == TABLE_N: rechazado");
+	first.index = TABLE_N - 1u;
 	CHECK(rx550_gart_write(&b, first, lot, 2) != 0,
-	      "4. first=65535 con count=2 se sale");
-	first.index = RX550_GART_ENTRY_COUNT;	/* uno más que el máximo */
+	      "4. first=TABLE_N-1 con count=2 se sale");
+	first.index = TABLE_N;	/* uno más que el backing */
 	CHECK(rx550_gart_write(&b, first, lot, 1) != 0,
-	      "4. first=65536 rechazado antes de cualquier aritmética");
+	      "4. first=TABLE_N rechazado antes de cualquier aritmética");
 	first.index = UINT64_MAX;
 	CHECK(rx550_gart_write(&b, first, lot, 4) != 0,
 	      "4. first=UINT64_MAX no desborda hacia dentro");
@@ -181,6 +201,59 @@ int main(void)
 	CHECK(small.lo == UINT64_C(0xAAAAAAAAAAAAAAAA) &&
 	      small.hi == UINT64_C(0xBBBBBBBBBBBBBBBB),
 	      "5. los centinelas siguen intactos");
+
+	/* ── 5b. LA GUARDA B, CON DIENTES ─────────────────────────────
+	 *
+	 * MEDIDO, y por que este caso existe: con la guarda B retirada
+	 * entera, la suite ANTERIOR daba 56 pass, 0 fail.  Verde con el
+	 * componente sin una de sus tres acotaciones.
+	 *
+	 * Por que no lo notaba.  B es `first.index > b->entries`, y E+F es
+	 * `n > b->entries - first`.  Cuando first > entries la RESTA se
+	 * va por debajo de cero en unsigned y da UINT64_MAX, luego E+F
+	 * deja pasar cualquier n: B es el UNICO que puede atrapar ese caso.
+	 * Y el unico caso de la suite que lo necesitaba era el de arriba,
+	 * first=1000 sobre un backing de 4, con los centinelas pegados a
+	 * la ARRAY (small.lo y small.hi).  Una escritura 1000 entradas
+	 * mas alla no toca ni small.t[0..3] ni los centinelas, asi que sus
+	 * cuatro CHECK seguian en verde mientras el componente escribia
+	 * 1000 palabras fuera del array.  Un centinela pegado al array
+	 * detecta el desbordamiento PEGADO, no el lejano.
+	 *
+	 * Aqui la fuga cae DENTRO del array reservado: el backing es de
+	 * UNA entrada en la palabra central, el canario esta dos palabras
+	 * mas alla, y first=2 se sale del backing sin salirse de la
+	 * reserva.  Asi, con B, no se escribe nada; sin B, la escritura cae
+	 * exactamente sobre el canario y el CHECK se pone rojo.  Cero
+	 * comportamiento indefinido en los dos lados.
+	 */
+	{
+		static uint64_t	guard[4];
+
+		guard[0] = UINT64_C(0x1111111111111111);	/* canario previo */
+		guard[1] = 0;				/* ENTRADA 0 = backing */
+		guard[2] = 0;				/* entrada 1, no usada */
+		guard[3] = UINT64_C(0x2222222222222222);	/* canario posterior */
+
+		b.base = &guard[1];
+		b.entries = 1;
+		first.index = 2;		/* > entries: solo B puede rechazarlo */
+		CHECK(rx550_gart_write(&b, first, lot, 1) != 0,
+		      "5b. first=2 en un backing de 1: RECHAZADO por B");
+		CHECK(guard[0] == UINT64_C(0x1111111111111111) &&
+		      guard[3] == UINT64_C(0x2222222222222222),
+		      "5b. y el canario al que CAERIA la fuga, intacto");
+		CHECK(guard[2] == 0,
+		      "5b. ni la palabra de en medio");
+		/* El caso 5 sigue despues con el backing que espera: b.base
+		 * y b.entries se dejan como estaban.  MEDIDO: al meter este
+		 * bloque en medio, los cuatro CHECK siguientes de "5. first=0
+		 * ... valido" se pusieron rojos, porque escribian sobre el
+		 * backing equivocado.  Un caso nuevo que cambia el estado
+		 * compartido rompe los casos viejos aunque no los toque. */
+		b.base = small.t;
+		b.entries = SMALL_N;
+	}
 	first.index = 0;
 	CHECK(rx550_gart_write(&b, first, lot, 4) == 4,
 	      "5. first=0 con 4 entradas en un backing de 4: válido");
@@ -215,9 +288,42 @@ int main(void)
 	b.base = small.t;
 	b.entries = 0;
 	CHECK(rx550_gart_write(&b, first, lot, 1) != 0, "5. backing de 0 entradas rechazado");
-	b.entries = RX550_GART_ENTRY_COUNT + 1u;
+	/* ESTE CASO CAMBIO DE SEMANTICA, y el cambio es el hallazgo.
+	 *
+	 * ANTES: un backing de 65537 entradas se rechazaba, porque
+	 * rx550_gart_backing_check() comparaba contra RX550_GART_ENTRY_COUNT.
+	 * Ese identificador se retiro de rx550_vmid0_gart.h y la comparacion
+	 * se fue con el, porque 65536 no era un maximo del hardware sino un
+	 * DERIVED: gart_size / 4096 con el gart_size POR DEFECTO de
+	 * POLARIS12 (gmc_v8_0.c:595, amdgpu_gart.c:533).
+	 *
+	 * DESCARTADO: "era un numero inventado".  No lo era: 256 MiB / 4 KiB
+	 * son exactamente 65536.  Lo que no era un hecho es que 65536 valiera
+	 * siempre, porque gart_size depende de un parametro de modulo
+	 * escribible por root (amdgpu_drv.c:154 y :293, modo 0600) y
+	 * gmc_v8_0.c:604-605 lo aplica como `amdgpu_gart_size << 20`.
+	 * MEDIDO el contrafactual: `gartsize=1024` produce una apertura de
+	 * 262144 entradas en ESTA MISMA ASIC.  La comprobacion que se quito
+	 * la habria rechazado.  No era una guarda de seguridad: era un
+	 *(parametro de configuracion) elevated a constante.
+	 *
+	 * AHORA: no hay cota global, y el componente lo dice.  Un backing de
+	 * 65537 no se rechaza por ser grande; se acepta, y el indice se acota
+	 * contra b->entries.  El que reserve mas entradas de las que le
+	 * corresponden lo detecta quien reserva, comparando entries contra
+	 * la apertura que reservo.  Este CHECK existe para que volver a poner
+	 * una cota global salga ROJO y no verde. */
+	b.entries = TABLE_N + 1u;
+	CHECK(rx550_gart_write(&b, first, lot, 1) == 1,
+	      "5. backing de 65537 entradas: NO rechazado (no hay cota global)");
+	/* Y el limite del backing sigue mandando por encima de cualquier
+	 * numero: uno PEQUENO se rechaza igual, que es la propiedad que si
+	 * evita la escritura fuera del array. */
+	b.base = small.t;
+	b.entries = SMALL_N;
+	first.index = SMALL_N;
 	CHECK(rx550_gart_write(&b, first, lot, 1) != 0,
-	      "5. backing de 65537 entradas rechazado, no truncado a 65536");
+	      "5. y un backing PEQUENO sigue rechazando: la cota es b->entries");
 
 	/* ── count == 0: rechazo EXPLÍCITO, no un underflow ────────────
 	 *
@@ -226,7 +332,7 @@ int main(void)
 	 * atrapando el lote.  Estos tests distinguen las dos cosas:
 	 * con el guard retirado, count=0 tiene que devolver 0 (exito con
 	 * cero entradas), no -1. */
-	b.entries = RX550_GART_ENTRY_COUNT;
+	b.entries = TABLE_N;
 	first.index = 0;
 	CHECK(rx550_gart_write(&b, first, lot, 0) != 0,
 	      "count=0 RECHAZADO por un guard dedicado");
@@ -239,7 +345,7 @@ int main(void)
 	CHECK(rx550_gart_write(&b, first, lot, 0) != 0,
 	      "count=0 tambien con backing de 1 entrada y first=0");
 	b.base = big;
-	b.entries = RX550_GART_ENTRY_COUNT;
+	b.entries = TABLE_N;
 	CHECK(rx550_gart_write(&b, first, NULL, 0) != 0, "y con array NULL tambien");
 
 	/* ── B/E/F en el borde: first == entries ────────────────────── */
@@ -309,7 +415,7 @@ int main(void)
 		req.tlb = &tlb;
 		CHECK(req.backing != NULL && req.tlb != NULL,
 		      "el owner provee backing, vmid y tlb");
-		CHECK(req.backing->base == big && req.backing->entries == RX550_GART_ENTRY_COUNT,
+		CHECK(req.backing->base == big && req.backing->entries == TABLE_N,
 		      "TABLE_SIZE lo decide quien reserva, no este componente");
 	}
 

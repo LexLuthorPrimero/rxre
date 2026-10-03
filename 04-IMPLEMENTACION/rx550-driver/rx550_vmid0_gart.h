@@ -29,7 +29,15 @@
  *   FACT  amdgpu_gmc.c:175   writeq en (gpu_page_idx * 8)
  *
  * DERIVED
- *   PAGE_SHIFT = 12, ENTRY_COUNT = 65536, PA en los bits 12..39 de la entrada
+ *   PAGE_SHIFT = 12, PA en los bits 12..39 de la entrada
+ *   count = gmc.gart_size / 4096  -- FORMULA, no constante.  Ver abajo.
+ *   Con el gart_size por defecto de POLARIS12 (256 MiB) salen 65536
+ *   entradas; con gartsize=1024 salen 262144, en la misma ASIC.
+ *   MEDIDO: amdgpu_gart.c:533, amdgpu_gart.h:33, gmc_v8_0.c:595 y
+ *   :604-605, amdgpu_drv.c:154 y :293 (el parametro es 0600).
+ *   Por eso ENTRY_COUNT = 65536 se retiró de este header: era un
+ *   DERIVED congelado, y una constante global que depende de un
+ *   parámetro de módulo no es una autoridad de rango.
  *
  * DESIGN_CHOICE
  *   gart_start = 0

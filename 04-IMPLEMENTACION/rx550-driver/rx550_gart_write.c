@@ -33,11 +33,45 @@ int rx550_gart_backing_check(const struct rx550_gart_backing *b)
 		return -1;
 	if (b->entries == 0)
 		return -1;
-	/* Mas entradas de las que el hardware puede direccionar no es
-	 * una tabla mas grande: es una descripcion equivocada.  No se
-	 * trunca a 65536 porque truncar seria aceptar en silencio. */
-	if (b->entries > RX550_GART_ENTRY_COUNT)
-		return -1;
+	/* NO HAY AUTORIDAD DE RANGO GLOBAL AQUI, y no hay por que ponerla.
+	 *
+	 * Este componente no conoce el maximo de entradas que la apertura
+	 * puede direccionar, y no lo averigua: RX550_GART_ENTRY_COUNT se
+	 * retiro de rx550_vmid0_gart.h porque era una SEGUNDA autoridad de
+	 * rango, y la autoridad real es la apertura.
+	 *
+	 * MEDIDO, y por que la retirada era correcta y no purismo:
+	 *
+	 *   amdgpu_gart.c:533   num_gpu_pages = gmc.gart_size / 4096
+	 *   amdgpu_gart.h:33    AMDGPU_GPU_PAGE_SIZE = 4096
+	 *   gmc_v8_0.c:595      CHIP_POLARIS12 -> gart_size = 256 MiB
+	 *   gmc_v8_0.c:604-605  gart_size = amdgpu_gart_size << 20
+	 *   amdgpu_drv.c:154    amdgpu_gart_size = -1   (auto)
+	 *   amdgpu_drv.c:293    module_param_named(gartsize, ..., 0600)
+	 *   gmc_v8_0.c:608      gart_size += smu_prv_buffer_size
+	 *
+	 *   count = gart_size / 4096, y gart_size NO es una constante:
+	 *
+	 *     auto      256 MiB  ->  65536 entradas
+	 *     gartsize=1024      -> 262144 entradas
+	 *
+	 *   osea que 65536 es un valor DERIVADO del parametro por defecto,
+	 *   congelado en una constante global.  Un `gartsize=1024` escrito
+	 *   por root en /sys/module/amdgpu/parameters/gartsize produce una
+	 *   apertura de 262144 entradas en ESTA MISMA ASIC, y la comprobacion
+	 *   que se acaba de quitar la rechazaria.  La constante no era un
+	 *   hecho del hardware: era una eleccion de configuracion.
+	 *
+	 * LO QUE QUEDA, y basta para no escribir fuera del backing: la cota
+	 * del CALLER, puesta tres veces mas abajo contra b->entries --
+	 * D (n <= entries), B (first <= entries) y E+F (first + n <= entries,
+	 * por resta).  De E+F sale, sin comprobar nada mas, que todo indice
+	 * escrito esta en [0, entries-1].
+	 *
+	 * LO QUE SE PIERDE, dicho para que no se lea como gratis: este
+	 * componente ya no detecta un backing que declare MAS entradas de las
+	 * que reservo.  Eso lo detecta quien reserva, comparando entries
+	 * contra la apertura que reservo. */
 	return 0;
 }
 
