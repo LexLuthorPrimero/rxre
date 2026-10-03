@@ -103,6 +103,35 @@ def next_free(lowest=False):
     return max(taken) + 1
 
 
+class _Aislado:
+    """Apunta LOCKDIR y RESDIR a un directorio temporal, y los restaura.
+
+    Es un context manager para que el estado global se restaure SIEMPRE, incluso
+    si la prueba revienta. Un `finally` escrito a mano se olvida; esto no se
+    olvida porque es la unica forma de que el bloque salga.
+    """
+
+    def __enter__(self):
+        import shutil
+        import tempfile
+        self._tmp = tempfile.mkdtemp(prefix="findnum-selftest-")
+        # Se guardan los de verdad ANTES de tocarlos, y se escriben por
+        # globals(). Asignar `LOCKDIR = ...` aqui crearia un LOCAL que
+        # sombrea el global, y al leerlo antes de asignarlo sale
+        # UnboundLocalError. Que es justo el error que salio.
+        self._lock, self._res = globals()["LOCKDIR"], globals()["RESDIR"]
+        globals()["LOCKDIR"] = os.path.join(self._tmp, "lock")
+        globals()["RESDIR"] = os.path.join(self._tmp, "reservas")
+        return globals()["LOCKDIR"], globals()["RESDIR"]
+
+    def __exit__(self, *a):
+        import shutil
+        globals()["LOCKDIR"] = self._lock
+        globals()["RESDIR"] = self._res
+        shutil.rmtree(self._tmp, ignore_errors=True)
+        return False
+
+
 class Lock:
     """flock real. Sin flock no hay exclusion mutua que valga."""
 
@@ -225,8 +254,35 @@ def self_test():
         pass                       # solo informativo: no tiene por que coincidir
 
     # 4. Reservar dos veces seguidas da dos numeros distintos y CRECIENTES.
-    a, _ = reserve("self-test A")
-    b, _ = reserve("self-test B")
+    #
+    #    EN UN DIRECTORIO TEMPORAL, y no en el de verdad. Antes usaba el lock y
+    #    el directorio de reservas REALES, y por eso este test fallaba de forma
+    #    intermitente: cualquier otra sesion reservando un numero hacia competir
+    #    por el lock global, y el fallo era `TimeoutError: lock ocupado`, que no
+    #    dice nada sobre la logica que este test quiere comprobar.
+    #
+    #    Un test que depende del estado global no es un test de la funcion: es
+    #    un test de la_barata de los demas. Ademas dejaba ficheros .res de
+    #    verdad en findings/_reservas/, o sea que un test que no deberia tocar
+    #    nada escribia en el arbol.
+    a = b = None
+    with _Aislado() as (lockdir, resdir):
+        a, _ = reserve("self-test A")
+        b, _ = reserve("self-test B")
+        _test_res = [n for n in (a, b)
+                     if os.path.exists(os.path.join(resdir, "%03d-%s.res"
+                                                   % (n, STUB_PREFIX)))]
+        # El control de .tmp va AQUI, dentro del aislamiento. Si mira el
+        # directorio real despues, ya no comprueba los .tmp que dejo este test:
+        # el temporal se borra al salir. Un control que ha cambiado de sujeto
+        # sin que se note sigue dando verde, y verde sin comprobar es peor que
+        # no tener control.
+        _tmp_left = [x for x in os.listdir(resdir) if x.endswith(".tmp")]
+        if _tmp_left:
+            fails.append("quedaron .tmp en el directorio aislado: %s"
+                         % _tmp_left)
+    if not _test_res:
+        fails.append("la reserva aislada no escribio ningun fichero")
     if a == b:
         fails.append("dos reservas seguidas dieron el mismo numero %d" % a)
     elif b <= a:
@@ -234,30 +290,37 @@ def self_test():
     if a in used_numbers():
         fails.append("la reserva %d se conto como hallazgo existente" % a)
 
-    # 5. La reserva tiene que verse en disco: es lo que ve la otra sesion.
-    res = reservations()
-    for n in (a, b):
-        path = os.path.join(RESDIR, "%03d-%s.res" % (n, STUB_PREFIX))
-        if not os.path.exists(path):
-            fails.append("falta el fichero de reserva %s" % path)
-        if n not in res:
-            fails.append("la reserva %d no aparece en reservations()" % n)
+        # 5. La reserva tiene que verse en disco: es lo que ve la otra sesion.
+        res = reservations()
+        for n in (a, b):
+            path = os.path.join(RESDIR, "%03d-%s.res" % (n, STUB_PREFIX))
+            if not os.path.exists(path):
+                fails.append("falta el fichero de reserva %s" % path)
+            if n not in res:
+                fails.append("la reserva %d no aparece en reservations()" % n)
 
-    # 6. El contenido del fichero de reserva tiene los 3 campos que se leen.
-    path = os.path.join(RESDIR, "%03d-%s.res" % (a, STUB_PREFIX))
-    with open(path, encoding="utf-8") as fh:
-        body = fh.read()
-    for campo in ("RESERVADO numero=%03d" % a, "self-test A"):
-        if campo not in body:
-            fails.append("el fichero de reserva no contiene %r" % campo)
+        # 6. El contenido del fichero de reserva tiene los 3 campos que se leen.
+        path = os.path.join(RESDIR, "%03d-%s.res" % (a, STUB_PREFIX))
+        with open(path, encoding="utf-8") as fh:
+            body = fh.read()
+        for campo in ("RESERVADO numero=%03d" % a, "self-test A"):
+            if campo not in body:
+                fails.append("el fichero de reserva no contiene %r" % campo)
+
+        pass   # checks 5 y 6, dentro del directorio aislado
 
     # 7. release borra de verdad, y release de lo que no existe NO dice que si.
-    if not release(a):
-        fails.append("release(%d) devolvio False" % a)
-    if a in reservations():
-        fails.append("release(%d) no lo quito de reservations()" % a)
-    if release(899):
-        fails.append("release(899) devolvio True sin existir reserva")
+    #    Tambien dentro del aislamiento: `a` se reservo en el temporal, asi que
+    #    releasedlo contra el directorio real no puede funcionar, y el fallo
+    #    seria del test y no de release().
+    with _Aislado() as (lockdir2, resdir2):
+        a2, _ = reserve("self-test C")
+        if not release(a2):
+            fails.append("release(%d) devolvio False" % a2)
+        if a2 in reservations():
+            fails.append("release(%d) no lo quito de reservations()" % a2)
+        if release(899):
+            fails.append("release(899) devolvio True sin existir reserva")
 
     # 8. No debe quedar ningun .tmp: write+rename es atomico.
     left = [x for x in os.listdir(RESDIR) if x.endswith(".tmp")]

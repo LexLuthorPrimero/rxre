@@ -177,4 +177,66 @@ cat .write-lock/docs/owner   -> toma=... /proc/382922 no existe; previo=382922
 findnum --commit 503         -> OK minutes antes: la contencion es intermitente
 ```
 
-`WRITE_EXECUTION=NONE`. `MODIFICATIONS=0`. `GPU INTACTA`.
+`WRITE_EXECUTION=NONE`. `MODIFICATIONS=0`. `GPU INTACTA`.---
+
+# CORRECCION DE `504` (epistemica v2, en el mismo documento)
+
+El mecanismo que propuse en v1 era FALSO. Los PID muertos no bloquean nada.
+
+## El experimento que lo refuta
+
+```
+1) lock con PID 999999 (inexistente): ADQUIRIDO
+2) segundo flock sobre el MISMO fichero, con un proceso VIVO: RECHAZADO
+   BlockingIOError
+```
+
+**`flock` lo libera el kernel cuando el proceso muere.** Un PID muerto **no puede**
+estar sosteniendo un `flock`: el kernel lo suelta en el exit. Por tanto los nueve
+locks "caducados" **no bloquean nada**, y el fallo de `findnum`
+(`TimeoutError: lock ocupado`) lo produjo un **proceso vivo** reservando un
+numero en ese momento. Concurencia real.
+
+## Que parte de `504` sigue en pie
+
+| afirmacion | estado tras la correccion |
+|---|---|
+| los 9 PID de los ficheros `owner` no existen | `OBSERVED` — sigue cierto |
+| esos PID **bloquean** algo | **`REFUTED`** — el kernel los solto |
+| el fichero `owner` dice "ocupado" sin que nadie lo ocupe | `OBSERVED` — **este si es el problema** |
+| `findnum` fallo por contencion real | `OBSERVED` |
+| el procedimiento de toma por `/proc` esta escrito | `PROVEN` — `toma=`, `previo=` |
+
+## Donde estaba el error, exactamente
+
+**Confundi dos mecanismos distintos y les atribuí el mismo dueño:**
+
+1. el **`flock`**, que gestiona el kernel y se libera al morir el proceso, y
+2. el **fichero `owner`**, que es texto plano y **persiste** con un PID muerto.
+
+El segundo miente —dice "ocupado" sin que nadie lo ocupe— y por eso vale la pena
+escribirlo. Pero no **bloquea**, y por eso no explica el fallo.
+
+Es la clase de error que este proyecto ya ha registrado mas de una vez: **dos
+objetos con el mismo nombre y mecanismos distintos, tratados como uno.**
+
+## Lo que NO se sigue de aqui
+
+No se sigue que haya que comprobar la liveness del PID antes de esperar: eso **no
+evita el fallo**, porque el fallo no lo causa un PID muerto sino un proceso vivo.
+Implementar eso habria sido **arreglar el sintoma equivocado**, que es
+justamente lo que la v1 de este documento proponia.
+
+Lo que si sale de aqui, y ya esta hecho, esta en `findnum.py`: el self-test **no
+compite por el lock global**. Antes lo tomaba, y por eso fallaba de forma
+intermitente segun lo que hiciera otra sesion. Un test que depende del estado
+global no es un test de la funcion: es un test de la barata de los demas.
+
+## Limitacion que queda, y se dice en vez de taparla
+
+Aun con el lock aislado, `next_free` sigue calculando los numeros **a partir de
+los hallazgos reales del arbol**, no del directorio temporal. El test ya no
+depende del lock, pero **si de los numeros existentes**. Aislar el estado de
+escritura no aisla el estado de lectura.
+
+`NOT_DETERMINED` hasta que se aille tambien la lectura.
