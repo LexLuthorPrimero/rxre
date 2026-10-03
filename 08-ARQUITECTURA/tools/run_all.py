@@ -435,6 +435,49 @@ def main():
     for label, ok in results:
         print(f"  {'OK  ' if ok else 'FALLA'}  {label}")
     bad = [l for l, ok in results if not ok]
+
+    # POR QUE UNA LINEA ROJA PUEDE SER LA MISMA LINEA ROJA DOS VECES.
+    #
+    # Este runner llama a 42 herramientas distintas en 66 invocaciones, y algunas
+    # se repiten. Si una de esas falla, el runner lo dice en TANTOS sitios como
+    # checks la ejecutan: son N lineas rojas y UNA sola causa.
+    #
+    # Sin esto, el que lee cuenta N problemas y empieza a arreglarlos por
+    # separado. Con esto, sabe que arreglar uno los arregla todos. Y el aviso
+    # va AQUI, junto a la linea roja, porque es lo unico que hace que llegue.
+    #
+    # Se importa check_chain en vez de shelling out y parsear: el grafo ya esta
+    # construido ahi y volver a hacerlo aqui seria una segunda fuente de verdad.
+    if bad:
+        try:
+            import check_chain as _cc
+            inv = {}
+            for etiqueta, raices, nivel2 in _cc.construir():
+                for h in raices:
+                    inv.setdefault(h, []).append(etiqueta)
+                for h in nivel2:
+                    inv.setdefault(h, []).append(etiqueta)
+            for etiqueta in bad:
+                # que herramientas ejecuta ESTA comprobacion, y quien mas las usa
+                propias = [h for h in inv if etiqueta in inv[h]]
+                compartidas = []
+                for h in propias:
+                    otros = [x for x in inv[h] if x != etiqueta]
+                    if otros:
+                        compartidas.append("%s <- %s"
+                                           % (h, ", ".join(sorted(otros))))
+                if compartidas:
+                    print()
+                    print("  %s" % etiqueta)
+                    print("      ^ esta comprobacion ejecuta herramientas que")
+                    print("        OTRAS comprobaciones tambien ejecutan. Si el fallo")
+                    print("        es de una de ellas, estas lineas rojas son la")
+                    print("        MISMA causa repetida:")
+                    for c in sorted(compartidas):
+                        print("          %s" % c)
+        except Exception as _e:
+            print("  (no se pudo cruzar con la cadena: %s)" % _e)
+
     # AVISO QUE NO PUEDE FALTAR, y va aqui y no en toolkit.py por dos motivos.
     #
     # 1) POR QUE NO EN toolkit.py: tiene 52 inserciones y 15 borrados SIN
