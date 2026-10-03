@@ -164,4 +164,95 @@ grep 'CONTRACT: WRITES' bench.py     -> WRITES_GPU=yes, WRITES_SYSFS=no
 grep -c 'subprocess' bench.py        -> 5
 ```
 
-`WRITE_EXECUTION=NONE`. `MODIFICATIONS=0`. `GPU INTACTA`.
+`WRITE_EXECUTION=NONE`. `MODIFICATIONS=0`. `GPU INTACTA`.---
+
+# AMPLIACIÓN: el delegado tampoco escribe MMIO, y `WRITES_SYSFS=yes` sí está justificado
+
+La pregunta era si `bench.py` **hereda** `WRITES_GPU` del delegado. **No lo hereda**,
+porque el delegado declara lo contrario.
+
+## `runtime_obs.py` (el delegado)
+
+```
+CONTRACT: WRITES_SYSFS=yes
+CONTRACT: WRITES_GPU=no
+
+mmap MAP_SHARED /dev/mem 0xF7D0 BAR5 resource0 pci_resource writel 0xF7D00000
+  -> 0 apariciones
+```
+
+De dónde lee:
+
+```
+/sys/bus/pci/devices/0000:...
+/sys/class/drm/card1/device/uevent
+/sys/kernel/debug/dri/1/...
+/sys/module/amdgpu/parameters/{name}, vm_size
+```
+
+**Y su `WRITES_SYSFS=yes` está JUSTIFICADO, no es una declaración falsa:**
+
+```
+runtime_obs.py:311   json.dump(data, open(path, "w"), indent=1)
+runtime_obs.py:328   with open(p, "w") as f:
+runtime_obs.py:342   with open(p, "w") as f:
+runtime_obs.py       6 apariciones de --write
+```
+
+Hay un conmutador `--write` explícito, que es exactamente lo que la regla 2 de
+`toolkit` exige para `WRITES_SYSFS`, y el destino es un artefacto JSON.
+
+**Así que el aviso que añadí a `run_all` sobre las capacidades de hardware
+«verificadas por declaración» es correcto pero incompleto**: la realidad es que
+`WRITES_SYSFS` **no** está vacía de justificación —tiene tabla y conmutador—
+mientras que `WRITES_GPU` **sí** es una declaración sin uso. **Son dos campos
+distintos con situaciones opuestas, y el aviso los trata como una sola clase.**
+
+## La cadena completa, verificada de punta a punta
+
+```
+bench.py      WRITES_GPU=yes      sin acceso MMIO propio
+  └─ 5 llamadas a subprocess
+runtime_obs.py WRITES_GPU=no      sin acceso MMIO
+              WRITES_SYSFS=yes    justificado: tabla + --write, destino JSON
+```
+
+**Ningún eslabón escribe en la GPU.** La capacidad que `toolkit` marca como
+«inaceptable en esta caja» no existe en la cadena.
+
+## Lo que cambia
+
+La conclusión de v1 se mantiene y se **endurece**: no es que `bench.py` herede
+una capacidad que no tiene, es que **la declara sin ejercarla en absoluto**, ni
+siquiera por delegación. Eso la hace peor: una delegación incorrecta sería un
+problema de propagación; esto es un campo puesto a `yes` sin origen.
+
+Y el aviso de `run_all` queda **desactualizado en la parte que afirma que las
+capacidades de hardware no se comprueban**: `WRITES_SYSFS` se comprueba por
+declaración **y esa declaración resulta bien fundada**; lo que no se comprueba
+es `WRITES_GPU`, y es el único de los dos que está mal. Un aviso que no
+distingue los dos casos que dice cubrir está tapando justo la distinción que
+importaba.
+
+## Y el orden de la comprobación, que casi me lleva al error contrario
+
+Empecé buscando MMIO en `runtime_obs` esperando encontrarlo, porque la hipótesis
+de v1 era «delegación». Si no hubiera comprobado el `WRITES_SYSFS` de paso, habría
+escrito «tampoco escribe MMIO» y **también habría dicho que sus escrituras sysfs
+son sospechas**, que es falso: están justificadas y tabuladas.
+
+Un resultado negativo pedido con una hipótesis encima puede convertirse en la
+afirmación contraria si no se mira lo que hay al lado.
+
+## Confounders de esta ampliación
+
+- **No he ejecutado ninguna de las dos herramientas.** `PROVEN` sobre texto.
+- **He comprobado 5 llamadas a `subprocess` de forma indirecta**: sé que delega
+  en `runtime_obs`, pero no he listado los otros cuatro revisados. Si alguno
+  delega en algo que **sí** escribe MMIO, la cadena vuelve a tener un eslabón.
+  `NOT_DETERMINED`.
+- **No he auditado la tabla de escrituras de `runtime_obs`**: he comprobado que
+  existe `--write` y que escribe JSON, no que la tabla sea completa.
+- **`bench.py` está en `08-ARQUITECTURA/tools/` pero `toolkit` lo marca `AJENA`**:
+  no está versionado. No he comprobado si eso cambia algo del análisis; no lo
+  cambia, porque el análisis es sobre el texto.
