@@ -3508,3 +3508,88 @@ eso, antes de afirmar "no se puede", el orden es: buscar la respuesta en las
 herramientas existentes, y despues en el codigo.
 
 GPU INTACTA. WRITE_EXECUTION NONE. NO SE TOCO EL CORPUS.
+## 2026-10-03 · opencode · EV-45: quien escribe los relojes, y por que mclk esta clavado a 300 MHz
+
+```
+OBJECT   RESEARCH/kernelbuild/.../amd/pm/powerplay/{amd_powerplay.c,hwmgr/hwmgr.c,
+                                       hwmgr/smu7_hwmgr.c}
+ACTION   LECTURA ESTATICA pura. No se toco la GPU ni el corpus.
+TRACK    EVIDENCE · READ_ONLY_CORPUS · WRITE_EXECUTION NONE · GPU INTACTA
+```
+
+**LA CADENA COMPLETA, DE BLOQUE A SMU, PARA POLARIS12.** Cada eslabon medido:
+
+```
+pp_smu_ip_block (pm/powerplay/amd_powerplay.c)
+  -> .funcs = &pp_ip_funcs            12 ranuras, .name = "powerplay"
+  -> pp_early_init  -> amd_powerplay_create() -> hwmgr_early_init()
+  -> hwmgr_early_init: switch por hwmgr->chip_family = VI, luego por chip_id
+  -> case CHIP_POLARIS12: smumgr_funcs = &polaris10_smu_funcs
+                          polaris_set_asic_special_caps(hwmgr)
+                          feature_mask &= ~(PP_UVD_HANDSHAKE_MASK)
+  -> smu7_init_function_pointers(hwmgr)  -> hwmgr->hwmgr_func = &smu7_hwmgr_funcs
+  -> smu7_init_dpm_defaults()            -> defaults que se pasan al SMU
+  -> el SMU, no el driver, es quien decide los relojes
+```
+
+**LO QUE NO ES.** `pp_ip_funcs` no contiene ninguna funcion de reloj: sus 12
+ranuras son init/fini/suspend/resume/is_idle y los dos setters de clockgating y
+powergating. La tabla se llama `pp_ip_funcs`, **no** `pp_smu_ip_funcs`, que no
+existe en ningun fichero del arbol; lo lei porque `gfx8blocks.py --funcs` lo
+imprime y aqui no lo mire. Otra vez el mismo patron.
+
+**LA HIPOTESIS Y COMO LA REFUTE.** La pregunta era por que `gputel` mide **mclk
+clavado en 300 MHz** mientras sclk oscila. La explicacion con nombre era que el
+driver tuviese el DPM de memoria desactivado, porque existe una rama que lo hace:
+`"disabling MCLK DPM on quirky ASIC"`, que limpia `PP_MCLK_DPM_MASK` si
+`subsystem_vendor == 0x106B` o `device == 0x6658`.
+
+**Medida: esa rama es de la familia `AMDGPU_FAMILY_CI`, y POLARIS12 es VI.** No
+se ejecuta. Y `PP_MCLK_DPM_MASK` aparece en todo el arbol `pm/` solo en cuatro
+sitios: esa rama de CI, `smu7_hwmgr.c`, `vega10_hwmgr.c`, `vega20_hwmgr.c` y
+`navi10_ppt.c`. Para POLARIS12 no se limpia nunca.
+
+Y la refutacion por segunda via independiente, en `smu7_init_dpm_defaults`:
+
+```
+data->mclk_dpm_key_disabled = hwmgr->feature_mask & PP_MCLK_DPM_MASK ? false : true;
+```
+
+Con la mascara puesta, `mclk_dpm_key_disabled = false`: **el DPM de memoria esta
+activo**, y el SMU tiene permiso para bajar la memoria. Hipotesis **REFUTADA**,
+por dos sitios independientes que no dependen uno del otro.
+
+**LO QUE SI QUEDA, Y ES LA RESPUESTA.** El DPM lo ejecuta el **firmware del
+SMU**. El driver no escribe un reloj: le pasa defaults. Y los defaults que
+gobiernan justamente lo que se midio estan a la vista, en la misma funcion:
+
+| default | valor | contra que se midio |
+|---|---|---|
+| `sclk_down_hyst` | `100` | la oscilacion de sclk entre 997 y 1069 MHz |
+| `sclk_activity` | `SMU7_SCLK_TARGETACTIVITY_DFLT` | el umbral que hace bajar y subir el sclk |
+| `vddc_vddgfx_delta` | `300` | vddgfx medido entre 812 y 881 mV |
+| `sclk_up_hyst` | `0` | sin histéresis al subir: el SMU sube de golpe |
+| `mclk_dpm0_activity_target` | `0xa` | el umbral de actividad para el estado 0 de memoria |
+
+O sea que **mclk a 300 MHz es un estado que el SMU elige, no un reloj que el
+driver clavo**, y la asimetria que medi (memoria quieta, nucleo moviendose) tiene
+su mecanica en `sclk_activity` y `sclk_down_hyst`, no en una mascara.
+
+**LOS CAPS DE POLARIS12, QUE TAMBIEN ESTAN MEDIDOS.** De
+`polaris_set_asic_special_caps`: EVV, SQRamping, RegulatorHot,
+MemorySpreadSpectrumSupport, EngineSpreadSpectrumSupport, AutomaticDCTransition, y
+**`SPLLShutdownSupport`, que se activa solo para POLARIS12** (y para POLARIS11 sin
+kicker). POLARIS12 es el unico de la familia que puede apagar el SPLL. Y como
+POLARIS11 no es POLARIS12, ademas recibe DBRamping, TDRamping y TCPRamping: son
+las tres rampas de tension de las que el controlador de voltaje las usa.
+
+**POR QUE ESTO ABRE TRABAJO Y NO LO CIERRA.** Para un driver propio la cadena
+queda identificada pero no la mecanica: falta el **contrato del SMU**, que no esta
+en el driver sino en el firmware. Un driver propio que quiera decidir los relojes
+tiene dos vias, y las dos estan ahora justificadas: hablarle al SMU por
+mensajes, o tomar el control de los relojes por registro. La primera respeta la
+arquitectura; la segunda es la unica si se quiere maximizar sin firmware
+propio, y entonces hay que saber que escrituras hace hoy el SMU, que es
+`NOT_IN_CORPUS`.
+
+GPU INTACTA. WRITE_EXECUTION NONE. NO SE TOCO EL CORPUS.
