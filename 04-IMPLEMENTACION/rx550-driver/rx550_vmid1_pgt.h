@@ -93,9 +93,27 @@
 #ifndef RX550_VMID1_PGT_H
 #define RX550_VMID1_PGT_H
 
+/* COMPATIBILIDAD KBUILD: mismo split que rx550_spaces.h.
+ * MEDIDO 2026-10-03: con los tres includes de user, estos .c no compilaban
+ * bajo kbuild y por eso no estaban en obj-m.  La rama de userspace no cambia:
+ * es la misma que habia antes.
+ */
+#ifdef __KERNEL__
+#include <linux/types.h>
+#define UINT64_C(x) U64_C(x)
+#define UINT32_C(x) U32_C(x)
+/* linux/limits.h:25 define U64_MAX como ((u64)~0ULL).  Es el mismo numero que
+ * el UINT64_MAX de <stdint.h>: el guardia contra el desbordamiento de
+ * vm_size_bytes, en rx550_vmid1_pgt.c:169, comprueba contra el mismo limite en
+ * los dos contextos y por eso no cambia de comportamiento al compilar para el
+ * modulo. */
+#include <linux/limits.h>
+#define UINT64_MAX	U64_MAX
+#else
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#endif
 
 /* ── HARDWARE_REQUIREMENT ────────────────────────────────────────────────────
  * Pagina de 4 KiB y entrada de 8 B.  Es el mismo tamano de entrada para el

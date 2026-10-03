@@ -28,7 +28,29 @@
  * T10 y T11 verifican estaticamente las dos primeras ausencias.
  */
 
+/* COMPATIBILIDAD KBUILD.  El kernel no tiene <string.h>: tiene
+ * <linux/string.h>.  Mismo split que rx550_spaces.h y rx550_mmio_access.h.
+ *
+ * CORRECCION DE LA AFIRMACION DE ARRIBA, 2026-10-03.  Decia que aqui no hay
+ * "ningun header del kernel" y que "T10 y T11 verifican estaticamente las dos
+ * primeras ausencias".  Las dos mitades eran inexactas:
+ *
+ *   - T10 y T11 comprueban la separacion respecto de rx550_pdb0.h y
+ *     rx550_vmid0_gart.h, y que no se reutilice su encoder de PTE.  No
+ *     comprueban nada sobre cabeceras del kernel.  Se leyo en
+ *     test_vmid1_pgt.c:496-522.
+ *   - "para que la aritmetica sea testeable en userspace" sigue siendo cierto,
+ *     y este split lo mantiene: la rama de userspace sigue sin tocar el
+ *     kernel.  Lo que cambio es que la rama de kernel deja de estar prohibida.
+ *
+ * El motivo del cambio: sin esto este .c no compilaba bajo kbuild, y por eso
+ * no podia entrar en obj-m.  Con esto entra.  Ver finding 1023.
+ */
+#ifdef __KERNEL__
+#include <linux/string.h>
+#else
 #include <string.h>
+#endif
 
 #include "rx550_vmid1_pgt.h"
 
