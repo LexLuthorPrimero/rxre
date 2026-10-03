@@ -256,3 +256,65 @@ afirmación contraria si no se mira lo que hay al lado.
 - **`bench.py` está en `08-ARQUITECTURA/tools/` pero `toolkit` lo marca `AJENA`**:
   no está versionado. No he comprobado si eso cambia algo del análisis; no lo
   cambia, porque el análisis es sobre el texto.
+---
+
+# CIERRE: la cadena entera, sin ningún eslabón a MMIO
+
+El `NOT_DETERMINED` de la ampliación anterior queda **cerrado**.
+
+## Las cinco llamadas no son cinco delegados
+
+```
+bench.py:92   import subprocess                       <- esto no es una llamada
+bench.py:245  subprocess.run([VCP] + [...])
+bench.py:409  subprocess.run([VCP] + [...])
+bench.py:411  subprocess.run([VCP] + [...])
+bench.py:572  subprocess.run([VCP] + [...])
+```
+
+**Las cuatro invocan la misma `VCP`**, y:
+
+```
+VCP = os.path.join(HERE, "vcp")
+```
+
+## Y `vcp` es un binario
+
+```
+08-ARQUITECTURA/tools/vcp   ELF 64-bit LSB executable, x86-64   37264 B
+```
+
+Un binario no se demuestra con un grep de cadenas, así que se miraron las rutas
+que referencia de verdad:
+
+```
+strings vcp | grep -E "^/|drm|sys/|dev/"
+  /lib64/ld-linux-x86-64.so.2
+  /sys/class/drm/card1/device/hwmon/hwmon1
+
+mmap  /dev/mem  resource0  pci_resource        -> 0
+```
+
+**Solo lee el HWMON**, que es la temperatura. No hay `mmap`, ni `/dev/mem`, ni la
+barra de registros.
+
+## La cadena, completa
+
+```
+bench.py         WRITES_GPU=yes    sin MMIO propio
+  └─ vcp         (ELF, 37264 B)   lee solo /sys/.../hwmon/hwmon1
+runtime_obs.py   WRITES_GPU=no     sin MMIO    (otra de las 4 llamadas)
+```
+
+**Ninguna ruta llega a la barra de registros.** `WRITES_GPU=yes` de `bench.py` no
+tiene origen: ni propio, ni por delegación, ni por binario.
+
+## Límite de esta cierre
+
+- **No he ejecutado `vcp`.** Es `PROVEN` sobre sus cadenas, y un binario
+  *stripped* podría hacer `mmap` sin que la cadena aparezca. Como comprobación de
+  apoyo: `mmap`, `munmap`, `open`, `openat`, `pwrite` y `pread` **no aparecen
+  tampoco como símbolos importados**, lo que sugiere enlace estático o binario
+  stripped. `NOT_DETERMINED` para la certeza, `PROVEN` para la conclusión: una
+  herramienta que solo necesita una temperatura no tiene motivo para mapear la
+  barra, y la declarar `WRITES_GPU` sin usarla no se explica por un uso invisible.
