@@ -294,6 +294,48 @@ const struct rx550_vmid1_reg *rx550_vmid1_reg_get(enum rx550_vmid1_reg_id id)
 	return &rx550_vmid1_regs[id];
 }
 
+/* ── EL REGISTRO DE TABLA DE PAGINAS DE UN VMID, POR LA REGLA DEL CORPUS ────
+ *
+ *  La justificacion completa, con las lineas del corpus, esta en el header.
+ *  Aqui lo que se implementa es la regla:
+ *
+ *      vmid < 8   ->  0x54f + vmid        (bloque de contextos 0..7)
+ *      vmid < 16  ->  0x50e + (vmid - 8)  (bloque de contextos 8..15)
+ *
+ *  y el corte no es una preferencia:  gmc_v8_0.c:673 lo escribe con un `if`, y
+ *  sin el corte el VMID 8 recibiria 0x516, que es el mnemonico de
+ *  mmVM_CONTEXT8_PAGE_TABLE_BASE_ADDR SOLO por casualidad de la aritmetica, no
+ *  por la regla.  Y el VMID 9 recibiria 0x517, que NO es ningun
+ *  mmVM_CONTEXT9_PAGE_TABLE_BASE_ADDR:  ese esta en 0x50f.
+ */
+#define RX550_GMC_CTX0_PT_BASE_IDX	0x54f	/* gmc_8_1_d.h:636 */
+#define RX550_GMC_CTX8_PT_BASE_IDX	0x50e	/* gmc_8_1_d.h:623 */
+#define RX550_GMC_NR_VMIDS		16	/* dominios de INVALIDATE_REQUEST */
+
+uint32_t rx550_mmio_ctx_pt_base_index(unsigned vmid)
+{
+	if (vmid < 8u)
+		return RX550_GMC_CTX0_PT_BASE_IDX + vmid;
+	if (vmid < RX550_GMC_NR_VMIDS)
+		return RX550_GMC_CTX8_PT_BASE_IDX + (vmid - 8u);
+	/* No hay un contexto 16.  Devolver un indice calculable por aritmetica
+	 * seria inventar un registro que no existe y que ademas cabe en BAR5, de
+	 * modo que el fallo no se veria en el acceso. */
+	return 0u;
+}
+
+int rx550_mmio_pt_value(uint64_t pd_addr, uint32_t *out)
+{
+	if (!out)
+		return RX550_MMIO_ERR_INCONSISTENT;
+	/* Se comprueba ANTES de desplazar.  Comprobar despues seria comprobar
+	 * que el truncamiento ya ha ocurrido. */
+	if (pd_addr > RX550_PT_MAX_PD_ADDR)
+		return RX550_MMIO_ERR_OUT_OF_WINDOW;
+	*out = (uint32_t)(pd_addr >> RX550_PT_PAGE_SHIFT);
+	return RX550_MMIO_OK;
+}
+
 int rx550_mmio_reg_of(enum rx550_vmid1_reg_id id, struct rx550_reg *out)
 {
 	const struct rx550_vmid1_reg *r;
