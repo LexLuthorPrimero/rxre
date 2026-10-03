@@ -448,6 +448,32 @@ def main():
     #
     # Se importa check_chain en vez de shelling out y parsear: el grafo ya esta
     # construido ahi y volver a hacerlo aqui seria una segunda fuente de verdad.
+    # DOS CLASES DE ROJO, Y POR QUE.
+    #
+    # Los 2 FALLAs actuales los causan siete herramientas de OTRAS sesiones sin
+    # contrato. Yo no puedo arreglarlas. Un runner que sale con rc=1 por eso
+    # esta diciendo "fallo" cuando no hay nada que arreglar por mi parte, y un
+    # rojo que no significa nada es peor que no tener rojo: entrena a ignorar
+    # el codigo de salida.
+    #
+    # Es el mismo problema que toolkit.py resuelve con su excepcion AJENA, pero
+    # un nivel mas arriba: alla es una herramienta la que no cuenta; aqui es el
+    # runner entero el que se pone rojo por trabajo ajeno.
+    #
+    # LA LISTA ES EXPLICITA y lleva el motivo de cada entrada. No se deduce de
+    # "esta herramienta no es mia": eso seria una heuristica sobre la autoria, y
+    # la autoria no se deduce del codigo. Se declara quien esta bloqueando y por
+    # que, para que dentro de un ano se pueda comprobar si sigue siendo cierto.
+    BLOQUEADO_POR_OTRA_SESION = {
+        "contrato de las herramientas":
+            "toolkit.py: 5 SIN CONTRATO y 3 READONLY escribiendo, todas de "
+            "otras sesiones (causal, citecheck, contradict, xref, scopeguard, "
+            "hdrmap, inst_closure). Ninguna versionada menos una.",
+        "contrato: sin falsos positivos conocidos":
+            "contract_filter.py sobre los MISMOS 7 problemas de toolkit.py. "
+            "Es el mismo fallo por la otra via: ver la linea roja de arriba.",
+    }
+
     if bad:
         try:
             import check_chain as _cc
@@ -503,8 +529,28 @@ def main():
     print("    READONLY / WRITES_FILES / MUTATES_CORPUS si se contrastan contra el")
     print("    texto. Las dos clases NO son comparables. Detalle en 551.")
     if bad:
-        print(f"\n{len(bad)} comprobacion(es) fallan: {bad}")
-        return 1
+        mias = [b for b in bad if b not in BLOQUEADO_POR_OTRA_SESION]
+        ajenas = [b for b in bad if b in BLOQUEADO_POR_OTRA_SESION]
+        print()
+        if mias:
+            print("FALLA REAL, requiere accion:")
+            for b in mias:
+                print("    %s" % b)
+        if ajenas:
+            print("FALLA BLOQUEADA, espera a otra sesion:")
+            for b in ajenas:
+                print("    %s" % b)
+                print("        %s" % BLOQUEADO_POR_OTRA_SESION[b])
+        print()
+        if mias:
+            print("rc=1  %d comprobacion(es) fallan de verdad: %s"
+                  % (len(mias), mias))
+            return 1
+        print("rc=3  NINGUN fallo es accion de esta sesion. Las %d bloqueadas no"
+              % len(ajenas))
+        print("      se pueden arreglar aqui: son trabajo de otra sesion. El")
+        print("      runner NO esta verde, y no dice que lo este.")
+        return 3
     print("\ntodas las comprobaciones pasan")
     return 0
 
