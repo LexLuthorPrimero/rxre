@@ -42,7 +42,7 @@ Abreviatura de tipos: **REP** = reporte de resultados, **DISEÑO** = documento d
 | `02-ARQUITECTURA/evidence.md` | CIERRE | Episodios, números reproducibles, datos históricos no reproducidos |
 | `02-ARQUITECTURA/rejected_ideas.md` | CIERRE | Ideas rechazadas/refutadas |
 | `02-ARQUITECTURA/research_log.md` | CIERRE | Bitácora de sesiones (17–20/09) |
-| `02-ARQUITECTURA/RESEARCH-LINES.md` | ACTIVO | Router jerárquico: 13 líneas raíz L1–L12 (L3b sublinea), clasificación de los 184 IDs, 26 ramas E1–E26, instrumentación, contradicciones, bloqueos B-01..B-08, N2 como pista separada (§15) y plan de ingeniería inversa. Fuente de verdad de los IDs: `IDEA-REGISTER.md` |
+| `02-ARQUITECTURA/RESEARCH-LINES.md` | ACTIVO | Router jerárquico: 13 líneas raíz L1–L12 (L3b sublinea), clasificación de los 184 IDs, 26 ramas E1–E26, instrumentación, contradicciones, bloqueos B-01..B-08, N2 como pista separada (§15) y plan de ingeniería inversa. Fuente de verdad de los IDs: `02-ARQUITECTURA/IDEA-REGISTER.md` |
 | `00-INDICE/experiments_proposed.md` | CIERRE | Experimentos propuestos/ejecutados/bloqueados/traspaso a rx550-torneo |
 | `00-INDICE/HYPOTHESIS-REGISTER.md` | REGISTRO DRAFT | H1–H12; preguntas y evidencia, sin veredictos |
 | `00-INDICE/DIAGRAMAS/README.md` | DIAGRAMAS DRAFT | Convenciones, provenance y vistas derivadas |
@@ -58,25 +58,25 @@ Abreviatura de tipos: **REP** = reporte de resultados, **DISEÑO** = documento d
 
 | Artefacto | Tipo | Contenido |
 |---|---|---|
-| `fase-a-discriminacion-20260919-114241/RESULTADOS-FASE-A.md` + `INVALIDACION-corridas-04-09.md` | REP/AUDIT | FASE A (histórica): discriminación de cargas; invalidación de corridas 04-09 |
-| `fase-b-cap-probe-20260919-122038/RESULTADOS-FASE-B.md` | REP | FASE B cap-probe (histórica): cap 25/28/32/35 W → 25W NO liga SCLK |
-| `fase-b-cap-probe-20260919-122038/EP08-auditoria-telemetria-E1E3.md` | AUDIT | EP-08: telemetría E1/E3 midió RX 550 real (REFUTA la hipótesis iGPU) |
-| `ep05-mesa-custom-20260919-212249/RESULTADOS-EP05.md` | REP | EP-05: Mesa CUSTOM A/B → CUSTOM=STOCK en 3 escenas |
-| `ep06-soak-cap-20260919-205645/RESULTADOS-EP06.md` | REP | EP-06: soak 71°C + cap 25W no reproduce régimen E1/E3; draw máx 13.6 W |
-| `EXPLORATORIO-GravityMark/runs/RESULTADO.md` + `RESULTADO-Superposition.md` | REP | Exploratorio GravityMark y Superposition (puente hacia FASE C) |
-| `R-14-SUPERPOSITION-DISSECTION/R-14-SUPERPOSITION-DISSECTION.md` | REP | **FASE C**: disección Superposition: 22.31 W steady / 24.71 W pico, score 804, OpenGL, +6.5 W vs E-03 |
-| `M1-cap-35-30/RESULTADOS-M1.md` + `TELEMETRY-SCHEMA.md` | REP/REF | **M1**: vkmark 35/30W pareado: 12.27 W @35W → NO DISCRIMINATIVO; 10 runs, hashes sha256 |
-| `AUDIT-001/AUDIT-001.md`, `ERRATA.md`, `METRICS-DEFINITIONS.md`, `EVIDENCE-MATRIX.md` | AUDIT | Auditoría completa del cierre: erratas 001–005, definiciones de métricas |
+| `03-EXPERIMENTOS/fase-a-discriminacion-20260919-114241/RESULTADOS-FASE-A.md` + `03-EXPERIMENTOS/fase-a-discriminacion-20260919-114241/INVALIDACION-corridas-04-09.md` | REP/AUDIT | FASE A (histórica): discriminación de cargas; invalidación de corridas 04-09 |
+| `03-EXPERIMENTOS/fase-b-cap-probe-20260919-122038/RESULTADOS-FASE-B.md` | REP | FASE B cap-probe (histórica): cap 25/28/32/35 W → 25W NO liga SCLK |
+| `03-EXPERIMENTOS/fase-b-cap-probe-20260919-122038/EP08-auditoria-telemetria-E1E3.md` | AUDIT | EP-08: telemetría E1/E3 midió RX 550 real (REFUTA la hipótesis iGPU) |
+| `03-EXPERIMENTOS/ep05-mesa-custom-20260919-212249/RESULTADOS-EP05.md` | REP | EP-05: Mesa CUSTOM A/B → CUSTOM=STOCK en 3 escenas |
+| `03-EXPERIMENTOS/ep06-soak-cap-20260919-205645/RESULTADOS-EP06.md` | REP | EP-06: soak 71°C + cap 25W no reproduce régimen E1/E3; draw máx 13.6 W |
+| `03-EXPERIMENTOS/EXPLORATORIO-GravityMark/runs/RESULTADO.md` + `03-EXPERIMENTOS/EXPLORATORIO-GravityMark/runs/RESULTADO-Superposition.md` | REP | Exploratorio GravityMark y Superposition (puente hacia FASE C) |
+| `03-EXPERIMENTOS/R-14-SUPERPOSITION-DISSECTION/R-14-SUPERPOSITION-DISSECTION.md` | REP | **FASE C**: disección Superposition: 22.31 W steady / 24.71 W pico, score 804, OpenGL, +6.5 W vs E-03 |
+| `03-EXPERIMENTOS/M1-cap-35-30/RESULTADOS-M1.md` + `03-EXPERIMENTOS/M1-cap-35-30/TELEMETRY-SCHEMA.md` | REP/REF | **M1**: vkmark 35/30W pareado: 12.27 W @35W → NO DISCRIMINATIVO; 10 runs, hashes sha256 |
+| `01-AUDITORIA/AUDIT-001/AUDIT-001.md`, `01-AUDITORIA/AUDIT-001/ERRATA.md`, `01-AUDITORIA/AUDIT-001/METRICS-DEFINITIONS.md`, `EVIDENCE-MATRIX.md` | AUDIT | Auditoría completa del cierre: erratas 001–005, definiciones de métricas |
 
 ### 2.2 POLARIS12-MAP (FASE B histórica, geografía del hardware/software)
 
 | Artefacto | Tipo | Contenido |
 |---|---|---|
-| `POLARIS12-MAP/POLARIS12-MAP.md` | MAPA | Tabla maestra de subsistemas A–AJ |
-| `POLARIS12-MAP/HARDWARE-ROUTES.md` | MAPA | Rutas de hardware |
-| `POLARIS12-MAP/SOFTWARE-CAPABILITIES.md` | MAPA | Capacidades de software/telemetría |
-| `POLARIS12-MAP/EXPERIMENT-CANDIDATES.md` | CANDIDATOS | **Candidatos GEO-01..08 (FASE F)** + checklist Regla 19 |
-| `POLARIS12-MAP/UNVERIFIED-CLAIMS.md` | AUDIT | Afirmaciones no verificadas |
+| `02-ARQUITECTURA/POLARIS12-MAP/POLARIS12-MAP.md` | MAPA | Tabla maestra de subsistemas A–AJ |
+| `02-ARQUITECTURA/POLARIS12-MAP/HARDWARE-ROUTES.md` | MAPA | Rutas de hardware |
+| `02-ARQUITECTURA/POLARIS12-MAP/SOFTWARE-CAPABILITIES.md` | MAPA | Capacidades de software/telemetría |
+| `02-ARQUITECTURA/POLARIS12-MAP/EXPERIMENT-CANDIDATES.md` | CANDIDATOS | **Candidatos GEO-01..08 (FASE F)** + checklist Regla 19 |
+| `02-ARQUITECTURA/POLARIS12-MAP/UNVERIFIED-CLAIMS.md` | AUDIT | Afirmaciones no verificadas |
 | `../02-ARQUITECTURA/COUNTERS-ASIC-TELEMETRY-KNOWLEDGE-ADDENDUM-2026-09-24.md` | ADDENDA | ASIC/counters/telemetría, cadena GPU→bottleneck y ranking A–K; sólo documental |
 | `../01-AUDITORIA/FASE-P0-EXPERIMENTAL-VALIDITY-GATE/P0-EXPERIMENTAL-VALIDITY-GATE-2026-09-24.md` | AUDITORÍA/GATE | Gate P0 READ-ONLY de ownership, agentes, CPU, térmica, IRQ, HDD, runtime PM y PCI/power; resultado B `CONTAMINATED_REQUIRES_ISOLATION` |
 
@@ -84,47 +84,47 @@ Abreviatura de tipos: **REP** = reporte de resultados, **DISEÑO** = documento d
 
 | Artefacto | Tipo | Contenido |
 |---|---|---|
-| `FASE-D-COUNTERS-AUDIT/FASE-D-COUNTERS-AUDIT.md` | REP | Etapa 1: auditoría read-only de herramientas, registros y telemetría (operación UMR/radeontop; no valida counters ASIC GFX8) |
-| `FASE-D-COUNTERS-AUDIT/FASE-D-ETAPA-2-PLAN.md` | PLAN | Etapa 2: contraste pareado A/B |
-| `FASE-D-COUNTERS-AUDIT/FASE-D-ETAPA-2-RESULTADOS.md` (+ §12 corregido R-1.3) | REP | Etapa 2: A 22.25 W steady vs B 15.78 W, ratio 1.41; geometría/vertex+export |
-| `FASE-D-COUNTERS-AUDIT/FASE-D-ETAPA-2-AUDIT.md` | AUDIT | Auditoría etapa 2: 2 errores objetivos de documentación, conclusiones intactas |
-| `FASE-D-COUNTERS-AUDIT/FASE-D-ETAPA-3-PLAN.md` / `-PRECHECK.md` / `-EVENTS.md` | PLAN/DISEÑO | Etapa 3 DISEÑADA (contadores programados + SPM), NO ejecutada |
-| `FASE-D-COUNTERS-AUDIT/FASE-D-GFX8-EVENT-ID-AUDIT.md` | AUDIT | Auditoría de Event IDs GFX8 (Conclusión B + adenda §14 R-1.2) |
+| `03-EXPERIMENTOS/FASE-D-COUNTERS-AUDIT/FASE-D-COUNTERS-AUDIT.md` | REP | Etapa 1: auditoría read-only de herramientas, registros y telemetría (operación UMR/radeontop; no valida counters ASIC GFX8) |
+| `03-EXPERIMENTOS/FASE-D-COUNTERS-AUDIT/FASE-D-ETAPA-2-PLAN.md` | PLAN | Etapa 2: contraste pareado A/B |
+| `03-EXPERIMENTOS/FASE-D-COUNTERS-AUDIT/FASE-D-ETAPA-2-RESULTADOS.md` (+ §12 corregido R-1.3) | REP | Etapa 2: A 22.25 W steady vs B 15.78 W, ratio 1.41; geometría/vertex+export |
+| `03-EXPERIMENTOS/FASE-D-COUNTERS-AUDIT/FASE-D-ETAPA-2-AUDIT.md` | AUDIT | Auditoría etapa 2: 2 errores objetivos de documentación, conclusiones intactas |
+| `03-EXPERIMENTOS/FASE-D-COUNTERS-AUDIT/FASE-D-ETAPA-3-PLAN.md` / `-PRECHECK.md` / `-EVENTS.md` | PLAN/DISEÑO | Etapa 3 DISEÑADA (contadores programados + SPM), NO ejecutada |
+| `03-EXPERIMENTOS/FASE-D-COUNTERS-AUDIT/FASE-D-GFX8-EVENT-ID-AUDIT.md` | AUDIT | Auditoría de Event IDs GFX8 (Conclusión B + adenda §14 R-1.2) |
 | `FASE-D-COUNTERS-AUDIT/runs/` | REF | Corridas etapa 2 (A1..B3, journal/metadata/stdout) + muestras radeontop/UMR |
 
 ### 2.4 FASE R-0 — External Knowledge Recovery (COMPLETADA 22/09)
 
 | Artefacto | Tipo | Contenido |
 |---|---|---|
-| `FASE-R0-EXTERNAL-KNOWLEDGE/FASE-R0-EXTERNAL-KNOWLEDGE-FINAL-REPORT.md` | REP | Informe final R-0 |
-| `R0-1-GFX8-EVENT-IDS.md` + `R0-1-GFX8-EVENT-ID-REFERENCE.txt` | REF | Catálogo GFX8: `v3.17` referencia, `v3.11.1` histórico; 2304 filas no equivalen a eventos validados; GRBM=2/SQ=4 solo catálogo |
-| `R0-2-POWERPLAY-MCLK-SMU7.md` | REF | Política MCLK smu7 upstream para bus 128-bit (`5/16/20`); trigger local `UNKNOWN`; R-4A readout `3/16/20` no reconciliado |
-| `R0-3-MESA-WORKAROUNDS-POLARIS12.md` | REF | Workarounds Mesa que aplican a Polaris12 (msaa_sample_loc, LINE_FILTER_DISABLE, driconf) |
-| `R0-4-ARCHITECTURE-LEXA-POLARIS12.md` | REF | Lexa/Polaris12: 512 SP/32 TMU/16 ROP/128-bit/50W/14nm/2.2B transistores |
-| `R0-5-BENCHMARKS-EXTERNOS-RX550.md` | REF | Benchmarks externos RX550 (contexto, no adoptados) |
-| `R0-6-HERRAMIENTAS-HISTORICAS-GFX8.md` | REF | GPUPerfAPI v3.17 reference / v3.11.1 historical; CodeXL EOL; RGP actual no GFX8 confirmed; UMR sin events |
+| `05-FUENTES-EXTERNAS/FASE-R0-EXTERNAL-KNOWLEDGE/FASE-R0-EXTERNAL-KNOWLEDGE-FINAL-REPORT.md` | REP | Informe final R-0 |
+| `05-FUENTES-EXTERNAS/FASE-R0-EXTERNAL-KNOWLEDGE/R0-1-GFX8-EVENT-IDS.md` + `05-FUENTES-EXTERNAS/FASE-R0-EXTERNAL-KNOWLEDGE/R0-1-GFX8-EVENT-ID-REFERENCE.txt` | REF | Catálogo GFX8: `v3.17` referencia, `v3.11.1` histórico; 2304 filas no equivalen a eventos validados; GRBM=2/SQ=4 solo catálogo |
+| `05-FUENTES-EXTERNAS/FASE-R0-EXTERNAL-KNOWLEDGE/R0-2-POWERPLAY-MCLK-SMU7.md` | REF | Política MCLK smu7 upstream para bus 128-bit (`5/16/20`); trigger local `UNKNOWN`; R-4A readout `3/16/20` no reconciliado |
+| `05-FUENTES-EXTERNAS/FASE-R0-EXTERNAL-KNOWLEDGE/R0-3-MESA-WORKAROUNDS-POLARIS12.md` | REF | Workarounds Mesa que aplican a Polaris12 (msaa_sample_loc, LINE_FILTER_DISABLE, driconf) |
+| `05-FUENTES-EXTERNAS/FASE-R0-EXTERNAL-KNOWLEDGE/R0-4-ARCHITECTURE-LEXA-POLARIS12.md` | REF | Lexa/Polaris12: 512 SP/32 TMU/16 ROP/128-bit/50W/14nm/2.2B transistores |
+| `05-FUENTES-EXTERNAS/FASE-R0-EXTERNAL-KNOWLEDGE/R0-5-BENCHMARKS-EXTERNOS-RX550.md` | REF | Benchmarks externos RX550 (contexto, no adoptados) |
+| `05-FUENTES-EXTERNAS/FASE-R0-EXTERNAL-KNOWLEDGE/R0-6-HERRAMIENTAS-HISTORICAS-GFX8.md` | REF | GPUPerfAPI v3.17 reference / v3.11.1 historical; CodeXL EOL; RGP actual no GFX8 confirmed; UMR sin events |
 
 ### 2.5 FASE R-1 — Documentation Reconciliation (COMPLETADA 22/09)
 
 | Artefacto | Tipo | Contenido |
 |---|---|---|
-| `FASE-R1-DOCUMENTATION-RECONCILIATION/R1-1-GFX8-EVENT-RECONCILIATION.md` | AUDIT | Reconciliación de catálogos: 19/23 comparaciones; 4 discrepancias; semántica MC y aplicabilidad ASIC `UNKNOWN` |
-| `R1-5-DOCUMENTATION-STATUS.md` | ESTADO | Mapa documental A–R-1 |
-| `R1-6-EVIDENCE-STATE-MODEL.md` | AUDIT | Modelo de estados de evidencia |
-| `R1-7-CRITICAL-GAPS.md` | AUDIT | Gaps críticos |
-| `R1-8-CROSS-CUTTING-AUDIT.md` | AUDIT | Capa transversal KERNEL/DRIVER (read-only ops) |
-| `R1-9-E-J-READINESS.md` | AUDIT | Readiness E–J |
-| `R1-10-NON-AUTHORIZED-ACTIONS.md` | AUDIT | Acciones NO autorizadas |
-| `FASE-R1-FINAL-REPORT.md` | REP | Informe final R-1 + checklist |
+| `01-AUDITORIA/FASE-R1-DOCUMENTATION-RECONCILIATION/R1-1-GFX8-EVENT-RECONCILIATION.md` | AUDIT | Reconciliación de catálogos: 19/23 comparaciones; 4 discrepancias; semántica MC y aplicabilidad ASIC `UNKNOWN` |
+| `01-AUDITORIA/FASE-R1-DOCUMENTATION-RECONCILIATION/R1-5-DOCUMENTATION-STATUS.md` | ESTADO | Mapa documental A–R-1 |
+| `01-AUDITORIA/FASE-R1-DOCUMENTATION-RECONCILIATION/R1-6-EVIDENCE-STATE-MODEL.md` | AUDIT | Modelo de estados de evidencia |
+| `01-AUDITORIA/FASE-R1-DOCUMENTATION-RECONCILIATION/R1-7-CRITICAL-GAPS.md` | AUDIT | Gaps críticos |
+| `01-AUDITORIA/FASE-R1-DOCUMENTATION-RECONCILIATION/R1-8-CROSS-CUTTING-AUDIT.md` | AUDIT | Capa transversal KERNEL/DRIVER (read-only ops) |
+| `01-AUDITORIA/FASE-R1-DOCUMENTATION-RECONCILIATION/R1-9-E-J-READINESS.md` | AUDIT | Readiness E–J |
+| `01-AUDITORIA/FASE-R1-DOCUMENTATION-RECONCILIATION/R1-10-NON-AUTHORIZED-ACTIONS.md` | AUDIT | Acciones NO autorizadas |
+| `01-AUDITORIA/FASE-R1-DOCUMENTATION-RECONCILIATION/FASE-R1-FINAL-REPORT.md` | REP | Informe final R-1 + checklist |
 
 ### 2.6 WORKLOAD-SINTETICO (repositorio de workload Vulkan)
 
 | Artefacto | Tipo | Contenido |
 |---|---|---|
 | `WORKLOAD-SINTETICO/README.md` | ÍNDICE/DISEÑO | Prototipo mínimo Vulkan COMPUTE; selección estricta 1002:699f; parámetros; estado PENDIENTE de validación per se |
-| `WORKLOAD-SINTETICO/DESIGN-GRAPHICS.md` | DISEÑO | Diseño de workload GRÁFICO (2ª fase, no implementado): objetivo draw ≥27 W @35W discriminativo; 2 metas operativas; criterios de clasificación |
-| `WORKLOAD-SINTETICO/RESEARCH.md` | REF/PLAN | RESEARCH R-01: specs Polaris12; planes de búsqueda |
-| `WORKLOAD-SINTETICO/ESCALADO-E03.md` | REP | Escalado de E-03 (registro) |
+| `03-EXPERIMENTOS/WORKLOAD-SINTETICO/DESIGN-GRAPHICS.md` | DISEÑO | Diseño de workload GRÁFICO (2ª fase, no implementado): objetivo draw ≥27 W @35W discriminativo; 2 metas operativas; criterios de clasificación |
+| `03-EXPERIMENTOS/WORKLOAD-SINTETICO/RESEARCH.md` | REF/PLAN | RESEARCH R-01: specs Polaris12; planes de búsqueda |
+| `03-EXPERIMENTOS/WORKLOAD-SINTETICO/ESCALADO-E03.md` | REP | Escalado de E-03 (registro) |
 | `WORKLOAD-SINTETICO/runs/exploratorio-{01,02,03,03-corrected}/` | REF | Corridas E-01/E-02/E-03 (00: preliminares, 03-corrected = VERIFICADO) |
 | `WORKLOAD-SINTETICO/runs/escalado-01/` | REF | ES-01: ejes A0/D2 (overdraw, fma, tex, msaa), E1 (combo), F2 (fetch) |
 | `WORKLOAD-SINTETICO/main`, `main-graphics`, `Makefile`, `src/` | CÓDIGO | Código del workload (CONGELADO) |
@@ -133,13 +133,13 @@ Abreviatura de tipos: **REP** = reporte de resultados, **DISEÑO** = documento d
 
 | Artefacto | Tipo | Contenido |
 |---|---|---|
-| `R2-HISTORICAL-EXPERIMENT-INVENTORY.md` (R-2.1) | AUDIT | Inventario E0–E5 (dos familias) |
+| `01-AUDITORIA/FASE-R2-PROJECT-DOCUMENTATION/R2-HISTORICAL-EXPERIMENT-INVENTORY.md` (R-2.1) | AUDIT | Inventario E0–E5 (dos familias) |
 | `R2-GLOBAL-DOCUMENTATION-MAP.md` (R-2.2) | MAPA | Este documento |
-| FASE-E…Q de diseño (R-2.3..R-2.13, R-2.18..R-2.20) | DISEÑO | Ver `FASE-R2-FINAL-REPORT.md` para índice |
-| `EXPERIMENT-PRIORITY-MATRIX.md` (R-2.8) | DISEÑO/PLAN | Matriz de prioridad de experimentos |
-| `SYNTHETIC-WORKLOAD-DESIGN.md` (R-2.9) | DISEÑO | Diseño del lab de workloads sintéticos |
-| `R2-DEPENDENCY-GRAPH.md` (R-2.21) | MAPA | Grafo de dependencias del ecosistema |
-| `FASE-R2-FINAL-REPORT.md` | REP | Informe final R-2 (apartados A–O) |
+| FASE-E…Q de diseño (R-2.3..R-2.13, R-2.18..R-2.20) | DISEÑO | Ver `01-AUDITORIA/FASE-R2-PROJECT-DOCUMENTATION/FASE-R2-FINAL-REPORT.md` para índice |
+| `04-IMPLEMENTACION/EXPERIMENT-PRIORITY-MATRIX.md` (R-2.8) | DISEÑO/PLAN | Matriz de prioridad de experimentos |
+| `04-IMPLEMENTACION/SYNTHETIC-WORKLOAD-DESIGN.md` (R-2.9) | DISEÑO | Diseño del lab de workloads sintéticos |
+| `01-AUDITORIA/FASE-R2-PROJECT-DOCUMENTATION/R2-DEPENDENCY-GRAPH.md` (R-2.21) | MAPA | Grafo de dependencias del ecosistema |
+| `01-AUDITORIA/FASE-R2-PROJECT-DOCUMENTATION/FASE-R2-FINAL-REPORT.md` | REP | Informe final R-2 (apartados A–O) |
 | `04-IMPLEMENTACION/projects/{BERRETA,GHOST,RX-COMPRESSION-ENGINE,ORCHESTRATOR}/` | DISEÑO | Proyectos propios (diseño, NO implementado) |
 
 ---
@@ -161,7 +161,7 @@ Abreviatura de tipos: **REP** = reporte de resultados, **DISEÑO** = documento d
 ## 4. Backup histórico (`RX550_Modo_Torneo_Backup_2026-09-19_0836/`)
 
 No forma parte del repo activo; contiene la sesión 17/09 (Familia "E") y barridos del 18/09. Ver
-`R2-HISTORICAL-EXPERIMENT-INVENTORY.md` §2/§4 para el inventario detallando:
+`01-AUDITORIA/FASE-R2-PROJECT-DOCUMENTATION/R2-HISTORICAL-EXPERIMENT-INVENTORY.md` §2/§4 para el inventario detallando:
 `mesa-e1-…170430`, `mesa-e2-…175132|175301`, `mesa-e3-…213646` (con `e4/`, `e5/`, `e5b/`, `m1/raw/`),
 `mesa-resolution-…113618|135118`, `mesa-ab-results-…101506|103427`, `mesa-p1/p2-…`,
 `rx550-power-sweep-…132309|140527`.
@@ -175,8 +175,8 @@ No forma parte del repo activo; contiene la sesión 17/09 (Familia "E") y barrid
    (vistas DRAFT) → 5. Por tema:
    - **Contadores/GFX8:** `FASE-D-COUNTERS-AUDIT/` + `FASE-R0…R0-1` + `R1-1` + `FASE-M…-DESIGN`
    - **Workloads/potencia:** `WORKLOAD-SINTETICO/` + `R-14-SUPERPOSITION-DISSECTION` + `M1-cap-35-30`
-   - **Historial E:** `R2-HISTORICAL-EXPERIMENT-INVENTORY.md`
-   - **Roadmap/ecosistema:** `MASTER-PLAN.md` §K + `FASE-N-ECOSYSTEM-ARCHITECTURE.md`
+   - **Historial E:** `01-AUDITORIA/FASE-R2-PROJECT-DOCUMENTATION/R2-HISTORICAL-EXPERIMENT-INVENTORY.md`
+   - **Roadmap/ecosistema:** `MASTER-PLAN.md` §K + `04-IMPLEMENTACION/FASE-N-ECOSYSTEM-ARCHITECTURE.md`
    - **Proyectos propios:** `04-IMPLEMENTACION/projects/` (BERRETA, GHOST, RX-COMPRESSION-ENGINE, ORCHESTRATOR)
 
 ---

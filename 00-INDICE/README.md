@@ -50,7 +50,7 @@ VFIO, C1, RA24 ni la disponibilidad de extensiones Vulkan. El estado editorial
 - `03-EXPERIMENTOS/ep06-soak-cap-20260919-205645/` — EP-06.
 - `03-EXPERIMENTOS/ep05-mesa-custom-20260919-212249/` — EP-05.
 - `03-EXPERIMENTOS/M1-cap-35-30/` — M1, cap 35 W frente a 30 W; datos en
-  `runs/20260919-235939/` y detalle en `RESULTADOS-M1.md`.
+  `runs/20260919-235939/` y detalle en `03-EXPERIMENTOS/M1-cap-35-30/RESULTADOS-M1.md`.
 
 ## Capas de navegación
 
