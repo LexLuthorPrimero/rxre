@@ -358,6 +358,26 @@ def main():
         # importa: una lista vacia significaria "no toco nada", no "todo".
         ("refs_repair: alcance y lista propia",
          ["refs_repair.py", "--self-test"], 1, 1),
+
+        # ESTADO DEL CORPUS, no estado de la herramienta. Este es el unico punto
+        # del runner donde se comprueba que no hay DEUDA, y se anade ahora porque
+        # el 2026-10-03 la reparacion se aplico y las tres herramientas dan 0.
+        #
+        # rc=0 porque `--refs-colgadas` devuelve 1 SI HAY colgantes. Si alguien
+        # renumera un hallazgo y no repara las citas, este check falla en el
+        # runner y no en una tarde de buscar, porque el numero sigue existiendo.
+        #
+        # ANTES NO PODIA ANADIRSE, y esa es la parte que importa. La deteccion
+        # vivia en `reenvios()`, que deriva los pares de un diff contra HEAD. Al
+        # commitear el renumerado, ese diff da vacio y la cuenta salia 0 sin que
+        # hubiera ninguna reparacion: un verde por la razon equivocada. El mapa
+        # congelado (REENVIO-FINDINGS.tsv) es lo que lo hace real.
+        ("findings_index: SIN referencias colgando (estado del corpus)",
+         ["findings_index.py", "--refs-colgadas"], 1, 0),
+        # Y el mapa tiene que seguir integro: uno corrupto volveria a hacer que
+        # el check de arriba pasara por la razon equivocada.
+        ("reenvio_freeze: mapa congelado integro",
+         ["reenvio_freeze.py", "--verificar"], 1, 0),
         # El contrato de hardware del driver cotejado con las definiciones del
         # ASIC. §8: la implementacion no es autoridad sobre la semantica. rc=0
         # exige que TODAS las constantes de registro esten CONFIRMADAS.
