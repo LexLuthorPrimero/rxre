@@ -405,8 +405,32 @@ def main():
     for label, ok in results:
         print(f"  {'OK  ' if ok else 'FALLA'}  {label}")
     bad = [l for l, ok in results if not ok]
+    # AVISO QUE NO PUEDE FALTAR, y va aqui y no en toolkit.py por dos motivos.
+    #
+    # 1) POR QUE NO EN toolkit.py: tiene 52 inserciones y 15 borrados SIN
+    #    COMMITEAR de otra sesion. Anadir una linea ahi seria meter mi cambio en
+    #    un commit que barre trabajo ajeno. No se toca.
+    #
+    # 2) POR QUE AQUI Y NO AHI: este es el sitio donde alguien LEE. Quien ve
+    #    "63 OK" y la tabla de contratos no puede saber, por si mismo, que hay
+    #    una clase de contrato que se verifica MUCHO peor que las otras. Poner
+    #    el aviso junto al dato que se puede malinterpretar es lo unico que
+    #    hace que llegue.
+    #
+    # LO QUE DICE, en una frase: las capacidades de HARDWARE se verifican por
+    # DECLARACION, no contra el texto. `READONLY`, `WRITES_FILES` y
+    # `MUTATES_CORPUS` se contrastan leyendo el codigo -- escribir un fichero
+    # deja marca. Escribir en /sys NO deja marca: lo unico que hay es el
+    # comentario de la herramienta y su propia tabla de escrituras, y no se
+    # ejecuta nada para comprobarlas. Ver 551.
+    print()
+    print("  AVISO DE ALCANCE, no de resultado:")
+    print("    WRITES_SYSFS y WRITES_GPU se verifican POR DECLARACION: la tabla")
+    print("    que la herramienta escribe sobre si misma, sin ejecutar nada.")
+    print("    READONLY / WRITES_FILES / MUTATES_CORPUS si se contrastan contra el")
+    print("    texto. Las dos clases NO son comparables. Detalle en 551.")
     if bad:
-        print(f"\n{bad and len(bad)} comprobacion(es) fallan: {bad}")
+        print(f"\n{len(bad)} comprobacion(es) fallan: {bad}")
         return 1
     print("\ntodas las comprobaciones pasan")
     return 0
