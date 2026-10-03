@@ -55,12 +55,18 @@ def repo_root():
     return ROOT
 
 
-def used_numbers():
-    """Numeros que YA tienen fichero. Base: el nombre del fichero."""
+def used_numbers(directorio=None):
+    """Numeros que YA tienen fichero. Base: el nombre del fichero.
+
+    `directorio` existe para que el self-test no lea el arbol real. Es la parte
+    de LECTURA que faltaba aislar cuando se aislo la escritura: sin esto, el
+    test aislaba donde escribe y seguia leyendo de verdad.
+    """
     out = set()
-    if not os.path.isdir(FIND):
+    base = directorio or FIND
+    if not os.path.isdir(base):
         return out
-    for name in os.listdir(FIND):
+    for name in os.listdir(base):
         m = re.match(r"^(\d{3})-", name)
         if m:
             out.add(int(m.group(1)))
@@ -120,6 +126,10 @@ def next_free(lowest=False, taken=None):
     return max(taken) + 1
 
 
+FIND_AISLADO = None
+_AISLADO = False
+
+
 class _Aislado:
     """Apunta LOCKDIR y RESDIR a un directorio temporal, y los restaura.
 
@@ -137,6 +147,10 @@ class _Aislado:
         # sombrea el global, y al leerlo antes de asignarlo sale
         # UnboundLocalError. Que es justo el error que salio.
         self._lock, self._res = globals()["LOCKDIR"], globals()["RESDIR"]
+        self._find = FIND_AISLADO
+        globals()["FIND_AISLADO"] = os.path.join(self._tmp, "hallazgos")
+        os.makedirs(globals()["FIND_AISLADO"], exist_ok=True)
+        globals()["_AISLADO"] = True
         globals()["LOCKDIR"] = os.path.join(self._tmp, "lock")
         globals()["RESDIR"] = os.path.join(self._tmp, "reservas")
         return globals()["LOCKDIR"], globals()["RESDIR"]
@@ -145,6 +159,8 @@ class _Aislado:
         import shutil
         globals()["LOCKDIR"] = self._lock
         globals()["RESDIR"] = self._res
+        globals()["FIND_AISLADO"] = self._find
+        globals()["_AISLADO"] = False
         shutil.rmtree(self._tmp, ignore_errors=True)
         return False
 
@@ -192,7 +208,22 @@ def reserve(title="", lowest=False, taken=None):
     """
     os.makedirs(RESDIR, exist_ok=True)
     with Lock(os.path.join(LOCKDIR, "owner")):
-        n = next_free(lowest, taken)
+        # SIEMPRE se une el estado real, pase lo que pase con `taken`.
+        #
+        # Sin esta union, dos reservas con el MISMO taken elegian el mismo
+        # numero y la segunda SOBRESCRIBIA el fichero de la primera, perdiendo
+        # su titulo en silencio. Medido:
+        #     primera -> 011   segunda -> 011   mismo fichero
+        #     queda: "titulo-B", el titulo-A desaparece
+        # El flock serializa igual; lo que faltaba era la informacion que hace
+        # unica la operacion. Un candado que protege la seccion critica pero no
+        # el estado que la define no protege la operacion.
+        #
+        # `taken` puede AÑADIR informacion (el test fija {7,9,10}), nunca
+        # sustituirla.
+        real = used_numbers(FIND if not _AISLADO else FIND_AISLADO) \
+            | set(reservations())
+        n = next_free(lowest, real | set(taken or ()))
         path = os.path.join(RESDIR, "%03d-%s.res" % (n, STUB_PREFIX))
         # write+rename: si alguien leyo la lista hace un instante, no ve un
         # fichero a medio escribir.
@@ -332,6 +363,32 @@ def self_test():
         # directorio real despues, deja de comprobar los .tmp del propio test.
         # Un control que cambia de sujeto sin que se note sigue dando verde, y
         # verde sin comprobar es peor que no tener control.
+        # 4b. DOS RESERVAS CON EL MISMO `taken` TIENEN QUE DAR NUMEROS
+        #     DISTINTOS. Este control NO existia, y por eso el defecto de que
+        #     `taken` sustituyera al estado de disco llego a commitearse: la
+        #     suite pasaba mientras dos reservas con el mismo conjunto elegian
+        #     el mismo numero y la segunda sobrescribia el titulo de la primera.
+        #     Solo se vio probando a mano, y eso es exactamente lo que un
+        #     self-test deberia evitar.
+        c1, ruta_c1 = reserve("dup A", taken=fijo)
+        c2, ruta_c2 = reserve("dup B", taken=fijo)
+        if c1 == c2:
+            fails.append("dos reservas con el MISMO taken dieron %d: taken"
+                         " esta sustituir al estado de disco" % c1)
+        if ruta_c1 == ruta_c2:
+            fails.append("dos reservas con el MISMO taken escribieron el"
+                         " mismo fichero: la segunda sobrescribe la primera")
+        # Y el caso mas grave: que el titulo de la primera no desaparezca.
+        cuerpo = ""
+        try:
+            with open(ruta_c1, encoding="utf-8") as fh:
+                cuerpo = fh.read()
+        except OSError as e:
+            fails.append("no se pudo leer la reserva: %s" % e)
+        if "dup A" not in cuerpo:
+            fails.append("el titulo de la primera reserva se perdio: el"
+                         " fichero contiene %r" % cuerpo.strip()[:60])
+
         _tmp_left = [x for x in os.listdir(resdir) if x.endswith(".tmp")]
         if _tmp_left:
             fails.append("quedaron .tmp en el directorio aislado: %s"
