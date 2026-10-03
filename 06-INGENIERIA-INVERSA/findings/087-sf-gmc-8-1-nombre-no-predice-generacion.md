@@ -96,7 +96,7 @@ compartida*. La versión se **imprime** y se **guarda como puntero**
 (`amdgpu_ip.c:249`), pero no se **ramifica por versión**: `gmc_v8_0.c` no
 contiene ni una referencia a `GMC_HWIP` ni a `ip_version(adev, ...)`.
 
-## De paso: el empaquetado de `IP_VERSION` (verifica `085`)
+## De paso: el empaquetado de `IP_VERSION` (verifica `194`)
 
 ```
 amdgpu_ip.h:79    #define IP_VERSION(mj, mn, rv) IP_VERSION_FULL(mj, mn, rv, 0, 0)
@@ -112,8 +112,8 @@ El byte bajo es `variant<<4 | subrev`, y `& ~0xFFU` lo descarta. El comentario
 de `amdgpu.h:1214-1215` **sí es correcto**.
 
 `IP_VERSION(8,0,0) = 0x08000000` y `IP_VERSION(9,0,0) = 0x09000000`, así que la
-comparación de `amdgpu_vm.c:1157` que usa `085` es una comparación de major. La
-conclusión de `085` queda **verificada a nivel de macro**, no solo de lectura.
+comparación de `amdgpu_vm.c:1157` que usa `194` es una comparación de major. La
+conclusión de `194` queda **verificada a nivel de macro**, no solo de lectura.
 
 ## El resultado medido: 4 de 5 divergen
 
@@ -132,7 +132,7 @@ los otros 4 usan otra convención: `common/vi_common`, `ih/tonga_ih`,
 **4 de 5 divergen. La única que coincide es GFX.**
 
 Y eso es lo grave. Todo el trabajo de esta investigación se apoya en
-`gfx_v8_0.c` — leí `gfx_v8_0.c:6191-6215` (`068`), `:7131-7133` (`085`), `084`.
+`gfx_v8_0.c` — leí `gfx_v8_0.c:6191-6215` (`068`), `:7131-7133` (`194`), `084`.
 Y `gfx_v8_0_0` corre `gfx_v8_0`, que es **el único caso donde la regla del
 nombre acierta**. La regla funcionó en todos los controles que hice porque sólo
 la puse a prueba donde era cierta.
@@ -148,7 +148,7 @@ habría dicho bien sobre GFX y mal sobre todo lo demás.
 | `067` | GART = 256 MiB, `gmc_v8_0.c:595` | **No** — 8.1 corre `gmc_v8_0_ip_funcs` |
 | `086` | geometría de VRAM, `gmc_v8_0.c:414-423` | **No** — mismo `.funcs` |
 | `068` | orden de emisión, `gfx_v8_0.c:6191-6215` | **No** — versión 8.0.0 coincide |
-| `085` | flush obligatorio, `amdgpu_vm.c:1157` | **No** — `GC_HWIP` sí existe |
+| `194` | flush obligatorio, `amdgpu_vm.c:1157` | **No** — `GC_HWIP` sí existe |
 | `074` | `GEN_PTEPDE`, `sdma_v3_0.c:952-997` | **Sí, anotación**: el bloque es **3.1**, no 3.0 |
 
 `074` es el único que necesita una nota: **la cita al fichero sigue siendo
@@ -179,7 +179,7 @@ lo dice, y no se puede determinar por lectura. Es un `NOT_DETERMINED` honesto.
   `amdgpu_ip.c:221-252`, `amdgpu_ip.h:32-85`, `amdgpu.h:1211-1218`.
 - `HOST_OBSERVATION` — `journalctl -k -b`, sólo lectura.
 - Encadenada con `065` (la cierra), `067`/`086` (sobreviven), `074` (anotación),
-  `085` (verificada a nivel de macro).
+  `194` (verificada a nivel de macro).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`: son de otras sesiones.
 
 **Dos notas de método, porque las dos fueron errores míos.**

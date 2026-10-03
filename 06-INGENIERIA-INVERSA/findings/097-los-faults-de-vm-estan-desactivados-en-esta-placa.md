@@ -11,7 +11,7 @@ CIERRA:      el discriminante de 096 y el punto 1 del NEXT ACTION de 096
 
 ## 1 · EL CAMINO SIN ROOT
 
-`089` cerró que leer `/sys/kernel/debug/dri/0/amdgpu_ip_info` exige root y que
+`196` cerró que leer `/sys/kernel/debug/dri/0/amdgpu_ip_info` exige root y que
 `/proc/cmdline`, `dmesg`, hwmon y los 96 parámetros de módulo no lo contienen.
 
 `096` dejó un discriminante que parecía necesitar el journal del kernel. Se

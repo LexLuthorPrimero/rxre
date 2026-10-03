@@ -66,7 +66,7 @@ para ese caso.
 
 ## El grano del L2 es el fragmento de 2 MiB
 
-Aqui esta la conexion que `085` no encontro, y que yo tampoco:
+Aqui esta la conexion que `194` no encontro, y que yo tampoco:
 
 ```
 gmc_v8_0.c:865   field = adev->vm_manager.fragment_size;
@@ -95,8 +95,8 @@ amdgpu 0000:01:00.0: vm size is 64 GB, 2 levels, block size is 10-bit, fragment 
 
 **El grano del L2 es el fragmento de 2 MiB, y eso son 512 PTEEs.**
 
-Y `085` decía que `fragment_size = 9` eran "8 PTEEs". **Estaba mal, por 64×.**
-Lo he corregido en el propio `085`, con la corrección escrita dentro y marcada.
+Y `194` decía que `fragment_size = 9` eran "8 PTEEs". **Estaba mal, por 64×.**
+Lo he corregido en el propio `194`, con la corrección escrita dentro y marcada.
 El "8 PTE block" del comentario de `amdgpu_vm.c:1155` son 8 PTEEs de 4 KiB =
 32 KiB: es el **grano de hardware de la TLB**, y el fragmento de 2 MiB es el
 **grano de software**. Son dos cosas, y yo las identifiqué porque aparecen en la
@@ -146,7 +146,7 @@ en `mmhub_1_8_0_sh_mask.h`. Pero los tres sitios que los usan están en
 `gfx_v9_4_2.c:1452-1455` y `gfx_v9_4.c:796-807`, y escriben `WRITE_COUNTERS`.
 
 **Es la sexta vez que un nombre en el driver no es cosa de esta GPU** — `065`,
-`075`, `076`, `085`, esta, y la de `gmc_v8_1` en `087`. Y es la primera vez que
+`075`, `076`, `194`, esta, y la de `gmc_v8_1` en `087`. Y es la primera vez que
 la cazo yo, porque me forcé a abrir el call site antes de concluir, que es lo
 que `DERIVATION_BEFORE_OBSERVATION` significa en la práctica.
 
@@ -184,8 +184,8 @@ medir por timing.
   `amdgpu_kms.c:1006`, `amdgpu_gart.h:35-37`, `gfx_8_0_sh_mask.h`.
 - `HOST_OBSERVATION` — `journalctl -k -b` (la línea de geometría de VM). Sólo
   lectura.
-- Corrige `085` en sitio. Encadenada con `083` (la cierra en parte),
-  `067`/`085` (el fragmento), `087` (el fichero que corre).
+- Corrige `194` en sitio. Encadenada con `083` (la cierra en parte),
+  `067`/`194` (el fragmento), `087` (el fichero que corre).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`: son de otras sesiones.
 
 **Una nota de método.** Calculé `pte_fragment_size` con

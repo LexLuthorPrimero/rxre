@@ -45,9 +45,9 @@ FreeSync, CEC.** `PROVEN_DERIVED`.
 
 **⇒ El gestor de display no se versiona por tabla de punteros a función.** `PROVEN_ABSENT`.
 
-**Y esto no es un hueco: es la confirmación de que `156` es el mecanismo único.** El
+**Y esto no es un hueco: es la confirmación de que `232` es el mecanismo único.** El
 versionado de amdgpu en display no se hace con una tabla de ops del nivel superior, sino
-con lo que `156` midió: **cada objeto recibe, en su constructor, la implementación de su
+con lo que `232` midió: **cada objeto recibe, en su constructor, la implementación de su
 generación, y el reparto de implementaciones está escrito en un fichero de recursos.**
 
 **Y ese fichero, para esta máquina, mide 1.442 líneas y contiene 23 de las 52 funciones
@@ -195,7 +195,7 @@ una pregunta de orden de llamadas, y el orden es lo único que queda por estable
   mío cuando la separación `.c` / `.c`+`.h` dio la coincidencia exacta.
 - Encadenada con `158` (la compatibilidad por pares `struct`/tabla, y aquí su
   confirmación: no hay tabla de ops del DM), `157` (**el stream encoder es uno de los
-  cinco constructores `dce110_`**), `156` (la regla de la tabla y el constructor, y esta
+  cinco constructores `dce110_`**), `232` (la regla de la tabla y el constructor, y esta
   nota la aplica a los cinco subsistemas a la vez), `155` (DCE 11.2),
   `151` (**verificado, no corregido**), `154` (la señal), `153` (los siete caminos).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.

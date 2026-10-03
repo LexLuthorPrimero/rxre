@@ -6,7 +6,7 @@
 > `CONFIG_MODULE_SIG_FORCE`, que está `# CONFIG_MODULE_SIG_FORCE is not set`.
 > Medido: `lockdown=[none]`, `SecureBoot disabled`, y un `.ko` propio **compila**
 > con `vermagic` idéntico y **sin firmar**. No hay bloqueo técnico: lo que queda
-> es NIVEL 4 → `BLOCKED_BY_AUTHORIZATION`. Ver `091`.
+> es NIVEL 4 → `BLOCKED_BY_AUTHORIZATION`. Ver `206`.
 
 `CLASSIFICATION=IMPLEMENTATION` · `TRACK=STATIC` · `IMPLEMENTS=035` · `GPU INTACTA` · `RUNTIME=NOT_RUN`
 `RETRACTED_PARTLY_BY=043` — **el `count - 1` implementado aquí pertenece al ASIC equivocado.**

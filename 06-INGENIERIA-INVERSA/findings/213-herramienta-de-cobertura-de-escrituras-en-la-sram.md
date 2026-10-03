@@ -4,14 +4,14 @@ WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 
 ## El problema que esta herramienta viene a resolver
 
-Tres documentos consecutivos (`102` y `104`, dos veces este ultimo) produjeron un veredicto
+Tres documentos consecutivos (`209` y `211`, dos veces este ultimo) produjeron un veredicto
 **equivocado** por el mismo motivo: comparar rangos en **sistemas de coordenadas
 distintos**.
 
-- `102`: el clasificador no distinguia "puesto a cero a proposito" de "nunca tocado".
-- `104`, primer intento: comparar el final de un array en base de host contra la base de
+- `209`: el clasificador no distinguia "puesto a cero a proposito" de "nunca tocado".
+- `211`, primer intento: comparar el final de un array en base de host contra la base de
   la copia, y obtener "0 bytes fuera".
-- `104`, segundo intento: sumar 108 donde habia que restarlo, y obtener "invade 108 bytes".
+- `211`, segundo intento: sumar 108 donde habia que restarlo, y obtener "invade 108 bytes".
 
 En los tres, la **aritmetica era correcta** y el **veredicto era el contrario de lo que
 corresponde**. Eso no se arregla con mas cuidado al calcular: se arregla haciendo que la
@@ -32,7 +32,7 @@ Estado: `TOOL_VALIDATED`, 13 vectores de self-test.
 
 ### 1. Cada destino lleva su BASE, y dos bases distintas nunca se comparan
 
-Esta regla corrige directamente el error que me costo a mano en `104`. Sin ella, la
+Esta regla corrige directamente el error que me costo a mano en `211`. Sin ella, la
 herramienta dijo que `polaris10_smumgr.c:140` (que escribe `dpm_table_start + 112`) quedaba
 tapada por `:1511` (la herramienta decia `:1507`; corregido al anclar la llamada) (que escribe `arb_table_start`): **dos tablas distintas**, comparadas
 como si fueran la misma region.
@@ -102,7 +102,7 @@ afirmar**. La verdad es que `init_smc_table` corre despues y la sobreescribe, y 
 saberlo hay que seguir la cadena de llamadas a mano.
 
 Y al seguirla a mano (abajo) resulta que la conclusion es la misma que en la correccion
-manual de `104`: la copia completa va la ultima y tapa las parciales.
+manual de `211`: la copia completa va la ultima y tapa las parciales.
 
 O sea: **la herramienta no cerro ese caso, pero tampoco lo dio por bueno**. Es
 exactamente el comportamiento que quiero: cuando no sabe, dice que no sabe, en vez de
@@ -119,7 +119,7 @@ smumgr/polaris10_smumgr.c:2115   dpm_table_start + offsetof(SystemFlags)
                                  tam=108..1883   1776B
 ```
 
-Que es exactamente el `1884 - 108 = 1776` del hallazgo `104`, obtenido por la
+Que es exactamente el `1884 - 108 = 1776` del hallazgo `211`, obtenido por la
 herramienta y no por calculo mio.
 
 ## La cadena que la herramienta NO puede seguir
@@ -159,7 +159,7 @@ Y `:2398` (la herramienta decia `:2396`; corregido al anclar la llamada) (4 B de
 que se invoca desde el camino de OverDrive, **fuera** de `init_smc_table`. Ahi si no hay
 copia posterior: `VIVA` de verdad.
 
-## Lo que esto deja establecido sobre `103` y `104`
+## Lo que esto deja establecido sobre `210` y `211`
 
 | escritura | tabla | queda tapada por la copia de 2118? |
 |---|---|---|
@@ -172,14 +172,14 @@ copia posterior: `VIVA` de verdad.
 | `:1511` ArbTable | arbitraje | no, otra tabla |
 | `:2398` LowSclkInterruptThreshold | DPM | **no**: camino de OverDrive |
 
-Y los parches de `103`, `update_uvd_smc_table` y `update_vce_smc_table`, **no aparecen**
+Y los parches de `210`, `update_uvd_smc_table` y `update_vce_smc_table`, **no aparecen**
 en la lista de escrituras de la tabla. Y es por una razon que hay que entender, no por un
 hueco de la herramienta: **no son copias, son leer-modificar-escribir** con
 `cgs_read_ind_register` y `cgs_write_ind_register`. La herramienta busca
 `smu7_copy_bytes_to_smc`, y esos dos sitios no la llaman.
 
 Es una limitacion real de alcance: **la herramienta solo ve copias por la funcion de
-copia, no las que se hacen registro a registro.** Los parches de `103` son exactamente
+copia, no las que se hacen registro a registro.** Los parches de `210` son exactamente
 del segundo tipo, asi que su analisis tiene que seguir siendo manual.
 
 ## Clasificacion
@@ -195,7 +195,7 @@ del segundo tipo, asi que su analisis tiene que seguir siendo manual.
 - `SMC_OVERDRIVE_WRITE_UNTOUCHED = PROVEN_DERIVED`: `:2398` (la herramienta decia `:2396`; corregido al anclar la llamada) esta en
   `polaris10_update_sclk_threshold`, camino de OverDrive, sin copia posterior en esa
   base. `RUNTIME_MISSING` si se ejecuta en esta placa.
-- `SMC_RAW_REGISTER_WRITES_NOT_SEEN = PROVEN_ABSENT`: los parches de `103` no usan
+- `SMC_RAW_REGISTER_WRITES_NOT_SEEN = PROVEN_ABSENT`: los parches de `210` no usan
   `smu7_copy_bytes_to_smc`, luego la herramienta no los detecta. **Limitacion de alcance
   declarada, no un hallazgo.**
 - `SMC_TOOL_GOT_TWO_BASES_WRONG = PROVEN`: la primera version de la herramienta
@@ -214,6 +214,6 @@ En concreto, en un driver propio:
    llamada a `dpm_table_start + offsetof` fuera de ella.
 2. Un assert de rango que compare **en la base de la copia**, no en la base de la struct,
    cuando lo que se quiere comprobar es si una copia pisa a otra.
-3. Y, para el caso de `103`, un mecanismo distinto: los leer-modificar-escribir registro a
+3. Y, para el caso de `210`, un mecanismo distinto: los leer-modificar-escribir registro a
    registro **no pasan por la copia**, asi que necesitan su propia verificacion. Una
    lectura de confirmacion tras escribir, no un assert de rango.

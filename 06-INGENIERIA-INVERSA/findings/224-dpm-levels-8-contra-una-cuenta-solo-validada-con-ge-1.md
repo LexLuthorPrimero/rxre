@@ -46,7 +46,7 @@ WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 >   Mi VBIOS tiene 8 distintos (`121`), que es exactamente la capacidad: **margen cero, pero un
 >   margen mas estrecho de lo que este hallazgo parecia.**
 
-COMPLETA `119` (el `NOT_DETERMINED` que alli deje) · USA EL VBIOS REAL DE ESTA PLACA
+COMPLETA `223` (el `NOT_DETERMINED` que alli deje) · USA EL VBIOS REAL DE ESTA PLACA
 
 ## El hallazgo
 
@@ -215,7 +215,7 @@ typedef struct _PPTable_Generic_SubTable_Header {
 de control es `ucNumEntries`, que es un `UCHAR` (0..255), y lo unico que se comprueba es que
 no sea cero.
 
-Y `119` ya dejo dicho que un check `> 0` puede ser correcto cuando la subtabla no tiene que
+Y `223` ya dejo dicho que un check `> 0` puede ser correcto cuando la subtabla no tiene que
 portar datos. **Aqui si tiene que portarlos** (son frecuencias), y aun asi el check es `>= 1`.
 
 ## Clasificacion
@@ -250,7 +250,7 @@ portar datos. **Aqui si tiene que portarlos** (son frecuencias), y aun asi el ch
 1. **Validar el tamano contra la cota, no contra cero.** `count >= 1` es un check de
    presencia. El que importa es `count <= MAX_REGULAR_DPM_NUMBER`, y **cuesta una linea**.
    Mi driver no deberia poder ser convinocado por un VBIOS que declare 9.
-2. **Un check `>= 1` es correcto solo si la subtabla no tiene que portar datos.** `119` lo
+2. **Un check `>= 1` es correcto solo si la subtabla no tiene que portar datos.** `223` lo
    dijo para el estado del PPT, que no lleva relojes. **Aqui si los lleva**, y el check sigue
    siendo `>= 1`. **La misma forma de check, correcta en un sitio e insuficiente en el otro.**
    Un driver propio tiene que **saber que promete cada subtabla**, y eso no esta escrito en
@@ -261,5 +261,5 @@ portar datos. **Aqui si tiene que portarlos** (son frecuencias), y aun asi el ch
    correcto es validar contra la cota del array de destino, que es lo que existe.
 4. Y la regla de proceso, que hoy me ha pagado dos veces: **preguntar si el camino corre en mi
    ASIC ANTES de afirmar el fallo.** En esta sesion me ha salvado de publicar, por un lado, un
-   recorte de temperatura a 0 °C imposible (`118`), y por otro, una lectura fuera de limites
-   en la ruta V0 (`224` (antes `120`)). **Las dos habrian sido falsas.**
+   recorte de temperatura a 0 °C imposible (`222`), y por otro, una lectura fuera de limites
+   en la ruta V0 (`224` (antes `224`)). **Las dos habrian sido falsas.**

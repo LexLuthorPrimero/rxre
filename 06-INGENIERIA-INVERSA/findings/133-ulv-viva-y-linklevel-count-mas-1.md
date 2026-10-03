@@ -232,7 +232,7 @@ return NULL;
 Y el array declarado es **`ATOM_VOLTAGE_OBJECT_V3 asVoltageObj[3]`** (`atombios.h:5230`), o sea
 **fijo en 3, con un recorrido que no mira ese 3.**
 
-Es **la misma forma que `224` (antes `120`), `229` (antes `128`) y `132`**: una longitud que declara el VBIOS gobernando un
+Es **la misma forma que `224` (antes `224`), `229` (antes `229`) y `132`**: una longitud que declara el VBIOS gobernando un
 recorrido sobre un array de tamano fijo.
 
 `atomrom` da `VoltageObjectInfo size=52`, y `ATOM_COMMON_TABLE_HEADER` son 4 bytes, luego el

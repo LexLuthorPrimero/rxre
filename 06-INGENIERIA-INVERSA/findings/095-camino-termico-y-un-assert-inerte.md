@@ -121,7 +121,7 @@ escritura.
 Queda a cero por la creacion con `kzalloc_obj` del backend
 (`polaris10_smumgr.c:339`). El firmware recibe `BootPhases = 0`.
 
-Esto encaja con `092`: los bits 30-31 de `MinVoltage` son precisamente las fases, y
+Esto encaja con `207`: los bits 30-31 de `MinVoltage` son precisamente las fases, y
 `polaris10_get_dependency_volt_by_clk` pone `*voltage |= 1 << PHASES_SHIFT`, o sea **1**.
 La tabla dice una fase y `BootPhases` dice cero. Si el firmware usa ambos, no coinciden.
 Que lo use: `NOT_DETERMINED`.

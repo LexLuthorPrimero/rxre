@@ -15,7 +15,7 @@ CIERRA=la cadena PCI → DEVICE DISCOVERY → ASIC ID → RESOURCE INIT → HARD
 `AGENT-07` recibe el tramo `PCI → DEVICE DISCOVERY → ASIC IDENTIFICATION →
 RESOURCE INITIALIZATION → HARDWARE INIT → GPU READY`. Antes de este hallazgo el
 corpus tenía el *qué* de casi cada nodo —el ASIC por `amdgpu_drv.c:2041`, la
-ventana BAR5 por `202`, las IP blocks por `191`— pero **no tenía el orden**.
+ventana BAR5 por `242`, las IP blocks por `191`— pero **no tenía el orden**.
 
 Comprobación previa sobre los 506 hallazgos:
 
@@ -198,7 +198,7 @@ log son las dos líneas del `dev_info` de `amdgpu_device.c:3827-3830`, alimentad
 `pci_resource_start/len(pdev, 5)`.
 
 **⇒ `PROVEN_DERIVED`. Para el driver propio: `rmmio_base` es una dirección física
-de bus, `0xF7D00000`, y la ventana son 256 KiB. `202` ya había corregido el BAR y
+de bus, `0xF7D00000`, y la ventana son 256 KiB. `242` ya había corregido el BAR y
 la longitud; lo que este hallazgo añade es que el mapeo es `ioremap()` de una
 dirección física —`amdgpu_device.c:3823`— y **no** `pci_iomap`.**
 
@@ -251,11 +251,11 @@ amdgpu_device.c:1989           r = vi_set_ip_blocks(adev);
 amdgpu_device.c:1994   default:  r = amdgpu_discovery_set_ip_blocks(adev);
 ```
 
-`202` registró que el enum `CHIP_BONAIRE` no está en el corpus y tuvo que decidir
+`242` registró que el enum `CHIP_BONAIRE` no está en el corpus y tuvo que decidir
 la rama del BAR **por el número impreso** (`262144`), porque leer el orden del enum
 era imposible. Ese sigue siendo el método correcto y no se sustituye.
 
-Pero hay un discriminante adicional que `202` no tenía, y es de ejecución:
+Pero hay un discriminante adicional que `242` no tenía, y es de ejecución:
 
 ```c
 amdgpu_ip.c:241    dev_info(adev->dev, "detected ip block number %d <%s_v%d_%d_%d> (%s)\n",
@@ -297,9 +297,9 @@ Corolarios, cada uno con su alcance:
 | `adev->asic_type` estaba en el conjunto `{TOPAZ, TONGA, FIJI, POLARIS10, POLARIS11, POLARIS12, VEGAM, CARRIZO, STONEY}` | `PROVEN` | las nueve etiquetas comparten esa llamada |
 | `adev->asic_type == CHIP_POLARIS12` | `PROVEN_DERIVED` | el conjunto de 9 más `amdgpu_drv.c:2041`, y la revisión `0xc7` no filtra porque los campos son `PCI_ANY_ID` |
 | La rama `default:` / `amdgpu_discovery_set_ip_blocks` **no** se tomó | `PROVEN` | es la única alternativa al `switch` |
-| El orden del enum `CHIP_BONAIRE` vs `CHIP_POLARIS12` | **`NOT_DETERMINED`** | sin resolver, pero **ya no es necesario**: `202` lo deciding por el número, y este hallazgo lo resuelve por el sufijo |
+| El orden del enum `CHIP_BONAIRE` vs `CHIP_POLARIS12` | **`NOT_DETERMINED`** | sin resolver, pero **ya no es necesario**: `242` lo deciding por el número, y este hallazgo lo resuelve por el sufijo |
 
-**⇒ Esto cierra el `NOT_IN_CORPUS` de `202` §1 sin appeals al orden de un enum,
+**⇒ Esto cierra el `NOT_IN_CORPUS` de `242` §1 sin appeals al orden de un enum,
 y por una vía independiente.** Dos discriminantes, dos métodos, mismo resultado: la
 ventana de registros es BAR5.
 
@@ -406,7 +406,7 @@ entre `NOT_OBSERVED` y `PROVEN_ABSENT`, y aquí es `NOT_OBSERVED`.
 | afirmación | refutada por |
 |---|---|
 | El punto de entrada es `amdgpu_pci_probe` | `amdgpu_drv.c:3138`; no hay `amdgpu_probe` en 7.1.3 |
-| La ventana es BAR5 | log `0xF7D00000` + `amdgpu_device.c:3813`; `202` lo confirmo por via independiente |
+| La ventana es BAR5 | log `0xF7D00000` + `amdgpu_device.c:3813`; `242` lo confirmo por via independiente |
 | El mapeo es `ioremap`, no `pci_iomap` | `amdgpu_device.c:3823`; no hay `pci_iomap` en el arbol amdgpu |
 | `(vi_common)` identifica la rama `vi_set_ip_blocks` | un solo referenciador y un solo llamador, verificados |
 | La placa no se postea en probe | `GPU posting now...` ausente **y** codigo de `need_post` leido |

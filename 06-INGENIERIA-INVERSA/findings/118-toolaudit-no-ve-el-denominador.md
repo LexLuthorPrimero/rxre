@@ -9,7 +9,7 @@ RUNTIME=OBSERVED_READ_ONLY · GPU INTACTA
 
 ## Qué resuelve
 
-`117` encontró que `doclint` por defecto revisa 38 de 192 hallazgos. Pregunté si
+`221` encontró que `doclint` por defecto revisa 38 de 192 hallazgos. Pregunté si
 eso era un caso o una plaga, medí las 29 herramientas con contrato, y salió que
 **es un caso único.** Esta nota dice algo más incómodo que eso.
 
@@ -33,7 +33,7 @@ grep -nE 'FINDINGS|0\[0-9\]\*|\[0-9\]\{3\}|startswith\("0'  sobre los cuatro
 ```
 
 **El árbol tiene una convención consistente — "recorre `findings/` entero" — y
-`doclint` es el que la rompe.** Eso cambia el diagnóstico de `117`: no es un
+`doclint` es el que la rompe.** Eso cambia el diagnóstico de `221`: no es un
 patrón sistémico, es un valor congelado en un sitio.
 
 ## Pero el problema real no es el alcance
@@ -158,7 +158,7 @@ demasiado bonito para ser cierto.
 
 ## Y por qué lo anterior no sirve
 
-`117` propuso "una comprobación de contrato: que ninguna herramienta tenga un
+`221` propuso "una comprobación de contrato: que ninguna herramienta tenga un
 alcance escrito a mano, y que se falle si el número de ficheros que cubre no
 coincide con el de los que existen". **Antes de construirla comprobé si existía.**
 
@@ -193,7 +193,7 @@ primera persona por otra sesión, y no hay git para saber de quién son.**
 | Que F11 sea esta frontera | **`NOT_VERIFIED`** |
 | Que 4 de las 5 herramientas con titular hagan lo mismo | **`NOT_DETERMINED`** |
 
-**La penúltima no la comprobé.** `117` y yo damos por hecho que `F11` es la
+**La penúltima no la comprobé.** `221` y yo damos por hecho que `F11` es la
 frontera del titular en `docs/OPEN-FRONTIERS.md`, y no lo he abierto. Lo doy por
 sabido y **es el cuarto "doy por sabido" de la tarde**, que es exactamente el
 defecto que vengo documentando. Lo marco para no repetirlo: **nadie ha abierto ese
@@ -212,12 +212,12 @@ una sola línea por herramienta.
   las 5 que recorren `findings/`. Lectura.
 - **No se editó `doclint.py` ni `toolkit.py` ni `toolaudit.py`** (`COORDINACION.md:184`).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
-- Encadenada con `117` (el alcance congelado), `062`/`077` (citas sin verificar),
-  `116` (no re-mirar un valor).
+- Encadenada con `221` (el alcance congelado), `062`/`077` (citas sin verificar),
+  `220` (no re-mirar un valor).
 
 ## Nota de método
 
-**Esta nota nació de una propuesta que resulté no construir.** `117` terminó
+**Esta nota nació de una propuesta que resulté no construir.** `221` terminó
 proponiendo una comprobación de alcance, y el turno siguiente la iba a escribir.
 Antes la busqué en el árbol y existed el validador y el vocabulario y las 29
 herramientas usándolo.

@@ -89,7 +89,7 @@ resuelve el primero.
 ## La consecuencia hardware, que sigue sin cerrar
 
 Si no hay flush de caché sobre las page tables, y el invalidate sí es un
-registro real (`VM_INVALIDATE_REQUEST`, cerrado en `103`/`104`/`106`), entonces la
+registro real (`VM_INVALIDATE_REQUEST`, cerrado en `210`/`211`/`213`), entonces la
 única salida es que **el page walker no necesitar una invalidación de caché para
 ver las entradas nuevas**.
 
@@ -146,9 +146,9 @@ inevitable: **el número de revisión es una pista, la verdad es el fence.**
   `amdgpu_vm.c:2618-2648`, `amdgpu_vm_sdma.c:106-146`, `amdgpu_vm_sdma.c:219`,
   `gfx_v8_0.c:6191-6215`, `gfx_v8_0.c:6761-6772`, `amdgpu_ib.c:197-215`.
 - Sin MMIO write, sin TLB, sin módulos, sin lectura de debugfs.
-- Encadenada con `115` (la marca `flushed_updates` y `tlb_seq`), `113` (el
-  scheduler pide el vm_flush), `116` (`use_cpu_for_update` nunca dispara),
-  `103`/`104`/`106` (el registro de invalidate y sus 16 bits), `123` (el IB y su
+- Encadenada con `115` (la marca `flushed_updates` y `tlb_seq`), `218` (el
+  scheduler pide el vm_flush), `220` (`use_cpu_for_update` nunca dispara),
+  `210`/`211`/`213` (el registro de invalidate y sus 16 bits), `225` (el IB y su
   `SURFACE_SYNC`).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 

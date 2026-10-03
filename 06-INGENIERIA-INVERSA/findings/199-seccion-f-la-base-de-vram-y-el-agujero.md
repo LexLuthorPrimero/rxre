@@ -187,11 +187,11 @@ cuál es cuál.** `NOT_DETERMINED`.
   ningún fichero ajeno.** Y otra sesión ya documentó también el problema de intrusiones de
   caracteres en `189-diecinueve-caracteres-chinos-en-un-proyecto-que-escribe-en-castellano.md`,
   que es un problema mío recurrente y que está medido mejor de lo que yo lo medía.*
-- Encadenada con `190`/`198` (las tres correcciones de la poda), `189` (la cadena de
-  identidad), `188` (los tres eslabones observados), `187`, `185`, `184`, `181`, `164`
+- Encadenada con `198`/`198` (las tres correcciones de la poda), `241` (la cadena de
+  identidad), `240` (los tres eslabones observados), `187`, `239`, `184`, `181`, `164`
   (**Lexa PRO y el GART**, que es el que afirmaba el `0xFF0FFFFFFF`),
-  `140` (el mapa de direcciones observado), `112` (**la cadena muerta de la tabla de
-  registros MC**), `086`, `100`, `090`, `067`, `054`, `024`, `023`.
+  `140` (el mapa de direcciones observado), `217` (**la cadena muerta de la tabla de
+  registros MC**), `086`, `100`, `205`, `067`, `054`, `024`, `023`.
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`, y no se añadió ningún fichero al corpus.
 
 ## Nota de método

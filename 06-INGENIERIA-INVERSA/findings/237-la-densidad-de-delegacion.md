@@ -152,7 +152,7 @@ moverlos.
   `display/dc/irq/irq_service.c` y `display/dc/irq/dce110/irq_service_dce110.c` (674
   sumadas); `display/dc/hwss/dce110/dce110_hwseq.c` (las 75 funciones, de `175`);
   `display/dc/inc/hw/stream_encoder.h:133`, `display/dc/inc/hw/link_encoder.h:113` y
-  `display/dc/inc/hw/clk_mgr.h:299` (las tres tablas, de `157`, `167` y `161`).
+  `display/dc/inc/hw/clk_mgr.h:299` (las tres tablas, de `157`, `234` y `161`).
 - Medición por programa: **los dos conjuntos de nombres y su intersección, que da 21, 87,
   108 y 0**; **las cinco densidades, cada una con su numerador, su denominador y su
   cociente**; la tabla de las dos medidas ordenadas de forma distinta.
@@ -175,9 +175,9 @@ moverlos.
 - Encadenada con `175` (los 24 puntos, corregidos aquí a 108, y la distinción que faltaba
   entre puntos y funciones), `174` (las tres formas de despacho y el 87%), `173` (el
   intérprete de 119 operaciones), `172` (los bloques ausentes de DCE, que son la
-  explicación de §4), `167` (el 72% del codificador de enlace), `162` (`MAX_PIPES 6` y los
+  explicación de §4), `234` (el 72% del codificador de enlace), `162` (`MAX_PIPES 6` y los
   bombs), `161` (el 8% del reloj), `159` (los 52 constructores), `157` (el 58% del
-  codificador de stream), `156` (la regla de la tabla y el constructor), `155`, `154`,
+  codificador de stream), `232` (la regla de la tabla y el constructor), `155`, `154`,
   `153`, `150`, `145`, `140`.
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 

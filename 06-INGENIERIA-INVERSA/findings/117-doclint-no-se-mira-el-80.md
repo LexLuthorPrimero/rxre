@@ -44,7 +44,7 @@ doclint.py:325       args = sorted(glob.glob(f"{ROOT}/06-INGENIERIA-INVERSA/find
 | hay en `findings/` | **192** |
 | nunca se han pasado por el linter | **154** |
 
-**El 80%.** Y el trabajo reciente entero — `068` a `116` — está dentro de ese 80%.
+**El 80%.** Y el trabajo reciente entero — `068` a `220` — está dentro de ese 80%.
 
 **El patrón `0[23]*` está congelado en la época en que se escribió la
 herramienta.** No es que esté mal puesto hoy: es que se puso cuando sólo había
@@ -102,7 +102,7 @@ doclint.py:17   2. Cita de linea sin verificar. En 032 cité "gfx_v8_0.c:6231-62
 α     U+03B1                -> *** NO DETECTADO ***
 ```
 
-**El `елом` estaba en `116` y `doclint` no lo habría visto.** El rango
+**El `елом` estaba en `220` y `doclint` no lo habría visto.** El rango
 `⺀-鿿` es CJK; el cirílico está en `Ѐ-ӿ`, el griego en `Ͱ-Ͽ`. **El regex se
 construyó con los dos casos que aparecieron y no con el espacio de lo posible.**
 
@@ -217,7 +217,7 @@ ser verificado por `citecheck` en las 22 líneas que hablan de `doclint`.**
 | 4 | `\bTODO\b` | castellano | castellano |
 
 **Todos son "un valor que se fijó cuando era pequeño y nadie volvió a mirar cuando
-creció".** Es el mismo defecto que en `116`: **`102` ya decía que
+creció".** Es el mismo defecto que en `220`: **`209` ya decía que
 `vram_full_visible` era falso y yo lo di por sabido sin volver a recorrerlo.**
 
 **El patrón no es un descuido puntual. Es mi modo de trabajar, y por eso se
@@ -262,7 +262,7 @@ inexistente.
 - `OBSERVED` -- `find` sobre el corpus, sólo lectura.
 - **No se editó `doclint.py` ni ningún fichero de otra sesión.** No se editó
   `AGENTS.md` ni `OPEN-FRONTIERS.md`.
-- Encadenada con `062` y `077` (citas sin verificar), `116` (el mismo defecto de
+- Encadenada con `062` y `077` (citas sin verificar), `220` (el mismo defecto de
   no re-mirar un valor), `101` (hueco de corpus).
 
 ## Nota de método, la más fea de la tanda

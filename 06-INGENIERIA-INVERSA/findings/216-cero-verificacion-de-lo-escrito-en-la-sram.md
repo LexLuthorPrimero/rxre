@@ -2,7 +2,7 @@
 
 WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 
-> **DEPENDENCIA ACTUALIZADA por `113`:** una de las siete filas de la tabla, la de `104`,
+> **DEPENDENCIA ACTUALIZADA por `218`:** una de las siete filas de la tabla, la de `211`,
 > queda **REFUTADA**. `dpm_table_start` es la base literal de la tabla y los once usos de
 > `dpm_table_start + offsetof(...)` son correctos. El recuento real es de **seis** fallos
 > mudos, no siete. La tesis central de este documento -- **cero lecturas de verificacion en
@@ -52,12 +52,12 @@ Todos los hallazgos de las ultimas tandas son, en el fondo, **el mismo defecto**
 | `099` | el retorno del setup DPM se ignora; contadores a 8 y 4 con valores nulos | **no se detecta**: el codigo sigue y sube la tabla |
 | `100` | el limite es el doble de la SMC declarada; la direccion 0 pasa los checks | **no se detecta**: el check pasa |
 | `101` | un `return` temprano deja el selector de rango del PLL a cero | **no se detecta**: `Fcw_int` sale bien formado |
-| `102` | 7 campos de PMFuses a cero | **no se detecta**: cero es un valor valido |
-| `103`/`107` | el parche escribe en `Smio[5]` en vez de `UvdBootLevel` | **no se detecta**: el byte se escribe bien |
-| ~~`104`~~ | ~~once usos con el desfase de 108~~ | **REFUTADO en `113`: no hay defecto** |
-| `110` | `AllowMvddSwitch` se escribe a una direccion que puede no ser la correcta | **no se detecta**: la escritura se pierde sin aviso |
+| `209` | 7 campos de PMFuses a cero | **no se detecta**: cero es un valor valido |
+| `210`/`107` | el parche escribe en `Smio[5]` en vez de `UvdBootLevel` | **no se detecta**: el byte se escribe bien |
+| ~~`211`~~ | ~~once usos con el desfase de 108~~ | **REFUTADO en `218`: no hay defecto** |
+| `215` | `AllowMvddSwitch` se escribe a una direccion que puede no ser la correcta | **no se detecta**: la escritura se pierde sin aviso |
 
-**En los seis que quedan (los siete de la tabla, sin `104`), el mecanismo es el mismo: el host cree que ha hecho algo y el
+**En los seis que quedan (los siete de la tabla, sin `211`), el mecanismo es el mismo: el host cree que ha hecho algo y el
 firmware recibe otra cosa, y no hay ninguna lectura que lo contradiga.**
 
 Y hay un detalle tecnico que lo hace inevitable: **una escritura followed de lectura
@@ -80,11 +80,11 @@ O sea: he dicho "el firmware recibe otra cosa" a la conclusion de "el host escri
 cosa". **Son dos afirmaciones distintas**, y la segunda tiene un eslabon que no puedo
 cerrar: que el firmware use ese campo para lo que creo.
 
-Donde el eslabon es mecanico, si: la copia grande de `104` mueve bytes que el host copia a la SRAM, y la
-copia es integra. `110` concede un permiso a una direccion que puede ser la tabla. Eso no
+Donde el eslabon es mecanico, si: la copia grande de `211` mueve bytes que el host copia a la SRAM, y la
+copia es integra. `215` concede un permiso a una direccion que puede ser la tabla. Eso no
 depende del firmware, depende de donde Caen los bytes.
 
-Donde el eslabon es semantico: `103` escribe un nivel de arranque en `Smio[5]`. Si el
+Donde el eslabon es semantico: `210` escribe un nivel de arranque en `Smio[5]`. Si el
 firmware lee `Smio[5]`, hay un problema; si no lo lee, hay un byte raro. `SEMANTIC_MISSING`.
 
 `107` ya lo decia, pero lo que anadio aqui es que **es un elzon que aplica a los seis que quedan**,
@@ -120,7 +120,7 @@ depende de la disposicion del firmware.
   devuelve lo que se escribio, termasuk el error. **Verificar no sirve: hay que verificar
   el contenido esperado.**
 - `FINDING_SEVEN_CLAIMS_ABOUT_HOST_WRITES_NOT_FIRMWARE_READS = PROVEN_DERIVED`: en los
-  siete casos (`099`, `100`, `101`, `102`, `103`/`107`, `104`, `110`), de los que `104` queda REFUTADO lo `PROVEN` es que el
+  siete casos (`099`, `100`, `101`, `209`, `210`/`107`, `211`, `215`), de los que `211` queda REFUTADO lo `PROVEN` es que el
   host escribe X; que el firmware lea ese campo y lo interprete como Y es `NOT_IN_CORPUS`
   o `SEMANTIC_MISSING`.
 - `SMC_READBACK_IS_CHEAP_HERE = PROVEN_DERIVED`: 1884 bytes = 471 lecturas de 4 bytes,
@@ -144,5 +144,5 @@ permitiria discriminar en la placa la pregunta de `108`: si los 1776 bytes que e
 cree escribir aparecen donde el host cree, el hueco de 108 no existe; si aparecen
 desplazados, existe.
 
-**Y el orden importa, por el motivo de `110`:** la verificacion va **despues de todas las
+**Y el orden importa, por el motivo de `215`:** la verificacion va **despues de todas las
 escrituras y antes de arrancar el firmware**. Si va antes, no verifica nada.

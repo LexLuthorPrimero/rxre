@@ -607,7 +607,7 @@ ESTADO FINAL DE ESTA SESIÓN
   ```
 
   Tonga, Fiji, la familia CI e Iceland escriben el divisor de post y los registros de
-  control del PLL. Polaris10 y Vega10 usan el punto fijo 16.16 de `089`.
+  control del PLL. Polaris10 y Vega10 usan el punto fijo 16.16 de `196`.
 
   `CgSpllFuncCntl3/4` y `SclkDid` son **el resto del metodo anterior**, que sigue en la
   struct porque la comparten todas las generaciones. En `polaris10_smumgr.c` no
@@ -684,7 +684,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   ### La correccion que casi se publica
 
-  La primera version de `091` atribuia el fallo a `smu7_setup_dpm_tables_v0`. **Era
+  La primera version de `206` atribuia el fallo a `smu7_setup_dpm_tables_v0`. **Era
   equivocado** y por poco queda:
 
   - `smu7_setup_default_dpm_tables` despacha segun `hwmgr->pp_table_version`
@@ -785,7 +785,7 @@ ESTADO FINAL DE ESTA SESIÓN
      `UvdLevelCount`. Su longitud la tiene que saber el firmware por su cuenta.
 
   **Aqui el limite SI se comprueba**: `if (count > SMU_MAX_SMIO_LEVELS) count = 4` en las
-  tres funciones. Es el patron correcto, y es justo lo que `091` echa de menos.
+  tres funciones. Es el patron correcto, y es justo lo que `206` echa de menos.
 
   ### La asimetria que no puedo explicar
 
@@ -793,7 +793,7 @@ ESTADO FINAL DE ESTA SESIÓN
   `uint32_t`. Las entradas de `table->Smio[level]` **no**, y tambien son `uint32_t`, con
   el valor del VBIOS ya en orden nativo.
 
-  Es la **unica excepcion a la regla de `090`**. No decido cual de las dos espera el
+  Es la **unica excepcion a la regla de `205`**. No decido cual de las dos espera el
   firmware: eso es leer el firmware, que no esta en el corpus. Queda declarado como
   asimetria medida con la correccion sin determinar.
 
@@ -889,7 +889,7 @@ ESTADO FINAL DE ESTA SESIÓN
     condicion ni justificacion.
   - **`BootPhases` no lo escribe nadie**: tres coincidencias por nombre exacto en todo
     `drivers/gpu/drm/amd`, las tres declaraciones. Queda a cero. Y contrasta con
-    `092`: los bits PHASES de `MinVoltage` valen **1** (`polaris10_smumgr.c:392` y
+    `207`: los bits PHASES de `MinVoltage` valen **1** (`polaris10_smumgr.c:392` y
     `:1398`, `:1447`, `:1552`). Si el firmware usa ambos, no coinciden.
   - **`PPSMC_MSG_SetTemperatureLimit` no existe** en este kernel. Los umbrales de alerta
     van por **registros indirectos** (`smu7_thermal.c:335-343`), y la conversion
@@ -923,7 +923,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   Tres agentes de solo evidencia vuelven. Los tres confirman trabajo previo, y **dos de
   ellos corrigen afirmaciones que yo habia dado por PROVEN**. Eso es lo mas util que han
-  hecho. Se corrige en `089`, `090` y `095`, no solo en la memoria.
+  hecho. Se corrige en `196`, `205` y `095`, no solo en la memoria.
 
   ### Correccion 1: la funcion del reloj de referencia no era la que yo decia
 
@@ -973,7 +973,7 @@ ESTADO FINAL DE ESTA SESIÓN
   `case AMDGPU_FAMILY_CI`, que es GCN1/2 (Bonaire, Hawaii, Kaveri, Kabini, Mullins).
   Carrizo y Stoney son GCN3 fusionado, familia CZ, -> `smu8_smu_funcs`
   (`hwmgr.c:127`), que no codifica reloj. **Yo liste a Carrizo entre los ficheros de
-  registros en `090`, y lo propague sin verificar a `095`.** Los dos corregidos.
+  registros en `205`, y lo propague sin verificar a `095`.** Los dos corregidos.
 
   La prueba estructural de que la frontera es del firmware: la struct de Polaris12
   contiene **las dos cosas a la vez** (los legacy `CgSpllFuncCntl3/4` y `SclkDid`, mas
@@ -1015,7 +1015,7 @@ ESTADO FINAL DE ESTA SESIÓN
   - `polaris10_thermal_setup_fan_table` **devuelve 0 siempre** (`:2278`) con tres pasos
     que pueden fallar, y el unico llamador **ignora** el retorno (`smu7_thermal.c:461`).
     Es el **tercer** sitio con el patron "falta de informacion convertida en exito",
-    junto a `094` y `092`.
+    junto a `094` y `207`.
   - La guarda `fan_table_start == 0` **absorbe tambien un fallo de lectura**: el 0
     inicial y el error de lectura producen la misma respuesta.
   - **`PHM_PlatformCaps_FanSpeedInTableIsRPM` esta activo sin condicion de chip**
@@ -1042,7 +1042,7 @@ ESTADO FINAL DE ESTA SESIÓN
   colision de numeracion y de cerrojo. Y dos de ellos detectaron errores mios que yo no
   habia visto.
 
-  Pero el error de Carrizo **lo cometi dos veces**: primero en `090`, luego lo copie a
+  Pero el error de Carrizo **lo cometi dos veces**: primero en `205`, luego lo copie a
   `095` desde el informe del agente de PPM **sin verificar la atribucion de chip**, y
   casi lo copio a la memoria. Verificar las lineas no es verificar la afirmacion: una
   linea correcta puede estar en el fichero equivocado y la afirmacion seguir siendo
@@ -1505,7 +1505,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   ## Decimocuarta tanda 2026-10-02 - un parche que escribe en el voltaje de arranque
 
-  Sin agentes. Dos hallazgos: `102` (PMFuses) y `103` (parche de UVD/VCE), que es el mas
+  Sin agentes. Dos hallazgos: `209` (PMFuses) y `210` (parche de UVD/VCE), que es el mas
   serio que he encontrado en la ruta SMC.
 
   ### 103 · EL PARCHE DE UVD REESCRIBE BootVddc
@@ -1608,7 +1608,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   ## Decimoquinta tanda 2026-10-02 - generalizo 103 y me equivoco en la generalizacion
 
-  Sin agentes. `104`: inventario de los usos de `dpm_table_start` en la ruta de
+  Sin agentes. `211`: inventario de los usos de `dpm_table_start` en la ruta de
   Polaris12, y el resultado es "el patron no es de uno, es de todos".
 
   ### Once usos, ninguno compensa el hueco de 108
@@ -1650,7 +1650,7 @@ ESTADO FINAL DE ESTA SESIÓN
   1). Solo comparar **rangos** en la base correcta lo revela.
 
   **Es el mismo error que produce el fallo: comparar contra el sistema de coordenadas
-  equivocado.** Por eso la tabla de `104` esta en offsets y no en nombres.
+  equivocado.** Por eso la tabla de `211` esta en offsets y no en nombres.
 
   ### Y me equivoque en la generalizacion
 
@@ -1664,7 +1664,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   O sea: **no es una regresion de SMU 7.4, es de la familia SMU7 entera.** Y Tonga e
   Iceland tienen el mismo patron de `UvdBootLevel`/`VceBootLevel` (`tonga:2688`, `:2723`).
-  Corregido en `104` y en `103`.
+  Corregido en `211` y en `210`.
 
   ### La pregunta que DECIDE el hallazgo, y queda abierta
 
@@ -1692,7 +1692,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   ## Decimosegunda tanda 2026-10-02 - CIERRO la pregunta abierta de 103 y 104
 
-  Sin agentes. `105` resuelve la pregunta que deje marcada en la decimoquinta tanda.
+  Sin agentes. `212` resuelve la pregunta que deje marcada en la decimoquinta tanda.
 
   ### La pregunta
 
@@ -1736,7 +1736,7 @@ ESTADO FINAL DE ESTA SESIÓN
   estan, y todo seria coherente y erroneo a la vez.
 
   Un ciclo leer-modificar-escribir con offsetof **parece** que valida el layout y no valida
-  nada. Lo dejo escrito en `105` para que no se cite.
+  nada. Lo dejo escrito en `212` para que no se cite.
 
   Lo que si discrimina es la coherencia de **nombres**: el codigo le `TdcWaterfallCtl` y usa
   el DWORD como tres campos de temperatura. Eso es un indicio, no una prueba. El estado
@@ -1804,8 +1804,8 @@ ESTADO FINAL DE ESTA SESIÓN
 
   Es la tercera vez en tres documentos consecutivos que **comparar contra el sistema de
   coordenadas equivocado me produce un veredicto falso**. Las otras dos:
-  - `102`: el clasificador no distinguia "puesto a cero a proposito" de "nunca tocado".
-  - `104` primer intento: comparar el final del array en base de host en vez de en base de
+  - `209`: el clasificador no distinguia "puesto a cero a proposito" de "nunca tocado".
+  - `211` primer intento: comparar el final del array en base de host en vez de en base de
     copia, y por eso salir "0 bytes fuera".
   - esta: sumar 108 en vez de restarlo.
 
@@ -1816,7 +1816,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   ### De paso: el agente habia dicho que populate_smc_acpi_level NO existe. Existe
   (`:1964`) y escribe `ACPILevel`, incluida la linea 1302 que es el caso ACPI rancio de
-  `101`. No llego a publicarlo porque `102` es solo sobre PMFuses.
+  `101`. No llego a publicarlo porque `209` es solo sobre PMFuses.
 
   ## Estado tras la decimotercera tanda
 
@@ -1834,7 +1834,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   ## Decimocuarta tanda 2026-10-02 - la herramienta que evita el error que ya cometi tres veces
 
-  Sin agentes. `106`.
+  Sin agentes. `213`.
 
   ### Por que una herramienta y no mas cuidado
 
@@ -1862,7 +1862,7 @@ ESTADO FINAL DE ESTA SESIÓN
   polaris10_smumgr.c:2115   dpm_table_start + offsetof(SystemFlags)   tam=108..1883  1776B
   ```
 
-  Que es el `1884 - 108 = 1776` del hallazgo `104`, **obtenido por la herramienta**.
+  Que es el `1884 - 108 = 1776` del hallazgo `211`, **obtenido por la herramienta**.
 
   ### El caso K es el que mas me importa
 
@@ -1889,7 +1889,7 @@ ESTADO FINAL DE ESTA SESIÓN
   Eso pasa justo en el caso clave: `:140` y `:164` salen `VIVA` porque estan en
   `setup_graphics_level_structure` y `:2118` en `init_smc_table`. **Tiene razon en no
   afirmarlo.** Al seguir la cadena a mano, la conclusion coincide con la correccion manual
-  de `104`: la copia completa va la ultima y las tapa.
+  de `211`: la copia completa va la ultima y las tapa.
 
   **La herramienta no cerro ese caso, pero tampoco lo dio por bueno.** Ese es exactamente
   el comportamiento que quiero: cuando no sabe, lo dice.
@@ -1911,13 +1911,13 @@ ESTADO FINAL DE ESTA SESIÓN
 
   ### LIMITACION DE ALCANCE: no ve los registros a registro
 
-  Los parches de `103` (`update_uvd_smc_table`, `update_vce_smc_table`) **no aparecen**
+  Los parches de `210` (`update_uvd_smc_table`, `update_vce_smc_table`) **no aparecen**
   en la lista. Y no es un hueco: **no son copias**, son leer-modificar-escribir con
   `cgs_read_ind_register` / `cgs_write_ind_register`. La herramienta busca
   `smu7_copy_bytes_to_smc`.
 
   Es una limitacion real de alcance, y afecta justo al hallazgo mas serio. El analisis de
-  `103` tiene que seguir siendo manual, o la herramienta necesita un segundo modo para
+  `210` tiene que seguir siendo manual, o la herramienta necesita un segundo modo para
   esos.
 
   ## Estado tras la decimoquarta tanda
@@ -1935,7 +1935,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   ## Decimoquinta tanda 2026-10-02 - 107: el campo de 103 era OTRO, y es la cuarta vez
 
-  Sin agentes. La cuarta ocurrencia del mismo error, y la mas cara: `103` afirmaba que el
+  Sin agentes. La cuarta ocurrencia del mismo error, y la mas cara: `210` afirmaba que el
   parche de UVD reescribe `BootVddc`. **Es `Smio[5]`**, una entrada del array de indices
   SMIO.
 
@@ -1998,7 +1998,7 @@ ESTADO FINAL DE ESTA SESIÓN
   familias (Tonga 32, CI 33, Iceland 24, Fiji 22, VegaM 9). La herramienta cubre 13
   escrituras por copia y **deja fuera 16**.
 
-  Y no es un hueco menor: la primera afirmacion de `103` **era falsa** y solo se cazaria
+  Y no es un hueco menor: la primera afirmacion de `210` **era falsa** y solo se cazaria
   mirando donde aterriza de verdad la escritura. Una herramienta que viera estos 16 sitios
   habria hecho la pregunta correcta desde el principio: **"que hay en la direccion a la que
   escribe esto"**.
@@ -2083,7 +2083,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   > ¿El firmware de SMU 7.4 coloca los campos en `offsetof`, o en `offsetof + 108`?
 
-  - Si en `offsetof`: los once usos de `104` estan desviados y el parche escribe en
+  - Si en `offsetof`: los once usos de `211` estan desviados y el parche escribe en
     `Smio[5]`. Defecto real.
   - Si en `offsetof + 108`: el host **deberia** sumar 108, y lo que hay es un host sin
     actualizar. **Mismo sintoma, correccion opuesta.**
@@ -2093,7 +2093,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   ### Por que no es una excusa
 
-  `103`, `104` y `107` quedan **degradados a `PROVEN_DERIVED`**, no a "no se sabe":
+  `210`, `211` y `107` quedan **degradados a `PROVEN_DERIVED`**, no a "no se sabe":
 
   - mecanismo `PROVEN`: dos bases de coordenadas sin reconciliar;
   - impacto condicional: `NOT_DETERMINED`, causa `NOT_IN_CORPUS`;
@@ -2123,7 +2123,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   ## Decimotercera tanda 2026-10-02 - el bug de ambito de la herramienta, y 104 cae
 
-  Sin agentes. `109`. Y el resultado es que **dos hallazgos mios mas caen**.
+  Sin agentes. `214`. Y el resultado es que **dos hallazgos mios mas caen**.
 
   ### El bug: `array` resuelta una vez para todo el fichero
 
@@ -2140,7 +2140,7 @@ ESTADO FINAL DE ESTA SESIÓN
   los valores de la primera**. `:1243` daba `236..683, 448 B` cuando lo correcto es
   **`708..803, 96 B`**.
 
-  Y al corregirlo, **las dos invasiones de `104` desaparecen**:
+  Y al corregirlo, **las dos invasiones de `211` desaparecen**:
 
   | invasion afirmada | real |
   |---|---|
@@ -2150,13 +2150,13 @@ ESTADO FINAL DE ESTA SESIÓN
   Y la invasion de `GraphicsLevel` que queda, `576..683`, cae **dentro del propio
   `GraphicsLevel`**, que ocupa `236..683` exactamente. La escritura es del array entero.
 
-  **Las tres invasiones de `104` eran el mismo numero, 108, en tres sitios.** Eso es la
+  **Las tres invasiones de `211` eran el mismo numero, 108, en tres sitios.** Eso es la
   firma de un unico error de calculo, no de tres defectos coincidentes. Era mio:
   comparar el rango **sin compensar** contra el array **compensado**.
 
   ### La quinta vez
 
-  `102` (clasificador), `104` dos veces, `103`, y ahora `104`. Todas el mismo error de
+  `209` (clasificador), `211` dos veces, `210`, y ahora `211`. Todas el mismo error de
   base de referencia, y todas con consequence en un hallazgo publicado.
 
   ### El bug de la herramienta era el mismo
@@ -2166,7 +2166,7 @@ ESTADO FINAL DE ESTA SESIÓN
   equivocada.
 
   Y lo mas grave: el rango falso de la herramienta (`236..683` para `MemoryLevel`) es
-  **exactamente** el rango que produce la invasion que `104` afirmaba. Si no llego a
+  **exactamente** el rango que produce la invasion que `211` afirmaba. Si no llego a
   mirar `:1243` por separado, **las dos cosas se habrian reforzado mutuamente como dos
   pruebas independientes**, y no lo eran: salian del mismo error.
 
@@ -2202,15 +2202,15 @@ ESTADO FINAL DE ESTA SESIÓN
   base. Se sostiene.
 
   Y `096` decia 36, que no aparece en ningun sitio del hueco. Las tres invasiones de
-  `104` decian 108. **Un numero que se repite en varios hallazgos independientes es la
+  `211` decian 108. **Un numero que se repite en varios hallazgos independientes es la
   senal de sospechar del calculo antes que de la causa.**
 
   ### Que sobrevive de todo esto
 
-  - ~~El **desfase de 108** en los once usos:~~ **REFUTADO en `113`.** `104` lo dejo
+  - ~~El **desfase de 108** en los once usos:~~ **REFUTADO en `218`.** `211` lo dejo
     abierto y lo etiqueto PROVEN_DERIVED; no era. Ver la decimoseptima tanda.
   - Las copias parciales **sobreescritas** por la completa de `:2118`: `PROVEN`.
-  - El **parche registro a registro** de `103`/`107` escribiendo en `Smio[5]`: `PROVEN`,
+  - El **parche registro a registro** de `210`/`107` escribiendo en `Smio[5]`: `PROVEN`,
     y es el unico sitio sin cobertura posterior. **No cae**, porque no dependia de ninguna
     invasion.
   - La disposicion del firmware: `NOT_DETERMINED`, `NOT_IN_CORPUS`.
@@ -2245,7 +2245,7 @@ ESTADO FINAL DE ESTA SESIÓN
   **reconoce que hay un caso en que la cabecera no se procesa**, y por eso lee el registro
   como red. Ese es justo el caso en que `soft_regs_start` se queda en 0.
 
-  Con 0, la escritura va a la direccion `112`, que **pasa los dos checks** y **cae dentro
+  Con 0, la escritura va a la direccion `217`, que **pasa los dos checks** y **cae dentro
   del rango `[108, 1884)`** que escribe la copia de la tabla.
 
   Y el orden decide: `:2034` escribe **antes** que la copia de `:2118`, que la
@@ -2256,8 +2256,8 @@ ESTADO FINAL DE ESTA SESIÓN
   | documento | dos escritores sobre lo mismo | que lo salva |
   |---|---|---|
   | `094` | `phm_find_boot_level` y `populate_smc_initailial_state` sobre `GraphicsBootLevel` | el segundo **sobrescribe** al primero con otro indice |
-  | `103`/`107` | `update_uvd_smc_table` y `update_vce_smc_table` sobre el mismo DWORD | cada mascara **preserva** el byte de la otra |
-  | `110` | las dos ramas de `populate_vr_config` sobre `AllowMvddSwitch` | **nada**: escriben lo mismo y la copia lo pisa |
+  | `210`/`107` | `update_uvd_smc_table` y `update_vce_smc_table` sobre el mismo DWORD | cada mascara **preserva** el byte de la otra |
+  | `215` | las dos ramas de `populate_vr_config` sobre `AllowMvddSwitch` | **nada**: escriben lo mismo y la copia lo pisa |
 
   Los dos primeros se resuelven por construccion **porque los dos escritores hacen cosas
   distintas**. El tercero **no**: hacen lo mismo, asi que o aciertan las dos o fallan las
@@ -2268,7 +2268,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   ### Lo que se degrada, con precision
 
-  `110` **no** es corrupcion de memoria: la direccion 112 no es la 0 peligrosa de `100`,
+  `215` **no** es corrupcion de memoria: la direccion 112 no es la 0 peligrosa de `100`,
   y la copia de la tabla la sobreescribe. **Es un permiso que no se concede**: el firmware
   nunca ve `AllowMvddSwitch = 1`, y no cambia el voltaje de MVDD o lo cambia por un camino
   que el host no ha autorizado. Que el firmware lo necesite es `NOT_IN_CORPUS`.
@@ -2281,7 +2281,7 @@ ESTADO FINAL DE ESTA SESIÓN
   y las separa una linea de codigo.
 
   Es exactamente lo que vi en `094` con `GraphicsVoltageChangeEnable`, y lo que vi en
-  `104` con las copias parciales. **Tres sitios, la misma debilidad.**
+  `211` con las copias parciales. **Tres sitios, la misma debilidad.**
 
   ### Y una lectura que no acumula error
 
@@ -2295,7 +2295,7 @@ ESTADO FINAL DE ESTA SESIÓN
   1. Un registro o campo de la SRAM del firmware con **dos propietarios** es un error de
      diseno, no de orden. O uno escribe y el otro lee, o hay un propietario explicito.
   2. **Toda escritura a la SRAM tiene que comprobar el destino**, no solo que pase el
-     check de rango: `112` lo pasa y no por eso es correcto.
+     check de rango: `217` lo pasa y no por eso es correcto.
   3. Y **escribir lo ultimo**, o releer para confirmar. El driver **no relee nunca nada**
      de la SRAM del SMC: hay 12 lecturas y **cero** de verificacion (`100`).
 
@@ -2344,8 +2344,8 @@ ESTADO FINAL DE ESTA SESIÓN
   | documento | dos escritores sobre lo mismo | que lo salva |
   |---|---|---|
   | `094` | `phm_find_boot_level` y `populate_smc_initailial_state` | el segundo **sobrescribe** al primero con otro indice |
-  | `103`/`107` | `update_uvd_smc_table` y `update_vce_smc_table` | cada mascara **preserva** el byte de la otra |
-  | `110` | las dos ramas de `populate_vr_config` | **nada**: escriben lo mismo y la copia lo pisa |
+  | `210`/`107` | `update_uvd_smc_table` y `update_vce_smc_table` | cada mascara **preserva** el byte de la otra |
+  | `215` | las dos ramas de `populate_vr_config` | **nada**: escriben lo mismo y la copia lo pisa |
 
   Los dos primeros se resuelven por construccion **porque los dos escritores hacen cosas
   distintas**. El tercero **no**: hacen lo mismo, asi que o aciertan las dos o fallan las dos.
@@ -2370,10 +2370,10 @@ ESTADO FINAL DE ESTA SESIÓN
   | `099` | retorno ignorado, contadores 8 y 4 a nulo | no |
   | `100` | limite el doble de la SMC; dir 0 pasa | no |
   | `101` | `return` temprano deja `PllRange` a 0 | no |
-  | `102` | 7 campos de PMFuses a cero | no |
-  | `103`/`107` | parche escribe en `Smio[5]` | no |
-  | `104` | once usos con desfase de 108 | no |
-  | `110` | permiso a una direccion que puede fallar | no |
+  | `209` | 7 campos de PMFuses a cero | no |
+  | `210`/`107` | parche escribe en `Smio[5]` | no |
+  | `211` | once usos con desfase de 108 | no |
+  | `215` | permiso a una direccion que puede fallar | no |
 
   **El mecanismo comun: el host cree que hizo algo, el firmware recibe otra cosa, y no hay
   ninguna lectura que lo contradiga.**
@@ -2394,11 +2394,11 @@ ESTADO FINAL DE ESTA SESIÓN
   cosa". **Son dos afirmaciones distintas**, y la segunda tiene un eslabon que no puedo
   cerrar.
 
-  Donde el eslabon es **mecanico**, si: `104` mueve bytes que el host copia a la SRAM, y
-  la copia es integra. `110` concede un permiso a una direccion que puede ser la tabla. Eso
+  Donde el eslabon es **mecanico**, si: `211` mueve bytes que el host copia a la SRAM, y
+  la copia es integra. `215` concede un permiso a una direccion que puede ser la tabla. Eso
   no depende del firmware, depende de donde caen los bytes.
 
-  Donde es **semantico**: `103` escribe un nivel de arranque en `Smio[5]`. Si el firmware
+  Donde es **semantico**: `210` escribe un nivel de arranque en `Smio[5]`. Si el firmware
   lee ese campo, hay problema; si no, hay un byte raro.
 
   ### Y la accion que esto habilita
@@ -2408,7 +2408,7 @@ ESTADO FINAL DE ESTA SESIÓN
   arranque. La SMC son 128 KiB.
 
   Y **despues de todas las escrituras y antes de arrancar el firmware**: si va antes, no
-  verifica nada (`110`).
+  verifica nada (`215`).
 
   Eso convierte los siete fallos mudos en ruidosos, y es ademas el discriminante de la
   pregunta abierta de `108`: si los 1776 bytes aparecen donde el host cree, el hueco de
@@ -2551,7 +2551,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   ### Como se abrio
 
-  `112` dejo una pregunta: `mc_reg_table_start` se leia y no se usaba. Al seguir el
+  `217` dejo una pregunta: `mc_reg_table_start` se leia y no se usaba. Al seguir el
   rastro, `smc_copy_scope` no podia resolver `SMU74_Discrete_MCArbDramTimingTable`, y al
   mirar el por que vi que su unico miembro es un array 2D. De ahi, la entrada de la struct.
 
@@ -2579,7 +2579,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   ### La pregunta que 104 dejo abierta, contestada
 
-  `104` dejo esto abierto y marcado `NOT_DETERMINED`:
+  `211` dejo esto abierto y marcado `NOT_DETERMINED`:
 
   > `dpm_table_start` es la base literal de la tabla, o hay que sumarle 108?
 
@@ -2598,9 +2598,9 @@ ESTADO FINAL DE ESTA SESIÓN
   708 +  96 = 804 = offsetof(LinkLevel)           EXACTO
   ```
 
-  Los dos campos que `104` declara invadidos **empiezan exactamente donde termina el array
+  Los dos campos que `211` declara invadidos **empiezan exactamente donde termina el array
   anterior**. Un desplazamiento de 108 no dejaria esa coincidencia: la habria roto. Por eso
-  `104` no podia encontrarlo: para ver que un array se sale hay que mirar **donde empieza
+  `211` no podia encontrarlo: para ver que un array se sale hay que mirar **donde empieza
   el campo siguiente**, y aqui coincide con el final.
 
   ### Lo que queda REFUTED
@@ -2615,7 +2615,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   ### Y una recomendacion de codigo que se retira
 
-  `104` recomienda una funcion que **resta** 108:
+  `211` recomienda una funcion que **resta** 108:
 
   ```c
   return dpm_table_start + offsetof_campo - offsetof(DpmTable, SystemFlags);
@@ -2625,13 +2625,13 @@ ESTADO FINAL DE ESTA SESIÓN
   pretendia corregir. Un driver propio que siguiera la receta escribiria la tabla
   desplazada.
 
-  Lo que **si** sobrevive de `104` es la disciplina, no la aritmetica: una sola funcion de
+  Lo que **si** sobrevive de `211` es la disciplina, no la aritmetica: una sola funcion de
   conversion, forzada por el compilador, probada contra el layout real. Pero la operacion
   es `base + offsetof(campo)`, sin correccion.
 
   ### El error, dicho con precision
 
-  **No fue afirmar de mas en la prosa.** `104` dijo explicitamente: "si el error fuera real
+  **No fue afirmar de mas en la prosa.** `211` dijo explicitamente: "si el error fuera real
   y tan grave, Tonga habria arrancado mal", y marco la pregunta como `CONNECTION_MISSING`.
 
   Fue **etiquetar como `PROVEN_DERIVED` cuatro invasiones que el propio documento declaraba
@@ -2648,7 +2648,7 @@ ESTADO FINAL DE ESTA SESIÓN
   > Un desplazamiento solo es real si **el codigo lo introduce**.
 
   Aqui no lo introduce: usa `offsetof`, que **ya es** la posicion correcta dentro del
-  tipo. `104` busco un `+ 108` en un sitio donde la struct **ya era** el desplazamiento.
+  tipo. `211` busco un `+ 108` en un sitio donde la struct **ya era** el desplazamiento.
 
   Antes de afirmar un desplazamiento, comprobar que las dos bases **no estan ya
   alineadas**. Si el origen es `&campo` y el destino es `base + offsetof(campo)`, estan
@@ -2656,10 +2656,10 @@ ESTADO FINAL DE ESTA SESIÓN
 
   ### Lo que NO cambia
 
-  - `087`, `088`: se corroboran, no se tocan. Son del otro agente y ya eran correctos.
-  - `111`: su tesis central (**cero lecturas de verificacion en 17 escrituras**) es
-    independiente y sigue en pie. Pero una de sus siete filas era `104`, asi que el
-    recuento real es de **seis**. Banner puesto en `111`.
+  - `087`, `195`: se corroboran, no se tocan. Son del otro agente y ya eran correctos.
+  - `216`: su tesis central (**cero lecturas de verificacion en 17 escrituras**) es
+    independiente y sigue en pie. Pero una de sus siete filas era `211`, asi que el
+    recuento real es de **seis**. Banner puesto en `216`.
   - `FW_SMU_INTERPRETATION = NOT_IN_CORPUS`: sin cambios. Que valores pone el firmware en
     `[0, 108)`, si los tres PID estan activos, y si lee los tres o solo uno: abierto.
 
@@ -2686,7 +2686,7 @@ ESTADO FINAL DE ESTA SESIÓN
   ## Decimoctava tanda 2026-10-02 - 114: el byte que se escribe no es offsetof
 
   Sin agentes. Y nacio de **re-leer el codigo para etiquetar las correcciones**: al
-  re-leer el parche de UVD aparecio una pregunta que ni `103` ni `107` se hacian.
+  re-leer el parche de UVD aparecio una pregunta que ni `210` ni `107` se hacian.
 
   ### El hallazgo
 
@@ -2716,17 +2716,17 @@ ESTADO FINAL DE ESTA SESIÓN
   - `FW_UVD_BOOT_LEVEL_IS_BYTE_3 = NOT_IN_CORPUS`
   - la coincidencia host/firmware en ese byte: `PROVEN_DERIVED`, por la replica
 
-  ### Lo que sobrevive de `103`/`107`/`108`
+  ### Lo que sobrevive de `210`/`107`/`108`
 
   - `SMC_VCE_PATCH_SAME_WORD = PROVEN` — rederivado
   - **las dos mascaras son disjuntas**: byte 3 contra byte 1, **no colisionan**, y el orden
-    es irrelevante. `103` lo vio a medias y por eso leyo una colision donde no la hay
+    es irrelevante. `210` lo vio a medias y por eso leyo una colision donde no la hay
   - `SMIO_IS_AN_INDEX_NOT_A_VOLTAGE = PROVEN` — independiente
-  - y la conclusion parcial de `103` (que el parche **no** cae en `BootVddc`) era correcta
+  - y la conclusion parcial de `210` (que el parche **no** cae en `BootVddc`) era correcta
 
   ### La cadena de documentos que se apoyaban en el mismo error
 
-  `104` -> `103` -> `107` -> `108`. Cuatro documentos, **un solo supuesto**, y cada uno
+  `211` -> `210` -> `107` -> `108`. Cuatro documentos, **un solo supuesto**, y cada uno
   parecian confirmar al anterior. La refutacion vino de medir una cosa que **ninguno
   habia medido**:
 
@@ -2743,7 +2743,7 @@ ESTADO FINAL DE ESTA SESIÓN
   ### Las dos reglas que salen, y son las transferibles
 
   1. **Un desplazamiento solo es real si el codigo lo introduce.** Aqui no lo introduce:
-     usa `offsetof`, que ya es la posicion correcta dentro del tipo. `104` busco un `+108`
+     usa `offsetof`, que ya es la posicion correcta dentro del tipo. `211` busco un `+108`
      donde la struct **ya era** el desplazamiento.
   2. **`offsetof(campo)` no es el byte SMC del campo.** Es el ancla de la palabra. Y **no
      "simplificar" el `/4*4` + mascara a una escritura de byte directa**: el codigo parece
@@ -2800,7 +2800,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   ## Decimonovena tanda 2026-10-02 - 115: el firmware SI estaba, y resuelve el limite de la SRAM
 
-  Sin agentes. La cadena empezó mirando los **parches con mascara** (`114`) y terminó
+  Sin agentes. La cadena empezó mirando los **parches con mascara** (`219`) y terminó
   rompiendo el hallazgo mas viejo que tenia abierto.
 
   ### El error mio: una ausencia falsa por un filtro
@@ -2841,7 +2841,7 @@ ESTADO FINAL DE ESTA SESIÓN
   > `DpmTable` **no es una constante de la imagen**: es **estado de ejecucion** que el
   > firmware escribe ahi al arrancar.
 
-  Eso **mejora la clasificacion** de la pregunta abierta de `108`/`113`: no es
+  Eso **mejora la clasificacion** de la pregunta abierta de `108`/`218`: no es
   `NOT_IN_CORPUS` sino **`NOT_AVAILABLE`**, porque el valor **no existe como constante**.
   Ninguna lectura estatica lo dara. Y explica por que el driver lo lee **despues** de
   arrancar el firmware.
@@ -3131,7 +3131,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   ### Corrobora 115 y 116 sin necesidad de corregirlos
 
-  Los offsets de `115` (blob) y `116` (VBIOS) **se sostienen**. `115` sigue en pie.
+  Los offsets de `115` (blob) y `220` (VBIOS) **se sostienen**. `115` sigue en pie.
 
   ### Procedencia de las capturas, resuelta sin especular
 
@@ -3243,7 +3243,7 @@ ESTADO FINAL DE ESTA SESIÓN
   > es un dato, y la interpretación de la lista es OTRO dato.** Un `0` ahi no era un hecho,
   > era una inferencia mía. Y la inferencia es lo que tenia que verificar.
 
-  ### Que cierra `116`
+  ### Que cierra `220`
 
   `POWERPLAY-STRUCT-SELECTION`: las tres ramas (Tonga, Fiji, Polaris) leen la misma forma
   `usTjMax -> usDefaultTargetOperatingTemp`, y el VBIOS real cae en la de Polaris.
@@ -3340,7 +3340,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   Los mido con gcc desde los campos **extraidos de la cabecera real**, con `pack(1)`, y
   **validando antes**: `usStructureSize = 778` y `ucTableFormatRevision = 7` contra lo que
-  reporta `atomrom.py`. **Los tres errores de `116` no se repitieron**, porque el guard va
+  reporta `atomrom.py`. **Los tres errores de `220` no se repitieron**, porque el guard va
   antes del dato.
 
   ### La regla de proceso
@@ -3380,7 +3380,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   ### El hueco que 119 dejo declarado, cerrado
 
-  `119` dejo `SUFICIENCY_CHECKS_FOR_OTHER_SUBTABLES = NOT_DETERMINED` diciendo que no lo iba
+  `223` dejo `SUFICIENCY_CHECKS_FOR_OTHER_SUBTABLES = NOT_DETERMINED` diciendo que no lo iba
   a suponer. Aqui esta medido.
 
   ### 1. Una subtabla del PPT no tiene campo de tamano
@@ -3465,9 +3465,9 @@ ESTADO FINAL DE ESTA SESIÓN
 
   ### Lo que me ha costado hoy, dos veces
 
-  1. `118`: iba a publicar "recorte de temperatura operativa a 0 °C", **imposible** con
+  1. `222`: iba a publicar "recorte de temperatura operativa a 0 °C", **imposible** con
      `usTjMax=93`.
-  2. `120`: iba a publicar una lectura fuera de limites en la ruta **V0**, que **no corre**.
+  2. `224`: iba a publicar una lectura fuera de limites en la ruta **V0**, que **no corre**.
 
   Las dos habrian sido falsas, y las dos por **no comprobar el alcance antes que el
   defecto**.
@@ -3590,7 +3590,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   ### El campo que llevaba dos documentos sin decodificar
 
-  `116` leyo `ulPlatformCaps` y no lo uso. Vale **0x068000**, y lo pasa directo a
+  `220` leyo `ulPlatformCaps` y no lo uso. Vale **0x068000**, y lo pasa directo a
   `set_platform_caps` (`process_pptables_v1_0.c:1156`).
 
   ```
@@ -3637,7 +3637,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   Me preocupaba que `set_platform_caps` **si** pudiera fijar
   `PHM_PlatformCaps_ClockStretcher` por la via de `ulPlatformCaps`, lo cual habria anadido una
-  cuarta condicion a la cadena de `115`/`116`.
+  cuarta condicion a la cadena de `115`/`220`.
 
   **Comprobado: NO.** Cero apariciones de `ClockStretcher` en `set_platform_caps` (`:55-175`).
   La capacidad solo se fija en `smu7_hwmgr.c:1938-1941` y se desactiva en `:1698`.
@@ -3696,7 +3696,7 @@ ESTADO FINAL DE ESTA SESIÓN
   misma funcion. `max_levels` es **16 hardcodeado** en los dos call sites (`:283`, `:292`).
   `ucNumEntries` es un `UCHAR`: **hasta 255**. Un VBIOS con 17 escribe fuera.
 
-  **Mismo patron que `120`, y aqui mas limpio: las dos cantidades estan en la misma funcion
+  **Mismo patron que `224`, y aqui mas limpio: las dos cantidades estan en la misma funcion
   y no hay ninguna linea que las ligue.**
 
   ### Parte 2 · mi placa: la tabla es basura, y no se lee
@@ -3749,7 +3749,7 @@ ESTADO FINAL DE ESTA SESIÓN
   **cambios legitimos del PPT**: activar VDDGFX en esta placa sin regenerar la tabla haria que
   el driver leyera 65282 mV.
 
-  **Mismo patron del borde de `120`, visto desde el otro lado.**
+  **Mismo patron del borde de `224`, visto desde el otro lado.**
 
   ### Para el driver propio
 
@@ -3789,7 +3789,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   ## Vigesimosetima tanda 2026-10-02 - 124: barrido de la frontera VBIOS->host. Y mi patron era de UN getter
 
-  Sin agentes. Construí la herramienta que `123` estaba pidiendo.
+  Sin agentes. Construí la herramienta que `225` estaba pidiendo.
 
   ### El alcance, medido antes de construir
 
@@ -3824,14 +3824,14 @@ ESTADO FINAL DE ESTA SESIÓN
 
   ### Y una correccion de alcance que importa mas
 
-  **`120` NO esta en el fichero que barre la herramienta.** Son **dos fronteras**:
+  **`224` NO esta en el fichero que barre la herramienta.** Son **dos fronteras**:
 
   | frontera | fichero | capacidad | estado |
   |---|---|---|---|
   | VBIOS -> tabla del host | `process_pptables_v1_0.c` | `ucNumEntries` | **segura** |
-  | tabla del host -> SMC | `smu7_hwmgr.c` | **8** | **`120`, margen CERO** |
+  | tabla del host -> SMC | `smu7_hwmgr.c` | **8** | **`224`, margen CERO** |
 
-  La primera esta bien. **La segunda es la que falla.** `120` sigue en pie **y fuera del
+  La primera esta bien. **La segunda es la que falla.** `224` sigue en pie **y fuera del
   alcance** de esta herramienta: no queda refutado, no confirmado, y no pretendido.
 
   ### La leccion, y es de las mas caras de la sesion
@@ -3912,7 +3912,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   Y el aviso es `pr_warn_ratelimited`: **tras varios fallos, hay silencio.**
 
-  **Es el patron de `110` ("dos propietarios") a otra escala: quince escritores sobre un mismo
+  **Es el patron de `215` ("dos propietarios") a otra escala: quince escritores sobre un mismo
   `result`, y ningun lector que se entere.**
 
   ### La cadena con 099, y DONDE SE ROMPE
@@ -3981,7 +3981,7 @@ ESTADO FINAL DE ESTA SESIÓN
   Sin agentes. Dos hallazgos, una herramienta nueva, **un falso positivo evitado** y **cinco
   correcciones**, todas mias.
 
-  ### `126`: el contrato de error de los 1093 asserts
+  ### `228`: el contrato de error de los 1093 asserts
 
   `PP_ASSERT_WITH_CODE(cond, msg, code)` no altera el flujo: `code` se ejecuta en linea
   (`pp_debug.h:37-43`). **El tercer argumento lo decide todo.**
@@ -3996,11 +3996,11 @@ ESTADO FINAL DE ESTA SESIÓN
     OTRO               21   1,9 %
   ```
 
-  **Dato que reencuadra `125`: el arbol ABORTA en el 84,9 %.** De 16 funciones con
+  **Dato que reencuadra `227`: el arbol ABORTA en el 84,9 %.** De 16 funciones con
   `REGISTRA_Y_SIGUE`, solo 4 terminan en `return 0`, y **3 estan en `vega10_hwmgr.c`**, que no
-  es mi familia. **`125` es la excepcion, no la norma.**
+  es mi familia. **`227` es la excepcion, no la norma.**
 
-  ### Correccion a `125`: 22 escritores, 1 lector, 15 despues del lector
+  ### Correccion a `227`: 22 escritores, 1 lector, 15 despues del lector
 
   **Mi `awk` empezo en `:1616` y perdi los 7 asserts primeros.** `PARTIAL_READ_AS_COMPLETE`
   aplicado a mi propia lectura.
@@ -4028,7 +4028,7 @@ ESTADO FINAL DE ESTA SESIÓN
     fallo produce **un cero bien definido**. Ese cero entra en la tabla del SMC (`:1310`).
   - **`:2411`** — propaga el fallo por `:2415 return result` pero **sin deshacer** el timing
     de memoria ya escrito a medias.
-  - **`:445`** — inerte, y `118` ya demostro que no dispara (`93 <= 255`).
+  - **`:445`** — inerte, y `222` ya demostro que no dispara (`93 <= 255`).
 
   ### `continue` dentro de `do { } while (0)` no es un salto
 
@@ -4081,7 +4081,7 @@ ESTADO FINAL DE ESTA SESIÓN
   | `PHASES` | `:392` activado | **nunca** |
 
   1. **`:404` escribe VDDCI en el campo de VDDC** (`VDDC_SHIFT=0` frente a `VDDCI_SHIFT=15`,
-     medido en `092` y en `smu73/74/75.h`). Con `|=` sobre un campo ya puesto: **los dos
+     medido en `207` y en `smu73/74/75.h`). Con `|=` sobre un campo ya puesto: **los dos
      voltajes mezclados**, el campo VDDCI queda a **cero**, y PHASES tambien.
   2. **Dos lecturas 28 bytes fuera de limites** (`:408`, `:414`). `entries[]` es **miembro
      de tamano flexible** (`hwmgr_ppt.h:51`), reservado con `kzalloc_flex(..., ucNumEntries)`
@@ -4100,7 +4100,7 @@ ESTADO FINAL DE ESTA SESIÓN
   la primera. Con overdrive cambia la tabla (`:969-972`): **alcance `NOT_IN_CORPUS`**.
 
   **Y una correccion mas a mi razonamiento:** yo creia que `vddci_control == NONE` bloqueaba
-  `:404`. **`126` lo refuta**: `ControlVDDCI` **si** esta activo, asi que esa rama si es
+  `:404`. **`228` lo refuta**: `ControlVDDCI` **si** esta activo, asi que esa rama si es
   alcanzable. El defecto no se ejecuta por el reloj, no por el voltaje.
 
   ## Reglas nuevas de esta tanda
@@ -4267,7 +4267,7 @@ ESTADO FINAL DE ESTA SESIÓN
      escrito no es el real.** La cota va en la copia.
   10. **Un enmascaramiento no es una defensa.** Un dato pisado por la linea siguiente y un
       campo sin lectores **son las dos cosas que hacen inocuo hoy el desbordamiento de
-      `128`, y ninguna de las dos esta escrita como proteccion.**
+      `229`, y ninguna de las dos esta escrita como proteccion.**
   11. **Cerrar un `NOT_IN_CORPUS` exige medir el limite, no suponerlo.**
   12. **`grep -w` con un sufijo que contiene `-` o `_` devuelve cero por el filtro.**
 
@@ -4300,7 +4300,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   ## Trigésima primera tanda 2026-10-02 - 129: la segunda frontera barrida, y dos hipótesis refutadas
 
-  Sin agentes. Es el alcance que `124` declaró fuera de sí mismo. Herramienta
+  Sin agentes. Es el alcance que `226` declaró fuera de sí mismo. Herramienta
   `ppt_validate.py` v2.0.0: **55 pruebas, 0 fallos, TOOL_VALIDATED** (29 frontera 1 + 26 frontera 2).
 
   ### El mapa de los 5 arrays fijos de smu7_hwmgr.h
@@ -4336,7 +4336,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   Casi lo escribo. **Es `entries[i - 1]`**, la última entrada válida. Refutada antes de publicar.
 
-  ### `120` precisado: el recorte existe y lo borran
+  ### `224` precisado: el recorte existe y lo borran
 
   ```
   smu_helper.c:352   dpm_table->count = count > max ? max : count;    <-- recorte REAL
@@ -4353,7 +4353,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   **Consecuencia: el desbordamiento no necesita 9 entradas, necesita 9 relojes DISTINTOS.** Mi
   VBIOS tiene 8 distintos (`121`) = exactamente la capacidad. **Margen cero, pero más estrecho de
-  lo que `120` parecía.**
+  lo que `224` parecía.**
 
   ### Lo nuevo: dos índices `count - 1` sin guarda, en la ruta de overdrive
 
@@ -4365,7 +4365,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   **Dos índices `count - 1` y ni una comprobación.** El único guardia es `ps == NULL`.
 
-  **Y es alcanzable por puntero a función, la misma trampa que `125`:**
+  **Y es alcanzable por puntero a función, la misma trampa que `227`:**
 
   ```
   smu7_hwmgr.c:5896      .set_sclk_od = smu7_set_sclk_od,
@@ -4373,7 +4373,7 @@ ESTADO FINAL DE ESTA SESIÓN
   amd_powerplay.c:1572   .set_sclk_od = pp_dpm_set_sclk_od,     (tabla expuesta al usuario)
   ```
 
-  **Es la clase de `:1515` de `125`, pero sin el `if (count < 1)` que sí tenía
+  **Es la clase de `:1515` de `227`, pero sin el `if (count < 1)` que sí tenía
   `smu7_get_profiling_clk`, y en una ruta que dispara el usuario.** Si algún count llega a cero:
   `NOT_DETERMINED`, no lo afirmo en ninguna dirección.
 
@@ -4496,7 +4496,7 @@ ESTADO FINAL DE ESTA SESIÓN
      **fija** cuando es **flexible**. **Un tipo equivocado es peor que un tipo desconocido.**
   7. Un **local** llamado `levels` heredaba la capacidad de un miembro homónimo de otro struct.
      **Mi propia regla `NAME_MATCH != SEMANTIC_MATCH`, cometida por mi propia herramienta.**
-  8. No modelaba el cortocircuito: se autoporraba en los 4 filtros de `120`.
+  8. No modelaba el cortocircuito: se autoporraba en los 4 filtros de `224`.
   9. Al arreglarlo, marcó como cortocircuito una **continuación de línea**, que sí se evalúa. Y
      en el fixture la extracción numérica solo recognía `FIJO:MACRO=8` y no `FIJO:8`,
      produciendo `FIJO{}`.
@@ -4508,7 +4508,7 @@ ESTADO FINAL DE ESTA SESIÓN
 
   17. **Un helper `ultimo(entradas, count)` con el guarda dentro elimina la clase entera.**
       48 sitios con `count - 1`, 26 sin guarda. Una función lo borra.
-  18. **Si la excepción es legítima (el `||` de `120`), escribirla.** Aquí el cortocircuito es
+  18. **Si la excepción es legítima (el `||` de `224`), escribirla.** Aquí el cortocircuito es
       correcto pero invisible: se lee como un `dpm_levels[-1]`.
   19. **Un filtro se contrasta con una herramienta antes de creerse su número.** 35 y 48 son
       ambos plausibles; solo uno es bueno y nada en el filtro lo dice.
@@ -4692,7 +4692,7 @@ ESTADO FINAL DE ESTA SESIÓN
   :1690   Sclk_voltageOffset[i] = volt_offset;                   -> uint8_t[8] (mi VBIOS declara 8)
   ```
 
-  **Es `120` y `128` por tercera vez, y aquí en una ruta que SÍ corre en mi placa.** Ninguno de
+  **Es `224` y `229` por tercera vez, y aquí en una ruta que SÍ corre en mi placa.** Ninguno de
   los dos mira la capacidad. Con un noveno reloj: 8 bytes pasto el array, y lo que hay detrás es
   `LdoRefSel` y el resto de `SMU74_SoftRegisters`, que van al SMC.
 
@@ -4706,7 +4706,7 @@ ESTADO FINAL DE ESTA SESIÓN
   comportamiento de firmware y **no lo afirmo**. `ixPWR_CKS_CNTL` **no está declarado en ninguna
   cabecera de mi corpus**.
 
-  ### El contraste de `126`, a treinta líneas
+  ### El contraste de `228`, a treinta líneas
 
   ```
   :1699   PP_ASSERT_WITH_CODE(false, "Stretch Amount... not supported", return -EINVAL);  ABORTA
@@ -4860,7 +4860,7 @@ ESTADO FINAL DE ESTA SESIÓN
   ### Una pieza que NO he decodificado
 
   El lookup de voltaje camina por `usSize` hasta `sHeader.usStructureSize`, **no por el límite
-  del array declarado**, que es `asVoltageObj[3]` fijo. Es la misma forma que `120`, `128` y `132`.
+  del array declarado**, que es `asVoltageObj[3]` fijo. Es la misma forma que `224`, `229` y `132`.
 
   `52 = 4 + 3*16` encaja exacto si cada objeto mide 16 bytes, **pero `ATOM_VOLTAGE_OBJECT_V3` es
   una UNION y su tamaño no lo fija el array**. **No lo decodifico y lo declaro**: no sé si mi

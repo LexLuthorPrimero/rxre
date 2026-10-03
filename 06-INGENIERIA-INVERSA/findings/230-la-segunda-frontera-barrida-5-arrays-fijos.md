@@ -2,9 +2,9 @@
 
 WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 
-**Barre el alcance que `226` (antes `124`) declaro explicitamente fuera de si mismo.** Dos hipotesis mias
-quedan refutadas antes de publicarlas, `224` (antes `120`) sale **precisado**, y aparece una instancia nueva
-del patron de `227` (antes `125`) en la ruta de overdrive, que es de usuario.
+**Barre el alcance que `226` (antes `226`) declaro explicitamente fuera de si mismo.** Dos hipotesis mias
+quedan refutadas antes de publicarlas, `224` (antes `224`) sale **precisado**, y aparece una instancia nueva
+del patron de `227` (antes `227`) en la ruta de overdrive, que es de usuario.
 
 ## La herramienta
 
@@ -78,9 +78,9 @@ limites.** Casi lo escribo.
 **Es `entries[i - 1]`, no `entries[i]`.** Con `i == count` es la ultima entrada valida.
 **Refutada antes de escribir.**
 
-## `224` (antes `120`) sale precisado: el recorte existe, y lo tira dos lineas despues
+## `224` (antes `224`) sale precisado: el recorte existe, y lo tira dos lineas despues
 
-`224` (antes `120`)dijo que el unico check del count es `>= 1`. **Habia un recorte que no vi:**
+`224` (antes `224`)dijo que el unico check del count es `>= 1`. **Habia un recorte que no vi:**
 
 ```c
 /* smu_helper.c:345-358 */
@@ -114,7 +114,7 @@ for (i = 0; i < dep_sclk_table->count; i++) {
 **El recorte acota el valor INICIAL y nunca el INCREMENTO.** `:900` y `:916` ponen `count = 0`
 justo después de que el recorte lo fijara.
 
-Y hay un mitigador que `224` (antes `120`) no recogio: **el filtro de duplicados de `:902`.** Una entrada solo
+Y hay un mitigador que `224` (antes `224`) no recogio: **el filtro de duplicados de `:902`.** Una entrada solo
 se acepta si su reloj **difiere** del anterior. Asi que `count` no crece con `ucNumEntries`, sino
 con el numero de **relojes DISTINTOS** de la tabla.
 
@@ -124,7 +124,7 @@ con el numero de **relojes DISTINTOS** de la tabla.
 - `EL_BOTE_REAL_LO_DA_EL_NUMERO_DE_RELOJES_DISTINTOS = PROVEN_DERIVED`: filtro de `:902` y `:918`.
 - `MI_VBIOS_TIENE_8_RELOJES_DISTINTOS_QUE_ES_LA_CAPACIDAD = PROVEN`: `121`, margen cero.
 
-**Asi que `224` (antes `120`) se queda en pie con un matiz: el desbordamiento no necesita 9 entradas, necesita
+**Asi que `224` (antes `224`) se queda en pie con un matiz: el desbordamiento no necesita 9 entradas, necesita
 9 relojes distintos.** Es mas dificil de alcanzar, no mas facil.
 
 ## Lo nuevo: dos indices `count - 1` sin ninguna guarda, en la ruta de overdrive
@@ -148,7 +148,7 @@ static int smu7_set_sclk_od(struct pp_hwmgr *hwmgr, uint32_t value)
 **Dos indices `count - 1` y ni una sola comprobacion de que ninguno sea cero.** Con cualquiera
 de los dos contadores a cero, salen `performance_levels[-1]` y `dpm_levels[-1]`.
 
-**Y son alcanzables, por puntero a funcion — la misma trampa que `227` (antes `125`):**
+**Y son alcanzables, por puntero a funcion — la misma trampa que `227` (antes `227`):**
 
 ```
 smu7_hwmgr.c:5896   .set_sclk_od = smu7_set_sclk_od,
@@ -157,7 +157,7 @@ amd_powerplay.c:753  return hwmgr->hwmgr_func->set_sclk_od(hwmgr, value);
 amd_powerplay.c:1572 .set_sclk_od = pp_dpm_set_sclk_od,        (en la tabla que se expone al usuario)
 ```
 
-**Es la misma clase que `:1515` y `:1517` de `227` (antes `125`):** un indice derivado de un contador, sin
+**Es la misma clase que `:1515` y `:1517` de `227` (antes `227`):** un indice derivado de un contador, sin
 guardia. Pero aqui **no hay ni el `if (count < 1) return -EINVAL` que si tenia
 `smu7_get_profiling_clk`**, y **la ruta la dispara el usuario**.
 
@@ -223,5 +223,5 @@ guardia. Pero aqui **no hay ni el `if (count < 1) return -EINVAL` que si tenia
 
 ## Estado
 
-Hallazgo **129**: la segunda frontera queda barrida con herramienta propia, `224` (antes `120`) precisado, dos
-hipotesis refutadas y una instancia nueva del patron de `227` (antes `125`) **alcanzable desde el ioctl**.
+Hallazgo **129**: la segunda frontera queda barrida con herramienta propia, `224` (antes `224`) precisado, dos
+hipotesis refutadas y una instancia nueva del patron de `227` (antes `227`) **alcanzable desde el ioctl**.

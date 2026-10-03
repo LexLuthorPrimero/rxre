@@ -46,7 +46,7 @@ Todas las líneas de `amdgpu` del arranque actual, con lo que confirman:
 | `PCIE GART of 256M enabled (table at 0x000000F400900000)` | los 256 MiB y los 9 MiB de `140` | `PROVEN` |
 | `GART: 256M 0x000000FF00000000 - 0x000000FF0FFFFFFF` | el rango del GART de `140`, bit a bit | `PROVEN` |
 | `VRAM: 2048M 0x000000F400000000 - 0x000000F47FFFFFFF (2048M used)` | el rango de VRAM de `140` y el 2048M | `PROVEN` |
-| `Disabling VM faults because of PRT request!` | que la ruta PRT de `099`/`103` se usa | `PROVEN` |
+| `Disabling VM faults because of PRT request!` | que la ruta PRT de `099`/`210` se usa | `PROVEN` |
 | `detected ip block number 6 <dce_v1_0_0> (dm)` | **la versión del IP del DC** | nuevo |
 | `smu backed is polaris10_smu` | **un eje más de identificación** | nuevo |
 | `RAM width 64bits GDDR5` | anchura de VRAM | nuevo |
@@ -73,7 +73,7 @@ amdgpu 0000:01:00.0: detected ip block number 6 <dce_v1_0_0> (dm)
 **El bloque de hardware del DC se instancia como versión de IP 1.0.0, mientras la función
 es 11.2 y los registros son de 10.0.** `PROVEN`.
 
-**⇒ Son tres ejes, no dos.** Y esto es la explicación mecánica de `156` y de `158`:
+**⇒ Son tres ejes, no dos.** Y esto es la explicación mecánica de `232` y de `158`:
 
 | eje | valor |
 |---|---|
@@ -87,7 +87,7 @@ que el kernel anuncia al enumerar, y dice `dce_v1_0_0` antes de que se ejecute u
 línea del driver de display.**
 
 **⇒ Las seis generaciones DCE de `158` cablean la misma tabla porque el hardware es el
-mismo bloque IP con la misma versión.** La regla de `156` deja de ser un hecho sobre el
+mismo bloque IP con la misma versión.** La regla de `232` deja de ser un hecho sobre el
 código y pasa a ser un hecho sobre el silicio. `PROVEN_DERIVED`.
 
 **Y hay un cuarto eje, y es de firmware:**
@@ -126,7 +126,7 @@ usa `dc` para el mismo bloque. `PROVEN`.
 
 **Y `gmc_v8_1_0` con nombre `gmc_v8_0` explica por qué `140` puede usar `gmc_v8_0.c` para
 describir esta GPU sin error: el bloque se instancia como 8.1 y el driver lo maneja con
-el código de 8.0.** Es la misma forma que el DC, y la misma regla de `156`. `PROVEN_DERIVED`.
+el código de 8.0.** Es la misma forma que el DC, y la misma regla de `232`. `PROVEN_DERIVED`.
 
 ## 5 · Y el VGA de arranque, que era la pregunta abierta desde `158`
 
@@ -255,7 +255,7 @@ visibles.**
   `161` (el reloj de 600 MHz, y ahora la VRAM que lo alimenta), `160` (los 25,92 Gbps),
   `159` (**los seis constructores `dce110_`, y aquí el IP 1.0.0 que los obliga**),
   `158` (VGA sin codificador analógico, y aquí el VGA de BIOS que sí existe),
-  `157` (el audio de la tabla, y aquí el enumerado por el kernel), `156` (la regla de la
+  `157` (el audio de la tabla, y aquí el enumerado por el kernel), `232` (la regla de la
   tabla y el constructor, elevada de hecho de código a hecho de silicio), `155` (DCE 11.2
   observado), `153` (los siete `path` que siguen sin poder contar), `140` (verificado),
   `132`, `130` (geometría verificada).

@@ -117,7 +117,7 @@ rutas de código.
 
 **El `+ 9*1` de `L1150` es el `9 * (PDB0 - level)` de `amdgpu_vm_pt.c:58`, con
 `level = PDB1`.** O sea: **el PDE0 del GART se indexa un nivel más profundo que
-el primer nivel de un VMID de userspace.** Coherente con `104`, que sitúa el
+el primer nivel de un VMID de userspace.** Coherente con `211`, que sitúa el
 VMID 0 en el espacio del kernel.
 
 ## 4 · Y la geometría de la tabla, que sale de dos funciones que no había mirado
@@ -227,8 +227,8 @@ de `0x501` y `0x534`.**
   `gmc_v6_0.c:391`, `gmc_v7_0.c:513`, `gmc_v8_0.c:728`.
 - Sin MMIO write, sin lectura de MMIO, sin TLB, sin módulos, sin debugfs.
 - Encadenada con `130` (el L1 guarda un PTE por fragmento), `129`
-  (`translate_further`), `128` (los mecanismos de invalidate), `131` (PRT),
-  `104` (VMID 0 = kernel), `085` (el flush obligatorio).
+  (`translate_further`), `229` (los mecanismos de invalidate), `131` (PRT),
+  `211` (VMID 0 = kernel), `194` (el flush obligatorio).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 
 ## Nota de método

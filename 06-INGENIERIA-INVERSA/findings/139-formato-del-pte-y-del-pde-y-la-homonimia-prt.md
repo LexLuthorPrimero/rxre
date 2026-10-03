@@ -372,7 +372,7 @@ uno.**
   su `NOT_DETERMINED` del contexto 0 y corrige su cuenta de bits), `137` (la
   configuración de TLB), `136` (la cadena de coherencia), `133` (el MTYPE),
   `132` (la geometría), `131` (`VM_PRT_CNTL`), `130` (el L1 por fragmento),
-  `099` (**resuelto aquí, por homonimia**), `104` (el mapa de VMID), `083`
+  `099` (**resuelto aquí, por homonimia**), `211` (el mapa de VMID), `083`
   (`dst`).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 
@@ -387,7 +387,7 @@ responden a la pregunta más antigua que tenía abierta en este proyecto — qu�
 los bits altos del PTE — y que llevaba siete notas sin aparecer.
 
 **La lección no es sobre `awk`. Es esta: he pasado esta tanda entera entrando por
-el símbolo que ya sabía.** `gmc_v8_0_emit_flush_gpu_tlb` porque `128` me apuntó
+el símbolo que ya sabía.** `gmc_v8_0_emit_flush_gpu_tlb` porque `229` me apuntó
 `VM_L2_CNTL3`, `gmc_v8_0_process_interrupt` porque `138` me apuntó
 `set_fault_enable_default`, `gmc_v8_0_vm_decode_fault` porque me había quedado
 abierto el `NOT_DETERMINED` de sus bits.

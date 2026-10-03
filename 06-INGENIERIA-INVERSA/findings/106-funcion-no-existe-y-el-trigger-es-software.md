@@ -66,7 +66,7 @@ for (vmid = 1; vmid < 16; vmid++)
 ```
 
 El bucle va de 1 a 15. **El hardware tiene 16 contextos y el driver los
-recorre todos**, y `104` confirmó que los 16 bits tienen máscara en el header.
+recorre todos**, y `211` confirmó que los 16 bits tienen máscara en el header.
 
 **3. El caso "VMID ≥ 16" no existe.** El bucle no lo contempla y
 `VM_CONTEXT*_PAGE_TABLE_BASE_ADDR` solo llega a `VM_CONTEXT15`. Es coherente:
@@ -100,19 +100,19 @@ Y `018:80` dijo lo mismo desde otro ángulo, y `072:117` lo corrobora con
                                casan con el PASID           LEE y lo TIRA
 ```
 
-**Y ese es el punto que `103` abrió y `104` cerró**: el acuse existe por
+**Y ese es el punto que `210` abrió y `211` cerró**: el acuse existe por
 dominio, 16 bits, y el driver lo descarta.
 
-## Lo que `103`/`104`/`105` aportaron y esta cifra ordena
+## Lo que `210`/`211`/`212` aportaron y esta cifra ordena
 
 Tres hallazgos recientes de otra sesión dejaron §C en piezas:
 
-- `103`: el handshake de completación **existe** (corrigió a `072`)
-- `104`: los dos registros son de **16 bits** con layout idéntico
-- `105`: el camino real de los faults es el que llama al handler
+- `210`: el handshake de completación **existe** (corrigió a `072`)
+- `211`: los dos registros son de **16 bits** con layout idéntico
+- `212`: el camino real de los faults es el que llama al handler
 
 Y faltaba la pieza que da sentido a las otras tres: **qué se escribe**. Sin
-eso, `104` describía dos registros y no se sabía si el driver los usaba.
+eso, `211` describía dos registros y no se sabía si el driver los usaba.
 
 ## La confusión que este hallazgo deshace
 
@@ -145,7 +145,7 @@ Solo hizo falta decir sobre QUE `FUNCTION` se estaba hablando.
 | `FUNCTION` no está en ningún header del ASIC | `PROVEN_ABSENT` — `grep` sobre `asic_reg/` |
 | El driver escribe `1 << vmid`, 16 bits | `PROVEN` — `gmc_v8_0.c:665`, `:680` |
 | Los 3 caminos escriben lo mismo | `PROVEN` — `:640`, `:665`, `:680` |
-| El hardware tiene 16 contextos | `PROVEN` — `104` más el bucle `vmid < 16` |
+| El hardware tiene 16 contextos | `PROVEN` — `211` más el bucle `vmid < 16` |
 | No hay `VMID ≥ 16` | `PROVEN` — el bucle y `VM_CONTEXT15` |
 | `RESPONSE` se lee una vez y se descarta | `PROVEN` — `:641` sin asignar |
 | El trigger es exclusivamente software | `DERIVATION` — no hay otro campo posible |
@@ -189,7 +189,7 @@ Solo hizo falta decir sobre QUE `FUNCTION` se estaba hablando.
 - **`AGENTS.md` §C se puede actualizar**: la línea *"Cerrar específicamente
   `FUNCTION=always`"* es de una versión del driver donde ese campo existía.
   En GFX8 no.
-- **Las tres piezas encajan**: `103` (el acuse existe), `104` (16 bits),
+- **Las tres piezas encajan**: `210` (el acuse existe), `211` (16 bits),
   y ahora qué se escribe.
 
 ## Evidencia

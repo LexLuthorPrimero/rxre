@@ -218,10 +218,10 @@ justamente el otro lado del driver propio.** `NOT_DETERMINED`.
 - **Dos nombres inventados más, en la sonda:** `dp_train_dp.c` y las 28 semillas. Y
   `program_pix_dur`, que resultó ser el único símbolo realmente contaminado.
 - Encadenada con `179` (**las cuatro clases, y aquí la alcanzabilidad, que es la
-  pregunta que dejó abierta**), `178` (los dos canales), `177` (la densidad aplicada),
-  `176` (la densidad como medida), `175` (los 108 puntos), `173` (**los 75 manejadores,
-  que son las 744 tablas y la tercera arista**), `172` (`dc/core/`), `169` (qué se
-  instancia), `167` (las escrituras de registro), `159` (los 52 constructores), `156`
+  pregunta que dejó abierta**), `178` (los dos canales), `238` (la densidad aplicada),
+  `237` (la densidad como medida), `175` (los 108 puntos), `173` (**los 75 manejadores,
+  que son las 744 tablas y la tercera arista**), `172` (`dc/core/`), `236` (qué se
+  instancia), `234` (las escrituras de registro), `159` (los 52 constructores), `232`
   (la tabla de swizzle), `140` (el mapa de direcciones).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`, y no se añadió ningún fichero al corpus.
 

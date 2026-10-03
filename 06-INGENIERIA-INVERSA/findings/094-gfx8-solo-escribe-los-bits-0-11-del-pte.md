@@ -12,17 +12,17 @@ CIERRA:      el NEXT ACTION de 093, con el método que 089 usó para GC_HWIP
 
 ## 1 · EL MÉTODO, Y POR QUÉ ERA EL ADECUADO
 
-`093` dejó que el hardware documenta `63:40 reserved` para el PTE, y que
+`208` dejó que el hardware documenta `63:40 reserved` para el PTE, y que
 `amdgpu_vm.h` define ocho flags por encima del bit 40. La pregunta es si el
 driver de GFX8 los usa.
 
-Y la forma de responderla **no** es leer el valor del registro —`089` ya
+Y la forma de responderla **no** es leer el valor del registro —`196` ya
 demostró que eso exige root— sino **leer quién escribe qué**:
 
 > ¿`gmc_v8_0.c`, el fichero del ASIC propio, escribe algún flag de PTE por
 > encima del bit 40?
 
-Es el mismo discriminante que `089` aplicó a `GC_HWIP`: *«¿tiene el upstream un
+Es el mismo discriminante que `196` aplicó a `GC_HWIP`: *«¿tiene el upstream un
 camino para mi ASIC?»*. Se responde leyendo el switch, no el registro.
 
 ## 2 · EL RESULTADO
@@ -91,7 +91,7 @@ memset_io(adev->gart.ptr, adev->gart.gart_pte_flags, adev->gart.table_size);
 
 ### Lo que esto cierra y lo que previene
 
-**Cierra el formato del PTE completo.** Con `093` (los bits 0-11 y el PDE) más
+**Cierra el formato del PTE completo.** Con `208` (los bits 0-11 y el PDE) más
 `094` (los bits 40-63 no existen), el formato de la page table de GFX8 está
 **completo**:
 
@@ -115,7 +115,7 @@ el hardware los ignora. La trampa es escribir un PTE copiando la tabla de otro
 generación sin comprobar contra el formato.
 
 > **Los tres sitios donde GFX8 declara bits inexistentes** — `TMZ` en el bit 3
-> (`093`), y `PRT_GFX12`/`IS_PTE`/`NOALLOC`/`TF`/`DCC`/`BUS_ATOMICS`/`LOG`/
+> (`208`), y `PRT_GFX12`/`IS_PTE`/`NOALLOC`/`TF`/`DCC`/`BUS_ATOMICS`/`LOG`/
 > `MTYPE_*` por encima de 40 (`094`) — comparten una causa: **`amdgpu_vm.h` es un
 > header común a todas las generaciones y no está acotado por ASIC.** Un symbolo
 > definido ahí no significa que exista en tu ASIC, y el compilador no lo avisa.
@@ -130,7 +130,7 @@ Ninguno. Fue una medición dirigida con un resultado donde se esperaba
 contraejemplo de `amdgpu_gart.c:437` se buscó deliberadamente, se investigó, y
 resultó ser una función llamada `gfx9`.
 
-Eso es lo contrario de `089`, donde el resultado fue inesperado y hubo tres
+Eso es lo contrario de `196`, donde el resultado fue inesperado y hubo tres
 correcciones seguidas. Aqui el resultado esperado se confirmo, y la
 confirmacion traia un contraejemplo que hubo que **resolver** en lugar de
 descartar.
@@ -139,15 +139,15 @@ descartar.
 
 | elemento de `AGENTS.md` §A | estado | fuente |
 |---|---|---|
-| encoding | `PROVEN` | `093` |
-| bits | `PROVEN` | `093` + `094` |
-| address (39:12, 4 KiB) | `PROVEN` | `093` |
-| flags (6 w · 5 r · 4 x) | `PROVEN` | `093` |
-| fragment (11:7, 5 bits) | `PROVEN` | `093` |
-| valid (bit 0) | `PROVEN` | `093` |
-| system/VRAM (bit 1) | `PROVEN` | `093` + `088` + `081` |
-| permissions | `PROVEN` | `093` |
-| page-table hierarchy (1 nivel) | `PROVEN` | `093` |
+| encoding | `PROVEN` | `208` |
+| bits | `PROVEN` | `208` + `094` |
+| address (39:12, 4 KiB) | `PROVEN` | `208` |
+| flags (6 w · 5 r · 4 x) | `PROVEN` | `208` |
+| fragment (11:7, 5 bits) | `PROVEN` | `208` |
+| valid (bit 0) | `PROVEN` | `208` |
+| system/VRAM (bit 1) | `PROVEN` | `208` + `195` + `081` |
+| permissions | `PROVEN` | `208` |
+| page-table hierarchy (1 nivel) | `PROVEN` | `208` |
 | **bits 40-63 reservados** | **`PROVEN` — `094`** | **`094`** |
 
 **La frontera A queda cerrada por lectura**, con las dos capas —hardware y

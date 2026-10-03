@@ -166,7 +166,7 @@ salida a pantalla son `dce_stream_encoder` + `dce_transform` + `dce_opp` +
   **no se han guardado en `08-ARQUITECTURA/tools/` y no son herramienta del
   proyecto**, porque su valor es el número que ya está impreso aquí.
 - Encadenada con `145` (el 99% del corpus y la uAPI ausente — esta nota **confirma**
-  que el resto del corpus está completo), `144` (la uAPI),
+  que el resto del corpus está completo), `231` (la uAPI),
   `139` (el PTE, cuya única fuente queda establecida en 145).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 

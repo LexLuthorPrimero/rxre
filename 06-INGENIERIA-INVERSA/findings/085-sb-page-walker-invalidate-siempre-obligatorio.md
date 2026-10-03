@@ -73,7 +73,7 @@ Conecta tres cosas que estaban separadas:
 > **no depende de esta seccion y sigue en pie**: se sostiene en L1157 y en
 > `gfx_v8_0.c:7131-7133`, verificados.
 >
-> Lo que si se sostiene, y es lo que `088` demuestra: `fragment_size` va a
+> Lo que si se sostiene, y es lo que `195` demuestra: `fragment_size` va a
 > `VM_L2_CNTL3.BANK_SELECT` y `L2_CACHE_BIGK_FRAGMENT_SIZE`
 > (`gmc_v8_0.c:865-869`), o sea **el fragmento de 2 MiB es el grano del L2**.
 

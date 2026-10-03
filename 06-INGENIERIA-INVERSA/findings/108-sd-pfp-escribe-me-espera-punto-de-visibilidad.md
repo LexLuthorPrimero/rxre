@@ -162,12 +162,12 @@ requiere hardware.
 - Sin `RUNTIME`. Sin escrituras.
 - **Corrige la lectura de `017`** (no es mío: **lo informo, no lo edito**).
 - Encadenada con `107` (las 7 funciones y el poll), `095` (`PFP_SYNC_ME`),
-  `068`/`085` (la secuencia), `103`/`104` (el invalidate), `084` (packet consumption).
+  `068`/`194` (la secuencia), `210`/`211` (el invalidate), `084` (packet consumption).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`: son de otras sesiones.
 
 **Una nota de método, sobre lo que casi hice.**
 
-Tenía la respuesta a medias desde `103`: ya sabía que `emit_flush_gpu_tlb` no
+Tenía la respuesta a medias desde `210`: ya sabía que `emit_flush_gpu_tlb` no
 tenía espera entre PTBA e invalidate. Lo traté como "el orden de la cola basta"
 y seguí. **No basta por sí solo — basta porque las dos escrituras son del mismo
 motor**, y eso no lo había mirado.

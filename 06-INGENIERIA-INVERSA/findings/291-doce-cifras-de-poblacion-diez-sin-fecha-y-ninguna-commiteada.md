@@ -29,7 +29,7 @@ Y la cifra ya caducó, tres veces en una sesión:
   114   medido ahora mismo
 ```
 
-Sin sello, `112` y `114` son dos números que se contradicen, o dos medidas
+Sin sello, `217` y `219` son dos números que se contradicen, o dos medidas
 separadas por una noche. El documento no permite saber cuál, y esa es exactamente
 la pregunta que un número sin fecha no puede responder.
 

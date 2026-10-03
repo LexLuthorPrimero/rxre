@@ -102,7 +102,7 @@ Y `061` cerró otra cosa: `src_data[0]` ∈ {0, 1} en el **camino de display**
 (`dce_v8_0.c`), donde el switch tiene dos casos. Eso **no** dice nada del
 camino de fault, que es un consumidor distinto del mismo campo.
 
-Así que las dos fronteras de `052` no se cierran con lo que hay:
+Así que las dos fronteras de `193` no se cierran con lo que hay:
 
 | frontera | estado | por qué |
 |---|---|---|

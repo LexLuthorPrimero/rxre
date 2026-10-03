@@ -102,7 +102,7 @@ tiene 16 bits y viene enmascarado, así que lo único que puede expresar es
 
 Un tope de 65536 MiB **no puede rechazar nada que el campo sea capaz de
 representar**. Y no es inofensivo: un check que no puede fallar da la impresión
-de que hay un filtro donde no lo hay. Eso es `189` aplicado a una constante.
+de que hay un filtro donde no lo hay. Eso es `241` aplicado a una constante.
 
 ```
   el tope tiene que estar ESTRICTAMENTE por debajo del maximo del campo
@@ -163,7 +163,7 @@ reconocía nadie.
 
 ## 6 · Defecto 3: una predicción mía escrita a mano, mal
 
-`202` decía que `mmMC_VM_FB_LOCATION` tiene que leer `0x00000F40`. Es
+`242` decía que `mmMC_VM_FB_LOCATION` tiene que leer `0x00000F40`. Es
 **incorrecto**: produce `0x000F40000000`, y el log dice `0x000000F400000000`.
 
 ```
@@ -181,7 +181,7 @@ evidencia.
 
 `test_mc` lleva ahora un vector que multiplica la cadena entera contra los dos
 números del log, y que no habría podido pasar con `0x0F40` puesto. La corrección
-está escrita en `202` con el cálculo a la vista.
+está escrita en `242` con el cálculo a la vista.
 
 ## 7 · El coste del `#include`, que no era gratis
 

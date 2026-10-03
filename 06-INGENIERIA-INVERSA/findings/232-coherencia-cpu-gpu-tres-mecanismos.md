@@ -159,7 +159,7 @@ El `head -8` **truncó al productor** y se comió justo la línea que importaba.
 Mi hipótesis era falsa y lo que la delató fue mirar el bloque completo cuando el
 número no cuadraba. **Es la segunda vez en esta sesión que un `head` me oculta
 información**; `AGENTS.md` lo prohíbe explícitamente ("evitar pipelines que maten
-trunquen al productor") y `052` ya había documentado una versión de este mismo
+trunquen al productor") y `193` ya había documentado una versión de este mismo
 defecto.
 
 ## Confounder: los nombres de campo son de otra generación
@@ -178,7 +178,7 @@ bloques y ninguno es HDP, y `AMD_IP_BLOCK_TYPE_HDP` no aparece en el corpus.
 
 Así que el *valor* que se escribe es `PROVEN` (está en el fuente), pero el *nombre
 del campo* es de otra generación y **`NOT_APPLICABLE` para esta placa**. Es la
-misma trampa que `112` con las cabeceras y que `144` con `sid.h`: **un header
+misma trampa que `217` con las cabeceras y que `231` con `sid.h`: **un header
 degenerado por ASIC es un mapa de posibilidades, no un inventario.**
 
 ## Clasificación
@@ -225,7 +225,7 @@ degenerado por ASIC es un mapa de posibilidades, no un inventario.**
 
 - **§G tiene su primer hecho sólido**: la visibilidad CPU→GPU en esta placa es
   "pon un bit y relee", no un flush de caché coherente. **No hay DMA coherente.**
-- **El idioma de la lectura sin destino aparece dos veces** (`106`/`104` y aquí)
+- **El idioma de la lectura sin destino aparece dos veces** (`213`/`211` y aquí)
   con el mismo propósito. Merece su propio hallazgo: es la primitive de
   sincronización que el driver prefiere en lugar de `wmb()`.
 - **Cuatro registros para una tarea** es el tipo de redundancia que un driver

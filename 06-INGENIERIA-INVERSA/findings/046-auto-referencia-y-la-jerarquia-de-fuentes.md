@@ -28,8 +28,8 @@ siguen abiertas:
 ```
 
 El filtro de negación de `045` mira **una línea**. Una línea de continuación no
-tiene la negación, porque la frase empieza en la anterior. `118` hereda el
-`PROVEN` de `117` y se cuela.
+tiene la negación, porque la frase empieza en la anterior. `222` hereda el
+`PROVEN` de `221` y se cuela.
 
 **Y el documento que lo produce es este proyecto hablando de su propia
 herramienta.** Una herramienta que cita el caso que analiza, se cita a sí misma.

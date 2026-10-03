@@ -10,7 +10,7 @@ RUNTIME=NOT_RUN · GPU INTACTA
 ## Qué resuelve
 
 **De dónde salen los 600 MHz de `161`, y qué modo de salida puede usarlos.** Y con eso,
-la respuesta al `NOT_DETERMINED` de `167`: **si el DVI de esta placa es de simple o de
+la respuesta al `NOT_DETERMINED` de `234`: **si el DVI de esta placa es de simple o de
 doble enlace, cambia el techo de la placa en un factor de dos, y el techo ya se puede
 calcular.**
 
@@ -64,7 +64,7 @@ dígito, y la aritmética inversa por el otro lado da lo mismo:
 HDMI 2.0 dividido por 24 bits por píxel.** `PROVEN_DERIVED`.
 
 **Y es la quinta comprobación independiente del mismo número, y la primera que explica de
-dónde sale.** Las otras cuatro —`161`, `163` por el log, y dos vías de `164`— lo
+dónde sale.** Las otras cuatro —`161`, `233` por el log, y dos vías de `164`— lo
 confirmaban sin explicarlo. `PROVEN`.
 
 **Y 600 MHz es exactamente la razón por la que existe el modo FRL:** con TMDS el techo
@@ -73,7 +73,7 @@ GPU lo tiene. `PROVEN_DERIVED`.
 
 ## 3 · Y los dos campos que el driver escribe juntos son una decisión, no dos
 
-`167` registró que el driver escribe, en el mismo `REG_UPDATE_5`:
+`234` registró que el driver escribe, en el mismo `REG_UPDATE_5`:
 
 ```c
 dce_stream_encoder.c:568   HDMI_DATA_SCRAMBLE_EN,     0
@@ -111,7 +111,7 @@ que la alternativa sería incoherente.** `PROVEN_DERIVED` para la coherencia,
 de 340 MHz no es un tope que el driver no pueda superar, es el tope del modo TMDS, y esta
 GPU escribe el selector en el valor que corresponde al otro modo.** `PROVEN_DERIVED`.
 
-## 4 · Y el techo de cada conector de esta placa, que es la respuesta de `167`
+## 4 · Y el techo de cada conector de esta placa, que es la respuesta de `234`
 
 | modo de vídeo | píxel MHz | DVI simple (165) | DVI doble (330) | HDMI (600) |
 |---|---|---|---|---|
@@ -124,7 +124,7 @@ GPU escribe el selector en el valor que corresponde al otro modo.** `PROVEN_DERI
 **⇒ 4K60 sólo cabe por el HDMI. 2560×1440@60 sólo en un DVI de doble enlace. 1080p60 cabe
 en los tres, y 1200p60 ya no cabe en un DVI de simple.** `PROVEN_DERIVED`.
 
-**⇒ Y el `NOT_DETERMINED` de `167` queda acotado a un bit, con su consecuencia medida: si
+**⇒ Y el `NOT_DETERMINED` de `234` queda acotado a un bit, con su consecuencia medida: si
 el DVI de esta placa es de simple enlace, la placa no puede pasar de 1920×1080@60 por ese
 conector, y si es de doble, llega a 2560×1600@60.** `PROVEN_DERIVED`.
 
@@ -133,7 +133,7 @@ afirmación sobre esta placa: puede hacer 4K60 por el HDMI, y por el DVI no pued
 ninguno de los dos modos de enlace.** `PROVEN_DERIVED`.
 
 **Y una observación que no es de esta GPU:** el techo de 600 MHz es del reloj de píxel, y
-`167` mostró que el reloj lo pide el BIOS. **Si el BIOS de esta placa no concede 600 MHz
+`234` mostró que el reloj lo pide el BIOS. **Si el BIOS de esta placa no concede 600 MHz
 —y `161` ya estableció la regla de que el reloj lo decide el firmware— el techo efectivo baja a
 340 MHz y el 4K60 desaparece.** `PROVEN_DERIVED`, y es la tercera condición que hace falta
 para afirmar «esta GPU puede hacer 4K60»: la del reloj, la del cable, y ahora la del
@@ -188,10 +188,10 @@ placa baja a 340 MHz aunque la GPU pueda más, y eso se lee del EDID cuando haya
   ninguna tabla conocida; la corrección es que hay dos reglas, y ahora están las dos
   escritas y separadas. **Un número raro no siempre es un error de aritmética: a veces es
   que se ha usado la fórmula del modo equivocado.**
-- Encadenada con `167` (**los registros de los dos conectores, y aquí qué techo tienen**),
+- Encadenada con `234` (**los registros de los dos conectores, y aquí qué techo tienen**),
   `161` (**los 600 MHz, y aquí de dónde salen**), `160` (los 4 carriles, y aquí que el
   HDMI los usa y que el `LANE_COUNT_EIGHT` es el DVI doble), `166` (los dos conectores de
-  la placa, y aquí la respuesta acotada), `156` (los dos centinelas del mismo
+  la placa, y aquí la respuesta acotada), `232` (los dos centinelas del mismo
   `if / else if`, y aquí el segundo de ellos tiene nombre y valor),
   `155` (la lista `DCE112` y DCE 8.0 sin el campo), `154` (el `connector_signal`),
   `150` (los cuatro `cntl.signal`).
@@ -224,6 +224,6 @@ pregunta: «¿estoy usando la regla de la cosa que tengo delante?».**
 
 **Y quedan tres condiciones para poder decir «esta GPU puede hacer 4K60», y las tres están
 separadas por el dominio: 533,25 MHz cabe en el reloj (`161`), cabe en el enlace si el
-cable es FRL (`168`), y el firmware tiene que concederlo (`161`, undécimo contacto).** *Un
+cable es FRL (`235`), y el firmware tiene que concederlo (`161`, undécimo contacto).** *Un
 afirmación sobre una capacidad de hardware necesita las tres, y las dos primeras ya
 están; la tercera es un `RREG32` de PLL.*

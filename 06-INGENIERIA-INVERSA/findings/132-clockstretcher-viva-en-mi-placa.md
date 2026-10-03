@@ -104,7 +104,7 @@ uint8_t  Sclk_voltageOffset[8];     <-- ocho, y se indexa con i
    comprueba nada. Con `i >= 8` los bits se pierden; con `i >= 32` el desplazamiento es
    indefinido segun C.
 
-**Ninguno de los dos mira la capacidad.** Es `224` (antes `120`) y `229` (antes `128`) por tercera vez, ahora en el registro
+**Ninguno de los dos mira la capacidad.** Es `224` (antes `224`) y `229` (antes `229`) por tercera vez, ahora en el registro
 de datos del ClockStretcher, y en una ruta **que si corre en mi placa**.
 
 - `SCLK_VOLTAGE_OFFSET_8_Y_MI_VBIOS_DECLARA_8 = PROVEN`: margen cero, `smu74_discrete.h:362` y `121`
@@ -145,9 +145,9 @@ por el registro de mensaje. **Es comportamiento del firmware, y `DPM-BASE-EN-SMC
 - `IXPWR_CKS_CNTL_NO_ESTA_DECLARADO_EN_MI_CORPUS = PROVEN_DERIVED`
 - `SI_EL_SMC_LO_DEDUCE_ES_COMPORTAMIENTO_DE_FIRMWARE = NOT_AVAILABLE`
 
-## El contraste con `228` (antes `126`), que es lo que quiero copiar
+## El contraste con `228` (antes `228`), que es lo que quiero copiar
 
-`228` (antes `126`) encontro `polaris10_smumgr.c:1729`:
+`228` (antes `228`) encontro `polaris10_smumgr.c:1729`:
 
 ```c
 } else {
@@ -168,7 +168,7 @@ PP_ASSERT_WITH_CODE(false,
 **El tercero es `return -EINVAL`, y ese si aborta.**
 
 > **El mismo `false` literal, con accion y sin accion. Lo que decide no es la condicion, es el
-> tercer argumento** — que es exactamente lo que `228` (antes `126`) demostro con los 1093 asserts, y aqui se
+> tercer argumento** — que es exactamente lo que `228` (antes `228`) demostro con los 1093 asserts, y aqui se
 > ve en dos lineas del mismo fichero.
 
 - `EL_FALSE_LITERAL_ES_INERTE_SIN_ACCION_Y_ABORTA_CON_ACCION = PROVEN`: `:1699` frente a `:1729`

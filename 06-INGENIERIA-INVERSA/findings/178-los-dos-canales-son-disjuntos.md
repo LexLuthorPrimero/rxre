@@ -9,8 +9,8 @@ RUNTIME=NOT_RUN · GPU INTACTA
 
 ## Qué resuelve
 
-**Las dos jugadas que `177` nombró, y al hacerlas aparece la cosa que faltaba desde
-`156`: los dos mecanismos de compatibilidad de amdgpu —punteros a función y máscaras de
+**Las dos jugadas que `238` nombró, y al hacerlas aparece la cosa que faltaba desde
+`232`: los dos mecanismos de compatibilidad de amdgpu —punteros a función y máscaras de
 registro— no se reparten, se separan por capa, y la separación es total.**
 
 **⇒ Los tres ficheros de la capa genérica tienen cero macros de registro y cero máscaras.
@@ -137,7 +137,7 @@ decide *quién* ejecuta, y el canal 2 decide *qué campos existen*.** `PROVEN_DE
 sus punteros apuntan a un manejador de la otra capa; y un fichero de la capa por generación
 que hace muchas escrituras puede no delegar en absoluto.** `PROVEN_DERIVED`.
 
-**⇒ Ése es el punto ciego del instrumento de `176` y `177`, y es exactamente la mitad de la
+**⇒ Ése es el punto ciego del instrumento de `237` y `238`, y es exactamente la mitad de la
 arquitectura.** `PROVEN_DERIVED`.
 
 ## 4 · Y el límite honesto del instrumento
@@ -157,7 +157,7 @@ distinto:**
 bloque:** la capa genérica son 12 ficheros en `dc/core/` más 22 en `dc/link/` más 19 en
 `amdgpu_dm/`, y ninguno escribe un registro; y el trabajo por chip son 52 funciones
 (`159`) más 75 manejadores (`173`) más 149 escrituras de registro en un solo fichero
-(`167`).** `PROVEN_DERIVED`.
+(`234`).** `PROVEN_DERIVED`.
 
 ## Lo que NO cierra
 
@@ -182,7 +182,7 @@ bloque:** la capa genérica son 12 ficheros en `dc/core/` más 22 en `dc/link/` 
 qué fichero se pasa de no escribir registros a escribirlos?** *Se sabe que
 `dc/dce/dce_stream_encoder.c` escribe 149 y que `dc/core/dc.c` escribe 0, y entre ellos
 está todo el directorio `dc/inc/hw/` con las declaraciones de las tablas.* **Y hay un caso
-que la separa y que `177` ya nombró: `dc_link_exports.c`, un fichero de la capa genérica
+que la separa y que `238` ya nombró: `dc_link_exports.c`, un fichero de la capa genérica
 que delega al 121,6 por mil precisamente porque reenvía, y por eso su densidad mide el
 otro canal sin que él lo sepa.** `NOT_DETERMINED`.
 
@@ -222,8 +222,8 @@ dc/dce/dce_link_encoder.c:1142             REG_UPDATE(
 - **Un error de escala propio, y es la tercera vez en tres notas:** imprimí los puntos por
   función **multiplicados por mil**, y por eso `dc.c` salió como «1064,71 puntos por
   función», que es un número imposible con esa unidad. **La cifra correcta es 1,065, y la
-  tabla de arriba la lleva sin el factor.** *Es exactamente el 261% de `176` y el 121,6 de
-  `177`: un valor correcto del programa con una escala que no le corresponde.* **Y las tres
+  tabla de arriba la lleva sin el factor.** *Es exactamente el 261% de `237` y el 121,6 de
+  `238`: un valor correcto del programa con una escala que no le corresponde.* **Y las tres
   veces el programa no tenía la culpa: el denominador estaba bien y la presentación no.**
 - **Dos ambigüedades de recuento que sólo aparecieron al citar con línea, y que son la
   misma clase de error que la anterior:** la columna `REG_*` son **149 ocurrencias en 106
@@ -239,15 +239,15 @@ dc/dce/dce_link_encoder.c:1142             REG_UPDATE(
   ninguno se llama así** —`link_dp_training.c` es el que entrena el enlace—, que es otra
   vez la regla de `149`: *un fichero se localiza por la función que contiene, no por el
   nombre que uno espera.* **Cuarto `printf` con un hueco de formato de más en la misma
-  tanda, después de los dos de `177`.**
-- Encadenada con `177` (**la densidad aplicada a los nueve ficheros, y aquí los dos
-  denominadores y el segundo canal**), `176` (la densidad como medida y la cobertura como
+  tanda, después de los dos de `238`.**
+- Encadenada con `238` (**la densidad aplicada a los nueve ficheros, y aquí los dos
+  denominadores y el segundo canal**), `237` (la densidad como medida y la cobertura como
   medida distinta), `175` (los 108 puntos y la distinción puntos/funciones),
   `174` (las tres formas de despacho), `173` (**los 75 manejadores, que son el canal 1 del
   entrenamiento del enlace**), `172` (la capa genérica y los bloques ausentes),
-  `167` (**las 149 escrituras de registro de `dce_stream_encoder.c` y las 10 máscaras, que
+  `234` (**las 149 escrituras de registro de `dce_stream_encoder.c` y las 10 máscaras, que
   son el canal 2**), `159` (los 52 constructores), `157` (el 58% del codificador de
-  stream), `156` (**la regla de la tabla y el constructor, y ahora los dos canales como
+  stream), `232` (**la regla de la tabla y el constructor, y ahora los dos canales como
   tabla**), `155`, `154`, `153`, `150`, `145`, `140`.
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 
@@ -266,8 +266,8 @@ driver: la primera dice cuántos ficheros compartidos hay que tocar, y la segund
 ficheros de chip hay que escribir.*
 
 **Y el error de la nota es la tercera repetición del mismo error de escala en tres notas, y
-esa repetición es el hallazgo de método:** *en `176` dividí llamadas por líneas y salió
-261%; en `177` un fichero de reenvío dio 121,6 por mil, que es un máximo sin significado;
+esa repetición es el hallazgo de método:** *en `237` dividí llamadas por líneas y salió
+261%; en `238` un fichero de reenvío dio 121,6 por mil, que es un máximo sin significado;
 aquí imprimí puntos por función multiplicados por mil y salió 1064,71.* **Las tres veces el
 programa calculó bien y la presentación estaba en la unidad equivocada.** **Y la regla que
 sale de las tres juntas es la más concreta de la tanda: antes de escribir un cociente,
@@ -275,7 +275,7 @@ preguntar qué valdría un uno, y si el uno no está en la escala, el cociente e
 presentado aunque el cálculo sea correcto.**
 
 **Y hay una observación sobre la secuencia, que es lo que ha producido este resultado:**
-*`176` inventó la densidad, `177` la aplicó a nueve ficheros, y `178` la aplicó con un
+*`237` inventó la densidad, `238` la aplicó a nueve ficheros, y `178` la aplicó con un
 segundo denominador.* **Ninguna de las tres notas sabía, al empezar, que
 iba a encontrar un canal que no se ve desde el otro.** *Es la razón por la que la regla de
 `166` —«releer es tan productivo como buscar»— se ha unido con la del denominador: un

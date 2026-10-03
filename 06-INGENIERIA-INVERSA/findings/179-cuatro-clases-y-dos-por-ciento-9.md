@@ -149,7 +149,7 @@ en un árbol y es de 24.361 líneas.**
 `LAS DOS` mezcla `dc/resource/` —la tabla de constructores, la parte más genérica del árbol— con `dc/dce/` —que es DCE 11.2 puro—, y ningún criterio de los tres que he medido
 separa lo que es código de esta GPU de lo que es infraestructura para veinte.** `NOT_DETERMINED`.
 
-**Y la forma de cerrarla ya se ha usado en `169` y es la que funciona: se sabe qué se
+**Y la forma de cerrarla ya se ha usado en `236` y es la que funciona: se sabe qué se
 instancia, no qué se puede instantiate.** *Para esta GPU se instancian `dce112`,
 `dce110_hwseq` y `dce110_clk_mgr`; el resto de las 42 subárboles son código muerto en esta
 placa, y no porque no se pueda compilar sino porque el constructor nunca los llama.*
@@ -202,11 +202,11 @@ placa, y no porque no se pueda compilar sino porque el constructor nunca los lla
   programa me para. **Las once líneas inventadas, en cambio, no hicieron caer nada: el
   programa las imprimió con confianza.**
 - Encadenada con `178` (**los dos canales, y aquí los dos canales sobre los 42
-  subárboles, que corrigen su separación en dos clases**), `177` (la densidad aplicada a
-  nueve ficheros), `176` (la densidad como medida), `175` (los 108 puntos),
+  subárboles, que corrigen su separación en dos clases**), `238` (la densidad aplicada a
+  nueve ficheros), `237` (la densidad como medida), `175` (los 108 puntos),
   `173` (los 75 manejadores y el intérprete de 119 operaciones), `172` (`dc/core/` y los
-  bloques ausentes), `169` (**qué se instancia y no qué se compila**), `167` (las 149
-  escrituras de `dce_stream_encoder.c`), `159` (los 52 constructores), `156` (la tabla de
+  bloques ausentes), `236` (**qué se instancia y no qué se compila**), `234` (las 149
+  escrituras de `dce_stream_encoder.c`), `159` (los 52 constructores), `232` (la tabla de
   swizzle), `155`, `154`, `153`, `150`, `145`, `140`.
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 

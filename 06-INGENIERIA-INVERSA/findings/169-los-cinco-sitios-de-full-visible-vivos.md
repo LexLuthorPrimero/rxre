@@ -8,7 +8,7 @@
 
 ## Cuestión principal
 
-`163` dejó esto escrito:
+`233` dejó esto escrito:
 
 > *`amdgpu_gmc_vram_full_visible` decide en cinco sitios distintos
 > (`amdgpu_cs.c:752,811,833`, `amdgpu_object.c:709`, `amdgpu_ttm.c:138`). Cuáles
@@ -173,7 +173,7 @@ veces.
   propio: ningún BO accesible desde CPU puede salirse de ahí.
 - **`BAR2 = 2 MiB` cierra el `MMIO_REMAP`**: es la apertura de registros, y su
   placement tiene `num_placement = 0` por construcción (`amdgpu_ttm.c:128-130`).
-- **La conexión con `156` se cierra por el otro lado**: `156` mostró que la ruta
+- **La conexión con `232` se cierra por el otro lado**: `232` mostró que la ruta
   del page table es SDMA; `169` muestra que la *razón* es que la CPU no puede
   ver la VRAM donde están esas tablas. Son la misma causa.
 - **Siguiente paso**: `amdgpu_res_cpu_visible()` aparece en cuatro de los cinco

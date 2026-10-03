@@ -2,7 +2,7 @@
 
 WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 
-> **CORREGIDO POR `113` y `114`.** La localizacion `Smio[5]` se obtiene restando 108 a
+> **CORREGIDO POR `218` y `219`.** La localizacion `Smio[5]` se obtiene restando 108 a
 > 1576 (`1468`), y ese hueco queda **REFUTADO**: `dpm_table_start` es la base literal.
 > Quedan **REFUTED** `SMC_RAW_WRITE_HITS_SMIO5` y
 > `SMC_RAW_WRITE_WRITES_INDEX_AS_BOOT_LEVEL`.
@@ -12,16 +12,16 @@ WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 > cae ahi.
 >
 > **Precision sobre el byte**: el ancla del parche de UVD es 1576, pero el byte que escribe
-> es el **3** de esa palabra, o sea **1579** (`114`). Y el parche de VCE escribe el byte 1
+> es el **3** de esa palabra, o sea **1579** (`219`). Y el parche de VCE escribe el byte 1
 > (1577), que si es donde esta `VceBootLevel`. Las dos mascaras son disjuntas: **no
 > colisionan**.
 
 ## Este documento corrige a 103, y la correccion es de fondo
 
-`103` afirmo que el parche de UVD reescribe **`BootVddc`**, el voltaje de arranque de la
+`210` afirmo que el parche de UVD reescribe **`BootVddc`**, el voltaje de arranque de la
 memoria. **El campo es otro: es `Smio[5]`**, una entrada del array de indices SMIO.
 
-El mecanismo de `103` sigue siendo correcto (el desfase de 108 bytes, la direccion mal
+El mecanismo de `210` sigue siendo correcto (el desfase de 108 bytes, la direccion mal
 calculada, el camino vivo). Lo que estaba mal era **a que campo apunta la direccion mal
 calculada**, y eso cambia el analisis por completo.
 
@@ -129,7 +129,7 @@ que el firmware haga con `Smio[5]` vale 2 o 3, es `SEMANTIC_MISSING`.
 
 ## Y los dos parches no se pisan entre si, contra lo que escribi en 103
 
-`103` decia que VCE "pisa lo mismo que UVD" porque escribian en el byte medio en vez del
+`210` decia que VCE "pisa lo mismo que UVD" porque escribian en el byte medio en vez del
 alto. **Es falso**, y lo verifique con las mascaras:
 
 | parche | mascara | conserva | escribe |
@@ -145,12 +145,12 @@ la misma transicion de ungate (que es lo que ocurre, `amd_powerplay.c:1230` UVD 
 VCE), el resultado es un DWORD con dos celdas de `Smio` modificadas por dos valores de
 nivel de arranque distintos.
 
-## Por que `103` se equivoco, y la regla
+## Por que `210` se equivoco, y la regla
 
 Mi calculo fue: `offsetof(UvdBootLevel) + 108 = 1684 = offsetof(BootVddc)`, y de ahi
 "el parche escribe en `BootVddc`".
 
-Ese es el **mismo error** que corregi a mano en `104`. La copia inicial coloca el campo del
+Ese es el **mismo error** que corregi a mano en `211`. La copia inicial coloca el campo del
 host en la posicion `offsetof + 108` **de la tabla**, lo que significa que la posicion
 `offsetof` **de la tabla** contiene el campo del host que esta en `offsetof - 108`.
 
@@ -166,7 +166,7 @@ Son el mismo numero en dos bases distintas, y por eso el primer calculo salia pl
 
 ## Lo que esto deja
 
-`103` queda con el mecanismo y **sin el campo**. `104` y `106` quedan con el analisis de
+`210` queda con el mecanismo y **sin el campo**. `211` y `213` quedan con el analisis de
 cobertura de escrituras, que es independiente de esto.
 
 Y aparece una limitacion de `smc_copy_scope` que ahora se ve desde dentro: la herramienta
@@ -183,9 +183,9 @@ siguiente trabajo natural.
 
 - `SMC_RAW_WRITE_HITS_SMIO5 = PROVEN_DERIVED`: posicion 1576 de la tabla = offset 1468 de
   la struct = `Smio` byte 20 = celda 5. **`PROVEN` el mecanismo, `DERIVED` el
-  desplazamiento, y contradice a `103`, que decia `BootVddc`.**
+  desplazamiento, y contradice a `210`, que decia `BootVddc`.**
 - `SMC_RAW_WRITE_HITS_NOT_BOOT_VDDC = PROVEN`: `BootVddc` esta en 1684, y el parche
-  escribe en la posicion 1576. `REFUTED` la afirmacion de `103`.
+  escribe en la posicion 1576. `REFUTED` la afirmacion de `210`.
 - `SMIO_IS_AN_INDEX_NOT_A_VOLTAGE = PROVEN`: `polaris10_smumgr.c:674-683`, con el
   comentario del propio driver en la linea 678.
 - `SMIO5_IS_NEVER_WRITTEN_BY_ANY_PRODUCER = PROVEN_DERIVED`:
@@ -196,7 +196,7 @@ siguiente trabajo natural.
   `SEMANTIC_MISSING`.
 - `SMC_TWO_RAW_WRITES_DO_NOT_CLOBBER = PROVEN`: `0x00FFFFFF` escribe byte 3 y
   `0xFF00FFFF` escribe byte 2; cada mascara preserva el byte de la otra. **Refuta** lo que
-  decia `103`.
+  decia `210`.
 - `SMC_TWO_RAW_WRITES_SHARE_A_DWORD = PROVEN_DERIVED`: `1577 / 4 * 4 = 1576`, y UVD ya
   alineaba a 1576.
 - `RAW_WRITE_COUNT_IS_LARGE = PROVEN`: 16 en `polaris10_smumgr.c`; y la clase existe en

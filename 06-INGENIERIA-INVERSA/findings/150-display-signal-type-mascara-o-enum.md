@@ -223,7 +223,7 @@ DisplayPort o LVDS.
   resultado que no se publica también es un resultado.**
 - Encadenada con `149` (la frontera DM→DC, y el campo `link_type` que inventé),
   `148` (dos correcciones propias), `147` (los 89 de 130 campos y el reloj de canal
-  ausente), `144` (el otro extremo del objetivo: la entrada), `140` (el mapa de
+  ausente), `231` (el otro extremo del objetivo: la entrada), `140` (el mapa de
   direcciones).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 

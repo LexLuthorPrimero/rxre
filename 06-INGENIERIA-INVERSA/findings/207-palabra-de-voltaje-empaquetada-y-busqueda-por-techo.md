@@ -4,7 +4,7 @@ WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 
 ## Antes de nada: este camino se ejecuta en Polaris12
 
-Por lo que enseño `091`, se comprueba antes de afirmar nada.
+Por lo que enseño `206`, se comprueba antes de afirmar nada.
 
 `polaris10_get_dependency_volt_by_clk` esta definida en `polaris10_smumgr.c:353` y se
 llama desde las tres funciones de relleno de nivel de la ruta Polaris10:

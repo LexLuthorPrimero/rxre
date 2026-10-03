@@ -273,7 +273,7 @@ monitor.**
 - **Dos errores propios, y los dos los cazó el programa antes de escribirlos.**
   (1) Escribí en la salida del programa «el orden real es tasa-primero» cuando el
   mismo programa había impreso `¿ORDEN TASA-DESCENDENTE?: NO`: afirmé un veredicto sin
-  mirar el booleano que tenía delante, **la misma forma del error de `156` y en la
+  mirar el booleano que tenía delante, **la misma forma del error de `232` y en la
   misma nota**. (2) Casi escribo `PROVEN_ABSENT` sobre `get_max_link_cap` en la
   familia DCE porque un `grep` de `LINK_RATE` en el fichero esperado volvió vacío:
   **el fichero no se llama como yo suponía** —está en `dc/dce/dce_link_encoder.c`, no
@@ -281,18 +281,18 @@ monitor.**
 - Encadenada con `159` (**código propio de DCE 11.2: 52 funciones, y aquí dos de ellas
   son estos dos bits de capacidad**), `158` (la completitud es del par
   `struct`/tabla, y aquí 72% en una tercera tabla), `157` (el patrón `if (funcs->X)`,
-  tercera confirmación), `156` (la regla de la tabla y el constructor, aplicada a un
+  tercera confirmación), `232` (la regla de la tabla y el constructor, aplicada a un
   cuarto objeto), `155` (DCE 11.2), `154` (la señal que se decide antes de todo esto),
   `153` (los siete caminos del firmware).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 
 ## Nota de método
 
-**El segundo error de esta nota es una repetición exacta del primero de `156`, en la
+**El segundo error de esta nota es una repetición exacta del primero de `232`, en la
 misma forma y a dos semanas de distancia: yo afirmo un veredicto que el programa acaba
 de refutar, sin leer el booleano que tengo delante.**
 
-*En `156`:* el programa imprimió `paso constante: False` y yo escribí «paso constante
+*En `232`:* el programa imprimió `paso constante: False` y yo escribí «paso constante
 de 1 KiB». *Aquí:* el programa imprimió `¿ORDEN TASA-DESCENDENTE?: NO` y yo escribí,
 en la línea siguiente, que el orden era tasa-descendente. **En los dos casos el
 programa llevaba la corrección en la línea anterior a la que yo estaba escribiendo, y

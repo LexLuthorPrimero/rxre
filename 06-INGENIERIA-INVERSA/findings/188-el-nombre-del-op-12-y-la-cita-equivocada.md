@@ -137,7 +137,7 @@ Sin esto, la tabla anterior sólo dice qué hacen seis ficheros, no cuál import
 POLARIS12 toma un `case` explícito que llama a `vi_set_ip_blocks()`. El
 `default:` —que es quien llamaría a `amdgpu_discovery_set_ip_blocks()`, el que
 selecciona `sdma_v4_0_ip_block` para `SDMA0_HWIP` 4.x— no se alcanza. La cadena
-por líneas idénticas está verificada en `findings/115`–`120`.
+por líneas idénticas está verificada en `findings/115`–`224`.
 
 El comentario anterior del driver describía esto como «el `default:` del switch en
 `amdgpu_device.c:2145`». La línea 2145 es la **llamada** `vi_set_ip_blocks`, no el
@@ -175,7 +175,7 @@ y la cita correctos; el valor sigue siendo 12, la cabecera sigue siendo
 
 Sigue sin establecerse que este paquete escriba una tabla de páginas en el
 RX 550. Es el productor **PROVEN** en cuanto a qué fichero y qué convención
-reproduce (`findings/043`, `findings/115`–`120`), y **`NOT_PROVEN`** en cuanto a
+reproduce (`findings/043`, `findings/115`–`224`), y **`NOT_PROVEN`** en cuanto a
 su efecto. `insmod` es NIVEL 4 y sigue pendiente de autorización
 (`AGENTS.md` 76-82).
 

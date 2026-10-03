@@ -123,7 +123,7 @@ puede esconder un numero de linea falso:
 
 - `gfx_v8_0.c:1535-1564` contiene `SET_SH_REG` + `mmCOMPUTE_PGM_LO` +
   `DISPATCH_DIRECT`. **El rango es correcto.**
-- `112` afirma que ese fichero "no toca el page walker": `walk_` = 0,
+- `217` afirma que ese fichero "no toca el page walker": `walk_` = 0,
   `page_table` = 0, `GTT` = 0 en 7206 lineas. **La afirmacion es correcta.**
 
 El unico defecto era el nombre. Y el mecanismo del error es una **asimetria de

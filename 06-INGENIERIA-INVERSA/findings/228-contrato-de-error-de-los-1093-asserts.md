@@ -2,7 +2,7 @@
 
 WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 
-**Barrido sistematico del patron de `227` (antes `125`), con una herramienta nueva. Cierra con una
+**Barrido sistematico del patron de `227` (antes `227`), con una herramienta nueva. Cierra con una
 RETRACCION: `122` tenia razon y la correccion que yo iba a publicar era el error.**
 
 ## La herramienta
@@ -28,9 +28,9 @@ formas, y solo una detiene:
 
 **1093 ocurrencias en el arbol de powerplay.**
 
-### El dato que reencuadra `227` (antes `125`)
+### El dato que reencuadra `227` (antes `227`)
 
-**El arbol ABORTA en el 84,9 % de los casos.** `227` (antes `125`) dokumenento una secuencia que acumula
+**El arbol ABORTA en el 84,9 % de los casos.** `227` (antes `227`) dokumenento una secuencia que acumula
 fallos y devuelve 0; mediendolo, eso es **la excepcion, no la norma**.
 
 De las 16 funciones que contienen `REGISTRA_Y_SIGUE`, **solo 4 terminan en `return 0`
@@ -41,9 +41,9 @@ literal**. Y **3 de esas 4 estan en `vega10_hwmgr.c`, que no es mi familia.**
   `vega10_get_evv_voltages`, `vega10_apply_state_adjust_rules`.
 - `LA_UNICA_EN_MI_ARBOL = PROVEN`: `smu7_enable_dpm_tasks` (`smu7_hwmgr.c:1566`).
 
-## Correccion a `227` (antes `125`): 22 escritores, 1 lector, 15 escrituras despues del lector
+## Correccion a `227` (antes `227`): 22 escritores, 1 lector, 15 escrituras despues del lector
 
-`227` (antes `125`) dijo "quince pasos" y "cada fallo se registra y la ejecucion continua". **Las dos
+`227` (antes `227`) dijo "quince pasos" y "cada fallo se registra y la ejecucion continua". **Las dos
 cosas eran incorrectas, y el error fue mio por leer un trozo.**
 
 Mi `awk` empezaba en `:1616` en vez de en el inicio de la funcion, asi que **no vi los 7
@@ -76,7 +76,7 @@ Y el aborte de `:1619` **es inerte en su otra mitad**: `:1618` llama a
 `smu7_setup_default_dpm_tables`, que **devuelve 0 incondicionalmente** en `:1087`. O sea
 que `:1619` solo puede dispararse por los 7 pasos anteriores.
 
-**Esto REFUERZA la conclusion de `227` (antes `125`) sobre el indice negativo.** La cadena exigia que
+**Esto REFUERZA la conclusion de `227` (antes `227`) sobre el indice negativo.** La cadena exigia que
 `smu7_setup_default_dpm_tables` dejara `count == 0` y aun asi devolviera exito: exactamente
 lo que hace, porque `:1068` descarta el retorno interno y `:1087` devuelve 0.
 
@@ -112,7 +112,7 @@ pasar»: un `return -EINVAL`Convertido en un aviso. Y `pr_warn_ratelimited` lo l
 
 | linea | aviso | que pasa despues |
 |---|---|---|
-| `:445` | `usTargetOperatingTemp <= 255` | inerte, y `118` demostro que no dispara (`93 <= 255`) |
+| `:445` | `usTargetOperatingTemp <= 255` | inerte, y `222` demostro que no dispara (`93 <= 255`) |
 | `:1297` | `Cannot find ACPI VDDC voltage value` | **`:1302` sobrescribe `result` sin comprobarlo** |
 | `:1332` | `Cannot find ACPI VDDCI voltage value` | igual que `:1297` |
 | `:1729` | `VDDC should be on SVI2 control` | nada, ver arriba |
@@ -156,7 +156,7 @@ PP_ASSERT_WITH_CODE(cond, "msg", r = -EINVAL; goto failed);
 Mi clasificador miraba **la primera sentencia** del argumento, veia una asignacion, y
 concluia «registra y sigue». **El `goto` va detras y ABORTA.** Es
 `PARTIAL_READ_AS_COMPLETE` aplicado a un argumento multi-sentencia, y fue el mismo error que
-me hizo perder los 7 asserts de `227` (antes `125`).
+me hizo perder los 7 asserts de `227` (antes `227`).
 
 Corregido: `clasifica` parte el argumento en sentencias (respetando los `;` de un `for`) y
 **gana la que mas flujo cambia** — `SALTA` sobre `REGISTRA`, `ABORTA` sobre todo. El cambio
@@ -273,7 +273,7 @@ no pasa nada: exactamente `PR_WARN_PURO` en el efecto.
    escrituras y leer una en el medio pierde 15 silenciosamente. Si se acumula, se lee al
    salir.
 4. **Sobrescribir `result` sin comprobar el anterior rompe el contrato entero.** Es el
-   `110` de nuevo: dos propietarios de la misma variable en el mismo bloque.
+   `215` de nuevo: dos propietarios de la misma variable en el mismo bloque.
 5. **Los avisos de arranque no se limitan por frecuencia.** Si hay que diagnosticar un
    fallo de arranque, `pr_warn_ratelimited` es lo contrario de lo que se quiere.
 6. **Y una transicion de estado que puede fallar debe deshacer lo que ya hizo.** `:2411`

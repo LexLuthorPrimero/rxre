@@ -2,7 +2,7 @@
 
 WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 
-CORROBORA Y CIERRA LA PROCEDENCIA DE `115` Y `116` · USA OBSERVACIONES DE `revkit/capturas/`
+CORROBORA Y CIERRA LA PROCEDENCIA DE `115` Y `220` · USA OBSERVACIONES DE `revkit/capturas/`
 (ficheros de otro agente, **no modificados**)
 
 ## El resultado, en una linea
@@ -103,7 +103,7 @@ ucode_version           @ 14      <-- el equivocado
 
 **La diferencia es de 2 bytes**, y da `ucode_version` en un sitio que no es el suyo. Un
 error de 2 bytes no produce basura visible: produce un numero plausible. Es el mismo
-peligro que el desfase de 108 de `104`, pero en una dimension mas pequena y **por eso mas
+peligro que el desfase de 108 de `211`, pero en una dimension mas pequena y **por eso mas
 peligroso**, porque un error de 108 se nota y uno de 2 no.
 
 **Y el caso que de verdad importa**: el header del blob declara `header_size_bytes = 36`.
@@ -170,7 +170,7 @@ Ese es el motivo por el que, en esta sesion, casi todos los hallazgos buenos sal
 - `HEADER_SIZE_BYTES_SELLS_THE_LAYOUT = PROVEN_DERIVED`: el blob declara 36;
   `sizeof(smc_firmware_header_v1_0)` = 36 **solo** con el layout correcto. Validacion sin
   gcc, disponible desde el propio fichero.
-- `115_116_OFFSETS_ARE_CORRECT = PROVEN`: los offsets de `115` (blob) y `116` (VBIOS) se
+- `115_116_OFFSETS_ARE_CORRECT = PROVEN`: los offsets de `115` (blob) y `220` (VBIOS) se
   sostienen tras la revision. **No habia que corregirlos.**
 - `CORPUS_IS_PHYSICALLY_ANCHORED_TO_THIS_GPU = PROVEN_DERIVED`: los tres artefactos
   (SMC, SDMA, VBIOS) son los de `dev=0000:01:00.0` en esta maquina.
@@ -196,5 +196,5 @@ Ese es el motivo por el que, en esta sesion, casi todos los hallazgos buenos sal
    el offset no.
 3. Y para mi propia sesion, que es lo mas util: **todo hallazgo mio que se haya derivado
    de leer un solo sitio tiene que marcarse como "no cruzado"** hasta que tenga una segunda
-   medida. He hecho eso en `104` con el hueco de 108: era un error de 108 B, que se veia.
+   medida. He hecho eso en `211` con el hueco de 108: era un error de 108 B, que se veia.
    Los que no se ven son los de 2 y 4 bytes.

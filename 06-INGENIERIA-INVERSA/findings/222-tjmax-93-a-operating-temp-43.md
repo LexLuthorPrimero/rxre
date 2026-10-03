@@ -2,12 +2,12 @@
 
 WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 
-COMPLETA `116` · USA EL VBIOS REAL DE `revkit/capturas/` · corrige un error mio de esta misma
+COMPLETA `220` · USA EL VBIOS REAL DE `revkit/capturas/` · corrige un error mio de esta misma
 tanda
 
 ## La cadena, de punta a punta
 
-Con los offsets ya medidos en `116` (`usTjMax` @ 17, `usEDCLimit` @ 21), leo el VBIOS real:
+Con los offsets ya medidos en `220` (`usTjMax` @ 17, `usEDCLimit` @ 21), leo el VBIOS real:
 
 ```
 ATOM_Polaris_PowerTune_Table @ 0x9EAB   (pack(1), sizeof = 53)
@@ -74,7 +74,7 @@ Lo que **si** se puede afirmar sin especular: **la magnitud de `usOperatingTempM
 exactamente `usTjMax - 50`, y el resultado (43) se usa como "limite maximo de temperatura
 operativa"** sin ninguna comprobacion de que 43 sea una temperatura coherente con 93.
 
-Y hay una comprobacion que **si** es coherente: `116` leyo del mismo VBIOS
+Y hay una comprobacion que **si** es coherente: `220` leyo del mismo VBIOS
 `usTemperatureLimitHotspot = 80` y `usSoftwareShutdownTemp = 97`. Con
 `usDefaultTargetOperatingTemp = 93` y su derivado 43, **los cuatro limites quedan**:
 hotspot 80 < TjMax 93, shutdown 97, target 93, max-operativo 43. **El 43 es el unico que

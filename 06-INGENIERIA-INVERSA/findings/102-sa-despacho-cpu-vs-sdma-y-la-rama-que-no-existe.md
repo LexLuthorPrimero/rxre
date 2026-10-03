@@ -82,7 +82,7 @@ amdgpu_vm.c:2638       vm->update_funcs = &amdgpu_vm_sdma_funcs;
 crear la VM. Después, cada actualización va por la tabla que se haya elegido. Es
 un despacho de dos, no una decisión por operación.
 
-Eso confirma y precisa lo que `085`/`074` tenían: el camino de CPU existe
+Eso confirma y precisa lo que `194`/`074` tenían: el camino de CPU existe
 (`amdgpu_vm_cpu_funcs`) y es real, pero **en esta ruta no se instancia**.
 
 ## La cadena completa, evaluada con valores observados
@@ -173,7 +173,7 @@ probable, pero no lo he comprobado.
 - `STATIC` — `amdgpu_vm.c:2618-2648` y `:2728-2750` y `:2881-2899`,
   `amdgpu_gmc.h:386-399`, `amdgpu_drv.c:457-463`.
 - Sin MMIO write, sin TLB, sin módulos, sin cambiar parámetros.
-- Encadenada con `086` (BAR 256 MiB / VRAM 2048 MiB), `074` y `085` (el camino de
+- Encadenada con `086` (BAR 256 MiB / VRAM 2048 MiB), `074` y `194` (el camino de
   CPU que queda fuera de ruta), `087` (GMC 8.1).
 - Precisa el estado que `AGENTS.md` ya tenía; no lo contradice.
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`: son de otras sesiones.

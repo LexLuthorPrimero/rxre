@@ -9,7 +9,7 @@ RUNTIME=NOT_RUN · GPU INTACTA
 
 ## Qué resuelve
 
-`128` dejó dos preguntas juntas. Esta nota las separa y cierra la que es software:
+`229` dejó dos preguntas juntas. Esta nota las separa y cierra la que es software:
 
 > **¿`PDE_CACHE_EFFECTIVE_SIZE` y `L2_CACHE_BIGK_FRAGMENT_SIZE` son el mismo
 > parámetro con dos nombres, o dos granularidades distintas?**
@@ -144,7 +144,7 @@ segunda no se separa por software: ambos mecanismos explican el flush obligatori
 de `amdgpu_vm.c:1157` y ambos son compatibles con todo lo medido.
 
 **Y la penúltima no es hardWARE con placa: es un `RREG32` de `0x501`, el mismo
-observable que `128` dejó escrito para tres filas.** Sigue siendo el más rentable.
+observable que `229` dejó escrito para tres filas.** Sigue siendo el más rentable.
 
 ## Procedencia
 
@@ -156,9 +156,9 @@ observable que `128` dejó escrito para tres filas.** Sigue siendo el más renta
 - `OBSERVED` -- `"2 levels, block size is 10-bit, fragment size is 9"`, del log de
   arranque, de sesión anterior.
 - Sin MMIO write, sin lectura de MMIO, sin TLB, sin módulos, sin debugfs.
-- Encadenada con `127` (la caché L2 de fragmentos), `128` (los dos mecanismos de
-  invalidate y los cinco campos sin escribir), `124`/`126` (la coherencia),
-  `085` (el flush obligatorio), `103`/`104`/`106`.
+- Encadenada con `127` (la caché L2 de fragmentos), `229` (los dos mecanismos de
+  invalidate y los cinco campos sin escribir), `226`/`228` (la coherencia),
+  `194` (el flush obligatorio), `210`/`211`/`213`.
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`. No se editó ningún header.
 
 ## Nota de método
@@ -176,5 +176,5 @@ significado fue ver que el discriminante es `translate_further`, y que
  sale de leer la rama que no correspondía a esta GPU, que es la twelfth.
 
 *La rama del `else` de un chip que no es el mío, leída para entender el `if`,
-aporta más que el `if` mismo.* Y en `126` pasó igual: leí `AMDGPU_IB_POOL_DELAYED`
+aporta más que el `if` mismo.* Y en `228` pasó igual: leí `AMDGPU_IB_POOL_DELAYED`
 —que no usa esta GPU— y por eso entendí qué significaba `IMMEDIATE`.

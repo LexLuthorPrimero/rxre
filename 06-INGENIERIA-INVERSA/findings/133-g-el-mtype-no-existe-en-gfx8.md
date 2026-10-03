@@ -122,7 +122,7 @@ controlable— es lo que obliga al flush en esta generación.** `CORROBORATED`, 
 amdgpu_gart.c:270-271   amdgpu_bo_create_kernel(..., AMDGPU_GEM_DOMAIN_VRAM, &adev->gart.bo, ...)
 ```
 
-**La tabla de traducción del GART es un BO en VRAM.** Y `116` y `127` ya
+**La tabla de traducción del GART es un BO en VRAM.** Y `220` y `127` ya
 un BAR de 256 MiB y 2 GiB de VRAM, el GART no cabe en el BAR y va a VRAM.
 
 **Consecuencia para §G que nadie había dicho en voz alta:** el page walker del GART
@@ -161,8 +161,8 @@ PCIe".**
   `gmc_v11_0.c:737`, `gmc_v12_0.c:799`.
 - Sin MMIO write, sin lectura de MMIO, sin TLB, sin módulos, sin debugfs.
 - Encadenada con `132` (los flags y el TODO), `130` (el L1 guarda un PTE por
-  fragmento), `127`/`129` (la caché de fragmentos), `116` (BAR 256 MiB, VRAM),
-  `115`/`104` (VMID 0 = kernel, GART).
+  fragmento), `127`/`129` (la caché de fragmentos), `220` (BAR 256 MiB, VRAM),
+  `115`/`211` (VMID 0 = kernel, GART).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 
 ## Nota de método

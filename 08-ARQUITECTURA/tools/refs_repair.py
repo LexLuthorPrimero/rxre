@@ -72,6 +72,18 @@ def mi_fichero_por_num(num, filas):
     return None
 
 
+def _candidatos(filas, ambito):
+    """(num, fichero) que el ambito pedido decide mirar. Sin leer nada."""
+    if ambito == "todos":
+        return [(f["num"], f["fichero"]) for f in filas]
+    out = []
+    for num in MIS_NUMEROS:
+        nombre = mi_fichero_por_num(num, filas)
+        if nombre:
+            out.append((num, nombre))
+    return out
+
+
 def plan(filas, rev, ambito="mios"):
     """(fichero, num, [(linea, viejo, nuevo)]) para el ambito pedido.
 
@@ -94,14 +106,7 @@ def plan(filas, rev, ambito="mios"):
     """
     viejos = {x["viejo"]: x["nuevo"] for x in rev if x.get("reasignado")}
     out = []
-    if ambito == "todos":
-        candidatos = [(f["num"], f["fichero"]) for f in filas]
-    else:
-        candidatos = []
-        for num in MIS_NUMEROS:
-            nombre = mi_fichero_por_num(num, filas)
-            if nombre:
-                candidatos.append((num, nombre))
+    candidatos = _candidatos(filas, ambito)
     for num, nombre in candidatos:
         ruta = os.path.join(FIND, nombre)
         if not os.path.exists(ruta):
@@ -177,6 +182,17 @@ def ambito_todos_pretende_todo(filas):
     cubriese todos, este control pasaria a ser vacuo tambien, y conviene que se
     note antes de que deje de comprobar nada."""
     return len({f["fichero"] for f in filas}) > len(MIS_NUMEROS)
+
+
+def _ficheros_visitados(filas, rev, ambito):
+    """Cuantos ficheros ABRE `plan()` con ese ambito, tenga o no cambios.
+
+    Es lo que hay que comparar para comprobar el cableado de `--ambito`: el
+    numero de ficheros con cambios cae a cero en cuanto la reparacion se aplica,
+    y un check armado sobre el no dice la verdad cuando ya no queda nada.
+    """
+    return len({(num, nombre) for num, nombre in _candidatos(filas, ambito)
+                if os.path.exists(os.path.join(FIND, nombre))})
 
 
 def _contar_a_mano(filas, rev):
@@ -305,8 +321,22 @@ def self_test():
     #    comparacion `algo < 0` no puede llegar a ser cierta. Un control que no
     #    puede fallar no es un control, y este llevaba la etiqueta de uno.
     #
-    #    Lo que si discrimina es el CONJUNTO: `todos` debe contener
-    #    estrictamente los ficheros de `mios`, y alguno mas.
+    #    Lo que si discrimina es el CONJUNTO, y el conjunto que se compara NO
+    #    puede depender de que quede algo por reparar.
+    #
+    #    Aqui hay una trampa que solo se ve despues de usar la herramienta: el
+    #    control se escribio sobre `plan()`, y `plan()` devuelve ficheros SOLO si
+    #    tienen alguna referencia colgando. En cuanto la reparacion se aplico,
+    #    `plan()` devuelve vacio, los dos conjuntos son vacios, "son iguales" y el
+    #    check dispara apesar de que el parametro este cableado bien.
+    #
+    #    Es el mismo error que el anterior, una generacion mas abajo: un control
+    #    de la INFRAESTRUCTURA armado sobre el ESTADO. El estado cambia cuando la
+    #    herramienta hace su trabajo, y entonces el control dice que se rompió.
+    #
+    #    Ahora el conjunto se construye del lado del Cableado: se compara el
+    #    numero de FICHEROS que cada ambito visita, que no depende de si queda
+    #    nada por arreglar.
     rev2 = reenvios_estable()
     p_mios = plan(filas, rev2, "mios")
     p_todos = plan(filas, rev2, "todos")
@@ -315,10 +345,16 @@ def self_test():
     if not f_mios <= f_todos:
         fails.append("--ambito todos pierde ficheros que --ambito mios ve: %s"
                      % sorted(f_mios - f_todos)[:4])
-    if ambito_todos_pretende_todo(filas) and f_todos == f_mios:
-        fails.append("--ambito todos ve EXACTAMENTE lo mismo que --ambito mios "
-                     "(%d ficheros): el parametro no esta cableado al conjunto"
-                     % len(f_mios))
+    n_visitados_mios = _ficheros_visitados(filas, rev2, "mios")
+    n_visitados_todos = _ficheros_visitados(filas, rev2, "todos")
+    if n_visitados_todos <= n_visitados_mios:
+        fails.append("--ambito todos visita %d ficheros y --ambito mios %d: "
+                     "el parametro no amplia el conjunto"
+                     % (n_visitados_todos, n_visitados_mios))
+    if n_visitados_todos != len(filas):
+        fails.append("--ambito todos visita %d de los %d hallazgos del "
+                     "corpus: el ambito no es 'todos'"
+                     % (n_visitados_todos, len(filas)))
 
     # 6. LOS DOS CONTADORES TIENEN QUE COINCIDIR. `refs_colgadas()` cuenta lo
     #    que esta mal en el corpus; `plan()` calcula lo que esta herramienta puede
@@ -332,10 +368,11 @@ def self_test():
         fails.append("descuadre entre lo que se cuenta y lo que se repara: "
                      "refs_colgadas()=%d  plan()=%d  (difieren en %d)"
                      % (n_colgadas, n_plan, abs(n_colgadas - n_plan)))
-    if n_plan == 0:
-        fails.append("plan() no encuentra NADA que reparar. Con el mapa presente "
-                     "eso solo puede significar que la deteccion esta rota: una "
-                     "herramienta que no ve el problema no es una herramienta")
+    if n_plan == 0 and _ficheros_visitados(filas, rev2, "todos") != len(filas):
+        fails.append("plan() no encuentra NADA que reparar pero el mapa esta "
+                     "presente y el corpus tiene %d hallazgos: la deteccion esta "
+                     "rota. Una herramienta que no ve el problema no es una "
+                     "herramienta" % len(filas))
 
     # CONTRASTE INDEPENDIENTE: contar a mano, sin pasar por ni por plan() ni por
     # refs_colgadas(). Comparar dos funciones que comparten el mismo filtro no

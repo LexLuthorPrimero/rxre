@@ -68,7 +68,7 @@ gmc_v8_0.c:858   ENABLE_DEFAULT_PAGE_OUT_TO_SYSTEM_MEMORY    = 1        <<<
 modo de los dos niveles, y esta GPU lo tiene activo en los dos.**
 
 **`ENABLE_L2_PDE0_CACHE_LRU_UPDATE_BY_WRITE = 1`** — **una escritura actualiza el
-LRU de la caché de PDE0 de la L2.** Éste es el que cierra la pregunta de `128`
+LRU de la caché de PDE0 de la L2.** Éste es el que cierra la pregunta de `229`
 sobre `PDE_CACHE_EFFECTIVE_SIZE`: **sí hay una caché de PDE0, y las escrituras la
 tocan.** Es decir: escribir una page table ** mete** la entrada nueva en la caché de
 PDE0, y la única forma de hacer visible una entrada *distinta* del mismo fragmento
@@ -76,7 +76,7 @@ es invalidar. **Ahí está el requisito de coherencia, enunciado por un bit que 
 driver pone.**
 
 **`CONTEXT1_IDENTITY_ACCESS_MODE = 1`** — el contexto 1, que es el primer VMID de
-userspace, accede en modo identidad. **Y `104` establece que el VMID 0 es el espacio
+userspace, accede en modo identidad. **Y `211` establece que el VMID 0 es el espacio
 del kernel y los 1-15 de userspace.** Así que el driver configura el modo de acceso
 del primer VMID de usuario explícitamente, y deja el 0 fuera.
 
@@ -92,7 +92,7 @@ gmc_v8_0.c:873   mmVM_L2_CNTL4.VMC_TAP_CONTEXT0_PDE_REQUEST_PHYSICAL = 0   127
 gmc_v8_0.c:874   mmVM_L2_CNTL4.VMC_TAP_CONTEXT0_PDE_REQUEST_SHARED   = 0   127
 ```
 
-**Los cinco registros del bloque de lectura que `128` y `131` propusieron quedan
+**Los cinco registros del bloque de lectura que `229` y `131` propusieron quedan
 aquí, con su función deutenido: `0x501` y `0x502` y `0x534` los escribe esta función,
 `0x500` es `mmVM_L2_CNTL`, y `mmMC_VM_MX_L1_TLB_CNTL` es el sexto.**
 
@@ -132,7 +132,7 @@ configurar el fragment size de `L869`, y antes de nada que use la traducción.
 | Los valores reales tras el reset | **`NOT_PROVEN`** — los `RREG32` |
 
 **Las dos primeras `NOT_DETERMINED` son las que más valen, y las dos se resuelven
-con los mismos `RREG32` de `128`/`131`:** `mmMC_VM_MX_L1_TLB_CNTL` y `mmVM_L2_CNTL`
+con los mismos `RREG32` de `229`/`131`:** `mmMC_VM_MX_L1_TLB_CNTL` y `mmVM_L2_CNTL`
 sumados a `0x501` y `0x534`. **Son cuatro registros del bloque de GMC, y el bloque
 entero cabe en una lectura de 64 bytes si se lee seguido.**
 
@@ -149,17 +149,17 @@ y se hace una vez.** Eso la convierte en una constante, no en una política.
 - Sin MMIO write, sin lectura de MMIO, sin TLB, sin módulos, sin debugfs.
 - Encadenada con `136` (la cadena de coherencia), `133` (el MTYPE),
   `132` (los flags y la geometría), `130` (el L1 guarda un PTE por fragmento),
-  `129` (la granularidad), `128` (los mecanismos de invalidate), `127` (la caché L2),
-  `131` (PRT), `116` (BAR 256 MiB), `104` (VMID 0 = kernel), `085` (el flush
+  `129` (la granularidad), `229` (los mecanismos de invalidate), `127` (la caché L2),
+  `131` (PRT), `220` (BAR 256 MiB), `211` (VMID 0 = kernel), `194` (el flush
   obligatorio).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 
 ## Nota de método
 
-**Leí `gmc_v8_0.c:858-874` en `127` y `128`, y salté de `L858` a `L860`.**
+**Leí `gmc_v8_0.c:858-874` en `127` y `229`, y salté de `L858` a `L860`.**
 
 Estaba justo debajo. `L829-857` son veintinueve líneas con **cinco registros de
-control de TLB y L2**, y yo fui a buscar `VM_L2_CNTL3` porque `128` me había
+control de TLB y L2**, y yo fui a buscar `VM_L2_CNTL3` porque `229` me había
 apuntado que nadie lo escribía.
 
 **La razón: entrée por el símbolo que me interesa y leo el barrioImmediate.** Pero

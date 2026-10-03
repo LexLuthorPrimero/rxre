@@ -2,8 +2,8 @@
 
 WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 
-CIERRA el `NOT_DETERMINED` de `224` (antes `120`) (stride del registro MCLK) · da sentido a los "8 y 4"
-de `099` · segunda parte del hilo de VBIOS que empezo en `116`
+CIERRA el `NOT_DETERMINED` de `224` (antes `224`) (stride del registro MCLK) · da sentido a los "8 y 4"
+de `099` · segunda parte del hilo de VBIOS que empezo en `220`
 
 ## La tabla completa
 
@@ -52,7 +52,7 @@ tabla MM dep declarada en 0x9DB8                                   COINCIDE
 cualquiera de los dos strides lo romperia. **El ROM se autovalidan dos veces, y con dos
 structs distintas.**
 
-Ese fue el error que dejo `NOT_DETERMINED` en `224` (antes `120`): lei la tabla MCLK con el stride del
+Ese fue el error que dejo `NOT_DETERMINED` en `224` (antes `224`): lei la tabla MCLK con el stride del
 registro **SCLK** (15 en vez de 13) y salieron valores absurdos (65536000, 4096001000). La
 causa es que **son dos registros distintos**:
 
@@ -95,9 +95,9 @@ SMC.
 **Esto NO resuelve `099`** (su afirmacion es sobre el codigo, y sigue igual), pero **si le da
 el significado numerico que le faltaba**: 8 y 4 son las capacidades, no conteos leidos.
 
-## Y cierra el borde de `224` (antes `120`)
+## Y cierra el borde de `224` (antes `224`)
 
-`224` (antes `120`) dejo esto: la tabla SCLK del VBIOS declara 8, la cota es 8, y **el margen es cero**.
+`224` (antes `224`) dejo esto: la tabla SCLK del VBIOS declara 8, la cota es 8, y **el margen es cero**.
 
 Con la tabla completa se ve **por que el borde existe y por que es justo**:
 
@@ -108,7 +108,7 @@ O sea: **el formato y el host estan exactamente emparejados, sin holgura, por co
 Un check `>= 1` sobre dos cantidades que estanizadas a proposito es un check que **solo
 puede fallar si el VBIOS se sale del rango que el propio diseno fija**.
 
-**Eso convierte el borde de `224` (antes `120`) de "riesgo teorico" en "riesgo de cambio de formato":** si
+**Eso convierte el borde de `224` (antes `224`) de "riesgo teorico" en "riesgo de cambio de formato":** si
 alguien anade un noveno estado de graficos al PPT (que es una mejora razonable), **el driver
 existente se sale del array sin avisar.**
 
@@ -117,7 +117,7 @@ existente se sale del array sin avisar.**
 - `SCLK_RECORD_SIZE_IS_15 = PROVEN_DERIVED`: gcc con `pack(1)`, y la tabla MCLK empieza en
   `0x9D15 + 2 + 8*15` exactamente.
 - `MCLK_RECORD_SIZE_IS_13 = PROVEN_DERIVED`: gcc con `pack(1)`, y la tabla MM dependency
-  empieza en `0x9D8F + 2 + 3*13` exactamente. **CIERRA** el `NOT_DETERMINED` de `224` (antes `120`).
+  empieza en `0x9D8F + 2 + 3*13` exactamente. **CIERRA** el `NOT_DETERMINED` de `224` (antes `224`).
 - `NO_POLARIS_SPECIFIC_MCLK_RECORD_EXISTS = PROVEN_ABSENT`: solo hay
   `ATOM_Tonga_MCLK_Dependency_Record`. Buscado por nombre exacto.
 - `DPM_CLOCK_UNITS_ARE_10_KHZ = PROVEN_DERIVED`: **tres** valores coinciden con la lectura
@@ -133,7 +133,7 @@ existente se sale del array sin avisar.**
 - `DPM_CLOCK_BOUNDARY_IS_A_FORMAT_CHANGE_RISK = PROVEN_DERIVED`: anadir un noveno estado al
   PPT desbordaria `dpm_levels[8]` sin que ningun check lo note.
 - `RECORD_SIZE_ERROR_MODE = PROVEN_DERIVED`: leer una tabla con el stride del otro registro
-  da valores absurdos pero **no un fallo visible**. Es la causa de los tres errores de `116`
+  da valores absurdos pero **no un fallo visible**. Es la causa de los tres errores de `220`
   y de este.
 
 ## Lo que esto obliga a hacer en un driver propio

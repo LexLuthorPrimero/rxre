@@ -166,10 +166,10 @@ hace falta porque el valor ya está en un log de esta sesión.*
   nota se han comparado después de escribir la nota, y **la comparación encontró un error
   mío que el programa ya había detectado en la salida** — ver §4.
 - Encadenada con `199` (§F, la base de VRAM y `max_mc_address`, y sus dos correcciones),
-  `198`/`190` (las tres correcciones de la poda), `189`, `188`, `187`, `185`, `184`, `181`,
+  `198`/`198` (las tres correcciones de la poda), `241`, `240`, `187`, `239`, `184`, `181`,
   `164` (**Lexa PRO y el GART, que es el que afirmaba el `0xFF0FFFFFFF`**),
   **`130` (`vram_start` es 0 para Polaris12, que es lo que da sentido al GART como
-  vestigio)**, `140` (el mapa de direcciones observado), `112`, `086`, `090`, `067`, `054`,
+  vestigio)**, `140` (el mapa de direcciones observado), `217`, `086`, `205`, `067`, `054`,
   `024`, `023`.
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`, y no se añadió ningún fichero al corpus.
 

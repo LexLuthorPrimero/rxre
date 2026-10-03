@@ -1,4 +1,4 @@
-# 182 · En Polaris12 `ip_versions[GC_HWIP]` vale **0**: trescientas comparaciones de versión degeneran, y eso **corrige `144`**
+# 182 · En Polaris12 `ip_versions[GC_HWIP]` vale **0**: trescientas comparaciones de versión degeneran, y eso **corrige `231`**
 `MEDIDO_POR=244` -- este valor deja de ser una DEDUCCION y pasa a ser
 una MEDIDA en el binario: `ip_versions[GC_HWIP][0]` esta en el offset 0x5d518 de
 `struct amdgpu_device`, se lee **345 veces** en el desensamblado del `.ko` y se
@@ -13,7 +13,7 @@ escribe **0 veces** con indice estatico. El unico escritor con indice dinamico e
 
 ## Cuestión principal
 
-`144` afirmó, a partir de `grep -rn GFX_HWIP`, que *"ni el driver lo lee ni ningún
+`231` afirmó, a partir de `grep -rn GFX_HWIP`, que *"ni el driver lo lee ni ningún
 header lo define"*.
 
 El grep era correcto sobre la cadena literal. **La inferencia no lo era.**
@@ -51,7 +51,7 @@ enum amd_hw_ip_block_type { GC_HWIP = 1, HDP_HWIP, SDMA0_HWIP, ... };
 ```
 
 **El driver sí tiene versión de IP del GFX.** Se llama `GC_HWIP`, no `GFX_HWIP`,
-y por eso el grep de `144` no la vio. `144` affirmations eran correctas sobre
+y por eso el grep de `231` no la vio. `231` affirmations eran correctas sobre
 el literal y falsas sobre la capacidad.
 
 ## Tres hechos y la conclusión
@@ -109,9 +109,9 @@ Así que incluso en un ASIC que **sí** tiene descubrimiento de IP, la versión
 del GFX que usa el driver es **una constante escrita a mano**, no una lectura.
 Y GCN3 no tiene ni el descubrimiento ni la constante.
 
-## Qué significa para `144`
+## Qué significa para `231`
 
-`144` cerró `GFX_HWIP` como `PROVEN_ABSENT` y ofreció el firmware como fuente
+`231` cerró `GFX_HWIP` como `PROVEN_ABSENT` y ofreció el firmware como fuente
 alternativa. **La parte de `PROVEN_ABSENT` se sostiene**: el registro no existe
 en el corpus, bajo ese nombre ni bajo ningún otro.
 
@@ -121,7 +121,7 @@ tiene ni firmware de descubrimiento ni constante codificada. El valor real —
 **8.0**, medido en el firmware por `fw_ipver` — es algo que el driver **no
 puede saber**.
 
-Eso convierte el hallazgo de `144` de "`PROVEN_ABSENT`" en algo más fuerte y
+Eso convierte el hallazgo de `231` de "`PROVEN_ABSENT`" en algo más fuerte y
 más útil: **la versión del GFX de esta placa es 8.0, y el driver no la lee.**
 
 ## Las ~300 comparaciones que degeneran
@@ -158,7 +158,7 @@ falsa.
 | Vega10 codifica GC_HWIP a mano aun con discovery | `PROVEN` — `amdgpu_discovery.c:2812` |
 | El discovery sirve para sysfs, no para comparar | `PROVEN` — comentario del driver |
 | Las ~300 comparaciones degeneran | `DERIVATION` — de la anterior |
-| La versión real del GFX es 8.0 | `OBSERVED` — `144`, `fw_ipver` |
+| La versión real del GFX es 8.0 | `OBSERVED` — `231`, `fw_ipver` |
 | Que el driver la conozca | `REFUTED` |
 | Que 0 dé la respuesta correcta en los 3 sitios | `DERIVATION` |
 
@@ -189,11 +189,11 @@ falsa.
 
 ## UNLOCKS
 
-- **`144` queda corregido**, no ampliado: la afirmación fuerte era falsa, la
+- **`231` queda corregido**, no ampliado: la afirmación fuerte era falsa, la
   débil era cierta. Corregir la inferencia es parte del trabajo, no un extra.
 - **Una regla que sale de esto**: *un grep sobre el nombre literal no prueba
   que una capacidad esté ausente*. Hay que buscar el mecanismo, no la cadena.
-  Me costó `144` y una iteración entera.
+  Me costó `231` y una iteración entera.
 - **`flush_tlb` es condicional en el código pero no en esta placa.** Para un
   driver propio, esa condición es código muerto aquí.
 - **Una consecuencia incómoda y útil**: si el driver no conoce su propia versión

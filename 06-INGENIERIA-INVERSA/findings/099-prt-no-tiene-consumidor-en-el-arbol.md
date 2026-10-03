@@ -136,7 +136,7 @@ handler de GFX9, dependía de los tres datos que sí están medidos.
 > hallazgo sin verificarlo. Y la primera vez que el error no fue mío de origen
 > sino **heredado**: `083` lo afirmó sin comprobarlo también.
 >
-> `047`/`089`: **un número de línea citado no es evidencia; es un
+> `047`/`196`: **un número de línea citado no es evidencia; es un
 > puntero.** Y un puntero que nadie abre se convierte en cita en dos pasos.
 
 ---

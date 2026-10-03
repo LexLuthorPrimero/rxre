@@ -102,7 +102,7 @@ tabla. Es el unico array de la tabla DPM sin contador al lado.
 
 ## El limite SI se comprueba aqui
 
-Contraste con `091`, donde el bucle de niveles no acotaba. Aqui si:
+Contraste con `206`, donde el bucle de niveles no acotaba. Aqui si:
 
 ```c
 if (count > SMU_MAX_SMIO_LEVELS)
@@ -111,7 +111,7 @@ if (count > SMU_MAX_SMIO_LEVELS)
 
 en las tres funciones. Y el limite coincide con el destino: `Pattern[4]` y se escribe
 `level < 4`. Es el patron correcto — cota explicita, comprobada y coherente con el
-destino. Lo que `091` echa de menos es precisamente esto.
+destino. Lo que `206` echa de menos es precisamente esto.
 
 ## La asimetria que no puedo explicar
 
@@ -131,7 +131,7 @@ tabla. Que una se intercambie y la otra no puede ser correcto en los dos casos c
 misma logica. **No se cual de las dos es la que el firmware espera**, y no lo voy a
 adivinar: decidirlo es leer el firmware, que no esta en el corpus.
 
-Lo que si se puede decir: es la unica excepcion a la regla de `090`. Ahi se verifico que
+Lo que si se puede decir: es la unica excepcion a la regla de `205`. Ahi se verifico que
 los 63 campos de los structs de nivel cumplen "todo campo de mas de un byte se
 intercambia con su ancho". Aqui hay 32 `uint32_t` que no se intercambian y 2 que si, en
 la misma tabla.
@@ -151,7 +151,7 @@ la misma tabla.
 - `SMC_SMIO_LAYOUT = PROVEN`: `SMIO_Pattern` 4 bytes, `SMIO_Table` = `Pattern[4]`,
   `Smio[32]` de `uint32_t` en el offset 1320.
 - `SMC_SMIO_CLAMP_PRESENT = PROVEN`: `if (count > SMU_MAX_SMIO_LEVELS) count = 4`, en las
-  tres funciones. Contraste con el bucle sin cota de `091`.
+  tres funciones. Contraste con el bucle sin cota de `206`.
 - `SMC_SMIO_GATED_BY_GPIO = PROVEN`: los tres rails solo contribuyen si son
   `SMU7_VOLTAGE_CONTROL_BY_GPIO`.
 - `SMC_SMIO_TABLE1_OVERWRITTEN = PROVEN`: vddc y vddci escriben la misma tabla; gana
@@ -167,6 +167,6 @@ No dice si el firmware lee `Smio[]` como mascara por nivel o por rail. De ahi de
 el `|=` acumulado es correcto.
 
 No dice si el intercambio de `Smio[]` es un fallo o una excepcion deliberada. Es la
-unica excepcion a la regla de `090` y no hay forma de decidirla desde el host.
+unica excepcion a la regla de `205` y no hay forma de decidirla desde el host.
 
 No hay lectura de hardware aqui, no hay escritura, no hay `/sys`, no hay modulos.

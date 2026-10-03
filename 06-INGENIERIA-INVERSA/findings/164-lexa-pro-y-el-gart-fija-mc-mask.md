@@ -9,11 +9,11 @@ RUNTIME=LOG_READ_ONLY · GPU INTACTA
 
 ## Qué resuelve
 
-**La pregunta que `163` dejó como la única con consecuencias — cuánta VRAM hay en la
+**La pregunta que `233` dejó como la única con consecuencias — cuánta VRAM hay en la
 placa — y tres cosas más que salen de mirar la lista de recursos PCI en vez del log del
 driver.**
 
-**Y una que corrige el título de `163`: no es un RX550 de 2 GiB, es un Lexa PRO con
+**Y una que corrige el título de `233`: no es un RX550 de 2 GiB, es un Lexa PRO con
 2.048 MiB visibles, de los cuales el anfitrión puede mapear 256 MiB.**
 
 ## 1 · El nombre del silicio, que no estaba en ninguna nota
@@ -34,7 +34,7 @@ observado.
 
 **Y el `Lexa PRO` es un nombre de silicio, no de producto: el producto es la SKU de la
 placa, y el silicio es el que comparte genealogy con Polaris 10 y Polaris 12.** `PROVEN_DERIVED`.
-**Y eso encaja con el cuarto eje de `163`:** el chip se anuncia como `POLARIS12` y su SMU
+**Y eso encaja con el cuarto eje de `233`:** el chip se anuncia como `POLARIS12` y su SMU
 es `polaris10_smu`, y el `Lexa` es la razón por la que las dos cosas son ciertas a la vez.
 
 ## 2 · Y los 2.048 MiB de VRAM de los que el anfitrión ve 256 MiB
@@ -151,7 +151,7 @@ amdgpu_kms.c:999   dev_info->virtual_address_max = min(vm_size, AMDGPU_GMC_HOLE_
 ```
 
 **`min(64 GiB del log, 128 TiB) = 64 GiB`, y el log dice `vm size is 64 GB`.** Cuarta vía
-independiente que da el mismo número, después de las tres de `163`. `PROVEN`.
+independiente que da el mismo número, después de las tres de `233`. `PROVEN`.
 
 ## Lo que NO cierra
 
@@ -183,7 +183,7 @@ instrumentar es leer el registro del controlador, y eso es `MMIO`, nivel 4.
 - `OBSERVED` -- `lspci -s 01:00.0`, `lspci -vv -s 01:00.0`,
   `/sys/bus/pci/devices/0000:01:00.0/{dst,modalias,resource}`,
   `journalctl -k -b` (solo para `vm size is 64 GB`, `register mmio size`, y las líneas de
-  `163`). Sin root, sin MMIO, sin tocar la GPU.
+  `233`). Sin root, sin MMIO, sin tocar la GPU.
 - Medición por programa: **las seis regiones PCI decodificadas y sus tamaños, la suma
   258,38 MiB, y el 1.792/2.048 = 88% de VRAM no visible por el anfitrión**;
   **la aritmética inversa `gart_start → max_mc_address`, y la comparación contra el
@@ -201,14 +201,14 @@ instrumentar es leer el registro del controlador, y eso es `MMIO`, nivel 4.
 - **Y una precisión sobre `140`, y no es una refutación:** el hueco entre VRAM y GART son
   exactamente 42,0 GiB (`0xFF00000000 - 0xF47FFFFFFF = 0xA80000000`), y `140` lo dibujaba
   como «<40.0 GiB» en la figura. **Es una cifra ilustrativa redondeada y no una conclusión**;
-  el resto de `140` queda confirmado por `163` en sus nueve puntos.
-- Encadenada con `163` (**el `NOT_DETERMINED` de la VRAM queda cerrado en cuanto al valor
+  el resto de `140` queda confirmado por `233` en sus nueve puntos.
+- Encadenada con `233` (**el `NOT_DETERMINED` de la VRAM queda cerrado en cuanto al valor
   visible, y abierto en cuanto a la VRAM física**), `161` (el reloj lo pide el BIOS:
-  ésta es la misma forma, noveno contacto), `156` (la tabla y el constructor, elevada a
-  hecho de silicio en `163`), `155` (DCE 11.2), `153` (los siete `path` que siguen sin
+  ésta es la misma forma, noveno contacto), `232` (la tabla y el constructor, elevada a
+  hecho de silicio en `233`), `155` (DCE 11.2), `153` (los siete `path` que siguen sin
   poder contar), `140` (**el mapa, y ahora con los dos espacios separados**),
-  `136` (la cadena de coherencia), `132` y `130` (geometría, verificada en `163`),
-  `116` (BAR 256 MiB y VRAM 2 GiB — el que ya lo sabía).
+  `136` (la cadena de coherencia), `132` y `130` (geometría, verificada en `233`),
+  `220` (BAR 256 MiB y VRAM 2 GiB — el que ya lo sabía).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 
 ## Nota de método

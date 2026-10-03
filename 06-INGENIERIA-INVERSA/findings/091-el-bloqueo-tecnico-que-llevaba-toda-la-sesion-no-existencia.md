@@ -151,7 +151,7 @@ Dos cosas que quiero dejar escritas:
 
 ## 4 · LO QUE ESTE HALLAZGO DESBLOQUEA
 
-`089` cerró pidiendo una forma de obtener IP versions que no sea root sobre
+`196` cerró pidiendo una forma de obtener IP versions que no sea root sobre
 debugfs. Este hallazgo **da una segunda forma, mejor**:
 
 > Un módulo propio puede **imprimir** lo que quiera, desde dentro del kernel, y
@@ -161,9 +161,9 @@ Lo que se abre, en orden de valor:
 
 | pregunta abierta | observable vía módulo propio | valor |
 |---|---|---|
-| `GC_HWIP` real (`089`) | `pr_info(amdgpu_ip_version(...))` o leer `adev->ip_versions` | cierra el `PROVEN_DERIVED` |
-| Qué bloques IP se instancian (`047`, `088`) | recorrer `adev->ip_blocks` | **la tabla que `tools/unreach.py` no puede dar** |
-| `VM_PRT_CNTL` real (`083`) | `RREG32` desde `request_mem`/`ioremap` | el registro que la lectura de `089` no dio |
+| `GC_HWIP` real (`196`) | `pr_info(amdgpu_ip_version(...))` o leer `adev->ip_versions` | cierra el `PROVEN_DERIVED` |
+| Qué bloques IP se instancian (`047`, `195`) | recorrer `adev->ip_blocks` | **la tabla que `tools/unreach.py` no puede dar** |
+| `VM_PRT_CNTL` real (`083`) | `RREG32` desde `request_mem`/`ioremap` | el registro que la lectura de `196` no dio |
 | Los 10 dwords de `emit_flush_gpu_tlb` (`025:165`) | tracear la secuencia de `RREG/WREG` | cierra un hueco de C |
 | `FUNCTION=always` hardware (`056`) | variar `poll` e inyectar PM4 | el discriminante que lleva 2 hallazgos abierto |
 

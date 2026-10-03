@@ -324,7 +324,7 @@ sysfs— y no contra un `MemTotal` leído en otro momento.
 
 **Encadenada con:** `204` (corrige su fila `NOT_DETERMINED` y su aritmética),
 `100` (misma magnitud, mismo `sysfs`), `243` (los 5.907 MiB del GTT),
-`067`, `054`, `164` (cadena GART), `081`/`088` (`SYSTEM_ACCESS_MODE`).
+`067`, `054`, `164` (cadena GART), `081`/`195` (`SYSTEM_ACCESS_MODE`).
 
 ## 11 · Qué cambió de estado
 

@@ -2,7 +2,7 @@
 
 WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 
-> ## CORREGIDO POR `228` (antes `126`) — dos errores en este hallazgo
+> ## CORREGIDO POR `228` (antes `228`) — dos errores en este hallazgo
 >
 > **1. El conteo.** Este fichero dice "quince pasos" y "los pasos de `:1619` a `:1688`".
 > **La funcion `smu7_enable_dpm_tasks` (`:1566`) tiene 23 asserts: 22 `REGISTRA_Y_SIGUE` y 1
@@ -102,7 +102,7 @@ atenua a proposito.
   esta en el consumidor.**
 - `FAILURE_WARNINGS_ARE_RATE_LIMITED = PROVEN`: `pr_warn_ratelimited`. Tras varias, silencio.
 
-Esto es el patron de `110` ("dos propietarios") llevado a una escala nueva: **quince escritores
+Esto es el patron de `215` ("dos propietarios") llevado a una escala nueva: **quince escritores
 sobre un mismo `result`, y un solo lector que nunca ve nada.**
 
 ## La cadena con `099`, y donde se rompe
@@ -236,6 +236,6 @@ convenio de arquitectura, no un descuido de una familia.**
 4. **Toda lectura `dpm_levels[count - 1]` exige comprobar `count >= 1`**, y si se leen dos
    tablas, comprobar **las dos**. Aqui una de las dos lecturas tiene guardia y la otra no, en
    lineas contiguas.
-5. **Y la generalizacion de `110`:** un campo con dos propietarios es un error de diseno.
+5. **Y la generalizacion de `215`:** un campo con dos propietarios es un error de diseno.
    **Un `result` con quince escritores y ningun lector es el mismo error, y peor**, porque no
    hay ni siquiera un propietario que se entere.

@@ -174,7 +174,7 @@ está en el corpus. Esta nota encuentra **tres enunciados más, independientes**
 
 | # | dónde | cómo lo dice |
 |---|---|---|
-| 1 | `amdgpu_vm.c:1157` | `GC_HWIP < IP_VERSION(9,0,0)` (`085`) |
+| 1 | `amdgpu_vm.c:1157` | `GC_HWIP < IP_VERSION(9,0,0)` (`194`) |
 | 2 | `amdgpu_vm.c:2870` | prosa: *"only possible starting with Vega10"* |
 | 3 | `amdgpu_discovery.c:3106` | la lista de APU **empieza** en `IP_VERSION(9,1,0)` |
 | 4 | `vi.c:104-106` | `ASIC_IS_P22` cubre `POLARIS10..POLARIS12`, y se acaba ahí |
@@ -224,9 +224,9 @@ y no cambia nada, pero es un predicado que no verifiqué.
   `amdgpu_gmc.h:387-399`, `gmc_v8_0.c:566-585`,
   `amdgpu_discovery.c:3105-3125`, `amdgpu_vm.h:185-186`, `vi.c:104-106`,
   `amdgpu_drv.c:174` y `:463`, `amdgpu_ids.c:338-356` y `:266-277`.
-- Encadenada con `115` (los cuatro motivos), `113`/`111` (la secuencia y la
-  frecuencia), `102` (que ya había dicho que `vram_full_visible` era falso -- ahora
-  verificado por una ruta independiente), `085` (el invalidate obligatorio).
+- Encadenada con `115` (los cuatro motivos), `218`/`216` (la secuencia y la
+  frecuencia), `209` (que ya había dicho que `vram_full_visible` era falso -- ahora
+  verificado por una ruta independiente), `194` (el invalidate obligatorio).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`: son de otras sesiones.
 
 **Dos notas de método, y las dos sobre mí.**
@@ -236,11 +236,11 @@ existe.** El nombre del parámetro es `vm_update_mode`; el de la variable intern
 `amdgpu_vm_update_mode`. Lo tenía delante en `amdgpu_drv.c:174` y `:463` y no lo
 miré. **Novena vez hoy con nombres: un nombre no es su contenido.**
 
-La segunda, y es la que me importa: **`102` ya había dicho que
+La segunda, y es la que me importa: **`209` ya había dicho que
 `amdgpu_gmc_vram_full_visible` era falso aquí, y yo lo di por sabido al escribir
 `115`.** Acabo de recorrerlo entero, por una ruta distinta, y llega a lo mismo.
 **Pero lo escribí en `115` como premisa y no lo había vuelto a mirar.**
 
-Es el error opuesto al de `111` -- allí anoté una contradicción sin resolverla,
+Es el error opuesto al de `216` -- allí anoté una contradicción sin resolverla,
 aquí di por buena una verdad sin comprobar que sigiera siendo cierta. **Los dos
 son la misma cosa: un dato que no vuelve a mirarse cuando debería.**

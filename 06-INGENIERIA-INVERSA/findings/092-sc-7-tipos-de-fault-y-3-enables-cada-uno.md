@@ -145,8 +145,8 @@ gmc_8_1_sh_mask.h   VM_CONTEXT1_CNTL2__ALLOW_SUBSEQUENT_PROTECTION_FAULT_STATUS_
 gmc_8_1_sh_mask.h   VM_CONTEXT1_CNTL2__WAIT_FOR_IDLE_WHEN_INVALIDATE__SHIFT                                   0x4
 ```
 
-El segundo es la costura con `085`: **`ENABLE_CLEAR_PROTECTION_FAULT_STATUS_ADDR_WHEN_INVALIDATE_CONTEXT`**
-dice que el invalidate limpia la dirección de fault. Y `085` probó que en
+El segundo es la costura con `194`: **`ENABLE_CLEAR_PROTECTION_FAULT_STATUS_ADDR_WHEN_INVALIDATE_CONTEXT`**
+dice que el invalidate limpia la dirección de fault. Y `194` probó que en
 GFX8 el invalidate es obligatorio.
 
 **Entonces el invalidate cumple dos papeles en GFX8**: vacía la TLB (085) y,
@@ -222,7 +222,7 @@ he encontrado para cerrar §C, y no requiere F1.
 - Sin `RUNTIME`. Sin lectura de la GPU. Sin escrituras.
 - Corrige el recuento de `064` (6 → 7) y corrige el nombre del registro.
   `064` no es mío; **informo en vez de editarlo**.
-- Encadenada con `085` (el invalidate y el status), `090` (§G),
+- Encadenada con `194` (el invalidate y el status), `205` (§G),
   `087` (esta GPU es 8.1, y por eso `L1_TLS0` existe).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`: son de otras sesiones.
 
@@ -240,5 +240,5 @@ La segunda: dije "el driver no programa ningún protection fault en GFX8"
 cuando ya había visto 39 ocurrencias de `PROTECTION_FAULT` en `gmc_v8_0.c`.
 Afirmé desde un recuento de `mmATC` y desde un `PROTECTION_FAULT_ENABLE` que
 sólo saqué de `mmhub_v3_0_1.c`, sin comprobar el fichero GFX8 que tenía delante.
-Octava vez. La regla que sí funciona es la de `090`: **abrir el fichero y leer
+Octava vez. La regla que sí funciona es la de `205`: **abrir el fichero y leer
 las líneas, antes de contar en los demás.**

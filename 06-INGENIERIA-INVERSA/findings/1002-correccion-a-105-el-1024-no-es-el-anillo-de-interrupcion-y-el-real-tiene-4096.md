@@ -1,4 +1,4 @@
-# 1002 · Corrección a `105`: el `1024` de `gfx_v8_0.c:1875` no es un anillo de interrupción, y el anillo de IH real tiene 4096 entradas
+# 1002 · Corrección a `212`: el `1024` de `gfx_v8_0.c:1875` no es un anillo de interrupción, y el anillo de IH real tiene 4096 entradas
 
 ```
 CLASSIFICATION=CORRECTION+DOCUMENTATION · TRACK=STATIC
@@ -14,7 +14,7 @@ AUTORIA=AGENTE-19 (AGENT-19, interrupts / IH / fences)
 
 ## Qué corrige
 
-`105` afirmo, y lo marco **`PROVEN`** en su tabla de cierre:
+`212` afirmo, y lo marco **`PROVEN`** en su tabla de cierre:
 
 > «EOP tiene un anillo dedicado de 1024 entradas» — `PROVEN` (`gfx_v8_0.c:1875`)
 > «**1024 entradas, no una IRQ simple.** Es un anillo de interrupciones.»
@@ -23,10 +23,10 @@ AUTORIA=AGENTE-19 (AGENT-19, interrupts / IH / fences)
 relacionado con interrupciones, y el anillo de interrupción que sí existe en esta
 GPU tiene **4096 entradas**, no 1024.
 
-Además, en el mismo bloque de código `105` cita dos nombres de `SRCID` que no
+Además, en el mismo bloque de código `212` cita dos nombres de `SRCID` que no
 existen y cuenta mal las fuentes registradas: **cinco, no tres**.
 
-Lo que **no** se cae es lo demás de `105`, que es lo valioso: que
+Lo que **no** se cae es lo demás de `212`, que es lo valioso: que
 `gfx_v8_0_eop_irq` es quien llama a `amdgpu_fence_process`, que la IRQ selecciona el
 anillo por `ring_id`, y que los faults van a `drm_sched_fault`. Eso queda intacto y
 esta corroborado aqui.
@@ -80,7 +80,7 @@ amdgpu_irq.h:66   };
 ```
 
 Tres campos: un entero, un puntero y un puntero a función. **No hay `ring`, no hay
-`ring_size`, no hay `ptr_mask`.** La afirmación de `105` es *estructuralmente
+`ring_size`, no hay `ptr_mask`.** La afirmación de `212` es *estructuralmente
 imposible*: no cabe un anillo de 1024 entradas en un struct de dos punteros.
 
 Y hay un contraargumento mejor que además cierra la intención: **la misma llamada,
@@ -156,11 +156,11 @@ anillo de 4096 entradas de 16 B aguanta 4096 vectores sin que el host los recoja
 A la tasa de fences medida en `098` (138/s) eso son ~30 s de producto grande sin
 recoger antes de que el hardware marque `RB_OVERFLOW` — que `051` §4 ya describio:
 descarta vectores y el driver lo asume con un "Hopefully" textual. **El margen
-depende de un número que `105` conto mal por un factor de 4.**
+depende de un número que `212` conto mal por un factor de 4.**
 
 ### Y el mapa de tipos de interrupción: cinco, no tres
 
-`105` dice «los IDs de fuente que se registran son tres». Los cinco `amdgpu_irq_add_id`
+`212` dice «los IDs de fuente que se registran son tres». Los cinco `amdgpu_irq_add_id`
 de la `sw_init` de GFX8 son:
 
 ```
@@ -171,20 +171,20 @@ gfx_v8_0.c:1931   VISLANDS30_IV_SRCID_CP_ECC_ERROR         -> &adev->gfx.cp_ecc_
 gfx_v8_0.c:1937   VISLANDS30_IV_SRCID_SQ_INTERRUPT_MSG     -> &adev->gfx.sq_irq
 ```
 
-**Cinco registros, cinco `irq_funcs`, uno por fuente.** `105` conto cinco `irq_funcs`
+**Cinco registros, cinco `irq_funcs`, uno por fuente.** `212` conto cinco `irq_funcs`
 y despues conto tres `add_id` de los cinco que estan a la vista: incoherente con su
 propia lista.
 
-Y dos nombres que `105` cita **no existen** en el arbol:
+Y dos nombres que `212` cita **no existen** en el arbol:
 
-| `105` cita | real |
+| `212` cita | real |
 |---|---|
 | `VISLANDS30_IV_SRCID_CP_PRIV_REG` | `…_CP_PRIV_REG_FAULT` |
 | `VISLANDS30_IV_SRCID_CP_PRIV_INST` | `…_CP_PRIV_INSTR_FAULT` |
 
 ## 4 · El `ack` del anillo: doorbell, no `mmIH_RB_RPTR`
 
-Esto `105` no lo cubre y es la pieza de «acknowledgement» de mi encargo.
+Esto `212` no lo cubre y es la pieza de «acknowledgement» de mi encargo.
 
 ```
 tonga_ih.c:319   	adev->irq.ih.use_doorbell = true;
@@ -234,11 +234,11 @@ Corolario de §5 de `051`: el `wptr` que el host lee es una **sombra en RAM**
 writeback a RAM, `rptr` por doorbell MMIO.** Los dos lados del anillo se comunican
 por mecanismos distintos.
 
-## 5 · Lo que NO se cae de `105`
+## 5 · Lo que NO se cae de `212`
 
 Re-verificado en esta sesión, contra el mismo corpus:
 
-| afirmación de `105` | estado tras esta sesión |
+| afirmación de `212` | estado tras esta sesión |
 |---|---|
 | 5 fuentes de IRQ, cada una con `.set` y `.process` | `PROVEN` — **corregido el conteo de `add_id`: 5, no 3** |
 | `gfx_v8_0_eop_irq` llama a `amdgpu_fence_process` | `PROVEN` — intacto |
@@ -250,11 +250,11 @@ Re-verificado en esta sesión, contra el mismo corpus:
 | **«EOP tiene un anillo de 1024 entradas»** | **`REFUTED`** — no existe tal anillo |
 | **«los IDs registrados son tres»** | **`REFUTED`** — son cinco |
 
-**Y queda una confusion de fondo que esta sesión cierra.** `105` dio por hecho que el
+**Y queda una confusion de fondo que esta sesión cierra.** `212` dio por hecho que el
 `1024` era del EOP. No es del EOP **ni de ningun anillo de interrupcion**: es del
 buffer de comandos. La conclusión operativa para un driver
 propio es que el presupuesto de 1024 dwords del ring GFX y el anillo de IH de 4096
-vectores son **dos cosas independientes** que `105` fusionó en una.
+vectores son **dos cosas independientes** que `212` fusionó en una.
 
 ## 6 · Clasificación
 
@@ -268,7 +268,7 @@ vectores son **dos cosas independientes** que `105` fusionó en una.
 | 4096 entradas IV de 16 B, `RB_SIZE`=14, `ptr_mask`=0xffff | DERIVATION | **PROVEN_DERIVED** |
 | `64 KiB` es propio de Tonga, no la constante común | DERIVATION | **PROVEN_DERIVED** (`IH_RING_SIZE`=256 KiB) |
 | 5 `add_id` registrados, no 3 | CORRECTION | **PROVEN** (`gfx_v8_0.c:1914-1937`) |
-| los dos nombres `SRCID` de `105` no existen | CORRECTION | **PROVEN** |
+| los dos nombres `SRCID` de `212` no existen | CORRECTION | **PROVEN** |
 | el `ack` del `rptr` es doorbell MMIO, no `mmIH_RB_RPTR` | FACT | **PROVEN** (`tonga_ih.c:283-289`) |
 | `wptr` llega por writeback a RAM, `rptr` sale por doorbell | DERIVATION | **PROVEN_DERIVED** |
 | `use_doorbell` es `true` y no lo revierte nadie | FACT | **PROVEN** (7 ficheros, 0 asignaciones a `false`) |
@@ -285,11 +285,11 @@ vectores son **dos cosas independientes** que `105` fusionó en una.
   `0x1002:0x699F` — el ID exacto del `HARDWARE-FINGERPRINT.md` §3 — a
   `CHIP_POLARIS12`. No es un ASIC vecino.
 - Encadenada con `051` (layout del IV, overflow), `096` (el fence y su timer de
-  respaldo), `098` (tasa de fences medida), `105` (corregida por esta).
+  respaldo), `098` (tasa de fences medida), `212` (corregida por esta).
 
 ## Nota de método
 
-**El fallo de `105` es un fallo de aridad, no de lectura.** Leyó la firma de
+**El fallo de `212` es un fallo de aridad, no de lectura.** Leyó la firma de
 `amdgpu_ring_init` — o no la leyó — y vio un `1024` junto a un `eop_irq` en una línea
 que habla de IRQ, y concluyo que el `1024` era del anillo de IRQ.
 
@@ -304,7 +304,7 @@ la aplicó en su §9 precisamente contra cuatro nombres de fichero inventados. *
 mismo gate, aplicado a un parámetro en vez de a un fichero, habria atrapado la
 misma clase de error dos findings más tarde.**
 
-Corolario más general: **`105` mezcló el objeto `eop_irq` con el buffer `ring`.**
+Corolario más general: **`212` mezcló el objeto `eop_irq` con el buffer `ring`.**
 Son dos cosas distintas que en la misma línea de llamada aparecen uno al lado del
 otro, y la línea parece hablar de IRQ porque el otro objeto sí es de IRQ. La
 confusión no fue de valores sino de **a qué valor pertenecía cuál.**

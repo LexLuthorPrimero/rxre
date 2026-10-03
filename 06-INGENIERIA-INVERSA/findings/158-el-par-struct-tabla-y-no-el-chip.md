@@ -101,7 +101,7 @@ pone `&dce110_str_enc_funcs` (`L1572`).** Seis generaciones —6.0, 8.0, 10.0, 1
 
 **⇒ El identificador `dce110_` de esa tabla no significaDCE 11.0: significa «la
 generación en la que se escribió», y las cinco siguientes la heredaron tal cual.** Es
-`156` rectificado por el lado de la aritmética: **seis ficheros de recursos distintos
+`232` rectificado por el lado de la aritmética: **seis ficheros de recursos distintos
 reducidos a un solo receptor.**
 
 ### Y el codificador analógico, que es la respuesta sobre VGA
@@ -207,7 +207,7 @@ salidas físicas de esta máquina.**
   tabla respecto de la anterior; la presencia de `enable_stream` y
   `map_stream_to_link` en cada una de las 12; los 6 ficheros que cablean cada uno de
   los dos constructores.
-- Encadenada con `157` (**esta nota le corrige la razón**), `156` (la identidad por la
+- Encadenada con `157` (**esta nota le corrige la razón**), `232` (la identidad por la
   tabla y el constructor — y aquí, por fin, contada), `155` (DCE 11.2),
   `151` (**cierra su `NOT_DETERMINED` sobre VGA**), `149` (DSC ausente), `147` (la
   tabla de swizzle, el otro mecanismo de nulabilidad), `154` (la señal).

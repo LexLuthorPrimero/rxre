@@ -228,7 +228,7 @@ dejó abierta y que nadie ha resuelto.
   `grep -rn 'flags.DSC'` sobre `display/dc/`, con los seis resultados en `hwss/dce110/`
   y `hwss/dcn*`.
 - Encadenada con `148` (que **esta nota corrige por segunda vez**), `147` (los 41
-  campos con máscara cero, y el `HDMI_CLOCK_CHANNEL_RATE` ausente), `144` (la entrada,
+  campos con máscara cero, y el `HDMI_CLOCK_CHANNEL_RATE` ausente), `231` (la entrada,
   el otro extremo), `139` (el MTYPE ausente), `133` (el mismo patrón), `140` (el mapa
   de direcciones).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.

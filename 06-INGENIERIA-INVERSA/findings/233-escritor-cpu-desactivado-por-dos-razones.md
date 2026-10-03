@@ -120,7 +120,7 @@ diagnóstico.
 
 ## El vínculo con §G: el mismo bit decide dos cosas
 
-Esto es lo que responde a la pregunta que `156` dejó abierta.
+Esto es lo que responde a la pregunta que `232` dejó abierta.
 
 `amdgpu_ids.c:266`, `:334` y `:338`:
 
@@ -142,7 +142,7 @@ job->vm_needs_flush = needs_flush;
 **`use_cpu_for_update` no solo elige el escritor de las tablas: también decide si
 reutilizar un VMID exige un flush HDP antes de confiar en ellas.**
 
-Ese es el motivo de que exista el flush HDP de `156`. No es una precaution
+Ese es el motivo de que exista el flush HDP de `232`. No es una precaution
 genérica: es la contrapartida exacta de que el escritor sea la CPU. Con SDMA como
 escritor, las escrituras van por el camino de la GPU y las ordena el fence; con
 escritor CPU hace falta un flush.
@@ -193,7 +193,7 @@ esta configuración*.
 
 - **La línea consolidada queda corregida.** No es una razón, son dos, y la
   segunda vale para **toda placa con el driver por defecto**, no solo para esta.
-- **`156` queda respondida**: el flush HDP de §G existe porque el escritor CPU
+- **`232` queda respondida**: el flush HDP de §G existe porque el escritor CPU
   existe en *otras* configuraciones. En esta, la rama que lo necesita es
   inalcanzable.
 - **Un defecto de legibilidad concrete**: dos funciones con mensaje idéntico para

@@ -176,7 +176,7 @@ dos tienen fichero y línea.**
      comprobación cruzada contra el recuento directo de ficheros.
 - Encadenada con `150` (la enumeración de 10 valores, y el `NOT_DETERMINED` de dónde
   se decide), `149` (la frontera DM→DC, y que DSC no es cosa de esta GPU),
-  `148` (dos correcciones propias), `147` (los 89 de 130 campos), `144` (la entrada).
+  `148` (dos correcciones propias), `147` (los 89 de 130 campos), `231` (la entrada).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 
 ## Nota de método

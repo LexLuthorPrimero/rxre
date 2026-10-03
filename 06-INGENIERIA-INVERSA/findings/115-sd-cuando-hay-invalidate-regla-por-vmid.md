@@ -9,9 +9,9 @@ RUNTIME=NOT_RUN · GPU INTACTA
 
 ## Qué resuelve
 
-`113` dejó abierto el eslabón real: qué pone `job->vm_needs_flush`, que es lo que
+`218` dejó abierto el eslabón real: qué pone `job->vm_needs_flush`, que es lo que
 decide **cuándo** hay un invalidate. Esta nota lo cierra, y el resultado es más
-fuerte de lo que `113` suponía.
+fuerte de lo que `218` suponía.
 
 ## Los seis escritores
 
@@ -81,7 +81,7 @@ la definición del número (`amdgpu_vm.h:630-635`).
 
 ## Y aquí no se puede reutilizar un VMID que necesite flush
 
-Este es el resultado que `113` no tenía, y es el que cambia la utilidad de todo
+Este es el resultado que `218` no tenía, y es el que cambia la utilidad de todo
 lo anterior.
 
 ```
@@ -134,7 +134,7 @@ derivable**:
 amdgpu_vm.c:1157   flush_tlb |= amdgpu_ip_version(adev, GC_HWIP, 0) < IP_VERSION(9, 0, 0);
 ```
 
-(`085`). Y la versión de IP sí se deriva del corpus, toda la cadena:
+(`194`). Y la versión de IP sí se deriva del corpus, toda la cadena:
 
 | paso | fuente | valor |
 |---|---|---|
@@ -189,10 +189,10 @@ nombres de fichero y una vez aquí con un número.
 | Si el hardware GFX8.1 se declara como 8.0.0 a propósito | **`NOT_DETERMINED`** |
 
 **La penúltima decide la frecuencia real y no la he medido.**
-`use_cpu_for_update` es el motivo 1, y `102` ya estableció que el camino de escritura
+`use_cpu_for_update` es el motivo 1, y `209` ya estableció que el camino de escritura
 por CPU es inalcanzable sin `AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED`. Si ningún
 cliente lo pide, el motivo 1 nunca dispara. **Pero no lo he comprobado sobre los
-16 clientes, y `102` no lo comprobó para esta variable.**
+16 clientes, y `209` no lo comprobó para esta variable.**
 
 **Y la última es una discrepancia real que dejo abierta:** el siliconio es GFX8.1
 -- hay `gmc_8_1_d.h`, `gmc_8_2_*` para contraste, y `gmc_v8_0.c` tiene un
@@ -208,11 +208,11 @@ si es que el block se reutiliza.** No lo resuelvo por suposición.
   `amdgpu_gmc.c:748-762`, `amdgpu_ttm.c:2412-2428`.
 - `HARDWARE_ID` -- `lspci -nn -d 1002:` da `1002:699f`, rev c7. Sólo lectura.
 - Sin MMIO write, sin TLB, sin módulos, sin cambiar parámetros.
-- **Corrige `113`**: `113` decía que el invalidate es raro porque el compositor
+- **Corrige `218`**: `218` decía que el invalidate es raro porque el compositor
   no cambia de buffers. **Eso es cierto pero es la consecuencia, no la regla.** La
   regla es que en esta GPU un cambio de page tables no es amortizable en un
   VMID existente, porque `amdgpu_ids.c:355` descarta el VMID.
-- Encadenada con `085` (el invalidate obligatorio), `094` (el presupuesto),
-  `111`/`113` (la secuencia y la frecuencia), `102` (el camino CPU/SDMA),
-  `108`/`109` (los motores).
+- Encadenada con `194` (el invalidate obligatorio), `094` (el presupuesto),
+  `216`/`218` (la secuencia y la frecuencia), `209` (el camino CPU/SDMA),
+  `108`/`214` (los motores).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`: son de otras sesiones.

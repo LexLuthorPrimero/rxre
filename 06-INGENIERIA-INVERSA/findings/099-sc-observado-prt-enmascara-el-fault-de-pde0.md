@@ -48,9 +48,9 @@ gmc_v8_0.c:788   MASK_PDE0_FAULT                               = 1
 que un acceso a memoria no mapeada **no falla en ninguno de los dos**, en lectura
 ni en escritura. Sin excepción, sin aviso por acceso.
 
-## Y esto conecta directamente con `092`
+## Y esto conecta directamente con `207`
 
-`092` catalogó siete tipos de protection fault, y el séptimo en la lista de
+`207` catalogó siete tipos de protection fault, y el séptimo en la lista de
 `gmc_v8_0.c:927-932` es:
 
 ```
@@ -63,7 +63,7 @@ Y el camino de PRT escribe:
 gmc_v8_0.c:788   MASK_PDE0_FAULT = enable;
 ```
 
-**El camino de PRT enmascara exactamente el tipo de fault que `092` Enabling
+**El camino de PRT enmascara exactamente el tipo de fault que `207` Enabling
 habilitó.** Es el mismo campo, dice lo contrario, y lo dice después.
 
 **Secuencia completa en esta máquina:**
@@ -180,7 +180,7 @@ porque no saber si un confoundidor estaba activo es información, no un detalle.
   módulos, sin parámetros.
 - `STATIC` — `gmc_v8_0.c:761-800` y `:1738` y `:927-932`, `amdgpu_vm.c:1426-1499`
   y `:1809` y `:2117` y `:2132`, y `AM_DRV.c` para la búsqueda de observables.
-- Encadenada con `092` (los 7 tipos de fault y `PDE0`), `083`/`082` (PRT
+- Encadenada con `207` (los 7 tipos de fault y `PDE0`), `083`/`082` (PRT
   activable y sin atender), `095` (CE y TC, los dos cachés que PRT silencia),
   `098` (la página de fence y su layout).
 - Corrige el estado de `082`/`083`: PRT no es una posibilidad de lectura, ya

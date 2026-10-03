@@ -39,9 +39,9 @@ oct 02 00:10:30 amdgpu 0000:01:00.0: [drm] Display Core v3.2.378 initialized on 
 cadena de `case`. Ahora son `OBSERVED`, hechos de tres líneas del kernel, y el segundo
 —la familia— ya no depende de ningún símbolo sin declarar.** `PROVEN_DERIVED`.
 
-**⇒ Y el noveno bloque observado coincide uno a uno con el mapa de `169`:**
+**⇒ Y el noveno bloque observado coincide uno a uno con el mapa de `236`:**
 `common_v1_0_0`, `gmc_v8_1_0`, `ih_v3_0_0`, `gfx_v8_0_0`, `sdma_v3_1_0`, `smu_v1_0_0`,
-`dce_v1_0_0`, `uvd_v6_3_0`, `vce_v3_4_0`. `OBSERVED`. *Nueve bloques, y `169` los tenía por
+`dce_v1_0_0`, `uvd_v6_3_0`, `vce_v3_4_0`. `OBSERVED`. *Nueve bloques, y `236` los tenía por
 derivación.*
 
 ## 2 · La corrección: `AMDGPU_FAMILY_VI` no está declarado
@@ -91,7 +91,7 @@ valores.** `PROVEN`.
 `dc_resource.c:178` da `DCE_VERSION_11_2` y en `dce_calcs.c:57` da
 `BW_CALCS_VERSION_POLARIS12`, y `dce_calcs.c:2050` la invoca desde `bw_calcs_init`, que es
 la función que `dce112_resource.c:1415` llama.**
-`PROVEN`. *El motor de ancho de banda de `185` nombra esta placa por su propio nombre, y no
+`PROVEN`. *El motor de ancho de banda de `239` nombra esta placa por su propio nombre, y no
 por derivación de la alcanzabilidad sino por un `case` escrito para ella.*
 
 **⇒ Y la revisión interna no es ninguna de las dos cantidades que el log imprime:**
@@ -106,7 +106,7 @@ Iceland (V), Tonga (M) */`, y el `case` de `dce_calcs.c:56` mete a Polaris12 den
 
 **⇒ El comentario describe la familia VI por los dos chips que la nombraron primero, y el
 código la ha extendido a Polaris10, Polaris11 y Polaris12.** `PROVEN_DERIVED`. *Es la misma
-familia que `183` de la otra sesión y que `156`: una regla escrita en un comentario y no
+familia que `183` de la otra sesión y que `232`: una regla escrita en un comentario y no
 verificada contra el código. El valor numérico 130 sí es el que se usa; lo que caducó es
 la lista de chips.*
 
@@ -119,7 +119,7 @@ consecutivas.** `PROVEN_DERIVED`.
 | afirmación | estado |
 |---|---|
 | Los tres eslabones de identidad observados | **`OBSERVED`** |
-| Los nueve bloques IP observados, coinciden con `169` | **`OBSERVED`** |
+| Los nueve bloques IP observados, coinciden con `236` | **`OBSERVED`** |
 | `AMDGPU_FAMILY_VI`: dos usos, cero definiciones | `PROVEN_ABSENT` — corrige a `184` |
 | `ASIC_REV_IS_POLARIS12_V` es [100,110) | `PROVEN` |
 | `dce_calcs.c:56-58` → `BW_CALCS_VERSION_POLARIS12` | `PROVEN` |
@@ -165,12 +165,12 @@ el corpus dónde se elige ese nombre a partir de la familia, y no está localiza
   defecto sin abrir el fichero es la versión negativa de la regla (d): la primera hipótesis
   ante un resultado raro es el patrón, pero la segunda es el propio patrón, y aquí era el
   segundo.*
-- Encadenada con `187` (los dos caracteres y el 48,4%), `185` (**las siete raíces y el motor
+- Encadenada con `187` (los dos caracteres y el 48,4%), `239` (**las siete raíces y el motor
   `bw_calcs`, que aquí queda confirmado por un `case` escrito para esta placa**),
   `184` (**la cadena de identidad, corregida en este punto**), `183` (otra sesión), `181`,
-  `180` (otra sesión), `179`, `178`, `173`, `172`, `169` (**los nueve bloques IP, que aquí
-  quedan observados**), `167`, `165`, `163` (**las nueve confirmaciones del log, y esta es la
-  décima**), `159`, `156`, `151`, `149`, `140`.
+  `180` (otra sesión), `179`, `178`, `173`, `172`, `236` (**los nueve bloques IP, que aquí
+  quedan observados**), `234`, `165`, `233` (**las nueve confirmaciones del log, y esta es la
+  décima**), `159`, `232`, `151`, `149`, `140`.
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`, y no se añadió ningún fichero al corpus.
 
 ## Nota de método

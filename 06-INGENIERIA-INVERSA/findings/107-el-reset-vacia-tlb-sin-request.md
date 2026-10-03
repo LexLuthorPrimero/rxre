@@ -8,7 +8,7 @@
 
 ## Cuestión principal
 
-`106` dejó un item: *"que el hardware no invalide por sí solo"*, con un
+`213` dejó un item: *"que el hardware no invalide por sí solo"*, con un
 discriminante de nivel 3 —escribir `REQUEST=0` y ver si `RESPONSE` cambia.
 
 **¿Se puede cerrar sin escribir?**
@@ -56,7 +56,7 @@ Solo pone y quita bits de `SRBM_SOFT_RESET`. En toda la función **no aparece
 
 **Sí significa:** existe un camino en el que el hardware vacía las TLB sin que
 nadie escriba `REQUEST`. No es "el invalidate automático" de `FUNCTION=always`
-—ese campo no existe, como cerró `106`— sino otra cosa: **el reset borra el
+—ese campo no existe, como cerró `213`— sino otra cosa: **el reset borra el
 estado de la Translation Cache**.
 
 Y es un resultado de ingeniería, no una casualidad. El driver depende de ello
@@ -115,7 +115,7 @@ borrado de estado.
 | Navi sí lo hace | `PROVEN` — cuatro sitios citados |
 | Que el vacío sea por `SRBM_SOFT_RESET` y no por otra causa | `HYPOTHESIS` — el más plausible |
 | Que haya trigger por cambio de PTB sin `REQUEST` | `NOT_DETERMINED` — requiere NIVEL 3 |
-| Que el hardware invalide solo por `FUNCTION` | `REFUTED` — `106`, el campo no existe |
+| Que el hardware invalide solo por `FUNCTION` | `REFUTED` — `213`, el campo no existe |
 
 ## Confounders
 

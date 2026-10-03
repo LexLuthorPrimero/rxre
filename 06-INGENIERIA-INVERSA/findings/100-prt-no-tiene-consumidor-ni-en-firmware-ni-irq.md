@@ -115,7 +115,7 @@ Tres reglas, las tres derivadas de la tabla y las tres directamente aplicables:
 > acceso no mapeado y no activa nada a cambio.
 >
 > **2 · No usar `AMDGPU_PTE_PRT` en GFX8.** `gmc_v8_0.c:722` lo borra, y el
-> formato del PTE (`093`) no tiene nada en el bit 51: `63:40 reserved`. Es un
+> formato del PTE (`208`) no tiene nada en el bit 51: `63:40 reserved`. Es un
 > bit que el hardware de esta placa no documenta.
 >
 > **3 · Si se quiere detección de acceso no mapeado, el camino es el handler de

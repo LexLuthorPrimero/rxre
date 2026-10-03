@@ -247,7 +247,7 @@ sin determinar.
 - Encadenada con `147` (el modelo de programación del stream encoder, y las dos
   preguntas abiertas que esta nota cierra), `142` (los 160 registros HDP, y la
   comparación de las dos respuestas al mismo fenómeno), `140` (el mapa de
-  direcciones), `144` (el otro extremo del objetivo: la entrada), `139` (el PTE).
+  direcciones), `231` (el otro extremo del objetivo: la entrada), `139` (el PTE).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 
 ## Nota de método

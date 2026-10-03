@@ -10,8 +10,8 @@ GPU INTACTA
 
 ## Qué resuelve
 
-La contradicción que `111` dejó abierta: `094` cuenta un `PFP_SYNC_ME` en el
-presupuesto del frame, y `111` midió **uno** en twenty segundos frente a 34 fences
+La contradicción que `216` dejó abierta: `094` cuenta un `PFP_SYNC_ME` en el
+presupuesto del frame, y `216` midió **uno** en twenty segundos frente a 34 fences
 y 8 jobs.
 
 **No hay contradicción. El vm_flush no es por frame: lo decide el scheduler, y
@@ -55,11 +55,11 @@ amdgpu_vm.c:825       return;
 
 **Un compositor que no cambia de buffers no pide vm_flush.** Reutiliza los
 mapeos existentes, así que no toca page tables, así que no hay nada que
-invalidar. **Y eso es exactamente lo que midió `111`**: 34 fences, 8 jobs, **1
+invalidar. **Y eso es exactamente lo que midió `216`**: 34 fences, 8 jobs, **1
 vm_flush** en veinte segundos.
 
 **Los fences son de job. El vm_flush es de actualización de page table.** No son
-la misma frecuencia, y por eso `094` y `111` no discrepaban.
+la misma frecuencia, y por eso `094` y `216` no discrepaban.
 
 ## Y `094` está bien: presupuesta el peor caso
 
@@ -70,13 +70,13 @@ gfx_v8_0.c:6964   17 + /* gfx_v8_0_ring_emit_vm_flush */
 
 `emit_frame_size` es un **máximo**, no un promedio, y `094` ya lo dijo así
 (*"maximum 215dw"*). Presupuesta un frame que sí hace flush, que es el peor caso.
-`111` midió una ventana que no lo hace.
+`216` midió una ventana que no lo hace.
 
 **Los dos eran correctos. Medían cosas distintas sin decirlo.**
 
-## Y esto matiza `085`, que dice "siempre"
+## Y esto matiza `194`, que dice "siempre"
 
-`085` establecio que en GFX8 `needs_flush` **siempre es verdadero** al actualizar
+`194` establecio que en GFX8 `needs_flush` **siempre es verdadero** al actualizar
 page tables:
 
 ```
@@ -85,7 +85,7 @@ amdgpu_vm.c:1157   flush_tlb |= amdgpu_ip_version(adev, GC_HWIP, 0) < IP_VERSION
 
 Eso sigue siendo `PROVEN`. **Lo que cambia es la frecuencia, no la regla**: la
 regla es "si actualizas page tables en GFX8, el invalidate es obligatorio"; y
-`113` establece **que las actualizaciones son raras**, porque las decide el
+`218` establece **que las actualizaciones son raras**, porque las decide el
 scheduler y un compositor en régimen no las hace.
 
 **Para un driver propio la distinción es operativa y no cosmética**: si no
@@ -131,7 +131,7 @@ regla de "un insert_end por envío".
 | Sólo lo pide el scheduler o un reset | `PROVEN` (`L793`, `L799-804`) |
 | Si no hace falta, no se escribe nada | `PROVEN` (`L823-825`) |
 | `094` presupuesta el peor caso | `PROVEN_DERIVED` |
-| `111` es coherente con `094` | `PROVEN_DERIVED` |
+| `216` es coherente con `094` | `PROVEN_DERIVED` |
 | Un compositor en régimen no pide vm_flush | `CORROBORATED` — no observado directamente |
 | El vm_flush abre un `insert_start` sin cerrarlo | `PROVEN` (`L829-837`) |
 | "Un insert_end por envío, por el firmware de VCN" | `PROVEN` (`L831-832`, afirmación del driver) |
@@ -153,16 +153,16 @@ analogía**, que es exactamente lo que `AGENTS.md` L431 prohíbe.
 
 - `STATIC` — `amdgpu_vm.c:793-825` y `:829-845`, `gfx_v8_0.c:6901` y `:6929` y
   `:6964` y `:6884-6886`.
-- `OBSERVED` — el volcado de `111`, de sólo lectura.
+- `OBSERVED` — el volcado de `216`, de sólo lectura.
 - Sin MMIO write, sin TLB, sin módulos, sin cambiar parámetros.
-- **Reconcilia `094` y `111`**, y matiza `085` y `072`.
-- Encadenada con `085` (el invalidate obligatorio), `094` (el presupuesto),
-  `111` (next IB), `072` (el COND_EXEC), `108`/`109` (los motores).
+- **Reconcilia `094` y `216`**, y matiza `194` y `072`.
+- Encadenada con `194` (el invalidate obligatorio), `094` (el presupuesto),
+  `216` (next IB), `072` (el COND_EXEC), `108`/`214` (los motores).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`: son de otras sesiones.
 
 **Una nota de método, sobre cómo se me pasó una contradicción obvia.**
 
-En `111` vi `PFP_SYNC_ME = 1` contra 34 fences y lo anoté como contradicción
+En `216` vi `PFP_SYNC_ME = 1` contra 34 fences y lo anoté como contradicción
 **sin comprobar quién llama a `ring_emit_vm_flush`.** Era un `grep` y era la
 pregunta entera. **Anoté una contradicción entre dos hallazgos míos en vez de
 resolverla, y la nota decía "no lo resuelvo" como si eso fuera honestidad cuando

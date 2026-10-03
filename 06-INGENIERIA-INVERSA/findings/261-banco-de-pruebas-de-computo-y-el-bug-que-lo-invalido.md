@@ -46,7 +46,7 @@ presente, `glslangValidator`, `spirv-dis`, `spirv-val`, `spirv-opt`, gcc 16.2.1 
 `/dev/dri/renderD129` abierto en `O_RDWR`. Faltaba la pieza: un programa de cómputo.** `PROVEN`.
 
 **⇒ `PROVEN_DERIVED. Y la vía correcta es cómputo y no gráficos, por una razón concreta:
-`vkcube` exige una superficie WSI y esta AMD no tiene display conectado —`163` registró cero
+`vkcube` exige una superficie WSI y esta AMD no tiene display conectado —`233` registró cero
 CRTC— mientras que el cómputo Vulkan no necesita superficie y funciona por el render node.** `PROVEN_DERIVED`.
 
 **⇒ Artefactos creados, todos propios y en el directorio de herramientas del proyecto:**

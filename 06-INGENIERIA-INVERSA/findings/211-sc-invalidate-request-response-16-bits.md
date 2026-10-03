@@ -9,7 +9,7 @@ RUNTIME=NOT_RUN · GPU INTACTA
 
 ## Qué resuelve
 
-`103` cerró que la lectura existe pero **no qué devuelve**. Esto dice qué
+`210` cerró que la lectura existe pero **no qué devuelve**. Esto dice qué
 devuelve: **un acuse por dominio, de 16 bits, que el driver descarta**.
 
 ## Los dos registros
@@ -105,7 +105,7 @@ gmc_v8_0.c:676       reg = mmVM_CONTEXT8_PAGE_TABLE_BASE_ADDR + vmid - 8;
 que el espacio de registro se organiza en bloques, y el código tiene que
 saltar entre ellos.
 
-**Y explica `102`/`103` por qué `emit_flush_gpu_tlb` reescribe el PTBA antes de
+**Y explica `209`/`210` por qué `emit_flush_gpu_tlb` reescribe el PTBA antes de
 invalidar**: son dos registros del mismo bloque, a 24 bytes de distancia, y se
 escriben seguidos en el ring.
 
@@ -170,8 +170,8 @@ amdgpu. Lo que no se puede es no elegir: el registro existe y devuelve algo.
   `gmc_8_1_sh_mask.h` (16 campos REQUEST y 16 RESPONSE), `gmc_6_0_sh_mask.h` y
   `gmc_7_0_sh_mask.h` (conteo), `gmc_v8_0.c:625-683` y `:673-680` y `:798-800`.
 - Sin `RUNTIME`. Sin escrituras.
-- Encadenada con `103` (la lectura existe), `099` (PRT), `102` (los dos
-  escritores), `068` y `085` (orden de emisión), `064` (los dos bloques de PTBA).
+- Encadenada con `210` (la lectura existe), `099` (PRT), `209` (los dos
+  escritores), `068` y `194` (orden de emisión), `064` (los dos bloques de PTBA).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`: son de otras sesiones.
 
 **Una nota de método, que es la misma del error.**

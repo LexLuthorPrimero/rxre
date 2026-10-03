@@ -2,7 +2,7 @@
 
 WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 
-RESUELVE UNA PARTE DE `100` · ACOTA `108`/`113` · CORRIGE UNA AUSENCIA FALSA MIA ·
+RESUELVE UNA PARTE DE `100` · ACOTA `108`/`218` · CORRIGE UNA AUSENCIA FALSA MIA ·
 NEGATIVE_RESULT sobre desensamblado GCN
 
 ## 1. La ausencia que yo mismo declaré era falsa
@@ -95,7 +95,7 @@ Eso explica de una vez dos cosas:
 
 1. Por qué el driver los lee **después** de arrancar el firmware y no antes
    (`smu7_request_smu_load_fw` en `:317`, y `process_firmware_header` más tarde).
-2. Por qué **`108`/`113` no se pueden cerrar leyendo la imagen**: el valor que hace falta
+2. Por qué **`108`/`218` no se pueden cerrar leyendo la imagen**: el valor que hace falta
    no está en el binario, porque **no existe como constante**. Es `NOT_AVAILABLE` con
    motivo, que es más preciso que `NOT_IN_CORPUS`.
 

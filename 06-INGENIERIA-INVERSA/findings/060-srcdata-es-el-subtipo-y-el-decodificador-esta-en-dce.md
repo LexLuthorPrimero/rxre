@@ -67,7 +67,7 @@ tiene, pero no donde se busca.
 
 ## 2 · Lo que el IV decodifica por completo, para esta GPU
 
-Con `051 §2` (layout), `052` (SRCID de fault), `058` (tabla) y este documento:
+Con `051 §2` (layout), `193` (SRCID de fault), `058` (tabla) y este documento:
 
 | campo | bits | lo consume | qué significa |
 |---|---|---|---|

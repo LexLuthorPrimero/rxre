@@ -133,7 +133,7 @@ Lo que **no** se cierra aquí, y es importante no confundirlo:
 - `NOT_DETERMINED` para `FUNCTION=always` (ver `056`). Ninguna de estas vías lo
   responde: asks qué **esperó** el `WAIT_REG_MEM`, y ninguna fuente de lectura
   observa eso.
-- La decodificación del IV por vía estática (ver `051`, `052`) **no** necesita
+- La decodificación del IV por vía estática (ver `051`, `193`) **no** necesita
   runtime y sigue en pie.
 
 ## 6 · Clasificación

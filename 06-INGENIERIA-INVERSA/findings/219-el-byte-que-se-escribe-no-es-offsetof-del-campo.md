@@ -3,13 +3,13 @@
 WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 
 CORRIGE A `103-el-parche-de-uvd-reescribe-bootvddc.md` · `107-el-parche-de-uvd-escribe-sobre-smio-5.md` ·
-`108-el-determinante-del-desfase-y-lo-que-no-se-puede-cerrar.md` · CORROBORA A `113`
+`108-el-determinante-del-desfase-y-lo-que-no-se-puede-cerrar.md` · CORROBORA A `218`
 
 ## Por que se abre
 
-`113` retiro el hueco de 108 bytes. Con ello caen las invasiones de `103` y `107`, que
+`218` retiro el hueco de 108 bytes. Con ello caen las invasiones de `210` y `107`, que
 estaban construidas **enteras** sobre ese hueco. Pero al re-leer el codigo real para
-etiquetarlas aparecio una pregunta que ni `103` ni `107` se hacian, y que es distinta:
+etiquetarlas aparecio una pregunta que ni `210` ni `107` se hacian, y que es distinta:
 
 > Las dos mascaras escriben **un byte**. ¿De que byte del DWORD se trata?
 
@@ -115,7 +115,7 @@ imposible es que el host lea ese byte por error y el firmware por acierto durant
 Lo que **si** es `PROVEN` y es el objeto de este documento:
 
 1. Los dos parches apuntan a **el mismo DWORD** (`1577 / 4 * 4 = 1576`). Se confirma dos
-   veces, aqui con `103` y aqui.
+   veces, aqui con `210` y aqui.
 2. **Cada mascara preserva el byte de la otra.** UVD escribe el byte 3 y VCE el byte 1, y
    `0x00FFFFFF` no toca el byte 1 ni `0xFF00FFFF` no toca el byte 3. **No colisionan**, y
    el orden entre ellas es irrelevante.
@@ -125,20 +125,20 @@ Lo que **si** es `PROVEN` y es el objeto de este documento:
 
 | etiqueta | documento | estado |
 |---|---|---|
-| `SMC_UVD_PATCH_WRONG_OFFSET` | `103` | **REFUTED** (reposaba en `offsetof - 108`) |
-| `SMC_UVD_PATCH_HITS_BOOT_VDDC` | `103` | **REFUTED** (`1576 + 108 = 1684`, con el hueco anulado) |
-| `SMC_UVD_PATCH_DESTROYS_BOOT_VOLTAGE` | `103` | **REFUTED** |
-| `SMC_PATCH_OFFSET_MIXES_REFERENCE_FRAMES` | `103` | **REFUTED** |
+| `SMC_UVD_PATCH_WRONG_OFFSET` | `210` | **REFUTED** (reposaba en `offsetof - 108`) |
+| `SMC_UVD_PATCH_HITS_BOOT_VDDC` | `210` | **REFUTED** (`1576 + 108 = 1684`, con el hueco anulado) |
+| `SMC_UVD_PATCH_DESTROYS_BOOT_VOLTAGE` | `210` | **REFUTED** |
+| `SMC_PATCH_OFFSET_MIXES_REFERENCE_FRAMES` | `210` | **REFUTED** |
 | `SMC_RAW_WRITE_HITS_SMIO5` | `107` | **REFUTED** (`1468 = 1576 - 108`, con el hueco anulado) |
 | `SMC_RAW_WRITE_WRITES_INDEX_AS_BOOT_LEVEL` | `107` | **REFUTED** (no cae en `Smio`) |
 | todo el discriminante `--hueco 108` | `108` | **REFUTED**: el hueco no existe |
-| `SMC_VCE_PATCH_SAME_WORD` | `103` | **se sostiene**, rederivado |
+| `SMC_VCE_PATCH_SAME_WORD` | `210` | **se sostiene**, rederivado |
 | `SMIO_IS_AN_INDEX_NOT_A_VOLTAGE` | `107` | **se sostiene**, independiente |
 | `SMIO5_IS_NEVER_WRITTEN_BY_ANY_PRODUCER` | `107` | **se sostiene**, pero queda sin consecuencia |
 | `SMC_RAW_WRITE_HITS_NOT_BOOT_VDDC` | `107` | **imprecisa**: el ancla es 1576, el byte es 1579 |
 
 Sobre `107` hay que ser justo: su parte original —*que el parche no cae en `BootVddc`*— la
-confirmo, y con razon, refuteando a `103`. La que estaba mal era la localizacion
+confirmo, y con razon, refuteando a `210`. La que estaba mal era la localizacion
 alternativa (`Smio[5]`), que venia del hueco.
 
 ## Y el alcance de la convencion, medido
@@ -171,7 +171,7 @@ tienen UVD/VCE comparable.
 - `SAMU_BOOT_LEVEL_NEVER_REACHES_FIRMWARE_VIA_THIS_PATH = PROVEN_DERIVED`: se asigna 0 en
   `:1429`, es la unica escritura al campo, la copia completa lo lleva a 1579 y el parche
   de UVD sobrescribe ese byte. Que el firmware lea ahi otra cosa: `NOT_IN_CORPUS`.
-- `PATCHES_SAME_WORD = PROVEN`: palabra 394, los dos. Rederivado desde `113`/`114`.
+- `PATCHES_SAME_WORD = PROVEN`: palabra 394, los dos. Rederivado desde `218`/`219`.
 - `PATCH_MASKS_PRESERVE_EACH_OTHER = PROVEN`: bytes 3 y 1, mascaras disjuntas en esos bits.
   **El orden entre ellos es irrelevante.**
 - `PATCH_CONVENTION_REPLICATED_IN_TONGA = PROVEN`: mismas dos lineas en
@@ -182,7 +182,7 @@ tienen UVD/VCE comparable.
 
 ## Lo que esto obliga a hacer en un driver propio
 
-Es la leccion practica de toda la secuencia `104` → `113` → `114`, y es la mas transferible:
+Es la leccion practica de toda la secuencia `211` → `218` → `219`, y es la mas transferible:
 
 1. **`offsetof(campo)` no es la direccion SMC del campo.** En esta region es el **ancla de
    la palabra**. Si mi driver escribe `smc[base + offsetof(X)] = valor` y el firmware
@@ -193,13 +193,13 @@ Es la leccion practica de toda la secuencia `104` → `113` → `114`, y es la m
    existe en el arbol de Linux y no en el mio, que es el riesgo real al reimplementar.
 3. **Un read-modify-write con mascara es un contrato de ocupacion de bits**, y hay que
    escribirlo como tal: que byte ocupa, que bytes preserva, y quien mas los ocupa. El
-   `103` lo encontro a medias y por eso leyo una colision donde no la hay.
+   `210` lo encontro a medias y por eso leyo una colision donde no la hay.
 4. Y la generalizacion, que es la que mas casos cubre: **si un campo tiene dos escritores,
    las mascaras tienen que ser disjuntas en los bits que cada uno escribe**, y eso se
    comprueba leyendo las dos mascaras, no comparando nombres de campos. Aqui se cumple:
    byte 3 contra byte 1.
 
-Y un punto sobre el proceso: `104`, `103` y `107` compartian **el mismo error de base**,
+Y un punto sobre el proceso: `211`, `210` y `107` compartian **el mismo error de base**,
 derivado uno del otro, y los tres parecian confirmarse mutuamente. **Una cadena de
 hallazgos que se apoyan en el mismo supuesto no es una confirmacion multiple: es un
 supuesto con tres ramificaciones.** La refutacion vino de medir una cosa que ninguno midio:

@@ -67,7 +67,7 @@ alias no se convierta en un bucle infinito que devuelva un 0.
 
 Y las seis son `VIVA` respecto a la copia de `:2118` (la herramienta decia `:2115`; corregido al anclar la llamada), porque estan en **funciones
 distintas** y la herramienta **no afirma cobertura entre funciones**: es lo que
-`106` documento como limitacion, y aqui se ve en el resultado real.
+`213` documento como limitacion, y aqui se ve en el resultado real.
 
 ## El caso que lo fija
 
@@ -88,17 +88,17 @@ caso que ya sabes buscar no puede cazar un bug de ambito.**
 ## Lo que este bug habria costado si no lo hubiera visto
 
 El valor falso era `236..683` para `MemoryLevel`, es decir: la invasion de `GraphicsLevel`
-que `104` calcula. Y **`104` la calcula y la documenta**.
+que `211` calcula. Y **`211` la calcula y la documenta**.
 
-O sea: `104` tiene una invasion de 108 bytes, y la herramienta, con el bug de ambito, le
+O sea: `211` tiene una invasion de 108 bytes, y la herramienta, con el bug de ambito, le
 daba exactamente el rango que produce esa invasion. Si no llego a mirar `:1243` por
-separado, la invasion de `104` y el rango de la herramienta se habrian reforzado
+separado, la invasion de `211` y el rango de la herramienta se habrian reforzado
 mutuamente como "dos pruebas independientes de lo mismo", y no lo eran: **las dos salian
 del mismo error de ambito**.
 
 Eso no lo puedo comprobar ya, porque el bug ya esta corregido y el rango correcto es
 `708..803`, de 96 bytes, sin invasion. Pero la hipotesis es coherente con lo que se ve:
-`104` dice "MemoryLevel se sale del array en 108 bytes", y con el ambito correcto la
+`211` dice "MemoryLevel se sale del array en 108 bytes", y con el ambito correcto la
 escritura de `:1243` es de 96 bytes en `708`, que **cabe entero** en el array real
 (`600..695` desplazado 108, o `708..803` sin desplazar).
 
@@ -118,13 +118,13 @@ escritura de `:1243` es de 96 bytes en `708`, que **cabe entero** en el array re
 - `TOOL_FIXTURE_WITH_SINGLE_FUNCTION_CANNOT_CATCH_SCOPE = PROVEN` el metodo: un fixture
   con una sola funcion no puede cazar un bug de ambito. Es el segundo caso de esta clase
   en la sesion, despues del caso 12 de `uninit_copy`.
-- `FINDING_104_INVASION_NEEDS_RECHECK = PROVEN_DERIVED`: `104` calcula una invasion de
+- `FINDING_104_INVASION_NEEDS_RECHECK = PROVEN_DERIVED`: `211` calcula una invasion de
   108 bytes de `MemoryLevel`, y con el ambito correcto la escritura es de 96 bytes y
-  **cabe**. La invasion de `104` queda **sospechosa** y hay que revisarla.
+  **cabe**. La invasion de `211` queda **sospechosa** y hay que revisarla.
 
 ## Lo que hay que hacer con esto
 
-1. **Revisar `104`**: la invasion de `MemoryLevel` sobre `LinkLevel` puede venir de este
+1. **Revisar `211`**: la invasion de `MemoryLevel` sobre `LinkLevel` puede venir de este
    mismo error de ambito mio, no del codigo. Es la accion inmediata.
 2. Y la regla, que es la segunda vez que sale: **una comprobacion que depende de un
    contexto tiene que declarar el contexto**. En la herramienta, la funcion. En mis
@@ -147,7 +147,7 @@ exceso: 36 B
 ```
 
 Es una tabla de 384 bytes con entradas de 12, **sin relacion con el hueco de 108 de la
-tabla DPM**. La aritmetica no comparte ninguna base con la que se corrigio `104`.
+tabla DPM**. La aritmetica no comparte ninguna base con la que se corrigio `211`.
 
 Y el caso realista (`mclk_count <= 4`) sigue limpio: `j` nunca pasa de 3, las 32 entradas
 caen dentro, cero fuera, cero alias.
@@ -156,8 +156,8 @@ Lo que **si** queda en pie de las tres invasiones de la sesion:
 
 | documento | invasion | estado tras las correcciones |
 |---|---|---|
-| `104` | `GraphicsLevel` invade `MemoryACPILevel` y `MemoryLevel` | **REFUTED**: `GraphicsLevel` acaba en 683, `MemoryACPILevel` en 684 |
-| `104` | `MemoryLevel` invade `LinkLevel` (108 B) | **REFUTED**: acaba en 803, `LinkLevel` en 804 |
+| `211` | `GraphicsLevel` invade `MemoryACPILevel` y `MemoryLevel` | **REFUTED**: `GraphicsLevel` acaba en 683, `MemoryACPILevel` en 684 |
+| `211` | `MemoryLevel` invade `LinkLevel` (108 B) | **REFUTED**: acaba en 803, `LinkLevel` en 804 |
 | `096` | `entries[7][j>=4]` sale 36 B del objeto de 384 | **`PROVEN`**: tabla aparte, sin relacion con el hueco |
 
 Y la leccion de por que las dos primeras estaban mal y la tercera no: **las tres

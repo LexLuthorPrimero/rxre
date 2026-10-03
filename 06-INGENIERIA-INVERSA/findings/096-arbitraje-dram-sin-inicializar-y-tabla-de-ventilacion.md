@@ -234,7 +234,7 @@ distintivo de capacidad. El retorno es **0 literal**. Y el unico llamador,
 `smum_thermal_setup_fan_table(hwmgr);` a secas (`smu7_thermal.c:461`).
 
 Es el mismo patron que `094` (`polaris10_populate_smc_boot_level`, que tampoco puede
-devolver fallo) y que `092` (validacion de VBIOS). Tres sitios, mismo modo de fallo:
+devolver fallo) y que `207` (validacion de VBIOS). Tres sitios, mismo modo de fallo:
 convertir una ausencia de informacion en exito.
 
 ## Lo que el host nunca escribe
