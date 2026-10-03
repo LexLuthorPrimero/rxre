@@ -1,0 +1,35 @@
+#version 450
+// WRITE-ONLY stream: 4 B written per element, nothing loaded per element.
+//
+// WHY THIS EXISTS
+//   Counterpart to membw_ro.comp.  With read-only, write-only and read+write all
+//   measured, the mixed stream's shortfall against the mclk ceiling can be
+//   attributed to bus turnaround rather than to a ceiling that applies in every
+//   direction.
+//
+// ORACLE
+//   A pure-store kernel has nothing to read back and compare unless the host can
+//   predict it.  Here the value stored is a pure function of (id, seed) that the
+//   host computes identically, so every written element is verifiable.  The
+//   kernel therefore cannot be replaced by a no-op without failing the oracle.
+
+layout(local_size_x = 256) in;
+
+layout(set = 0, binding = 0) readonly buffer Src4 { uint data[]; } src;
+layout(set = 0, binding = 1) buffer Dst4 { uint data[]; } dst;
+
+layout(push_constant) uniform PC {
+  uint n;
+  uint iters;
+  uint seed;
+  uint base;
+} pc;
+
+void main() {
+  uint i = pc.base + gl_GlobalInvocationID.x;
+  if (i >= pc.base + pc.n) return;
+
+  uint v = pc.seed ^ (i * 0x9e3779b9u);
+  for (uint k = 0u; k < pc.iters; k++) v = (v ^ (v << 13)) * 0x5bd1e995u;
+  dst.data[i] = v;
+}

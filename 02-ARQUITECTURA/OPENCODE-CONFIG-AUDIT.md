@@ -787,7 +787,7 @@ conoce si los abre explícitamente.
 | `RC-13` | Añadir los tokens `NOT_OBSERVED` y `PROVEN_ABSENT` a `AGENTS.md:18-25` | `MEDIUM` | semántica existe como prosa, no como token emitible | §11: 0 ocurrencias de cada token; 6 estados en prosa |
 | `RC-14` | Verificar si un `permission.deny` cubre `shell`/`write` de la capa de harness (`CON-C`) | `MEDIUM` | sin verificar, `RC-01` podría no funcionar | §15 `CON-C`: 11 herramientas fuera del esquema documentado |
 | `RC-15` | Eliminar o reubicar `~/.codex/AGENTS.md` | `MEDIUM` | fichero que aparenta ser instrucciones y no lo es | 3359 B, `PRESENT_BUT_NOT_ACTIVE` |
-| `RC-16` | Mover o、尿 documentar `~/.local/share/opencode/opencode.db` (416 MB) | `LOW` | higiene / privacidad | 416 MB + log 8.1 MB con contenido de sesiones |
+| `RC-16` | Mover o,尿 documentar `~/.local/share/opencode/opencode.db` (416 MB) | `LOW` | higiene / privacidad | 416 MB + log 8.1 MB con contenido de sesiones |
 | `RC-17` | Fijar `share: false` explícitamente | `LOW` | que la decisión de compartir sea explícita | `share_url=None` observado; `NOT_SET` |
 | `RC-18` | Fijar `subagent_depth` explícitamente | `LOW` | comportamiento de anidamiento documentado | default 1 nunca verificado |
 | `RC-19` | Agente `adversarial-reviewer` para las rondas de duplicación | `OPTIONAL` | la ronda anterior hizo la revisión adversarial el propio agente contra sí mismo | `IDEATION-ROUND-02.md` §6.3 |

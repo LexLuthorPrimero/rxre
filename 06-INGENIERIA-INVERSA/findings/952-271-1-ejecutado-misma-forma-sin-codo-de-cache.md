@@ -1,4 +1,5 @@
 # 952 — `271-1` ejecutado: la misma forma con otro kernel, ningún codo de caché, y un escalón al revés a 8 MiB
+AUTORIA=AGENTE-SMU
 
 Estado: `271-1` → `NOT_DETERMINED` con la causa nombrada. El discriminante propuesto no puede cerrarlo.
 Instrumentos: banco con magnitudes emparejadas, control de contenido activo en los ocho puntos.
@@ -10,6 +11,21 @@ PENDIENTE=271-1 | ESTADO=REOPENED
            | MOTIVO=la meseta de 271 era artefacto; rehacer el barrido de tamaño de
            |         conjunto de trabajo con occ.comp y no con cache.comp
 ```
+
+```
+PENDIENTE=271-1 | ESTADO=NOT_DETERMINED
+           | MOTIVO=el barrido de conjunto de trabajo NO mide la jerarquia de memoria,
+           |         porque en una cadena dependiente la huella la fijan los datos y no
+           |         W. Cambiar de kernel, que era el discriminante propuesto, no lo
+           |         cierra: la forma se reproduce con occ.comp igual que con cache.comp.
+           | SIGUIENTE=contar las direcciones DISTINTAS que toca la cadena; eso separa
+           |         "la huella se satura" de "la cache cambia"
+           | ESCALA=el coste por acceso baja al cruzar 8 MiB (la L3 de esta CPU), que
+           |         una cache no explica. Dos regimenes marginales: 7,5 ns por debajo y
+           |         3,2 ns por encima. Sin explicar.
+           | NO_CERRABLE_CON=barrido de W con una cadena dependiente
+```
+
 
 Lo llevaba tres notas citando como «el más antiguo y el único reabierto a propósito sin constancia
 de cierre», sin leerlo. Es el mismo error que `282-2`: el estado de un frente leído de una fuente

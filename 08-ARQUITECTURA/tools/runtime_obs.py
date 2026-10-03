@@ -14,9 +14,31 @@ requiere OBSERVAR, y observar el estado inactivo es una lectura de fichero.
 Lo verificado antes de escribir esta herramienta:
 
     /sys/class/drm/card1/device/uevent          LEGIBLE   (y es la AMD)
+    # CORREGIDO: la linea de debugfs de abajo decia dri/0, que en esta maquina
+    # es la INTEGRADA de Intel. Este mismo fichero ya decia card1 = AMD dos
+    # lineas mas arriba: era incoherente consigo mismo. El detector de rutas
+    # lo cuenta y el indice se mide de sysfs cada vez que se ejecuta, porque un
+    # indice guardado es justo el error que hay que evitar. (Ese detector es
+    # ./tools/driroute.py, en la raiz del repo; NO esta en 08-ARQUITECTURA/tools/,
+    # que es donde vive este fichero. Hay dos directorios tools/.)
     /sys/module/amdgpu/parameters/vm_size       LEGIBLE
     /sys/bus/pci/devices/0000:01:00.0/config    LEGIBLE   (config space, lectura)
-    /sys/kernel/debug/dri/0/...                 NO        (debugfs sin montar)
+    /sys/kernel/debug/dri/1/...                 MONTADO, SOLO ROOT (EACCES sin privilegio)
+    # CORREGIDO 2026-10-03: esta linea decia "NO (debugfs sin montar)". Era
+    # FALSO. debugfs SI esta montado en /sys/kernel/debug (verificado en
+    # /proc/mounts) y solo se puede traversar con privilegio. La razon real del
+    # "no" es EACCES (errno 13), no la inexistencia: /sys/kernel/debug es 0700
+    # root y stat() sobre dri/ da 13, no 2.
+    # NO CONFUNDIR "no montado" con "no legible por mi usuario": son hechos
+    # distintos. El primero significa ACCESSOR_MISSING; el segundo significa
+    # READABLE_BUT_PRIVILEGED. Lo segundo es lo que pasa aqui.
+    #
+    # ADVERTENCIA, sin resolver: `section_debugfs()` sigue usando
+    # os.path.isdir(), que devuelve False ante EACCES igual que ante ENOENT, y
+    # por eso todavia emite "debugfs NO montado" con rc=0. El texto de arriba ya
+    # esta corregido; el CODIGO de esa rama no. Hallazgo 970. Es el unico punto
+    # por el que la salida de esta herramienta no debe usarse como evidencia de
+    # ausencia.
 
 Asi que hay una clase entera de preguntas marcadas `NOT_DETERMINED` que NO
 necesitan autorizacion de escritura: se responden leyendo ficheros que ya estan

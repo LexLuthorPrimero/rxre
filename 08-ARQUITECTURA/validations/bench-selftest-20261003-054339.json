@@ -1,0 +1,41 @@
+{
+ "artefacto": "bench",
+ "contexto": {
+  "n": 0
+ },
+ "cwd": "/home/lucas/Escritorio/RX550-INVESTIGACION/08-ARQUITECTURA/tools",
+ "fallos": [],
+ "hardware": {
+  "bar_size": null,
+  "kernel": "7.1.3-200.nobara.fc44.x86_64",
+  "mclk_hz": 300000000,
+  "pci": null,
+  "pci_device": null,
+  "power_uw": 7081000,
+  "sclk_hz": 1058890000,
+  "temp_mc": 36000
+ },
+ "instrumento": {
+  "binario": "/home/lucas/Escritorio/RX550-INVESTIGACION/08-ARQUITECTURA/tools/vcp",
+  "binario_fresco": true,
+  "binario_frescura": [
+   {
+    "binario_mtime": 1791016991.3511143,
+    "binario_sha256": "28ecc3805a288002",
+    "estado": "AL DIA",
+    "fuente_mtime": 1791016990.1270094,
+    "fuente_sha256": "8f6236227bfc0d68"
+   }
+  ],
+  "binario_sha256": "28ecc3805a2880022f881b34eb407ee7868499f653bb7b4dad3791a699e43f64",
+  "fuente": "/home/lucas/Escritorio/RX550-INVESTIGACION/08-ARQUITECTURA/tools/vulkan_compute_probe.c",
+  "fuente_sha256": "8f6236227bfc0d68ac2cb1ff6c227650e2646768882971fae5d20e630c9a7c75",
+  "spv_frescos": true
+ },
+ "resultado": {
+  "ok": true
+ },
+ "suite": "selftest",
+ "timestamp": "20261003-054339",
+ "veredicto": "PASS"
+}

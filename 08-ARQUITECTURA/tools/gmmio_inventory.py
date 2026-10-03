@@ -76,7 +76,7 @@ def parse_d_header(path):
 
 
 def parse_mask_header(path):
-    """{REG: {CAMPO: (mask, shift)}} desde un header _sh_mask.h.
+    r"""{REG: {CAMPO: (mask, shift)}} desde un header _sh_mask.h.
 
     BUG QUE ME COSTO DOS EJECUCIONES ENTERAS, y que es el mas silencioso
     posible porque no lanza error: puse el separador de campo como '__MASK'

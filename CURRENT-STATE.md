@@ -6,8 +6,8 @@ Contraste entre lo que declara `AGENTS.md` §ESTADO ACTUAL YA CONOCIDO y
 lo que el proyecto ha hecho despues. El valor de este artefacto es el
 **contraste**, no la lista: la lista de AGENTS.md no se regenera aqui.
 
-- Findings totales: **347**, numerados del 001 al 258.
-- Correcciones: **31**
+- Findings totales: **504**, numerados del 001 al 994.
+- Correcciones: **41**
 - Retracciones: **7**
 
 ## Retracciones registradas
@@ -53,6 +53,16 @@ lo que el proyecto ha hecho despues. El valor de este artefacto es el
 - `127-align-mask-no-se-opone -> corregida por 127-CORRECCION-POSTERIOR`
 - `198-tres-correcciones-de-la-poda (slug)`
 - `198-tres-correcciones-de-la-poda`
+- `259-la-clave-primaria-de-f -> corregida por 025`
+- `974-el-bit-51-si-llega-a-u -> corregida por 131`
+- `976-corregcion-a-974-el-es -> corregida por 974`
+- `976-corregcion-a-974-el-es -> corregida por 101`
+- `978-el-iv-de-gfx8-no-es-el -> corregida por 976`
+- `978-el-iv-de-gfx8-no-es-el -> corregida por 101`
+- `981-el-backend-de-color-y- -> corregida por 979`
+- `986-los-headers-de-cb-db-n -> corregida por 981`
+- `986-los-headers-de-cb-db-n -> corregida por 979`
+- `987-cobertura-por-area-con -> corregida por 979`
 
 ## Lo que AGENTS.md no refleja
 

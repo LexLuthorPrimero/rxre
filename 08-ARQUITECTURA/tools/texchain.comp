@@ -1,0 +1,59 @@
+#version 450
+// DISCRIMINANTE de 282-1. La pregunta de 282: una lectura encadenada se costea a
+// 3,013 GB/s, 1,51 veces el techo de PCIe, y da el MISMO tiempo en VRAM y en RAM.
+//
+// El discriminante propuesto en 282 era una VkImage en vez de un VkBuffer: una imagen
+// tiene su propia ruta de texel. Si esa ruta difiere de la del storage buffer, la
+// diferencia localiza el camino; si no difiere, el coste no esta en el camino de
+// lectura sino en otro sitio.
+//
+// TODO lo demas es identico a chain.comp a proposito: mismos constant_id (0 ITERS,
+// 1 WSIZE, 2 STEPS), mismo hash, misma cadena, y SOBRE TODO la misma salida, que sigue
+// yendo al storage buffer en d[WSIZE + i]. Asi el modelo del host de la cadena sigue
+// siendo valido y el control de contenido sigue significando lo mismo. Lo unico que
+// cambia es de donde se lee.
+//
+// Formato r32ui y NO rgba32ui: r32ui da un uint por texel, 4 B por acceso, igual que
+// d[idx] del storage buffer. Con rgba32ui un texelFetch traeria 16 B de los que se
+// usaria uno, y la razon de bytes por acceso dejaria de coincidir: el experimento
+// mediria dos cosas a la vez.
+layout(local_size_x = 64) in;
+layout(constant_id = 0) const uint ITERS = 1u;
+layout(constant_id = 1) const uint WSIZE = 1024u;
+layout(constant_id = 2) const uint STEPS = 1u;
+
+layout(std430, binding = 0) buffer B { uint d[]; };
+// SAMPLED_IMAGE, no STORAGE_IMAGE: se lee con texelFetch, sin sampler y sin
+// seleccion de LOD, para que la ruta medida sea la del texel y no la del muestreo.
+// El indice va como texel, no como coordenada normalizada, por el mismo motivo:
+// texelFetch no pasa por la normalizacion.
+//
+// usampler2D y NO uimage2D: usampler2D es el sampler combinado que corresponde a
+// VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, y es lo que se quiere medir. uimage2D
+// obligaria a VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, que es otra ruta y otro experimento.
+// usampler2D no admite calificador de formato ('only apply to images'), lo cual es
+// correcto: los 4 B por texel los fija el VkFormat de la imagen, en R32_UINT, en
+// tiempo de ejecucion, y no el shader. El banco lo comprueba, no se supone.
+layout(binding = 1) uniform usampler2D tex;
+
+uint hash(uint x) {
+    x ^= x >> 16; x *= 0x7feb352du;
+    x ^= x >> 15; x *= 0x846ca68bu;
+    x ^= x >> 16;
+    return x;
+}
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    uint idx = hash(i + 0x9e3779b9u) % WSIZE;
+    uint acc  = 0u;
+    for (uint k = 0u; k < ITERS; k++) {
+        uint v = texelFetch(tex, ivec2(int(idx), 0), 0).x;
+        acc = acc * 1664525u + v + 1013904223u;
+        idx = acc % WSIZE;
+        for (uint s = 0u; s < STEPS; s++) {
+            idx = hash(idx) % WSIZE;
+        }
+        acc = acc + idx;
+    }
+    d[WSIZE + i] = acc;
+}

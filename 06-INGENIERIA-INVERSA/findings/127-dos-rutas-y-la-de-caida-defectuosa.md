@@ -2,9 +2,9 @@
 
 WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 
-> ## ALCANCE CERRADO POR `128` — Ruta B **si** es alcanzable, con overdrive
+> ## ALCANCE CERRADO POR `229` (antes `128`) — Ruta B **si** es alcanzable, con overdrive
 >
-> Este fichero dejo el alcance como `NOT_IN_CORPUS`. **`128` lo cierra con un numero medido en
+> Este fichero dejo el alcance como `NOT_IN_CORPUS`. **`229` (antes `128`) lo cierra con un numero medido en
 > mi VBIOS:**
 >
 > ```
@@ -190,7 +190,7 @@ opera sobre la copia interna, que no lleva `__counted_by`, asi que la lectura es
 analizador estatico.
 
 > **`__counted_by` es la anotacion que convierte una lectura fuera de limites en un aviso de
-> compilacion.** El struct de entrada la tiene; el de trabajo, no. Es el mismo patron de `124`
+> compilacion.** El struct de entrada la tiene; el de trabajo, no. Es el mismo patron de `226` (antes `124`)
 > — una frontera segura por construccion en un lado y sin nada en el otro.
 
 ### El patron que lo causo todo
@@ -240,7 +240,7 @@ VBIOS**, asi que **no afirmo nada sobre ellos**: quedan abiertos.
 
 ## Y una correccion a mi propio razonamiento
 
-En `126` observe que el cap `ControlVDDCI` **si** esta activo en mi placa, porque el bit 15
+En `228` (antes `126`) observe que el cap `ControlVDDCI` **si** esta activo en mi placa, porque el bit 15
 (`ATOM_TONGA_PP_PLATFORM_CAP_VDDCI_CONTROL = 0x8000`) esta en `ulPlatformCaps = 0x068000` y
 `set_platform_caps:94-96` lo traduce.
 
@@ -266,7 +266,7 @@ supera la tabla.
 - `RUTA_B_NO_SE_ALCANZA_SIN_OVERDRIVE = PROVEN_DERIVED`: por construccion
 - `EL_ALCANCE_CON_OVERDRIVE_ES_NOT_IN_CORPUS`: no tengo datos de OD
 - `LOS_RELOJES_DE_ARRANQUE_NO_ESTAN_MEDIDOS = EVIDENCE_MISSING`: `:1293` y `:1328`
-- `MI_BLOQUEO_POR_VDDCI_CONTROL_ERA_FALSO = CORRECTED`: `126` lo refuta
+- `MI_BLOQUEO_POR_VDDCI_CONTROL_ERA_FALSO = CORRECTED`: `228` (antes `126`) lo refuta
 
 ## Lo que esto obliga a hacer en un driver propio
 

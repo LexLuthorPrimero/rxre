@@ -1,0 +1,123 @@
+{
+ "artefacto": "bench",
+ "comparabilidad": {
+  "comparables": {
+   "bar_size": {
+    "ahora": null,
+    "anterior": null,
+    "estado": "NO_COMPARABLE"
+   },
+   "mclk_hz": {
+    "ahora": 300000000,
+    "anterior": 1500000000,
+    "estado": "DIFIERE",
+    "razon": 0.2
+   },
+   "pcie_gen": {
+    "ahora": null,
+    "anterior": null,
+    "estado": "NO_COMPARABLE"
+   },
+   "pcie_width": {
+    "ahora": null,
+    "anterior": null,
+    "estado": "NO_COMPARABLE"
+   },
+   "sclk_hz": {
+    "ahora": 1059370000,
+    "anterior": 1071000000,
+    "estado": "igual",
+    "razon": 0.989140989729225
+   }
+  },
+  "difieren": [
+   "mclk_hz"
+  ],
+  "estado": "NO_COMPARABLE",
+  "nota": "la medicion es valida; lo que no esta licenciada es compararla con la anterior",
+  "previo": "bench-curva-20261003-082222.json"
+ },
+ "contexto": {
+  "iters": [
+   512,
+   2048
+  ],
+  "n": 5
+ },
+ "cwd": "/home/lucas/Escritorio/RX550-INVESTIGACION/08-ARQUITECTURA/tools",
+ "fallos": [],
+ "hardware": {
+  "bar_size": null,
+  "kernel": "7.1.3-200.nobara.fc44.x86_64",
+  "mclk_hz": 1500000000,
+  "pci": null,
+  "pci_device": null,
+  "power_uw": 11241000,
+  "sclk_hz": 1071000000,
+  "temp_mc": 46000
+ },
+ "instrumento": {
+  "binario": "/home/lucas/Escritorio/RX550-INVESTIGACION/08-ARQUITECTURA/tools/vcp",
+  "binario_fresco": true,
+  "binario_frescura": [
+   {
+    "binario_mtime": 1791025845.1905615,
+    "binario_sha256": "739b3394ab54ee73",
+    "estado": "AL DIA",
+    "fuente_mtime": 1791023188.5254774,
+    "fuente_sha256": "7e7037cadea20251"
+   }
+  ],
+  "binario_sha256": "739b3394ab54ee730a3c166392b081bdeee29e730a1ec2f8dab9262c3ab622e2",
+  "fuente": "/home/lucas/Escritorio/RX550-INVESTIGACION/08-ARQUITECTURA/tools/vulkan_compute_probe.c",
+  "fuente_sha256": "7e7037cadea20251652a542ab03069faf8fe95b85d2038594b94de114b790b2a",
+  "spv_frescos": true
+ },
+ "puerta_de_reloj": {
+  "estado": "RELOJ_ESTABLE",
+  "lecturas": 2,
+  "marcas": [
+   {
+    "donde": "curva:512",
+    "sclk_hz": 1071000000
+   },
+   {
+    "donde": "curva:2048",
+    "sclk_hz": 1071000000
+   }
+  ],
+  "max_hz": 1071000000,
+  "min_hz": 1071000000,
+  "razon": 1.0,
+  "umbral": 1.25
+ },
+ "resultado": {
+  "aviso": "el intercepto NO es un coste: es el valor de la recta en ITERS=0. 609 lo mostro comparando el primer envio con la media de los siguientes.",
+  "confianza": "baja: dos puntos definen una recta pero no la verifican",
+  "gb_por_s_marginal": 44.12154109138723,
+  "huella_mib": 64,
+  "intercepto_ms": 6.836999999999997,
+  "ms_por_iteracion": 0.005941406250000002,
+  "n_puntos": 2,
+  "puntos": [
+   {
+    "iters": 512,
+    "mediana_s": 0.009879,
+    "minimo_s": 0.009759,
+    "n": 5,
+    "rechazadas": 0
+   },
+   {
+    "iters": 2048,
+    "mediana_s": 0.019005,
+    "minimo_s": 0.018839,
+    "n": 5,
+    "rechazadas": 0
+   }
+  ],
+  "subrange_mib": 0
+ },
+ "suite": "curva",
+ "timestamp": "20261003-082520",
+ "veredicto": "PASS"
+}

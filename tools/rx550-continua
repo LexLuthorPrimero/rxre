@@ -1,0 +1,307 @@
+#!/usr/bin/env bash
+# rx550-continua -- vigilante que reanuda las sesiones OpenCode que terminan su turno.
+#
+# MEDIDO contra el servidor real (opencode v2.0.22, PID 4939), no contra la documentacion.
+# La documentacion V2 no describe session.execution.succeeded; se measuro en el stream.
+# Ver la seccion MEDICION mas abajo. No reescribas esto sin volver a medir.
+#
+# MECANISMO
+#   GET  /api/event                          stream SSE global, 1 conexion para todas las sesiones
+#   POST /api/session/{id}/synthetic         reanuda al agente
+#   GET  /api/session/{id}                   outcome + time.idle, para NO reanudar un fallo
+#
+# PARADAS (ninguna contradice "hasta que yo diga")
+#   touch tools/continua.pausado   pausa global: no reanuda a nadie
+#   rm    tools/continua.pausado   reanuda
+#   pkill -f rx550-continua        mata el proceso
+#   escribe tu en la TUI           detectado por inbox pendiente; no te pisa
+#   outcome != succeeded           turno fallido/interrumpido: no reinyecta
+#   stream caido                   reconecta solo, nunca sale
+#
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PAUSA="$SCRIPT_DIR/continua.pausado"
+LOG="${RX550_CONTINUA_LOG:-/tmp/rx550-continua.log}"
+
+CFG="$HOME/.config/opencode/service.json"
+[ -r "$CFG" ] || { echo "FALTA: $CFG" >&2; exit 1; }
+PW="$(jq -r '.password // empty' "$CFG")"
+[ -n "$PW" ] || { echo "FALTA: password en $CFG" >&2; exit 1; }
+
+# MEDIDO: el puerto del servidor NO es fijo. /api/info devuelve "pid":4939 y
+# "urls":["http://127.0.0.1:49374"], donde el puerto deriva del PID. Si OpenCode se
+# reinicia, cambia el puerto. Resolver BASE una sola vez al arrancar hacia que el
+# vigilante quedara muerto en silencio para siempre, sin error visible: exactamente
+# el fallo que no se detecta hasta que dawnas que todo esta parado.
+# Por eso BASE se vuelve a resolver en cada reconexion y en cada fallo de la sonda.
+resolver_base() {
+  timeout 15 opencode api get /api/info 2>/dev/null | jq -r '.urls[0] // empty'
+}
+
+BASE="$(resolver_base)"
+if [ -z "$BASE" ]; then
+  # El servidor puede no estar arriba todavia. No es motivo para salir: se reintenta.
+  echo "AVISO: servidor no disponible al arrancar; reintentando" >&2
+fi
+
+AUTH=(-u "opencode:$PW")
+
+# Si el servidor no responde, espera a que vuelva. Un vigilante que sale porque el
+# servidor estaba caido es un vigilante que no vuelve solo.
+esperar_servidor() {
+  while [ -z "$BASE" ]; do
+    sleep 10
+    BASE="$(resolver_base)"
+    [ -n "$BASE" ] && log "BASE recuperada: $BASE"
+  done
+}
+
+# Separacion minima entre dos reinyectos a la MISMA sesion, en segundos. 0 = al instante.
+#
+# MEDIDO: el evento session.execution.succeeded ES la senal de fin de turno; llega
+# por el stream en cuanto ocurre. La espera no aporta latencia, solo retrasa. Por eso
+# el defecto es 0 y la proteccion contra bucles vive en otro sitio:
+#   - la GUARD de outcome: un turno failed/interrupted nunca se reanuda, y ahi es
+#     donde un bucle de error realmente empezaria;
+#   - el stream: solo emite finished una vez por turno, asi que no hay reinyentos
+#     espontaneos aunque el vigilante este en bucle cerrado.
+# Subir RX550_CONTINUA_COOLDOWN solo tiene sentido si tu proveedor satura.
+COOLDOWN="${RX550_CONTINUA_COOLDOWN:-0}"
+
+# MEDIDO: con "Reanuda el proyecto desde [01]" sin mas, el vigilante se alimentaba de
+# si mismo. Una sesion sin trabajo nuevo recibia el prompt, respondia, terminaba turno,
+# y el vigilante la llamaba otra vez: bucle de tokens sin producir nada. Verificado con
+# esta misma sesion (ses_efd308a...), que recibio el prompt tres veces seguidas.
+# Por eso la PRIMERA instruccion es la de no hacer nada: el silencio no dispara nada.
+PROMPT='PRIMERO: decide si hay trabajo nuevo realmente accionable. Si NO lo hay, termina
+este turno en silencio, sin responder texto, sin llamar herramientas y sin commit. Eso es
+un resultado correcto, no un fallo.
+
+Si SI hay trabajo nuevo, entonces y solo entonces: GLOBAL WORK SCAN. Te detuviste por fin
+de turno, no por decision propia. Reanuda el proyecto desde la categoria [01] de la lista.
+Si crees que el proyecto esta terminado, en vez de callarte declara QUE condicion exacta
+falta y por que no la pudiste cumplir. No repitas trabajo ya hecho. No commits sin pasar
+por tu criterio.'
+
+log() { printf '%s  %s\n' "$(date -Is)" "$*" >>"$LOG"; }
+
+# Lista de sesiones que el vigilante NO debe reanudar nunca. Una sesionID por linea,
+# # para comentarios. Sirve para sacar del ciclo una sesion que ya termino su trabajo
+# (por ejemplo la que configuro el propio vigilante) sin apagar el resto.
+EXCLUIDOS="$SCRIPT_DIR/continua.excluir"
+excluido() {
+  local sid="$1"
+  [ -r "$EXCLUIDOS" ] || return 1
+  grep -qE "^[[:space:]]*${sid}[[:space:]]*(#.*)?$" "$EXCLUIDOS" 2>/dev/null
+}
+
+declare -A ULTIMO
+puede() {
+  local sid="$1" ahora last
+  ahora=$(date +%s)
+  last="${ULTIMO[$sid]:-0}"
+  if (( ahora - last < COOLDOWN )); then return 1; fi
+  ULTIMO[$sid]=$ahora
+  return 0
+}
+
+# ¿queda input humano por procesar? si lo hay, no se reinyecta: manda el usuario.
+inbox_pendiente() {
+  local sid="$1" n
+  n=$(timeout 10 curl -s "${AUTH[@]}" "$BASE/api/session/$sid/inbox" 2>/dev/null \
+      | jq -r '[.data[]? | select(.delivered != true and .discarded != true)] | length' 2>/dev/null)
+  [ "${n:-0}" -gt 0 ] 2>/dev/null
+}
+
+reanudar() {
+  local sid="$1" motivo="${2:-idle}"
+
+  if [ -e "$PAUSA" ]; then log "PAUSA  $sid  no se reanuda (fichero de pausa presente)"; return; fi
+  if excluido "$sid"; then log "EXCLUIDA $sid  en la lista de exclusion; no se reanuda"; return; fi
+  if ! puede "$sid"; then log "COOLDOWN $sid  hace ${COOLDOWN}s desde el ultimo reinyecto"; return; fi
+  if inbox_pendiente "$sid"; then log "RESPETO $sid  hay input humano pendiente; no se pisa"; return; fi
+
+  # --- Guarda de turno unproductive ---------------------------------------------
+  # MEDIDO: ses_efd308a... (esta sesion) encadeno 10 veces synthetic->assistant->idle
+  # en ~5 s cada una, sin producir nada. Reanudar una sesion que acaba de terminar
+  # sin trabajo no es "mantenerla trabajando": es un bucle cerrado que gasta tokens
+  # para no hacer nada. El vigilante debe distinguishing "parada porque termino su
+  # trabajo" de "parada porque no hay nada que hacer".
+  #
+  # REGLA: si el ultimo turno fue muy corto (sin tiempo de pensar ni usar una
+  # herramienta), no se reanuda. Un turno real dura mas. El umbral se puede
+  # cambiar con RX550_CONTINUA_MIN_TURNO; ponerlo a 0 desactiva la guarda.
+  local min_turno="${RX550_CONTINUA_MIN_TURNO:-20}"
+  if [ "$min_turno" -gt 0 ] 2>/dev/null; then
+    local ult dur
+    ult=$(timeout 12 curl -s "${AUTH[@]}" "$BASE/api/session/$sid/message" 2>/dev/null \
+          | jq -r '[(.data // [])[] | select(.type=="assistant" or .type=="user") | .time.created] | max // empty' \
+          2>/dev/null)
+    # time.created viene en MILISEGUNDOS y date +%s da SEGUNDOS. Restarlos sin
+    # convertir daba ~-1.8e12, que comparaba como "< 20" y bloqueaba TODAS las
+    # sesiones. MEDIDO: 29 "VACA ... de -1789263274136s" falsos en un arranque.
+    if [ -n "$ult" ] && [ "$ult" -gt 0 ] 2>/dev/null; then
+      dur=$(( $(date +%s) - ult / 1000 ))
+      if [ "$dur" -lt 0 ]; then dur=0; fi
+      if [ "$dur" -lt "$min_turno" ]; then
+        log "VACA  $sid  ultimo turno de ${dur}s (< ${min_turno}s); no hay trabajo real, no se reanuda"
+        return
+      fi
+    fi
+  fi
+
+  # outcome != succeeded  => fallo o interrupcion. Reinyectar aqui es bucle de error.
+  local outcome
+  outcome=$(timeout 10 curl -s "${AUTH[@]}" "$BASE/api/session/$sid" 2>/dev/null \
+            | jq -r '.data.outcome // empty' 2>/dev/null)
+  if [ -n "$outcome" ] && [ "$outcome" != "succeeded" ]; then
+    log "GUARD  $sid  outcome=$outcome (fallo/interrumpido); no se reanuda"
+    return
+  fi
+
+  local resp rc
+  resp=$(timeout 20 curl -s -w '\n%{http_code}' "${AUTH[@]}" \
+         -X POST "$BASE/api/session/$sid/synthetic" \
+         -H 'Content-Type: application/json' \
+         --data "$(jq -nc --arg t "$PROMPT" '{text:$t}')" 2>/dev/null)
+  rc=$(printf '%s' "$resp" | tail -n1)
+  if [ "$rc" = "200" ]; then
+    log "CONT   $sid  reanudado (http 200)  motivo=$motivo"
+  else
+    # No se marca cooldown en fallo: se registra y se espera al proximo idle.
+    log "ERROR  $sid  http=$rc  ${resp%$'\n'*}" | head -c 400 >>"$LOG"
+  fi
+}
+
+# Barrido de arranque: el stream solo reporta lo que pase DESPUES de conectarse.
+# Sin esto, toda sesion que ya estuviera parada antes de arrancar el vigilante se
+# queda parada para siempre. MEDIDO: al arrancar habia 4 sesiones con idle de
+# 0/13/23/54 minutos y ninguna iba a generar evento.
+barrido_inicial() {
+  log "BARRIDO escaneando sesiones ya paradas al arrancar"
+  local sids sid
+  sids=$(timeout 15 curl -s "${AUTH[@]}" "$BASE/api/session/active" 2>/dev/null \
+         | jq -r '.data // {} | keys[]' 2>/dev/null)
+  if [ -z "$sids" ]; then log "BARRIDO ninguna sesion activa"; return; fi
+
+  while IFS= read -r sid; do
+    [ -n "$sid" ] || continue
+    local info idle_min outcome
+    info=$(timeout 10 curl -s "${AUTH[@]}" "$BASE/api/session/$sid" 2>/dev/null)
+    outcome=$(printf '%s' "$info" | jq -r '.data.outcome // empty' 2>/dev/null)
+    idle_min=$(printf '%s' "$info" | jq -r \
+      'if .data.time.idle then (((now*1000) - .data.time.idle)/1000/60)|floor else -1 end' 2>/dev/null)
+
+    # MEDIDO: ses_efd5f146... no tiene ni outcome ni time.idle, pero SI time.updated,
+    # y su ultimo mensaje era de hace 61 minutos. Con el codigo anterior caia en
+    # idle_min=-1 y quedaba sin reanudar para siempre, aunque estuviera claramente
+    # parada. Ahora se usa time.updated como segunda medida.
+    if [ "$idle_min" -lt 0 ] 2>/dev/null; then
+      local upd_min
+      upd_min=$(printf '%s' "$info" | jq -r \
+        'if .data.time.updated then (((now*1000) - .data.time.updated)/1000/60)|floor else -1 end' 2>/dev/null)
+      # Umbral 0 y no 1: lo que importa es que la sesion tenga time.updated (o sea,
+      # que exista y no este en curso), no quanto tiempo lleva. Con umbral 1 una
+      # sesion reanudada hace menos de un minuto se escapaba otra vez.
+      if [ "$upd_min" -ge 0 ] 2>/dev/null; then
+        log "BARRIDO $sid  sin time.idle pero updated hace ${upd_min}min; se intenta reanudar"
+        reanudar "$sid" "barrido-inicial sin-idle updated=${upd_min}min"
+        continue
+      fi
+    fi
+
+    if [ -n "$outcome" ] && [ "$outcome" != "succeeded" ]; then
+      log "BARRIDO $sid  outcome=$outcome  no se reanuda"
+      continue
+    fi
+    if [ "$idle_min" -lt 0 ] 2>/dev/null; then
+      log "BARRIDO $sid  sin time.idle; se deja como esta"
+      continue
+    fi
+    reanudar "$sid" "barrido-inicial idle=${idle_min}min"
+  done <<<"$sids"
+}
+
+log "ARRANQUE  base=$BASE  cooldown=${COOLDOWN}s  log=$LOG"
+[ -e "$PAUSA" ] && log "AVISO  existe $PAUSA: arrancara en PAUSA"
+
+# Antes de conectar el stream: recuperar las que ya estaban paradas.
+barrido_inicial
+
+# --- Detector de sesion COLGADA -------------------------------------------------
+# MEDIDO: ses_efd5424... llevaba 66 minutos con idle_min alto pero time.updated en
+# null, cero mensajes y cero inbox. No trabajaba ni esperaba nada: estaba colgada.
+# Una sesion colgada NUNCA emite session.execution.succeeded, asi que el vigilante
+# por evento no la ve nunca. Este bucle la encuentra por ausencia de movimiento.
+#
+# STALLED_MIN: minutos sin actualizar para darla por colgada.
+# MEDIDO: con 5 no habia deteccion. 5 sesiones carrying tenian time.updated clavado
+# 98 s y no se movia en 90 s de observacion. Un umbral alto no detecta la parada
+# rapida, que es la normal: el vigilante tiene que ver el turno acabar, no esperar
+# a que el caches e enfríe. 2 min detecta eso y es holgado para un turno largo.
+STALLED_MIN="${RX550_CONTINUA_STALLED_MIN:-2}"
+SONDA="${RX550_CONTINUA_SONDA:-45}"
+
+sesiones_colgadas() {
+  local sids sid info quieta_min
+  sids=$(timeout 15 curl -s "${AUTH[@]}" "$BASE/api/session/active" 2>/dev/null \
+         | jq -r '.data // {} | keys[]' 2>/dev/null) || return
+
+  while IFS= read -r sid; do
+    [ -n "$sid" ] || continue
+    [ -e "$PAUSA" ] && continue
+    excluido "$sid" && continue
+
+    info=$(timeout 10 curl -s "${AUTH[@]}" "$BASE/api/session/$sid" 2>/dev/null) || continue
+    # updated null = nunca ha terminado un turno, o esta colgada. updated viejo = colgada.
+    quieta_min=$(printf '%s' "$info" | jq -r \
+      'if (.data.time.updated // null) == null then 999 else (((now*1000) - .data.time.updated)/1000/60|floor) end' \
+      2>/dev/null) || continue
+    [ -n "$quieta_min" ] || continue
+
+    if [ "$quieta_min" -ge "$STALLED_MIN" ] 2>/dev/null; then
+      reanudar "$sid" "colgada quieta=${quieta_min}min"
+    fi
+  done <<<"$sids"
+}
+
+# Esta sonda va ANTES del bucle del stream a proposito: el while true de abajo no
+# termina nunca, asi que cualquier cosa definida despues de el es codigo muerto.
+( while true; do
+    # Si el servidor cambio de puerto, BASE queda obsoleto y esta sonda consultaria
+    # un puerto muerto: devolveria vacio y no detectaria ninguna colgada, en silencio.
+    if [ -z "$BASE" ] || ! timeout 10 curl -sf -o /dev/null "${AUTH[@]}" "$BASE/api/info" 2>/dev/null; then
+      log "Sonda: servidor no responde en $BASE; re-resolviendo"
+      BASE="$(resolver_base)"
+      [ -n "$BASE" ] && log "Sonda: base ahora $BASE"
+    fi
+    sesiones_colgadas
+    sleep "$SONDA"
+  done ) &
+PIDA_SONDA=$!
+trap 'kill $PIDA_SONDA 2>/dev/null' EXIT
+
+# Bucle exterior: reconecta si el stream se cae. El contrato del stream dice que un
+# consumidor lento lo desborda y lo rompe, asi que salir seria un fallo silencioso.
+# MEDIDO: ademas hay que re-resolver BASE aqui. Si OpenCode se reinicio, el puerto
+# cambio y un `curl` al puerto viejo se queda colgado para siempre sin un solo error.
+while true; do
+  esperar_servidor
+  log "STREAM conectando  base=$BASE"
+  timeout --foreground 86400 curl -sN "${AUTH[@]}" "$BASE/api/event" 2>/dev/null \
+  | while IFS= read -r linea; do
+      case "$linea" in
+        data:*) ;;
+        *) continue ;;
+      esac
+      # Extraccion del sessionID sin depender del resto del payload.
+      t=$(printf '%s' "${linea#data: }" | jq -r '.type // empty' 2>/dev/null) || continue
+      [ "$t" = "session.execution.succeeded" ] || continue
+      sid=$(printf '%s' "${linea#data: }" | jq -r '.data.sessionID // empty' 2>/dev/null)
+      [ -n "$sid" ] || continue
+      reanudar "$sid"
+    done
+  log "STREAM caido; reconectando en 3s"
+  sleep 3
+done

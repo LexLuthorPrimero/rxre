@@ -1,0 +1,128 @@
+#!/bin/bash
+# run-bench — regresión determinista y hermética de semref.
+#
+#   tests/run-bench
+#
+# NO depende del árbol del kernel: corre sobre los corpus congelados de
+# tests/frozen/. El contraste contra el árbol real es tests/check-real-tree,
+# que es opt-in y sí lo requiere.
+#
+# QUÉ VALIDA y QUÉ NO — leer antes de usar el resultado como evidencia.
+#
+#   VALIDA   la forma de la consulta, la clasificación llamada/definición, el
+#            mapeo de numeración de línea, la resolución de la función
+#            envolvente, el control negativo, y la reconciliación con `grep`.
+#            Incluye las tres regresiones encontradas al construir la
+#            herramienta: R-1 índice alfabético, R-2 forma de SIN-MATCH,
+#            R-3 líneas de contexto de un if/else contadas como llamadas.
+#
+#   NO VALIDA que el motor semántico (Coccinelle) sea exhaustivo. Si el motor
+#            perdiera una llamada y la suma siguiera cuadrando, el benchmark lo
+#            aprobaría. Por eso cada caso se contrasta con `grep`, que es
+#            independiente. Ese contraste es PARCIAL: `grep` no distingue
+#            definición de llamada, así que no detecta una clasificación
+#            invertida que conserve la suma. Lo que sí fija el reparto
+#            definición/llamadas es la línea TOTAL completa, cuyo valor
+#            congelado procede de la medición manual sobre el kernel, no de un
+#            segundo motor.
+set -uo pipefail
+
+HERE=$(cd "$(dirname "$0")" && pwd)
+SEMREF="$HERE/../semref"
+B1="$HERE/frozen/benchmark-001"
+B2="$HERE/frozen/benchmark-002"
+
+PASS=0; FAIL=0
+FAILED=()
+
+if ! "$SEMREF" engines >/dev/null 2>&1; then
+  echo "ENGINE-NOT-AVAILABLE: falta ctags o coccinelle."
+  echo "El benchmark NO se ejecuta y NO se da por aprobado. Resultado: NOT_RUN."
+  "$SEMREF" engines
+  exit 3
+fi
+
+actual=$(mktemp); trap 'rm -f "$actual"' EXIT
+
+check() { # <etiqueta> <esperado> <obtenido>
+  if [ "$2" = "$3" ]; then
+    printf '  PASS  %-46s %s\n' "$1" "$2"; PASS=$((PASS+1))
+  else
+    printf '  FAIL  %-46s\n        esperado: %s\n        obtenido: %s\n' "$1" "$2" "$3"
+    FAIL=$((FAIL+1)); FAILED+=("$1")
+  fi
+}
+
+grpn() { grep -cF "$1(" "$B1"/input/*.c 2>/dev/null | head -1; }
+
+echo "=== semref-bench  benchmark-001 + benchmark-002 ==="
+
+# ---------------------------------------------------------------- benchmark-001
+{
+  for s in fence_process schedule_fallback fence_driver_force_completion \
+           mod_timer dma_fence_signal no_existe_zzz zzz_helper; do
+    printf '### %s\n' "$s"
+    timeout 300 "$SEMREF" refs "$s" --root "$B1/input" 2>/dev/null | grep -E '^(TOTAL|SIN-MATCH)'
+  done
+} > "$actual"
+
+echo
+echo "REGRESION R-1  indice de ctags ordenado por NOMBRE, no por linea."
+za=$(ctags -R -x --kinds-c=f "$B1/input" 2>/dev/null | awk '$1=="zzz_helper"{print $3; exit}')
+callline=$(timeout 300 "$SEMREF" refs zzz_helper --root "$B1/input" 2>/dev/null | awk '$1=="CALL"{split($2,a,":"); print a[2]; exit}')
+buggy=$(ctags -R -x --kinds-c=f "$B1/input" 2>/dev/null | awk '$2=="function" && $3+0<='"${callline:-0}"' {print $1}' | tail -1)
+echo "               llamada@${callline}   el algoritmo con BUG daria: $buggy"
+check "R-1 el caso discrimina" "zzz_helper" "$buggy"
+check "R-1 respuesta correcta" "fence_process" \
+  "$(timeout 300 "$SEMREF" refs zzz_helper --root "$B1/input" 2>/dev/null | awk '$1=="CALL"{print $NF; exit}')"
+
+echo
+echo "REGRESION R-2  el control negativo emite SIN-MATCH, no una linea TOTAL vacia."
+check "R-2 control negativo" "SIN-MATCH :: no_existe_zzz" \
+  "$(grep -A1 '^### no_existe_zzz' "$actual" | tail -1)"
+
+echo
+echo "TOPOLOGIAS  contraste con grep (independiente, no semantico)"
+check "fence_process        vs grep" "4"      "$(grpn fence_process)"
+check "schedule_fallback    vs grep" "3"      "$(grpn schedule_fallback)"
+check "force_completion     vs grep" "2"      "$(grpn fence_driver_force_completion)"
+check "mod_timer            vs grep" "1"      "$(grpn mod_timer)"
+check "dma_fence_signal     vs grep" "4"      "$(grpn dma_fence_signal)"
+check "no_existe_zzz        vs grep" "0"      "$(grpn no_existe_zzz)"
+
+echo
+echo "SALIDA COMPLETA  benchmark-001 semref actual vs expected/refs.txt"
+if diff -u "$B1/expected/refs.txt" "$actual" > /dev/null 2>&1; then
+  printf '  PASS  %-46s\n' "diff expected/refs.txt == actual"; PASS=$((PASS+1))
+else
+  printf '  FAIL  %-46s\n' "diff expected/refs.txt != actual"
+  diff -u "$B1/expected/refs.txt" "$actual" | sed 's/^/        /' | head -20
+  FAIL=$((FAIL+1)); FAILED+=("diff benchmark-001")
+fi
+
+# ---------------------------------------------------------------- benchmark-002
+echo
+echo "REGRESION R-3  en un if/else, Coccinelle reemplaza la rama COMPLETA, y lineas"
+echo "               de contexto como \"else\" o \"return 0;\" salen tambien como \"-\"."
+echo "               Un parser que acepte cualquier \"-\" como sitio de llamada las cuenta."
+echo
+echo "  CONTROL NEGATIVO  la regla rota, aplicada al diff crudo congelado del motor,"
+echo "                    DEBE dar 6. Si diese 3, el test dejaria de discriminar."
+broken=$(awk '/^--- /{next} /^@@/{next} /^-/{c++} END{print c+0}' "$B2/expected/spatch.diff")
+check "R-3 control negativo: parser roto falla" "6" "$broken"
+echo "  CONTROL POSITIVO  la regla corregida sobre ese mismo diff, DEBE dar 3."
+fixed=$(awk -v sym=amdgpu_fence_process '/^--- /{next} /^@@/{next} /^-/{if(substr($0,2) ~ sym"[ \t]*\\(")c++} END{print c+0}' "$B2/expected/spatch.diff")
+check "R-3 regla corregida sobre el diff" "3" "$fixed"
+echo "  CASO 1  if/else con una sola rama que llama -> 1 sitio, el \"else\" NO cuenta."
+echo "  CASO 2  if/else con ambas ramas que llaman  -> 2 sitios, no 3."
+echo "  HERRAMIENTA  semref sobre el corpus, DEBE dar 3 llamadas."
+check "R-3 semref sobre benchmark-002" "TOTAL amdgpu_fence_process definicion=0 llamadas=3 suma=3" \
+  "$(timeout 300 "$SEMREF" refs amdgpu_fence_process --root "$B2/input" 2>/dev/null | grep '^TOTAL')"
+echo "  CONTROL INDEPENDIENTE  grep textual = 1 prototipo + 3 llamadas."
+check "R-3 grep: ocurrencias textuales" "4" \
+  "$(grep -cF 'amdgpu_fence_process(' "$B2"/input/*.c 2>/dev/null | head -1)"
+
+echo
+echo "RESULTADO: PASS=$PASS FAIL=$FAIL"
+if [ "$FAIL" -gt 0 ]; then printf 'fallos: %s\n' "${FAILED[*]}"; exit 1; fi
+exit 0

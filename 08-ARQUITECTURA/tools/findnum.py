@@ -43,6 +43,7 @@ import re
 import subprocess
 import sys
 import time
+import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 FIND = os.path.join(ROOT, "06-INGENIERIA-INVERSA", "findings")
@@ -67,7 +68,16 @@ def used_numbers(directorio=None):
     if not os.path.isdir(base):
         return out
     for name in os.listdir(base):
-        m = re.match(r"^(\d{3})-", name)
+        # \d{3,} y NO \d{3}. Un ancho de tres es un ancho EXACTO: en cuanto aparezca
+        # la nota 1000, "1000-algo.md" deja de casar y used_numbers deja de verla, con
+        # lo cual next_free vuelve a entregar un numero que ya existe. El fallo es
+        # silencioso -- la herramienta responde, y responde mal -- y solo se manifiesta
+        # al cruzar los 999, que es cuando ya hay 1000 notas escritas y citas que romper.
+        #
+        # Y el stub usa "%03d", que es un ancho MINIMO y por tanto no sufre. La
+        # incoherencia estaba entre las dos mitades de la misma idea de "numeros de
+        # nota", y por eso la mitad de escritura y la de lectura no decian lo mismo.
+        m = re.match(r"^(\d{3,})-", name)
         if m:
             out.add(int(m.group(1)))
     return out
@@ -298,6 +308,20 @@ def self_test():
     #    el hueco mas bajo, un hallazgo nuevo saldria numerado entre los viejos.
     eq("next_free() es max+1", next_free(), max(taken) + 1)
 
+    # --- los numeros de cuatro digitos -------------------------------------
+    # El fallo era silencioso: la herramienta respondia, y respondia mal. Un caso que
+    # solo mira el self-test con numeros de tres digitos no lo puede ver, asi que el
+    # vector tiene que traer un numero de cuatro aunque el arbol real todavia no tenga
+    # ninguno. Por eso este caso escribe sus propios ficheros en un temporal en vez de
+    # mirar el arbol: el arbol no tiene 1000 todavia, y el fallo aparece cuando llegue.
+    with tempfile.TemporaryDirectory() as d4:
+        for nm in ("999-a.md", "1000-b.md", "1001-c.md"):
+            open(os.path.join(d4, nm), "w").close()
+        usados4 = used_numbers(d4)
+        eq("used_numbers ve los de cuatro digitos", sorted(usados4), [999, 1000, 1001])
+        eq("next_free no devuelve un 1000 que ya existe",
+           next_free(taken=usados4), 1002)
+
     # 3. lowest=True si debe rellenar huecos, y el hueco debe estar libre.
     low = next_free(lowest=True)
     if low in taken:
@@ -413,6 +437,56 @@ def self_test():
     if left:
         fails.append("quedaron .tmp sin limpiar: %s" % left)
 
+    # 9. CONTROL NEGATIVO DEL DESPACHO. Este es el vector que faltaba y que
+    #    permitio el defecto: los vectores 1-8 prueban `next_free()` y
+    #    `reserve()`, pero el fallo estaba ENTRE las dos, en como `main()`
+    #    repartia argv. Con la version 1.1.0 este bloque entero daba verde:
+    #    `main(["--selftest"])` devolvia 0 y habia escrito un fichero de reserva.
+    #
+    #    Se prueba dentro del aislamiento por la misma razon que el vector 4: un
+    #    self-test que escribe en el arbol real es un self-test que ensucia.
+    #    Y se comprueban LAS DOS MITADES por separado, porque una pasa sin la
+    #    otra: que rc != 0 sin escribir nada, y que no aparezca ninguna reserva.
+    with _Aislado() as (lockdir3, resdir3):
+        # El uso se imprime por stderr en cada invocacion. Sin silenciarlo, ocho
+        # pantallas de texto esconden el "self-test OK" que es lo que se lee.
+        import contextlib
+        _sink = open(os.devnull, "w")
+        # El directorio de reservas puede no existir todavia: `_Aislado()` lo
+        # apunta a un temporal nuevo y solo `reserve()` lo crea. Ausente ES el
+        # estado de partida, asi que se registra como conjunto vacio en vez de
+        # reventar. Y es el estado que MAS prueba da: si el directorio no existia
+        # y al final existe, algo escribio.
+        antes = set(os.listdir(resdir3)) if os.path.isdir(resdir3) else set()
+
+        # (a) INVALIDAS: rc distinto de cero. `--selftest` y `--self` son los
+        #     tokens que en el arbol real reservaron un numero cada uno.
+        invalidas = (["--selftest"], ["--self"], ["-x"], ["--json"],
+                    ["--release", "no-es-un-numero"], ["--commit"])
+        with contextlib.redirect_stdout(_sink), contextlib.redirect_stderr(_sink):
+            for argv_malo in invalidas:
+                rc_malo = main(argv_malo)
+                if rc_malo == 0:
+                    fails.append("main(%r) devolvio 0: una opcion invalida tiene"
+                                 " que fallar, no devolver exito" % (argv_malo,))
+
+            # (b) VALIDAS: rc cero, y SIN escribir. `--help` es el caso donde
+            #     solo falla la segunda mitad: antes imprimia el uso y aun asi
+            #     reservaba.
+            for argv_bueno in (["--help"], ["-h"]):
+                if main(argv_bueno) != 0:
+                    fails.append("main(%r) devolvio distinto de 0: --help es"
+                                 " ayuda, no una entrada invalida"
+                                 % (argv_bueno,))
+        _sink.close()
+
+        # (c) La mitad que importa: NINGUN token desconocido toco el disco.
+        despues = set(os.listdir(resdir3)) if os.path.isdir(resdir3) else set()
+        if despues != antes:
+            fails.append("main() escribio en el directorio de reservas ante un"
+                         " token que no es opcion: %s"
+                         % sorted(despues - antes))
+
     release(b)
 
     if fails:
@@ -424,7 +498,73 @@ def self_test():
     return 0
 
 
+VERSION = "1.2.0"
+
+# MEDIDO 2026-10-03. `main()` solo conocia `--self-test`; TODO lo demas caia en
+# `reserve(" ".join(argv))`. Consecuencia medida sobre el arbol real: 12 ficheros
+# de reserva en findings/_reservas/ cuyo titulo es un flag --
+# `--selftest`, `--self`, `--help` -- y que existen porque alguien ejecuto
+#
+#     findnum.py --selftest
+#
+# esperando un self-test. La herramienta RESERVO UN NUMERO, escribio el fichero
+# y salio con rc=0 printing "reservado NNN". No fallo: fallo hacia adelante, y
+# en la herramienta cuya unica razon de existir es que los numeros NO colisionen.
+#
+# El pool que hacia ese trabajo estaba contaminado por la propia herramienta.
+# El self-test de esta version no podia verlo porque solo prova `next_free()` y
+# `reserve()` por separado: el fallo estaba en el DESPACHO de argv, entre las dos.
+#
+# Por eso el arreglo no es "aceptar `--selftest` como alias". Aceptar el alias
+# deja vivo el agujero: el proximo flag mal escrito vuelve a reservar. Lo que
+# hace falta es que un token que empieza por `-` y no es una opcion CONOCIDA
+# no pueda llegar a `reserve()`. Salida distinta de cero, mensaje que nombra las
+# opciones, y CERO ficheros escritos.
+KNOWN_OPCIONES = ("--self-test", "--next", "--lowest", "--list",
+                  "--release", "--commit", "--help", "-h")
+
+
+def uso(problema=None, token=None):
+    if problema:
+        print("findnum: %s" % problema, file=sys.stderr)
+        if token is not None:
+            print("  token recibido: %r" % token, file=sys.stderr)
+            print("  NO se ha reservado ningun numero.", file=sys.stderr)
+        print("", file=sys.stderr)
+    print("uso:", file=sys.stderr)
+    print("  findnum.py [<titulo>]              reserva un numero y lo muestra",
+          file=sys.stderr)
+    print("  findnum.py --next [--lowest]        muestra el siguiente, no reserva",
+          file=sys.stderr)
+    print("  findnum.py --list                   reservas vigentes", file=sys.stderr)
+    print("  findnum.py --release N              libera la reserva N", file=sys.stderr)
+    print("  findnum.py --commit N <titulo> <slug>", file=sys.stderr)
+    print("  findnum.py --self-test              (con dos guiones, y 'test')",
+          file=sys.stderr)
+    print("  findnum.py --help", file=sys.stderr)
+    return 2
+
+
 def main(argv):
+    # El guardia va ANTES de cualquier otra rama: si un flag desconocido puede
+    # llegar al final, el final reserva.
+    for tok in argv:
+        if tok.startswith("-") and tok not in KNOWN_OPCIONES:
+            cerca = [o for o in KNOWN_OPCIONES if o.lstrip("-").startswith(
+                tok.lstrip("-")[:3])]
+            msg = "opcion desconocida %r" % tok
+            if cerca:
+                msg += "; quiza querias %s" % " o ".join(cerca[:3])
+            return uso(msg, tok)
+
+    if "--help" in argv or "-h" in argv:
+        # `uso()` devuelve 2 porque su caso normal es "no se que hacer con esto".
+        # Pedir la ayuda no es un error de invocacion: es una invocacion valida.
+        # Por eso el 0 va aqui y no dentro de `uso()`. La primera version de
+        # este arreglo devolvia 2 tambien para --help, y lo caza el vector 9b.
+        uso()
+        return 0
+
     if "--self-test" in argv:
         return self_test()
 
@@ -442,17 +582,27 @@ def main(argv):
         return 0
 
     if "--release" in argv:
-        n = int(argv[argv.index("--release") + 1])
+        i = argv.index("--release")
+        if i + 1 >= len(argv):
+            return uso("--release necesita un numero")
+        try:
+            n = int(argv[i + 1])
+        except ValueError:
+            return uso("--release necesita un numero entero, no %r" % argv[i + 1])
         ok = release(n)
         print("liberado %03d" % n if ok else "no habia reserva %03d" % n)
         return 0 if ok else 2
 
     if "--commit" in argv:
-        n = int(argv[argv.index("--commit") + 1])
-        title = argv[argv.index("--commit") + 2] if \
-            len(argv) > argv.index("--commit") + 2 else "(sin titulo)"
-        stub = argv[argv.index("--commit") + 3] if \
-            len(argv) > argv.index("--commit") + 3 else "titulo"
+        i = argv.index("--commit")
+        if i + 1 >= len(argv):
+            return uso("--commit necesita un numero")
+        try:
+            n = int(argv[i + 1])
+        except ValueError:
+            return uso("--commit necesita un numero entero, no %r" % argv[i + 1])
+        title = argv[i + 2] if len(argv) > i + 2 else "(sin titulo)"
+        stub = argv[i + 3] if len(argv) > i + 3 else "titulo"
         rc, msg = commit(n, title, stub)
         print(msg)
         return rc

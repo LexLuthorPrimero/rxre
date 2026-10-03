@@ -1,0 +1,694 @@
+{
+  "riesgo": [
+    {
+      "fichero": "gfx_v8_0.c",
+      "ini": 3474,
+      "fin": 3580,
+      "cabecera": "gfx_v8_0_write_harvested_raster_configs(struct amdgpu_device *adev,",
+      "bloque": "GFX",
+      "registros": [
+        "mmPA_SC_RASTER_CONFIG",
+        "mmPA_SC_RASTER_CONFIG_1"
+      ]
+    },
+    {
+      "fichero": "gfx_v8_0.c",
+      "ini": 4193,
+      "fin": 4225,
+      "cabecera": "static void gfx_v8_0_set_cpg_door_bell(struct amdgpu_device *adev, struct amdgpu_ring *ring)",
+      "bloque": "GFX",
+      "registros": [
+        "mmCP_RB_DOORBELL_CONTROL",
+        "mmCP_RB_DOORBELL_RANGE_LOWER",
+        "mmCP_RB_DOORBELL_RANGE_UPPER"
+      ]
+    },
+    {
+      "fichero": "gfx_v8_0.c",
+      "ini": 4365,
+      "fin": 4384,
+      "cabecera": "static int gfx_v8_0_deactivate_hqd(struct amdgpu_device *adev, u32 req)",
+      "bloque": "GFX",
+      "registros": [
+        "mmCP_HQD_DEQUEUE_REQUEST",
+        "mmCP_HQD_PQ_RPTR",
+        "mmCP_HQD_PQ_WPTR"
+      ]
+    },
+    {
+      "fichero": "gfx_v8_0.c",
+      "ini": 4546,
+      "fin": 4581,
+      "cabecera": "static int gfx_v8_0_mqd_commit(struct amdgpu_device *adev,",
+      "bloque": "GFX",
+      "registros": [
+        "mmCP_HQD_EOP_RPTR",
+        "mmCP_HQD_EOP_WPTR",
+        "mmCP_HQD_EOP_WPTR_MEM"
+      ]
+    },
+    {
+      "fichero": "gfx_v8_0.c",
+      "ini": 4653,
+      "fin": 4661,
+      "cabecera": "static void gfx_v8_0_set_mec_doorbell_range(struct amdgpu_device *adev)",
+      "bloque": "GFX",
+      "registros": [
+        "mmCP_MEC_DOORBELL_RANGE_LOWER",
+        "mmCP_MEC_DOORBELL_RANGE_UPPER"
+      ]
+    },
+    {
+      "fichero": "gfx_v8_0.c",
+      "ini": 4993,
+      "fin": 5053,
+      "cabecera": "static int gfx_v8_0_soft_reset(struct amdgpu_ip_block *ip_block)",
+      "bloque": "GFX",
+      "registros": [
+        "mmGMCON_DEBUG",
+        "mmGRBM_SOFT_RESET",
+        "mmSRBM_SOFT_RESET"
+      ]
+    },
+    {
+      "fichero": "gfx_v8_0.c",
+      "ini": 5477,
+      "fin": 5516,
+      "cabecera": "static void gfx_v8_0_send_serdes_cmd(struct amdgpu_device *adev,",
+      "bloque": "GFX",
+      "registros": [
+        "mmRLC_SERDES_WR_CTRL",
+        "mmRLC_SERDES_WR_CU_MASTER_MASK",
+        "mmRLC_SERDES_WR_NONCU_MASTER_MASK"
+      ]
+    },
+    {
+      "fichero": "gfx_v8_0.c",
+      "ini": 5618,
+      "fin": 5716,
+      "cabecera": "static void gfx_v8_0_update_medium_grain_clock_gating(struct amdgpu_device *adev,",
+      "bloque": "GFX",
+      "registros": [
+        "mmCGTS_SM_CTRL_REG",
+        "mmCP_MEM_SLP_CNTL",
+        "mmRLC_CGTT_MGCG_OVERRIDE",
+        "mmRLC_MEM_SLP_CNTL"
+      ]
+    },
+    {
+      "fichero": "gfx_v8_0.c",
+      "ini": 5718,
+      "fin": 5805,
+      "cabecera": "static void gfx_v8_0_update_coarse_grain_clock_gating(struct amdgpu_device *adev,",
+      "bloque": "GFX",
+      "registros": [
+        "mmRLC_CGCG_CGLS_CTRL",
+        "mmRLC_CGTT_MGCG_OVERRIDE"
+      ]
+    },
+    {
+      "fichero": "gfxhub_v2_1.c",
+      "ini": 272,
+      "fin": 293,
+      "cabecera": "static void gfxhub_v2_1_disable_identity_aperture(struct amdgpu_device *adev)",
+      "bloque": "GFXHUB",
+      "registros": [
+        "mmGCVM_L2_CONTEXT1_IDENTITY_APERTURE_HIGH_ADDR_HI32",
+        "mmGCVM_L2_CONTEXT1_IDENTITY_APERTURE_HIGH_ADDR_LO32",
+        "mmGCVM_L2_CONTEXT1_IDENTITY_APERTURE_LOW_ADDR_HI32",
+        "mmGCVM_L2_CONTEXT1_IDENTITY_APERTURE_LOW_ADDR_LO32",
+        "mmGCVM_L2_CONTEXT_IDENTITY_PHYSICAL_OFFSET_HI32",
+        "mmGCVM_L2_CONTEXT_IDENTITY_PHYSICAL_OFFSET_LO32"
+      ]
+    },
+    {
+      "fichero": "gfxhub_v2_1.c",
+      "ini": 357,
+      "fin": 383,
+      "cabecera": "static int gfxhub_v2_1_gart_enable(struct amdgpu_device *adev)",
+      "bloque": "GFXHUB",
+      "registros": [
+        "mmGCMC_VM_FB_LOCATION_BASE",
+        "mmGCMC_VM_FB_LOCATION_TOP"
+      ]
+    },
+    {
+      "fichero": "gfxhub_v2_1.c",
+      "ini": 385,
+      "fin": 409,
+      "cabecera": "static void gfxhub_v2_1_gart_disable(struct amdgpu_device *adev)",
+      "bloque": "GFXHUB",
+      "registros": [
+        "mmGCMC_VM_MX_L1_TLB_CNTL",
+        "mmGCVM_L2_CNTL3"
+      ]
+    },
+    {
+      "fichero": "gfxhub_v2_1.c",
+      "ini": 582,
+      "fin": 617,
+      "cabecera": "static void gfxhub_v2_1_restore_regs(struct amdgpu_device *adev)",
+      "bloque": "GFXHUB",
+      "registros": [
+        "mmGCMC_VM_FB_LOCATION_BASE",
+        "mmGCMC_VM_FB_LOCATION_TOP",
+        "mmGCMC_VM_MX_L1_TLB_CNTL",
+        "mmGCVM_DEBUG",
+        "mmGCVM_DUMMY_PAGE_FAULT_ADDR_HI32",
+        "mmGCVM_DUMMY_PAGE_FAULT_ADDR_LO32",
+        "mmGCVM_DUMMY_PAGE_FAULT_CNTL",
+        "mmGCVM_L2_BANK_SELECT_RESERVED_CID",
+        "mmGCVM_L2_BANK_SELECT_RESERVED_CID2",
+        "mmGCVM_L2_CACHE_PARITY_CNTL",
+        "mmGCVM_L2_CNTL",
+        "mmGCVM_L2_CNTL2",
+        "mmGCVM_L2_IH_LOG_CNTL",
+        "mmGCVM_L2_MM_GROUP_RT_CLASSES",
+        "mmGCVM_L2_PROTECTION_FAULT_ADDR_HI32",
+        "mmGCVM_L2_PROTECTION_FAULT_ADDR_LO32",
+        "mmGCVM_L2_PROTECTION_FAULT_CNTL",
+        "mmGCVM_L2_PROTECTION_FAULT_CNTL2",
+        "mmGCVM_L2_PROTECTION_FAULT_MM_CNTL3",
+        "mmGCVM_L2_PROTECTION_FAULT_MM_CNTL4"
+      ]
+    },
+    {
+      "fichero": "gmc_v8_0.c",
+      "ini": 170,
+      "fin": 192,
+      "cabecera": "static void gmc_v8_0_mc_stop(struct amdgpu_device *adev)",
+      "bloque": "GMC",
+      "registros": [
+        "mmBIF_FB_EN",
+        "mmMC_SHARED_BLACKOUT_CNTL"
+      ]
+    },
+    {
+      "fichero": "gmc_v8_0.c",
+      "ini": 194,
+      "fin": 206,
+      "cabecera": "static void gmc_v8_0_mc_resume(struct amdgpu_device *adev)",
+      "bloque": "GMC",
+      "registros": [
+        "mmBIF_FB_EN",
+        "mmMC_SHARED_BLACKOUT_CNTL"
+      ]
+    },
+    {
+      "fichero": "gmc_v8_0.c",
+      "ini": 433,
+      "fin": 499,
+      "cabecera": "static void gmc_v8_0_mc_program(struct amdgpu_device *adev)",
+      "bloque": "GMC",
+      "registros": [
+        "mmBIF_FB_EN",
+        "mmHDP_HOST_PATH_CNTL",
+        "mmHDP_MISC_CNTL",
+        "mmHDP_NONSURFACE_BASE",
+        "mmHDP_NONSURFACE_INFO",
+        "mmHDP_NONSURFACE_SIZE",
+        "mmHDP_REG_COHERENCY_FLUSH_CNTL",
+        "mmMC_VM_AGP_BASE",
+        "mmMC_VM_AGP_BOT",
+        "mmMC_VM_AGP_TOP",
+        "mmMC_VM_FB_LOCATION",
+        "mmMC_VM_SYSTEM_APERTURE_DEFAULT_ADDR",
+        "mmMC_VM_SYSTEM_APERTURE_HIGH_ADDR",
+        "mmMC_VM_SYSTEM_APERTURE_LOW_ADDR",
+        "mmVGA_HDP_CONTROL",
+        "mmVGA_RENDER_CONTROL"
+      ]
+    },
+    {
+      "fichero": "gmc_v8_0.c",
+      "ini": 766,
+      "fin": 816,
+      "cabecera": "static void gmc_v8_0_set_prt(struct amdgpu_device *adev, bool enable)",
+      "bloque": "GMC",
+      "registros": [
+        "mmVM_PRT_APERTURE0_HIGH_ADDR",
+        "mmVM_PRT_APERTURE0_LOW_ADDR",
+        "mmVM_PRT_APERTURE1_HIGH_ADDR",
+        "mmVM_PRT_APERTURE1_LOW_ADDR",
+        "mmVM_PRT_APERTURE2_HIGH_ADDR",
+        "mmVM_PRT_APERTURE2_LOW_ADDR",
+        "mmVM_PRT_APERTURE3_HIGH_ADDR",
+        "mmVM_PRT_APERTURE3_LOW_ADDR",
+        "mmVM_PRT_CNTL"
+      ]
+    },
+    {
+      "fichero": "gmc_v8_0.c",
+      "ini": 829,
+      "fin": 946,
+      "cabecera": "static int gmc_v8_0_gart_enable(struct amdgpu_device *adev)",
+      "bloque": "GMC",
+      "registros": [
+        "mmMC_VM_MX_L1_TLB_CNTL",
+        "mmVM_CONTEXT0_CNTL",
+        "mmVM_CONTEXT0_CNTL2",
+        "mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR",
+        "mmVM_CONTEXT0_PAGE_TABLE_END_ADDR",
+        "mmVM_CONTEXT0_PAGE_TABLE_START_ADDR",
+        "mmVM_CONTEXT0_PROTECTION_FAULT_DEFAULT_ADDR",
+        "mmVM_CONTEXT1_CNTL",
+        "mmVM_CONTEXT1_CNTL2",
+        "mmVM_CONTEXT1_PAGE_TABLE_END_ADDR",
+        "mmVM_CONTEXT1_PAGE_TABLE_START_ADDR",
+        "mmVM_CONTEXT1_PROTECTION_FAULT_DEFAULT_ADDR",
+        "mmVM_CONTEXT8_PAGE_TABLE_BASE_ADDR",
+        "mmVM_L2_CNTL",
+        "mmVM_L2_CNTL2",
+        "mmVM_L2_CNTL3",
+        "mmVM_L2_CNTL4",
+        "mmVM_L2_CONTEXT1_IDENTITY_APERTURE_HIGH_ADDR",
+        "mmVM_L2_CONTEXT1_IDENTITY_APERTURE_LOW_ADDR",
+        "mmVM_L2_CONTEXT_IDENTITY_PHYSICAL_OFFSET"
+      ]
+    },
+    {
+      "fichero": "gmc_v8_0.c",
+      "ini": 972,
+      "fin": 990,
+      "cabecera": "static void gmc_v8_0_gart_disable(struct amdgpu_device *adev)",
+      "bloque": "GMC",
+      "registros": [
+        "mmMC_VM_MX_L1_TLB_CNTL",
+        "mmVM_CONTEXT0_CNTL",
+        "mmVM_CONTEXT1_CNTL",
+        "mmVM_L2_CNTL",
+        "mmVM_L2_CNTL2"
+      ]
+    },
+    {
+      "fichero": "gmc_v8_0.c",
+      "ini": 1385,
+      "fin": 1425,
+      "cabecera": "static int gmc_v8_0_vm_fault_interrupt_state(struct amdgpu_device *adev,",
+      "bloque": "GMC",
+      "registros": [
+        "mmVM_CONTEXT0_CNTL",
+        "mmVM_CONTEXT1_CNTL"
+      ]
+    },
+    {
+      "fichero": "gmc_v8_0.c",
+      "ini": 1507,
+      "fin": 1585,
+      "cabecera": "static void fiji_update_mc_medium_grain_clock_gating(struct amdgpu_device *adev,",
+      "bloque": "GMC",
+      "registros": [
+        "mmATC_MISC_CG",
+        "mmMC_CITF_MISC_RD_CG",
+        "mmMC_CITF_MISC_VM_CG",
+        "mmMC_CITF_MISC_WR_CG",
+        "mmMC_HUB_MISC_HUB_CG",
+        "mmMC_HUB_MISC_SIP_CG",
+        "mmMC_HUB_MISC_VM_CG",
+        "mmMC_XPB_CLK_GAT",
+        "mmVM_L2_CG"
+      ]
+    },
+    {
+      "fichero": "gmc_v8_0.c",
+      "ini": 1587,
+      "fin": 1665,
+      "cabecera": "static void fiji_update_mc_light_sleep(struct amdgpu_device *adev,",
+      "bloque": "GMC",
+      "registros": [
+        "mmATC_MISC_CG",
+        "mmMC_CITF_MISC_RD_CG",
+        "mmMC_CITF_MISC_VM_CG",
+        "mmMC_CITF_MISC_WR_CG",
+        "mmMC_HUB_MISC_HUB_CG",
+        "mmMC_HUB_MISC_SIP_CG",
+        "mmMC_HUB_MISC_VM_CG",
+        "mmMC_XPB_CLK_GAT",
+        "mmVM_L2_CG"
+      ]
+    },
+    {
+      "fichero": "sdma_v3_0.c",
+      "ini": 513,
+      "fin": 526,
+      "cabecera": "static void sdma_v3_0_gfx_stop(struct amdgpu_device *adev)",
+      "bloque": "SDMA",
+      "registros": [
+        "mmSDMA0_GFX_IB_CNTL",
+        "mmSDMA0_GFX_RB_CNTL"
+      ]
+    },
+    {
+      "fichero": "sdma_v3_0.c",
+      "ini": 548,
+      "fin": 599,
+      "cabecera": "static void sdma_v3_0_ctx_switch_enable(struct amdgpu_device *adev, bool enable)",
+      "bloque": "SDMA",
+      "registros": [
+        "mmSDMA0_CNTL",
+        "mmSDMA0_PHASE0_QUANTUM",
+        "mmSDMA0_PHASE1_QUANTUM"
+      ]
+    }
+  ],
+  "conflicto": {
+    "7": [
+      {
+        "reg": "mmRLC_CGTT_MGCG_OVERRIDE",
+        "con": "gfx_v8_0.c:5718",
+        "cab": "static void gfx_v8_0_update_coarse_grain_clock_gatin",
+        "mismo_bloque": true
+      }
+    ],
+    "8": [
+      {
+        "reg": "mmRLC_CGTT_MGCG_OVERRIDE",
+        "con": "gfx_v8_0.c:5618",
+        "cab": "static void gfx_v8_0_update_medium_grain_clock_gatin",
+        "mismo_bloque": true
+      }
+    ],
+    "10": [
+      {
+        "reg": "mmGCMC_VM_FB_LOCATION_BASE",
+        "con": "gfxhub_v2_1.c:582",
+        "cab": "static void gfxhub_v2_1_restore_regs(struct amdgpu_d",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmGCMC_VM_FB_LOCATION_TOP",
+        "con": "gfxhub_v2_1.c:582",
+        "cab": "static void gfxhub_v2_1_restore_regs(struct amdgpu_d",
+        "mismo_bloque": true
+      }
+    ],
+    "11": [
+      {
+        "reg": "mmGCMC_VM_MX_L1_TLB_CNTL",
+        "con": "gfxhub_v2_1.c:582",
+        "cab": "static void gfxhub_v2_1_restore_regs(struct amdgpu_d",
+        "mismo_bloque": true
+      }
+    ],
+    "12": [
+      {
+        "reg": "mmGCMC_VM_FB_LOCATION_BASE",
+        "con": "gfxhub_v2_1.c:357",
+        "cab": "static int gfxhub_v2_1_gart_enable(struct amdgpu_dev",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmGCMC_VM_FB_LOCATION_TOP",
+        "con": "gfxhub_v2_1.c:357",
+        "cab": "static int gfxhub_v2_1_gart_enable(struct amdgpu_dev",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmGCMC_VM_MX_L1_TLB_CNTL",
+        "con": "gfxhub_v2_1.c:385",
+        "cab": "static void gfxhub_v2_1_gart_disable(struct amdgpu_d",
+        "mismo_bloque": true
+      }
+    ],
+    "13": [
+      {
+        "reg": "mmBIF_FB_EN",
+        "con": "gmc_v8_0.c:194",
+        "cab": "static void gmc_v8_0_mc_resume(struct amdgpu_device ",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmBIF_FB_EN",
+        "con": "gmc_v8_0.c:433",
+        "cab": "static void gmc_v8_0_mc_program(struct amdgpu_device",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmMC_SHARED_BLACKOUT_CNTL",
+        "con": "gmc_v8_0.c:194",
+        "cab": "static void gmc_v8_0_mc_resume(struct amdgpu_device ",
+        "mismo_bloque": true
+      }
+    ],
+    "14": [
+      {
+        "reg": "mmBIF_FB_EN",
+        "con": "gmc_v8_0.c:170",
+        "cab": "static void gmc_v8_0_mc_stop(struct amdgpu_device *a",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmBIF_FB_EN",
+        "con": "gmc_v8_0.c:433",
+        "cab": "static void gmc_v8_0_mc_program(struct amdgpu_device",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmMC_SHARED_BLACKOUT_CNTL",
+        "con": "gmc_v8_0.c:170",
+        "cab": "static void gmc_v8_0_mc_stop(struct amdgpu_device *a",
+        "mismo_bloque": true
+      }
+    ],
+    "15": [
+      {
+        "reg": "mmBIF_FB_EN",
+        "con": "gmc_v8_0.c:170",
+        "cab": "static void gmc_v8_0_mc_stop(struct amdgpu_device *a",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmBIF_FB_EN",
+        "con": "gmc_v8_0.c:194",
+        "cab": "static void gmc_v8_0_mc_resume(struct amdgpu_device ",
+        "mismo_bloque": true
+      }
+    ],
+    "17": [
+      {
+        "reg": "mmMC_VM_MX_L1_TLB_CNTL",
+        "con": "gmc_v8_0.c:972",
+        "cab": "static void gmc_v8_0_gart_disable(struct amdgpu_devi",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmVM_CONTEXT0_CNTL",
+        "con": "gmc_v8_0.c:972",
+        "cab": "static void gmc_v8_0_gart_disable(struct amdgpu_devi",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmVM_CONTEXT0_CNTL",
+        "con": "gmc_v8_0.c:1385",
+        "cab": "static int gmc_v8_0_vm_fault_interrupt_state(struct ",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmVM_CONTEXT1_CNTL",
+        "con": "gmc_v8_0.c:972",
+        "cab": "static void gmc_v8_0_gart_disable(struct amdgpu_devi",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmVM_CONTEXT1_CNTL",
+        "con": "gmc_v8_0.c:1385",
+        "cab": "static int gmc_v8_0_vm_fault_interrupt_state(struct ",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmVM_L2_CNTL",
+        "con": "gmc_v8_0.c:972",
+        "cab": "static void gmc_v8_0_gart_disable(struct amdgpu_devi",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmVM_L2_CNTL2",
+        "con": "gmc_v8_0.c:972",
+        "cab": "static void gmc_v8_0_gart_disable(struct amdgpu_devi",
+        "mismo_bloque": true
+      }
+    ],
+    "18": [
+      {
+        "reg": "mmMC_VM_MX_L1_TLB_CNTL",
+        "con": "gmc_v8_0.c:829",
+        "cab": "static int gmc_v8_0_gart_enable(struct amdgpu_device",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmVM_CONTEXT0_CNTL",
+        "con": "gmc_v8_0.c:829",
+        "cab": "static int gmc_v8_0_gart_enable(struct amdgpu_device",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmVM_CONTEXT0_CNTL",
+        "con": "gmc_v8_0.c:1385",
+        "cab": "static int gmc_v8_0_vm_fault_interrupt_state(struct ",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmVM_CONTEXT1_CNTL",
+        "con": "gmc_v8_0.c:829",
+        "cab": "static int gmc_v8_0_gart_enable(struct amdgpu_device",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmVM_CONTEXT1_CNTL",
+        "con": "gmc_v8_0.c:1385",
+        "cab": "static int gmc_v8_0_vm_fault_interrupt_state(struct ",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmVM_L2_CNTL",
+        "con": "gmc_v8_0.c:829",
+        "cab": "static int gmc_v8_0_gart_enable(struct amdgpu_device",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmVM_L2_CNTL2",
+        "con": "gmc_v8_0.c:829",
+        "cab": "static int gmc_v8_0_gart_enable(struct amdgpu_device",
+        "mismo_bloque": true
+      }
+    ],
+    "19": [
+      {
+        "reg": "mmVM_CONTEXT0_CNTL",
+        "con": "gmc_v8_0.c:829",
+        "cab": "static int gmc_v8_0_gart_enable(struct amdgpu_device",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmVM_CONTEXT0_CNTL",
+        "con": "gmc_v8_0.c:972",
+        "cab": "static void gmc_v8_0_gart_disable(struct amdgpu_devi",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmVM_CONTEXT1_CNTL",
+        "con": "gmc_v8_0.c:829",
+        "cab": "static int gmc_v8_0_gart_enable(struct amdgpu_device",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmVM_CONTEXT1_CNTL",
+        "con": "gmc_v8_0.c:972",
+        "cab": "static void gmc_v8_0_gart_disable(struct amdgpu_devi",
+        "mismo_bloque": true
+      }
+    ],
+    "20": [
+      {
+        "reg": "mmATC_MISC_CG",
+        "con": "gmc_v8_0.c:1587",
+        "cab": "static void fiji_update_mc_light_sleep(struct amdgpu",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmMC_CITF_MISC_RD_CG",
+        "con": "gmc_v8_0.c:1587",
+        "cab": "static void fiji_update_mc_light_sleep(struct amdgpu",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmMC_CITF_MISC_VM_CG",
+        "con": "gmc_v8_0.c:1587",
+        "cab": "static void fiji_update_mc_light_sleep(struct amdgpu",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmMC_CITF_MISC_WR_CG",
+        "con": "gmc_v8_0.c:1587",
+        "cab": "static void fiji_update_mc_light_sleep(struct amdgpu",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmMC_HUB_MISC_HUB_CG",
+        "con": "gmc_v8_0.c:1587",
+        "cab": "static void fiji_update_mc_light_sleep(struct amdgpu",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmMC_HUB_MISC_SIP_CG",
+        "con": "gmc_v8_0.c:1587",
+        "cab": "static void fiji_update_mc_light_sleep(struct amdgpu",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmMC_HUB_MISC_VM_CG",
+        "con": "gmc_v8_0.c:1587",
+        "cab": "static void fiji_update_mc_light_sleep(struct amdgpu",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmMC_XPB_CLK_GAT",
+        "con": "gmc_v8_0.c:1587",
+        "cab": "static void fiji_update_mc_light_sleep(struct amdgpu",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmVM_L2_CG",
+        "con": "gmc_v8_0.c:1587",
+        "cab": "static void fiji_update_mc_light_sleep(struct amdgpu",
+        "mismo_bloque": true
+      }
+    ],
+    "21": [
+      {
+        "reg": "mmATC_MISC_CG",
+        "con": "gmc_v8_0.c:1507",
+        "cab": "static void fiji_update_mc_medium_grain_clock_gating",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmMC_CITF_MISC_RD_CG",
+        "con": "gmc_v8_0.c:1507",
+        "cab": "static void fiji_update_mc_medium_grain_clock_gating",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmMC_CITF_MISC_VM_CG",
+        "con": "gmc_v8_0.c:1507",
+        "cab": "static void fiji_update_mc_medium_grain_clock_gating",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmMC_CITF_MISC_WR_CG",
+        "con": "gmc_v8_0.c:1507",
+        "cab": "static void fiji_update_mc_medium_grain_clock_gating",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmMC_HUB_MISC_HUB_CG",
+        "con": "gmc_v8_0.c:1507",
+        "cab": "static void fiji_update_mc_medium_grain_clock_gating",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmMC_HUB_MISC_SIP_CG",
+        "con": "gmc_v8_0.c:1507",
+        "cab": "static void fiji_update_mc_medium_grain_clock_gating",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmMC_HUB_MISC_VM_CG",
+        "con": "gmc_v8_0.c:1507",
+        "cab": "static void fiji_update_mc_medium_grain_clock_gating",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmMC_XPB_CLK_GAT",
+        "con": "gmc_v8_0.c:1507",
+        "cab": "static void fiji_update_mc_medium_grain_clock_gating",
+        "mismo_bloque": true
+      },
+      {
+        "reg": "mmVM_L2_CG",
+        "con": "gmc_v8_0.c:1507",
+        "cab": "static void fiji_update_mc_medium_grain_clock_gating",
+        "mismo_bloque": true
+      }
+    ]
+  }
+}

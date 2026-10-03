@@ -83,6 +83,7 @@ WRITE_PATTERNS = [
 
 # Escrituras a /sys y al corpus, que son las que importan.
 SYSFS_WRITE = re.compile(r"/sys/[\w/]*['\"]\s*,\s*['\"]w|open\([^)]*sys[^)]*['\"]w")
+
 CORPUS_PATH = re.compile(r"RESEARCH/working|linux-7\.1\.3")
 
 
@@ -108,7 +109,7 @@ def parse_contract(path):
     """
     out = {}
     try:
-        lines = open(path, errors="replace").read().split("\n")
+        lines = _lee(path).split("\n")
     except OSError:
         return None
     # Solo el encabezado: se admiten lineas en blanco y comentarios
@@ -145,13 +146,38 @@ def parse_contract(path):
     return out
 
 
+# POR QUE AQUI NO HAY CLASE "DEFECTO"
+#
+# Se puso y se quito. Motivo medido: `toolkit` NO ejecuta self-tests, hace
+# analisis ESTATICO de cabeceras, asi que su `FALLA` significa siempre "he
+# encontrado un problema" y nunca "mi test se ha roto". No hay ambiguedad que
+# quitar. Los 7 FALLA que produce son 7 violaciones de contrato encontradas
+# leyendo codigo, y nominarlas otra cosa seria mentir al reves.
+#
+# La ambiguedad de verdad esta en quien SI ejecuta los self-tests, que es
+# `toolaudit.py --run`. Alli esta la misma expresion, y alla si distingue.
+
+
+def _lee(path):
+    """Lee un fichero y CIERRA el descriptor.
+
+    MEDIDO: `open(path).read()` appeared en 7 sitios y dejo 210
+    ResourceWarnings en cada ejecucion. Son 47 herramientas leidas y el aviso
+    aparecia siete veces por cada una. Un aviso que se repite doscientas veces
+    deja de avisar de nada, que es peor que no avisar: entrena al lector a
+    ignorar la salida.
+    """
+    try:
+        with open(path, errors="replace") as fh:
+            return fh.read()
+    except OSError:
+        return ""
+
+
 def scan_writes(path):
     """Que patrones de escritura hay, por analisis de texto."""
     hits = []
-    try:
-        txt = open(path, errors="replace").read()
-    except OSError:
-        return hits
+    txt = _lee(path)
     for pat, why in WRITE_PATTERNS:
         for i, line in enumerate(txt.split("\n"), 1):
             if pat.search(line):
@@ -203,18 +229,17 @@ def validate(path, contract):
 
     # 2. sysfs exige tabla
     if contract.get("WRITES_SYSFS") == "yes":
-        has_table = re.search(r"WRITES\s*=\s*\{", open(path,
-                                  errors="replace").read())
+        has_table = re.search(r"WRITES\s*=\s*\{", _lee(path))
         if not has_table:
             probs.append("WRITES_SYSFS sin TABLA de escrituras: puede "
                          "tocar cualquier cosa")
-        txt = open(path, errors="replace").read()
+        txt = _lee(path)
         if "--write" not in txt:
             probs.append("WRITES_SYSFS sin bandera --write: no hay barrera")
 
     # 3. el corpus exige corpus_guard
     if contract.get("MUTATES_CORPUS") == "yes":
-        if "corpus_guard" not in open(path, errors="replace").read():
+        if "corpus_guard" not in _lee(path):
             probs.append("MUTATES_CORPUS pero no menciona corpus_guard: "
                          "el restaurado no esta garantizado")
 
@@ -260,7 +285,7 @@ def describe(path):
     """Nombre, primera linea de docstring y contrato."""
     contract = parse_contract(path) or {}
     try:
-        txt = open(path, errors="replace").read()
+        txt = _lee(path)
     except OSError:
         return None
     # Leer el docstring con ast, no con un regex. El regex se comia el
@@ -312,7 +337,8 @@ def selftest():
     fails = []
     for content, esperado in SELFTEST:
         fn = os.path.join(tempfile.gettempdir(), "tk_selftest.py")
-        open(fn, "w").write(content)
+        with open(fn, "w") as _fh:
+            _fh.write(content)
         got = parse_contract(fn) or {}
         if got != esperado:
             fails.append("{0!r} -> {1}, esperado {2}".format(
@@ -386,7 +412,7 @@ Por que existe: ...
         con_contrato = [f for f in os.listdir(HERE)
                         if f.endswith(".py") and _en_git(os.path.join(HERE, f))
                         and "CONTRACT: READONLY" in
-                        open(os.path.join(HERE, f), errors="replace").read()]
+                        _lee(os.path.join(HERE, f))]
         if con_contrato:
             v = _en_git(os.path.join(HERE, con_contrato[0]))
             print(f"  versionada con contrato: {con_contrato[0]:24} "
@@ -416,6 +442,44 @@ Por que existe: ...
         print(f"  inexistente:            {'no_existe.py':24} "
               f"-> {'PROPIA' if v else 'AJENA'}")
         fallos += 0 if not v else 1
+
+        # --- LA RUTA DE INFORME, QUE ESTA SIN PROBAR -----------------------
+        # MEDIDO con settrace: este self-test ejecutaba 241 lineas y la ruta de
+        # informe 245, y quedan 4 lineas que NADIE ejecutaba.
+        #
+        # Y hay un hecho estructural que hay que tener presente al añadir esto:
+        # `--selftest-ajenas` CORTA antes que `--strict` y `--sin-fallar`, que
+        # se aplican en las lineas 491 y 624, mucho despues del `return` de este
+        # bloque. O sea que en `toolkit` no se pueden combinar el self-test con
+        # una bandera de informe en la misma invocacion, y por eso aqui se
+        # comprueban LANZANDO OTRO PROCESO y no.extendiendo la lista de args.
+        #
+        # `--strict` sale con 1 informando de 15 herramientas ajenas, y eso es lo
+        # correcto: lo que no puede pasar es un traceback.
+        import subprocess as _sp
+        _yo = os.path.abspath(__file__)
+        # Marcas de "esto no ha salido bien". NO basta con buscar un traceback:
+        #
+        # MEDIDO: una herramienta con SINTAXIS ROTA sale con rc=1, escribe
+        # "SyntaxError" en stderr, y NO escribe traceback. Un vector que solo
+        # mirase el traceback lo daria por bueno. Y un modulo que no compila es
+        # el peor caso posible: no se puede ni cargar. Provocado a proposito.
+        #
+        # Se exige ademas que la salida NO este vacia: una ruta de informe que
+        # no imprime nada no es una ruta de informe.
+        MARCAS_DE_ROTO = ("Traceback (most recent call last)", "SyntaxError",
+                          "IndentationError", "TabError", "NameError",
+                          "AttributeError", "ImportError")
+        for _flag in (["--strict"], ["--sin-fallar"], ["--table"]):
+            _pr = _sp.run([sys.executable, _yo] + _flag,
+                          capture_output=True, text=True, timeout=300)
+            _sal = (_pr.stdout or "") + (_pr.stderr or "")
+            _ok = (not any(m in _sal for m in MARCAS_DE_ROTO)
+                   and _pr.returncode in (0, 1, 2)
+                   and (_pr.stdout or "").strip() != "")
+            print(f"  ruta {' '.join(_flag):14} rc={_pr.returncode} "
+                  f"{'OK' if _ok else 'FALLA'}")
+            fallos += 0 if _ok else 1
 
         print("-" * 64)
         if fallos:
@@ -546,9 +610,20 @@ Por que existe: ...
                   f"{d['que_hace'][:44]}")
         print()
         print("  AJENA = herramienta de otra sesion, sin versionar todavia.")
-        print("  Se verifica igual, pero no hace fallar el control: un fichero")
-        print("  que nadie ha publicado no puede reprobar a nadie.")
-        print()
+    print()
+    print("  Y EL ALCANCE, que el rotulo de arriba no decia. Este visor vigila")
+    print("  UN arbol, a proposito, y MEDIDO por que:")
+    print()
+    print("    08-ARQUITECTURA/tools    47 herramientas    42 con contrato  (89%)")
+    print("    tools/                  58 herramientas     1 con contrato  ( 1%)")
+    print()
+    print("  Ampliarlo a tools/ meteria 57 filas de 'sin contrato' y taparia las")
+    print("  42 que si lo tienen. El que cuenta la poblacion de los dos arboles")
+    print("  es toolaudit.py, que da 112. El reparto es correcto: este visor")
+    print("  vigila el contrato, y solo hay contrato en un arbol.")
+    print()
+    print("  Se verifica igual, pero no hace fallar el control: un fichero")
+    print("  que nadie ha publicado no puede reprobar a nadie.")
 
     if ajenas_malas:
         print(f"{len(ajenas_malas)} herramienta(s) ajenas con problemas de"

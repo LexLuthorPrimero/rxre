@@ -2,6 +2,7 @@
 
 Estado: `PASS`. `bench.py` 33 de 33; 6 suites, todas con la puerta puesta y todas sin reventar.
 Alcance: `08-ARQUITECTURA/tools/bench.py`, `escribir()`, `main()`, `veredicto()`.
+AUTORIA=AGENTE-SMU
 
 ## Lo que había
 

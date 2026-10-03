@@ -1,0 +1,129 @@
+{
+  "BLOQUEADO_AUTORIZACION": [
+    "lectura MMIO 0xA92 (polaris12 vs polaris12_32)",
+    "insmod"
+  ],
+  "NOT_DETERMINED": [
+    "semantica hardware de cada client ID IH",
+    "si CP/ME de GFX8 emite bajo GFX 0x0a o GRBM_CP 0x14",
+    "PTBA + invalidate atomicidad",
+    "orden de ejecucion en hardware"
+  ],
+  "PREDICCION_SIN_VERIFICAR": [
+    "ao_cu_mask = 0x001E001E si ambos SE coinciden"
+  ],
+  "generado_por": "post-reinicio 2026-10-02",
+  "ptba_invalidate": {
+    "estado": "PROVEN",
+    "mecanismo": "orden del ring: PTBA e invalidate son dos PM4 consecutivos en el mismo ring (gmc_v8_0.c:675-681)",
+    "no_es": "ni mutex ni fence",
+    "ptba_no_contiguos": {
+      "bloque0": "0x54f-0x556",
+      "bloque1": "0x50e-0x515",
+      "separacion": "0x41",
+      "consecuencia": "mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR + vmid solo vale para vmid<8"
+    },
+    "vias": {
+      "pm4_ring": "ordenado por el ring",
+      "mmio_1_dominio": "sin sincronizar",
+      "mmio_mascara": "poll por lectura de mmVM_INVALIDATE_RESPONSE"
+    },
+    "abierto": "si un invalidate MMIO y otro PM4 pueden intercalarse: NOT_DETERMINED",
+    "intercalado_mmio_pm4": {
+      "estado": "NOT_DETERMINED",
+      "motivo": "no es laguna del codigo: es orden de ejecucion en hardware que el codigo no responde",
+      "probado": {
+        "barriers_en_las_3_funciones": "cero (wmb/smp_mb/mb), medido por funcion",
+        "semantica_RESPONSE": "DOMAIN_INVALIDATED_0..15, mascaras 0x1..0x8000 en gmc_6_0/7_0/7_1/8_1/8_2",
+        "campos_PENDING": "0 en todas las generaciones",
+        "drenado": "la lectura de RESPONSE es un poll de finalizacion, por eso no hacen falta barreras",
+        "separacion_de_vias": "PM4 desde amdgpu_vpe.c:621 y gfx_v7_0.c:3144; MMIO desde rutinas de flush"
+      },
+      "no_se_hace": "instrumentar REQUEST por MMIO con el ring ocupado (cae bajo AGENTS.md:469)",
+      "accionable_sin_la_respuesta": [
+        "para que PTBA sea visible antes del invalidate, usar la via PM4",
+        "la via MMIO de 1 dominio no sincroniza nada",
+        "la via de mascara si sincroniza, por drenado",
+        "los 16 PTBA son dos bloques, no 16 seguidos"
+      ]
+    }
+  },
+  "alcance_transitivo": {
+    "estado": "CERRADO_CON_CLASIFICACION_COMPLETA",
+    "reparto": {
+      "PROCESO": 9,
+      "IRQ": 1,
+      "MIEMBRO_OTRA_GENERACION": 3
+    },
+    "correccion_189": {
+      "hallazgo": "TOP no es 'sin resolver': es 'la cadena agota en una funcion que nadie llama'",
+      "por_que_importa": "3 de las 12 alcanzaban amdgpu_device_init / amdgpu_device_gpu_recover / amdgpu_device_fini_hw, que son puntos de entrada del driver: raiz DEFINITIVA, no laguna",
+      "tabla": "PUNTOS_DE_ENTRADA (12 funciones) con contexto PROCESO",
+      "metodo": "se agota la cadena + el terminal es un punto de entrada conocido = PROCESO"
+    },
+    "correccion_187": {
+      "hallazgo": "el consumidor de una ops table esta FUERA del anillo de ficheros del resolutor",
+      "segundo_anillo": [
+        "amdgpu_ip.c",
+        "amdgpu_device.c",
+        "amdgpu_job.c"
+      ],
+      "criterio": "los 3 contienen el bucle ip_blocks[i].version->funcs->M(, que despacha por NOMBRE de miembro y por eso sirve para cualquier ASIC",
+      "control_positivo": "los 3 parsean (1966/2494/2023 funciones) y los 3 tienen el bucle"
+    },
+    "las_3_restantes": {
+      "estado": "MIEMBRO_OTRA_GENERACION",
+      "funciones": [
+        "gfxhub_v2_1_gart_enable",
+        "gfxhub_v2_1_gart_disable",
+        "gfxhub_v2_1_restore_regs"
+      ],
+      "afirmacion": "la tabla de gfxhub_v2_1 esta REGISTRADA (.gart_enable = gfxhub_v2_1_gart_enable, gfxhub_v2_1.c:657) pero ningun consumidor de la RUTA VI la invoca",
+      "consumidores_en_el_arbol": [
+        "aldebaran.c:277",
+        "sienna_cichlid.c:164",
+        "gfx_v11_0.c:4721",
+        "gfx_v12_0.c:3566",
+        "gfx_v12_1.c:2572",
+        "gmc_v9_0.c:2150"
+      ],
+      "control_positivo": "6 ficheros contienen ->gart_enable( ; 0 son de la ruta VI",
+      "lectura": "la tabla se registra y queda sin uso en VI; la invocan Aldebaran/Alaska/Arcturus. NO es PROCESO ni IRQ: es codigo muerto en esta ASIC",
+      "consecuencia": "estas 3 NO compiten por contexto: no hay conflicto de concurrencia porque no hay dos llamantes"
+    },
+    "correccion_186": {
+      "hallazgo": "el consumidor de una tabla de ops no esta en el fichero que la declara",
+      "sintoma": "las 13 salian VIA_OPS sin llegar a ninguna raiz, porque el filtro exigia que el fichero estuviera en el call graph"
+    },
+    "DIAGNOSTICO_RETIRADO": {
+      "afirmacion_retirada": "BLOCKED_BY_CORPUS_INCOMPLETE: falta el dispatcher de ASIC",
+      "por_que_es_falsa": "el Makefile del driver declara 303 objetos y no falta ningun .c; amdgpu_asic_init no existe porque el amdgpu moderno lo elimino y despacha por IP con amdgpu_ip_version() en 99 ficheros",
+      "lo_que_si_era_cierto": "0 definiciones de amdgpu_asic_init en todo el arbol",
+      "clase": "A: un cero por un nombre que el codigo ya no usa, guardado como fichero ausente"
+    }
+  },
+  "mandato_campos_interrupt": {
+    "estado": "RESUELTO_Y_ES_UN_HALLAZGO",
+    "que": "los 7 campos *_INTERRUPT de CNTL los marca DECLARED_NOT_WRITTEN; el corpus los escribe en la IRQ",
+    "accion": "corregir la clasificacion a PROVEN_CORPUS_WRITES con fuente gmc_v8_0.c:1391-1418",
+    "no_hecho": "no se modifica el driver del mandato: es de solo lectura para mi"
+  },
+  "cinco_campos_save": {
+    "estado": "SATURATED_CON_MOTIVO",
+    "n": 5,
+    "campos": [
+      "PDE0_PROTECTION_FAULT_ENABLE_SAVE",
+      "VALID_PROTECTION_FAULT_ENABLE_SAVE",
+      "READ_PROTECTION_FAULT_ENABLE_SAVE",
+      "WRITE_PROTECTION_FAULT_ENABLE_SAVE",
+      "EXECUTE_PROTECTION_FAULT_ENABLE_SAVE"
+    ],
+    "estado_evidencia": "PROVEN_ABSENT: 0 escrituras en todo el corpus",
+    "pregunta": "el hardware los tiene (estan en el _sh_mask.h) y el driver los declara: quien los programa, si es que los programa alguien",
+    "por_que_es_interesante": "CONTEXT1_CNTL es el registro de contexto de VM; los _SAVE controlan si el bit se guarda al conmutar de contexto. Que ningun path del amdgpu los escriba puede significar (a) que son un zero-init correcto y no hace falta escribirlos, o (b) que el firmware los pone al cargar el contexto desde VRAM, que es un path que no esta en mi corpus",
+    "discriminante_estatico": "buscar si el CONTEXT descriptor que el driver sube a VRAM lleva una copia de CONTEXT1_CNTL, y si esa copia esta en un registro que mi corpus si cubre",
+    "NO_AFIRMADO": "que sean correctos; solo que declararlos es consistente con lo que hace el driver en todas partes",
+    "motivo": "CLAIM SUFFICIENTLY CLOSED con evidencia de patron: 6 registros, 24 campos, 0 escrituras. La ausencia no es del mandato, es de todo el amdgpu",
+    "si_hardware_llegara": "un banco que verifique el efecto de los 5 bits al conmutar contexto; sin eso queda NOT_AVAILABLE, no falso"
+  }
+}

@@ -1,0 +1,316 @@
+{
+ "artefacto": "bench",
+ "comparabilidad": {
+  "comparables": {
+   "bar_size": {
+    "ahora": null,
+    "anterior": null,
+    "estado": "NO_COMPARABLE"
+   },
+   "mclk_hz": {
+    "ahora": 300000000,
+    "anterior": 300000000,
+    "estado": "igual",
+    "razon": 1.0
+   },
+   "pcie_gen": {
+    "ahora": null,
+    "anterior": null,
+    "estado": "NO_COMPARABLE"
+   },
+   "pcie_width": {
+    "ahora": null,
+    "anterior": null,
+    "estado": "NO_COMPARABLE"
+   },
+   "sclk_hz": {
+    "ahora": 1060570000,
+    "anterior": 405480000,
+    "estado": "DIFIERE",
+    "razon": 2.6155913978494625
+   }
+  },
+  "difieren": [
+   "sclk_hz"
+  ],
+  "estado": "NO_COMPARABLE",
+  "nota": "la medicion es valida; lo que no esta licenciada es compararla con la anterior",
+  "previo": "bench-jerarquia-20261003-082306.json"
+ },
+ "contexto": {
+  "iters": [
+   512,
+   2048
+  ],
+  "n": 5
+ },
+ "cwd": "/home/lucas/Escritorio/RX550-INVESTIGACION/08-ARQUITECTURA/tools",
+ "fallos": [],
+ "hardware": {
+  "bar_size": null,
+  "kernel": "7.1.3-200.nobara.fc44.x86_64",
+  "mclk_hz": 300000000,
+  "pci": null,
+  "pci_device": null,
+  "power_uw": 6126000,
+  "sclk_hz": 1064780000,
+  "temp_mc": 46000
+ },
+ "instrumento": {
+  "binario": "/home/lucas/Escritorio/RX550-INVESTIGACION/08-ARQUITECTURA/tools/vcp",
+  "binario_fresco": true,
+  "binario_frescura": [
+   {
+    "binario_mtime": 1791025845.1905615,
+    "binario_sha256": "739b3394ab54ee73",
+    "estado": "AL DIA",
+    "fuente_mtime": 1791023188.5254774,
+    "fuente_sha256": "7e7037cadea20251"
+   }
+  ],
+  "binario_sha256": "739b3394ab54ee730a3c166392b081bdeee29e730a1ec2f8dab9262c3ab622e2",
+  "fuente": "/home/lucas/Escritorio/RX550-INVESTIGACION/08-ARQUITECTURA/tools/vulkan_compute_probe.c",
+  "fuente_sha256": "7e7037cadea20251652a542ab03069faf8fe95b85d2038594b94de114b790b2a",
+  "spv_frescos": true
+ },
+ "puerta_de_reloj": {
+  "estado": "RELOJ_ESTABLE",
+  "lecturas": 8,
+  "marcas": [
+   {
+    "donde": "jerarquia:64KiB",
+    "sclk_hz": 1067580000
+   },
+   {
+    "donde": "jerarquia:256KiB",
+    "sclk_hz": 1063210000
+   },
+   {
+    "donde": "jerarquia:1024KiB",
+    "sclk_hz": 1052140000
+   },
+   {
+    "donde": "jerarquia:4096KiB",
+    "sclk_hz": 1060080000
+   },
+   {
+    "donde": "jerarquia:8192KiB",
+    "sclk_hz": 1070150000
+   },
+   {
+    "donde": "jerarquia:16384KiB",
+    "sclk_hz": 1066780000
+   },
+   {
+    "donde": "jerarquia:32768KiB",
+    "sclk_hz": 1071000000
+   },
+   {
+    "donde": "jerarquia:65536KiB",
+    "sclk_hz": 1058630000
+   }
+  ],
+  "max_hz": 1071000000,
+  "min_hz": 1052140000,
+  "razon": 1.0179253711483263,
+  "umbral": 1.25
+ },
+ "resultado": {
+  "efecto_de_la_forma": 0.89495849609375,
+  "filas": [
+   {
+    "accesos": 1024,
+    "fraccion_de_host": 0.1525,
+    "gpu_mediana_ms": 0.00976,
+    "huella": {
+     "accesos_por_linea": 1.5705521472392638,
+     "cobertura": 0.63671875,
+     "lineas_buffer": 1024,
+     "lineas_tocadas": 652
+    },
+    "iters": 4,
+    "mediana_s": 6.4e-05,
+    "ns_por_acceso": 62.5,
+    "sclk_hz": 1067580000,
+    "sigma_s": 1.1056219968868201e-05,
+    "w_kib": 64,
+    "wsize": 16384
+   },
+   {
+    "accesos": 4096,
+    "fraccion_de_host": 0.22371681415929207,
+    "gpu_mediana_ms": 0.02528,
+    "huella": {
+     "accesos_por_linea": 1.5814671814671815,
+     "cobertura": 0.63232421875,
+     "lineas_buffer": 4096,
+     "lineas_tocadas": 2590
+    },
+    "iters": 16,
+    "marginal_ns": 15.950520833333332,
+    "mediana_s": 0.000113,
+    "ns_por_acceso": 27.587890625,
+    "sclk_hz": 1063210000,
+    "sigma_s": 1.9895728184713423e-05,
+    "w_kib": 256,
+    "wsize": 65536
+   },
+   {
+    "accesos": 16384,
+    "fraccion_de_host": 0.5227807486631016,
+    "gpu_mediana_ms": 0.09776,
+    "huella": {
+     "accesos_por_linea": 1.5811619378498358,
+     "cobertura": 0.6324462890625,
+     "lineas_buffer": 16384,
+     "lineas_tocadas": 10362
+    },
+    "iters": 64,
+    "marginal_ns": 6.022135416666666,
+    "mediana_s": 0.000187,
+    "ns_por_acceso": 11.41357421875,
+    "sclk_hz": 1052140000,
+    "sigma_s": 2.7018512172212598e-05,
+    "w_kib": 1024,
+    "wsize": 262144
+   },
+   {
+    "accesos": 65536,
+    "fraccion_de_host": 0.7977661431064572,
+    "gpu_mediana_ms": 0.45712,
+    "huella": {
+     "accesos_por_linea": 1.5847943317292579,
+     "cobertura": 0.6309967041015625,
+     "lineas_buffer": 65536,
+     "lineas_tocadas": 41353
+    },
+    "iters": 256,
+    "marginal_ns": 7.853190104166668,
+    "mediana_s": 0.000573,
+    "ns_por_acceso": 8.7432861328125,
+    "sclk_hz": 1060080000,
+    "sigma_s": 0.0001236744112579478,
+    "w_kib": 4096,
+    "wsize": 1048576
+   },
+   {
+    "accesos": 131072,
+    "fraccion_de_host": 0.9050995260663507,
+    "gpu_mediana_ms": 0.95488,
+    "huella": {
+     "accesos_por_linea": 1.5814290195699912,
+     "cobertura": 0.6323394775390625,
+     "lineas_buffer": 131072,
+     "lineas_tocadas": 82882
+    },
+    "iters": 512,
+    "marginal_ns": 7.354736328124998,
+    "mediana_s": 0.001055,
+    "ns_por_acceso": 8.04901123046875,
+    "sclk_hz": 1070150000,
+    "sigma_s": 3.282925524589314e-05,
+    "w_kib": 8192,
+    "wsize": 2097152
+   },
+   {
+    "accesos": 262144,
+    "fraccion_de_host": 0.8789743589743589,
+    "gpu_mediana_ms": 1.23408,
+    "huella": {
+     "accesos_por_linea": 1.5823072094258535,
+     "cobertura": 0.631988525390625,
+     "lineas_buffer": 262144,
+     "lineas_tocadas": 165672
+    },
+    "iters": 1024,
+    "marginal_ns": 2.662658691406251,
+    "mediana_s": 0.001404,
+    "ns_por_acceso": 5.3558349609375,
+    "sclk_hz": 1066780000,
+    "sigma_s": 0.0002732900290899761,
+    "w_kib": 16384,
+    "wsize": 4194304
+   },
+   {
+    "accesos": 524288,
+    "fraccion_de_host": 0.48334948633456093,
+    "gpu_mediana_ms": 2.4936,
+    "huella": {
+     "accesos_por_linea": 1.5827896740459422,
+     "cobertura": 0.6317958831787109,
+     "lineas_buffer": 524288,
+     "lineas_tocadas": 331243
+    },
+    "iters": 2048,
+    "marginal_ns": 14.324188232421877,
+    "mediana_s": 0.005159,
+    "ns_por_acceso": 9.840011596679688,
+    "sclk_hz": 1071000000,
+    "sigma_s": 0.001688043411764046,
+    "w_kib": 32768,
+    "wsize": 8388608
+   },
+   {
+    "accesos": 1048576,
+    "fraccion_de_host": 0.961138872748402,
+    "gpu_mediana_ms": 6.61648,
+    "huella": {
+     "accesos_por_linea": 1.5819968679184935,
+     "cobertura": 0.6321125030517578,
+     "lineas_buffer": 1048576,
+     "lineas_tocadas": 662818
+    },
+    "iters": 4096,
+    "marginal_ns": 3.2901763916015625,
+    "mediana_s": 0.006884,
+    "ns_por_acceso": 6.565093994140625,
+    "sclk_hz": 1058630000,
+    "sigma_s": 0.0011170817338046484,
+    "w_kib": 65536,
+    "wsize": 16777216
+   }
+  ],
+  "forma_de_la_curva": "BAIDA",
+  "lectura": "el coste marginal por acceso BAJA al crecer el conjunto de trabajo, que NO puede ser un codo de cache: la firma es amortizar un coste fijo. 938 midio ese coste en 38,06 us por envio, por otra via",
+  "marginal_final_ns": 8.807182312011719,
+  "marginal_inicial_ns": 10.986328125,
+  "marginales": [
+   {
+    "entre_kib": "64->256",
+    "marginal_ns": 15.950520833333332
+   },
+   {
+    "entre_kib": "256->1024",
+    "marginal_ns": 6.022135416666666
+   },
+   {
+    "entre_kib": "1024->4096",
+    "marginal_ns": 7.853190104166668
+   },
+   {
+    "entre_kib": "4096->8192",
+    "marginal_ns": 7.354736328124998
+   },
+   {
+    "entre_kib": "8192->16384",
+    "marginal_ns": 2.662658691406251
+   },
+   {
+    "entre_kib": "16384->32768",
+    "marginal_ns": 14.324188232421877
+   },
+   {
+    "entre_kib": "32768->65536",
+    "marginal_ns": 3.2901763916015625
+   }
+  ],
+  "nota_huella": "la cobertura de la huella se mantiene en 0.637, asi que el barrido SI barre el conjunto de trabajo y lo que se mide no es saturacion",
+  "razon_final_sobre_inicial": 0.8016493055555556,
+  "resolucion_del_marginal": 0.6302078922855449,
+  "secante_coste_por_acceso": 0.10504150390625001,
+  "veredicto": "PASS"
+ },
+ "suite": "jerarquia",
+ "timestamp": "20261003-082600",
+ "veredicto": "PASS"
+}

@@ -3,6 +3,7 @@
 Estado: `VALIDADO`. `emisor.py` 16 de 16; los dos controles negativos verificados sobre el fichero real.
 Instrumentos: `emisor.py` (nuevo), `07-DRIVER/tests/Makefile` (`run`, `emisor`, `verify`).
 Alcance: `08-ARQUITECTURA/tools/emisor.py`, `07-DRIVER/kernel/rx550_pm4.h:266`.
+AUTORIA=AGENTE-SMU
 
 ## Lo que había, y por qué esto no era escribir código nuevo
 

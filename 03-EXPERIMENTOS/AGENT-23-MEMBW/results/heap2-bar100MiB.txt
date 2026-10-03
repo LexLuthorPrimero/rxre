@@ -1,0 +1,18 @@
+MESA-INTEL: warning: Haswell Vulkan support is incomplete
+# ORACLE OK: 4096 elements verified element-wise
+  sample 0: 41.162 GB/s (0.163036 s) mclk=1500Mhz sclk=1071Mhz
+  sample 1: 41.149 GB/s (0.163086 s) mclk=1500Mhz sclk=1071Mhz
+  sample 2: 41.160 GB/s (0.163045 s) mclk=1500Mhz sclk=1071Mhz
+  sample 3: 41.146 GB/s (0.163098 s) mclk=1500Mhz sclk=1071Mhz
+  sample 4: 41.160 GB/s (0.163043 s) mclk=1500Mhz sclk=1071Mhz
+# GBPS median=41.160 min=41.146 max=41.162
+# device      AMD Radeon RX 550 / 550 Series (RADV POLARIS12)
+# identity    vendor=0x1002 device=0x699f type=DISCRETE api=1.4.354
+# memtype     index=3 heap=2 size=268435456 flags=0x00000007 DEVICE_LOCAL HOST_VISIBLE HOST_COHERENT
+# headroom    need=209715200 B heap=268435456 B (58720256 B spare)
+# config      elems=26214400 bytes/buffer=104857600 iters=0 dispatches=32 samples=5 local=256
+# clocks      mclk_before=300Mhz mclk_after=1500Mhz sclk_before=980Mhz sclk_after=1071Mhz
+# clocks_load [0 mclk=1500Mhz sclk=1071Mhz] [1 mclk=1500Mhz sclk=1071Mhz] [2 mclk=1500Mhz sclk=1071Mhz] [3 mclk=1500Mhz sclk=1071Mhz] [4 mclk=1500Mhz sclk=1071Mhz]
+# traffic     200.000 MiB per dispatch (4 B read + 4 B written per element)
+# result      oracle=VERIFIED
+GBPS median 41.160 min 41.146 max 41.162

@@ -2629,7 +2629,7 @@ Cada lado cubre lo que al otro le falta, y ambos declaran su límite:
 | `tools/pm4census.py` | lo que el driver **escribe** | 43 de 50 emisiones de `gfx_v8_0.c` | si el hardware lo **lee** así |
 | EV-30 | si el hardware lo **lee** así | 1 opcode, cadena completa | los otros 24 paquetes |
 
-Que converjan por vias independientes es lo que sostiene la fila. La， de que
+Que converjan por vias independientes es lo que sostiene la fila. La, de que
 el hardware lee `count+1` es EV-30; el censo explica por qué 43 de 50 emisores
 tienen la misma forma.
 
@@ -3886,3 +3886,194 @@ conjunto y no una sospecha sobre un fichero.
 
 No se arregla: el documento lo editan varias sesiones a la vez, y un cierre de
 fence en la posicion equivocada partiria el bloque de otra. Se declara.
+
+## EV-39 · `GC_HWIP` vale 0 en esta placa, y de ahi salen el flush de TLB, los
+codificadores de PTE/PDE y la ausencia de MES
+
+`CLASSIFICATION=DOCUMENTATION` · `TRACK=STATIC` · `WORK_CLASS=READ_ONLY/EVIDENCE`
+`WRITE_EXECUTION=NONE` · `MODIFICATIONS_CORPUS=0` · `RUNTIME=NOT_RUN` · `GPU INTACTA`
+`CORPUS=RESEARCH/baseline/linux-7.1.3` (+ `kernelbuild` para el core de DRM)
+`HARDWARE_SCOPE=HOST-C/RX550/0000:01:00.0`
+`DESARROLLA=corrige la lectura de 185/190 (que decia "hardware") y corrobora EV-38bis
+desde una direccion que no habia usado`
+
+### 1 · La cadena, cinco eslabones, y ninguno es de otra sesion
+
+La otra sesion afirmo que `ip_versions[GC_HWIP][0] == 0` en Polaris12. Es
+`PROVEN`, y aqui esta la cadena completa para que se pueda auditar eslabon por
+eslabon:
+
+```
+1  amdgpu_drv.c:2411        adev = devm_drm_dev_alloc(&pdev->dev, &amdgpu_kms_driver,
+                                                    typeof(*adev), ddev)
+2  include/drm/drm_drv.h:470-472   macro -> __devm_drm_dev_alloc(parent, driver,
+                                        sizeof(type), offsetof(type, member))
+3  drm_drv.c:829            container = kzalloc(size, GFP_KERNEL)
+4  amdgpu.h:858 / :1139     struct amdgpu_device { ... uint32_t ip_versions
+                            [MAX_HWIP][HWIP_MAX_INSTANCE]; ... }
+5  amdgpu.h:1211-1218      amdgpu_ip_version() { return adev->ip_versions[ip][inst]
+                                                      & ~0xFFU; }
+```
+El eslabon 3 es el que faltaba en la lectura de "nada escribe GC_HWIP": no basta
+con que nadie lo escriba, hace falta que **`sizeof(struct amdgpu_device)` este
+dentro de un `kzalloc`**. Y lo esta, porque el macro mete `sizeof(type)` en `size`
+y `offsetof(type, member)` solo desplaza el puntero al `drm_device` embebido. Con
+eso, el array nace a cero por construccion.
+
+Y el que si escribe, son **ocho valores fijos**, todos `9.x` o `10.x`:
+
+```
+amdgpu_discovery.c:2811  ip_versions[GC_HWIP][0] = IP_VERSION(9, 0, 1)   Vega10
+amdgpu_discovery.c:2840                                    (9, 2, 1)   Vega12
+amdgpu_discovery.c:2870                                    (9, 2, 2)   Vega20
+amdgpu_discovery.c:2887                                    (9, 1, 0)   Arcturus
+amdgpu_discovery.c:2917                                    (9, 4, 0)   Vega20
+amdgpu_discovery.c:2954                                    (9, 4, 1)
+amdgpu_discovery.c:2986                                    (9, 4, 2)
+amdgpu_discovery.c:3019                                    (10, 1, 3)  Navi10
+```
+No hay version de GFX8, ni de GCN3, ni de Polaris10/11/12. El unico otro sitio que
+toca el simbolo es un **lector**, `gfx_v12_1.c:3275`. `PROVEN`.
+
+### 2 · Consecuencia A: el flush de TLB es incondicional, y ahora es `PROVEN`
+
+```
+amdgpu_vm.c:1154-1157
+    flush_tlb |= amdgpu_ip_version(adev, GC_HWIP, 0) < IP_VERSION(9, 0, 0);
+    ->  0 < 0x09000000  ->  SIEMPRE VERDADERA
+    ->  params.needs_flush = true  en TODA actualizacion de page table
+```
+Con `IP_VERSION(mj,mn,rv) = (mj<<24)|(mn<<16)|(rv<<8)` (`amdgpu_ip.h:76-79`), la
+constante de la derecha **nunca** es 0 para un ASIC real, asi que la comparacion
+es degenerada por construccion, no por casualidad.
+
+Esto confirma y **explica** lo que mi `085` afirmaba ("SB page walker invalidate
+siempre obligatorio"), que hasta ahora era un hecho del codigo sin causa. Ahora hay
+causa. `PROVEN`.
+
+### 3 · Consecuencia B: los codificadores de PTE/PDE toman la rama GFX8
+
+Cuatro macros bifurcan sobre el **mismo** predicado, y las cuatro caen al lado
+legacy:
+
+```
+amdgpu_vm.h:122-123  AMDGPU_PTE_PRT_FLAG   >= 12.0.0 ? ..._GFX12(1ULL<<56) : AMDGPU_PTE_PRT
+amdgpu_vm.h:137-138  AMDGPU_PDE_BFS_FLAG  >= 12.0.0 ? ..._GFX12(a)      : AMDGPU_PDE_BFS(a)
+amdgpu_vm.h:140-141  AMDGPU_PDE_PTE_FLAG  >= 12.0.0 ? (1ULL<<63)      : AMDGPU_PDE_PTE
+```
+Es decir: `0 >= 0x0C000000` es falso, y mi driver propio **no debe** usar ni el
+bit 56 para PRT ni el bit 63 para PDE-como-PTE. Esos dos campos son de gfx12. Es un
+hecho de implementacion, no una opinion, y evita copiar la rama equivocada por
+parecido de nombre.
+
+### 4 · Lo que NO se cierra: el "8 PTE" tiene UNA sola fuente
+
+La otra sesion registro como **propiedad del hardware** que "en GFX8 y anteriores,
+cualquier bloque de 8 PTE con un bit valid metido entra en el TLB". He seguido el
+rastro de esa frase y no se sostiene como `PROVEN`:
+
+```
+ocurrencias de "8 PTE block" en TODO el driver amdgpu ....... 1
+   amdgpu_vm.c:1155   (el comentario, textual)
+registros de TLB en asic_reg/gmc/gmc_8_{1,2}_sh_mask.h ... solo el L1 del shader
+   MC_VM_MX_L1_TLB_CNTL, MC_VM_MB_L1_TLB{0,1}_DEBUG (EFFECTIVE_L1_TLB_SIZE)
+   ninguna mention de page table, PTE, PDE ni de granularidad
+codigo que agrupe o alinee PTE de 8 ............................ ninguno
+```
+Clasificacion honesta, y sin contradecir a la otra sesion:
+
+- Lo que el **driver cree**: `PROVEN`. El comentario esta, es literal, y es el
+  unico sitio que dice eso.
+- Lo que el **hardware hace**: `NOT_INDEPENDENTLY_CORROBORATED`. Una sola fuente,
+  sin corroboracion a nivel de registro y sin codigo que dependa de la
+  alineacion a 8 que sirva de contraprueba.
+
+Lo que **si** queda `PROVEN` es la consecuencia (seccion 2): en esta placa toda
+actualizacion de page table pide flush. La consecuencia y su causa se separan: la
+consecuencia es mia y esta medida; la causa ("porque el bloque de 8 es atomico")
+esta heredada de un comentario upstream. Para un driver propio la diferencia es la
+que separa *"se por que"* de *"copie por que"*.
+
+### 5 · Lo nuevo: MES es inalcanzable en esta placa, y por un motivo elegante
+
+`amdgpu_discovery_set_mes_ip_blocks()` (`amdgpu_discovery.c:2678-2714`) **selecciona
+el bloque MES leyendo el propio `GC_HWIP`**:
+
+```
+switch (amdgpu_ip_version(adev, GC_HWIP, 0)) {
+case IP_VERSION(11,0,0) ... case IP_VERSION(11,0,4):  amdgpu_device_ip_block_add(&mes_v11_0_ip_block);
+case IP_VERSION(11,5,0) ... case IP_VERSION(11,5,4):  amdgpu_device_ip_block_add(&mes_v11_0_ip_block);
+case IP_VERSION(12,0,0) ... case IP_VERSION(12,0,1):  amdgpu_device_ip_block_add(&mes_v12_0_ip_block);
+case IP_VERSION(12,1,0):                             amdgpu_device_ip_block_add(&mes_v12_1_ip_block);
+default: break;
+}
+```
+13 casos, **todos 11.x o 12.x**, y `default: break;`. Con el valor 0 no casa ninguno,
+asi que no se anade ningun `mes_*_ip_block` y `adev->enable_mes` se queda en falso.
+Y no es solo que falte el caso: **no existe `mes_v9_*.c` ni `mes_v10_*.c`** en el
+driver. Los unicos tres ficheros son `mes_v11_0.c`, `mes_v12_0.c`, `mes_v12_1.c`.
+
+O sea que la ausencia de MES en GFX8 **no** es "este ASIC no esta en la lista": es
+que la lista se consulta con el valor degenerado. `PROVEN_ABSENT` de MES en
+Polaris12, y el motivo queda dicho.
+
+**Y esto corrobora EV-38bis desde una direccion que no habia usado.** Ahi, por el otro camino, el codificador vivo por el camino `sdma_v3_0_ip_funcs`. Aqui pregunto por el
+subsistema entero: si no hay hardware de VM-ops en MES, no hay codificador de
+PTE/PDE en MES. Dos caminos, la misma conclusion.
+
+### 6 · Un eje que el censo no mide: expresion constante != rama tomada
+
+`ipver_zero.py` clasifica cada comparacion como SIEMPRE o NUNCA. Es correcto sobre
+la **expresion**, pero no dice si el codigo que la contiene llega a ejecutarse en
+esta placa. Son dos cosas distintas, y aqui se separan de forma medible:
+
+```
+ficheros "comunes" analizados por la herramienta ..................... 18
+comparaciones + switch ............................................ 50
+  comparaciones ................................................... 46  (8 SIEMPRE, 38 NUNCA)
+  switch (no evaluados) ...........................................  4
+de esas 46, en codigo SIN llamador alcanzable en GFX8 .............  5   <-- todo amdgpu_mes.c
+    :682 :683   en amdgpu_mes_init_microcode
+                 <- solo mes_v11_0.c / mes_v12_0.c / mes_v12_1.c
+    :755 :756 :758 en amdgpu_mes_suspend_resume_all_supported
+                 <- usada solo por amdgpu_mes_suspend (mes_v12_1.c)
+                    y amdgpu_mes_resume (gfx_v11_0, mes_userqueue, mes_v12_1)
+```
+Ni una sola ruta del grafo de llamadas desde la inicializacion de VI llega a esas
+cinco. Se quedan en **41 comparaciones que si gobiernan esta placa**, no 46. La
+herramienta no es incorrecta: **no esta midiend esto**, y su docstring lo declara
+("Los `switch` no se evaluan"). Lo que no declara es la segunda razon por la que
+una comparacion puede no importar, que es el propio alcance del codigo.
+
+### 7 · Dos cuentas mias, y por que solo la segunda vale
+
+```
+mi grep ingenuo   260 sitios de GC_HWIP en amdgpu/*.c *.h
+  de ellos:  27 con '>=' , 123 con '==', 14 con '<' , 96 sin operador en la linea
+  los 96 son  switch  o  validaciones multilinea
+ipver_zero.py      50 sitios, en 18 ficheros que SI se ejecutan en GFX8
+  46 comparaciones (8 SIEMPRE, 38 NUNCA) + 4 switch
+```
+Mi numero es **5,2 veces mayor** y esta mal por la razon de siempre: conte tambien
+`gfx_v9_0.c`, `gfx_v10_*.c`, `nv_*`, ficheros que en esta placa no entran. Es la
+**quinta vez** en la sesion que mezclar generaciones produce un falso positivo
+(`sid.h` en EV-35, `gmc_v6_0.c` en el control de mascara, `pm4census` con 7.2.8, el
+SDMA, y ahora el censo de GC_HWIP). El patron es identico: **contar apariciones en
+un arbol en vez de contar cosas que se ejecutan**.
+
+### 8 · Un hecho de estructura del corpus, que no es secundario
+
+Para cerrar el eslabon 3 tuve que leer el core de DRM, y **no esta en `baseline` ni
+en `working`**:
+
+```
+baseline/linux-7.1.3/drivers/gpu/drm/     -> solo  amd/
+working/linux-7.1.3/drivers/gpu/drm/      -> solo  amd/
+kernelbuild/linux-7.1.3/drivers/gpu/drm/  -> completo: drm_drv.c, include/drm/drm_drv.h
+kernelbuild/linux-7.1.3/                  -> RAIZ COMPLETA del kernel
+```
+Consecuencia de método: "no lo encontre en `baseline`" **no** es `PROVEN_ABSENT` de
+nada, es `NOT_AVAILABLE` en ese arbol. Si no llego a mirar `kernelbuild` habria
+declarado el eslabon ausente cuando existe, y la conclusion entera habria quedado
+en `NOT_DETERMINED` por una limitacion mia del corpus. `baseline` y `working` son
+arboles **parciales**, y hay que decirlo cada vez que se cita uno.

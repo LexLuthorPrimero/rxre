@@ -247,7 +247,7 @@ def parse_loops(path, funcion=None, var_pat=None):
     """[(var, reg_ini, reg_fin, linea, texto)] de los bucles WREG32 sobre registro.
 
     Con `funcion`, se acota a esa funcion. Sin ella, se lee el fichero entero,
-    que es lo que se hacia antes: sin acotar, los bucles de una funcion和你
+    que es lo que se hacia antes: sin acotar, los bucles de una funcioncontigo
     contaban como de otra.
     """
     if funcion:

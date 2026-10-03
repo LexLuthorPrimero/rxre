@@ -351,8 +351,165 @@ no un veredicto: una tabla de indices, no de afirmaciones.
 | 254 | la-cabecera-de-los-20-firmware-valida-20-de-20 | PROVEN x16, PROVEN_DERIVED x16, NOT_DETERMINED x7, ERROR x7 | INTACTA | - | 4 |
 | 255 | las-tres-contradicciones-son-el-mismo-intermed | PROVEN x18, PROVEN_DERIVED x16, REFUTED x7, ERROR x7 | INTACTA | - | 12 |
 | 256 | la-tabla-de-spread-spectrum-que-si-alcanza-mi- | PROVEN x6, NOT_DETERMINED x3, ATOM_ASIC_SS_ASSIGNMENT_V3 x2, NOT_OBSERVED x2 | ? | - | 16 |
-| 257 | herramienta-validada-que-ancla-mal-las-escritu | NO_RESUELTO x2, NOT_DETERMINED x2, PROVEN x2, DEGRADED x2 | ? | - | 0 |
 | 257 | sched-hw-submission-2-y-el-anillo-gfx-son-2048 | PROVEN x19, PROVEN_DERIVED x19, ERROR x9, NOT_OBSERVED x4 | INTACTA | - | 28 |
+| 258 | veinticuatro-gbs-de-vram-contra-dos-gbs-de-pci | PROVEN x25, PROVEN_DERIVED x17, ERROR x7, NOT_AVAILABLE x6 | INTACTA | - | 7 |
 | 258 | verificar-el-target-coincide-en-diez-campos-y- | DIFIERE x2, TARGET_PARCIAL x1, TARGET_MATCH x1, ESTIMADO x1 | INTACTA | - | 0 |
+| 259 | la-clave-primaria-de-findings-no-es-unica | PROVEN x6, NOT_DETERMINED x2, CLAIM_ID x1 | INTACTA | - | 0 |
+| 260 | herramienta-validada-que-ancla-mal-las-escritu | DEGRADED x3, VALIDATED x3, NO_RESUELTO x2, VIVA x1 | ? | - | 0 |
+| 261 | banco-de-pruebas-de-computo-y-el-bug-que-lo-in | PROVEN x16, PROVEN_DERIVED x11, ERROR x10, NOT_DETERMINED x6 | INTACTA | - | 2 |
+| 261 | dri-0-no-es-la-rx-550-y-card1-no-es-un-nodo-dr | VM_CARD1 x1, MC_CARD1 x1, GPU_CARD_NODE x1, EACCES x1 | INTACTA | - | 0 |
+| 262 | dos-escritores-en-la-misma-ram-del-smc | NOT_DETERMINED x4, PROVEN x2, CORROBORATED x1 | ? | - | 4 |
+| 262 | el-control-tardo-tres-versiones-en-ser-un-cont | PROVEN x16, PROVEN_DERIVED x11, ERROR x7, INVALID_RESULT x3 | INTACTA | - | 0 |
+| 263 | el-avfs-se-sobrescribe-y-mi-hipotesis-era-inve | NOT_DETERMINED x4 | ? | - | 18 |
+| 264 | el-documento-rector-cambio-y-las-convenciones- | INCOMPARABLE x1, AMBIGUO x1, PASS x1 | INTACTA | - | 0 |
+| 265 | el-tamano-de-cache-de-gfx8-no-esta-en-ningun-s | PROVEN_DERIVED x12, PROVEN_ABSENT x7, PROVEN x6, NOT_DETERMINED x5 | INTACTA | - | 3 |
+| 265 | la-tabla-que-manda-es-el-vbios-y-no-el-avfs | SEMANTIC_MISSING x1, RUNTIME_MISSING x1 | ? | - | 6 |
+| 266 | la-codificacion-del-voltaje-no-es-un-float-y-e | PROVEN x4, REFUTED x1, NOT_DETERMINED x1 | ? | - | 1 |
+| 267 | la-curva-vf-de-mi-vbios-no-esta-rellena | NOT_FOUND x1, PROVEN_DERIVED x1, OUT_OF_BOUNDS x1 | ? | - | 1 |
+| 268 | las-citas-por-linea-no-estan-mal-el-documento- | INCOMPARABLE x2, DISPARADOR x2, AMBIGUO x1, LOCALIZABLE x1 | INTACTA | - | 0 |
+| 269 | el-techo-de-reloj-no-viene-de-la-tabla-de-volt | NOT_DETERMINED x2, NOT_DECLARED x1, REFUTED x1, RUNTIME_MISSING x1 | ? | - | 4 |
+| 270 | el-banco-media-la-copia-pcie-no-el-kernel | PROVEN x19, PROVEN_DERIVED x13, MEASUREMENT x8, ERROR x6 | INTACTA | - | 0 |
+| 271 | el-kernel-de-cache-mide-la-tasa-de-emision | PROVEN_DERIVED x15, ERROR x7, PROVEN x6, INVALID_RESULT x2 | INTACTA | - | 0 |
+| 272 | cg-mask-y-cu-mask-son-categorias-distintas | PROVEN_DERIVED x15, PROVEN x13, REFUTED x4, MEASUREMENT x4 | INTACTA | - | 46 |
+| 272 | el-techo-de-overdrive-sale-de-una-lectura-fuer | PROVEN x7, ATOM_PPLIB_POWERPLAYTABLE3 x2, PROVEN_DERIVED x2, VALIDATED x1 | ? | - | 2 |
+| 273 | no-hay-layout-para-la-revision-7 | PROVEN x5, NOT_DETERMINED x3, ATOM_PPLIB_POWERPLAYTABLE3 x2, ATOM_PPLIB_POWERPLAYTABLE x1 | ? | - | 2 |
+| 274 | la-poblacion-de-herramientas-era-112-y-contamo | LIBRE x2, NOT_DETERMINED x1, TOOLS x1, FALLA x1 | INTACTA | - | 0 |
+| 275 | los-9-no-resuelto-eran-7-del-mismo-patron | PROVEN_ABSENT x4, NO_RESUELTO x2, RE_LOCAL_ADDR x2, NOT_DETERMINED x1 | ? | - | 0 |
+| 276 | me-offset-leia-fuera-del-buffer-de-especializa | PROVEN x14, PROVEN_DERIVED x13, MEASUREMENT x4, ERROR x4 | INTACTA | - | 0 |
+| 277 | la-cadena-dependiente-no-expone-la-memoria-aun | PROVEN x12, PROVEN_DERIVED x12, ITERS x6, NOT_DETERMINED x4 | INTACTA | - | 0 |
+| 278 | el-recuento-de-cobertura-de-polaris10-por-fin | NO_RESUELTO x4, NOT_DETERMINED x2, VIVA x2, PROVEN_ABSENT x1 | ? | - | 0 |
+| 279 | rx550-mc-config-memsize-no-es-un-registro | PROVEN x6, RX550_MC_FB_LOCATION x4, CONFIG_MEMSIZE x3, RX550_MC_CONFIG_MEMSIZE x2 | INTACTA | - | 1 |
+| 280 | la-multi-asignacion-producia-un-rango-falso-y- | PROVEN_ABSENT x2, SELF_TEST_MUST_EXCEED_FIXTURE x1, SEMANTIC_MISSING x1, RE_LOCAL_ADDR x1 | ? | - | 0 |
+| 281 | el-bucle-si-se-ejecuta-pero-alinea-90-veces | PROVEN_DERIVED x16, PROVEN x11, ERROR x8, MEASUREMENT x6 | INTACTA | - | 1 |
+| 282 | el-shader-no-distingue-vram-de-ram | PROVEN_DERIVED x12, PROVEN x11, STEPS x7, ERROR x6 | INTACTA | - | 0 |
+| 283 | la-carrera-eliminada-40-de-40-donde-fallaba-0- | PROVEN_DERIVED x12, CORROBORATED x9, PROVEN x6, WSIZE x4 | INTACTA | - | 0 |
+| 284 | el-enlace-esta-en-2-gbs-y-la-tarjeta-admite-78 | PROVEN_DERIVED x11, PROVEN x7, ERROR_CORRECTION x6, NOT_DETERMINED x6 | INTACTA | - | 0 |
+| 285 | el-enlace-lo-limita-el-puerto-que-se-autolimit | PROVEN x9, PROVEN_DERIVED x9, NOT_DETERMINED x7, MEASUREMENT x2 | INTACTA | - | 0 |
+| 286 | el-ancho-de-banda-del-enlace-medido-1377-gbs | PROVEN_DERIVED x15, PROVEN x14, MEASUREMENT x4, CORROBORATED x4 | INTACTA | - | 0 |
+| 287 | la-lectura-si-costaba-su-latencia-443-ciclos | PROVEN_DERIVED x12, REFUTED x8, PROVEN x7, CORROBORATED x6 | INTACTA | - | 0 |
+| 288 | el-barrido-tiene-dos-codos-y-ninguno-mide-cach | PROVEN_DERIVED x14, REFUTED x8, PROVEN x5, NOT_DETERMINED x4 | INTACTA | - | 0 |
+| 288 | falla-no-es-una-unidad-cinco-herramientas-enco | DEFECTO x2, FALLA x2, NEXT_ACTION x1, INVALID_RESULT x1 | INTACTA | - | 0 |
+| 289 | la-cache-retiene-entre-256-y-320-kib | PROVEN_DERIVED x22, PROVEN x8, MEASUREMENT x5, ERROR x4 | INTACTA | - | 0 |
+| 290 | el-codo-no-depende-del-reparto-entre-vias | PROVEN_DERIVED x16, PROVEN x7, GRP x5, MEASUREMENT x4 | INTACTA | - | 2 |
+| 291 | doce-cifras-de-poblacion-diez-sin-fecha-y-ning | NEXT_ACTION x3, DEFECTO x3, LOCALIZABLE x2, RE_LAST x2 | INTACTA | - | 0 |
+| 292 | citas-a-ficheros-que-esta-gpu-no-ejecuta | PROVEN x8, NOT_DETERMINED x3, NO_EN_DISPATCH x2, FUERA_DE_AMDGPU x2 | INTACTA | - | 12 |
+| 293 | tres-vocabitarios-de-estado-vivos-y-uno-sin-de | TOOL_UNVALIDATED x2, SOLO_ANTES x2, NEXT_ACTION x1, ESTADO x1 | INTACTA | - | 0 |
+| 294 | puede-fallar-este-test-no-es-una-propiedad-sin | NEXT_ACTION x1, TOOL_INVALID x1, SELF_TESTED x1 | INTACTA | - | 0 |
+| 295 | un-indice-de-vigilancia-que-se-ejecuta-y-un-pu | TIMEOUT x3, FAIL x2, SIN_APLICAR x1, SOBREVIVE x1 | INTACTA | - | 0 |
+| 296 | ciento-cincuenta-y-ocho-lineas-sin-probar-y-el | NEXT_ACTION x2, NOT_OBSERVADO x1, PROVEN x1 | INTACTA | - | 0 |
+| 297 | ejecutar-la-bandera-desde-el-self-test-no-cubr | NEXT_ACTION x1, BANDERA x1, BOOTSTRAP x1 | INTACTA | - | 0 |
+| 299 | la-ruta-en-proceso-mide-igual-y-el-ahorro-era- | NEXT_ACTION x1, BOOTSTRAP x1 | INTACTA | - | 0 |
+| 300 | self-no-era-el-self-test-de-toolkit | NEXT_ACTION x3, NUEVAS x1 | INTACTA | - | 0 |
+| 301 | cinco-vias-de-leer-banderas | NEXT_ACTION x1, NOT_APPLICABLE x1, CONTRACT x1, CONFORME x1 | INTACTA | - | 0 |
+| 302 | la-lista-estaba-escrita-a-mano | NEXT_ACTION x1, ANGLICISMO x1 | INTACTA | - | 0 |
+| 303 | el-validador-de-contratos-ve-60-de-151 | NEXT_ACTION x1, CONTRATO_INCOMPLETO x1 | INTACTA | - | 0 |
+| 304 | la-regla-funciona-y-prohibe-el-banco | NEXT_ACTION x1, WRITES_GPU_MMIO x1 | INTACTA | - | 0 |
+| 305 | el-mapa-bar-estaba-en-el-sysfs | NEXT_ACTION x1, INVALID x1, NO_COMPARABLE x1, NOT_DETERMINED x1 | INTACTA | - | 0 |
+| 400 | el-resumen-y-el-aviso-tienen-vector | PASS x7, NO_RESUELTO x3, NOT_COVERED_BY_FIXTURE x1, AVISO x1 | ? | - | 0 |
+| 401 | doclint-no-indexaba-07-driver | PROVEN x10, CITE x3, NOT_DETERMINED x2, SET_SH_REG x1 | INTACTA | - | 2 |
+| 402 | tapada-0-no-era-un-resultado-y-ya-no-lo-es | SIN_ORDEN x12, VIVA x6, NO_RESUELTO x2, CASE_UNCOVERED x1 | ? | - | 1 |
+| 403 | el-orden-entre-las-escrituras-avfs-y-la-copia | SIN_ORDEN x4, PROVEN_ABSENT x3, NOT_DETERMINED x3, TAPADA x1 | ? | - | 22 |
+| 500 | el-shadow-de-los-contadores-y-el-mensaje-que-a | PROVEN_ABSENT x2, NO_RESUELTO x2, RE_LOCAL_ADDR x1, SEMANTIC_MISSING x1 | ? | - | 0 |
+| 501 | el-hueco-de-la-forma-c-es-real-y-no-es-de-mi-a | VALIDATED x2, SIN_ORDEN x2, NOT_APPLICABLE x2, TAPADA x1 | ? | - | 8 |
+| 502 | quien-escribe-cada-byte-de-los-1776 | NOT_FOUND x1, EVIDENCE_MISSING x1, NOT_DETERMINED x1, PROVEN x1 | ? | - | 2 |
+| 503 | srcdata-como-discriminante-sobrevive-pero-la-c | PROVEN x8, NOT_DETERMINED x2, PROVEN_ABSENT x1, REFUTED x1 | INTACTA | - | 15 |
+| 504 | los-nueve-locks-los-sostienen-procesos-muertos | OBSERVED x7, PROVEN x4, NOT_DETERMINED x2, REFUTED x2 | INTACTA | - | 0 |
+| 505 | el-cap-de-clock-stretcher-si-esta-activo | PP_CLOCK_STRETCH_MASK x3, PROVEN_ABSENT x2, NOT_DETERMINED x1, FAMILY_CI x1 | ? | - | 7 |
+| 506 | la-puerta-de-2095-el-divisor-dfs-escribe | EVIDENCE_MISSING x2, NOT_DETERMINED x1, SIN_ORDEN x1, PROVEN x1 | ? | - | 4 |
+| 550 | la-tabla-pcie-esta-empaquetada-y-el-struct-no | UCHAR x3, ULONG x2, NOT_DETERMINED x2, PROVEN x1 | ? | - | 0 |
+| 551 | toolkit-audita-solo-su-directorio | PROVEN x13, OBSERVED x11, AJENA x6, NOT_OBSERVED x5 | INTACTA | - | 0 |
+| 600 | un-orden-que-sabe-decir-que-no | SIN_ORDEN x7, TAPADA x5, NO_RESUELTO x3, VIVA x1 | ? | - | 9 |
+| 601 | la-tabla-pcie-del-vbios-esta-empaquetada-y-el | ULONG x4, PROVEN x2, GET_FLEXIBLE_ARRAY_MEMBER_ADDR x1, RUNTIME_MISSING x1 | ? | - | 3 |
+| 602 | la-cadena-colapsa-y-el-techo-de-vram-estaba-en | PROVEN_DERIVED x28, PROVEN x14, ERROR x12, NOT_DETERMINED x7 | INTACTA | - | 3 |
+| 603 | la-tabla-dpm-no-tiene-relleno-y-502-queda | ULONG x2, EVIDENCE_MISSING x1, NOT_VERIFIED x1 | ? | - | 0 |
+| 604 | una-contradiccion-y-una-premisa-sin-verificar | PROVEN x6, CHIP_POLARIS12 x5, REFUTED x3, NOT_PROVEN x3 | ? | - | 6 |
+| 605 | la-ruta-legacy-si-es-la-viva-por-agotamiento | MP1_HWIP x4, NOT_PROVEN x2, PROVEN x2, PROVEN_ABSENT x2 | ? | - | 6 |
+| 606 | el-acantonado-del-bar-a-256-mib-y-un-flag-muer | PROVEN_DERIVED x18, PROVEN x10, ERROR x6, NOT_DETERMINED x6 | INTACTA | - | 0 |
+| 607 | el-control-que-le-faltaba-al-banco | PROVEN_DERIVED x18, ITERS x14, ERROR x6, CORROBORATED x6 | INTACTA | - | 0 |
+| 608 | el-cap-esta-activo-y-mi-herramienta-de-offsets | REFUTED x8, PROVEN x8, NOT_DETERMINED x3, TAPADA x2 | ? | - | 7 |
+| 609 | no-es-un-coste-por-envio-se-paga-una-vez | PROVEN_DERIVED x26, ITERS x9, NOT_DETERMINED x8, PROVEN x6 | INTACTA | - | 0 |
+| 901 | la-base-queda-proven-y-este-arbol-no-es-el-que | PROVEN x9, REFUTED x7, NOT_DETERMINED x3, ATOM_BIOS_MAGIC x2 | ? | - | 9 |
+| 902 | reserva-y-separacion-son-dos-ejes | PROVEN_DERIVED x18, WSIZE x6, PROVEN x6, ERROR x6 | INTACTA | - | 0 |
+| 903 | banco-de-mediciones-con-contrato | PROVEN_DERIVED x20, PROVEN x12, ERROR x10, NOT_DETERMINED x6 | INTACTA | - | 0 |
+| 904 | la-herramienta-que-respondia-ya-existia | NO_COMPARABLE x3, REFUTED x1, PROVEN x1, NOT_VERIFIED x1 | ? | - | 0 |
+| 905 | el-pago-sigue-a-las-paginas-y-la-rama-se-satur | PROVEN_DERIVED x26, SATURATED x4, PROVEN x4, NOT_DETERMINED x4 | INTACTA | - | 0 |
+| 906 | cuatro-iteraciones-persiguiendo-un-defecto | REFUTED x7, PROVEN x5, UCHAR x1, USHORT x1 | ? | - | 0 |
+| 907 | el-ventilador-no-se-sube-y-la-clasificacion-me | NO_RESUELTO x10, VIVA x1, TAPADA x1, SMU74_MAX_LEVELS_MEMORY x1 | ? | - | 2 |
+| 908 | vram-bit-width-dice-64-y-la-medicion-dice-128 | PROVEN_DERIVED x20, NOT_DETERMINED x6, PROVEN x4, ERROR x4 | INTACTA | - | 8 |
+| 909 | el-bus-es-de-64-bits-y-el-multiplicador-es-4 | PROVEN_DERIVED x26, ERROR x6, NOT_DETERMINED x4, NOT_AVAILABLE x4 | INTACTA | - | 10 |
+| 911 | el-vbios-dice-128-y-el-driver-informa-64 | PROVEN_DERIVED x19, PROVEN x10, NOT_DETERMINED x4, CORROBORATED x2 | INTACTA | - | 6 |
+| 920 | las-13-escrituras-quedan-cerradas | NO_RESUELTO x4, TAPADA x2, AVISO x1, RUNTIME_MISSING x1 | ? | - | 0 |
+| 921 | smc-copy-scope-1800-contadores-y-runtime-missi | RUNTIME_MISSING x4, NO_RESUELTO x4, TAPADAS x1, PARCIAL x1 | ? | - | 0 |
+| 922 | avfs-lo-que-de-verdad-se-sube-al-smc | NOT_DETERMINED x2, REFUTED x1, RESOLVED x1, PROVEN x1 | ? | - | 4 |
+| 923 | vram-width-dos-rutas-ninguna-lectura-ucmembusw | NOT_DETERMINED x4, PROVEN x2, MC_SHARED_CHMAP x2, NOT_FOUND x2 | ? | - | 0 |
+| 924 | read-mmr-reg-no-observa-mc-ni-vm | AMDGPU_INFO_READ_MMR_REG x3, PROVEN_ABSENT x1, NOT_DETERMINED x1, STATUS2 x1 | modificada | - | 0 |
+| 925 | son-coeficientes-y-923-estaba-equivocado | NOT_DETERMINED x4, CKSOFF x2, PROVEN x2, BTCGB_VDROOP_TABLE x1 | ? | - | 0 |
+| 926 | el-driver-sobrescribe-avfs-con-los-mismos-valo | FALSE x3, BTCGB_VDROOP_TABLE x2, AVFSGB_VDROOP_TABLE x2, REFUTED x1 | ? | - | 0 |
+| 927 | la-unidad-no-esta-y-eso-es-el-cierre | SEMANTIC_MISSING x2, AVFSGB_VDROOP_TABLE x2, GC_DIDT_DROOP_CTRL__DIDT_DROOP_LEVEL_EN__SHIFT x1, GB_VDROOP_TABLE x1 | ? | - | 1 |
+| 928 | 282-1-ruta-de-texel-validada-pero-no-medible-f | IMAGEN x2, VALIDADO x1, DEFERRED_BY_MISSING_OBSERVABILITY x1, ITERS x1 | ? | - | 0 |
+| 929 | clock-stretching-activo-en-7-de-8-niveles | RUNTIME_MISSING x1 | ? | - | 1 |
+| 930 | bench-ky-no-tenia-control-de-frescura-del-prop | INVALID x2, PASS x2, PROVEN x1, VK_IMAGE_TILING_OPTIMAL x1 | ? | - | 0 |
+| 931 | la-unidad-es-10-khz-y-no-habria-parecido | NOT_DETERMINED x1, TRUNCATION_AS_ABSENCE x1, NOT_FOUND x1 | ? | - | 7 |
+| 932 | bench-declara-writes-gpu-y-no-escribe | PROVEN x12, WRITES_GPU x9, NOT_DETERMINED x7, WRITES_SYSFS x5 | INTACTA | - | 0 |
+| 933 | 282-discriminante-ejecutado-no-separa-y-mem2-n | ITERS x2, DATO x2, PROVEN_ABSENT x1, NOT_DETERMINED x1 | ? | - | 0 |
+| 934 | marcas-de-tiempo-refutan-el-envio-fallido-en-m | GPU x4, REFUTED x2, PROVEN x1, VK_QUERY_TYPE_TIMESTAMP x1 | modificada | - | 0 |
+| 935 | 907-queda-refutada-la-tabla-de-ventilador-se-e | B_RUNTIME x2, VALIDATED x2 | ? | - | 3 |
+| 936 | writes-gpu-significa-dos-cosas-y-se-desambigua | WRITES_GPU x2, CONTRADICTION x1, READONLY x1, WRITES_SYSFS x1 | modificada | - | 0 |
+| 937 | los-96-bytes-si-llegan-al-smc-campo-a-campo | PROVEN_ABSENT x4, VALIDATED x1, CASOS_SELFTEST_MINIMO x1, B_RUNTIME x1 | ? | - | 5 |
+| 938 | techo-de-envio-38us-y-por-debajo-de-60us-el-ba | GPU x2, PROVEN x1, NOT_DETERMINED x1, INVALID x1 | modificada | - | 0 |
+| 939 | de-7-ganancias-mi-vbios-solo-puede-entregar-2 | NOT_DETERMINED x3, NOT_FOUND x2, PROVEN_ABSENT x2, PROVEN x1 | ? | - | 6 |
+| 940 | el-control-no-ve-que-falten-despachos | PROVEN x2, NOT_DETERMINED x1 | ? | - | 0 |
+| 941 | usTjMax-93-la-rama-de-limites-si-corren | NOT_DETERMINED x7, SEMANTIC_MISSING x4, B_RUNTIME x2, UNKNOWN x1 | ? | - | 4 |
+| 942 | 282-2-cerrada-en-283-y-arrastrada-en-cinco-not | PENDIENTE x3, NOT_IMPLEMENTED x3, REOPENED x2, PROVEN x1 | ? | - | 0 |
+| 943 | setenta-numeros-de-nota-duplicados | PROVEN x1 | ? | - | 0 |
+| 944 | el-mecanismo-existe-y-429-notas-no-lo-usan | PROVEN x1, REOPENED x1 | ? | - | 0 |
+| 945 | la-revision-nunca-se-midio-y-pstate-sclk-confi | OBSERVED x3, NOT_FOUND x3, BUENO x1, CORROBORATED x1 | ? | - | 3 |
+| 946 | el-inventario-dice-que-leer-registros-reinicio | B_RUNTIME x3, RUNTIME_MISSING x3, PLAN x3, EINVAL x2 | ? | - | 0 |
+| 947 | contradiccion-con-931-ro-va-de-1100-a-2100 | SATURATED x4, OBSERVED x1, CHIP_POLARIS12 x1, CHIP_POLARIS10 x1 | ? | - | 11 |
+| 948 | camino-cerrado-y-fallo-de-tres-digitos-arregla | PROVEN x1, REOPENED x1 | ? | - | 0 |
+| 949 | de-24-mensajes-de-consulta-el-host-usa-3 | RUNTIME_MISSING x3, NOT_FOUND x1, PROVEN_ABSENT x1, SEMANTIC_MISSING x1 | ? | - | 3 |
+| 950 | mi-placa-baja-voltaje-pero-no-baja-reloj | SEMANTIC_MISSING x1, VDDNB x1, GPU_INPUT_POWER x1, NOT_OBSERVED x1 | ? | - | 2 |
+| 951 | los-997-mhz-estaban-medidos-con-el-compositor- | SEMANTIC_MISSING x2, AMDGPU_PP_SENSOR_GPU_UTILITY x2, NOT_DETERMINED x1, B_RUNTIME x1 | modificada | - | 0 |
+| 952 | 271-1-ejecutado-misma-forma-sin-codo-de-cache | NOT_DETERMINED x3, OPEN x1 | ? | - | 0 |
+| 953 | gpu-load-es-average-graphics-activity | RUNTIME_MISSING x3, NOT_FOUND x2, SEMANTIC_MISSING x1 | modificada | - | 2 |
+| 954 | average-graphics-activity-en-el-byte-60 | RUNTIME_MISSING x3, NOT_DETERMINED x3, UNKNOWN x1, NOT_EXECUTED x1 | ? | - | 3 |
+| 955 | la-cabecera-de-firmware-es-el-indice-a-todas-l | RUNTIME_MISSING x6, WRITE_EXECUTION x1 | ? | - | 0 |
+| 956 | ro-son-8-bits-de-la-efusiva | RUNTIME_MISSING x4 | ? | - | 5 |
+| 957 | las-formulas-eran-divisiones | SEMANTIC_MISSING x1 | ? | - | 4 |
+| 958 | la-huella-no-se-satura-la-hipotesis-refutada | ITERS x4, PASS x3, MODELO x2, REFUTADA x1 | modificada | - | 0 |
+| 959 | el-barrido-como-suite-y-los-dos-fallos-de-su-v | BAIDA x3, SUBIDA x3, NO_RESUELTA x3, PLANA x2 | ? | - | 0 |
+| 959 | el-barrido-como-suite-y-los-tres-fallos |  | INTACTA | - | 0 |
+| 960 | auditoria-de-citas-1-truncamiento-real | VALIDATED x1, AUSENTE x1, TRUNCADA x1, FALLO x1 | ? | - | 4 |
+| 961 | los-artefactos-no-son-comparables-entre-si | PASS x3, PROVEN x1, INVALID x1, NO_COMPARABLE x1 | ? | - | 0 |
+| 962 | un-control-que-contaba-el-trabajo-de-otro | CORPUS x6, SIN_DECL x2, WORK_CLASS x1, MEM2 x1 | ? | - | 0 |
+| 963 | el-control-que-propuse-era-falso | AUTORIA x3, WORK_CLASS x2, SIN_DECL x2 | ? | - | 0 |
+| 964 | la-puerta-de-reloj-para-las-seis-suites | PASS x2, INVALID x1, PLANA x1, NO_RESUELTA x1 | modificada | - | 0 |
+| 965 | la-revision-es-0xc7-y-estaba-en-el-repo | PROVEN x3, OBSERVED x2, CHIP_POLARIS12 x1, TRUNCATION_AS_ABSENCE x1 | ? | - | 5 |
+| 966 | el-control-que-la-suite-declara-no-tener | COUNT x3, DESCONOCIDO x2, DIVERGEN x2, VALIDADO x1 | ? | - | 2 |
+| 967 | opcode-ambiguidad-era-el-detalector | AMBIGUOUS x2, RUNTIME_REQUIRED x2, S_SENDMSG x2, S_SETVSKIP x2 | INTACTA | - | 0 |
+| 968 | el-documento-que-declara-que-manda-declara-una | OBSERVED x5, REJECTED x1, PASS x1, WRITE_LOCAL x1 | INTACTA | - | 0 |
+| 968 | q5-universo-de-tablas-gfx8 | REQUIRED x6, DEFINITION x3, SQ_S_LOAD_DWORD x2, SEMANTICS x2 | modificada | - | 0 |
+| 969 | el-control-marca-como-contaminacion-la-declara | OBSERVED x8, FALLO x4, AUTORIA x3, NINGUNO x3 | INTACTA | - | 0 |
+| 970 | runtime-obs-falla-en-silencio-cinco-defectos | NOT_DETERMINED x6, EACCES x4, OBSERVED x4, NO_ACCESO x3 | INTACTA | - | 0 |
+| 972 | el-verde-falso-esta-caducado-pero-hay-otro-cap | NOT_RUN x4, HEAD x3, FAILED x3, SKIPPED x3 | INTACTA | - | 1 |
+| 973 | el-offset-guard-de-ep08-lee-el-tamano-no-el-of | PASS x4, NOT_EVALUABLE x2, TARGET_PCI_SUB_VEN x1, TARGET_PCI_SUB_DEV x1 | INTACTA | - | 0 |
+| 974 | el-bit-51-si-llega-a-un-pte-de-gfx8-por-el-man | AMDGPU_VM_PAGE_PRT x5, NOT_DETERMINED x4, PROVEN x3, AMDGPU_PTE_PRT x2 | INTACTA | 131 | 52 |
+| 976 | corregcion-a-974-el-escritor-del-bit-51-es-ina | PROVEN_DERIVED x5, PROVEN x4, AMDGPU_VM_PAGE_PRT x2, REFUTED x2 | INTACTA | 974,101 | 28 |
+| 977 | suite-gart-no-compila-y-no-era-un-maximo | CHECK x6, PASS x3, RX550_GART_ENTRY_COUNT x2, TABLE_N x2 | INTACTA | - | 10 |
+| 978 | el-iv-de-gfx8-no-es-el-de-8-dwords | PROVEN x5, AMDGPU_INFO_GPUVM_FAULT x4, NOT_DETERMINED x3, PROVEN_DERIVED x2 | INTACTA | 976,101 | 42 |
+| 979 | la-frontera-estatica-gfx8-esta-saturada-con-ci | EN_DISPATCH x2, SATURATED x1, AMDGPU_VM_PAGE_PRT x1, AMDGPU_INFO_GPUVM_FAULT x1 | INTACTA | - | 1 |
+| 980 | la-puerta-dice-hay-fallos-y-sale-con-cero | RES x1, COMPLETE x1 | INTACTA | - | 0 |
+| 981 | el-backend-de-color-y-profundidad-tiene-cero-c | NOT_DETERMINED x4, PROVEN_DERIVED x2, NOT_FOUND x2, SATURATED x1 | INTACTA | 979 | 0 |
+| 982 | el-offset-guard-reparado-discrimina-y-el-origi | NHWA_OFF_ASIC_TYPE x1, PRE2 x1 | INTACTA | - | 0 |
+| 983 | awk-exit-con-pipefail-mata-el-guion |  | ? | - | 0 |
+| 984 | ep08-no-esta-bajo-control-de-versiones |  | INTACTA | - | 0 |
+| 985 | rellenar-una-constante-cuando-es-circular-y-cu | TARGET_MODALIAS x1, NHWA_OFF_ASIC_TYPE x1 | INTACTA | - | 0 |
+| 986 | los-headers-de-cb-db-no-estan-ausentes-del-cor | NOT_FOUND x6, PROVEN_ABSENT x6, WRITE_CONTEXT x4, INFORMATION_GAIN x2 | INTACTA | 981,979 | 0 |
+| 987 | cobertura-por-area-con-un-instrumento-tres-vec | SATURATED x1, S_LOAD_DWORD x1, PACKET3 x1, V_ADD_F32 x1 | INTACTA | 979 | 0 |
+| 988 | 34-de-75-instrumentos-con-precondiciones-sin-r | ABORTO x2 | INTACTA | - | 0 |
+| 991 | el-isa-de-gfx8-si-tiene-fuente-primaria-public | PROVEN x6, CHIP_POLARIS12 x3, NOT_PUBLISHED x2, OBSERVED x2 | INTACTA | - | 3 |
+| 992 | la-tabla-de-opcodes-de-gfx8-coincide-con-un-co | SOP2 x4, PROVEN_DERIVED x3, NOT_PROVEN x3, PROVEN x3 | INTACTA | - | 0 |
+| 993 | siete-huecos-y-un-igual-que-no-era-un-defecto | EXCLUDED x2, KILLED x1, PACKET3 x1, SURVIVED x1 | INTACTA | - | 13 |
+| 994 | un-guard-que-se-mide-a-si-mismo | SIN_RED x7, VERSIONADO x6, CON_HASH x5, HEAD x1 | INTACTA | - | 0 |
 
-**TOTAL**: 347 findings.
+**TOTAL**: 504 findings.

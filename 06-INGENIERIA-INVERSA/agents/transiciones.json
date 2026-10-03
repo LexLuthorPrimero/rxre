@@ -1,0 +1,74 @@
+{
+  "pares": [
+    {
+      "a": "gfx_v8_0.c:5618",
+      "b": "gfx_v8_0.c:5718",
+      "nombre_a": "gfx_v8_0_update_medium_grain_clock_gating",
+      "nombre_b": "gfx_v8_0_update_coarse_grain_clock_gating",
+      "bloque": "GFX",
+      "registros_compartidos": [
+        "mmRLC_CGTT_MGCG_OVERRIDE"
+      ],
+      "fases": "coarse/medium",
+      "fase_a": "coarse/medium",
+      "fase_b": "coarse/medium",
+      "rmw_a": true,
+      "rmw_b": true
+    },
+    {
+      "a": "gmc_v8_0.c:1507",
+      "b": "gmc_v8_0.c:1587",
+      "nombre_a": "fiji_update_mc_medium_grain_clock_gating",
+      "nombre_b": "fiji_update_mc_light_sleep",
+      "bloque": "GMC",
+      "registros_compartidos": [
+        "mmATC_MISC_CG",
+        "mmMC_CITF_MISC_RD_CG",
+        "mmMC_CITF_MISC_VM_CG",
+        "mmMC_CITF_MISC_WR_CG",
+        "mmMC_HUB_MISC_HUB_CG",
+        "mmMC_HUB_MISC_SIP_CG",
+        "mmMC_HUB_MISC_VM_CG",
+        "mmMC_XPB_CLK_GAT",
+        "mmVM_L2_CG"
+      ],
+      "fases": null,
+      "fase_a": "coarse/medium",
+      "fase_b": "light_sleep/wake",
+      "rmw_a": true,
+      "rmw_b": true
+    }
+  ],
+  "componentes_grandes": [
+    [
+      "gfxhub_v2_1.c:357",
+      "gfxhub_v2_1.c:385",
+      "gfxhub_v2_1.c:582"
+    ],
+    [
+      "gmc_v8_0.c:170",
+      "gmc_v8_0.c:194",
+      "gmc_v8_0.c:433"
+    ],
+    [
+      "gmc_v8_0.c:1385",
+      "gmc_v8_0.c:829",
+      "gmc_v8_0.c:972"
+    ]
+  ],
+  "claves": [
+    "gfx_v8_0.c:5618",
+    "gfx_v8_0.c:5718",
+    "gfxhub_v2_1.c:357",
+    "gfxhub_v2_1.c:385",
+    "gfxhub_v2_1.c:582",
+    "gmc_v8_0.c:170",
+    "gmc_v8_0.c:194",
+    "gmc_v8_0.c:433",
+    "gmc_v8_0.c:829",
+    "gmc_v8_0.c:972",
+    "gmc_v8_0.c:1385",
+    "gmc_v8_0.c:1507",
+    "gmc_v8_0.c:1587"
+  ]
+}

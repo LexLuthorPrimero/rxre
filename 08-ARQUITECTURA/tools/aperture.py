@@ -14,7 +14,7 @@ si algun registro que el driver usa estuviera por encima de 0x40000, ese acceso
 seria inalcanzable con el mapeo que hace.
 
 Es una comprobacion con resultado binario y con adversario real: si el limite
-fuera falso, habria un fallo. No es una lista de副主任, es una prueba.
+fuera falso, habria un fallo. No es una lista decopropietario, es una prueba.
 
 ADEMAS responde una pregunta que no estaba registrada: cual es la SUPERFICIE DE
 REGISTROS de cada bloque de esta placa, contada desde las cabeceras que el codigo

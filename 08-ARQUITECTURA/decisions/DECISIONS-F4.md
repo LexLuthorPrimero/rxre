@@ -600,7 +600,7 @@ poder de fallar: si un `expect_llvmpipe` estuviera mal, la comparación lo dice.
 
   En 55 MB, un valor de 16 bits aparece **~443 veces por azar**. `2331` aparece 159 veces,
   **por debajo del ruido**, y el valor **incorrecto** `2330` aparece *más*. Esa ordenación es
-  la firma del azar. Convertirla en evidencia sería el error opuesto: ruido」→「prueba».
+  la firma del azar. Convertirla en evidencia sería el error opuesto: ruido"→"prueba».
 - **Clasificación: `FAIL`.** No es que el driver tenga un descompresor; es que **este método no
   puede distinguirlo**. La hipótesis de `F4-AD-27` sigue `PLAUSIBLE` (lectura del árbol), con la
   salvedad de que la vía de verificación por binario está **cerrada**.

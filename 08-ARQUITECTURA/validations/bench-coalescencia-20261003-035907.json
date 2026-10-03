@@ -1,0 +1,63 @@
+{
+ "artefacto": "bench",
+ "contexto": {
+  "iters": [
+   512,
+   2048
+  ],
+  "n": 5
+ },
+ "cwd": "/home/lucas/Escritorio/RX550-INVESTIGACION/08-ARQUITECTURA/tools",
+ "fallos": [],
+ "hardware": {
+  "bar_size": null,
+  "kernel": "7.1.3-200.nobara.fc44.x86_64",
+  "mclk_hz": 1500000000,
+  "pci": null,
+  "pci_device": null,
+  "power_uw": 11166000,
+  "sclk_hz": 1071000000,
+  "temp_mc": 44000
+ },
+ "instrumento": {
+  "binario": "/home/lucas/Escritorio/RX550-INVESTIGACION/08-ARQUITECTURA/tools/vcp",
+  "binario_sha256": "3c4182e557b87ee15a504c55483539ba63be449c80e91a0f19c74e6d55d8ab0b",
+  "fuente": "/home/lucas/Escritorio/RX550-INVESTIGACION/08-ARQUITECTURA/tools/vulkan_compute_probe.c",
+  "fuente_sha256": "c93cfad23d2cf37a995360ee952350e5ed751181a3735701a284b8553b3da5c5"
+ },
+ "resultado": [
+  {
+   "factor_sobre_disperso": 1.0,
+   "gb_por_s_utiles": 1.5531987444127815,
+   "mediana_s": 0.345655,
+   "minimo_s": 0.34515,
+   "modo": "disperso",
+   "n": 5,
+   "rechazadas": 0,
+   "veredicto": "PASS"
+  },
+  {
+   "factor_sobre_disperso": 18.03574223845552,
+   "gb_por_s_utiles": 28.01309219932168,
+   "mediana_s": 0.019165,
+   "minimo_s": 0.018711,
+   "modo": "contiguo",
+   "n": 5,
+   "rechazadas": 0,
+   "veredicto": "PASS"
+  },
+  {
+   "factor_sobre_disperso": 30.689425552694665,
+   "gb_por_s_utiles": 47.666777235194886,
+   "mediana_s": 0.011263,
+   "minimo_s": 0.011094,
+   "modo": "difusion",
+   "n": 5,
+   "rechazadas": 0,
+   "veredicto": "PASS"
+  }
+ ],
+ "suite": "coalescencia",
+ "timestamp": "20261003-035907",
+ "veredicto": "PASS"
+}

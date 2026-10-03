@@ -2,6 +2,7 @@
 
 Estado: `PROVEN`. Herramientas: `fronteras.py` 18 de 18, `findnum.py --self-test` OK con 8 vectores.
 Alcance: `06-INGENIERIA-INVERSA/findings/`.
+AUTORIA=AGENTE-SMU
 
 ## Qué cierra
 

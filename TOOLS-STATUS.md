@@ -28,13 +28,13 @@ sacaba de `detalle`, que nunca esta vacio, asi que ponia `si` en las
 
 | herramienta | lineas | declara selftest | estado | sha256[:16] |
 |---|---|---|---|---|
-| `artifacts.py` | 1307 | si | `TOOL_VALIDATED` | `604f24e4f83bdf18` |
+| `artifacts.py` | 1400 | si | `TOOL_VALIDATED` | `39fd9ab20b3c56aa` |
 | `asic_resolver.py` | 950 | si | `TOOL_VALIDATED` | `fb2a8fe32fcf394a` |
 | `assert_contract.py` | 555 | si | `TOOL_VALIDATED` | `b203942237ae5ab8` |
-| `atom_chain.py` | 650 | NO | `TOOL_UNVALIDATED` | `00d4835724a65540` |
+| `atom_chain.py` | 650 | si | `TOOL_UNVALIDATED` | `00d4835724a65540` |
 | `audit_citations.sh` | 319 | NO | `TOOL_UNVALIDATED` | `dc6f1ac822eb61e0` |
 | `cap_census.py` | 388 | si | `TOOL_VALIDATED` | `86d153a17176a1e2` |
-| `citas.py` | 288 | NO | `TOOL_PARTIAL` | `b0d4393d2212c859` |
+| `citas.py` | 288 | si | `TOOL_VALIDATED` | `b0d4393d2212c859` |
 | `citations.py` | 1062 | si | `TOOL_VALIDATED` | `6281e397fb19938d` |
 | `citeambig.py` | 822 | si | `TOOL_VALIDATED` | `95c2fa42453779fb` |
 | `citegen.py` | 509 | si | `TOOL_VALIDATED` | `6b6e35c1800c1d9c` |
@@ -49,6 +49,7 @@ sacaba de `detalle`, que nunca esta vacio, asi que ponia `si` en las
 | `driroute.py` | 288 | si | `TOOL_VALIDATED` | `e8d51e0320b397b0` |
 | `drvchain.py` | 627 | si | `TOOL_VALIDATED` | `657905ce2fa0cb17` |
 | `dupenum.py` | 430 | si | `TOOL_VALIDATED` | `28ff461733efeee2` |
+| `envcheck.py` | 495 | si | `TOOL_VALIDATED` | `be6e1e2a07afce17` |
 | `evidence_search.py` | 1129 | si | `TOOL_VALIDATED` | `f364ac1465a51ab8` |
 | `fingerprint.py` | 551 | si | `TOOL_VALIDATED` | `aa26c787fb23364c` |
 | `flags_inventory.py` | 802 | si | `TOOL_VALIDATED` | `ccd506c561852ba9` |
@@ -58,9 +59,9 @@ sacaba de `detalle`, que nunca esta vacio, asi que ponia `si` en las
 | `hcconsist.py` | 460 | si | `TOOL_VALIDATED` | `61a45f959067e2e6` |
 | `hwip.py` | 1013 | si | `TOOL_VALIDATED` | `3f45e975f6f98649` |
 | `implgate.py` | 496 | si | `TOOL_VALIDATED` | `75f90b283c785255` |
-| `integridad.py` | 555 | NO | `TOOL_UNVALIDATED` | `170590c79ad845c3` |
+| `integridad.py` | 555 | si | `TOOL_VALIDATED` | `170590c79ad845c3` |
 | `ipsolve.py` | 1221 | si | `TOOL_VALIDATED` | `ca359fdaead32560` |
-| `kdeps.c` | 361 | NO | `TOOL_PARTIAL` | `78b9de4f2c27465a` |
+| `kdeps.c` | 361 | NO | `TOOL_UNVALIDATED` | `78b9de4f2c27465a` |
 | `lint.py` | 978 | si | `TOOL_VALIDATED` | `8fe4b7cc0f76e5c9` |
 | `mountcheck.py` | 379 | si | `TOOL_VALIDATED` | `564afa2f3d3141c2` |
 | `msg_census.py` | 668 | si | `TOOL_VALIDATED` | `f00166daee637707` |
@@ -71,7 +72,7 @@ sacaba de `detalle`, que nunca esta vacio, asi que ponia `si` en las
 | `pipeline.py` | 671 | si | `TOOL_VALIDATED` | `0ca8f4ab3686dab2` |
 | `pm4census.py` | 626 | si | `TOOL_VALIDATED` | `c27984b9dca64d92` |
 | `pm4decode.c` | 524 | si | `TOOL_PARTIAL` | `c738eb8356d7e659` |
-| `pm4dw.c` | 1459 | NO | `TOOL_PARTIAL` | `598f026e36e468b6` |
+| `pm4dw.c` | 1459 | NO | `TOOL_UNVALIDATED` | `598f026e36e468b6` |
 | `ppt_validate.py` | 823 | si | `TOOL_VALIDATED` | `d3f548b097d89df8` |
 | `reftriage.py` | 341 | si | `TOOL_VALIDATED` | `02bff40a119efca3` |
 | `reg_census.py` | 369 | si | `TOOL_VALIDATED` | `d9104e563c244f20` |
@@ -100,7 +101,7 @@ sacaba de `detalle`, que nunca esta vacio, asi que ponia `si` en las
 | `which_hw.py` | 693 | si | `TOOL_VALIDATED` | `355e3da03b0db19b` |
 | `xref.py` | 586 | si | `TOOL_VALIDATED` | `4205fbc42e9e2abf` |
 
-**Total**: 71 herramientas, 5 `TOOL_UNVALIDATED`, 1 `TOOL_BROKEN`, 7 sin selftest declarado.
+**Total**: 72 herramientas, 6 `TOOL_UNVALIDATED`, 1 `TOOL_BROKEN`, 4 sin selftest declarado.
 
 AGENTS.md: *`TOOL_UNVALIDATED` no puede cerrar una afirmación crítica*.
 Las que lo estan no pueden ser el unico sustento de un hallazgo.

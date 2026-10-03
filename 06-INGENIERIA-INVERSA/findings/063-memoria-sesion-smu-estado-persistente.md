@@ -1848,7 +1848,7 @@ ESTADO FINAL DE ESTA SESIÓN
   ### Las dos reglas que la hacen funcionar
 
   1. **Cada destino lleva su BASE**, y dos bases distintas **nunca** se comparan. Sin eso
-     dio una cobertura falsa: `:140` (`dpm_table_start + 112`) contra `:1507`
+     dio una cobertura falsa: `:140` (`dpm_table_start + 112`) contra `:1511` (la herramienta decia `:1507`; corregido al anclar la llamada)
      (`arb_table_start`) son **dos tablas distintas**.
   2. **La contencion exige rango COMPLETO**, no solape. Un solape parcial deja bytes
      sin cubrir.
@@ -1887,7 +1887,7 @@ ESTADO FINAL DE ESTA SESIÓN
   va antes, y por eso **no afirma cobertura**: deja la escritura como no cubierta.
 
   Eso pasa justo en el caso clave: `:140` y `:164` salen `VIVA` porque estan en
-  `setup_graphics_level_structure` y `:2115` en `init_smc_table`. **Tiene razon en no
+  `setup_graphics_level_structure` y `:2118` en `init_smc_table`. **Tiene razon en no
   afirmarlo.** Al seguir la cadena a mano, la conclusion coincide con la correccion manual
   de `104`: la copia completa va la ultima y las tapa.
 
@@ -1906,8 +1906,8 @@ ESTADO FINAL DE ESTA SESIÓN
   ```
 
   Las escrituras de `:140`..`:164`, `:1143` y `:1243` **ocurren antes** y quedan tapadas.
-  Y `:2252` (ventilacion) y `:1507` (arbitraje) estan en **otras tablas**: `VIVA` de
-  verdad. Y `:2396` (OverDrive) `VIVA` de verdad.
+  Y `:2254` (ventilacion) y `:1511` (arbitraje) estan en **otras tablas**: `VIVA` de
+  verdad. Y `:2398` (OverDrive) `VIVA` de verdad.
 
   ### LIMITACION DE ALCANCE: no ve los registros a registro
 
@@ -4265,8 +4265,9 @@ ESTADO FINAL DE ESTA SESIÓN
   8. **Un cast no es una confusión de tipos hasta que se comprueban los dos layouts.**
   9. **Si la firma declara un destino flexible y los llamadores dan uno fijo, el contrato
      escrito no es el real.** La cota va en la copia.
-  10. **Un enmascaramiento no es una defensa.** Dato pisado por la línea siguiente y campo sin
-      lectores son dos|Longitud de Protection.
+  10. **Un enmascaramiento no es una defensa.** Un dato pisado por la linea siguiente y un
+      campo sin lectores **son las dos cosas que hacen inocuo hoy el desbordamiento de
+      `128`, y ninguna de las dos esta escrita como proteccion.**
   11. **Cerrar un `NOT_IN_CORPUS` exige medir el limite, no suponerlo.**
   12. **`grep -w` con un sufijo que contiene `-` o `_` devuelve cero por el filtro.**
 
@@ -4295,4 +4296,885 @@ ESTADO FINAL DE ESTA SESIÓN
   NOT_IN_CORPUS DE 127 CERRADO: Ruta B es alcanzable con overdrive
   0 agentes en curso
   GPU INTACTA - WRITE_EXECUTION NONE - MODIFICATIONS 0 - B_RUNTIME NOT_EXECUTED
+  ```
+
+  ## Trigésima primera tanda 2026-10-02 - 129: la segunda frontera barrida, y dos hipótesis refutadas
+
+  Sin agentes. Es el alcance que `124` declaró fuera de sí mismo. Herramienta
+  `ppt_validate.py` v2.0.0: **55 pruebas, 0 fallos, TOOL_VALIDATED** (29 frontera 1 + 26 frontera 2).
+
+  ### El mapa de los 5 arrays fijos de smu7_hwmgr.h
+
+  ```
+  array                    cap   escrituras  cota del lazo                 veredicto
+  performance_levels         2         8     i < performance_level_count   SEGURO por construccion
+  dpm_levels                 8        23     i < dep_*.count (del VBIOS)    MARGEN CERO
+  leakage_id                 8         4     i < SMU7_MAX_LEAKAGE_COUNT    SEGURO: la cota ES la capacidad
+  actual_voltage             8         4     i < SMU7_MAX_LEAKAGE_COUNT    SEGURO: la cota ES la capacidad
+  voting_rights_clients      8         0     (todas literales)               SEGURO
+  ```
+
+  **Los índices literales se descartan a propósito.** El grep cuenta 8 en
+  `voting_rights_clients`; la herramienta cuenta 0 con índice no literal. **La herramienta tiene
+  razón y el filtro miente.**
+
+  **`leakage_id` es el patrón bueno**: el lazo está acotado por la propia macro de capacidad, no
+  por un contador de runtime.
+
+  ### Hipótesis refutada 1: performance_levels[2]
+
+  El array más estrecho del fichero, con bucles por contador de runtime. **Refutada.**
+  `smu7_ps = cast_phw_smu7_power_state(&request_ps->hardware)` es el **mismo tipo** que
+  `smu7_power_state`, y cada estado aporta exactamente **dos** niveles (Low `:3733`, High
+  `:3761`), con el guardia de `:3742` (`< hardwareActivityPerformanceLevels = 2`) cortando un
+  tercero. **Capacidad 2 = Low + High: exactamente el tamaño correcto.**
+
+  **Y en `:3733` solo se CALCULA un puntero**; las escrituras empiezan en `:3748`, tras el
+  guardia. Check-after-write aparente que no es tal.
+
+  ### Hipótesis refutada 2: `:914` leería `entries[count]`
+
+  Casi lo escribo. **Es `entries[i - 1]`**, la última entrada válida. Refutada antes de publicar.
+
+  ### `120` precisado: el recorte existe y lo borran
+
+  ```
+  smu_helper.c:352   dpm_table->count = count > max ? max : count;    <-- recorte REAL
+  smu7_hwmgr.c:745-769  se invoca con MAX_REGULAR_DPM_NUMBER en las SEIS tablas DPM
+
+  smu7_hwmgr.c:900   data->dpm_table.sclk_table.count = 0;            <-- lo BORRA
+  ```
+
+  **El recorte acota el valor inicial y nunca el incremento.**
+
+  **Y el mitigador real es el filtro de duplicados de `:902`**: una entrada solo se acepta si su
+  reloj **difiere** del anterior. Así que `count` no crece con `ucNumEntries`, sino con el número
+  de **relojes DISTINTOS**.
+
+  **Consecuencia: el desbordamiento no necesita 9 entradas, necesita 9 relojes DISTINTOS.** Mi
+  VBIOS tiene 8 distintos (`121`) = exactamente la capacidad. **Margen cero, pero más estrecho de
+  lo que `120` parecía.**
+
+  ### Lo nuevo: dos índices `count - 1` sin guarda, en la ruta de overdrive
+
+  ```c
+  /* smu7_hwmgr.c:5238-5241, smu7_set_sclk_od */
+  smu7_ps->performance_levels[smu7_ps->performance_level_count - 1].engine_clock =
+          golden_sclk_table->dpm_levels[golden_sclk_table->count - 1].value * value / 100 + ...
+  ```
+
+  **Dos índices `count - 1` y ni una comprobación.** El único guardia es `ps == NULL`.
+
+  **Y es alcanzable por puntero a función, la misma trampa que `125`:**
+
+  ```
+  smu7_hwmgr.c:5896      .set_sclk_od = smu7_set_sclk_od,
+  amd_powerplay.c:753    return hwmgr->hwmgr_func->set_sclk_od(hwmgr, value);
+  amd_powerplay.c:1572   .set_sclk_od = pp_dpm_set_sclk_od,     (tabla expuesta al usuario)
+  ```
+
+  **Es la clase de `:1515` de `125`, pero sin el `if (count < 1)` que sí tenía
+  `smu7_get_profiling_clk`, y en una ruta que dispara el usuario.** Si algún count llega a cero:
+  `NOT_DETERMINED`, no lo afirmo en ninguna dirección.
+
+  ### Mis seis errores, todos en la herramienta
+
+  1. **`_conductor('x->n - 1')` devolvía `'x'`**: mi `split` partía en el **`-` de `->`**, que no
+     es un operador. **Lo cazó el self-test.**
+  2. **Fixture incoherente**: la cabecera declaraba `dpm_levels` y el código escribía
+     `tabla`/`tabla2`. **Un fixture incoherente mide el fixture.**
+  3. **`_cuerpo_funcion` cogía el `{0}` de un inicializador** (`struct PP_Clocks minimum_clocks =
+     {0};`), porque la firma es multilínea. **6 de 8 escrituras salían `(desconocida)`.**
+  4. **La regex exigía `->` justo antes del array** y casi todo son cadenas con puntos
+     (`data->dpm_table.sclk_table.dpm_levels[...]`): **encontraba 4 de 19.**
+  5. **El informe no estaba cubierto por el self-test**: al renombrar una clave, **las 55
+     pruebas pasaban y la herramienta no corría.**
+  6. **Filtro de grep mío** (`grep -v "^./hwmgr/smu7_hwmgr.c:5[12]"`) excluía justo las líneas de
+     la definición y las llamadas, y casi concluyo que `smu7_set_sclk_od` era código muerto.
+     **Tercera vez en dos días que un filtro me da un falso negativo.**
+
+  ### Reglas nuevas
+
+  13. **Un recorte en el reset no acota el relleno.** Acota el valor inicial; si el relleno pone
+      `count = 0`, el recorte no existió. **La cota va donde se incrementa.**
+  14. **Un índice `count - 1` exige `count >= 1` delante, y con dos índices, los dos.**
+  15. **El self-test tiene que cubrir el INFORME, no solo las funciones.** Una clave mal
+      renombrada deja las pruebas en verde y la herramienta muerta.
+  16. **Un fixture coherente o nada.** Cabecera y código deben usar los mismos nombres.
+
+  ## Estado tras la trigésima primera tanda
+
+  ```
+  65 hallazgos propios      081-129
+  20 herramientas propias   SELF_TEST OK  (7 con selftest)
+  ppt_validate v2.0.0       55 pruebas, 2 fronteras
+  124/124 structs conformes con gcc
+  30 correcciones
+  3 del error de base de referencia
+  2 del error de empaquetado
+  1 del regex que descarta miembros no escalares
+  1 de la lectura reinterpretada de mi propio script
+  1 del stride de un registro usado en otra tabla
+  1 del selftest que probaba mi idea en vez de la realidad
+  6 del FALSO NEGATIVO por filtro o forma de busqueda
+  4 del FALSO POSITIVO por lectura parcial, nombre parecido o aritmética a mano
+  3 hipotesis REFUTADAS antes de publicar
+  6 RUNTIME_MISSING resueltos
+  2 RESULTADOS NEGATIVOS
+  FRONTERA 1 (VBIOS->host): 4 getters, 120 y 123 precisados
+  FRONTERA 2 (smu7_hwmgr.c): 5 arrays, 1 con margen cero, 1 acotado por su capacidad
+  2 indices count-1 sin guarda en la ruta de overdrive, ALCANZABLE desde el ioctl
+  0 agentes en curso
+  GPU INTACTA - WRITE_EXECUTION NONE - MODIFICATIONS 0 - B_RUNTIME NOT_EXECUTED
+  ```
+
+  ## Trigésima segunda tanda 2026-10-02 - 130: la clase `count - N` barrida, y mi grep se comia un tercio
+
+  Sin agentes. Herramienta nueva `count_guard.py` v1.0.0: **33 pruebas, 0 fallos,
+  TOOL_VALIDATED**. Clase de defecto que ninguna de mis siete herramientas cubria.
+
+  ### El mapa
+
+  ```
+                            ARBOL(196)   MI RUTA(48)
+    GUARDADO_ANTES              40          18
+    SIN_GUARDIA                146          26   en 15 funciones
+    CORTOCIRCUITO_POR_OR         9           4
+    GUARDIA_DESPUES              1           0
+  ```
+
+  **En mi ruta, dos de cada tres accesos no tienen guarda previa sobre su propio campo.**
+
+  ### El agrupamiento que 129 no habia visto
+
+  **Los indices `count - 1` sin guarda se concentran en la RUTA DE OVERDRIVE: cuatro funciones,
+  diez sitios.**
+
+  ```
+    smu7_get_sclk_od   2       smu7_set_sclk_od   3
+    smu7_get_mclk_od   2       smu7_set_mclk_od   3
+  ```
+
+  Las cuatro van por los hooks de OD, o sea **código que dispara el usuario**. `129` había
+  encontrado dos; **el patrón son cuatro funciones.**
+
+  ### Los 4 cortocircuitados son los filtros de 120
+
+  `:809`, `:823`, `:902`, `:918` — `if (i == 0 || dpm_levels[count - 1].value != ...)`. Con
+  `i == 0` el `||` cortocircuita y `dpm_levels[-1]` **no se evalúa**. Los cuatro son correctos.
+
+  **La herramienta MARCA, no RESUELVE**: solo detecta un `||` delante en la misma línea, y eso
+  no implica que el acceso sea inalcanzable.
+
+  ### La gravedad aquí es MENOR que en 128
+
+  **Ninguno de los 48 indexa un array flexible con capacidad propia.** Un `count == 0` daría
+  índice -1 **dentro de la struct que lo contiene**, no antes de una reserva. Sin fallo de página:
+  lectura de basura en el campo anterior del mismo struct.
+
+  ### Mi grep a mano se comía un tercio
+
+  ```
+  mi grep sobre los 3 ficheros      ->  35 lineas
+  count_guard sobre los MISMOS 3    ->  48
+  ```
+
+  **Mi patrón no aceptaba notación con punto** (`sclk_table.count - 1`), que es la mitad.
+
+  > **Cuarta vez en dos días que un filtro mal escrito devuelve un número plausible y
+  > pequeño.** Un filtro que devuelve menos de lo que hay **no avisa**: devuelve un número, y el
+  > número parece un resultado. **Solo la contrastación lo caza.**
+
+  ### Mis nueve errores, y quién los cazó
+
+  1. `RE_SITIO` exigía un `count` de más: la cadena se lo comía y pedía un segundo.
+  2. `_ULTIMO` exigía un carácter antes de `count`: **el campo desnudo `count` no casaba nunca.**
+  3. `_ULTIMO` solo aceptaba tres literales: se le escapaban los de `performance_level_count`.
+  4. Recortaba el sufijo en el sitio pero no en la comparación: **toda guarda salía SIN_GUARDIA.**
+  5. Y luego al revés: pasaba `t->count-1` contra `t->count`. **Cuatro correcciones encadenadas.**
+  6. `tipo_de_array` devolvía la **primera** declaración con ese nombre: la tabla del PPT salía
+     **fija** cuando es **flexible**. **Un tipo equivocado es peor que un tipo desconocido.**
+  7. Un **local** llamado `levels` heredaba la capacidad de un miembro homónimo de otro struct.
+     **Mi propia regla `NAME_MATCH != SEMANTIC_MATCH`, cometida por mi propia herramienta.**
+  8. No modelaba el cortocircuito: se autoporraba en los 4 filtros de `120`.
+  9. Al arreglarlo, marcó como cortocircuito una **continuación de línea**, que sí se evalúa. Y
+     en el fixture la extracción numérica solo recognía `FIJO:MACRO=8` y no `FIJO:8`,
+     produciendo `FIJO{}`.
+
+  **Los 9 los cazaron el self-test o la contrastación con el recuento de mano. Ninguno los
+  habría cazado leyendo el código con calma.**
+
+  ### Reglas nuevas
+
+  17. **Un helper `ultimo(entradas, count)` con el guarda dentro elimina la clase entera.**
+      48 sitios con `count - 1`, 26 sin guarda. Una función lo borra.
+  18. **Si la excepción es legítima (el `||` de `120`), escribirla.** Aquí el cortocircuito es
+      correcto pero invisible: se lee como un `dpm_levels[-1]`.
+  19. **Un filtro se contrasta con una herramienta antes de creerse su número.** 35 y 48 son
+      ambos plausibles; solo uno es bueno y nada en el filtro lo dice.
+  20. **`AMBIGUO` es una respuesta legítima.** `AMBIGUO FIJO{8,16}` dice menos que un 8
+      inventado y mucho más que nada.
+
+  ## Estado tras la trigésima segunda tanda
+
+  ```
+  66 hallazgos propios      081-130
+  21 herramientas propias   SELF_TEST OK  (8 con selftest)
+  ppt_validate v2.0.0       55 pruebas, 2 fronteras
+  count_guard v1.0.0        33 pruebas
+  124/124 structs conformes con gcc
+  33 correcciones
+  3 del error de base de referencia
+  2 del error de empaquetado
+  1 del regex que descarta miembros no escalares
+  1 de la lectura reinterpretada de mi propio script
+  1 del stride de un registro usado en otra tabla
+  1 del selftest que probaba mi idea en vez de la realidad
+  7 del FALSO NEGATIVO por filtro o forma de busqueda
+  4 del FALSO POSITIVO por lectura parcial, nombre parecido o aritmetica a mano
+  3 hipotesis REFUTADAS antes de publicar
+  9 errores de la herramienta count_guard, todos cazados por selftest o contraste
+  6 RUNTIME_MISSING resueltos
+  2 RESULTADOS NEGATIVOS
+  FRONTERA 1 y 2 BARRIDAS (ppt_validate v2.0.0)
+  CLASE count-N BARRIDA: 196 accesos, 48 en mi ruta, 26 sin guarda
+  10 indices count-1 sin guarda concentrados en 4 funciones de OVERDRIVE
+  NOT_DETERMINED ABIERTO: si algun count puede valer cero en mi placa
+  0 agentes en curso
+  GPU INTACTA - WRITE_EXECUTION NONE - MODIFICATIONS 0 - B_RUNTIME NOT_EXECUTED
+  ```
+
+  ## Trigésima tercera tanda 2026-10-02 - 131: los 26 `count` valen uno, y está medido
+
+  Sin agentes. **Cierra el `NOT_DETERMINED` de `130` con medición, no con deducción**, y
+  corrobora `121` desde una segunda tabla.
+
+  ### Los 13 campos `count` son tres familias
+
+  ```
+  familia                            sitios  count >= 1 por
+  A · tablas dep del PPT                6   el getter rechaza el cero ANTES de kzalloc_flex
+  B · tablas DPM                       10   la rama `i == 0` del filtro siempre pasa
+  C · performance_level_count            7   MEDIDO: mi VBIOS declara un estado Boot
+  ```
+
+  **Familia A**: comprobé que **la rama de Polaris también rechaza `ucNumEntries == 0`**
+  (`:443-444`), no solo la de Tonga (`:414`). Esa era la pieza que faltaba: mi placa **no pasa
+  por la rama de Tonga**, y si solo esa rechazara el cero, la garantía no existiría para mi ASIC.
+
+  **Familia B**: `smu7_setup_dpm_tables_v1:900-912` pone `count = 0` y lo incrementa por entrada
+  aceptada; la rama `i == 0` del filtro siempre pasa en la primera iteración, luego
+  `count >= 1` en cuanto Familia A da tabla.
+
+  **Familia C**: esta sí había que medirla, porque el contador **no** viene de un getter con
+  guarda.
+
+  ```
+  pp_psm.c:60   hwmgr->request_ps = kzalloc(size, GFP_KERNEL);     <-- nace a CERO
+  pp_psm.c:93   memcpy(hwmgr->request_ps, state, size);             <-- solo desde un estado Boot
+  ```
+
+  ### La medición en mi VBIOS
+
+  **Ancla verificada**: `ulPlatformCaps` en el offset 19 de la tabla PPT, y en `0x9C0A+19 =
+  0x9C1D` está `0x068000` — el valor que `122` ya había decodificado. La cadena de offsets
+  19→23→27→31→33→35 son incrementos simples, así que el ancla valida lo que viene después.
+
+  ```
+  usStateArrayOffset (offset 35) = 0x004D = 77  ->  array en 0x9C57
+  ATOM_PPLIB_CLASSIFICATION_BOOT = 0x0008
+  ATOM_Tonga_State: 20 bytes, usClassification en el offset 8
+
+  ATOM_Tonga_State_Array en 0x9C57:  ucRevId=1   ucNumEntries=2
+
+    idx  offset  usClass  BOOT     SCLKlo SCLKhi MCLKlo MCLKhi
+      0  0x9C59   0x0008    SI           0      0      0      0
+      1  0x9C6D   0x0005    no          0      7      0      2
+  ```
+
+  Decodificado con `make_classification_flags` (`:1257-1284`): `0x0008` = **BOOT** con UI_NONE;
+  `0x0005` = `& UI_MASK = 5` = **UI_PERFORMANCE**, y `& 0x0008 = 0` → **no boot**.
+
+  **Mi placa declara exactamente DOS estados de potencia: BOOT y PERFORMANCE. Y hay un BOOT.**
+
+  ### Corroboración de `121` desde una tabla distinta
+
+  El estado 1 referencia por **índice**: `SCLKlo=0 SCLKhi=7` y `MCLKlo=0 MCLKhi=2`.
+
+  **Exactamente las 8 SCLK y las 3 MCLK que `121` reconstruyó midiendo el paso de los registros
+  de las tablas de dependencia.** Tabla distinta, referencia por índice, mismo resultado.
+
+  **Y eso autovalida mi decodificación**: un offset equivocado daría bytes arbitrarios, no un
+  rango 0..7 y 0..2 que casa con lo ya medido. **Un dato que se decodifica a algo coherente con
+  lo ya medido es su propia prueba.**
+
+  ### Qué queda en pie
+
+  **Ninguno de los 26 produce un índice negativo en mi placa. Pero la garantía NO está
+  escrita junto al acceso.** El código depende de tres invariantes que viven en tres sitios
+  distintos, y ninguno está al lado del `count - 1`.
+
+  **Un VBIOS perfectamente legal sin ningún estado `Boot`** deja `request_ps` en el `kzalloc` y
+  convierte los 7 sitios de la Familia C en `performance_levels[-1]` **sin ningún síntoma**.
+
+  ### Reglas nuevas
+
+  21. **Un invariante que se cumple hoy no es una guarda.** Tres invariantes reales, tres
+      sitios distintos, ninguno junto al acceso que depende de ellos.
+  22. **Yo no voy a confiar en un flag del VBIOS.** El eslabón más frágil de los tres es
+      `ATOM_PPLIB_CLASSIFICATION_BOOT`: es un dato del VBIOS que nadie verifica.
+  23. **Un dato que se decodifica a algo coherente con lo ya medido es su propia prueba.**
+      Es la validación más barata que hay y la que menos uso.
+
+  ## Estado tras la trigésima tercera tanda
+
+  ```
+  67 hallazgos propios      081-131
+  21 herramientas propias   SELF_TEST OK  (8 con selftest)
+  ppt_validate v2.0.0       55 pruebas, 2 fronteras
+  count_guard v1.0.0        33 pruebas
+  124/124 structs conformes con gcc
+  34 correcciones
+  3 del error de base de referencia
+  2 del error de empaquetado
+  1 del regex que descarta miembros no escalares
+  1 de la lectura reinterpretada de mi propio script
+  1 del stride de un registro usado en otra tabla
+  1 del selftest que probaba mi idea en vez de la realidad
+  7 del FALSO NEGATIVO por filtro o forma de busqueda
+  4 del FALSO POSITIVO por lectura parcial, nombre parecido o aritmetica a mano
+  3 hipotesis REFUTADAS antes de publicar
+  9 errores de la herramienta count_guard
+  6 RUNTIME_MISSING resueltos
+  2 RESULTADOS NEGATIVOS
+  FRONTERA 1 y 2 BARRIDAS (ppt_validate v2.0.0)
+  CLASE count-N BARRIDA: 196 accesos, 48 en mi ruta, 26 sin guarda
+  NOT_DETERMINED DE 130 CERRADO: los 26 count valen >= 1, MEDIDO en mi VBIOS
+  121 CORROBORADO desde la tabla de estados del VBIOS
+  MI VBIOS: 2 estados de potencia (BOOT + PERFORMANCE), 8 SCLK, 3 MCLK
+  0 agentes en curso
+  GPU INTACTA - WRITE_EXECUTION NONE - MODIFICATIONS 0 - B_RUNTIME NOT_EXECUTED
+  ```
+
+  ## Trigésima cuarta tanda 2026-10-02 - 132: ClockStretcher VIVA en mi placa, con margen cero en dos arrays
+
+  Sin agentes. **Primera ruta de código que confirmo VIVA en mi ASIC**, y con las cuatro
+  condiciones medidas, no deducidas.
+
+  ### Las cuatro condiciones de `smu7_hwmgr.c:1939-1942`
+
+  ```
+  1. pp_table_version != PP_TABLE_V0 ................ V1, se cumple
+  2. feature_mask & PP_CLOCK_STRETCH_MASK (0x400) .... 0xfff7bfff & 0x400 = 0x400, se cumple
+  3. usClockStretchAmount != 0 ....................... MEDIDO: 2
+  4. no lo borra atomctrl_is_asic_internal_ss_supported MEDIDO: ASIC_InternalSS_Info en 0xa824
+  ```
+
+  **La 2**: `PP_CLOCK_STRETCH_MASK = 0x400` (`amd_shared.h:226`) **solo se lee en todo el árbol**,
+  nunca se escribe. `amdgpu_pp_feature_mask = 0xfff7bfff` (`amdgpu_drv.c:202`) y los tres que se
+  borran en `amdgpu_device.c:2023-2027` son 0x4, 0x4000 y 0x8000 — **ninguno es 0x400**.
+
+  **La 4**: `atom.c:1650` **solo comprueba `if (!mdt[index])`** — **no valida la revisión**.
+  Localicé la tabla con `revkit/atomrom.py`, **ejecutado y no modificado**:
+
+  ```
+  MASTER DATA TABLE en 0x97f2
+    16   PowerPlayInfo          0x9c0a   size=778   rev=7.1
+    27   ASIC_InternalSS_Info   0xa824   size=40    rev=3.1
+  ```
+
+  **Y de paso: `PowerPlayInfo @ 0x9c0a`, mi ancla de la sesión, confirmada por vía independiente.**
+
+  ### Margen cero en dos sitios, en una ruta viva
+
+  ```
+  :1672   Sclk_CKS_masterEn0_7 |= entries[i].cks_enable << i;   -> uint8_t   (el nombre dice 0 a 7)
+  :1690   Sclk_voltageOffset[i] = volt_offset;                   -> uint8_t[8] (mi VBIOS declara 8)
+  ```
+
+  **Es `120` y `128` por tercera vez, y aquí en una ruta que SÍ corre en mi placa.** Ninguno de
+  los dos mira la capacidad. Con un noveno reloj: 8 bytes pasto el array, y lo que hay detrás es
+  `LdoRefSel` y el resto de `SMU74_SoftRegisters`, que van al SMC.
+
+  ### `stretch_amount` se valida y se tira
+
+  `usClockStretchAmount = 2` aparece **tres veces** en el código: declarado (`:1659`), asignado
+  (`:1661`), validado (`:1696`). **Y nada más.** Lo único escrito en un registro es un
+  read-modify-write que **borra el bit 0** de `ixPWR_CKS_CNTL` (`:1704-1706`).
+
+  **El host no escribe el importe.** Si el SMC lo deduce de `Sclk_CKS_masterEn0_7`, es
+  comportamiento de firmware y **no lo afirmo**. `ixPWR_CKS_CNTL` **no está declarado en ninguna
+  cabecera de mi corpus**.
+
+  ### El contraste de `126`, a treinta líneas
+
+  ```
+  :1699   PP_ASSERT_WITH_CODE(false, "Stretch Amount... not supported", return -EINVAL);  ABORTA
+  :1729   PP_ASSERT_WITH_CODE(false, "VDDC should be on SVI2 control...",  );           INERTE
+  ```
+
+  **El mismo `false` literal, con acción y sin acción.** Lo que decide es el tercer argumento.
+
+  ### Mi error: un offset ESTIMADO en vez de CALCULADO
+
+  Puse el destino de PowerTune en `PPT + 34` **porque afirmé que era el siguiente campo a
+  `usUlvVoltageOffset`**. No lo es. Salió `0x4D00` → `0xE90A`, **más allá del fin del VBIOS**
+  (58880 = 0xE5C0). **Un destino fuera del fichero es la señal, y la usé como tal.**
+
+  Leída la lista completa, `usPowerTuneTableOffset` está en el **57**:
+
+  ```
+   43  usMclkDependencyTableOffset  -> 0x9D8F   121 dice 0x9D8F   COINCIDE
+   45  usSclkDependencyTableOffset  -> 0x9D15   121 dice 0x9D15   COINCIDE
+   49  usVddgfxLookupTableOffset    -> 0x9CD3   123 dice 0x9CD3   COINCIDE
+   51  usMMDependencyTableOffset    -> 0x9DB8   121 dice 0x9DB8   COINCIDE
+   57  usPowerTuneTableOffset       -> 0x9EAB   PowerTune @ 0x9EAB  COINCIDE
+  ```
+
+  **Cinco destinos coinciden con mediciones previas independientes.** Eso valida la cadena entera.
+
+  **Y un dato que no buscaba: `ucRevId = 4`** en la tabla PowerTune, o sea la **tercera rama**,
+  **no la de "Fiji and newer"** que sugiere el comentario.
+
+  ### Reglas nuevas
+
+  24. **El margen cero se comprueba al escribir, no al declarar.**
+  25. **Cuando el nombre de un campo declara su rango, ese rango hay que comprobarlo.**
+      `Sclk_CKS_masterEn0_7` es documentación ejecutable y aquí no la lee nadie.
+  26. **Un dato del VBIOS que se valida y luego se tira es una decisión, no un olvido — pero hay
+      que decidirla**, y escribirlo.
+  27. **No estimo offsets.** Un destino fuera del fichero es la prueba de que el cálculo estaba
+      mal.
+
+  ## Estado tras la trigésima cuarta tanda
+
+  ```
+  68 hallazgos propios      081-132
+  21 herramientas propias   SELF_TEST OK  (8 con selftest)
+  ppt_validate v2.0.0       55 pruebas, 2 fronteras
+  count_guard v1.0.0        33 pruebas
+  124/124 structs conformes con gcc
+  35 correcciones
+  3 del error de base de referencia
+  2 del error de empaquetado
+  2 del OFFSET ESTIMADO en vez de calculado
+  1 del regex que descarta miembros no escalares
+  1 de la lectura reinterpretada de mi propio script
+  1 del stride de un registro usado en otra tabla
+  1 del selftest que probaba mi idea en vez de la realidad
+  7 del FALSO NEGATIVO por filtro o forma de busqueda
+  4 del FALSO POSITIVO por lectura parcial, nombre parecido o aritmetica a mano
+  3 hipotesis REFUTADAS antes de publicar
+  9 errores de la herramienta count_guard
+  6 RUNTIME_MISSING resueltos
+  2 RESULTADOS NEGATIVOS
+  1 RUTA CONFIRMADA VIVA EN MI PLACA: ClockStretcher, 4 condiciones medidas
+  2 margenes cero en esa ruta viva: Sclk_voltageOffset[8] y Sclk_CKS_masterEn0_7
+  PowerPlayInfo @ 0x9c0a confirmado por via independiente (atomrom)
+  MI POWER_TUNE UCREVID = 4 (tercera rama, no la de Fiji)
+  0 agentes en curso
+  GPU INTACTA - WRITE_EXECUTION NONE - MODIFICATIONS 0 - B_RUNTIME NOT_EXECUTED
+  ```
+
+  ## Trigésima quinta tanda 2026-10-02 - 133: ULV viva, los 13 registros cerrados, y una hipótesis refutada
+
+  Sin agentes. **Segunda ruta confirmada VIVA en mi placa**, y con ella quedan cerrados los 13
+  escrituras registro-a-registro de `polaris10_smumgr.c` que llevaban pendientes desde el
+  principio de la sesión.
+
+  ### La ruta ULV: viva, con las dos condiciones medidas
+
+  ```
+  polaris10_smumgr.c:1944   if (ulv_supported && us_ulv_voltage_offset)
+  ```
+
+  ```
+  1. ulv_supported  = feature_mask & PP_ULV_MASK(0x100)   -> 0xfff7bfff & 0x100 = 0x100  SI
+  2. us_ulv_voltage_offset (PPT offset 33)                 -> MEDIDO: 15                SI
+  ```
+
+  **Los valores que van a la tabla del SMC, calculados:**
+
+  ```
+  VddcOffset    = 15
+  VddcOffsetVid = (uint8_t)(15 * 100 / 625) = 2           -> sin truncar
+  ```
+
+  ### `VddcPhase`: tres transformaciones, la tercera sin explicar
+
+  ```
+  smu7_hwmgr.c:1932        tmp3 = (tmp3 >> 5) & 0x3;                        extrae bits 5-6
+  smu7_hwmgr.c:1933        vddc_phase_shed_control = ((tmp3<<1)|(tmp3>>1))&3; INTERCAMBIA
+  polaris10_smumgr.c:798   state->VddcPhase = ... ^ 0x3;                     INVIERTE  (solo mi familia)
+  polaris10_smumgr.c:800   state->VddcPhase = (...) ? 0 : 1;                 (los demas chips)
+  ```
+
+  **Extraer, intercambiar, invertir.** Y `^ 0x3` es solo de mi familia, sin comentario que explique
+  por qué `^ 0x3` y no `^ 1`.
+
+  ### HIPÓTESIS REFUTADA: el NULL desreferenciado no es alcanzable
+
+  ```
+  ppatomctrl.c:1090-1093   voltage_object = atomctrl_lookup_voltage_type_v3(...)
+                           *svd_gpio_id = voltage_object->asSVID2Obj.ucSVDGpioId;   NO COMPRUEBA
+  ```
+
+  `atomctrl_lookup_voltage_type_v3` **devuelve NULL en `:282`**. Pero
+  `atomctrl_get_svi2_info` tiene **UN solo llamador**, y su puerta es **el mismo lookup**:
+  `smu7_hwmgr.c:1876` decide `voltage_control` con `... != NULL`, y `:1929` abre la puerta con ese
+  valor. **Si se llega a `:1930`, el lookup ya tuvo éxito.**
+
+  **No es un fallo. Pero es la forma más frágil de seguridad del árbol:**
+
+  ```
+  :566-567   ret = atomctrl_lookup_voltage_type_v3(...) != NULL;    COMPRUEBA
+  :589-590   if (voltage_object == NULL) return -1;                  COMPRUEBA
+  :1090      voltage_object = atomctrl_lookup_voltage_type_v3(...); NO COMPRUEBA
+  ```
+
+  **Tres llamadas al mismo lookup, dos comprueban y una no** — y la que no comprueba se apoya en
+  que su llamador lo haga por ella, **en otro fichero 500 líneas más allá**.
+
+  ### `LinkLevel[8]` se escribe `count + 1`, y el mismo fichero recorta el mismo campo
+
+  ```
+  :823-825   for (i = 0; i <= pcie_speed_table.count; i++)   table->LinkLevel[i] = ...
+             LinkLevel[SMU__NUM_PCIE_DPM_LEVELS] = LinkLevel[8]
+  :2355-2359 max_entry = min(SMU74_MAX_LEVELS_LINK, pcie_table->count);  RECORTA  (mismo campo)
+  ```
+
+  **Dos funciones, el mismo array de capacidad 8, el mismo `pcie_table->count`: una recorta y la
+  otra escribe uno más.** Y el recorte de `:2355` es correcto aunque el caso válido sea
+  `count == 8`, porque `min(8,8) = 8` y entra justo.
+
+  **En mi placa no desborda:**
+
+  ```
+  usPCIETableOffset @61 = 0x02F0 -> ATOM_Tonga_PCIE_Table en 0x09EFA, ucNumEntries = 3
+  pcie_count = min(3, 9) = 3     ->  el bucle escribe 4 entradas en LinkLevel[8]   MARGEN 4
+  ```
+
+  **Y un detalle de contrato:** `:836-837` pone `LinkLevelCount = count` (=3) mientras se
+  escriben 4 registros. El índice reservado para el boot **se escribe pero no se cuenta**.
+
+  ### Una pieza que NO he decodificado
+
+  El lookup de voltaje camina por `usSize` hasta `sHeader.usStructureSize`, **no por el límite
+  del array declarado**, que es `asVoltageObj[3]` fijo. Es la misma forma que `120`, `128` y `132`.
+
+  `52 = 4 + 3*16` encaja exacto si cada objeto mide 16 bytes, **pero `ATOM_VOLTAGE_OBJECT_V3` es
+  una UNION y su tamaño no lo fija el array**. **No lo decodifico y lo declaro**: no sé si mi
+  VBIOS declara un objeto `VOLTAGE_TYPE_VDDC(1)` con `VOLTAGE_OBJ_SVID2(7)`, que es lo que
+  decide `voltage_control` y por tanto `VddcPhase`.
+
+  ### Reglas nuevas
+
+  28. **Una función de biblioteca con contrato propio.** No espera que quien llama compruebe por
+      ella un lookup.
+  29. **Un recorrido por VBIOS tiene DOS límites: el declarado y el del array.** Aquí hay un 3 y
+      un `usStructureSize`, y el código solo mira el segundo.
+  30. **Cuando el mismo campo se usa en dos sitios del mismo fichero, uno lo recorta y el otro
+      no, hay que copiar el recorte al que falta.**
+  31. **Un parámetro de hardware de dos bits no pasa por tres transformaciones sin un
+      comentario.**
+
+  ## Estado tras la trigésima quinta tanda
+
+  ```
+  69 hallazgos propios      081-133
+  21 herramientas propias   SELF_TEST OK  (8 con selftest)
+  ppt_validate v2.0.0       55 pruebas, 2 fronteras
+  count_guard v1.0.0        33 pruebas
+  124/124 structs conformes con gcc
+  36 correcciones
+  3 del error de base de referencia
+  2 del error de empaquetado
+  2 del OFFSET ESTIMADO en vez de calculado
+  1 del regex que descarta miembros no escalares
+  1 de la lectura reinterpretada de mi propio script
+  1 del stride de un registro usado en otra tabla
+  1 del selftest que probaba mi idea en vez de la realidad
+  7 del FALSO NEGATIVO por filtro o forma de busqueda
+  4 del FALSO POSITIVO por lectura parcial, nombre parecido o aritmetica a mano
+  4 hipotesis REFUTADAS antes de publicar
+  9 errores de la herramienta count_guard
+  6 RUNTIME_MISSING resueltos
+  2 RESULTADOS NEGATIVOS
+  2 RUTAS CONFIRMADAS VIVAS EN MI PLACA: ClockStretcher (132) y ULV (133)
+  13 escrituras registro-a-registro de polaris10_smumgr.c: CERRADAS
+  LinkLevel[8] escrito count+1 en :825, recortado en :2355; margen 4 en mi placa
+  1 INCOGNITA DECLARADA: existe un objeto VDDC/SVID2 en mi VBIOS
+  0 agentes en curso
+  GPU INTACTA - WRITE_EXECUTION NONE - MODIFICATIONS 0 - B_RUNTIME NOT_EXECUTED
+  ```
+
+  ## Trigésima sexta tanda 2026-10-02 - 134: la incognita de 133 resuelta, y VddcPhase = 3
+
+  Sin agentes. **Resuelvo por medición la única incognita que había declarado.** Declararla
+  estaba bien; dejarla sin intentar, no.
+
+  ### La tabla de objetos de voltaje, recorrida como el código
+
+  ```
+  ATOM_VOLTAGE_OBJECT_INFO_V3_1 en 0xA7F0   usStructureSize = 52
+    obj[0]  VDDC (1)  + SVID2 (7)     usSize = 12
+    obj[1]  VDDCI (4) + SVID2 (7)     usSize = 12
+    obj[2]  MVDDC (2) + GPIO_LUT (0)  usSize = 24
+                                          4+12+12+24 = 52   EXACTO
+  ```
+
+  **Tres objetos, y son los tres slots de `asVoltageObj[3]`.** Cuadra dos veces: el total con la
+  cabecera, y el número con la declaración. **Un offset equivocado habría dado otra cosa.**
+
+  ### Los bits 5 y 6 no son un parámetro misterioso
+
+  **La cabecera de la struct lo documenta** (`atombios.h:5181-5185`):
+
+  ```
+  // 14:7 - PSI0_VID
+  //    6 - PSI0_EN
+  //    5 - PSI1        <-- smu7_hwmgr.c:1932 extrae EXACTAMENTE estos dos
+  //  4:2 - load line slope trim
+  //  1:0 - offset trim
+  ```
+
+  **Lo que el driver llama `vddc_phase_shed_control` son los dos bits de habilitación de fase
+  del regulador SVI2.** El nombre no lo dice, y la única documentación está en la cabecera del
+  VBIOS, a 900 líneas del código que lo usa.
+
+  ### El valor, con números de mi VBIOS
+
+  ```
+  usLoadLine_PSI = 0x0012 (18):  PSI0_VID=0  PSI0_EN=0  PSI1=0  ucSVDGpioId=0  ucSVCGpioId=0
+
+  :1932  tmp3 = (18 >> 5) & 0x3   = 0
+  :1933  swap de bits              = 0
+  :798   VddcPhase = 0 ^ 3        = 3
+  ```
+
+  ### El hallazgo: el VBIOS sobrescribe el defecto del driver con ceros
+
+  ```
+  :1923   vddc_phase_shed_control = 1;              <-- valor por defecto, sensato
+  :1929   if (voltage_control == BY_SVID2) {
+  :1932       tmp3 = (tmp3 >> 5) & 0x3;             <-- lo sustituye por el VBIOS, sin comprobar
+  :1933       vddc_phase_shed_control = swap(tmp3) & 0x3;
+  ```
+
+  **Mi entrada SVI2 tiene los tres campos a cero y los dos GPIO iguales a 0: parece un marcador
+  de posición.** El driver **no distingue «el VBIOS no rellenó esto» de «el VBIOS dice que las dos
+  fases están deshabilitadas».**
+
+  **Lo que NO afirmo:** si `VddcPhase = 3` es correcto para el SMC. Es comportamiento de firmware
+  y `DPM-BASE-EN-SMC` sigue `NOT_AVAILABLE`. **Lo demostrable es que el host envía 3, y que lo
+  deduce de una entrada con los bits a cero.**
+
+  ### Y `122` corroborado por una segunda tabla
+
+  ```
+  bit 15 de ulPlatformCaps (ATOM VDDCI_CONTROL = 0x8000)  SET
+    -> set_platform_caps:94-96   phm_cap_set(ControlVDDCI)
+    -> smu7_hwmgr.c:1905         phm_cap_enabled        -> cierto
+    -> :1910-1912                lookup VDDCI/SVID2     -> obj[1] lo tiene -> CIERTO
+    -> :1912                     vddci_control = BY_SVID2
+    -> :1919-1921                NO se borra el cap
+  ```
+
+  **No solo el bit del PPT: la tabla de objetos de voltaje contiene el objeto que el bit
+  anuncia.**
+
+  ### Reglas nuevas
+
+  32. **Un valor por defecto no sobrevive a una lectura de dato sin validar.** Un dato que llega
+      todo a cero desde una tabla versionada **es un dato que falta**.
+  33. **El nombre de un campo tiene que decir lo que es.** Si el VBIOS renombra el campo, el
+      driver sigue compilando y manda basura.
+  34. **Dimensiono y recorro con los DOS límites** (array declarado y longitud del VBIOS).
+
+  ## Estado tras la trigésima sexta tanda
+
+  ```
+  70 hallazgos propios      081-134
+  21 herramientas propias   SELF_TEST OK  (8 con selftest)
+  ppt_validate v2.0.0       55 pruebas, 2 fronteras
+  count_guard v1.0.0        33 pruebas
+  124/124 structs conformes con gcc
+  36 correcciones
+  4 hipotesis REFUTADAS antes de publicar
+  0 INCOGNITAS DECLARADAS pendientes en 133 (resuelta en 134)
+  2 RUTAS CONFIRMADAS VIVAS: ClockStretcher (132) y ULV (133)
+  voltage_control MI PLACA = BY_SVID2 (medido)
+  VddcPhase MI PLACA = 3 (medido, sobre una entrada con los bits a cero)
+  122 CORROBORADO por una segunda tabla del VBIOS
+  GPU INTACTA - WRITE_EXECUTION NONE - MODIFICATIONS 0 - B_RUNTIME NOT_EXECUTED
+  ```
+
+  ## Trigésima séptima tanda 2026-10-02 - 135: tres capas del mvdd por nivel, y dos fuentes de VBIOS ignoradas
+
+  Sin agentes. Sigo el tercer objeto de voltaje que dejó `134` y salen tres capas.
+
+  ### Capa 1 — estructural, independiente de mi placa
+
+  ```
+  ATOM_Tonga_SCLK_Dependency_Record (pptable_v1_0.h:186-192)   NO TIENE usMvdd
+  ATOM_Tonga_MCLK_Dependency_Record (pptable_v1_0.h:170-177)   SI LO TIENE
+  ```
+
+  **Y `->mvdd` se escribe en UN solo sitio de todo el árbol: `:390`, el getter de MCLK.** Los dos
+  getters de SCLK no lo tocan, y `kzalloc_flex` lo deja a cero.
+
+  **⟹ `polaris10_smumgr.c:388` `else if (entries[i].mvdd)` es INALCANZABLE para tablas SCLK, en
+  cualquier placa. El dato no puede existir.**
+
+  ### Capa 2 — mi placa: el bit 12 no está
+
+  `PHM_PlatformCaps_EnableMVDDControl` ← `ATOM_TONGA_PP_PLATFORM_CAP_MVDD_CONTROL = 0x1000` =
+  **bit 12**. **Mi `ulPlatformCaps = 0x068000` tiene bits 15, 17, 18. El 12 no.**
+
+  **⟹ el bloque `smu7_hwmgr.c:1891-1899` se salta entero y `mvdd_control` queda en NONE.**
+  **Y mi VBIOS declara `obj[2]` = MVDDC(2) + GPIO_LUT(0), 24 bytes — el mayor de los tres, que es
+  lo que cabría en una LUT de GPIO. El VBIOS ofrece el dato y la capacidad; el driver no lo mira
+  porque un bit de otro campo no lo habilita.**
+
+  ### Capa 3 — y hay datos reales que se descartan
+
+  ```
+  tabla MCLK en 0x09D8F   ucNumEntries=3   stride=13
+    idx  usVddci  usMvdd  ulMclk      MCLK
+      0     800    1000    30000       30 MHz
+      1     800    1000    62500       62 MHz
+      2     875    1000   150000      150 MHz
+  ```
+
+  **`ulMclk` coincide con `121` (300/625/1500 MHz). CUARTA corroboración independiente.**
+
+  Y con `mvdd_control == NONE`, `:385-386` toma `vbios_boot_state.mvdd_bootup_value`, que es
+  **`usBootUpMVDDCVoltage = 1500 mV`** (medido).
+
+  > **El VBIOS dice 1000 mV por nivel. El driver envía 1500 mV, el mismo para los tres niveles.**
+
+  ### El offset 92: DERIVADO, no medido con gcc — y lo digo
+
+  **No lo consigo con gcc.** `ATOM_FIRMWARE_CAPABILITY` es un **bitfield de USHORT** y al
+  transcribirlo de `atombios.h:2900-2937` **me queda un bit de más**: 17 bits → 3 bytes →
+  `sizeof = 109`.
+
+  **La restricción que lo cierra es del propio VBIOS**: la tabla declara `usStructureSize = 108`,
+  luego `sizeof(ATOM_FIRMWARE_CAPABILITY_ACCESS) = 2`, luego `usBootUpMVDDCVoltage = 92`.
+  **Y 1500 mV es el único voltaje de rail plausible de los cinco candidatos.**
+
+  Los offsets de VDDC (46 → **893 mV**) y VDDCI (78 → **875 mV**) **sí los da gcc**, y `875`
+  **aparece también** en `usVddci` del último registro MCLK: **dos fuentes del VBIOS coinciden.**
+
+  ### El resultado
+
+  **Mi VBIOS ofrece TRES fuentes de MVDD —el objeto MVDDC+GPIO_LUT, el `usMvdd` de los tres
+  registros MCLK, y el `usBootUpMVDDCVoltage`— y el driver usa exactamente una: el de arranque.**
+
+  ### Reglas nuevas
+
+  35. **Un cap que habilita una capacidad tiene que coincidir con el dato que la necesita.**
+      Aquí el cap lo decide el PPT y el dato está en la tabla de objetos de voltaje, y nadie
+      comprueba que los dos estén de acuerdo.
+  36. **Un valor por defecto no sustituye a una tabla, y hay que saber cuál viaja.**
+  37. **Si un formato de registro no tiene un campo, el campo del struct del host no debería
+      existir** — o debe marcarse como no disponible.
+  38. **Un offset que no puedo medir con el compilador lo declaro como derivado.** Publicar el
+      número sin decir de dónde sale es el error que más caro me ha salido.
+
+  ## Estado tras la trigésima séptima tanda
+
+  ```
+  71 hallazgos propios      081-135
+  21 herramientas propias   SELF_TEST OK  (8 con selftest)
+  ppt_validate v2.0.0       55 pruebas, 2 fronteras
+  count_guard v1.0.0        33 pruebas
+  124/124 structs conformes con gcc
+  38 correcciones
+  3 del error de base de referencia
+  2 del error de empaquetado
+  2 del OFFSET ESTIMADO en vez de calculado
+  2 del TIPO de struct ADIVINADO (ATOM_FIRMWARE_CAPABILITY_ACCESS)
+  1 del PASO DE REGISTRO olvidado (usReserved) que daba numeros sin sentido
+  7 del FALSO NEGATIVO por filtro o forma de busqueda
+  4 del FALSO POSITIVO por lectura parcial, nombre parecido o aritmetica a mano
+  4 hipotesis REFUTADAS antes de publicar
+  2 RUTAS CONFIRMADAS VIVAS: ClockStretcher (132) y ULV (133)
+  mvdd: 3 CAPAS identificadas, 2 medidas (1000 mV del VBIOS vs 1500 mV enviado)
+  121 corroborado por CUATRA vias independientes
+  GPU INTACTA - WRITE_EXECUTION NONE - MODIFICATIONS 0 - B_RUNTIME NOT_EXECUTED
+  ```
+
+  ## Trigésima octava tanda 2026-10-02 - 136: el índice del proyecto estaba obsoleto
+
+  Sin agentes. **Primera modificación del proyecto**, y sobre estado derivado.
+
+  ### Lo que encontré
+
+  `EVIDENCE-MATRIX.md` lleva en su cabecera
+  `GENERADO POR tools/artifacts.py. NO EDITAR A MANO: la siguiente ejecucion lo sobrescribe`.
+
+  En disco tenia **223 lineas** y mis seis hallazgos más recientes **no aparecían**.
+
+  ### Y el descubrimiento: hay DOS numeraciones
+
+  **Mi trabajo ya estaba indexado, bajo los números del otro agente:**
+
+  ```
+  224 = mi 120   225 = mi 123   226 = mi 124   227 = mi 125
+  228 = mi 126   229 = mi 128   230 = mi 129
+  ```
+
+  Y en los más recientes **las dos numeraciones coinciden** (131-135).
+
+  > **El contador propio de `063` NO es el número del proyecto.** Es un esquema autoasignado
+  > para no pisar al otro agente. **Para el proyecto manda la matriz**, y no siempre coincide.
+
+  ### Cómo lo cerré — con la herramienta del proyecto, y en orden
+
+  ```
+  1. tools/artifacts.py --selftest                     RESULT: PASS (14 vectores)
+  2. tools/artifacts.py --json                         vista previa, no escribe nada
+  3. tools/artifacts.py --solo EVIDENCE-MATRIX --json  artefactos: ['EVIDENCE-MATRIX']  <-- UNO
+  4. tools/artifacts.py --solo EVIDENCE-MATRIX --escribir
+  ```
+
+  **El paso 3 es el que lo hace aceptable**: la herramienta genera **siete** artefactos
+  compartidos, y sin `--solo` habría reescrito seis que no son míos.
+
+  ### Lo que verifiqué después
+
+  ```
+  EVIDENCE-MATRIX.md   350 lineas   mtime 14:36   <- esta ejecución
+  CONTRADICTIONS.md     74          mtime 04:27
+  CURRENT-STATE.md      57          mtime 04:27
+  KNOWLEDGE-GRAPH.md   151          mtime 04:27
+  NEGATIVE-RESULTS.md  148          mtime 04:27
+  OPEN-FRONTIERS.md    460          mtime 04:27
+  TOOLS-STATUS.md       69          mtime 04:27
+  ```
+
+  **Los seis conservan su mtime.** El índice pasó de 223 a 350 líneas, con **339 filas**.
+
+  ### Reglas nuevas
+
+  39. **El estado derivado se regenera, no se parchea.** Editar a mano un índice generado
+      garantiza que la siguiente ejecución lo borre.
+  40. **Una herramienta que genera N artefactos compartidos necesita `--solo`**, y hay que
+      **comprobar en vista previa que produce UNO**, no suponerlo.
+  41. **Un número que significa dos cosas es un sitio de colisión silenciosa.**
+  42. **Un índice obsoleto no se ve desde dentro del trabajo.** Mis 71 hallazgos se veían
+      completos desde `findings/`; el hueco solo aparece mirando el índice del proyecto.
+
+  ## Estado tras la trigésima octava tanda
+
+  ```
+  72 hallazgos propios      081-136
+  21 herramientas propias   SELF_TEST OK  (8 con selftest)
+  EVIDENCE-MATRIX.md        REGENERADO con la herramienta del proyecto, --solo, 1 solo fichero
+  MODIFICATIONS             0 -> 1   (sobre un fichero GENERADO, no fuente)
+  4 hipotesis REFUTADAS antes de publicar
+  339 hallazgos indexados en la matriz del proyecto
+  GPU INTACTA - WRITE_EXECUTION NONE - MODIFICATIONS 1 (EVIDENCE-MATRIX.md, generado)
+  B_RUNTIME NOT_EXECUTED
   ```

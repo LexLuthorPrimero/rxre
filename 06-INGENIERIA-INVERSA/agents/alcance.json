@@ -1,0 +1,108 @@
+{
+  "filas": [
+    {
+      "clave": "gfx_v8_0.c:5618",
+      "nombre": "gfx_v8_0_update_medium_grain_clock_gating",
+      "cabecera": "static void gfx_v8_0_update_medium_grain_clock_gating(st",
+      "bloque": "GFX",
+      "raiz": "PROCESO",
+      "camino": "gfx_v8_0.c:gfx_v8_0_update_medium_grain_clock_gating <- gfx_v8_0.c:gfx_v8_0_update_gfx_clock_gating <- gfx_v8_0.c:gfx_v8_0_set_clockgating_state <- amdgpu_device.c:amdgpu_device_set_cg_state <- amdgpu_device.c:amdgpu_device_fini_hw (punto de entrada)"
+    },
+    {
+      "clave": "gfx_v8_0.c:5718",
+      "nombre": "gfx_v8_0_update_coarse_grain_clock_gating",
+      "cabecera": "static void gfx_v8_0_update_coarse_grain_clock_gating(st",
+      "bloque": "GFX",
+      "raiz": "PROCESO",
+      "camino": "gfx_v8_0.c:gfx_v8_0_update_coarse_grain_clock_gating <- gfx_v8_0.c:gfx_v8_0_update_gfx_clock_gating <- gfx_v8_0.c:gfx_v8_0_set_clockgating_state <- amdgpu_device.c:amdgpu_device_set_cg_state <- amdgpu_device.c:amdgpu_device_fini_hw (punto de entrada)"
+    },
+    {
+      "clave": "gfxhub_v2_1.c:357",
+      "nombre": "gfxhub_v2_1_gart_enable",
+      "cabecera": "static int gfxhub_v2_1_gart_enable(struct amdgpu_device ",
+      "bloque": "GFXHUB",
+      "raiz": "MIEMBRO_OTRA_GENERACION",
+      "camino": "gfxhub_v2_1.c:gfxhub_v2_1_gart_enable"
+    },
+    {
+      "clave": "gfxhub_v2_1.c:385",
+      "nombre": "gfxhub_v2_1_gart_disable",
+      "cabecera": "static void gfxhub_v2_1_gart_disable(struct amdgpu_devic",
+      "bloque": "GFXHUB",
+      "raiz": "MIEMBRO_OTRA_GENERACION",
+      "camino": "gfxhub_v2_1.c:gfxhub_v2_1_gart_disable"
+    },
+    {
+      "clave": "gfxhub_v2_1.c:582",
+      "nombre": "gfxhub_v2_1_restore_regs",
+      "cabecera": "static void gfxhub_v2_1_restore_regs(struct amdgpu_devic",
+      "bloque": "GFXHUB",
+      "raiz": "MIEMBRO_OTRA_GENERACION",
+      "camino": "gfxhub_v2_1.c:gfxhub_v2_1_restore_regs"
+    },
+    {
+      "clave": "gmc_v8_0.c:170",
+      "nombre": "gmc_v8_0_mc_stop",
+      "cabecera": "static void gmc_v8_0_mc_stop(struct amdgpu_device *adev)",
+      "bloque": "GMC",
+      "raiz": "PROCESO",
+      "camino": "gmc_v8_0.c:gmc_v8_0_mc_stop <- gmc_v8_0.c:gmc_v8_0_pre_soft_reset <- amdgpu_device.c:amdgpu_device_ip_pre_soft_reset <- amdgpu_device.c:amdgpu_device_pre_asic_reset <- amdgpu_device.c:amdgpu_device_asic_reset <- amdgpu_device.c:amdgpu_device_gpu_recover (punto de entrada)"
+    },
+    {
+      "clave": "gmc_v8_0.c:194",
+      "nombre": "gmc_v8_0_mc_resume",
+      "cabecera": "static void gmc_v8_0_mc_resume(struct amdgpu_device *ade",
+      "bloque": "GMC",
+      "raiz": "PROCESO",
+      "camino": "gmc_v8_0.c:gmc_v8_0_mc_resume <- gmc_v8_0.c:gmc_v8_0_post_soft_reset <- amdgpu_device.c:amdgpu_device_ip_post_soft_reset <- amdgpu_device.c:amdgpu_device_pre_asic_reset <- amdgpu_device.c:amdgpu_device_asic_reset <- amdgpu_device.c:amdgpu_device_gpu_recover (punto de entrada)"
+    },
+    {
+      "clave": "gmc_v8_0.c:433",
+      "nombre": "gmc_v8_0_mc_program",
+      "cabecera": "static void gmc_v8_0_mc_program(struct amdgpu_device *ad",
+      "bloque": "GMC",
+      "raiz": "PROCESO",
+      "camino": "gmc_v8_0.c:gmc_v8_0_mc_program <- gmc_v8_0.c:gmc_v8_0_hw_init <- gmc_v8_0.c:gmc_v8_0_resume <- gfx_v8_0.c:gfx_v8_0_hw_init"
+    },
+    {
+      "clave": "gmc_v8_0.c:829",
+      "nombre": "gmc_v8_0_gart_enable",
+      "cabecera": "static int gmc_v8_0_gart_enable(struct amdgpu_device *ad",
+      "bloque": "GMC",
+      "raiz": "PROCESO",
+      "camino": "gmc_v8_0.c:gmc_v8_0_gart_enable <- gmc_v8_0.c:gmc_v8_0_hw_init <- gmc_v8_0.c:gmc_v8_0_resume <- gfx_v8_0.c:gfx_v8_0_hw_init"
+    },
+    {
+      "clave": "gmc_v8_0.c:972",
+      "nombre": "gmc_v8_0_gart_disable",
+      "cabecera": "static void gmc_v8_0_gart_disable(struct amdgpu_device *",
+      "bloque": "GMC",
+      "raiz": "PROCESO",
+      "camino": "gmc_v8_0.c:gmc_v8_0_gart_disable <- gmc_v8_0.c:gmc_v8_0_hw_fini"
+    },
+    {
+      "clave": "gmc_v8_0.c:1385",
+      "nombre": "gmc_v8_0_vm_fault_interrupt_state",
+      "cabecera": "static int gmc_v8_0_vm_fault_interrupt_state(struct amdg",
+      "bloque": "GMC",
+      "raiz": "IRQ",
+      "camino": "gmc_v8_0.c:gmc_v8_0_vm_fault_interrupt_state <- amdgpu_irq.c:amdgpu_irq_disable_all"
+    },
+    {
+      "clave": "gmc_v8_0.c:1507",
+      "nombre": "fiji_update_mc_medium_grain_clock_gating",
+      "cabecera": "static void fiji_update_mc_medium_grain_clock_gating(str",
+      "bloque": "GMC",
+      "raiz": "PROCESO",
+      "camino": "gmc_v8_0.c:fiji_update_mc_medium_grain_clock_gating <- gmc_v8_0.c:gmc_v8_0_set_clockgating_state <- amdgpu_device.c:amdgpu_device_set_cg_state <- amdgpu_device.c:amdgpu_device_fini_hw (punto de entrada)"
+    },
+    {
+      "clave": "gmc_v8_0.c:1587",
+      "nombre": "fiji_update_mc_light_sleep",
+      "cabecera": "static void fiji_update_mc_light_sleep(struct amdgpu_dev",
+      "bloque": "GMC",
+      "raiz": "PROCESO",
+      "camino": "gmc_v8_0.c:fiji_update_mc_light_sleep <- gmc_v8_0.c:gmc_v8_0_set_clockgating_state <- amdgpu_device.c:amdgpu_device_set_cg_state <- amdgpu_device.c:amdgpu_device_fini_hw (punto de entrada)"
+    }
+  ]
+}

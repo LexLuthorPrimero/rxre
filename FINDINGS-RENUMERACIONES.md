@@ -41,10 +41,10 @@ de ese tipo.
 ## Advertencias
 
 
-- Numeros con **colision** (>1 fichero): **66**
-- Renumeraciones detectadas: **42**, de ellas **REASIGNADAS: 42**
-- Ficheros en `findings/`: **352**
-- **Referencias colgando** (`` `NNN` `` que ya no es ese hallazgo): **1028**, en **42** numeros distintos
+- Numeros con **colision** (>1 fichero): **74**
+- Renumeraciones detectadas: **43**, de ellas **REASIGNADAS: 42**
+- Ficheros en `findings/`: **509**
+- **Referencias colgando** (`` `NNN` `` que ya no es ese hallazgo): **1033**, en **42** numeros distintos
 
 Las referencias colgando son el dano real. Un numero renumerado sigue
 escribiendose en el texto de otros hallazgos y **nada parece roto**,
@@ -53,9 +53,9 @@ esta tabla.
 
 | citado | deberia ser | veces |
 |---|---|---|
-| `052` | `193` | 9 |
+| `052` | `193` | 8 |
 | `085` | `194` | 46 |
-| `088` | `195` | 16 |
+| `088` | `195` | 17 |
 | `089` | `196` | 12 |
 | `090` | `205` | 13 |
 | `091` | `206` | 10 |
@@ -64,37 +64,37 @@ esta tabla.
 | `102` | `209` | 23 |
 | `103` | `210` | 83 |
 | `104` | `211` | 118 |
-| `105` | `212` | 7 |
+| `105` | `212` | 26 |
 | `106` | `213` | 27 |
-| `109` | `214` | 10 |
+| `109` | `214` | 12 |
 | `110` | `215` | 21 |
-| `111` | `216` | 22 |
-| `112` | `217` | 13 |
+| `111` | `216` | 24 |
+| `112` | `217` | 15 |
 | `113` | `218` | 24 |
-| `114` | `219` | 8 |
+| `114` | `219` | 9 |
 | `116` | `220` | 44 |
 | `117` | `221` | 7 |
 | `118` | `222` | 6 |
 | `119` | `223` | 4 |
 | `120` | `224` | 48 |
-| `123` | `225` | 13 |
-| `124` | `226` | 18 |
+| `123` | `225` | 15 |
+| `124` | `226` | 20 |
 | `125` | `227` | 17 |
-| `126` | `228` | 15 |
+| `126` | `228` | 16 |
 | `128` | `229` | 29 |
-| `144` | `231` | 35 |
-| `156` | `232` | 74 |
+| `144` | `231` | 31 |
+| `156` | `232` | 72 |
 | `163` | `233` | 32 |
 | `167` | `234` | 28 |
 | `168` | `235` | 6 |
-| `169` | `236` | 42 |
+| `169` | `236` | 40 |
 | `176` | `237` | 24 |
 | `177` | `238` | 10 |
-| `185` | `239` | 30 |
-| `188` | `240` | 14 |
+| `185` | `239` | 26 |
+| `188` | `240` | 18 |
 | `189` | `241` | 7 |
-| `190` | `198` | 13 |
-| `202` | `242` | 15 |
+| `190` | `198` | 4 |
+| `202` | `242` | 6 |
 
 El renumerado **no esta commiteado**: HEAD y el arbol de trabajo
 describen bases de datos distintas. Por eso la fuente es la
@@ -170,6 +170,14 @@ comparacion contra HEAD y no el historial.
 | 246 | 246-la-coherencia-de-gfx8-son-tres-registros-y-ninguno-de-cache.md<br>246-todo-el-mmio-pasa-por-dos-helpers.md |
 | 258 | 258-veinticuatro-gbs-de-vram-contra-dos-gbs-de-pcie.md<br>258-verificar-el-target-coincide-en-diez-campos-y-la-amd-no-es-card0.md |
 | 261 | 261-banco-de-pruebas-de-computo-y-el-bug-que-lo-invalido.md<br>261-dri-0-no-es-la-rx-550-y-card1-no-es-un-nodo-drm.md |
+| 262 | 262-dos-escritores-en-la-misma-ram-del-smc.md<br>262-el-control-tardo-tres-versiones-en-ser-un-control.md |
+| 265 | 265-el-tamano-de-cache-de-gfx8-no-esta-en-ningun-sitio.md<br>265-la-tabla-que-manda-es-el-vbios-y-no-el-avfs.md |
+| 272 | 272-cg-mask-y-cu-mask-son-categorias-distintas.md<br>272-el-techo-de-overdrive-sale-de-una-lectura-fuera-de-rango.md |
+| 288 | 288-el-barrido-tiene-dos-codos-y-ninguno-mide-cache.md<br>288-falla-no-es-una-unidad-cinco-herramientas-encontrandose-a-si-mismas.md |
+| 959 | 959-el-barrido-como-suite-y-los-dos-fallos-de-su-veredicto.md<br>959-el-barrido-como-suite-y-los-tres-fallos.md |
+| 968 | 968-el-documento-que-declara-que-manda-declara-una-version-que-no-existe.md<br>968-q5-universo-de-tablas-gfx8.md |
+| 998 | 998-el-oracle-del-proyecto-no-tiene-selftest-pero-la-tabla-dice-que-si.md<br>998-no-hay-allocateur-de-vmid-y-el-fsm-que-pide-el-mandato-no-es-el-que-existe.md |
+| 999 | 999-el-corpus-de-definiciones-de-registro-es-identico-en-los-dos-arboles.md<br>999-el-fetch-del-anillo-es-un-bloque-de-registros-cp-rb-y-no-un-paquete.md |
 
 ## Renumeraciones
 
@@ -217,3 +225,4 @@ comparacion contra HEAD y no el historial.
 | 189 | 241 | **SI** | `el-eslabon-que-faltaba-era-un-literal.md` |
 | 190 | 198 | **SI** | `tres-correcciones-de-la-poda.md` |
 | 202 | 242 | **SI** | `los-registros-caben-en-bar5-con-4x-de-holgura.md` |
+| 975 | 976 | no | `corregcion-a-974-el-escritor-del-bit-51-es-inalcanzable-en` |
