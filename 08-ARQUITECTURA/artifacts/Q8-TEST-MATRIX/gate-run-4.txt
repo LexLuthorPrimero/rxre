@@ -1,0 +1,865 @@
+componente 4 · PCI resource ownership · 0000:01:00.0
+TARGET = RX 550 instalada · SCOPE = EXCLUSIVO
+
+T1-T3 · inventario real del dispositivo
+  PASS  T2a   DEVICE   BAR0 es MEM (bit0=0)
+  PASS  T2b   DEVICE   BAR0 es 64-bit (bits2:1=2)
+  PASS  T2c   DEVICE   BAR0 es prefetchable (bit3=1)
+  PASS  T2d   DEVICE   BAR2 es MEM 64-bit prefetchable
+  PASS  T2e   DEVICE   BAR4 es I/O (bit0=1)
+  PASS  T2f   DEVICE   BAR5 es MEM 32-bit (bits2:1=0)
+  PASS  T2g   DEVICE   BAR5 NO es prefetchable (bit3=0)
+  PASS  T1a   DEVICE   BASE(0) = 0x00000000E0000000
+  PASS  T1b   DEVICE   BASE(2) = 0x00000000F0000000
+  PASS  T1c   DEVICE   BASE(4) I/O = 0xE000
+  PASS  T1d   DEVICE   BASE(5) = 0xF7D00000
+  PASS  T3a   DEVICE   len(BAR0) = 256 MiB
+  PASS  T3b   DEVICE   len(BAR1) = 0 (word alto)
+  PASS  T3c   DEVICE   len(BAR2) = 2 MiB
+  PASS  T3d   DEVICE   len(BAR3) = 0 (word alto)
+  PASS  T3e   DEVICE   len(BAR4) = 256 (I/O)
+  PASS  T3f   DEVICE   len(BAR5) = 256 KiB
+  PASS  T3g   DEVICE   len(BAR5) cubre mmSCRATCH_REG0 0xc040
+
+T4 · modelo de propiedad
+  PASS  T4a   MODEL    init deja nr_claimed = 0
+  PASS  T4b   MODEL    init deja enabled = 0
+  PASS  T4c   MODEL    init: las 6 BAR en ABSENT
+  PASS  T4d   MODEL    len>0 ⇒ DISCOVERED
+  PASS  T4e   MODEL    len==0 ⇒ ABSENT (no DISCOVERED)
+  PASS  T4f   MODEL    DISCOVERED no está owned
+  PASS  T4g   MODEL    ABSENT no está owned
+  PASS  T4h   MODEL    CLAIMED está owned
+  PASS  T4i   MODEL    nr_claimed cuenta exactamente 1
+
+T5-T6 · pci_enable_device() DEFERRED
+  PASS  T5    MODEL    STATE 0: enabled=0 antes de cualquier cosa
+  PASS  T6a   MODEL    fallo de enable no avanza nr_claimed
+  PASS  T6b   MODEL    fallo de enable deja la BAR DISCOVERED
+
+T7-T8 · adquisición de región (modelo)
+  PASS  T7a   MODEL    claim de BAR5 desde DISCOVERED
+  PASS  T7b   MODEL    nr_claimed = 1 tras el claim
+  PASS  T7c   MODEL    sólo BAR5 queda CLAIMED
+  PASS  T8a   MODEL    claim de una BAR ABSENT falla
+  PASS  T8b   MODEL    el conflicto no incrementa nr_claimed
+  PASS  T8c   MODEL    la BAR en conflicto sigue ABSENT
+  PASS  T8d   MODEL    doble claim de la misma BAR falla
+  PASS  T8e   MODEL    nr_claimed sigue 1
+
+T9-T11 · unwind, orden de liberación, simetría
+  PASS  T9a   MODEL    sin claim no hay nada owned
+  PASS  T9b   MODEL    tras adquirir, no todo released
+  PASS  T10a  MODEL    se libera exactamente 1 región
+  PASS  T10b  MODEL    y es la adquirida (BAR5)
+  PASS  T10c  MODEL    todo released tras el unwind
+  PASS  T10d  MODEL    nr_claimed vuelve a 0
+  PASS  T11a  MODEL    release de no-CLAIMED no hace nada
+  PASS  T11b  MODEL    y nr_claimed sigue 0
+  PASS  T11c  MODEL    BAR2 sigue DISCOVERED tras un release no-dueño
+
+T15 · TARGET_MATCH intacto
+  PASS  T15a  MODEL    los 5 campos correctos aceptan
+  PASS  T15b  MODEL    otro Polaris12 (0x6987) rechaza
+  PASS  T15c  MODEL    otra tarjeta del mismo device ID (1028:1720) rechaza
+
+resumen: 50 PASS, 0 FAIL
+  PASS  R00    gfx_8_0_d.h se puede abrir (si no, R05/R07 serian falsos)
+  PASS  R00    gfx_8_1_d.h se puede abrir
+base de datos de registros · 10 entradas
+fuente: gfx_8_0_d.h y gfx_8_1_d.h del corpus
+
+  PASS  R01    la tabla no esta vacia
+  PASS  R02    invariante index*4 == byte_offset en todas las entradas
+  PASS  R03    todas dentro de BAR5 (0x40000)
+  PASS  R04    orden ascendente por byte_offset
+  PASS  R05b   ningun solape entre entradas
+  PASS  R07    gfx_8_0 y gfx_8_1 coinciden en los 10 registros
+  PASS  R08    todas con ancho 32
+  PASS  R09    mmCP_RB0_RPTR: 0x21c0*4 = 0x8700
+  PASS  R10    mmCP_RB_WPTR_POLL_CNTL: 0x21c2*4 = 0x8708
+  PASS  R11    mmSCRATCH_REG0: 0xc040*4 = 0x30100
+
+resumen: 32 PASS, 0 FAIL
+Q1 · modelo minimo de VM de GFX8
+corpus: ../../../RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/include/asic_reg/gmc/gmc_8_2_sh_mask.h
+
+V1 · limites de hardware, releidos de gmc_8_2_sh_mask.h
+  PASS  V0    la cabecera sh_mask se puede abrir (si no, V1 seria falso)
+  PASS  V1a   PHYSICAL_PAGE_NUMBER mask == 0xfffffff (28 bits)
+  PASS  V1b   PAGE_TABLE_DEPTH mask == 0x6 (2 bits)
+  PASS  V1c   PAGE_TABLE_BLOCK_SIZE mask == 0xf000000 (4 bits)
+  PASS  V1d   ENABLE_CONTEXT mask == 0x1
+  PASS  V1e   el modelo usa la misma mascara de PN
+  PASS  V1f   el modelo usa la misma mascara de depth
+  PASS  V1g   el modelo usa la misma mascara de block size
+  PASS  V1h   28 bits de pagina + 12 de shift = 40 bits de direccion fisica
+  PASS  V1i   28 bits deduce del hardware, no de memoria
+  PASS  V1j   4 dominios de invalidacion de TLB
+  PASS  V1k   mascara de los 4 dominios
+  PASS  V1l   pagina de 4 KiB
+
+V2 · maquina de estados de un contexto
+  PASS  V2a   init deja ABSENT
+  PASS  V2b   ABSENT no es usable
+  PASS  V2c   enable desde ABSENT se rechaza
+  PASS  V2d   PN de 33 bits se rechaza
+  PASS  V2e   y sigue ABSENT tras el rechazo
+  PASS  V2f   ctx_id 2 se rechaza (solo hay CNTL 0 y 1)
+  PASS  V2g   depth 4 se rechaza (campo de 2 bits)
+  PASS  V2h   block_size 16 se rechaza (campo de 4 bits)
+  PASS  V2i   configure valido
+  PASS  V2j   queda CONFIGURED
+  PASS  V2k   no se puede configurar dos veces
+  PASS  V2l   enable sin page_table_valid se rechaza
+  PASS  V2m   sigue CONFIGURED
+  PASS  V2n   enable con tabla valida
+  PASS  V2o   queda ENABLED
+  PASS  V2p   ENABLED es usable
+  PASS  V2q   invalidate de dominio 0 se acepta
+  PASS  V2r   queda TLB_INVALIDATE
+  PASS  V2s   mascara 0 se rechaza
+  PASS  V2t   dominio 4 (inexistente) se rechaza
+  PASS  V2u   no se puede invalidar dos veces seguidas
+  PASS  V2v   respuesta parcial no cierra la peticion
+  PASS  V2w   sigue TLB_INVALIDATE
+  PASS  V2x   respuesta completa cierra
+  PASS  V2y   vuelve a ENABLED
+  PASS  V2z   tlb_pending queda en cero
+
+V3 · numero de pagina fisica != direccion fisica
+  PASS  V3a   PN 0x1234 -> fisica 0x1234000
+  PASS  V3b   PN 0 -> fisica 0
+  PASS  V3c   PN max de 28 bits -> 0xFFFFFFF000 (40 bits)
+  PASS  V3d   PN con bit 28 puesto no es valido
+  PASS  V3e   PN con bit 27 puesto si es valido
+
+V4 · retirada
+  PASS  V4a   retire desde ENABLED
+  PASS  V4b   queda RETIRED
+  PASS  V4c   RETIRED no es usable
+  PASS  V4d   no se puede reutilizar un contexto retirado
+  PASS  V4e   no se puede habilitar un contexto retirado
+  PASS  V4f   no se retira con una TLB invalidate pendiente
+  PASS  V4g   sigue TLB_INVALIDATE
+
+V5 · requisitos del primer camino
+  PASS  V5a   la tabla de requisitos no esta vacia
+  PASS  V5b   todo valor de need esta dentro de rango
+       11 requisitos: 4 REQUIRED, 2 NOT_REQUIRED_YET/NOT_DETERMINED
+  PASS  V5c   hay al menos un NOT_DETERMINED honesto (depth y block size)
+  PASS  V5d   toda fila declara su base
+  PASS  V5e   multiplexacion de VMID = NOT_REQUIRED_YET
+
+resumen: 56 PASS, 0 FAIL
+Q3 · modelo de fence
+
+F1 · creacion: el camino de senal es obligatorio
+  PASS  F1a    init deja ABSENT
+  PASS  F1b    crear sin camino se rechaza
+  PASS  F1c    crear con timeout 0 se rechaza
+  PASS  F1d    crear con camino invalido se rechaza
+  PASS  F1e      y sigue ABSENT tras los rechazos
+  PASS  F1f    crear con RELEASE_MEM
+  PASS  F1g    queda CREATED
+  PASS  F1h    el camino queda registrado
+  PASS  F1i    no se puede crear dos veces
+  PASS  F1j      y el camino original no cambio
+
+F2 · publicar y observar
+  PASS  F2a    no se puede observar sin publicar
+  PASS  F2b    publicar
+  PASS  F2c    la secuencia queda fijada
+  PASS  F2d    no se puede publicar dos veces
+  PASS  F2e      y la secuencia no cambio
+  PASS  F2f    observar una secuencia distinta se rechaza
+  PASS  F2g      y sigue PUBLISHED
+  PASS  F2h    observar la secuencia correcta
+  PASS  F2i    queda SIGNALLED
+  PASS  F2j    es settled
+  PASS  F2k    doble senalizacion se rechaza
+  PASS  F2l      el estado no se altera
+  PASS  F2m      y la secuencia observada sigue siendo la misma
+
+F3 · timeout
+  PASS  F3a    timeout antes de publicar se rechaza
+  PASS  F3b    timeout tras publicar
+  PASS  F3c    queda TIMED_OUT
+  PASS  F3d    es settled
+  PASS  F3e    no se puede observar despues del timeout
+  PASS  F3f    no se puede volver a caducar
+
+F4 · transiciones invalidas
+  PASS  F4a    error sobre ABSENT se rechaza
+  PASS  F4b    get sobre ABSENT se rechaza
+  PASS  F4c    retire sobre ABSENT se rechaza
+  PASS  F4d    retire sin crear secuencia se rechaza
+  PASS  F4e    get sobre CREATED
+  PASS  F4f    retire en uso se rechaza
+  PASS  F4g    put
+  PASS  F4h    put de mas se rechaza
+
+F5 · comparacion de secuencias (no es <)
+  PASS  F5a    8 va despues de 7
+  PASS  F5b    7 NO va despues de 8
+  PASS  F5c    iguales no van despues
+  PASS  F5d    tras el wrap, 0 va despues de 0xFFFFFFFF
+  PASS  F5e    y 0xFFFFFFFF NO va despues de 0
+  PASS  F5f    diferencia de 2^31 no cuenta como despues
+  PASS  F5g    diferencia de 2^31-1 si cuenta
+
+F6 · retirada
+  PASS  F6a    retire tras senalizar
+  PASS  F6b    queda RETIRED
+  PASS  F6c    no se puede senalizar un fence retirado
+  PASS  F6d    no se puede get sobre RETIRED
+  PASS  F6e    retire de nuevo se rechaza
+
+resumen: 49 PASS, 0 FAIL
+Q4 · contrato de submission
+
+S1 · crear
+  PASS  S1a    init deja ABSENT
+  PASS  S1b    create con wptr 0 se rechaza
+  PASS  S1c    create valido
+  PASS  S1d    queda CREATED
+  PASS  S1e    el wptr queda fijado
+  PASS  S1f    no se puede crear dos veces
+  PASS  S1g      y el wptr no cambio
+  PASS  S1h    no se puede publicar sin READY
+  PASS  S1i    no se puede completar sin consumir
+
+S2 · el WPTR no puede cambiar al publicar
+  PASS  S2a    ready
+  PASS  S2b    no se puede ready dos veces
+  PASS  S2c    publicar con otro wptr se rechaza
+  PASS  S2d      y sigue READY
+
+S3 · camino normal
+  PASS  S3a    publicar con el wptr fijado y puerta escrita
+  PASS  S3b    queda PUBLISHED
+  PASS  S3c    doorbell_suppressed = 0
+  PASS  S3d    la evidencia es la puerta
+  PASS  S3e    tse_proves(PUBLISHED) = 1
+  PASS  S3f    no se puede consumir con un rptr invalido de 0? (se acepta, 0 es un valor)
+  PASS  S3g    queda CONSUMED
+  PASS  S3h    tse_proves(CONSUMED) = 2
+  PASS  S3i    no se puede volver a publicar
+  PASS  S3j    no se puede volver a consumir
+  PASS  S3k    completar con seq 0 se rechaza
+  PASS  S3l    completar
+  PASS  S3m    queda COMPLETED
+  PASS  S3n    tse_proves(COMPLETED) = 3
+
+S4 · la regla central: fence != ejecucion
+  PASS  S4a    tras COMPLETED, valor de destino incorrecto NO demuestra
+  PASS  S4b    tras COMPLETED, valor de destino correcto SI demuestra
+  PASS  S4c    solo WPTR, sin consumir: no demuestra
+  PASS  S4d    WPTR+RPTR, sin fence: no demuestra
+  PASS  S4e    WPTR+RPTR+fence, sin lectura del destino: NO demuestra
+  PASS  S4e2    y con un valor que no coincide tampoco
+
+S5 · camino con la puerta suprimida (brazo de EP08)
+  PASS  S5a    publicar SIN puerta escrita es valido
+  PASS  S5b    queda PUBLISHED igualmente
+  PASS  S5c    doorbell_suppressed = 1
+  PASS  S5d    la evidencia es el WPTR, no la puerta
+  PASS  S5e    sin puerta, el fence NO se completa sin consumo
+
+S6 · error y retirada
+  PASS  S6a    get
+  PASS  S6b    no se retira en uso
+  PASS  S6c    put
+  PASS  S6d    retire tras completar
+  PASS  S6e    queda RETIRED
+  PASS  S6f    no se puede completar un fence retirado
+  PASS  S6g    no se puede get sobre RETIRED
+  PASS  S6h    error sobre ABSENT se rechaza
+  PASS  S6i    error desde CREATED
+  PASS  S6j    queda ERROR
+  PASS  S6k    no demuestra nada un ERROR
+  PASS  S6l    ni efecto
+  PASS  S6m    retire desde ERROR
+
+resumen: 51 PASS, 0 FAIL
+test_mmio_access  —  accessor de registros GFX8 sobre BAR5
+fuentes: ..
+corpus:  ../../../RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/include/asic_reg/gmc/gmc_8_1_d.h
+mask:    ../../../RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/include/asic_reg/gmc/gmc_8_1_sh_mask.h
+gmc:     ../../../RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
+
+    1 de los PROVEN se escriben por la familia mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR + i (contextos 1..15, cota del bucle en gmc_v8_0.c)
+
+  passed: 207
+  failed: 0
+test_block_size  —  D1: PAGE_TABLE_BLOCK_SIZE en GFX8
+gmc_v8_0.c : ../../../RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
+amdgpu_vm.c: ../../../RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+amdgpu_gmc.c: ../../../RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/amdgpu/amdgpu_gmc.c
+
+  ── tabla: proyecto vs aritmética del corpus ──
+     1 GiB  PROY bs= 9 campo=0 pte= 512 cov= 1024 MiB   CORPUS bs= 9 campo=0 tmp=1 cov= 1024 MiB
+     2 GiB  PROY bs=10 campo=1 pte=1024 cov= 4096 MiB   CORPUS bs=10 campo=1 tmp=2 cov= 4096 MiB
+     4 GiB  PROY bs=10 campo=1 pte=1024 cov= 4096 MiB   CORPUS bs=10 campo=1 tmp=2 cov= 4096 MiB
+    el primer block_size cuya cobertura alcanza 8 GiB es 11 (campo 2), y el proyecto usa 10
+
+  passed: 79
+  failed: 0
+test_gart_write - lote sobre backing externo
+
+  PASS  1. lote de 4 escrito
+  PASS  1. las 4 entradas están donde tocaba
+  PASS  1. y NADA fuera del rango pedido
+  PASS  1. ni al final de la tabla
+  PASS  2. lote con entrada inválida rechazado
+  PASS  2. CERO escrituras: ni siquiera las tres válidas
+  PASS  2. IS_PTE (63) rechazado
+  PASS  2. y nada escrito
+  PASS  2. bit 3 (reservado) rechazado
+  PASS  2. y nada escrito
+  PASS  2. LOG (55) rechazado
+  PASS  2. y nada escrito
+  PASS  2. PA por encima de 40 bits rechazada
+  PASS  3. last index == TABLE_N-1: la última entrada es válida
+  PASS  3. y está escrita
+  PASS  3. la penúltima también
+  PASS  4. last index == TABLE_N: rechazado
+  PASS  4. first=TABLE_N-1 con count=2 se sale
+  PASS  4. first=TABLE_N rechazado antes de cualquier aritmética
+  PASS  4. first=UINT64_MAX no desborda hacia dentro
+  PASS  5. first=1000 en un backing de 4 entradas: RECHAZADO
+  PASS  5. y no escribió nada
+  PASS  5. los centinelas siguen intactos
+  PASS  5b. first=2 en un backing de 1: RECHAZADO por B
+  PASS  5b. y el canario al que CAERIA la fuga, intacto
+  PASS  5b. ni la palabra de en medio
+  PASS  5. first=0 con 4 entradas en un backing de 4: válido
+  PASS  5. escrito
+  PASS  5. y los centinelas siguen intactos
+  PASS  5. first=3 con count=2 en backing de 4: se sale
+  PASS  5. y el centinela posterior NO fue sobrescrito
+  PASS  5. ni el anterior
+  PASS  5. first=2 count=2 en backing de 4: exactamente al borde, valido
+  PASS  5. las dos ultimas escritas
+  PASS  5. backing NULL rechazado
+  PASS  5. backing de 0 entradas rechazado
+  PASS  5. backing de 65537 entradas: NO rechazado (no hay cota global)
+  PASS  5. y un backing PEQUENO sigue rechazando: la cota es b->entries
+  PASS  count=0 RECHAZADO por un guard dedicado
+  PASS  count=0 tambien con backing de 1 entrada y first=0
+  PASS  y con array NULL tambien
+  PASS  first == backing->entries con count=1 rechazado
+  PASS  first = UINT64_MAX rechazado por la resta, no por suma
+  PASS  first = UINT64_MAX-2 con count=8: first+n desbordaria en suma
+  PASS  y count=0 tambien
+  PASS  10. lote de 8 escrito e invalidado
+  PASS  10. UNA invalidación, no ocho
+  PASS  10. para el VMID pedido
+  PASS  10. un solo elemento tambien invalida una vez
+  PASS  10. y sigue siendo una
+  PASS  10. lote inválido falla
+  PASS  10. y NO se invalida
+  PASS  10. sin invalidador, rechazado: no se puede fingir que se invalidó
+  PASS  10. invalidador sin funcion rechazado
+  PASS  10. VMID 16 rechazado (el registro tiene 16 posiciones)
+  PASS  el owner provee backing, vmid y tlb
+  PASS  TABLE_SIZE lo decide quien reserva, no este componente
+  PASS  WRITE_BATCH_COMPLETED no implica EXECUTED
+  PASS  tampoco con 0
+
+  59 pass, 0 fail
+test_ib_bridge — GPUVA -> IB -> PM4
+
+  PASS  mascara de 48 bits
+  PASS  alineacion de 4 B
+  PASS  1. IB valido creado
+  PASS  1. estado CREATED
+  PASS  1. valida
+  PASS  1. motivo OK
+  PASS  1. READY
+  PASS  1. estado READY
+  PASS  2. longitud 0 rechazada
+  PASS  2. motivo LEN_ZERO
+  PASS  2. no avanza de CREATED
+  PASS  3. GPUVA desalineada rechazada
+  PASS  3. motivo ADDR_ALIGN
+  PASS  4. GPUVA > 48 bits rechazada
+  PASS  4. motivo ADDR_RANGE
+  PASS  5. vmid 0xffff permitido
+  PASS  5. un vmid de 16 bits nunca desborda el campo
+  PASS  6. longitud maxima aceptada
+  PASS  6. longitud no alineada rechazada
+  PASS  7. READY->READY rechazado
+  PASS  7. redefinir un IB vivo rechazado
+  PASS  7. NULL rechazado
+  PASS  7. motivo NULL
+  PASS  7. primer make_ready
+  PASS  7. make_ready dos veces rechazado
+  PASS  10. buffer vacio al inicio
+  PASS  10. emit correcto
+  PASS  10. estado PUBLISHED
+  PASS  10. el descriptor ocupa 4 DW
+  PASS  10. first_dw registrado
+  PASS  10. DW0 leido
+  PASS  10. DW1 leido
+  PASS  10. DW2 leido
+  PASS  10. DW3 leido
+  PASS  10. addr_lo = gpu_va & 0xFFFFFFFC
+  PASS  10. addr_hi = gpu_va >> 32
+  PASS  10. hdr releido
+  PASS  10. nada se escribio de mas
+  PASS  7. re-emitir rechazado
+  PASS  7. el buffer no cambio al re-emitir
+  PASS  11. la PA de prueba esta desalineada
+  PASS  11. IB de control valido
+  PASS  11. emitido
+  PASS  11. addr_lo leido
+  PASS  11. el descriptor no contiene la SYSTEM_PA
+  PASS  11. addr_hi leido
+  PASS  11. addr_hi no trae bits de PA de sistema
+  PASS  12. un offset VRAM alineado NO es detectable por el validador
+  PASS  12. offset VRAM y GPUVA son valores distintos, aun con el mismo tipo
+  PASS  12. el error es un CAST, no una conversion: por eso no se detecta
+  PASS  9. la direccion del descriptor es la GPUVA, no un offset
+  PASS  9. direccion dentro de 48 bits
+  PASS  A. el descriptor sin validar se rechaza
+  PASS  A. el accessor NO devuelve la direccion sin enmascarar
+  PASS  A. lo que devuelve cabe en 48 bits
+  PASS  A. y es exactamente la parte representable
+  PASS  A. NULL devuelve 0
+  PASS  PUBLISHED no implica EXECUTED
+  PASS  y el estado no miente sobre si mismo
+
+  59 pass, 0 fail
+test_ib_composer — IB_GPU_ADDRESS + CODE_OFFSET_BYTES
+
+  PASS  8. el operando izquierdo es IB_GPU_ADDRESS
+  PASS  9. el operando derecho es CODE_OFFSET_BYTES
+  PASS  9. el resultado es CODE_ADDRESS, no un uint64_t
+  PASS  9. los tres ocupan lo mismo y siguen siendo tipos distintos
+  PASS  base 0x10000 valida
+  PASS  base desalineada rechazada
+  PASS  y la salida quedo a cero
+  PASS  offset 0x200 valido
+  PASS  offset desalineado rechazado
+  PASS  1. composicion valida
+  PASS  1. 0x10000 + 0x200 = 0x10200
+  PASS  1. offset 0 aceptado
+  PASS  1. y da la base
+  PASS  2. offset == IB_LENGTH rechazado
+  PASS  2. y la salida quedo a cero
+  PASS  2. offset mas alla del IB rechazado
+  PASS  2. el ultimo offset dentro del IB es valido
+  PASS  2. IB de longitud 0 rechazado
+  PASS  2. offset 0x800 en un IB de 0x800: en el limite, rechazado
+  PASS  2. y con IB de 0xA00 si cabe
+  PASS  3. suma que desborda uint64: rechazada
+  PASS  3. y NO se envuelve a un valor bajo
+  PASS  3. UINT64_MAX exacto rechazado: no esta alineado
+  PASS  3. suma que llega exactamente a 2^64: rechazada
+  PASS  3. y no envuelve a 0
+  PASS  3. el mayor alineado que aun cabe se acepta
+  PASS  3. y compone sin desbordar
+  PASS  3. 2^64-0x100 con offset 0x100: suma = 2^64, rechazada
+  PASS  4. base desalineada rechazada
+  PASS  4. 0x10100 SI esta alineada (byte bajo 0x00): se acepta
+  PASS  4. base 0x10080 (byte bajo 0x80): rechazada
+  PASS  4. base 0x180: rechazada
+  PASS  5. offset desalineado rechazado
+  PASS  5b. la SUMA 0x80+0x80=0x100 esta alineada...
+  PASS  5b. ...pero 0x80 NO esta alineado en ninguno de los dos
+  PASS  5b. y el compositor la RECHAZA:_operandos, no suma
+  PASS  5b. sin producir resultado
+  PASS  10. ultimo offset valido aceptado
+  PASS  10. y compuesto bien
+  PASS  10. uno mas: rechazado
+  PASS  codificacion: composicion
+  PASS  codificacion: program address
+  PASS  codificacion: (base+off)>>8 = 0x102
+  PASS  codificacion: codificar antes NO daria lo mismo
+  PASS  SET_SH_REG emitido
+  PASS  4 DWORD
+  PASS  TYPE=3 OPCODE=0x76 COUNT=2
+  PASS  offset 0x020c
+  PASS  LO=0x102 HI=0
+  PASS  offset fuera del IB: no emite
+  PASS  y no escribio nada
+  PASS  capacidad insuficiente: no emite
+  PASS  y sigue sin escribir
+  PASS  DISPATCH_DIRECT emitido
+  PASS  5 DWORD: 1 header + 4 payload
+  PASS  TYPE=3 OPCODE=0x15 COUNT=3 (NOT_VERIFIED, se reemite)
+  PASS  x=8 y=1 z=1
+  PASS  COMPUTE_SHADER_EN=1
+  PASS  y nada mas
+  PASS  con shader_en=0
+  PASS  COMPUTE_SHADER_EN=0
+  PASS  4 DWORD no bastan para DISPATCH_DIRECT
+  PASS  EVENT_WRITE emitido
+  PASS  3 DWORD
+  PASS  TYPE=3 OPCODE=0x46 (COUNT=0 no discriminante)
+  PASS  EVENT_TYPE(7)|EVENT_INDEX(4), sin semantica
+  PASS  secuencia: programa
+  PASS  secuencia: dispatch
+  PASS  secuencia: event write
+  PASS  secuencia: 4+5+3 = 12 DWORD
+  PASS  secuencia[0]: TYPE=3 OPCODE=0x76 COUNT=2
+  PASS  secuencia[4]: TYPE=3 OPCODE=0x15 COUNT=3
+  PASS  secuencia[9]: TYPE=3 OPCODE=0x46 (COUNT=0 no discriminante)
+  PASS  COMPOSED != EMITTED != EXECUTED
+
+  74 pass, 0 fail
+test_pdb0 — GART, PDB0 y MMIO
+
+  PASS  GART_START = 0 (DESIGN_CHOICE)
+  PASS  GART es identidad con la ventana de sistema
+  PASS  GART address == system PA con base 0
+  PASS  offset VRAM en bytes
+  PASS  VRAM offset != GART address
+  PASS  la funcion de confusion devuelve falso para espacios distintos
+  PASS  …y verdadero solo cuando los bytes coinciden de verdad
+  PASS  PA de 40 bits representable
+  PASS  PA por encima de 40 bits rechazada
+  PASS  PA alineada a 4 KiB
+  PASS  PA desalineada rechazada
+  PASS  512 entradas
+  PASS  entrada de 8 B
+  PASS  512*8 = 4 KiB
+  PASS  cobertura 2 MiB
+  PASS  marca de hoja en bit 54
+  PASS  la hoja no invade el campo de direccion
+  PASS  0 bytes -> 0 tablas
+  PASS  1 byte -> 1 tabla
+  PASS  2 MiB -> 1 tabla
+  PASS  2 MiB+1 -> 2
+  PASS  indice 0 valido
+  PASS  indice 511 valido
+  PASS  indice 512 invalido
+  PASS  GPUVA baja -> indice 0
+  PASS  GPUVA alta -> indice 511
+  PASS  el indice se reinicia
+  PASS  entrada valida
+  PASS  direccion recuperable
+  PASS  escribible
+  PASS  legible
+  PASS  hoja marcada
+  PASS  solo lectura si no se pide escritura
+  PASS  PA no representable codifica a 0, no se trunca
+  PASS  rmmio_size 0x40000
+  PASS  registro de 4 bytes
+  PASS  mmCP_RB0_RPTR: indice 0x21c0 -> offset 0x8700
+  PASS  el indice NO es el offset: la trampa esta documentada
+  PASS  0x8700 dentro de la ventana
+  PASS  ultimo registro dentro de la ventana
+  PASS  un registro mas alla queda fuera
+  PASS  offset de registro alineado
+  PASS  init deja EMPTY
+  PASS  alloc sin contexto rechazado
+  PASS  init_table antes de alloc
+  PASS  destroy de EMPTY rechazado
+  PASS  alloc ok
+  PASS  el allocator fue invocado
+  PASS  ALLOCATED
+  PASS  doble alloc rechazado
+  PASS  guarda el contexto, no la funcion
+  PASS  PDB0 se inicializa sin GPUVA
+  PASS  open
+  PASS  open con dueno ajeno rechazado
+  PASS  PROGRAMMABLE
+  PASS  mutacion ajena rechazada
+  PASS  dueno 0 rechazado
+  PASS  PA desalineada rechazada
+  PASS  PA no representable rechazada
+  PASS  mapeo valido
+  PASS  lookup
+  PASS  la entrada contiene la PA que se dio
+  PASS  una entrada viva
+  PASS  unmap
+  PASS  ninguna viva
+  PASS  unmap fuera de rango
+  PASS  lookup fuera de rango
+  PASS  destroy con dueno ajeno rechazado
+  PASS  y no libero nada
+  PASS  destroy
+  PASS  liberado una vez
+  PASS  RETIRED
+  PASS  doble destroy rechazado
+  PASS  y no vuelve a liberar
+  PASS  este modulo no contiene ninguna llamada a hardware
+
+  75 pass, 0 fail
+test_submission — GPU code address -> PM4
+
+  PASS  opcode SET_SH_REG = 0x76
+  PASS  ventana del opcode en 0x2c00
+  PASS  mmCOMPUTE_PGM_LO = 0x2e0c
+  PASS  offset EN EL PAQUETE = 0x020c
+  PASS  el offset del paquete NO es la direccion del registro
+  PASS  0x2e0c - 0x2c00 = 0x020c
+  PASS  count = 2 (LO y HI)
+  PASS  el paquete ocupa 4 DWORD
+  PASS  la direccion se codifica con >>8
+  PASS  1. conversion correcta
+  PASS  1. 0x10000 >> 8 = 0x100
+  PASS  1. y NO es lo mismo numero
+  PASS  1. coincide con >>8
+  PASS  2. 0x10037 NO alineada a 256: RECHAZADA (no truncada)
+  PASS  2. y la salida quedo a cero
+  PASS  2. 0x100FF rechazada
+  PASS  4. conversion
+  PASS  4. 0x12345600 >> 8
+  PASS  4. LO
+  PASS  4. HI = 0
+  PASS  4. direccion alta
+  PASS  4. HI = 0xffffff
+  PASS  4. LO
+  PASS  5. mmCOMPUTE_PGM_LO aceptado
+  PASS  5. offset codificado = 0x020c
+  PASS  5. y se deshace bien: ventana + 0x020c = 0x2e0c
+  PASS  5. 0x020c != 0x2e0c: dos numeros, dos espacios
+  PASS  5. ventana: inicio
+  PASS  5. offset 0 en el inicio de la ventana
+  PASS  5. registro fuera de la ventana rechazado
+  PASS  5. registro por debajo rechazado
+  PASS  5. pasar 0x020c como si fuera el registro se rechaza
+  PASS  6. conversion
+  PASS  6. offset del registro
+  PASS  6. se escriben 4 DWORD
+  PASS  6. header: TYPE=3 OPCODE=0x76 COUNT=2
+  PASS  6. offset = 0x020c
+  PASS  6. LO = 0x100
+  PASS  6. HI = 0
+  PASS  6. y nada mas escrito
+  PASS  7. el paquete reensamblado coincide
+  PASS  7. opcode en [15:8]
+  PASS  7. count en [29:16] = 2
+  PASS  8. exactamente 4 campos
+  PASS  8. los dos primeros son opcode y registro, no contexto
+  PASS  8. no existe un quinto DWORD donde meter un VMID
+  PASS  9. la direccion de codigo no arrastra nada mas
+  PASS  9. ni la direccion codificada
+  PASS  9. ni el offset del registro
+  PASS  3 DWORD no bastan: rechazado
+  PASS  y no se escribio ninguno
+  PASS  exactamente 4 si: se acepta
+  PASS  dst NULL rechazado
+  PASS  C. code_size es metadato del package
+  PASS  C. el paquete observado no lleva longitud de codigo
+  PASS  D. el descriptor tiene 4 campos y no un quinto de entrada
+  PASS  D. 16 bytes, nada mas
+  PASS  PM4 emitido no implica EJECUTADO
+  PASS  y el estado no miente sobre si mismo
+
+  59 pass, 0 fail
+test_vmid0_gart — GFX8 VMID0, una tabla
+
+  PASS  tope de admision
+  PASS  entrada de 8 bytes
+  PASS  pagina de 4 KiB
+  PASS  apertura en 0 (DESIGN_CHOICE)
+  PASS  end = start + size - 1
+  PASS  entries se DERIVA de size, no es una constante global
+  PASS  65536 entradas con la apertura de 256 MiB
+  PASS  apertura alineada a 4 GiB
+  PASS  apertura NO alineada a 4 GiB rechazada
+  PASS  apertura no multiplo de la pagina rechazada
+  PASS  1. offset calculado
+  PASS  1. offset en BYTES = 0x3000
+  PASS  1. indice calculado
+  PASS  1. indice en PAGINAS = 3, no 12288
+  PASS  1. bytes e indice NO coinciden
+  PASS  1. el error seria SILENCIOSO: cabe en la tabla
+  PASS  2. base construida
+  PASS  2. 0x1000 >> 12 = 1
+  PASS  2. base NO es el offset en bytes
+  PASS  2. offset 2^32 representable CON >>12
+  PASS  2. y vale 2^20
+  PASS  2. offset que no cabe tras >>12 rechazado, no truncado
+  PASS  2. y la salida quedo a cero
+  PASS  3. config VMID0 construida
+  PASS  3. profundidad 0
+  PASS  3. ENABLE_CONTEXT = 1
+  PASS  3. RANGE_PF_DEFAULT = 1
+  PASS  3. regs_build rechaza profundidad distinta de 0
+  PASS  3. y tambien profundidad 3
+  PASS  4. dummy PFN construido
+  PASS  4. 0x2000000 >> 12 = 0x2000
+  PASS  4. el mismo numero como offset de VRAM tambien vale
+  PASS  4. MISMO VALOR, DISTINTO TIPO: por eso los wrappers existen
+  PASS  5. offset == aperture.size rechazado
+  PASS  5. y la salida quedo a cero
+  PASS  5. offset > aperture.size rechazado
+  PASS  5. indice 65536 rechazado (uno mas alla de la ultima)
+  PASS  5. indice 65535 es la ultima entrada valida
+  PASS  5. y esta en el byte 524280
+  PASS  6. apertura de 4 entradas
+  PASS  6. entries = size / PAGE_SIZE
+  PASS  6. pagina 3 valida en la apertura pequena
+  PASS  6. indice 3
+  PASS  6. pagina 4 rechazada: es el limite, no un maximo global
+  PASS  6. pagina 4+1 rechazada
+  PASS  6. pagina 5 rechazada aunque quepa en 256 MiB
+  PASS  6. pero la MISMA pagina 5 es valida en la apertura de 256 MiB
+  PASS  6. indice 5 en la apertura grande
+  PASS  6. indice 4 no existe en la apertura pequena
+  PASS  6. indice 3 si existe
+  PASS  6. byte 24
+  PASS  6. el indice 3 tambien existe en la apertura grande
+  PASS  5. el ultimo byte de la apertura es valido
+  PASS  5. offset correcto
+  PASS  5. un byte despues de la apertura se rechaza
+  PASS  6. PA alineada aceptada
+  PASS  6. valor correcto
+  PASS  6. el round trip devuelve la misma PA
+  PASS  6. PA con 1 byte de mas RECHAZADA
+  PASS  6. y la entrada salio vacia, no enmascarada
+  PASS  6. PA casi alineada rechazada (no se trunca a 0x1000)
+  PASS  6. PA por encima de 40 bits rechazada
+  PASS  6. una entrada rechazada nunca es valida
+  PASS  flags del layout de GART aceptados
+  PASS  bit 3 (reservado en la PTE de GART) rechazado
+  PASS  PRT (51) rechazado: el layout lo marca reservado
+  PASS  LOG (55) rechazado
+  PASS  NOALLOC (58) rechazado
+  PASS  IS_PTE (63) rechazado: no existe en GFX8
+  PASS  FRAG 11:7 aceptado
+  PASS  FRAG llega entero
+  PASS  flags=0 se codifica
+  PASS  pero NO es una entrada valida: eso lo decide el caller, no el encoder
+  PASS  base de VRAM
+  PASS  registros construidos
+  PASS  BASE = 0x80000
+  PASS  START = 0
+  PASS  END = 0xFFFF
+  PASS  FAULT_DEFAULT = 1
+  PASS  CNTL2 = 0
+  PASS  CNTL = 0x11
+  PASS  PAGE_TABLE_DEPTH en cero
+  PASS  PAGE_TABLE_BLOCK_SIZE no se escribe
+  PASS  orden BASE,START,END,FAULT,CNTL2,CNTL,INVALIDATE
+  PASS  y no hay un octavo
+  PASS  ENABLE_CONTEXT=0 rechazado por el constructor
+  PASS  RANGE_PF_DEFAULT=0 rechazado
+  PASS  dummy_page_addr fuera de rango rechazada
+  PASS  LIMITE: 0xffffffff000 (>>12 = 0xffffffff) ACEPTADO
+  PASS  LIMITE: y el registro vale 0xffffffff, no truncado
+  PASS  LIMITE: 0x100000000000 (una pagina mas) RECHAZADO
+  PASS  LIMITE: el ultimo PFN real (0xffffffef) ACEPTADO y exacto
+  PASS  LIMITE: config de partida
+  PASS  LIMITE: base de partida
+  PASS  LIMITE: apertura de 64 KiB en start 0 (alineado a 2^32)
+  PASS  LIMITE: gart_start = 0xffffffff000 ACEPTADO (>>12 cabe)
+  PASS  LIMITE: gart_start una pagina mas RECHAZADO
+  PASS  LIMITE: gart_end = 0xffffffff000 ACEPTADO
+  PASS  LIMITE: gart_end una pagina mas RECHAZADO
+  PASS  LIMITE: dummy_page_addr = 0xffffffff000 ACEPTADO
+  PASS  LIMITE: dummy_page_addr una pagina mas RECHAZADO
+  PASS  APERTURA: init de la apertura de prueba
+  PASS  APERTURA: el ULTIMO byte (size-1) es valido
+  PASS  APERTURA: off == size RECHAZADO (uno mas alla)
+  PASS  APERTURA: gpuva == start (0) da offset 0, y es VALIDO
+  PASS  APERTURA: un byte por debajo del start RECHAZADO
+  PASS  INDICE: apertura de 64 KiB
+  PASS  INDICE: off == size RECHAZADO (1+ entradas fuera)
+  PASS  INDICE: off == size-1 ACEPTADO
+  PASS  FAULT: PA = 0xffffffff000 ACEPTADA (>>12 = 0xffffffff)
+  PASS  FAULT: y el PFN vale 0xffffffff, no truncado
+  PASS  FAULT: PA una pagina mas RECHAZADA
+  PASS  BASE: config
+  PASS  BASE: base.value = 0xffffffff ACEPTADO (el maximo)
+  PASS  BASE: base.value = 0x100000000 RECHAZADO (no cabe)
+  PASS  vmid 0 -> bit 0
+  PASS  vmid 1 -> bit 1
+  PASS  vmid 15
+  PASS  vmid 16 fuera de rango
+
+  119 pass, 0 fail
+test_vmid1_pgt  —  jerarquia GFX8 de VMID1
+fuentes: ..
+
+
+  passed: 610
+  failed: 0
+test_vmid1_pgt_backing  —  backing del PGT de VMID1
+fuentes: ..
+
+
+  passed: 1238
+  failed: 0
+T1-T9 · ejecutando la regla real (target_match.h)
+T1-T9 · target_match() · TARGET = RX 550 instalada
+
+  PASS  T1   1002:699F es candidato de la id_table
+  PASS  T1b  1002:699F con subsys equivocado NO es candidato
+  PASS  T2   subsystem_vendor 0x1002 acepta
+  PASS  T2b  subsystem_vendor distinto rechaza
+  PASS  T3   subsystem_device 0x0B04 acepta
+  PASS  T3b  subsystem_device distinto rechaza
+  PASS  T4   revision 0xC7 acepta
+  PASS  T4b  revision 0xC0 rechaza (mismo device, silicio distinto)
+  PASS  T4c  la revisión NO está cubierta por la id_table
+  PASS  T5a  device equivocado rechaza
+  PASS  T5b  vendor equivocado rechaza
+  PASS  T5c  subsys vendor+device ambos distintos rechazan
+  PASS  T5d  todos los campos distintos rechazan
+  PASS  T6   los cinco campos correctos aceptan
+  PASS  T7a  Polaris12 0x6980 rechaza
+  PASS  T7b  Polaris12 0x6981 rechaza
+  PASS  T7c  Polaris12 0x6985 rechaza
+  PASS  T7d  Polaris12 0x6986 rechaza
+  PASS  T7e  Polaris12 0x6987 rechaza
+  PASS  T7f  Polaris12 0x6995 rechaza
+  PASS  T7g  Polaris12 0x6997 rechaza
+  PASS  T8   1002:67CC rechaza
+  PASS  T9a  vendor no-AMD rechaza
+  PASS  T9b  vendor 0 (comodín) NO acepta: no hay comodines
+
+resumen: 24 PASS, 0 FAIL
+
+T10-T14 · validación estática del driver
+  PASS  T10  firma de probe(struct pci_dev *, const struct pci_device_id *)
+  PASS  T10  firma de remove(struct pci_dev *)
+  PASS  T11  pci_set_drvdata aparece después de la puerta de matching
+  PASS  T11  remove() retira la asociación antes de liberar
+  PASS  T12  remove() libera el estado
+  PASS  T12  remove() obtiene el estado y comprueba que existe
+  PASS  T13  module_init registra el pci_driver (module_pci_driver)
+  PASS  T13  init_module presente en el .ko
+  PASS  T14  cleanup_module presente en el .ko (module_exit)
+
+AUDIT · acceso a hardware (debe estar AUSENTE)
+  PASS  HW   ninguna llamada de acceso a hardware en el cuerpo
+  PASS  HW-L el .ko no referencia ningún símbolo de acceso a hardware
+  PASS  LINK el .ko referencia __pci_register_driver (module_init real)
+  PASS  LINK el .ko referencia pci_unregister_driver (module_exit real)
+
+AUDIT · MMIO_MAPPING (STATE 3: debe estar PRESENTE y ser reversible)
+  PASS  MMIO-M pci_iomap presente en el cuerpo (mapeo de STATE 3)
+  PASS  MMIO-M pci_iounmap presente en el cuerpo (el mapeo es reversible)
+  PASS  MMIO-M el .ko pide pci_iomap al kernel
+  PASS  MMIO-M el .ko pide pci_iounmap al kernel
+  PASS  IDT  id_table en el binario: vendor=1002 device=699f subvendor=1002 subdevice=0b04
+  PASS  IDT  entrada terminadora de la id_table en cero
+  PASS  IDT  class_mask = 0 (no impone clase)
+  PASS  MOD  modinfo: license = GPL
+  PASS  MOD  modinfo: vermagic corresponde al kernel en ejecución
+
+SCOPE · no se ha ampliado el conjunto de hardware soportado
+  PASS  SCOPE la id_table declara exactamente 1 dispositivo
+  PASS  SCOPE la id_table no usa PCI_ANY_ID: sin comodines
+  PASS  SCOPE ninguna estructura de familia o ASIC en el driver
+
+COMP 4 · capa de recurso
+  PASS  RES  simbolo presente: target_res_discover
+  PASS  RES  simbolo presente: target_res_claim_regions
+  PASS  RES  simbolo presente: target_res_release
+  PASS  RES  el codigo usa pci_request_region (selectivo)
+  PASS  RES  NO usa pci_request_regions: nada se reserva por anticipacion
+  PASS  RES  pci_enable_device DEFERRED (no llamado)
+  PASS  RES  tabla de unwind (STATE 0..4) documentada
+  PASS  RES  release condicionado por target_res_owned (invariante I3)
+  PASS  RES  device object con el campo res
+
+────────────────────────────────────────────────
+resumen estático: 34 PASS, 0 FAIL
+T1-T14 + auditorías: OK

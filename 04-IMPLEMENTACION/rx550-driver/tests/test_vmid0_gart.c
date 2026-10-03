@@ -18,6 +18,12 @@
 #include <stdio.h>
 #include <string.h>
 
+/* El tope de la cota `x > 0xFFFFFFFF * 4096` de los cuatro sitios.
+ *   0xFFFFFFFF << 12 = 0xffffffff000   >>12 = 0xffffffff   CABE en 32 bits
+ *   + 4096             = 0x100000000000 >>12 = 0x100000000  NO CABE
+ * El tope ACEPTA; una pagina mas RECHAZA. */
+#define TOPE	(UINT64_C(0xFFFFFFFF) * 4096)
+
 static int pass, fail;
 
 static void ok(const char *t)
@@ -365,6 +371,202 @@ int main(void)
 		CHECK(rx550_vmid0_regs_build(&regs, &cfg, base, 0, ap.end,
 					     (struct rx550_system_pa){ UINT64_C(0x100000000000) }) != 0,
 		      "dummy_page_addr fuera de rango rechazada");
+	}
+
+	/* ── EL LIMITE INCLUSIVO, que no tenia caso ─────────────────────
+	 *
+	 * MEDIDO 2026-10-03 con tools/mutdrv.py: los cuatro sitios de la
+	 * forma `x > 0xFFFFFFFF * 4096` en rx550_vmid0_gart.c devolvian
+	 * SUPERVIVIENTES, y el mutante `>=` no lo podia matar esta suite.
+	 * La razon es esta, y no es que la suite fuera floja: NO HABIA NINGUN
+	 * CASO EN EL LIMITE.  Con 4 KiB de VRAM probados y `>` en el codigo,
+	 * un valor que cabe sale rechazado y uno que no cabe tambien, luego
+	 * el par entero daba verde con las dos versiones.
+	 *
+	 * El limite es INCLUSIVO porque lo que decide es el >>12, no el
+	 * registro:
+	 *
+	 *   0xFFFFFFFF << 12  =  0xffffffff000   >>12 = 0xffffffff   CABE
+	 *   + una pagina      =  0x100000000000  >>12 = 0x100000000  NO CABE
+	 *
+	 * Con `>` el primero se rechazaba: el codigo contradecia su propio
+	 * comentario ("un offset que no quepa tras el >>12 no se trunca"), y
+	 * el que no cabe es el segundo.
+	 *
+	 * IMPACTO EN ESTA PLACA: ninguno, y hay que decirlo.  Con 2 GiB de
+	 * VRAM el valor del limite es inalcanzable.  El defecto es del
+	 * CONTRATO del validador, no de un camino que esta placa exercise.
+	 */
+	{
+		struct rx550_gart_gpu_pfn	pfn;
+
+		/* el valor que SI cabe: 0xffffffff000 */
+		CHECK(rx550_vmid0_base_from_vram(
+			      (struct rx550_vram_offset){ UINT64_C(0xFFFFFFFF) * 4096 },
+			      &pfn) == 0,
+		      "LIMITE: 0xffffffff000 (>>12 = 0xffffffff) ACEPTADO");
+		CHECK(pfn.value == UINT32_C(0xFFFFFFFF),
+		      "LIMITE: y el registro vale 0xffffffff, no truncado");
+
+		/* una pagina por encima: ya no cabe */
+		CHECK(rx550_vmid0_base_from_vram(
+			      (struct rx550_vram_offset){ UINT64_C(0x100000000000) },
+			      &pfn) != 0,
+		      "LIMITE: 0x100000000000 (una pagina mas) RECHAZADO");
+
+		/* y el ultimo valor de 4 KiB de verdad, por si el limite se
+		 * movia sin que se notase el >>12 */
+		CHECK(rx550_vmid0_base_from_vram(
+			      (struct rx550_vram_offset){ UINT64_C(0xFFFFFFEF000) },
+			      &pfn) == 0 && pfn.value == UINT32_C(0xFFFFFFEF),
+		      "LIMITE: el ultimo PFN real (0xffffffef) ACEPTADO y exacto");
+	}
+
+	/* ── los otros tres sitios de la misma forma ───────────────────
+	 * gart_start, gart_end y dummy_page_addr pasan por la misma cota, y
+	 * con el mismo defecto.  Un caso en la puerta de regs_build() los
+	 * cubre a los tres sin tres bloques. */
+	{
+		struct rx550_vmid0_config		cfg;
+		struct rx550_vmid0_regs		regs;
+		struct rx550_gart_gpu_pfn		base;
+		struct rx550_gart_aperture		ap;
+		struct rx550_system_pa			pa;
+
+		CHECK(rx550_vmid0_config_build(&cfg) == 0, "LIMITE: config de partida");
+		CHECK(rx550_vmid0_base_from_vram((struct rx550_vram_offset){ 0 },
+						 &base) == 0,
+		      "LIMITE: base de partida");
+		/* La apertura es un componente DISTINTO y su cota es otra:
+		 * RX550_GART_SIZE_MAX = 256 MiB (POLICY, gmc_v8_0.c:595) y el
+		 * start va alineado a 2^32 (RX550_GART_APERTURE_ALIGN).  Una
+		 * apertura de 0xffffffff000 bytes es de otro dominio y aqui
+		 * seria un caso sin sentido. */
+		CHECK(rx550_gart_aperture_init(&ap, 0, UINT64_C(0x10000)) == 0,
+		      "LIMITE: apertura de 64 KiB en start 0 (alineado a 2^32)");
+
+		pa.bytes = UINT64_C(0x1000);
+		/* los tres sitios comparten la cota `x > 0xffffffff000`, y el
+		 * tope tiene que ACEPTARSE: 0xffffffff >> 12 cabe en el
+		 * registro.  una pagina mas ya no, y tiene que rechazarse.
+		 *
+		 * MEDIDO 2026-10-03: con `>=` en vez de `>` los cuatro sitios
+		 * devolvian SUPERVIVIENTES, y estos son los CHECK que los matan.
+		 * El mutante es el DEFECTUOSO: `>=` rechaza el tope, que si
+		 * cabe.  El codigo original es el correcto. */
+		CHECK(rx550_vmid0_regs_build(&regs, &cfg, base, TOPE, ap.end, pa) == 0,
+		      "LIMITE: gart_start = 0xffffffff000 ACEPTADO (>>12 cabe)");
+		CHECK(rx550_vmid0_regs_build(&regs, &cfg, base, TOPE + 4096, ap.end, pa) != 0,
+		      "LIMITE: gart_start una pagina mas RECHAZADO");
+		CHECK(rx550_vmid0_regs_build(&regs, &cfg, base, 0, TOPE, pa) == 0,
+		      "LIMITE: gart_end = 0xffffffff000 ACEPTADO");
+		CHECK(rx550_vmid0_regs_build(&regs, &cfg, base, 0, TOPE + 4096, pa) != 0,
+		      "LIMITE: gart_end una pagina mas RECHAZADO");
+		CHECK(rx550_vmid0_regs_build(&regs, &cfg, base, 0, ap.end,
+					     (struct rx550_system_pa){ TOPE }) == 0,
+		      "LIMITE: dummy_page_addr = 0xffffffff000 ACEPTADO");
+		CHECK(rx550_vmid0_regs_build(&regs, &cfg, base, 0, ap.end,
+					     (struct rx550_system_pa){ TOPE + 4096 }) != 0,
+		      "LIMITE: dummy_page_addr una pagina mas RECHAZADO");
+	}
+
+	/* ── apertura: off == size es uno MAS ALLA ──────────────────────
+	 * MEDIDO tambien por mutdrv.py: `off >= ap->size` -> `>` sobrevive.
+	 * Esta vez el codigo es el correcto y lo que falta es el caso: un
+	 * offset IGUAL al tamano esta fuera, no es el ultimo. */
+	{
+		struct rx550_gart_aperture	ap;
+		struct rx550_gpuva		gv;
+		struct rx550_gart_offset_bytes	off;
+
+		CHECK(rx550_gart_aperture_init(&ap, 0, UINT64_C(0x10000)) == 0,
+		      "APERTURA: init de la apertura de prueba");
+		gv.bytes = UINT64_C(0x10000) - 1u;
+		CHECK(rx550_gart_offset_of(gv, &ap, &off) == 0 && off.bytes == UINT64_C(0xFFFF),
+		      "APERTURA: el ULTIMO byte (size-1) es valido");
+		gv.bytes = UINT64_C(0x10000);
+		CHECK(rx550_gart_offset_of(gv, &ap, &off) != 0,
+		      "APERTURA: off == size RECHAZADO (uno mas alla)");
+		gv.bytes = 0;
+		CHECK(rx550_gart_offset_of(gv, &ap, &off) == 0 && off.bytes == 0,
+		      "APERTURA: gpuva == start (0) da offset 0, y es VALIDO");
+		gv.bytes = UINT64_C(0x100000000000) - 1u;   /* start-1 con start=2^32 */
+		CHECK(rx550_gart_offset_of(gv, &ap, &off) != 0,
+		      "APERTURA: un byte por debajo del start RECHAZADO");
+	}
+
+	/* ── LOS TRES SUPERVIVIENTES QUE QUEDABAN, uno a uno ───────────
+	 *
+	 * Cada uno es una SEGUNDA funcion con la misma cota, y la primera vez
+	 * que se midio solo se cubrió una de las dos.  Es la forma que toma
+	 * un agujero cuando el mismo limite aparece en varios sitios: se
+	 * tapa el que se probó y los demas siguen abiertos sin que nada lo
+	 * diga, porque el codigo es identico y se lee como si estuviera
+	 * cubierto.
+	 *
+	 * MEDIDO 2026-10-03 con tools/mutdrv.py, antes de estos casos:
+	 *   rx550_vmid0_gart.c:96   >= -> >    (rx550_gart_index_of)
+	 *   rx550_vmid0_gart.c:198  >  -> >=   (rx550_vmid0_fault_from_pa)
+	 *   rx550_vmid0_gart.c:228  >  -> >=   (base.value, campo de 32 bits)
+	 */
+	{
+		struct rx550_gart_aperture	ap;
+		struct rx550_gart_pte_index	idx;
+
+		/* 1. index_of: la MISMA cota que offset_of, en otra funcion.
+		 * off == size es uno mas alla y tiene que rechazarse; el
+		 * mutante `>` lo aceptaria y devolveria un indice de una
+		 * entrada que la apertura no tiene. */
+		CHECK(rx550_gart_aperture_init(&ap, 0, UINT64_C(0x10000)) == 0,
+		      "INDICE: apertura de 64 KiB");
+		CHECK(rx550_gart_index_of(&ap,
+					  (struct rx550_gart_offset_bytes){ UINT64_C(0x10000) },
+					  &idx) != 0,
+		      "INDICE: off == size RECHAZADO (1+ entradas fuera)");
+		CHECK(rx550_gart_index_of(&ap,
+					  (struct rx550_gart_offset_bytes){ UINT64_C(0xFFFF) },
+					  &idx) == 0,
+		      "INDICE: off == size-1 ACEPTADO");
+
+		/* 2. fault_from_pa: la misma cota, sobre una PA de sistema en
+		 * lugar de un offset de VRAM.  El tope ACEPTA: >>12 da
+		 * 0xffffffff, y un PFN de 32 bits lo admite entero. */
+		{
+			struct rx550_pfn	p;
+
+			CHECK(rx550_vmid0_fault_from_pa(
+				  (struct rx550_system_pa){ TOPE }, &p) == 0,
+			      "FAULT: PA = 0xffffffff000 ACEPTADA (>>12 = 0xffffffff)");
+			CHECK(p.value == UINT64_C(0xFFFFFFFF),
+			      "FAULT: y el PFN vale 0xffffffff, no truncado");
+			CHECK(rx550_vmid0_fault_from_pa(
+				  (struct rx550_system_pa){ TOPE + 4096 }, &p) != 0,
+			      "FAULT: PA una pagina mas RECHAZADA");
+		}
+
+		/* 3. base.value: aqui el campo es un uint64_t que va a un
+		 * registro de 32 bits, y 0xffffffff es el valor MAXIMO
+		 * legitimo.  El mutante `>=` lo rechazaria.  MEDIDO: por eso
+		 * :228 tambien era un agujero y no un mutante equivalente --
+		 * una comprobacion que "no puede fallar" porque el tipo la
+		 * acota seria otra historia, y aqui el tipo es de 64 bits. */
+		{
+			struct rx550_vmid0_config	cfg;
+			struct rx550_vmid0_regs	regs;
+			struct rx550_system_pa	pa;
+			struct rx550_gart_gpu_pfn	maxpfn;
+
+			CHECK(rx550_vmid0_config_build(&cfg) == 0, "BASE: config");
+			maxpfn.value = UINT64_C(0xFFFFFFFF);
+			pa.bytes = UINT64_C(0x1000);
+			CHECK(rx550_vmid0_regs_build(&regs, &cfg, maxpfn, 0,
+						     UINT64_C(0x1000), pa) == 0,
+			      "BASE: base.value = 0xffffffff ACEPTADO (el maximo)");
+			maxpfn.value = UINT64_C(0x100000000);
+			CHECK(rx550_vmid0_regs_build(&regs, &cfg, maxpfn, 0,
+						     UINT64_C(0x1000), pa) != 0,
+			      "BASE: base.value = 0x100000000 RECHAZADO (no cabe)");
+		}
 	}
 
 	/* ── invalidacion: una por lote ─────────────────────────────── */
