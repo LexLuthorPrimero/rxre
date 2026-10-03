@@ -59,6 +59,43 @@ VFIO, C1, RA24 ni la disponibilidad de extensiones Vulkan. El estado editorial
 - `03-EXPERIMENTOS/` — fases, datos, telemetría y resultados.
 - `04-IMPLEMENTACION/` — diseños, `rx550-torneo/`, proyectos propios y roadmap.
 - `05-FUENTES-EXTERNAS/` — fuentes, catálogos, benchmarks y manifiestos.
+- `06-INGENIERIA-INVERSA/` — reverse engineering. **`findings/` es la fuente primaria
+  del conocimiento** (499 `.md` a 2026-10-03); el resto son volcados de protocolo,
+  mapas de registros, análisis de amdgpu y firmware.
+- `07-DRIVER/` — driver especializado: `kernel/`, `driver/`, `userspace/`,
+  `firmware/`, `tests/`, `build/`, `outgoing-reviews/`.
+- `08-ARQUITECTURA/` — capa de trabajo activa: `decisions/`, `artifacts/`,
+  `artifacts-rx550/`, `designs/`, `tools/`, `validations/`, `reviews/`,
+  `logs-rx550/`. **`cache/` ocupa 9,6 GB y no es documentación.**
+  Contiene `AGENTS.RECTOR-5d33ccab.bak`, copia del `AGENTS.md` canónico commiteado.
+- `docs/` — addenda de prompt y auditorías. Contiene un `CONTRADICTIONS.md` **propio y
+  escrito a mano**, distinto del `CONTRADICTIONS.md` de la raíz, que es una vista
+  generada; no son intercambiables.
+- `tools/` — herramientas de análisis del corpus. `tools/artifacts.py` genera las cinco
+  vistas de estado, `tools/relations.py` extrae aristas entre hallazgos y
+  `tools/frontier.py` clasifica huecos por vía de cierre.
+- `revkit/` — kit de captura y verificación en Python, con `capturas/`.
+- `archive/` — `prompts/`: versiones V6 a V11 del prompt rector, nombradas por hash.
+
+## Defectos conocidos de este índice
+
+Medidos el 2026-10-03. No están resueltos; están declarados para que nadie los
+tome por rutas válidas.
+
+- Las cinco vistas de la raíz (`CURRENT-STATE.md`, `CONTRADICTIONS.md`,
+  `OPEN-FRONTIERS.md`, `EVIDENCE-MATRIX.md`, `KNOWLEDGE-GRAPH.md`) son **generadas** por
+  `tools/artifacts.py` y declaran `NO EDITAR A MANO`. Sus cifras van minutos por detrás
+  del registro de hallazgos, porque el registro cambia entre ejecuciones: una
+  discrepancia entre esas cifras y el disco es **desfase esperado**, no error.
+- El identificador numérico de un hallazgo **no lo identifica**: hay números
+  compartidos por varios ficheros, y las cabeceras que citan `CORRECTS=041` en lugar
+  del nombre completo producen aristas ambiguas en `KNOWLEDGE-GRAPH.md`, marcadas con
+  `!`. Para citar, usar el nombre del fichero.
+- `00-INDICE/README.md` y `R2-GLOBAL-DOCUMENTATION-MAP.md` se auditan el 2026-10-03:
+  las 98 rutas backtickadas que citan resuelven. La última que no resolvía
+  (`WORKLOAD-SINTETICO/README.md`, sin directorio padre) se corrigió ese día. Un
+  `README.md` con basename ambiguo no se reescribe automáticamente: se corrige a mano,
+  porque 37 ficheros del corpus se llaman `README.md`.
 
 ## Sección histórica (no sustituye las rutas canónicas)
 

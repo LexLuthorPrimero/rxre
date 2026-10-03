@@ -121,7 +121,7 @@ Abreviatura de tipos: **REP** = reporte de resultados, **DISEÑO** = documento d
 
 | Artefacto | Tipo | Contenido |
 |---|---|---|
-| `WORKLOAD-SINTETICO/README.md` | ÍNDICE/DISEÑO | Prototipo mínimo Vulkan COMPUTE; selección estricta 1002:699f; parámetros; estado PENDIENTE de validación per se |
+| `03-EXPERIMENTOS/WORKLOAD-SINTETICO/README.md` | ÍNDICE/DISEÑO | Prototipo mínimo Vulkan COMPUTE; selección estricta 1002:699f; parámetros; estado PENDIENTE de validación per se |
 | `03-EXPERIMENTOS/WORKLOAD-SINTETICO/DESIGN-GRAPHICS.md` | DISEÑO | Diseño de workload GRÁFICO (2ª fase, no implementado): objetivo draw ≥27 W @35W discriminativo; 2 metas operativas; criterios de clasificación |
 | `03-EXPERIMENTOS/WORKLOAD-SINTETICO/RESEARCH.md` | REF/PLAN | RESEARCH R-01: specs Polaris12; planes de búsqueda |
 | `03-EXPERIMENTOS/WORKLOAD-SINTETICO/ESCALADO-E03.md` | REP | Escalado de E-03 (registro) |
