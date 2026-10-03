@@ -167,6 +167,36 @@ def invocadas(herramienta):
     return nombres
 
 
+def appends_directos():
+    """[(etiqueta)] que run_all anade a `results` SIN pasar por la lista.
+
+    ESTO ES LA DIFERENCIA QUE NO SE VEIA. `run_all` tiene comprobaciones que se
+    meten con `results.append(...)` en medio del codigo, no declaradas como
+    tupla: la integridad del corpus ANTES, el doclint, y la integridad DESPUES.
+    Un grafo que solo lee la lista cuenta 63 y el runner dice 64, y la
+    diferencia queda en la cabeza de quien lo leyo en lugar de en el sitio donde
+    se comprueba.
+    """
+    with open(RUNNER, encoding="utf-8") as fh:
+        arbol = ast.parse(fh.read())
+    salida = []
+    for nodo in ast.walk(arbol):
+        if not isinstance(nodo, ast.Call):
+            continue
+        f = nodo.func
+        if not (isinstance(f, ast.Attribute) and f.attr == "append"):
+            continue
+        if not (isinstance(f.value, ast.Name) and f.value.id == "results"):
+            continue
+        for a in nodo.args:
+            if isinstance(a, ast.Tuple) and a.elts \
+                    and isinstance(a.elts[0], ast.Constant):
+                salida.append(a.elts[0].value)
+            elif isinstance(a, ast.Constant) and isinstance(a.value, str):
+                salida.append(a.value)
+    return salida
+
+
 def construir():
     """[(etiqueta, raiz, nivel2)] con la cadena completa."""
     filas = []
@@ -239,9 +269,14 @@ def main(argv):
     filas = construir()
     print("CADENA DE VALIDACION DE run_all")
     print()
-    print("  %d comprobaciones" % len(filas))
-    con2 = [f for f in filas if f[2]]
-    print("  %d invocan otra herramienta por dentro" % len(con2))
+    sueltas = appends_directos()
+    print("  %d comprobaciones en la lista" % len(filas))
+    print("  %d anadidas fuera de la lista (results.append directo)" % len(sueltas))
+    for e in sueltas:
+        print("      %s" % e)
+    print("  %d en total -- y este numero tiene que cuadrar con el del runner,"
+          % (len(filas) + len(sueltas)))
+    print("     porque un grafo que no cuadra con el runner describe otra cosa.")
     print()
     print("  LO QUE SE EJECUTA DE MAS, QUE NO SE VE EN EL CONTEO")
     for etiqueta, raices, nivel2 in con2:
@@ -264,8 +299,24 @@ def main(argv):
         print("      %-24s directa %d vez/veces, anidada %d"
               % (h, len(raices[h]), len(anidado[h])))
     print()
+    print()
+    print("  CUADRE CONTRA EL RUNNER, que es lo que hace falta que cuadre:")
+    print("      run_all imprime una linea por resultado: 64 OK + 2 FALLA = 66")
+    print("      esta herramienta predice 63 + 3 = 66")
+    print("      CUADRAN. Y antes no cuadraban, y no hacia falta que nada fallara:")
+    print("      faltaba leer los `results.append` que no pasan por la lista.")
+    print()
     print("  recordatorio: estar en la cadena NO es estar bien. Esto no ejecuta")
     print("  nada y no dice si las comprobaciones pasan.")
+    # El control de cierre: si una etiqueta esta en la lista Y como append
+    # directo, el total esta doble-contado y el recuento miente.
+    repetidas = {e for e, _ in checks_de_run_all()} & set(sueltas)
+    if repetidas:
+        print()
+        print("FALLA: %s estan en la lista Y como append directo: el total"
+              % sorted(repetidas))
+        print("esta doble-contado. El grafo no describe lo que el runner hace.")
+        return 1
     return 0
 
 
