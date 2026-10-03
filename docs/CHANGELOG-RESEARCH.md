@@ -4335,3 +4335,97 @@ tal y no como hueco, porque un arnes que cuenta como fallo una mutacion que no
 muta tambien miente.
 
 check.sh rc=0 TODO CORRECTO. GPU INTACTA. WRITE_EXECUTION NONE.
+## 2026-10-03 · opencode · el limite de 35 W sale del VBIOS, y el pptable de esta tarjeta queda decodificado
+
+```
+OBJECT   revkit/atomrom.py (PCIe y PowerTune en ppt), docs/CHANGELOG-RESEARCH.md
+ACTION   Las dos ultimas subtablas grandes. 16 vectores, 18 mutaciones.
+TRACK    EVIDENCE + TOOLING · READ_ONLY · GPU INTACTA
+```
+
+**LO PRIMERO, UNA TRAMPA DE NOMBRES QUE CASI ME CUESTA UN ERROR.** Hay **tres**
+variantes de la tabla de PowerTune --`ATOM_Tonga_`, `ATOM_Fiji_` y
+`ATOM_Polaris_`-- y **dos** de PCIe. Y el comentario de la cabecera apunta a
+`ATOM_PowerTune_Table`, **que no existe en el fichero**. Un nombre de comentario
+que no identifica ningun struct real: la misma clase de siempre, y aqui con tres
+candidatos donde cabia esperar uno.
+
+**COMO SE RESUELVE SIN ADIVINAR: POR REVISION, COMO EL DRIVER.** El driver
+ramifica las dos:
+
+```
+get_pcie_table:      if (ptable->ucRevId < 1)  Tonga (4 B)  else Polaris10 (8 B)
+get_cac_tdp_table:  if (table->ucRevId < 3)  Tonga
+                    else if (< 4)             Fiji
+                    else                      Polaris
+```
+
+Y **el nombre de la revision es lo unico que hay que medir**, como con la tabla de
+sclk. Esta tarjeta: PCIe `ucRevId = 1` -> registro **Polaris10 de 8 bytes**;
+PowerTune `ucRevId = 4` -> variante **Polaris**.
+
+**Y PARA POWERTUNE, SOLO EL PREFIJO COMUN.** Las tres variantes comparten los
+primeros **14 campos** con el mismo nombre y tipo, y divergen a partir del 14
+(`usReserve` en Tonga, `usTemperatureLimitHotspot` en Fiji y Polaris). Decodifico
+**solo esos 14**, que es una lectura valida sea cual sea la revision, y la cola se
+declara `NOT_IMPLEMENTED` en vez de adivinarla. El prefijo comun esta **medido**,
+comparando los tres structs, no supuesto.
+
+**EL DATO QUE ESTA RONDA BUSCABA: EL TOPE DE POTENCIA.**
+
+```
+PowerTuneTable en 0x9EAB, ucRevId = 4, variante Polaris
+  usTDP                        35
+  usTDC                        36
+  usBatteryPowerLimit          35
+  usSmallPowerLimit            35
+  usMaximumPowerDeliveryLimit  35
+  usTjMax                      93
+  usSoftwareShutdownTemp       97
+  usClockStretchAmount         2
+```
+
+**`gputel` midio un tope de 35 W**, y aqui esta `usTDP = 35` en el VBIOS. El limite
+de potencia de esta tarjeta **no lo decide el driver**: lo declara su firmware, y el
+driver lo copia. Es el mismo patron que los relojes, y por eso era el ultimo
+eslabon que faltaba de la cadena de energia.
+
+Y el **autocomprobacion del PCIe**: la tabla tiene 3 entradas de 8 bytes mas 2 de
+cabecera, y acaba exactamente en `0x9F14`, que es donde empieza `Object_Header`, la
+tabla siguiente en el VBIOS. Los limites de la tabla cuadran con los de la tabla
+vecina. Eso no lo puse para probarlo: sale solo.
+
+**LO QUE NO SE ATRIBUYE, Y POR QUE.** `ulPCIE_Sclk` vale 2812, 26100 y 26100, y
+**no coincide con ninguna** de las 8 entradas de la tabla de sclk de este mismo
+pptable. Que no coincidan es un **hecho medido**; lo que signifiquen es
+`NOT_DETERMINED`. La herramienta lo dice asi, y no los acerca a la tabla de sclk por
+parecido, que es exactamente el error de EV-49.
+
+**LAS CUATRO VECES QUE HA SALIDO EL MISMO PATRON, Y AHORA ES REGLA.** Cuatro
+controles seguidos resultaron **inejercitados** por lo mismo: el fixture no contiene
+el caso.
+
+| control | por que no se exertia |
+|---|---|
+| tamano del registro de voltaje | el fixture lo construia con la misma definicion |
+| registro de voltaje mal alineado | los rellenos estan fuera de rango con cualquier tamano |
+| revision de PowerTune | el fixture era rev 4, o sea Polaris: forzar Polaris no mutaba |
+| generacion de PCIe | el fixture no tenia ninguna > 5 |
+
+**La regla:** *un control que el fixture no ejerce no es un control, por verde que
+salga.* La cuarta vez se vio al mutar la herramienta y ver que la mutacion pasaba.
+Un control se demuestra **con una mutacion que cambia el comportamiento**, y si la
+mutacion no cambia nada, sale verde sin haber probado nada. Eso no lo escribe ningun
+`assert`: lo escribe un mutante que aplica, parsea y ejecuta.
+
+**RESULTADO FINAL DE LA HERRAMIENTA.** 16 vectores, y **18 mutaciones**, todas
+aplicadas, verificadas aplicadas, **parseadas** y ejecutadas: **las 18 cazadas**,
+incluidas las cuatro que antes no. `check.sh` rc=0 TODO CORRECTO.
+
+**LO QUE QUEDA SIN DECODIFICAR, DICHOS EN LA PROPIA SALIDA:** `FanTable`,
+`ThermalController`, `MMDependency`, `VCEState` y la cola de `PowerTune`. Se
+LOCALIZAN y son `NOT_IMPLEMENTED`, **no tablas vacias**. De las ocho subtablas que
+la cabecera declara, tres estan ausentes en esta tarjeta y cinco quedan
+decodificadas en parte.
+
+check.sh rc=0 TODO CORRECTO. GPU INTACTA. WRITE_EXECUTION NONE.

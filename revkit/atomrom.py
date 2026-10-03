@@ -592,7 +592,8 @@ def cmd_autotest(a):
     # nunca en el autotest. Un self-test que prueba piezas y no el camino que
     # corre tiene un hueco, y el hueco es justo donde se cuelan los errores.
     def _ppt_sintetico(rom, mclk=(30000, 62500, 150000), tabla_size=None,
-                      state_roto=False, sclk_sint=(98000, 102000, 104600)):
+                      state_roto=False, sclk_sint=(98000, 102000, 104600),
+                      pt_rev=4):
         base = len(rom) - 1024
         t = bytearray(778)
         struct.pack_into("<HBB", t, 0, 778, 7, 1)
@@ -651,6 +652,25 @@ def cmd_autotest(a):
             t[o + 1] = engL
             t[o + 2] = memH
             t[o + 3] = memL
+
+        # PCIe rev 1 (registro Polaris10 de 8 bytes) y PowerTune rev 4, con bytes
+        # LITERALES, por el mismo motivo que los demas fixtures
+        po = 500
+        struct.pack_into("<H", t, off["usPCIETableOffset"], po)
+        t[po] = 1
+        t[po + 1] = 3
+        for i, (g, lw, s) in enumerate(((0, 8, 2812), (2, 7, 26100),
+                                          (7, 8, 26100))):
+            o = po + 2 + i * 8
+            t[o] = g
+            t[o + 1] = lw
+            struct.pack_into("<I", t, o + 4, s)
+        to = 560
+        struct.pack_into("<H", t, off["usPowerTuneTableOffset"], to)
+        t[to] = pt_rev
+        struct.pack_into("<H", t, to + 1, 35)      # usTDP
+        struct.pack_into("<H", t, to + 3, 36)      # usTDC
+        struct.pack_into("<H", t, to + 5, 35)      # usBatteryPowerLimit
 
         deps = 400
         struct.pack_into("<H", t, off["usSclkDependencyTableOffset"], deps)
@@ -793,6 +813,77 @@ def cmd_autotest(a):
     else:
         print("  FALLA un indice fuera de rango -> rc=%d" % rc_malo)
         fallos.append("indice de la StateArray fuera de rango")
+
+    # E: PCIe y PowerTune. El TDP del VBIOS tiene que salir como dato, y la
+    # variante de PowerTune tiene queSayse por revision, no por defecto.
+    _cap = io.StringIO()
+
+    class _Toma:
+        def write(self, x):
+            _cap.write(x)
+            return len(x)
+
+        def flush(self):
+            pass
+
+    sys.stdout = _Toma()
+    try:
+        cmd_ppt(_ppt_sintetico(rom), a)
+    finally:
+        sys.stdout = real
+    salida_pt = _cap.getvalue()
+    if ("registro Polaris10 de 8 bytes, por revision" in salida_pt
+            and "la variante es la Polaris" in salida_pt
+            and "usTDP                        35" in salida_pt):
+        print("  OK    PCIe por revision y PowerTune por revision, con usTDP")
+    else:
+        print("  FALLA PCIe o PowerTune no se decodifican como deben")
+        for _l in salida_pt.splitlines():
+            if "Polaris10" in _l or "variante" in _l or "usTDP" in _l:
+                print("        %s" % _l.strip())
+        fallos.append("PCIe y PowerTune en el camino real")
+
+    # F: la revision de PowerTune tiene que LEERSE, no suponerse. Con rev 4 en el
+    # fixture, forzar "siempre Polaris" era una mutacion que no mutaba: mismo
+    # resultado. Con rev 0 se nota. Es el mismo defecto que el del registro malo
+    # construido con su propia definicion: si el fixture no contiene el caso, el
+    # control no se ejercita.
+    for _rev, _esp in ((0, "Tonga"), (3, "Fiji"), (4, "Polaris")):
+        sys.stdout = _Toma()
+        try:
+            cmd_ppt(_ppt_sintetico(rom, pt_rev=_rev), a)
+        finally:
+            sys.stdout = real
+        s_ = _cap.getvalue()
+        if "la variante es la %s" % _esp in s_:
+            continue
+        print("  FALLA con ucRevId=%d la variante deberia ser %s" % (_rev, _esp))
+        fallos.append("variante de PowerTune con rev %d" % _rev)
+        break
+    else:
+        print("  OK    la variante de PowerTune se lee de la revision: 0 Tonga,")
+        print("        3 Fiji, 4 Polaris")
+
+    # y el carril de PCIe invalido tiene que senalarse
+    sys.stdout = _Toma()
+    try:
+        cmd_ppt(_ppt_sintetico(rom), a)
+    finally:
+        sys.stdout = real
+    if ("ancho de carril 7 no es 1/2/4/8/16" in _cap.getvalue()
+            and "generacion fuera de 0..5" in _cap.getvalue()):
+        print("  OK    carril 7 y generacion 7 se senalan, no se imprimen")
+    else:
+        # CUARTA vez en esta ronda que un control que el fixture no ejerce no es
+        # un control: primero el registro mal construido, despues el registro de
+        # voltaje, luego la revision de PowerTune y ahora la generacion de PCIe. El
+        # patron es siempre el mismo y ya merece regla: si el fixture no contiene
+        # el caso, el control no se ha probado, por verde que salga.
+        print("  FALLA el carril 7 o la generacion 7 no se senalan")
+        print("         (comprobado: carril=%s generacion=%s)"
+              % ("ancho de carril 7 no es 1/2/4/8/16" in _cap.getvalue(),
+                 "generacion fuera de 0..5" in _cap.getvalue()))
+        fallos.append("validaciones de PCIe sin caso en el fixture")
 
     # C-ter: una entrada de voltaje fuera de rango tiene que CONTARSE como
     # relleno, no imprimirse como si fuera un voltaje. Es el mismo control que el
@@ -1308,6 +1399,27 @@ STATE_CAMPOS = [("ucEngineClockIndexHigh", 1), ("ucEngineClockIndexLow", 1),
                 ("usClassification", 2), ("ulCapsAndSettings", 4),
                 ("usClassification2", 2), ("ucUnused", 4)]
 
+# PCIe: el driver RAMIFICA por revision, igual que con la tabla de sclk.
+#   if (ptable->ucRevId < 1) -> ATOM_Tonga_PCIE_Record      (4 bytes, sin sclk)
+#   else                      -> ATOM_Polaris10_PCIE_Record (8 bytes, con sclk)
+PCIE_TONGA = [("ucPCIEGenSpeed", 1), ("usPCIELaneWidth", 1), ("ucReserved", 2)]
+PCIE_POLARIS = PCIE_TONGA + [("ulPCIE_Sclk", 4)]
+
+# PowerTune: hay TRES variantes (Tonga, Fiji, Polaris) y el driver elige por
+# revision: <3 Tonga, <4 Fiji, resto Polaris. Se decodifica SOLO el prefijo de 14
+# campos que las tres comparten, MEDIDO comparando los structs. Es una lectura
+# válida sea cual sea la revision, y la cola se declara NOT_IMPLEMENTED en vez de
+# adivinarla. Ademas el comentario de la cabecera apunta a "ATOM_PowerTune_Table",
+# que NO EXISTE: el nombre del comentario no identifica ningun struct real.
+PT_COMUN = [("ucRevId", 1), ("usTDP", 2), ("usConfigurableTDP", 2), ("usTDC", 2),
+            ("usBatteryPowerLimit", 2), ("usSmallPowerLimit", 2),
+            ("usLowCACLeakage", 2), ("usHighCACLeakage", 2),
+            ("usMaximumPowerDeliveryLimit", 2), ("usTjMax", 2),
+            ("usPowerTuneDataSetID", 2), ("usEDCLimit", 2),
+            ("usSoftwareShutdownTemp", 2), ("usClockStretchAmount", 2)]
+PT_VARIANTE = {"<3": "Tonga", "<4": "Fiji", ">=4": "Polaris"}
+LANES_VALIDOS = (1, 2, 4, 8, 16)
+
 
 def _layout_ppt():
     """El layout se recalcula cada vez, para que no pueda desincronizarse de la
@@ -1591,10 +1703,80 @@ def cmd_ppt(d, a):
         print("  todas las referencias caben en sus tablas")
         print()
 
+    # PCIe, con el registro elegido por revision como hace el driver
+    po = u16(d, pp + off["usPCIETableOffset"])
+    if po:
+        prev = u8(d, pp + po)
+        campos_p = PCIE_TONGA if prev < 1 else PCIE_POLARIS
+        recsz = _tam(campos_p)
+        pn = u8(d, pp + po + 1)
+        print("TABLA DE PCIe, en 0x%04X" % (pp + po))
+        print("  ucRevId = %d -> registro %s de %d bytes, por revision"
+              % (prev, "Tonga" if prev < 1 else "Polaris10", recsz))
+        print("  ucNumEntries = %d" % pn)
+        print()
+        cab = ("  %-4s %-14s %-16s" % ("#", "ucPCIEGenSpeed", "usPCIELaneWidth")
+               + ("%-14s" % "ulPCIE_Sclk" if recsz >= 8 else ""))
+        print(cab)
+        for i in range(pn):
+            o = pp + po + 2 + i * recsz
+            if o + recsz > len(d):
+                raise RomInvalido("PCIETable: la entrada %d se sale del ROM" % i)
+            g = u8(d, o)
+            lw = u8(d, o + 1)
+            linea = "  %-4d %-14d %-16d" % (i, g, lw)
+            if recsz >= 8:
+                s = u32(d, o + 4)
+                linea += "%-14d" % s
+            marcas = []
+            if g > 5:
+                marcas.append("generacion fuera de 0..5")
+            if lw not in LANES_VALIDOS:
+                marcas.append("ancho de carril %d no es 1/2/4/8/16" % lw)
+            if marcas:
+                linea += "  <-- " + "; ".join(marcas)
+            print(linea)
+        print()
+        if recsz >= 8:
+            print("  ulPCIE_Sclk se informa CRUDO y NO se atribuye a la tabla de")
+            print("  sclk de este pptable: los valores no coinciden con ninguna de")
+            print("  sus 8 entradas. Que no coincidan es un HECHO; lo que signifiquen")
+            print("  es NOT_DETERMINED.")
+            print()
+
+    # PowerTune: solo el prefijo comun a las tres variantes
+    to = u16(d, pp + off["usPowerTuneTableOffset"])
+    if to:
+        trev = u8(d, pp + to)
+        variante = ("<3" if trev < 3 else ("<4" if trev < 4 else ">=4"))
+        print("TABLA DE POWERTUNE, en 0x%04X" % (pp + to))
+        print("  ucRevId = %d -> la variante es la %s, segun el reparto del driver"
+              % (trev, PT_VARIANTE[variante]))
+        print("  Se decodifica SOLO el prefijo comun de las tres variantes: %d"
+              % (len(PT_COMUN) - 1))
+        print("  campos con EL MISMO nombre y tipo en las tres. La cola diverge y")
+        print("  se declara NOT_IMPLEMENTED, no se adivina.")
+        print()
+        # se pasa de ucRevId, que ya se ha leido
+        o = pp + to + 1
+        for nm, sz in PT_COMUN[1:]:
+            v_ = u16(d, o)
+            o += sz
+            print("  %-28s %d" % (nm, v_))
+        print()
+        print("  usTDP y usBatteryPowerLimit son los limites de potencia que el")
+        print("  VBIOS declara para esta tarjeta. Sin unidades aplicadas, como el driver.")
+        print()
+
     print("LIMITES, DICHOS:")
-    print("  - Se decodifica PowerPlayInfo y sus tablas de dependencia. Las otras")
-    print("    subtablas se LOCALIZAN y no se decodifican: son NOT_IMPLEMENTED,")
-    print("    no tablas vacias.")
+    print("  - SE DECODIFICAN: cabecera, StateArray, dependencia de mclk y de sclk,")
+    print("    lookup de vddc y de vddgfx, PCIe y el prefijo comun de PowerTune.")
+    print("  - NO se decodifican: FanTable, ThermalController, MMDependency,")
+    print("    VCEState y la cola de PowerTune. Se LOCALIZAN y son NOT_IMPLEMENTED,")
+    print("    no tablas vacias. En PowerTune, la cola se deja porque las tres")
+    print("    variantes divergen a partir del campo 14.")
+    print("  - ulPCIE_Sclk se informa crudo y NO se atribuye: no coincide con ninguna")
+    print("    de las 8 entradas de la tabla de sclk de este mismo pptable.")
     print("  - El x10 sobre los relojes es la convencion de ATOM, informada, no")
     print("    aplicada. El valor crudo es el dato.")
     return 0
