@@ -3952,3 +3952,95 @@ tal. La escalera de 700 a 1100 es sospechosa de ser la tabla de perfiles de sclk
 del ASIC, pero **sospechosa no es medida**.
 
 GPU INTACTA. WRITE_EXECUTION NONE. NO SE TOCO EL CORPUS NI LAS CAPTURAS.
+## 2026-10-03 · opencode · EV-50: el mclk de 300 MHz esta en el VBIOS, y EV-47 tenia razon
+
+```
+OBJECT   revkit/capturas/amdgpu_vbios.txt (SOLO LECTURA),
+         pm/powerplay/hwmgr/pptable_v1_0.h, process_pptables_v1_0.c
+ACTION   Parseo del pptable v1 con el layout DEL DRIVER. GPU sin tocar.
+TRACK    EVIDENCE · VINDICATES EV-47, REFUTES EV-48 y EV-49 · GPU INTACTA
+```
+
+**EL DATO.** `ATOM_Tonga_MCLK_Dependency_Table`, en el offset que la propia tabla
+declara, `usMclkDependencyTableOffset = 0x0185` dentro de `PowerPlayInfo`:
+
+```
+ucRevId = 0   ucNumEntries = 3        registro de 13 bytes, segun el struct
+
+  #  ucVddcInd  usVddci  usVddgfxOffset  usMvdd  ulMclk     x10 -> MHz
+  0      0       800          0          1000    30000      300 MHz
+  1      0       800          0          1000    62500      625 MHz
+  2      4       875          0          1000   150000     1500 MHz
+```
+
+**LA UNIDAD, Y NO LA SUPONGO.** El driver copia el valor crudo, sin multiplicar
+nada: `mclk_table_record->clk = le32_to_cpu(mclk_dep_record->ulMclk)`. O sea que
+el significado de `30000` no lo pone el driver, lo pone la **convencion ATOM**.
+Y esa convencion se aqui con tres pruebas independientes, no con una:
+
+1. `30000 x 10 = 300000 kHz` = **exactamente** el mclk que midio `gputel` en reposo.
+2. `62500 x 10 = 625000 kHz` = **exactamente** el mclk de 625 MHz que se observo
+   en el arranque de una sesion anterior, y que aqui bajo a 300 MHz.
+3. `150000 x 10 = 1500 MHz` completa una escalera DPM de memoria coherente para
+   GDDR5, que es lo que lleva esta tarjeta. Tres valores, los tres plausibles, y
+   los dos que se han observado **caen en entradas distintas y concretas**.
+
+**LA CADENA, DE PUNTA A PUNTA, Y AHORA SI SIN SALTOS:**
+
+```
+gputel midio mclk 300000 kHz
+ -> dpm_table.mclk_table[i].value              (smu7_hwmgr.c)
+ -> allowed_vdd_mclk_table.entries[i].clk      ("MCLK dependency table is mandatory")
+ -> vdd_dep_on_mclk
+ -> PowerPlayInfo, offset 0x9c0a, 778 bytes, rev 7.1
+ -> usMclkDependencyTableOffset = 0x0185
+ -> entries[0].ulMclk = 30000
+ = 300000 kHz con la convencion ATOM de 10 kHz
+```
+
+**Y EL PARSEO ESTA VALIDADO, NO ACEPTADO.** El layout se **calculo** desde la
+lista de campos de `ATOM_Tonga_POWERPLAYTABLE`, no se transcribio. Y el struct
+trae `usTableSize`, que es una comprobacion que el propio formato ofrece:
+
+| comprobacion | resultado |
+|---|---|
+| `usTableSize` calculado = `usTableSize` leido del VBIOS | **77 == 77** |
+| offsets que caen dentro de la tabla de 778 bytes | **12 de 15** |
+| los 3 que no caen (`usPPMTableOffset`, `usHardLimitTableOffset`, `usGPIOTableOffset`) | 0, y son tablas ausentes en esta tarjeta |
+| `usStateArrayOffset` | 77, **justo el tamaño de cabecera**, que es donde debe estar |
+
+Empaquetado `pack(1)`. El primer intento, calculando los offsets a mano, fallo
+porque me equivoque en uno; recalculado desde los campos, coincide. Un layout
+correcto se reconoce solo, y por eso esta comprobacion existe.
+
+**Y CORRIJO MIS DOS TRABAJOS ANTERIORES, QUE ERAN ERRORES MIOS.**
+
+- **EV-48 decia**: "`300000` no esta en `PowerPlayInfo`". **Falso.** Porque no savia la unidad: probe once codificaciones y ninguna era "10 kHz". En el
+  VBIOS no hay ningun 300000: hay un **30000**.
+- **EV-49**: "`300000` es un techo de sclk, no el reloj de memoria". **La parte de
+  que es un techo de sclk es correcta y sigue siendolo** -- EV-49 leyo bien el
+  `SMU_Info`. Lo que **no** hice fue seguir buscando despues, porque el unico
+  `300000` que encontre me daba una explicacion *plausible*, y una explicacion
+  plausible que encaja con el primer byte que se encuentra no es un hallazgo: es
+  el error de conclusion precipitada que ya lleva trece veces en este proyecto. Ese `300000` de
+  `SMU_Info` es real y es un techo de sclk, pero **no es el mclk**, y a los dos
+  les llame lo mismo.
+
+Los dos errores tienen la misma causa: **busque el numero que ya sabia, no la
+unidad que lo precede**. El valor del pptable no es 300000: es 30000. Y el
+`300000` de `SMU_Info` es un techo de sclk que coincidia con el mclk medido.
+**El mismo numero con dos significados, y lo lei como el que primero encontre.**
+
+**LO QUE ESTA ABIERTO, Y ES POCO.** La tension de `usMvdd = 1000 mV` en las tres
+entradas: el valor es identico en los tres niveles, asi que **no explica** por que
+la memoria baja a 300 MHz. Y `usVddci = 800` sube a 875 solo en el nivel alto, o
+sea que la caida de reloj **no** viene acompanhada de una caida de voltaje en
+esa tabla. Eso es un dato del hardware que no se explain con la tabla, y queda
+`NOT_DETERMINED`.
+
+Y `gpu_busy_percent` sigue siendo lo que el driver **afirma**: los tres niveles
+tienen `EnabledForActivity` calculado en runtime por el SMU, y eso no esta en el
+VBIOS. Los 300 MHz son el nivel que el SMU elige con el workload a cero, y por
+que lo elige con tan poca actividad es lo que queda por delante.
+
+GPU INTACTA. WRITE_EXECUTION NONE. NO SE TOCO EL CORPUS NI LAS CAPTURAS.
