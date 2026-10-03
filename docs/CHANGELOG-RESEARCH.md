@@ -3687,3 +3687,88 @@ runtime, y sin haber tocado la GPU: solo leyendo el boot que ya existia.
 Los dos producen numeros, no errores, que es lo que los hace peligrosos.
 
 GPU INTACTA. WRITE_EXECUTION NONE. NO SE TOCO EL CORPUS NI /lib/firmware.
+## 2026-10-03 · opencode · EV-47: la cadena del mclk, de la lectura de `gputel` a la tabla del VBIOS
+
+```
+OBJECT   pm/powerplay/{hwmgr/smu7_hwmgr.c, smumgr/polaris10_smumgr.c},
+         revkit/capturas/amdgpu_vbios.txt  (SOLO LECTURA)
+ACTION   LECTURA ESTATICA + inventario del VBIOS capturado. GPU sin tocar.
+TRACK    EVIDENCE · READ_ONLY · WRITE_EXECUTION NONE · GPU INTACTA
+```
+
+**LO QUE SE ABRE: LA OTRA MITAD DEL CONTRATO DEL SMU.** EV-45 llego al limite
+del SMU y dijo "el SMU decide". Aqui se mide **que se le da para decidir**.
+
+**1. QUE MENSAJES Y QUE TABLAS CRUZAN.** `polaris10_smu_funcs`
+(`smumgr/polaris10_smumgr.c:2681`) tiene 24 ranuras. Las que deciden clocks:
+
+```
+.populate_all_memory_levels   = polaris10_populate_all_memory_levels
+.populate_all_graphic_levels  = polaris10_populate_all_graphic_levels
+.update_dpm_settings          = polaris10_update_dpm_settings
+.update_sclk_threshold        = polaris10_update_sclk_threshold
+.is_dpm_running               = polaris10_is_dpm_running
+```
+
+**2. EL DRIVER NO ESCRIBE UN RELOJ: SUBE UNA LISTA FIJA.** En
+`polaris10_populate_all_memory_levels`:
+
+- Recorre `dpm_table->mclk_table.dpm_levels[i].value` y por cada uno llama a
+  `polaris10_populate_single_memory_level`.
+- El **ultimo** nivel recibe `DisplayWatermark = PPSMC_DISPLAY_WATERMARK_HIGH`.
+- Cada nivel recibe `EnabledForActivity` desde `mclk_dpm_enable_mask`.
+- Y los copia de una vez a la RAM del SMC con
+  `smu7_copy_bytes_to_smc(..., array, levels, array_size, SMC_RAM_END)`, en
+  `dpm_table_start + offsetof(SMU74_Discrete_DpmTable, MemoryLevel)`.
+
+Es decir: en init se **descargan los niveles en la RAM del SMU**, y a partir de
+ahi **el SMU elige**. En runtime el driver no escribe ningun valor de reloj. Por
+eso `sclk_activity` y `sclk_down_hyst` de EV-45 son los que gobiernan la
+oscilacion: son parametros de **decidir**, no de **programar**.
+
+**3. DE DONDE VIENEN LOS VALORES, Y QUE ES OBLIGATORIO.** `mclk_table` se construye
+en `smu7_hwmgr.c` desde `allowed_vdd_mclk_table`, y ese viene de la tabla de
+dependencia de mclk del pptable. Con una asercion que lo dice:
+
+```
+PP_ASSERT_WITH_CODE(allowed_vdd_mclk_table != NULL,
+        "MCLK dependency table is missing. This table is mandatory", return -EINVAL);
+```
+
+O sea que **el 300 MHz que midio `gputel` tiene que ser una entrada de
+`vdd_dep_on_mclk`**. Eso es una afirmacion falsable, y ahora se puede comprobar.
+
+**4. Y LA TABLA ESTA EN EL VBIOS QUE YA TENEMOS CAPTURADO.** Inventario de
+`capturas/amdgpu_vbios.txt` con `atomrom.py tablas`:
+
+```
+16  PowerPlayInfo   0x9c0a   size=778   rev=7.1
+```
+
+El pptable de esta tarjeta esta ahi, con su offset, su tamano y su version. La
+cadena queda cerrada de extremo a extremo y **ningun paso es una suposicion**:
+
+```
+gputel lee mclk 300 MHz
+  -> dpm_table.mclk_table[i].value
+  -> allowed_vdd_mclk_table.entries[i].clk
+  -> vdd_dep_on_mclk  (tabla de dependencia, obligatoria)
+  -> PowerPlayInfo en el VBIOS, offset 0x9c0a, 778 bytes, rev 7.1
+```
+
+**LO QUE FALTA, Y ES UN SOLO PASO CONCRETO.** Extraer `PowerPlayInfo` del VBIOS
+capturado y localizar dentro la tabla de dependencia de mclk, para comprobar si
+**300000 kHz esta en la lista**. Si esta, la medicion de `gputel` queda explicada
+de punta a punta por un dato del propio hardware de la tarjeta. Si no esta, el
+300 MHz lo pone el SMU por su cuenta y la afirmacion queda **REFUTADA**, que
+tambien es un resultado.
+
+Ojo con el alcance: `PowerPlayInfo` con rev 7.1 es el pptable de formato v1, y
+`pp_table_version` estaba en `PP_TABLE_V1` en `hwmgr_early_init` (EV-45), asi que
+los dos digitos concuerdan. Pero **"rev 7.1" y "PP_TABLE_V1" no son el mismo
+numero** y no los estoy tratando como si lo fueran: la version del pptable es un
+campo del formato, y la del VBIOS es la de la tabla. Que coincidan el formato y
+que la revision de la tabla sea la que se espera, son dos cosas; la segunda queda
+pendiente de medir en el parseo.
+
+GPU INTACTA. WRITE_EXECUTION NONE. NO SE TOCO EL CORPUS NI LAS CAPTURAS.
