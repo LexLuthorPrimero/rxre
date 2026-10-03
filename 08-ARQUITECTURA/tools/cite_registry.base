@@ -1,0 +1,5 @@
+# conflictos CONOCIDOS, escritos por --fijar.
+# uno por linea. C-015 los registra; no se arreglan aqui.
+contradict.py
+fingerprint.py
+xref.py

@@ -312,6 +312,19 @@ def main():
         # un emisor cambia y la constante no, esta comprobacion falla.
         ("driver_offsets: 19/17 dwords de vm-flush contados",
          ["driver_offsets.py", "--vflush"], 0, 0),
+        # Colisiones de nombre entre los 4 directorios de herramientas. rc=1
+        # si hay CONFLICTO (mismo nombre, hash distinto): son dos
+        # herramientas que se contradicen segun el directorio desde el que se
+        # mire. C-015 lo registra; esto lo mantiene cierto.
+        # Las 3 colisiones conocidas (C-015) se ACEPTAN y se listan: no se
+        # arreglan aqui porque son decision de coordinacion entre sesiones. El
+        # check es de REGRESION -- falla si aparece una NUEVA. Exigir cero
+        # haria que el check fallara siempre, y un check que falla siempre no
+        # informa de nada.
+        ("cite_registry: ningun conflicto de nombre NUEVO",
+         ["cite_registry.py", "--guardio"], 0, 0),
+        ("cite_registry: autotest (respuesta conocida y negativos)",
+         ["cite_registry.py", "--self-test"], 0, 0),
         # La reserva de numeros de hallazgo. num_collision mide 37 duplicados
         # y esta sesion choco 3 veces (111, 119, 120) con otra escribiendo.
         # El self-test RESERVA y LIBERA de verdad: comprobar que el numero no

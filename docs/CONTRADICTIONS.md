@@ -592,6 +592,7 @@ RESIDUO  `030-page-walker-gfx8-2-niveles.md` es UNTRACKED y sigue en el disco co
 | C-010 | "falta la spec PM4" como bloqueo pendiente | `RESOLVED` | la spec existe y se contó: no contiene PM4. **La afirmación que se cae es de este trabajo** |
 | C-011 | `sdma_v3_0` (real) vs `sdma_v4_0` (publicado) para el emisor de PTE | `RESOLVED` a favor de `v3_0` | `vi.c:2113` + `sdma_v3_0.c:1699` + el `dev_info` del host. **Y está implementado en código compilable** |
 | C-006 | `DRIVER-MISSION-STATE.md` sin la marca de `024` | `PARTIALLY_RESOLVED` | sesión autora (F5) |
+| C-015 | 3 herramientas con el mismo nombre y hash distinto; `fingerprint.py` da `TARGET_MATCH` y `TARGET_PARCIAL`, **ambas con rc=0** | `NOT_DETERMINED` | coordinación entre sesiones: qué versión es la vigente. Medido con `cite_registry.py` |
 | C-007 | `00-INDICE/MASTER-RESEARCH-STATUS.md` se autodescribe entrada única | `OPEN` | decisión sobre 64 KB de histórico |
 | — | 87 findings y 6 herramientas sin versionar | `UNTRACKED_EVIDENCE` | `git add` por las sesiones propietarias |
 | — | 24 índices de finding duplicados + huecos en la numeración (004) | `INVALID` | renombrado por las sesiones autoras |
@@ -897,3 +898,77 @@ proyecto frente a nueve reales no es una discrepancia de datos: es una discrepan
 **recogida**, y se distingue mirando el recuento, no la interpretacion. Ademas
 `dmesg` en esta maquina **devuelve 0 lineas** (sin permiso) mientras que
 `journalctl -k -b` si lee: la via de lectura importa tanto como la lectura.
+## C-015 · Tres herramientas con el mismo nombre, y una de ellas es la puerta de `TARGET_MATCH`
+
+```
+ESTADO    NOT_DETERMINED — y no es arbitrable leyendo el árbol
+ABIERTO POR 08-ARQUITECTURA/tools/cite_registry.py, que inventaría las
+          herramientas de citas y separa CONFLICTO de COPIA
+QUÉ SE MEDIO
+  114 ficheros de herramientas en 4 directorios (48 + 60 + 6 + 0)
+  3 nombres repetidos en dos directorios, los TRES con hash DISTINTO:
+      contradict.py   08: 16930 B  sha1 17f292391258  |  tools: 20041 B  sha1 121a0fb19f68
+      fingerprint.py  08: 13296 B  sha1 b109a2c6ef6a  |  tools: 21057 B  sha1 e51691638586
+      xref.py         08: 22315 B  sha1 e2fdc4350cb8  |  tools: 25569 B  sha1 efb10ee90a88
+  0 COPIAS. Verificado por fuera de la herramienta, con md5sum y un bucle sobre
+  los cuatro directorios: los mismos 3, los tres CONFLICTO. Un detector de
+  colisiones que solo pareciese funcionar por su propia lógica no valía.
+
+LA CONTRADICCIÓN PROPIAMENTE DITA
+  `fingerprint.py` es la puerta de VERIFICAR TARGET de §4-§5, y hay dos:
+      A  08-ARQUITECTURA/tools/fingerprint.py   23 campos, todos observados
+                                                VEREDICTO TARGET_MATCH   rc=0
+      B  tools/fingerprint.py                   11 campos, 1 NO_OBSERVADO
+                                                VEREDICTO TARGET_PARCIAL rc=0
+  LAS DOS SALEN CON rc=0. El codigo de salida no discrimina los veredictos, asi
+  que un consumidor que se fie de el no puede saber que puerta ha pasado. Eso no
+  es una discusion sobre que version es correcta: es que no hay forma de saber
+  cual se ha ejecutado.
+
+LO QUE NO ES LA CONTRADICCIÓN, y costo dos mediciones rectificarlo
+  No discrepan sobre el mismo campo. A es el SUPERCONJUNTO: tiene 23 campos
+  (incluye bar0_mib_log, gart_mib, gtt_mib, rmmio_base, rmmio_size, bios, arch,
+  gpu_slot) y no tiene `ram_instalado`. B tiene 11, y `ram_instalado` es un
+  campo que B exige y A no. No es "una dice MATCH y la otra dice que no": es que
+  preguntan por conjuntos distintos y B pide uno mas.
+
+  Y el campo extra de B figura NO_OBSERVADO por un motivo CONCRETO y no
+  inventado: su productor es `dmidecode (root)`, y `dmidecode -t memory`
+  responde
+      /sys/firmware/dmi/tables/smbios_entry_point: Permission denied
+  Un instrumento sin permisos no ve el campo. Eso es `NOT_OBSERVED` por
+  acceso, no `PROVEN_ABSENT` del hardware.
+
+  Y EL DATO ESTÁ, SIN ROOT, EN UNA FUENTE QUE B YA USA
+      journalctl -k -b | grep Memory:
+      Memory: 11872232K/12445660K available
+  12445660K = 11.87 GiB de fisica total, frente a MemTotal 12098904 kB = 11.54
+  GiB que ve /proc/meminfo. B ya usa `journalctl (artefacto)` para CUATRO campos
+  mas (asic, ip_gmc, vram, bar_registro): para esos si, para este no.
+  ASI QUE: la limitacion es del PRODUCTOR elegido, no de la maquina ni de B.
+
+POR QUÉ NO SE ARBITRA AQUÍ, y hay que decirlo con claridad
+  `COORDINACION.md:184` es claro: informar, no arreglar. Renombrar uno de los dos
+  `fingerprint.py` cambia el PATH con el que otra sesion, o un run_all, la invoca.
+  Que version sea la vigente es una decision de coordinacion entre sesiones.
+  Lo que si se puede hacer, y es lo unico que se hace: MEDIR y REGISTRAR.
+
+LO QUE ESTA SESIÓN HACE, Y ES LO ÚNICO QUE LE TOCA
+  1 · registra C-015 con los tres conflictos medidos y verificados por fuera
+  2 · publica `cite_registry.py`, que hace la medicion reproducible
+  3 · NO renombra nada, NO edita las dos herramientas, NO elige version
+
+LO QUE ESTO NO TOCA
+  nada del corpus, ni ningun driver, ni ningun cerrojo de otra sesion. Y en
+  particular NO dice que el veredicto de A sea el bueno ni que el de B sea
+  demasiado estricto: B se niega a rellenar un campo no observado con el valor
+  declarado, que es exactamente §10, y eso no es un defecto que se arregle
+  poniendo el veredicto a match.
+
+DATO QUE APARECE DE PASO, y que ya era un claim cerrado
+  A imprime `rmmio_base 0xF7D00000` y `rmmio_size 262144`, que es la ventana de
+  registros de BAR5, 256 KiB. CORROBORA `200` desde un camino distinto: no desde
+  la lectura de offsets en el binario, sino desde el fingerprint vivo. Dos
+  procederes independientes, mismo numero.
+
+---
