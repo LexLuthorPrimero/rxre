@@ -190,6 +190,56 @@ def selftest() -> int:
     fallos = 0
     tmp = "/tmp/opencode/nextnum-selftest"
 
+    # [0] CLASIFICACION DE FUGAS, antes de nada porque no necesita disco.
+    #
+    # El auditor separa "resto de un renumerado" de "posible hallazgo
+    # perdido". Ese reparto es lo que hace accionable la auditoria: juntos en
+    # un numero, el informe dice "2 fugas" y no dice si hay algo que recuperar.
+    #
+    # Se construye con el mapa congelado REAL, y se comprueba el caso que de
+    # verdad existe en este proyecto: 975 esta en el registro de bloqueo y su
+    # hallazgo se renumero a 976, asi que es resto. 298 esta en el registro, no
+    # tiene fichero, y NO esta en el mapa, asi que es la otra clase.
+    print("[0] la auditoria separa las dos clases de reserva sin fichero")
+    reg_real = reservados()
+    mapa = _reenvios()
+    if not reg_real or not mapa:
+        print("  FAIL no se pudo leer el registro (%d) o el mapa (%d)"
+              % (len(reg_real), len(mapa)))
+        fallos += 1
+    else:
+        ocup = set(indice(os.path.join(proyecto(),
+                                       "06-INGENIERIA-INVERSA", "findings")))
+        fugas = set(reg_real) - ocup
+        # LLAMA A LA FUNCION REAL. La primera version del caso recalculaba el
+        # reparto aqui mismo, y por eso dos mutaciones de `auditar()` -- invertir
+        # las clases y dejarlas en una sola -- pasaban sin que el self-test se
+        # enterara: estaba probando una COPIA de la logica, no la logica.
+        fugas2, perdidos, viejos = _clasifica(indice(os.path.join(
+            proyecto(), "06-INGENIERIA-INVERSA", "findings")))
+        if fugas and not (set(perdidos) | set(viejos)):
+            print("  FAIL la auditoria no devuelve ninguna de las dos clases")
+            fallos += 1
+        if set(perdidos) | set(viejos) != fugas:
+            print("  FAIL la auditoria devuelve %r y el registro dice %r"
+                  % (sorted(set(perdidos) | set(viejos)), sorted(fugas)))
+            fallos += 1
+        if "975" not in viejos:
+            print("  FAIL 975 deberia estar en la clase RENUMERADO (->%s)"
+                  % mapa.get("975"))
+            fallos += 1
+        else:
+            print("  OK   975 en clase RENUMERADO -> %s" % mapa["975"])
+        if "298" not in perdidos:
+            print("  FAIL 298 deberia estar en la clase SIN ORIGEN")
+            fallos += 1
+        else:
+            print("  OK   298 en clase SIN ORIGEN DEMOSTRABLE")
+        if not (viejos and perdidos):
+            print("  FAIL hace falta al menos un caso de cada clase; con una "
+                  "vacia, el reparto no esta probado")
+            fallos += 1
+
     def escribir(nombre):
         if not os.path.isdir(tmp):
             os.makedirs(tmp)
@@ -437,6 +487,106 @@ def selftest() -> int:
     return 0
 
 
+def _clasifica(ind: Dict[str, List[str]]):
+    """(fugas, perdidos, viejos). La CLASIFICACION, sin imprimir.
+
+    Existe separada de `auditar()` para que el self-test pueda comprobar la
+    logica sin depender del texto que sale por pantalla. Un check que solo
+    puede mirar stdout comprueba el formato, no la decision.
+    """
+    res = reservados()
+    ocupados = set(ind)
+    fugas = sorted(res - ocupados)
+    reenvios = _reenvios()
+    perdidos = [n for n in fugas if n not in reenvios]
+    viejos = [n for n in fugas if n in reenvios]
+    return fugas, perdidos, viejos
+
+
+def auditar(ind: Dict[str, List[str]]) -> int:
+    """Reservas VIVAS sin fichero de hallazgo detrás.
+
+    QUE ES ESTO. `reservados()` lee el registro de bloqueo; `indice()` lee los
+    ficheros. Nada obliga a que los dos coincidan, y medido el 2026-10-03 no
+    coincidían: dos números reservados sin fichero (el 298 y el 975).
+
+    POR QUE ES UN DEFECTO Y NO UN RUIDO. `siguiente()` respeta la reserva aunque
+    no haya fichero, así que el allocator no va a entregar el 298 por error. La
+    consecuencia es otra: el número queda BLOQUEADO para siempre con nada detrás,
+    y quien lea `.nextnum.lock` ya no puede distinguir "reservado por alguien que
+    está escribiendo" de "reservado por un proceso que ya no existe". El
+    registro deja de ser un estado y pasa a ser un rumor.
+
+    Y hay una segunda lectura, más incómoda: el 298 está citado por el hallazgo
+    301 con su número de línea, o sea que EXISTIÓ. El allocator lo sigue
+    teniendo. Lo que se perdió fue el fichero, no el número.
+
+    LO QUE NO HACE. No libera nada. Liberar el 298 cerraría el síntoma y
+    taparía el defecto real: que nada comprueba que una reserva siga teniendo
+    fichero detrás. Se informa y se decide.
+    """
+    fugas, perdidos, viejos = _clasifica(ind)
+    reenvios = _reenvios()
+    res = reservados()
+    ocupados = set(ind)
+
+    # DOS CLASES, Y CONFUNDIRLAS SERIA EL DEFECTO DE NUEVO.
+    #
+    # Medido el 2026-10-03: dos reservas sin fichero, y no son lo mismo.
+    #   298  el hallazgo EXISTIO (el 301 lo cita con su numero de linea) y se
+    #        perdio. La reserva sigue viva. Esto es una perdida.
+    #   975  el hallazgo se renumeró a 976 y la reserva del numero viejo se
+    #        quedo. Esto es un resto de un renumerado, no una perdida.
+    #
+    # Juntas en un numero, el informe dice "2 fugas" y no dice si hay algo que
+    # recuperar o si hay dos numeros que liberar. Por eso se separan.
+    print("AUDITORIA DEL REGISTRO DE BLOQUEO")
+    print("  reservas vivas          : %d" % len(res))
+    print("  con fichero detras      : %d" % len(res & ocupados))
+    print("  SIN fichero detras      : %d" % len(fugas))
+    print()
+    print("  clase RENUMERADO (resto de un renumerado, no una perdida): %d"
+          % len(viejos))
+    for n in viejos:
+        print("     %s -> ahora %s. La reserva del numero viejo quedo."
+              % (n, reenvios[n]))
+    print()
+    print("  clase SIN ORIGEN DEMOSTRABLE (puede ser un hallazgo perdido): %d"
+          % len(perdidos))
+    for n in perdidos:
+        print("     %s  <- reservada y sin fichero. No se libera: cerrar el"
+              % n)
+        print("            sintoma taparia el defecto (nada comprueba que una")
+        print("            reserva tenga fichero detras).")
+    if not fugas:
+        print("  sin fugas.")
+    return (1 if fugas else 0), perdidos, viejos
+
+
+def _reenvios() -> dict:
+    """{numero_viejo: numero_nuevo} del mapa CONGELADO de renumeraciones.
+
+    Se lee el fichero congelado y no se deriva de git a proposito: el mapa
+    autodestruido una vez ya, cuando se commiteo el renumerado sin congelar
+    antes. Ver REENVIO-FINDINGS.tsv.
+    """
+    ruta = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "08-ARQUITECTURA", "tools", "REENVIO-FINDINGS.tsv")
+    out = {}
+    try:
+        with open(ruta, encoding="utf-8") as fh:
+            for l in fh:
+                l = l.rstrip("\n")
+                if not l.strip() or l.startswith("#"):
+                    continue
+                p = l.split("\t")
+                if len(p) == 4:
+                    out[p[0]] = p[1]
+    except OSError:
+        pass
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description="asigna un numero de hallazgo que no colisione")
@@ -457,6 +607,8 @@ def main() -> int:
     ap.add_argument("--cuantos", type=int, default=5)
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--auditar", action="store_true",
+                    help="reservas del registro de bloqueo sin fichero detras")
     args = ap.parse_args()
     if args.selftest:
         return selftest()
@@ -467,6 +619,8 @@ def main() -> int:
               file=sys.stderr)
         return 2
     ind = indice(d)
+    if args.auditar:
+        return auditar(ind)[0]
     duplicados = {k: v for k, v in ind.items() if len(v) > 1}
     if args.desde is None:
         args.desde = 1 if args.rellenar else (max(

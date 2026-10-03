@@ -1,8 +1,9 @@
 # 307 · 63 numeros citados que no son hallazgos: 114 citas, y la mayoria no son referencias
 
 ```
-PENDIENTE=307-1 | HALLAZGO=307-63-numeros-citados-que-no-son-hallazgos.md | ESTADO=NOT_DETERMINED
+PENDIENTE=307-1 | HALLAZGO=307-63-numeros-citados-que-no-son-hallazgos.md | ESTADO=PARTIAL
              | NECESITA=CORPUS | ALCANZABLE_SIN_ROOT=si
+             | NOTA=la auditoria del registro ya existe; queda decidir si el 298 se recupera
 ```
 
 ## Que se midio
@@ -108,14 +109,48 @@ Esto **no se cierra aqui**: es una pregunta de investigacion, no una
 reparacion mecanica. Y es de la clase `NOT_FOUND`, no de la clase puntero
 erroneo. Confundirlas seria repetir el error que produjo las 1038 al reves.
 
+## Auditoria del registro, y el 975 que NO es lo mismo
+
+`tools/nextnum.py --auditar` existe ahora, y separa lo que antes se contaba
+junto. Medido:
+
+```
+  reservas vivas                     38
+  con fichero detras                 36
+  SIN fichero detras                  2
+    clase RENUMERADO                  1    975 -> ahora 976
+    clase SIN ORIGEN DEMOSTRABLE      1    298
+```
+
+**El 975 no es una perdida.** Es un resto: su hallazgo se renumero a 976 y la
+reserva del numero viejo quedo. Y `975 -> 976` esta en el mapa congelado, con
+`reasignado=no`, que es exactamente la clase que el mapa registra cuando el
+numero viejo quedo libre sin quedar ocupado por otro.
+
+Juntos en un solo numero, el informe decia "2 fugas" y no decia si habia algo
+que recuperar o si habia dos numeros que liberar. Separados, hay **una** perdida
+posible y **un** resto que limpiar.
+
+### Por que no se libera el 298
+
+`reservados()` y `siguiente()` hacen bien su trabajo: `siguiente()` respeta la
+reserva aunque no haya fichero, asi que el allocator no va a entregar el 298 por
+error. El defecto no es de asignacion, es que el **registro deja de ser estado**:
+
+```
+  "298" en .nextnum.lock  se lee igual que
+  "299" en .nextnum.lock  <- alguien esta escribiendo ahora mismo
+```
+
+y no hay forma de distinguirlos. Liberar el 298 cerraria el sintoma y taparia
+el defecto real, que es que **nada comprueba que una reserva siga teniendo
+fichero detras**. Con `--auditar` ya lo hay.
+
 ## Que NO se ha hecho
 
 - No se ha escrito un linter que "arregle" estas 114 citas. Haria mas dano.
-- No se ha declarado `PROVEN_ABSENT` para `298`. Se sabe que existio, y su
-  numero sigue reservado.
-- No se ha liberado el 298 de `.nextnum.lock`. Liberarlo cerraria el sintoma y
-  ocultaria el defecto: que el allocator no comprueba que la entrada que
-  reserva siga existiendo.
+- No se ha declarado `PROVEN_ABSENT` para `298`. Se sabe que existio.
+- No se ha liberado el 298 de `.nextnum.lock`, ni el 975.
 - No se ha tocado ninguna cita de las 114. El corpus queda como estaba.
 
 ## Tesis que sostiene
