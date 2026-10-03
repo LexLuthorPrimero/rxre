@@ -128,12 +128,52 @@ def invocadas(herramienta):
     # que ganar una de mas: un grafo incompleto parece MAS SIMPLE de lo que es,
     # y eso es exactamente lo que este fichero dice no hacer.
     consts = {}
+    # Resolver una RUTA CONSTRUIDA, sin interprete.
+    #
+    #   TOOLKIT = os.path.join(ROOT, "08-ARQUITECTURA/tools/toolkit.py")
+    #
+    # NO hace falta un mini-interprete de Python: basta sustituir los nombres
+    # por las constantes de modulo y concatenar. Se limita a os.path.join (y
+    # os.sep) porque es lo que usan las herramientas; cualquier otra expresion
+    # se devuelve como NO RESUELTA, no como vacio. La distincion importa: un
+    # "" aqui significaria "no invoca nada", que es un negativo sin pruebas.
+    def _const_txt(nodo):
+        if isinstance(nodo, ast.Constant) and isinstance(nodo.value, str):
+            return nodo.value
+        if isinstance(nodo, ast.Name) and nodo.id in consts:
+            return consts[nodo.id]
+        return None
+
+    def _ruta(nodo):
+        if isinstance(nodo, ast.Call) and isinstance(nodo.func, ast.Attribute) \
+                and nodo.func.attr == "join":
+            base = nodo.func.value
+            if isinstance(base, ast.Attribute) and base.attr == "path":
+                partes = []
+                for a in nodo.args:
+                    t = _const_txt(a)
+                    if t is None:
+                        return None
+                    partes.append(t)
+                return "/".join(partes) if partes else None
+        return _const_txt(nodo)
+
+    # primera pasada: constantes literales
     for nodo in ast.walk(arbol):
         if isinstance(nodo, ast.Assign) and len(nodo.targets) == 1 \
                 and isinstance(nodo.targets[0], ast.Name) \
                 and isinstance(nodo.value, ast.Constant) \
                 and isinstance(nodo.value.value, str):
             consts[nodo.targets[0].id] = nodo.value.value
+    # segunda pasada: rutas construidas con os.path.join de esas constantes
+    for nodo in ast.walk(arbol):
+        if isinstance(nodo, ast.Assign) and len(nodo.targets) == 1 \
+                and isinstance(nodo.targets[0], ast.Name):
+            nombre = nodo.targets[0].id
+            if nombre not in consts and isinstance(nodo.value, ast.Call):
+                v = _ruta(nodo.value)
+                if v is not None:
+                    consts[nombre] = v
     EJECUTA = ("run", "call", "check_call", "check_output", "Popen", "system",
               "popen")
     for nodo in ast.walk(arbol):
@@ -151,16 +191,30 @@ def invocadas(herramienta):
             continue
         for arg in list(nodo.args) + [k.value for k in nodo.keywords]:
             # Resolver un Name contra las constantes del modulo.
-            if isinstance(arg, ast.Name) and arg.id in consts:
-                v = consts[arg.id]
-                if v.endswith(".py"):
+            if isinstance(arg, ast.Name):
+                v = consts.get(arg.id)
+                if v is not None and v.endswith(".py"):
                     nombres.add(v)
-                arg = ast.Constant(value=v)
+                arg = ast.Constant(value=v if v is not None else arg.id)
             if isinstance(arg, (ast.List, ast.Tuple, ast.Set)):
+                # Un Name DENTRO de la lista tambien se resuelve. Sin esto,
+                # subprocess.run([sys.executable, TOOLKIT]) se escapaba: el
+                # Name estaba dentro de la lista y la rama solo miraba
+                # constantes. Es el mismo fallo que en el argumento directo, en
+                # un sitio distinto, y por eso el self-test tiene que mirar la
+                # arista y no solo la funcion.
                 for e in ast.walk(arg):
-                    if (isinstance(e, ast.Constant) and isinstance(e.value, str)
-                            and e.value.endswith(".py")):
-                        nombres.add(e.value)
+                    v = None
+                    if isinstance(e, ast.Constant) and isinstance(e.value, str):
+                        v = e.value
+                    elif isinstance(e, ast.Name) and e.id in consts:
+                        v = consts[e.id]
+                    if v and v.endswith(".py"):
+                        # Normalizar al NOMBRE, no a la ruta. Una arista que
+                        # llega como /home/.../toolkit.py y otra como toolkit.py
+                        # son la MISMA y no se comparan. Es el mismo motivo por
+                        # el que un indice de citas indexa por nombre.
+                        nombres.add(os.path.basename(v))
             elif (isinstance(arg, ast.Constant) and isinstance(arg.value, str)
                   and arg.value.endswith(".py")):
                 nombres.add(arg.value)
@@ -269,6 +323,7 @@ def main(argv):
     filas = construir()
     print("CADENA DE VALIDACION DE run_all")
     print()
+    con2 = [f for f in filas if f[2]]
     sueltas = appends_directos()
     print("  %d comprobaciones en la lista" % len(filas))
     print("  %d anadidas fuera de la lista (results.append directo)" % len(sueltas))
