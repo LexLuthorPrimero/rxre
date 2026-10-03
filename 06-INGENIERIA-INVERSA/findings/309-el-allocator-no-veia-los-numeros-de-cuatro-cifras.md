@@ -109,7 +109,20 @@ tests lo cazaron** hasta que el corpus cruzo los 999.
 
 Porque todos probaban con numeros de tres cifras. Un vector de prueba tiene
 que usar el valor que rompe, no un valor que funciona. Los tres patrones que
-fallaron tenian el mismo problema: el self-test usaba `123`, no `1000`.
+fallaron tenian el mismo problema: el self-test usaba un numero de tres cifras,
+no `1000`.
+
+Y esto lo acaba de demostrar el check que se acaba de anadir al runner.
+Aquella frase decia "el self-test usaba 123", y **123 entre acentos graves es
+una cita a un hallazgo**, no un ejemplo. El renumerado habia movido ese
+hallazgo y la frase se habia quedado apuntando al 123 de hoy, que es otro
+contenido. El check lo vio en el runner, sin que nadie lo buscara, y la frase
+quedo corregida.
+
+Que fuera este hallazgo el que fallara no es casualidad: es el unico que
+escribi hoy y el unico que podia citar un numero de tres digitas como si fuera
+un ejemplo. Un valor de ejemplo entre acentos graves no es un valor de
+ejemplo: los acentos graves significan "esto es una cita" en todo el corpus.
 
 Consecuencia practica: **"el self-test pasa" no es evidencia de cobertura**.
 Solo lo es si el vector incluye el caso limite.
