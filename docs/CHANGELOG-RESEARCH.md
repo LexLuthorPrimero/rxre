@@ -4511,3 +4511,63 @@ cerrado: 17 de 17. El del resumen tiene un control pendiente, y se sabe cual.
 
 check.sh rc=0 TODO CORRECTO, con `ppt --resumen` dentro del bloque del VBIOS real.
 GPU INTACTA. WRITE_EXECUTION NONE. NO SE TOCO EL CORPUS NI LAS CAPTURAS.
+
+## 2026-10-03 · opencode · el comparador resumen/detallado, y las dos veces que no comparaba
+
+OBJETO   revkit/atomrom.py, comparador _compara_estados y _origenes_vacios
+ACCION   Cerrar el hueco que la ronda anterior dejo declarado
+PISTA    TOOLING · SOLO LECTURA · GPU INTACTA
+
+CIERRE DEL HUECO DECLARADO
+La ronda anterior dejo escrito, en el propio codigo, que tres mutaciones no las
+cazaba ningun control y que el control que las habria cazado estaba
+NOT_IMPLEMENTED porque se habia intentado dos veces y las dos el comparador no
+casaba con el formato real de las columnas. Ahora estan cazadas. 33 vectores y
+28 de 28 mutaciones, cada una aplicada, verificada, parseada y ejecutada.
+
+LA PRIMERA FALLA FUE MIA Y NO DEL CODIGO
+Escribi el comparador con un formato supuesto y Probe el caso bueno. Devolvio
+una discrepancia falsa: el parser de la salida detallada solo encontraba el
+estado 1. Fui a medir las filas reales, token a token, y tenian CUATRO numeros
+delante, no tres. Mi dato de prueba tenia tres. Otra vez el vector, no la
+herramienta.
+
+MEDIDO ANTES DE ESCRIBIR, NO DESPUES
+Por eso esta vez midi primero el formato real de las dos salidas. El de la fila
+detallada es: indice, class, memLow, memHigh y los dos pares de reloj resueltos.
+El del resumen es: state[n].nivel_bajo/alto, mclk[i]=valor, sclk[j]=valor.
+
+LO QUE SE COMPARA, Y LO QUE NO, DICHO
+La salida detallada NO muestra los indices de graficos, solo los valores
+resueltos. Asi que el comparador contrasta los indices de memoria y los cuatro
+valores, y eso basta: un indice de graficos equivocado produce un valor
+distinto, y a valores distintos les corresponden forzosamente indices distintos.
+
+LA REGLA QUE SALIO DE LOS TRES PRIMEROS HUECOS
+1. El origen no se busca por anchura de linea, que es fragil y ya me dio un
+   verde falso. La fila se separa en sus tres columnas.
+2. El grupo del origen es OPCIONAL en la regex. MEDIDO: con una regex que lo
+   exigia, una fila sin origen dejaba de casar y se escapaba del control en vez
+   de marcarse. Eso es peor que no comprobar: es comprobar y dar verde.
+3. El comparador y el control de origen son FUNCIONES, probadas con entrada
+   buena y con entrada deliberadamente mala. Un control que solo se ejerce con
+   el caso bueno no se sabe si comprueba.
+
+DOS CASOS QUE HACE FALTA QUE EXISTAN PARA QUE UNO SE NOTE
+Los tres primeros casos malos movian indice y valor a la vez, con lo que la
+comprobacion de valores nunca se ejercitaba sola. Anadi un caso con indice
+CORRECTO y valor equivocado, y otro con el indice de graficos correcto y su
+valor equivocado. Son los unicos que separan esa comprobacion de la de indices.
+Tambien un caso donde falta un ESTADO entero, que es el unico que separa la
+comparacion de conjuntos: los demas quitaban un nivel o cambiaban un valor, y en
+ninguno se perdia un estado entero.
+
+LIMITE QUE QUEDA, DECLARADO EN LA SALIDA
+Borrar un caso de la lista de casos malos no lo detecta nada. La mutacion
+quita el caso del estado entero sale con rc=0. Una lista de casos negativos no
+tiene control de completitud, y el control intuitivo --contar los mensajes
+distintos que el comparador puede emitir y exigir que cada uno lo dispare al
+menos un caso-- sigue sin detectar la baja si otro caso dispara el mismo
+mensaje. Queda escrito en la salida del propio autotest con la cuenta.
+
+check.sh rc=0 TODO CORRECTO. NO SE TOCO EL CORPUS NI LAS CAPTURAS.

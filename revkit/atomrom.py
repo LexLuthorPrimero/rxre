@@ -908,12 +908,7 @@ def cmd_autotest(a):
         # El origen NO se busca por anchura de linea, que es fragil y ya me dio un
         # verde falso. Se separa la linea del resumen en sus tres columnas y se
         # exige que la tercera no este vacia.
-        _vacias = []
-        for _l in _out.splitlines():
-            _m = re.match(r"^  (\S+)\s+(\S+)\s*(\S.*)$", _l)
-            if _m and _m.group(1)[:2] in ("mc", "sc", "st", "po", "pp"):
-                if not _m.group(3).strip():
-                    _vacias.append(_l.strip())
+        _vacias = _origenes_vacios(_out)
         if not _vacias:
             print("  OK    ninguna fila del resumen queda sin origen")
         else:
@@ -921,29 +916,117 @@ def cmd_autotest(a):
                   % (len(_vacias), _vacias[0][:60]))
             fallos.append("filas del resumen sin origen")
 
-    # ESTE CONTROL NO ESTA IMPLEMENTADO, Y SE DICE. MEDIA TRECE VECES, y aqui es
-    # la catorce: el resumen y la salida detallada tienen que coincidir fila a fila
-    # para los estados, y eso es lo que convierte "dos presentaciones de un dato" en
-    # algo verificable en vez de algo que se da de bueno. Intentado dos veces: las
-    # dos veces el comparador no casaba con el formato real de las columnas y
-    # devolvia "coinciden" sin comparar nada.
-    #
-    # No se publica un control que dice OK sin comprobar. Se deja el hueco
-    # DECLARADO y se cuentan las mutaciones que no cubren: tres, todas del camino
-    # del resumen, y ninguna del parseo. Hasta que se escriba el comparador contra
-    # el formato real, esto es NOT_IMPLEMENTED y no un control.
-    _sum_filas = [l for l in _out.splitlines()
-                  if re.match(r"^  state\[\d+\]\.nivel_", l)]
-    if len(_sum_filas) == n_estados_sint * 2:
-        print("  info  el resumen tiene las %d filas de estado esperadas, pero NO"
-              % len(_sum_filas))
-        print("        se comprueba que coincidan con la salida detallada:")
-        print("        comparador NO IMPLEMENTADO. Mutaciones que esto no cubre:")
-        print("        origen vacio, memoria y graficos cruzados, alto por el bajo.")
+    # EL CONTROL: el resumen tiene que COINCIDIR con la salida detallada, y se
+    # comprueba con un comparador que es una FUNCION, probada aparte con entrada
+    # buena y con entrada deliberadamente mala.
+    _cap_d2 = io.StringIO()
+
+    class _TraeD2:
+        def write(self, x):
+            _cap_d2.write(x)
+            return len(x)
+
+        def flush(self):
+            pass
+
+    a.resumen = False
+    sys.stdout = _TraeD2()
+    try:
+        cmd_ppt(_ppt_sintetico(rom), a)
+    finally:
+        sys.stdout = real2
+    a.resumen = True
+    sys.stdout = _TraeD2()
+    try:
+        cmd_ppt(_ppt_sintetico(rom), a)
+    finally:
+        sys.stdout = real2
+    a.resumen = False
+    _det_txt = _cap_d2.getvalue()
+    sys.stdout = _a_salida
+    try:
+        cmd_ppt(_ppt_sintetico(rom), a)
+    finally:
+        sys.stdout = real2
+    _sum_txt = _cap_o.getvalue()
+    _malos = _compara_estados(_det_txt, _sum_txt)
+    if not _malos:
+        print("  OK    el resumen y la salida detallada coinciden en los estados")
     else:
-        print("  FALLA el resumen tiene %d filas de estado y se esperaban %d"
-              % (len(_sum_filas), n_estados_sint * 2))
-        fallos.append("recuento de filas de estado en el resumen")
+        print("  FALLA el resumen no coincide con la salida detallada: %s" % _malos[0])
+        fallos.append("resumen y detallado no coinciden")
+
+    # Y EL COMPARADOR SE PRUEBA CON ENTRADA MA, que es lo que no estaba. Un
+    # comparador que solo se prueba con el caso bueno no se sabe si compara.
+    _D = ("    0    8       0        0   30000 kHz /  21400 kHz  30000 kHz /  21400 kHz\n"
+          "    1    5       0        2   30000 kHz /  21400 kHz  150000 kHz / 107100 kHz")
+    _S_ok = ("  state[0].nivel_bajo  mclk[0]=30000 kHz sclk[0]=21400 kHz  indice LOW\n"
+             "  state[0].nivel_alto  mclk[0]=30000 kHz sclk[0]=21400 kHz  indice HIGH\n"
+             "  state[1].nivel_bajo  mclk[0]=30000 kHz sclk[0]=21400 kHz  indice LOW\n"
+             "  state[1].nivel_alto  mclk[2]=150000 kHz sclk[7]=107100 kHz  indice HIGH")
+    _casos_malos = [
+        ("indice de memoria equivocado",
+         _S_ok.replace("mclk[2]=150000", "mclk[1]=150000")),
+        ("memoria y graficos cruzados",
+         _S_ok.replace("mclk[2]=150000 kHz sclk[7]=107100 kHz",
+                       "mclk[7]=150000 kHz sclk[2]=107100 kHz")),
+        ("nivel alto con los indices del bajo",
+         _S_ok.replace("state[1].nivel_alto  mclk[2]=150000 kHz sclk[7]=107100 kHz",
+                       "state[1].nivel_alto  mclk[0]=30000 kHz sclk[0]=21400 kHz")),
+        ("falta un nivel",
+         "\n".join(_S_ok.splitlines()[:3])),
+        # falta el estado ENTERO. MEDIDO: los demas casos quitaban un nivel o
+        # cambiaban un valor, y en ninguno se perdia un estado, con lo que la
+        # comparacion de CONJUNTOS nunca se ejercitaba y su mutacion pasaba. Un
+        # estado que desaparece entero es el unico caso que la separa del resto.
+        ("falta un estado entero",
+         "\n".join([l for l in _S_ok.splitlines() if "state[0]." not in l])),
+        # indice correcto, VALOR equivocado: el unico caso que separa la
+        # comprobacion de valores de la de indices. Con indice y valor movidos a
+        # la vez, la comprobacion de indices ya lo caza y la de valores no se
+        # exercise nunca.
+        ("valor equivocado con indice correcto",
+         _S_ok.replace("mclk[2]=150000 kHz", "mclk[2]=999999 kHz")),
+        ("sclk equivocado con indice correcto",
+         _S_ok.replace("sclk[7]=107100 kHz", "sclk[7]=123456 kHz")),
+    ]
+    # el control de origen, con entrada buena y con una fila vaciada a proposito
+    _filas_ok = ["  mclk[0].ulMclk   30000   crudo; x10 -> 300000 kHz",
+                 "  state[1].nivel_alto   mclk[2]=150000 kHz sclk[7]=107100 kHz  indice HIGH"]
+    _filas_malas = ["  mclk[0].ulMclk   30000   "]
+    if _origenes_vacios("\n".join(_filas_ok)):
+        print("  FALLA el control de origen marca filas que si lo tienen")
+        fallos.append("control de origen: falso positivo")
+    elif not _origenes_vacios("\n".join(_filas_malas)):
+        print("  FALLA el control de origen NO ve una fila sin origen")
+        fallos.append("control de origen: no detecta la fila vacia")
+    else:
+        print("  OK    el control de origen ve la fila vaciada y no marca las buenas")
+
+    if _compara_estados(_D, _S_ok):
+        print("  FALLA el comparador da discrepancias en el caso BUENO")
+        fallos.append("comparador falso positivo")
+    else:
+        _fallo = []
+        for _nombre, _malo in _casos_malos:
+            if not _compara_estados(_D, _malo):
+                _fallo.append(_nombre)
+        if _fallo:
+            print("  FALLA el comparador NO detecta: %s" % ", ".join(_fallo))
+            fallos.append("comparador no detecta: %s" % ", ".join(_fallo))
+        else:
+            print("  OK    el comparador pasa el caso bueno y detecta los %d malos"
+                  % len(_casos_malos))
+        # LIMITE DECLARADO, MEDIDO: BORRAR un caso de esta lista no lo detecta
+        # nada. La mutacion "quita el caso del estado entero" pasa con rc=0. Una
+        # lista de casos negativos no tiene control de completitud, y el unico
+        # control de completitud posible --contar los mensajes distintos que el
+        # comparador puede emitir y exigir que cada uno lo dispare al menos un
+        # caso-- sigue sin detectar la baja de un caso si otro caso dispara el
+        # mismo mensaje. Se declara en vez de dejar que la cuenta de cobertura
+        # parezca mayor de lo que es.
+        print("  info  limite DECLARADO: borrar un caso de los %d no lo detecta"
+              % len(_casos_malos))
 
     # F3: las escaleras tienen que ser CRECIENTES, y una que no lo sea es INVALID.
     # Vector: el fixture con la escalera de mclk invertida.
@@ -1571,6 +1654,99 @@ def _dep_entries(d, base, campos, nombre):
             plausible = False
         filas.append((i, b, clk))
     return rev, n, filas, recsz, desp, plausible
+
+
+# El control de origen, COMO FUNCION, por el mismo motivo que el comparador: un
+# control que solo se ejerce con el caso bueno no se sabe si comprueba.
+#
+# El grupo del origen es OPCIONAL a proposito. MEDIDO: con una regex que lo exigia,
+# una fila sin origen dejaba de CASAR y se escapaba del control en vez de
+# marcarse. Eso es peor que no comprobar: es comprobar y dar verde.
+_RX_ORIGEN = re.compile(r"^  (\S+)\s+(\S+)(?:\s+(.*))?\s*$")
+_PREFIJOS_CONTRATO = ("mc", "sc", "st", "po", "pp")
+
+
+def _origenes_vacios(texto):
+    """Filas del contrato cuya tercera columna, el ORIGEN, esta vacia."""
+    vacias = []
+    for l in texto.splitlines():
+        m = _RX_ORIGEN.match(l)
+        if m and m.group(1)[:2] in _PREFIJOS_CONTRATO:
+            if not (m.group(3) or "").strip():
+                vacias.append(l.strip())
+    return vacias
+
+
+# --- el comparador, COMO FUNCION, para poder probarlo con entrada mala ----------
+#
+# MEDIDO DOS VECES: las dos primeras versiones de este comparador estaban dentro
+# del autotest y adivinaban el formato de las columnas, asi que no comparaban nada
+# y devolvian "coinciden". Ahora es una funcion suelta, con los formatos MEDIDOS,
+# y el autotest la llama con entrada buena y con entrada deliberadamente mala.
+#
+# LO QUE SE COMPARA, Y LO QUE NO, DICHO:
+#   la salida detallada muestra indice, class, memLow, memHigh y los pares de
+#   reloj RESUELTOS. NO muestra los indices de graficos. Asi que se comparan los
+#   indices de memoria y los cuatro valores, y eso basta: un indice de graficos
+#   equivocado produce un valor distinto, y a valores distintos les corresponde
+#   forzosamente indices distintos.
+#
+# Formato de la fila detallada, medido:
+#   "    1    5       0        2   30000 kHz /  21400 kHz  150000 kHz / 107100 kHz"
+# Formato de la fila del resumen, medido:
+#   "  state[1].nivel_bajo   mclk[0]=30000 kHz sclk[0]=21400 kHz  indice LOW"
+_RX_DET = re.compile(r"^\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(.*)$")
+_RX_PAR = re.compile(r"(\d+) kHz\s*/\s*(\d+) kHz")
+_RX_SUM = re.compile(
+    r"^  state\[(\d+)\]\.nivel_(bajo|alto)\s+"
+    r"mclk\[(\d+)\]=(\d+) kHz sclk\[(\d+)\]=(\d+) kHz")
+
+
+def _compara_estados(detallado, resumen):
+    """
+    Devuelve la lista de discrepancias entre la salida detallada y el resumen.
+    Vacia significa que coinciden. Cada discrepancia dice QUE no cuadra y AMBOS
+    valores, que es lo que hace util el mensaje cuando algo va mal.
+    """
+    det = {}
+    for l in detallado.splitlines():
+        m = _RX_DET.match(l)
+        if not m:
+            continue
+        pares = _RX_PAR.findall(m.group(5))
+        if len(pares) != 2:
+            continue
+        det[int(m.group(1))] = (int(m.group(2)), int(m.group(3)),
+                                int(m.group(4)),
+                                (int(pares[0][0]), int(pares[0][1])),
+                                (int(pares[1][0]), int(pares[1][1])))
+    sum_ = {}
+    for l in resumen.splitlines():
+        m = _RX_SUM.match(l)
+        if not m:
+            continue
+        i = int(m.group(1))
+        sum_.setdefault(i, {})[m.group(2)] = (int(m.group(3)), int(m.group(4)),
+                                                int(m.group(5)), int(m.group(6)))
+    malos = []
+    if set(det) != set(sum_):
+        malos.append("estados: detallado %s, resumen %s"
+                     % (sorted(det), sorted(sum_)))
+    for i in sorted(set(det) & set(sum_)):
+        _cls, _ml, _mh, _bajo, _alto = det[i]
+        S = sum_[i]
+        for nivel, idx_det, par_det in (("bajo", _ml, _bajo), ("alto", _mh, _alto)):
+            if nivel not in S:
+                malos.append("estado %d: el resumen no tiene el nivel %s" % (i, nivel))
+                continue
+            sm, sv, sg, gv = S[nivel]
+            if sm != idx_det:
+                malos.append("estado %d %s: indice de memoria resumen %d, detallado %d"
+                             % (i, nivel, sm, idx_det))
+            if (sv, gv) != par_det:
+                malos.append("estado %d %s: valores resumen %d/%d, detallado %d/%d"
+                             % (i, nivel, sv, gv, par_det[0], par_det[1]))
+    return malos
 
 
 def cmd_ppt(d, a):
