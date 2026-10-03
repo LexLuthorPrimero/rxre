@@ -3863,3 +3863,92 @@ pptable son `v2_0` y `v2_1`. Medido el binario: `300000` tampoco esta ahi. Queda
 una tercera via, la de las tablas del PSP, que pasa por `F12`.
 
 GPU INTACTA. WRITE_EXECUTION NONE. NO SE TOCO EL CORPUS NI LAS CAPTURAS.
+## 2026-10-03 · opencode · EV-49: `300000` esta en el VBIOS, y es un techo de SCLK, NO el reloj de memoria
+
+```
+OBJECT   revkit/capturas/amdgpu_vbios.txt (SOLO LECTURA), atombios.h
+ACTION   Lectura de las 21 tablas + parseo de SMU_Info con su struct. GPU sin tocar.
+TRACK    EVIDENCE + REFUTATION · READ_ONLY · WRITE_EXECUTION NONE · GPU INTACTA
+```
+
+**LO QUE SE BUSCO.** EV-48 dejo tres candidatos para el origen de los niveles de
+mclk. El primero medible sin permisos era "otra tabla del VBIOS". Se escanearon
+**las 21 tablas presentes**, no solo `PowerPlayInfo`, con la lista **parseada de
+la salida de `atomrom.py`** y no transcrita a mano, porque transcribirla seria una
+segunda fuente que puede desincronizarse.
+
+**Y `300000` aparece. En `SMU_Info`, offset 0xa8bc, +0x2C.**
+
+Aqui es donde la cosa se tuerce, y para bien.
+
+**LEER EL STRUCT, Y NO EL BYTE.** `ATOM_SMU_INFO_V2_1`, en `atombios.h:5635`:
+
+```
+ATOM_COMMON_TABLE_HEADER  asHeader;          4 bytes
+UCHAR ucSclkEntryNum, ucSMUVer,
+      ucSharePowerSource, ucReserved;         4 bytes
+ATOM_SCLK_FCW_RANGE_ENTRY_V1 asSclkFcwRangeEntry[8];
+```
+
+Con entrada de 12 bytes, el struct lleno ocuparia **104**, y la tabla declara
+**56**. Primer impulso: "el struct no encaja, no se puede atribuir". Segundo
+impulso, el correcto: **`ucSclkEntryNum` dice cuantos hay, no el `[8]`**. Y ahi:
+
+```
+ucSclkEntryNum = 4        ucSMUVer = 74
+8 + 4*12 = 56  ==  usStructureSize (56)      <== COINCIDE
+```
+
+El tamano declarado y el contenido se confirman entre si. **Tercera y ultima
+vía, ya probada:** el recorrido de los valores.
+
+| entrada | `ulMaxSclkFreq` | `ucVco_setting` | `ucPostdiv` |
+|---|---|---|---|
+| 0 | 37500 | 1 | 4 |
+| 1 | 75000 | 1 | 3 |
+| 2 | 150000 | 1 | 2 |
+| 3 | **300000** | 1 | **1** |
+
+Cada valor es exactamente el doble del anterior mientras `ucPostdiv` baja de 4 a
+1. Eso no son cuatro frecuencias sueltas: es una **escalera de divisores de VCO**.
+Y el campo se llama `ulMaxSclkFreq`, o sea **techo de SCLK, reloj de graficos**.
+
+**DICTAMEN: LA HIPOTESIS DE EV-47 QUEDA REFUTADA.** El `300000` del VBIOS **no es
+el reloj de memoria**. Es el techo de reloj de graficos para `postdiv=1`.
+
+**Y AQUI ESTA LA TRAMPA, QUE ES LO QUE HACE QUE ESTO SE PUBLIQUE.** El mclk que
+midio `gputel` en reposo **tambien es 300000 kHz**. **El mismo numero con dos
+significados distintos en el mismo hardware.** Si yo no hubiera leido el struct y
+me hubiera quedado con "300000 aparece en el VBIOS, luego EV-47 era cierta", habria
+**confirmado con una coincidencia una hipotesis que era falsa** -- y lo habria
+hecho con toda la sintaxis del rigor: medidas, sha256 y tablas de inventario.
+
+Que `300000` en el VBIOS.resulto ser un techo de sclk no es casualidad de bytes:
+es que **300 MHz es un valor de reloj de graficos muy plausible** en esta clase de
+tarjeta. Precisamente por eso cuela.
+
+**DONDE QUEDA EL ORIGEN DEL mclk, CON LO MEDIDO.** Descartadas, con razon:
+
+| candidato | estado |
+|---|---|
+| `PowerPlayInfo` / `vdd_dep_on_mclk` | EV-48: `300000` no esta en ninguna codificacion |
+| otra tabla del VBIOS | EV-49: las 21 tablas escaneadas; el unico `300000` es sclk |
+| pptable soft del SMU | EV-46: la cabecera es `v1_0` y no tiene pptable; `300000` tampoco esta en el binario |
+| tablas del PSP | pasa por `F12` |
+
+Los tres que se pueden medir sin permisos estan **descartados**. El cuarto esta
+bloqueado. Y hay una quinta via que no he mirado y que no requiere permisos: **que
+el nivel de memoria no venga de una tabla sino del estado que el SMU elige dentro
+de un rango que el driver le pasa**, es decir que 300 MHz sea el minimo de un rango
+y no una entrada de tabla. Eso se distingue leyendo `SMU74_Discrete_MemoryLevel` y
+el `mclk_dpm0_activity_target = 0xa` de EV-45, y sigue siendo medible.
+
+**LIMITE DECLARADO.** Los 8 valores con forma de frecuencia de `PowerPlayInfo`
+(480, 192, 224, 256, 768, 100, 384 y 150 MHz) y los 10 de `ASIC_ProfilingInfo`
+(700 a 1100 MHz, que **envuelven los 1040 MHz** que midio `gputel`) siguen siendo
+**observaciones sin atribuir**: sin el layout en disco, que sigue ausente porque
+`pp_table.h` no esta, no se puede decir a que campo pertenecen. Registrados como
+tal. La escalera de 700 a 1100 es sospechosa de ser la tabla de perfiles de sclk
+del ASIC, pero **sospechosa no es medida**.
+
+GPU INTACTA. WRITE_EXECUTION NONE. NO SE TOCO EL CORPUS NI LAS CAPTURAS.
