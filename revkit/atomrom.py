@@ -493,6 +493,10 @@ def cmd_autotest(a):
     print("PPT (PowerPlayInfo), en ROM sintetico")
 
     # una tabla de dependencia de mclk de tres entradas, con relojes plausibles
+    # 13 es LITERAL a proposito: el fixture tiene que medir lo que mide el struct
+    # del driver, dicho aqui y no imported del propio codigo que se comprueba.
+    MCLK_REC_LITERAL = 13
+
     def _mclk_tab(entradas, recsz=MCLK_REC, holgura=0):
         # holgura: se reserva sitio de mas a proposito, para que un registro de
         # tamano equivocado NO se detecte por salirse del buffer sino por la
@@ -512,7 +516,8 @@ def cmd_autotest(a):
     buenos = (30000, 62500, 150000)
     rev, n, filas, recsz, desp, ok = _dep_entries(
         _mclk_tab(buenos), 0, MCLK_CAMPOS, "MCLK")
-    if ok and n == 3 and [f[2] for f in filas] == list(buenos) and recsz == 13:
+    if ok and n == 3 and [f[2] for f in filas] == list(buenos) \
+            and recsz == MCLK_REC_LITERAL:
         print("  OK    lee 3 entradas de mclk con el registro de 13 bytes")
     else:
         print("  FALLA lectura de mclk: n=%d recsz=%d ok=%s vals=%s"
@@ -605,13 +610,40 @@ def cmd_autotest(a):
         # Tonga. Sin esta tabla, cmd_ppt no llegaba a la rama de sclk y la
         # seleccion de registro no se probaba: la mutacion "siempre Tonga" pasaba
         # porque el codigo mutado no se ejecutaba nunca.
+        # una VddcLookupTable limpia y una VddgfxLookupTable con relleno, que es
+        # lo que hay en el VBIOS real y es justo el caso que hay que contar en vez
+        # de imprimir como si fueran voltajes
+        # MEDIDO, Y ESTO ES LO QUE HACE QUE ESTOS VECTORES PUEDAN CAZAR UNA
+        # MUTACION DEL TAMANO DEL REGISTRO: el fixture se escribe con BYTES
+        # LITERALES, no con _tam(VLUT_CAMPOS). La primera version usaba
+        # _tam(VLUT_CAMPOS), o sea que el fixture lo construia la misma definicion
+        # que iba a comprobar: al mutarla cambiaban escritor y lector a la vez,
+        # seguian de acuerdo, y el control no podia fallar. Un test construido con
+        # la cosa que prueba no puede detectar que la cosa este mal.
+        dep2 = 300
+        struct.pack_into("<H", t, off["usVddcLookupTableOffset"], dep2)
+        t[dep2] = 0
+        t[dep2 + 1] = 2
+        struct.pack_into("<H", t, dep2 + 2, 800)
+        struct.pack_into("<H", t, dep2 + 10, 875)
+        dep3 = 320
+        struct.pack_into("<H", t, off["usVddgfxLookupTableOffset"], dep3)
+        t[dep3] = 0
+        t[dep3 + 1] = 3
+        struct.pack_into("<H", t, dep3 + 2, 900)
+        struct.pack_into("<H", t, dep3 + 10, 0xFF02)
+        struct.pack_into("<H", t, dep3 + 18, 0xFF03)
+
         deps = 400
         struct.pack_into("<H", t, off["usSclkDependencyTableOffset"], deps)
         n_s = 3
         t[deps] = 1                       # ucRevId = 1 -> registro Polaris
         t[deps + 1] = n_s
+        # bytes LITERALES, 15 por registro, por el mismo motivo que las tablas de
+        # voltaje: si el fixture se construye con la definicion que va a comprobar,
+        # mutarla cambia escritor y lector a la vez y el control no puede fallar.
         for i, clk in enumerate((98000, 102000, 104600)):
-            o = deps + 2 + i * SCLK_REC_POLARIS
+            o = deps + 2 + i * 15
             t[o] = 0
             struct.pack_into("<H", t, o + 1, 0)
             struct.pack_into("<I", t, o + 3, clk)
@@ -667,6 +699,56 @@ def cmd_autotest(a):
         print("  FALLA usTableSize erroneo -> rc=%d: sigue imprimiendo la tabla"
               % rc_malo)
         fallos.append("cmd_ppt no detecta usTableSize erroneo")
+
+    # C-ter: una entrada de voltaje fuera de rango tiene que CONTARSE como
+    # relleno, no imprimirse como si fuera un voltaje. Es el mismo control que el
+    # de los relojes, aplicado al otro parametro, y sin el el VBIOS real imprimiria
+    # 65282 mV.
+    _cap = io.StringIO()
+
+    class _Toma:
+        def write(self, x):
+            _cap.write(x)
+            return len(x)
+
+        def flush(self):
+            pass
+
+    sys.stdout = _Toma()
+    try:
+        cmd_ppt(_ppt_sintetico(rom), a)
+    finally:
+        sys.stdout = real
+    salida = _cap.getvalue()
+    # El reparto esperado NO se escribe a mano: se cuenta sobre lo que la propia
+    # tabla sintetica pone, porque un numero escrito aqui que no encaja con el
+    # dato se rompe en cuanto se cambia la tabla, y da un FALLA que parece un
+    # fallo de la herramienta cuando es del vector. Ya paso una vez aqui.
+    _entradas = 3
+    _relleno = 2
+    _esperado = ("%d de %d entradas con voltaje plausible; %d fuera de rango"
+                 % (1, _entradas, _relleno))
+    # Y la tabla de vddc, que es la que detecta un registro de voltaje del tamano
+    # equivocado. MEDIDO: comprobar solo la de vddgfx NO lo detecta, porque alli los
+    # rellenos estan fuera de rango con cualquier tamano de registro y el recuento
+    # sale igual. El desalineo solo se ve donde los valores son Limpios.
+    _limpio = ("2 de 2 entradas con voltaje plausible; 0 fuera de rango" in salida
+               and "875" in salida and _tam(VLUT_CAMPOS) == 8)
+    if not _limpio:
+        print("  AVISO  la tabla de voltaje limpia no sale como se espera; el")
+        print("        control de tamano de registro de voltaje NO se ejercita")
+        fallos.append("vddc sintetica no permite detectar un registro malo")
+    if (_esperado in salida and "relleno, NO un voltaje" in salida
+            and ("65282" not in salida or "mV" in salida)):
+        print("  OK    el relleno de voltaje se cuenta y se dice, no se imprime")
+        print("        (%s)" % _esperado)
+    else:
+        print("  FALLA el relleno de voltaje no se cuenta como tal")
+        print("        esperado: %s" % _esperado)
+        for _l in salida.splitlines():
+            if "plausible" in _l or "FUERA de" in _l:
+                print("        salida: %s" % _l.strip())
+        fallos.append("relleno de voltaje")
 
     # C-bis: los relojes de sclk tienen que leerse con el registro de POLARIS. Con
     # el de Tonga (11 en vez de 15) las entradas se desalinean y salen numeros que
@@ -1113,6 +1195,10 @@ SCLK_REC_POLARIS = _tam(SCLK_CAMPOS_POLARIS)
 # 10^5..10^6 kHz. Fuera de eso no es un reloj raro: es un byte leido en el sitio
 # equivocado, y decirlo es parte del contrato.
 PLO_CLOCKS_KHZ = (10000, 2000000)
+PLO_MV = (100, 2000)
+
+# ATOM_Tonga_Voltage_Lookup_Record, tambien de pptable_v1_0.h
+VLUT_CAMPOS = [("usVdd", 2), ("usCACLow", 2), ("usCACMid", 2), ("usCACHigh", 2)]
 
 
 def _layout_ppt():
@@ -1293,6 +1379,43 @@ def cmd_ppt(d, a):
                   % (i, u8(d, b), u16(d, b + 1), clk, clk * 10, clk * 10 / 1000.0,
                      u16(d, b + 7)))
         print()
+    for campo, nombre in (("usVddcLookupTableOffset", "VddcLookupTable"),
+                         ("usVddgfxLookupTableOffset", "VddgfxLookupTable")):
+        vo = u16(d, pp + off[campo])
+        if not vo:
+            continue
+        recsz = _tam(VLUT_CAMPOS)
+        vrev = u8(d, pp + vo)
+        vn = u8(d, pp + vo + 1)
+        print("TABLA DE LOOKUP DE VOLTAJE %s, en 0x%04X" % (nombre, pp + vo))
+        print("  ucRevId = %d   ucNumEntries = %d   registro = %d bytes"
+              % (vrev, vn, recsz))
+        print()
+        print("  %-4s %-9s %-8s %-9s %-9s %-9s" % ("#", "usVdd", "mV", "usCACLow",
+                                                     "usCACMid", "usCACHigh"))
+        reales = relleno = 0
+        for i in range(vn):
+            o = pp + vo + 2 + i * recsz
+            if o + recsz > len(d):
+                raise RomInvalido("%s: la entrada %d se sale del ROM" % (nombre, i))
+            vv = u16(d, o)
+            ok = PLO_MV[0] <= vv <= PLO_MV[1]
+            reales += ok
+            relleno += not ok
+            print("  %-4d %-9d %-8s %-9d %-9d %-9d%s"
+                  % (i, vv, "%.0f" % vv if ok else "?",
+                     u16(d, o + 2), u16(d, o + 4), u16(d, o + 6),
+                     "" if ok else "   <-- FUERA de %d..%d mV: relleno, NO un voltaje"
+                     % PLO_MV))
+        print()
+        print("  %d de %d entradas con voltaje plausible; %d fuera de rango"
+              % (reales, vn, relleno))
+        if relleno:
+            print("  ATENCION: el relleno se parece a un patron (0xFF00 + n), no")
+            print("  a una tabla de voltajes. Las entradas fuera de rango NO se")
+            print("  usan y no se usan: se cuentan y se dicen.")
+        print()
+
     print("LIMITES, DICHOS:")
     print("  - Se decodifica PowerPlayInfo y sus tablas de dependencia. Las otras")
     print("    subtablas se LOCALIZAN y no se decodifican: son NOT_IMPLEMENTED,")

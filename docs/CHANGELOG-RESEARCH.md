@@ -4141,3 +4141,92 @@ decision de quien lee, no un numero escondido en la herramienta.
 
 check.sh rc=0 TODO CORRECTO, con `ppt` dentro del bloque del VBIOS real. GPU
 INTACTA. WRITE_EXECUTION NONE. NO SE TOCO EL CORPUS NI LAS CAPTURAS.
+## 2026-10-03 · opencode · las tablas de voltaje del VBIOS, y el resultado NO es el esperado
+
+```
+OBJECT   revkit/atomrom.py (lookup de voltaje en ppt), docs/*, revkit/check.sh
+ACTION   Extension de la herramienta + 13 vectores + 9 mutaciones. GPU sin tocar.
+TRACK    TOOLING + NEGATIVE_RESULT · READ_ONLY · GPU INTACTA
+```
+
+**LO QUE SE BUSCABA.** Cerrada la cadena de los relojes, quedaba la de energia:
+cruzar la tabla de voltaje del VBIOS con los 812-881 mV que midio `gputel` para
+vddgfx, y explicar la anomalia que dejo EV-50: `usVddci` es 800 en los tres niveles
+de mclk y 875 solo en el alto, o sea que **la caida de reloj no viene acompanada de
+caida de voltaje**.
+
+**LO QUE DICE EL VBIOS, MEDIDO.** `VddcLookupTable` en el offset que la cabecera
+declara, `0x0077`, 10 entradas de 8 bytes:
+
+```
+700   750   800   850   875   900   950   1000   1050   1100   mV
+```
+
+Escala limpia, y los tres CAC a cero en todas: este VBIOS no guarda datos de
+fugado. Y **850 y 875 caen dentro de los 812-881 mV medidos**.
+
+**PERO ESO NO ES LO QUE SE BUSCABA, Y AQUI ESTA EL RESULTADO NEGATIVO.**
+`VddgfxLookupTable`, en `0x00C9`, declara 8 entradas, y solo la primera es un
+voltaje:
+
+```
+entrada 0   900        <-- voltaje real
+entradas 1-7  65282 65283 65284 65285 65286 65287 65288
+              = 0xFF02 0xFF03 0xFF04 0xFF05 0xFF06 0xFF07 0xFF08
+```
+
+Eso no es una tabla de voltajes: es **relleno**, con el patron `0xFF00 + n`. Y lo
+mismo en el binario del SMU no aparece, igual que el 30000 del pptable aparecia en
+una unidad que no era la que yo buscaba. La herramienta lo dice asi, sin reticencias:
+
+```
+1 de 8 entradas con voltaje plausible; 7 fuera de rango
+ATENCION: el relleno se parece a un patron (0xFF00 + n), no a una tabla de
+voltajes. Las entradas fuera de rango NO se usan: se cuentan y se dicen.
+```
+
+**Y LA ATRIBUCION QUE IBA A HACER Y NO HAY QUE HACER.** La tabla de vddc tiene 850
+y 875, que estan en el rango medido de vddgfx. **No los atribuyo a vddgfx**: son de
+la tabla de **vddc**, que es otro rail. Confundir vddc con vddgfx seria el mismo
+error que EV-49 cometio con el 300000, y a proposito de esto: dos medidas que se
+parecen no son la misma medida.
+
+**LO QUE QUEDA.** El vddgfx medido, 812-881 mV, **no esta explicado por ninguna
+tabla de este VBIOS**: la unica entrada real de vddgfx es 900 mV, y la de vddc no
+es su rail. Estado `NOT_DETERMINED`, y con la pista correcta: el voltaje lo pone el
+SMU o el propio regulator, igual que los relojes (EV-45, EV-47). Coherente con que
+`smumgr` es quien manda, y **incoherente con una explicacion que yo queria
+encontrar**, que es lo que hace que un resultado negativo sea informacion y no
+decepcion.
+
+**CUATRO DEFECTOS PROPIOS EN ESTA RONDA, Y TRES ERAN DEL TEST, NO DE LA HERRAMIENTA.**
+
+1. El vector de relleno fallaba porque **yo habia escrito a mano el reparto
+   esperado** ("2 de 3") cuando la tabla sintetica ponia 3 entradas con 2 de
+   relleno. Un numero escrito a mano que no encaja con el dato da un FALLA que
+   parece un fallo de la herramienta. Ahora se deriva.
+2. La mutacion del **tamano del registro de voltaje no la cazaba ningun vector**.
+   Motivo: el fixture lo construia `_tam(VLUT_CAMPOS)`, o sea **la misma
+   definicion que iba a comprobar**. Al mutarla cambiaban escritor y lector a la
+   vez, seguian de acuerdo, y el control **no podia fallar**. Un test construido
+   con la cosa que prueba no puede detectar que la cosa este mal. Arreglado
+   escribiendo el fixture con **bytes literales**, y el mismo defecto estaba latente
+   en los fixtures de mclk y de sclk.
+3. Comprobar solo la tabla de vddgfx **no detecta** un registro de voltaje del
+   tamano equivocado, porque los rellenos estan fuera de rango con cualquier
+   tamano y el recuento sale igual. El desalineo solo se ve donde los valores son
+   limpios. Anadida la comprobacion de la tabla de vddc.
+4. `no seTML: se cuentan y se dicen` -- un fragmento mio de mas en la salida.
+
+**LAS NUEVE MUTACIONES, TODAS APLICADAS Y VERIFICADAS APLICADAS:**
+
+```
+OK  vlut +2 bytes                     OK  sclk polaris +4 bytes
+OK  vlut -2 bytes                     OK  plausibilidad de voltaje off
+OK  mclk +2 bytes                     OK  plausibilidad de reloj off
+OK  mclk -2 bytes                     OK  usTableSize off
+OK  sclk siempre Tonga                LAS 9 CAZADAS: True
+```
+
+Trece vectores en total, y `check.sh` rc=0 TODO CORRECTO con `ppt` dentro del
+bloque del VBIOS real. GPU INTACTA. WRITE_EXECUTION NONE.
