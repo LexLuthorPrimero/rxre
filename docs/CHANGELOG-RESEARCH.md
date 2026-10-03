@@ -4429,3 +4429,85 @@ la cabecera declara, tres estan ausentes en esta tarjeta y cinco quedan
 decodificadas en parte.
 
 check.sh rc=0 TODO CORRECTO. GPU INTACTA. WRITE_EXECUTION NONE.
+## 2026-10-03 · opencode · el contrato de arranque, y tres mutaciones que NO cubre
+
+```
+OBJECT   revkit/atomrom.py (--resumen), revkit/check.sh
+ACTION   Un resumen con el origen pegado a cada valor. 31 vectores.
+TRACK    TOOLING · READ_ONLY · GPU INTACTA
+```
+
+**LA RAZON DE QUE EXISTA, Y NO ES COSMETICA.** La mitad de los hallazgos de esta
+sesion fueron **atribuir un valor a la fuente equivocada**: el 300000 del VBIOS que
+parecia el mclk y era un techo de sclk; el 850 y el 875 de la tabla de vddc que
+casi se atribuyeron a vddgfx; los 30000 que no son el 300000. En todos los casos el
+valor y su procedencia vivian en sitios separados, y un numero sin procedencia se
+puede defender. Por eso `ppt --resumen` pone **el origen en la misma linea que el
+valor**, con el offset y el nombre del campo:
+
+```
+pptable.usTableSize     77      cabecera; el layout calculado da 77 y COINCIDE
+mclk[0].ulMclk          30000   crudo; x10 -> 300000 kHz
+sclk[6].ulSclk          104600  crudo; x10 -> 1046000 kHz
+state[1].nivel_alto     mclk[2]=150000 kHz sclk[7]=107100 kHz  indice HIGH
+powertune.usTDP         35      prefijo comun a Tonga/Fiji/Polaris; ucRevId=4
+```
+
+**Y LOS TRES NO SE MEZCLAN A PROPOSITO.** El resumen **no** incluye ni los bloques
+IP ni la telemetria de ejecucion, y lo dice: esos salen de `gfx8blocks.py` y de
+`gputel.py`. Un valor con dos posibles fuentes se atribuye en la fuente que lo
+declara, que es lo unico defendible. La concatenacion de las tres fuentes, con su
+procedencia, es el paso siguiente y no se hace aqui.
+
+**UN CONTROL NUEVO, Y ENCONTRÓ UN BUG MIO AL PRIMER INTENTO.** Anadi una comprobacion
+de que las escaleras de reloj **sean crecientes**, porque un registro mal leido
+produce numeros que siguen pareciendo relojes pero no crecen. Al anadirla escribi
+mal el texto y dejo la palabra "Danger" en mitad de un `print`. Corregido.
+
+**Y DESPUES: EL RESUMEN Y LA SALIDA DETALLADA SE CONTRADIJERON, Y TENIAN RAZON.**
+El resumen decia:
+
+```
+state[1].nivel_bajo   mclk[2]=150000  sclk[7]=107100   <-- LOW
+state[1].nivel_alto   mclk[0]=30000   sclk[0]=21400     <-- HIGH
+```
+
+Estaban invertidos. En mi bucle de resumen puse `_mL, _mH = u8(+2), u8(+3)`, cuando
+**memHigh esta en +2 y memLow en +3**. La salida detallada, hecha antes, lo tenia
+bien. Y **me di cuenta al ver que los dos se contradecian**, no al mirar el codigo.
+
+**Y ESO REVELA ALGO QUE YO DECIA HACER Y NO HACIA.** Escribi en el codigo que meter
+las filas del contrato en el MISMO parseo evitaba tener dos caminos. Es cierto que
+no hay dos funciones, pero el resumen **volvia a leer los bytes** por su cuenta. Dos
+lecturas del mismo dato en el mismo sitio divergen; una lectura con dos
+presentaciones, no. Corregido: el bucle detallado deja los pares **resueltos** y el
+resumen los usa.
+
+**PERO TRES MUTACIONES NO LAS CAZA, Y NO VOY A DECIR QUE SI.** Las tres son del
+camino del resumen:
+
+| mutacion | estado |
+|---|---|
+| origen de una fila vacio | **no cazada** |
+| memoria y graficos cruzados en el par | **no cazada** |
+| nivel alto puesto con los indices del bajo | **no cazada** |
+
+El control que las habria cazado es uno que compare el resumen con la salida
+detallada fila a fila. **Lo intente dos veces y las dos el comparador no casaba con
+el formato real de las columnas y devolvia "coinciden" sin comparar nada.** Un
+control que dice OK sin comprobar es peor que ninguno, porque ocupa sitio y da
+sensacion de cubrir. Asi que **lo he retirado y he dejado el hueco declarado** en la
+salida del propio autotest, con la cuenta de lo que no cubre. Estado:
+`NOT_IMPLEMENTED`, y las tres mutaciones listadas.
+
+**Y SE QUE ME PARECE A EV-48.** Alli me Chine un valor sin su unidad y declare
+NOT_DETERMINED en vez de forzar una conclusion. Aqui es lo mismo aplicado a un
+control: hueco declarado, no cobertura inventada.
+
+**EL RESULTADO HONESTO DE LA HERRAMIENTA, SIN ADORNOS.** 31 vectores, y **17 de 20**
+mutaciones cazadas, aplicadas, verificadas y parseadas cada una. Las tres que no,
+declaradas una a una en la salida del autotest. El camino del **parseo** esta
+cerrado: 17 de 17. El del resumen tiene un control pendiente, y se sabe cual.
+
+check.sh rc=0 TODO CORRECTO, con `ppt --resumen` dentro del bloque del VBIOS real.
+GPU INTACTA. WRITE_EXECUTION NONE. NO SE TOCO EL CORPUS NI LAS CAPTURAS.

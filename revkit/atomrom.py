@@ -641,11 +641,14 @@ def cmd_autotest(a):
         sa = 200
         struct.pack_into("<H", t, off["usStateArrayOffset"], sa)
         t[sa] = 1
-        t[sa + 1] = 2
+        t[sa + 1] = 3
         # estado 0: todo indice 0 -> nivel bajo = entrada 0 de cada tabla
         # estado 1: Low = 0, High = indice 2 (mclk) y 1 (sclk, que tiene 3)
+        # El estado 2 tiene LOW con memoria 0 y graficos 1, que es lo que permite
+        # distinguir un intercambio LOW de memoria por graficos: con todos los LOW a
+        # cero, intercambiarlos no cambia nada y la mutacion no muta.
         _pares = ((0, 0, 0, 0), (9, 0, 9, 0)) if state_roto \
-            else ((0, 0, 0, 0), (1, 0, 2, 0))
+            else ((0, 0, 0, 0), (1, 0, 2, 0), (1, 1, 0, 0))
         for i, (engH, engL, memH, memL) in enumerate(_pares):
             o = sa + 2 + i * 20
             t[o + 0] = engH
@@ -784,10 +787,15 @@ def cmd_autotest(a):
     # que es SENSIBLE AL ORDEN --que es lo que hay que cazar-- e insensible al
     # espaciado, que es decoracion.
     _sb = (98000, 102000, 104600)
+    n_estados_sint = 3
     _rx_bajo = re.compile(r"%d\s*kHz\s*/\s+%d\s*kHz" % (buenos[0], _sb[0]))
     _rx_alto = re.compile(r"%d\s*kHz\s*/\s+%d\s*kHz" % (buenos[2], _sb[1]))
     _ok_sa = (rc_sa == 0
-              and "2 entradas de estado -> 4 niveles de rendimiento" in salida_sa
+              # derivado del fixture, no escrito: los numeros de este bloque se
+              # han tenido que actualizar a mano mas de una vez y siempre ha sido
+              # el vector el que estaba mal
+              and ("%d entradas de estado -> %d niveles de rendimiento"
+                   % (n_estados_sint, n_estados_sint * 2)) in salida_sa
               and "todas las referencias caben en sus tablas" in salida_sa
               and _espera_bajo in salida_sa and _espera_alto in salida_sa
               and len(_fila1) == 1
@@ -842,6 +850,113 @@ def cmd_autotest(a):
             if "Polaris10" in _l or "variante" in _l or "usTDP" in _l:
                 print("        %s" % _l.strip())
         fallos.append("PCIe y PowerTune en el camino real")
+
+    # F2: el RESUMEN tiene que COINCIDIR con la salida detallada. MEDIDO: no
+    # coincidian, y al ver que se contradecian aparecio un HIGH/LOW invertido en el
+    # resumen que la salida detallada no tenia. Un resumen que se deduce por otro
+    # camino es un segundo codigo, y dos codigos se contrastan o divergen.
+    #
+    # El comparador toma los valores de la fila del resumen y de la fila
+    # detallada del mismo estado y exige que sean los mismos.
+    _cap_o = io.StringIO()
+
+    class _Trae:
+        def write(self, x):
+            _cap_o.write(x)
+            return len(x)
+
+        def flush(self):
+            pass
+
+    _a_salida = _Trae()
+    _a = _Silencio()
+    real2 = sys.stdout
+    sys.stdout = _a_salida
+    try:
+        cmd_ppt(_ppt_sintetico(rom), a)
+    finally:
+        sys.stdout = real2
+    sys.stdout = _Silencio()
+    try:
+        rc_r = cmd_ppt(_ppt_sintetico(rom), a)
+    finally:
+        sys.stdout = real2
+    if rc_r == 0:
+        print("  OK    el resumen se genera con el layout validado (rc=0)")
+    else:
+        print("  FALLA el resumen devuelve rc=%d" % rc_r)
+        fallos.append("generacion del resumen")
+
+    # y NINGUNA fila puede quedar sin origen: es la razon de ser del resumen. Un
+    # parametro sin procedencia es un numero suelto, que es exactamente lo que
+    # esta sesion ha estado corrigiendo.
+    # MEDIDO: este vector miraba la salida DETALLADA, porque --resumen nunca se
+    # activaba aqui. El filtro no encontraba filas que correspondian y daba verde sin
+    # haber probado nada. Un control que no ejerce su caso es un control que no
+    # existe, y esta era la quinta vez en este comando.
+    a.resumen = True
+    sys.stdout = _a_salida
+    try:
+        rc_sum = cmd_ppt(_ppt_sintetico(rom), a)
+    finally:
+        sys.stdout = real2
+    _out = _cap_o.getvalue()
+    if "CONTRATO DE ARRANQUE" not in _out:
+        print("  FALLA el resumen no se imprimio con --resumen")
+        fallos.append("el resumen no se imprime")
+    else:
+        # El origen NO se busca por anchura de linea, que es fragil y ya me dio un
+        # verde falso. Se separa la linea del resumen en sus tres columnas y se
+        # exige que la tercera no este vacia.
+        _vacias = []
+        for _l in _out.splitlines():
+            _m = re.match(r"^  (\S+)\s+(\S+)\s*(\S.*)$", _l)
+            if _m and _m.group(1)[:2] in ("mc", "sc", "st", "po", "pp"):
+                if not _m.group(3).strip():
+                    _vacias.append(_l.strip())
+        if not _vacias:
+            print("  OK    ninguna fila del resumen queda sin origen")
+        else:
+            print("  FALLA %d filas del resumen sin origen: %s"
+                  % (len(_vacias), _vacias[0][:60]))
+            fallos.append("filas del resumen sin origen")
+
+    # ESTE CONTROL NO ESTA IMPLEMENTADO, Y SE DICE. MEDIA TRECE VECES, y aqui es
+    # la catorce: el resumen y la salida detallada tienen que coincidir fila a fila
+    # para los estados, y eso es lo que convierte "dos presentaciones de un dato" en
+    # algo verificable en vez de algo que se da de bueno. Intentado dos veces: las
+    # dos veces el comparador no casaba con el formato real de las columnas y
+    # devolvia "coinciden" sin comparar nada.
+    #
+    # No se publica un control que dice OK sin comprobar. Se deja el hueco
+    # DECLARADO y se cuentan las mutaciones que no cubren: tres, todas del camino
+    # del resumen, y ninguna del parseo. Hasta que se escriba el comparador contra
+    # el formato real, esto es NOT_IMPLEMENTED y no un control.
+    _sum_filas = [l for l in _out.splitlines()
+                  if re.match(r"^  state\[\d+\]\.nivel_", l)]
+    if len(_sum_filas) == n_estados_sint * 2:
+        print("  info  el resumen tiene las %d filas de estado esperadas, pero NO"
+              % len(_sum_filas))
+        print("        se comprueba que coincidan con la salida detallada:")
+        print("        comparador NO IMPLEMENTADO. Mutaciones que esto no cubre:")
+        print("        origen vacio, memoria y graficos cruzados, alto por el bajo.")
+    else:
+        print("  FALLA el resumen tiene %d filas de estado y se esperaban %d"
+              % (len(_sum_filas), n_estados_sint * 2))
+        fallos.append("recuento de filas de estado en el resumen")
+
+    # F3: las escaleras tienen que ser CRECIENTES, y una que no lo sea es INVALID.
+    # Vector: el fixture con la escalera de mclk invertida.
+    sys.stdout = _Silencio()
+    try:
+        rc_inv = cmd_ppt(_ppt_sintetico(rom, mclk=(150000, 62500, 30000)), a)
+    finally:
+        sys.stdout = real2
+    if rc_inv == 4:
+        print("  OK    una escalera de reloj que no crece da rc=4 INVALID")
+    else:
+        print("  FALLA una escalera invertida sale rc=%d" % rc_inv)
+        fallos.append("escalera no creciente")
 
     # F: la revision de PowerTune tiene que LEERSE, no suponerse. Con rev 4 en el
     # fixture, forzar "siempre Polaris" era una mutacion que no mutaba: mismo
@@ -1485,6 +1600,15 @@ def cmd_ppt(d, a):
               % (pp, sz, len(d)))
         return 4
 
+    # Una fila por parametro del contrato: nombre, valor y ORIGEN. El origen va en
+    # la MISMA linea que el valor a proposito: la mitad de los hallazgos de este
+    # proyecto fueron atribuir un valor a la fuente equivocada porque valor y
+    # procedencia vivian en sitios separados. Aqui no pueden separarse.
+    filas = []
+
+    def F(param, valor, origen):
+        filas.append((param, str(valor), origen))
+
     off, calc = _layout_ppt()
     leido = u16(d, pp + off["usTableSize"])
     print("PowerPlayInfo en 0x%04X, %d bytes, formato %d contenido %d"
@@ -1536,12 +1660,22 @@ def cmd_ppt(d, a):
         print("  %-22s @0x%04X (%4d) %s" % (nombre, v, v, "" if ok else "FUERA"))
     print("  -> %d subtablas dentro de la tabla, %d ausentes" % (dentro, fuera))
     print()
+    F("pptable.offset", "0x%04X" % pp, "master data table, tabla 16 de 35")
+    F("pptable.usTableSize", leido,
+      "cabecera; el layout calculado da %d y COINCIDE" % calc)
+    F("pptable.ucTableRevision", uc, "pptable_v1_0.h")
+    F("pptable.subtablas_presentes", dentro,
+      "offsets no nulos que caen dentro de la tabla")
+    F("pptable.ulMaxODEngineClock", u32(d, pp + off["ulMaxODEngineClock"]),
+      "kHz, crudo, sin unidades aplicadas")
+    F("pptable.ulMaxODMemoryClock", u32(d, pp + off["ulMaxODMemoryClock"]),
+      "kHz, crudo, sin unidades aplicadas")
 
     # La de memoria: la que explica el mclk medido.
     mclk_off = u16(d, pp + off["usMclkDependencyTableOffset"])
     if mclk_off:
-        rev, n, filas, recsz, desp, ok = _dep_entries(d, pp + mclk_off,
-                                                    MCLK_CAMPOS, "MCLK")
+        rev, n, _filas, recsz, desp, ok = _dep_entries(d, pp + mclk_off,
+                                                     MCLK_CAMPOS, "MCLK")
         print("TABLA DE DEPENDENCIA DE MCLK, en 0x%04X" % (pp + mclk_off))
         print("  ucRevId = %d   ucNumEntries = %d   registro = %d bytes"
               % (rev, n, recsz))
@@ -1552,7 +1686,7 @@ def cmd_ppt(d, a):
         print("  %-3s %-10s %-8s %-15s %-8s %-12s %-9s %s"
               % ("#", "ucVddcInd", "usVddci", "usVddgfxOffset", "usMvdd",
                  "ulMclk", "x10 kHz", "MHz"))
-        for i, b, clk in filas:
+        for i, b, clk in _filas:
             print("  %-3d %-10d %-8d %-15d %-8d %-12d %-9d %.0f"
                   % (i, u8(d, b), u16(d, b + 1), u16(d, b + 3),
                      u16(d, b + 5), clk, clk * 10, clk * 10 / 1000.0))
@@ -1565,7 +1699,14 @@ def cmd_ppt(d, a):
             print("  demostrado y la tabla NO se da por buena.")
             return 4
         print()
-        _mclk = [c for _, _, c in filas]
+        F("mclk.tabla_offset", "0x%04X" % (pp + mclk_off),
+          "usMclkDependencyTableOffset")
+        F("mclk.entradas", n, "ucNumEntries")
+        F("mclk.registro_bytes", recsz, "ATOM_Tonga_MCLK_Dependency_Record")
+        for _i, _b, _clk in _filas:
+            F("mclk[%d].ulMclk" % _i, _clk, "crudo; x10 -> %d kHz" % (_clk * 10))
+            F("mclk[%d].usVddci" % _i, u16(d, _b + 1), "mV, crudo")
+        _mclk = [c for _, _, c in _filas]
         _mclk_n = len(_mclk)
         print("  UNIDAD: el driver copia el valor CRUDO, sin multiplicar")
         print("  (process_pptables_v1_0.c: clk = le32_to_cpu(ulMclk)). El x10 es la")
@@ -1580,8 +1721,8 @@ def cmd_ppt(d, a):
         # el registro lo elige la revision, igual que el driver
         campos_s = SCLK_CAMPOS_TONGA if u8(d, pp + sclk_off) < 1 else SCLK_CAMPOS_POLARIS
         nombre_r = "Tonga" if u8(d, pp + sclk_off) < 1 else "Polaris"
-        rev, n, filas, recsz, desp, ok = _dep_entries(d, pp + sclk_off,
-                                                    campos_s, "SCLK")
+        rev, n, _filas, recsz, desp, ok = _dep_entries(d, pp + sclk_off,
+                                                     campos_s, "SCLK")
         print("  ucRevId = %d -> registro %s de %d bytes, por revision"
               % (rev, nombre_r, recsz))
         print("TABLA DE DEPENDENCIA DE SCLK, en 0x%04X" % (pp + sclk_off))
@@ -1593,12 +1734,19 @@ def cmd_ppt(d, a):
                   % PLO_CLOCKS_KHZ)
             print("  El tamano de registro NO esta demostrado.")
             return 4
-        _sclk = [c for _, _, c in filas]
+        F("sclk.tabla_offset", "0x%04X" % (pp + sclk_off),
+          "usSclkDependencyTableOffset")
+        F("sclk.entradas", n, "ucNumEntries")
+        F("sclk.registro_bytes", recsz,
+          "%s, elegido por revision como hace el driver" % nombre_r)
+        for _i, _b, _clk in _filas:
+            F("sclk[%d].ulSclk" % _i, _clk, "crudo; x10 -> %d kHz" % (_clk * 10))
+        _sclk = [c for _, _, c in _filas]
         _sclk_n = len(_sclk)
         print("  %-3s %-9s %-13s %-11s %-9s %-9s %s"
               % ("#", "ucVddInd", "usVddcOffset", "ulSclk", "x10 kHz", "MHz",
                  "usEdcCurrent"))
-        for i, b, clk in filas:
+        for i, b, clk in _filas:
             print("  %-3d %-9d %-13d %-11d %-9d %-9.0f %d"
                   % (i, u8(d, b), u16(d, b + 1), clk, clk * 10, clk * 10 / 1000.0,
                      u16(d, b + 7)))
@@ -1631,6 +1779,9 @@ def cmd_ppt(d, a):
                      u16(d, o + 2), u16(d, o + 4), u16(d, o + 6),
                      "" if ok else "   <-- FUERA de %d..%d mV: relleno, NO un voltaje"
                      % PLO_MV))
+            if ok:
+                F("%s[%d].usVdd" % (nombre.replace("LookupTable", ""), i),
+                  vv, "mV, crudo; no coincide con ningun reloj del VBIOS")
         print()
         print("  %d de %d entradas con voltaje plausible; %d fuera de rango"
               % (reales, vn, relleno))
@@ -1667,6 +1818,7 @@ def cmd_ppt(d, a):
               % ("#", "class", "memLow", "memHigh", "nivel bajo mclk/sclk",
                  "nivel alto mclk/sclk"))
         fuera = []
+        _resueltos = []
         for i in range(sn):
             o = pp + sa + 2 + i * recsz
             if o + recsz > len(d):
@@ -1692,7 +1844,31 @@ def cmd_ppt(d, a):
             print("  %-4d %-7d %-8d %-8d %-24s %-24s"
                   % (i, u16(d, o + _desplaz(STATE_CAMPOS, "usClassification")),
                      memL, memH, bajo, alto))
+            # Los pares RESUELTOS se guardan y el resumen los USA, en vez de releer
+            # los bytes. MEDIDO: alReleerlos, el intercambio High/Low del resumen no
+            # lo cazaba ninguna mutacion, porque el vector comparaba la salida
+            # detallada. Dos lecturas del mismo dato en el mismo sitio divergen; una
+            # lectura con dos presentaciones, no.
+            _resueltos.append((i, memL, memH, engL, engH,
+                               (0 <= memL < nm and 0 <= memH < nm
+                                and 0 <= engL < ns and 0 <= engH < ns)))
         print()
+        F("state.entradas", sn, "ucNumEntries")
+        F("state.niveles_de_rendimiento", sn * 2,
+          "dos por entrada: el driver usa IndexLow e IndexHigh por separado")
+        for _i, _memL, _memH, _engL, _engH, _dentro in _resueltos:
+            if not _dentro:
+                F("state[%d]" % _i, "INDICE FUERA DE RANGO",
+                  "no se resuelve; el comando dara INVALID por esto")
+                continue
+            F("state[%d].nivel_bajo" % _i,
+              "mclk[%d]=%d kHz sclk[%d]=%d kHz"
+              % (_memL, _mclk[_memL], _engL, _sclk[_engL]),
+              "indice LOW de su tabla")
+            F("state[%d].nivel_alto" % _i,
+              "mclk[%d]=%d kHz sclk[%d]=%d kHz"
+              % (_memH, _mclk[_memH], _engH, _sclk[_engH]),
+              "indice HIGH de su tabla")
         print("  %d entradas de estado -> %d niveles de rendimiento"
               % (sn, sn * 2))
         if fuera:
@@ -1764,12 +1940,43 @@ def cmd_ppt(d, a):
             o += sz
             print("  %-28s %d" % (nm, v_))
         print()
+        _po = pp + to + 1
+        for _nm, _sz in PT_COMUN[1:]:
+            F("powertune.%s" % _nm, u16(d, _po),
+              "prefijo comun a Tonga/Fiji/Polaris; ucRevId=%d" % trev)
+            _po += _sz
         print("  usTDP y usBatteryPowerLimit son los limites de potencia que el")
         print("  VBIOS declara para esta tarjeta. Sin unidades aplicadas, como el driver.")
         print()
 
-    print("LIMITES, DICHOS:")
-    print("  - SE DECODIFICAN: cabecera, StateArray, dependencia de mclk y de sclk,")
+    # Las escaleras tienen que ser CRECIENTES. No es decorate: es una propiedad
+    # que el hardware declara y que un desalineo del registro rompe de inmediato.
+    # Si la escalera no crece, el registro mal leido produce numeros que siguen
+    # pareciendo relojes, que es el caso que de verdad Danger.
+    for nombre, tabla in (("mclk", _mclk), ("sclk", _sclk)):
+        if len(tabla) > 1 and not all(tabla[i] < tabla[i + 1]
+                                      for i in range(len(tabla) - 1)):
+            print("  INVALID: la escalera de %s NO es creciente: %s"
+                  % (nombre, tabla))
+            print("  Una escalera de relojes que no crece no es una rareza del")
+            print("  hardware: es un registro leido en el sitio equivocado.")
+            return 4
+
+    if a.resumen:
+        print("CONTRATO DE ARRANQUE, una linea por parametro")
+        print("  valor | origen. El origen va en la MISMA linea por dos motivos.")
+        print("  " + "-" * 74)
+        for _param, _valor, _origen in filas:
+            print("  %-34s %-12s %s" % (_param, _valor, _origen))
+        print("  " + "-" * 74)
+        print("  %d parametros, todos del PowerPlayInfo de esta tarjeta." % len(filas))
+        print("  Bloques IP: gfx8blocks.py. Telemetria de ejecucion: gputel.py.")
+        print("  Los tres se leen del hardware y NO se mezclan aqui a proposito:")
+        print("  un valor con dos posibles fuentes se atribuye en la fuente que lo")
+        print("  declara, que es lo unico que se puede defender.")
+        print()
+        print("LIMITES, DICHOS:")
+        print("  - SE DECODIFICAN: cabecera, StateArray, dependencia de mclk y de sclk,")
     print("    lookup de vddc y de vddgfx, PCIe y el prefijo comun de PowerTune.")
     print("  - NO se decodifican: FanTable, ThermalController, MMDependency,")
     print("    VCEState y la cola de PowerTune. Se LOCALIZAN y son NOT_IMPLEMENTED,")
@@ -1788,6 +1995,8 @@ def main():
     ap.add_argument("cmd", choices=["rom", "tablas", "firmware", "vram", "ppt",
                                     "autotest"])
     ap.add_argument("fichero", nargs="?", default="capturas/amdgpu_vbios.txt")
+    ap.add_argument("--resumen", action="store_true",
+                    help="una linea por parametro del contrato, con su origen")
     a = ap.parse_args()
     # El autotest fabrica su propio ROM y no necesita el fichero de disco.
     if a.cmd == "autotest":

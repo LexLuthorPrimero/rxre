@@ -438,6 +438,8 @@ if [ -f capturas/amdgpu_vbios.txt ]; then
     # reposo. El layout se valida contra usTableSize antes de imprimir nada, asi
     # que un rc=0 aqui significa "el layout esta demostrado", no "ha impreso algo".
     run "atomrom: pptable v1 y su tabla de mclk"    python3 atomrom.py ppt capturas/amdgpu_vbios.txt
+    run "atomrom: contrato de arranque, una linea por parametro" \
+                                                python3 atomrom.py ppt --resumen capturas/amdgpu_vbios.txt
     # pm4dec sobre el anillo real: el decode tiene que salir limpio, sin
     # problemas de truncamiento. Con el PKT0 mal tratado, esto no cuadraba.
     run "pm4dec: anillo GFX real"                   python3 pm4dec.py capturas/amdgpu_ring_gfx.txt
