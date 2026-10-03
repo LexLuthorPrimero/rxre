@@ -53,6 +53,17 @@
 #define TM_PN_BITS		28u			/* (0x0FFFFFFF + 1) << 12 == 2^40 */
 #define TM_PA_BITS		40u
 
+/* Mascara del numero de pagina fisica, materializada.
+ *
+ *   NO es un numero nuevo: es (1 << TM_PN_BITS) - 1, que es exactamente el valor
+ *   que test_vm ya verifica contra el corpus, en gmc_8_2_sh_mask.h:
+ *     PHYSICAL_PAGE_NUMBER mask == 0xfffffff
+ *   Antes el header solo decia "28 bits" y quien quisiera la mascara tenia que
+ *   reconstruirla.  Se escribe para que la asercion del contrato tenga contra
+ *   que compararse, en vez de comprobarse contra si misma.
+ */
+#define TM_PN_MASK		((1ull << TM_PN_BITS) - 1ull)
+
 /* GFX8 VA = 9 (PDB0) + 9 (PTB) + 12 (offset) = 30 bits. */
 #define TM_VA_BITS		(TM_LEVEL_BITS * (TM_NR_DIR_LEVELS + 1) + TM_PAGE_SHIFT)
 #define TM_VA_SIZE		(1ull << TM_VA_BITS)
@@ -127,6 +138,16 @@ static inline u64 tm_pte_make(u64 pa, bool readable, bool writeable, bool exec)
 }
 
 /* ── lectura de entradas ──────────────────────────────────────────────── */
+
+/* Cada escritor tiene su lector. tm_pde_make() marca TM_PTE_VALID igual que
+ * tm_pte_make(), porque en GFX8 el bit 0 de una PDE significa lo mismo que en
+ * una PTE: la entrada existe.  La funcion existia solo para PTE, y el test del
+ * contrato no podia leer un PDE sin mentir.  No es semantica nueva: es el mismo
+ * bit, con el nombre del tipo de entrada que se esta leyendo.
+ *
+ * amdgpu_vm_pt.c escribe _PAGE_ENTRY_VALID en las dos, no solo en las PTE.
+ */
+static inline bool tm_pde_is_valid(u64 e)   { return (e & TM_PTE_VALID) != 0; }
 
 static inline bool tm_pte_is_valid(u64 e)   { return (e & TM_PTE_VALID) != 0; }
 static inline bool tm_pte_is_leaf(u64 e)    { return (e & TM_PDE_LEAF) != 0; }
