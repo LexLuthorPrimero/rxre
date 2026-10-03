@@ -174,12 +174,30 @@ son distinguibles y el log las separa.
 
 ## 7 · Límites
 
-1. **`NOT_IN_CORPUS`, y es un límite real:** `si_meminfo`, `drm_buddy` y la capa
-   TTM no están en `working/`. Para **esta** pregunta no importan — la pregunta es
-   *quién escribe un campo de `struct amdgpu_gmc`*, y ese fichero está. Pero
-   cualquier afirmación sobre **resize de VRAM** que traverse TTM sigue sin poder
-   derivarse: `amdgpu_gmc.c` **no tiene** ningún `resize_vram`, y eso se registró
-   como `NOT_FOUND` en `amdgpu_gmc.c`, **no** como ausencia en el driver.
+1. ~~**`NOT_IN_CORPUS`, y es un límite real:** `si_meminfo`, `drm_buddy` y la capa
+   TTM no están en `working/`.~~
+
+   **CORREGIDO por `1026` el 2026-10-03, por medición, no por opinión.**
+   Se comprobó fichero por fichero en los dos árboles que hay, y la frase era
+   mezcla de dos capas con el mismo nombre corto:
+
+   | fichero | `working/` | `kernelbuild/` | veredicto |
+   |---|---|---|---|
+   | `amdgpu_ttm.c` / `.h` (el lado **amdgpu** de TTM) | **PRESENTE**, 80357 B | PRESENTE | **REFUTADO** |
+   | `drivers/gpu/drm/ttm/` (la capa TTM **genérica**) | ausente | ausente | `CORROBORADO` |
+   | `drm_buddy.c` / `drm_buddy.h` | ausente | PRESENTE | `CORROBORADO` en `working/` |
+   | `si_meminfo.c` | ausente | ausente | `CORROBORADO` |
+
+   Lo que falta de verdad es `drivers/gpu/drm/ttm/`, que no está en ninguno de los
+   dos árboles. `amdgpu_ttm.c` **sí** está, y es la pieza que responde «cómo
+   reserva amdgpu VRAM».
+
+   Consecuencia para este documento: la afirmación de que *cualquier* afirmación
+   sobre resize de VRAM que traverse TTM «sigue sin poder derivarse» era más
+   fuerte de lo que el árbol permite. Lo que sigue en pie es lo de
+   `amdgpu_gmc.c`, que no se toca: **no tiene** ningún `resize_vram`, y eso se
+   registró como `NOT_FOUND` en `amdgpu_gmc.c`, **no** como ausencia en el driver.
+   Una cosa es no encontrarlo en un fichero, y otra es no poder buscarlo.
 2. La enumeración de escritores es sobre `amdgpu/` en `kernelbuild`. Un
    `MODULE_FORCE_ASIC` podría llevar `adev->asic_type` a un `case` distinto
    (`amdgpu_device.c:3690-3693`, el mismo bloque que fija `gart_size`): es un
