@@ -5,6 +5,22 @@ declarada como bloqueada sin probar.
 Alcance: la RX 550 de esta placa, Polaris12/GFX8.1, kernel 7.1.3, amdgpu de ese árbol.
 AUTORIA=AGENTE-SMU
 
+## ACTUALIZACION 2026-10-03: la via esta PEOR de lo que se dijo
+
+`313` ejecuto los 19 registros de la lista blanca de `soc21.c:287-307` con sus
+offsets, mas dos controles negativos. **Los 21 devuelven `EFAULT`.**
+
+O sea: no es que la lista no incluya MC ni VM. Es que **no devuelve nada, ni
+siquiera lo que si incluye**. El cierre de este hallazgo sigue siendo correcto
+como `PROVEN_ABSENT` para lo que buscaba, pero la causa es mas fuerte de lo que
+parecia, y el mecanismo sigue abierto: hay tres explicaciones que el
+experimento no separa, y una de ellas --que la tabla `reg_offset` este vacia--
+queda refutada, porque con la tabla a cero el offset pedido habria empatado con
+la entrada y no lo hizo.
+
+La consecuencia para el proyecto esta en `313`: los 123 huecos `UN_REGISTRO`
+no se cierran con "una lectura".
+
 ## La frontera que se cierra
 
 El mecanismo del calentamiento de 6,7 ms de §F — el pago que sigue a las páginas distintas que el
