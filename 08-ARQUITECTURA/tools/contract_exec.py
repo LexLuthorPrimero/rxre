@@ -334,6 +334,38 @@ def main(argv):
         print("  Esto NO es un fallo: es un cambio. Lo que no es admisible es que")
         print("  el cambio pase inadvertido, porque entonces el hallazgo sigue")
         print("  citando un fichero que ya no es ese.")
+        print()
+        # LA CLASE DEL CAMBIO, y es la misma distincion que usa run_all para sus
+        # comprobaciones: un cambio en fichero MIO exige accion; un cambio en
+        # fichero AJENO se registra y se espera. Sin esto, la vigilia devuelve
+        # rc=1 por un fichero que no es mio, que es exactamente el dao que run_all
+        # ya corrigio con rc=3 para las comprobaciones bloqueadas.
+        import subprocess as sp
+        def _v(f):
+            try:
+                return sp.run(["git", "ls-files", "--error-unmatch",
+                               os.path.join(TOOLS, f)], cwd=ROOT,
+                              capture_output=True, timeout=60).returncode == 0
+            except Exception:
+                return False
+        mios = [f for f in cambiados if _v(f)]
+        ajenos = [f for f in cambiados if not _v(f)]
+        if ajenos and not mios:
+            print("  CLASE: todos los cambios son en ficheros AJENOS. Se registra")
+            print("  y no se toca: no hay accion de esta sesion sobre ellos.")
+            return 3
+        if mios:
+            print("  CLASE: %d fichero(s) versionado(s) cambiaron. Eso es trabajo"
+                  % len(mios))
+            print("  de esta sesion, y las cifras medidas sobre ellos ya no")
+            print("  describen lo que hay: hay que volver a medirlas.")
+            for f in mios:
+                print("      %s" % f)
+        if ajenos:
+            print("  y ademas %d ajeno(s): se registran, no se tocan." % len(ajenos))
+        print()
+        print("  rc=1 porque hay cambios en ficheros versionados: es accion")
+        print("  de esta sesion. Si todos fueran ajenos seria rc=3.")
         return 1
     if "--fragmento" in argv:
         # LO QUE HACE, Y POR QUE EXISTE. Escribir el hash en la salida de la
