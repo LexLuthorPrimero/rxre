@@ -5,6 +5,7 @@
 # CONTRACT: WRITES_SYSFS=no
 # CONTRACT: MUTATES_CORPUS=no
 # CONTRACT: WRITES_GPU=no
+# CONTRACT: EXIT_ON_SUCCESS=0
 """check_chain -- la cadena de validacion de run_all, como dato.
 
 POR QUE EXISTE

@@ -5,6 +5,7 @@
 # CONTRACT: WRITES_SYSFS=no
 # CONTRACT: MUTATES_CORPUS=no
 # CONTRACT: WRITES_GPU=no
+# CONTRACT: EXIT_ON_SUCCESS=0
 """contract_filter -- resta los falsos positivos conocidos de toolkit.py.
 
 POR QUE EXISTE

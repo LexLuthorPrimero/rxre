@@ -5,6 +5,7 @@
 # CONTRACT: WRITES_SYSFS=no
 # CONTRACT: MUTATES_CORPUS=no
 # CONTRACT: WRITES_GPU=no
+# CONTRACT: EXIT_ON_SUCCESS=0
 """commitmsg_lint -- residuos de codificacion en mensajes de commit.
 
 POR QUE EXISTE, y no es COSMETICO

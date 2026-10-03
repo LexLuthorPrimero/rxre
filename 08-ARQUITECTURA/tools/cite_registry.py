@@ -12,6 +12,7 @@
 # CONTRACT: WRITES_SYSFS=no
 # CONTRACT: MUTATES_CORPUS=no
 # CONTRACT: WRITES_GPU=no
+# CONTRACT: EXIT_ON_SUCCESS=0
 """cite_registry.py -- que herramienta de citas responde a que pregunta.
 
 POR QUE EXISTE
