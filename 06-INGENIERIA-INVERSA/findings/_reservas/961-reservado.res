@@ -1,3 +1,0 @@
-RESERVADO numero=961 pid=617135
-reserve
-2026-10-03T08:04:40
