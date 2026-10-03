@@ -3593,3 +3593,97 @@ propio, y entonces hay que saber que escrituras hace hoy el SMU, que es
 `NOT_IN_CORPUS`.
 
 GPU INTACTA. WRITE_EXECUTION NONE. NO SE TOCO EL CORPUS.
+## 2026-10-03 · opencode · EV-46: el firmware del SMU de esta tarjeta esta en disco, y su cabecera se autovalida
+
+```
+OBJECT   /lib/firmware/amdgpu/polaris12_smc.bin.xz  (SOLO LECTURA)
+         RESEARCH/kernelbuild/.../amdgpu/amdgpu_ucode.h
+ACTION   LECTURA + parseo con el struct del driver. Nada de la GPU tocado.
+TRACK    EVIDENCE · READ_ONLY_FS · WRITE_EXECUTION NONE · GPU INTACTA
+```
+
+**POR QUE ESTO, Y POR QUE AHORA.** EV-45 cerro que el DPM lo ejecuta el firmware
+del SMU, y dejo el contrato de ese firmware como `NOT_IN_CORPUS`. La pregunta era
+si eso es recuperable. Es: `/lib/firmware/amdgpu/` tiene 677 ficheros, y el de
+este ASIC esta ahi.
+
+**MEDIDO, SIN SUPUESTORES.**
+
+| que | valor |
+|---|---|
+| fichero | `/lib/firmware/amdgpu/polaris12_smc.bin.xz`, 43.840 bytes |
+| sha256 del .xz | `fe9e823a54863e39769bcbeb4756c961` |
+| descomprimido | **130.388 bytes** |
+| sha256 del binario | `4b8eb326a7fbd391554fe50bc43cf04a` |
+
+**Y LA CABECERA SE COMPRUEBA A SI MISMA, CON EL STRUCT DEL DRIVER.** Leyendo
+`struct smc_firmware_header_v1_0` de `amdgpu_ucode.h`, no de memoria:
+
+| campo | declarado | comprobacion |
+|---|---|---|
+| `size_bytes` | 130.388 | **igual al tamaño real del fichero** |
+| `header_size_bytes` | 36 | **igual a `common` (32) + `ucode_start_addr` (4)** |
+| `header_version` | 1.0 | v1_0, que es la struct que se esta usando |
+| `ip_version` | **7.2** | coherente con `detected ip block <smu_v1_0_0>` del log |
+| `ucode_version` | 2.234.112 | |
+| `ucode_size_bytes` | 130.132 | |
+| `ucode_array_offset_bytes` | 256 | |
+| `ucode_start_addr` | `0x00020000` | |
+| `crc32` | `0xAE2B3B78` | ver abajo |
+
+La coherencia interna: `256 + 130.132 = 130.388`, **exactamente `size_bytes`**. Y
+`header_size_bytes = 36` dice que la struct es la v1_0 y no la v2_0 ni la v2_1, que
+serian 44. O sea que **el binario se autodescribe sin contradicciones**, y eso no
+es una opinion sobre un nombre de fichero: son cinco numeros que concuerdan entre
+si y con el tamaño real en disco.
+
+**EL CRC32: NO COINCIDE, Y ESO NO ES CORRUPCION.** Probadas cinco extensiones
+--el array desde `ucode_array_offset`, el array acotado, el fichero entero, desde
+`header_size_bytes` y desde 0-- y ninguna da `0xAE2B3B78`. Dos razones por las que
+eso **no** habilita a concluir nada:
+
+1. El **driver tampoco lo valida**: `crc32` aparece en un unico sitio de todo
+   `amdgpu/`, y es un `DRM_DEBUG` que lo imprime. No se comprueba al cargar.
+2. El algoritmo puede ser otro.
+
+Estado: `NOT_DETERMINED`, y de forma permanente mientras no haya un vector de
+referencia. Registrar esto como "el firmware esta corrupto" seria justo el salto de
+`NOT_DETERMINED` a afirmacion que este proyecto no permite.
+
+**LO QUE QUEDA ABIERTO, Y POR QUE: EL NOMBRE LO TIENE EL PSP, NO EL DRIVER.**
+Falta acreditar que ese fichero concreto es el que cargo esta GPU. Y la razon de
+que no se pueda cerrar leyendo el driver es medida: **`polaris10_smc.bin` no es
+una cadena en ningun `.c` de `amdgpu/`**, ni `polaris12_smc.bin`. Los unicos
+`smc.bin` literales estan en `amdgpu_cgs.c`, y son de Bonaire, Hawaii, Topaz y
+Tonga,ASICs de hace siete generacion. Para Polaris el nombre sale de las tablas
+del **PSP/SOC15**, no de un `switch` del driver. Y el log de arranque no lo nombra.
+
+O sea: `NOT_DETERMINED`, y no por busqueda incompleta sino porque **el dato vive
+en el firmware del PSP, no en el codigo que tengo delante**. Cerrarlo requiere o
+volcar el directorio SOC15, o observar la peticion de firmware, y las dos pasan por
+`F12` (`/sys/kernel/debug/dri/` en `EACCES`).
+
+**Y UNA CORROBORACION EN RUNTIME DE EV-45, QUE NO ESPERABA.** El log de arranque
+dice:
+
+```
+amdgpu: hwmgr_sw_init smu backed is polaris10_smu
+```
+
+Eso es exactamente el `hwmgr->smumgr_funcs = &polaris10_smu_funcs` que lei
+estaticamente en `hwmgr_early_init`. EV-45 pasa de LEIDO a **CORROBORADO** por
+runtime, y sin haber tocado la GPU: solo leyendo el boot que ya existia.
+
+**MIS DOS ERRORES, DE LA MISMA CLASE.** Al medir la cabecera:
+
+1. **Invente un struct.** Escribi `struct smc_firmware_header`, que **no existe**:
+   son `smc_firmware_header_v1_0`, `_v2_0` y `_v2_1`. Un nombre de struct es una
+   suposicion con formato de dato, y esta vez en la direccion contraria: no
+   concluyo que algo falta, lo doy por existente.
+2. **Cadena de formato mal puesta.** `<IHHHHIIII` son 9 campos y el struct tiene
+   10; salio `ip_version = 2.5888`, que es absurdo y deberia haberme parado. Con
+   `<IIHHHHIIII` sale `7.2`, que cuadra con el log.
+
+Los dos producen numeros, no errores, que es lo que los hace peligrosos.
+
+GPU INTACTA. WRITE_EXECUTION NONE. NO SE TOCO EL CORPUS NI /lib/firmware.
