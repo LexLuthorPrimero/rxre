@@ -8,6 +8,33 @@
 r"""
 RUNNER -- una sola entrada para toda la caja de herramientas.
 
+CODIGO DE SALIDA, que es un CONTRATO y no un numero
+--------------------------------------------------
+    0   todas las comprobaciones pasan
+    1   hay un fallo REAL: requiere accion de quien lo ejecuta
+    3   NINGUN fallo es accion de quien lo ejecuta: estan bloqueados por
+        trabajo de otra sesion
+
+EL 3 NO ES "TODO BIEN". Es "no hay nada que hacer aqui". La distincion importa:
+un runner que sale con 1 por herramientas que no son suyas esta diciendo "fallo"
+cuando no hay fallo que arreglar, y un rojo que no significa nada es peor que no
+tener rojo, porque entrena a ignorar el codigo de salida.
+
+Y el 3 se emite SIEMPRE con el motivo debajo, uno por comprobacion, diciendo
+quien bloquea y por que. Un codigo de salida del que no se dice que significa es
+un codigo que nadie puede usar.
+
+Las comprobaciones bloqueadas estan en BLOQUEADO_POR_OTRA_SESION, mas abajo, con
+el motivo de cada entrada. Es una DECLARACION, no un filtro: por eso anadir una
+entrada de mas no relaja nada, que es justo lo que un filtro haria.
+
+--check ejecuta lo necesario para decidir si el corpus esta intacto, sin las
+comprobaciones pesadas. --self ejecuta las comprobaciones de contrato.
+
+NO hay --help. Se escribio aqui un "--help da el detalle" antes de comprobar que
+existiera, y `--help` no hace nada. Un contrato con una linea falsa es peor que
+un contrato sin esa linea, porque se cita.
+
 Por que existe. Con siete herramientas distintas, cada ronda terminaba asi:
 
     python3 pm4_reachable.py | head -40
