@@ -318,3 +318,74 @@ tiene origen: ni propio, ni por delegación, ni por binario.
   stripped. `NOT_DETERMINED` para la certeza, `PROVEN` para la conclusión: una
   herramienta que solo necesita una temperatura no tiene motivo para mapear la
   barra, y la declarar `WRITES_GPU` sin usarla no se explica por un uso invisible.
+---
+
+# MEDICIÓN: el criterio de `contract_exec` con herramientas que NO escribí yo
+
+La objeción a `toolkit_cross` era precisa y hay que responderla antes de
+aceptarlo: **los cinco vectores de `contract_exec` son de `doclint`, `aperture`,
+`struct_rw`, `ipver_zero` y `pm4_emit`, que son mías.** Si el criterio solo acierta
+en el conjunto que yo garantizo, el cruce ha estado midiendo exactamente ahí.
+
+## Caso 1 — `hdrmap.py`: el criterio lo despeja y `toolkit` lo señala
+
+```
+hdrmap.py:97
+  INC_RE = re.compile(r'^\s*#\s*include\s+["<]([^">]+)[">]')
+```
+
+La expresión de `toolkit.py` para «redirección de escritura» es `['"]>['"]` — una
+comilla, un signo mayor, otra comilla — y esa línea contiene una **expresión
+regular de preprocesador C**. No hay ninguna escritura: hay un `include`.
+
+`contract_exec` no ve ninguna escritura y **lo deja pasar**.
+
+> Es el falso positivo más absurdo que ha salido de `toolkit.py`, y lo ha producido
+> en una herramienta que **yo no escribí**. El criterio de AST lo descarta sin
+> dificultad, y la diferencia no es de procedimiento, sino de mirar el codigo
+> en vez de la cadena.
+> cadena.
+
+## Caso 2 — `vbiosread.py`: `PROYECTO_DESCONOCIDO`, y es un temporal
+
+```
+vbiosread.py:162   d = tempfile.mkdtemp(prefix="vbiosread")
+vbiosread.py:167   open(src, "w").write(DUMP_C)
+```
+
+La escritura es real, pero la ruta sale de un `mkdtemp` con prefijo y el resolvedor
+no la construye. Queda `PROYECTO_DESCONOCIDO`, que **no es `PROYECTO`**: es su
+propia clase precisamente para que *«no lo sé»* y *«sí lo es»* no se confundan.
+
+## Lo que responde al discriminante
+
+El criterio **acierta con herramientas ajenas en los dos casos**, y su error
+residual va **en la dirección segura**:
+
+| | veredicto | realidad |
+|---|---|---|
+| `hdrmap.py` | despejado | correcto: no escribe |
+| `vbiosread.py` | `PROYECTO_DESCONOCIDO` | falso positivo: es temporal |
+
+Nunca al revés. El criterio **pesa en contra cuando no sabe**, y eso se eligió antes,
+cuando casi escondía la única violación real de las seis. *Un falso positivo se ve;
+un falso negativo no.*
+
+## Lo que NO queda resuelto por esta medición
+
+- **`vbiosread.py` sigue siendo un falso positivo.** Está clasificado en su clase
+  propia, que es legible, pero es ruido en el recuento. Podría resolverse
+  siguiendo `mkdtemp` como origen de la ruta, lo cual es el mismo resolver que ya
+  existe para `os.path.join` — `NOT_DETERMINED`, no medido.
+- **Solo dos herramientas ajenas.** El árbol tiene al menos siete con contrato
+  pendiente de otras sesiones (`causal`, `citecheck`, `contradict`, `hdrmap`,
+  `inst_closure`, `scopeguard`, `xref`, `vbiosread`). Dos casos no son una
+  población: son **dos observaciones**.
+- **`toolkit_cross` sigue sin detectar contradicciones**, y eso **no se ha
+ tapado**: el cruce compara declaraciones entre sí, y un validador que
+  comprueba mal puede ser perfectamente coherente consigo mismo. Que este criterio
+  funcione con dos ajenas no valida el cruce entero.
+- **La coherencia entre las seis puede deberse a que las escribió la misma sesión,
+  una tras otra, corrigiendo la anterior.** Eso no lo puede detectar ninguna
+  herramienta, porque no hay forma de saber quién escribió qué. Es la razón por la
+  que el cruce no basta, y no un defecto suyo.
