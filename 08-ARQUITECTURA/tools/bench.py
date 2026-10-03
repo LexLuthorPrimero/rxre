@@ -25,6 +25,37 @@
 #
 # La distincion importa: una herramienta que declares WRITES_GPU=no y en realidad envie
 # trabajo esta mintiendo en la direccion contraria. El banco declara lo que hace.
+# RISK = { ... }
+#   La tabla que toolkit.py exige a toda herramienta con WRITES_GPU_WORK=yes.
+#   Vive aqui y no en un commit, porque una justificacion que solo existe en la
+#   historia del repositorio se pierde en el siguiente checkout.
+#
+#   QUE ESCRIVE     un buffer de WSIZE doubles en VRAM, por compute shader, a
+#                    traves de vkQueueSubmit. Ningun registro, ningun ioctl, ningun
+#                    mapa de MMIO. No toca VRAM fuera del buffer que reserva.
+#   POR QUE ES SEGURO el display de esta maquina va por la iGPU (Intel HD 4600,
+#                    card0 HDMI-A-1) y los dos conectores de la RX550 estan
+#                    desconectados: MEDIDO, no supuesto. Un reset o una corrida del
+#                    banco no pueden apagar la pantalla. El riesgo real no es la
+#                    pantalla: es dejar la GPU en un estado que amdgpu tenga que
+#                    recuperar, y eso lo absorbe el driver.
+#   QUE PASA SI FALLA el banco exige que el contenido escrito se relea y coincida
+#                    con el modelo del host antes de reportar un numero. Si no
+#                    coincide, el resultado es INVALID_RESULT y el banco sale con
+#                    codigo distinto de cero. Un numero sin esa comprobacion no se
+#                    publica: ya ocurrio una vez, con un kernel que hacia una sola
+#                    carga y el banco acepto 256 de 256.
+#   COMO SE RECUPERA la GPU no queda con estado persistente: el buffer es de la
+#                    sesion de Vulkan y se destruye al destruirse el VkDevice.
+#                    Si el proceso muere, el driver la libera. No hay ninguna
+#                    escritura que un reinicio de la caja no deshaga.
+#   QUE SE MIDE      clocks, temperatura y potencia se toman antes y despues de
+#                    cada corrida y se archivan con el artefacto, para que una
+#                    diferencia de rendimiento no se atribuya a la codificacion sin
+#                    el estado con que comprobarlo.
+#   ABORTO           Ctrl-C entre corridas. Una corrida en curso se deja terminar:
+#                    lo que ya esta encolado no se deshace, y matarla a mitad deja
+#                    el shader escribiendo en un buffer que el host ya no lee.
 r"""
 BENCH -- banco de mediciones de runtime con contrato, para la RX550 Polaris12/GFX8.
 

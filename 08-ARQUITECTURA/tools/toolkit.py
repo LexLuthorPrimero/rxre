@@ -252,9 +252,42 @@ def validate(path, contract):
             probs.append(f"FLAG DESCONOCIDO '{k}': el validador no sabe "
                          f"que significa. Flags validos: {conocidos}")
 
-    # 1. un flag de GPU es inaceptable
+    # 1. WRITES_GPU. La capacidad sigue siendo inadmisible cuando escribe en
+    #    registros; lo que cambia es QUE se puede admitir cuando solo envia
+    #    trabajo, y con que justificacion.
+    #
+    #    MEDIDO 2026-10-03: bench.py declaraba WRITES_GPU=yes con
+    #    WRITES_GPU_MMIO=no y WRITES_GPU_WORK=yes, con seis lineas explicando
+    #    exactamente que hace (vkQueueSubmit, cero registros). El validador
+    #    las rechazaba igual, porque la regla miraba solo WRITES_GPU. Las
+    #    SUBCLASES_GPU existian y se validaban como NOMBRE de flag conocido,
+    #    pero no se leian para el veredicto: eran decoracion.
+    #
+    #    Eso es peor que no declararlas. Un veredicto que no se puede pasar
+    #    entrena a leerlo sin mirarlo, y el siguiente que aparezca con
+    #    WRITES_GPU=yes de verdad pasa por el mismo canal.
     if contract.get("WRITES_GPU") == "yes":
-        probs.append("DECLARA WRITES_GPU: inaceptable en esta caja")
+        mmio = contract.get("WRITES_GPU_MMIO")
+        work = contract.get("WRITES_GPU_WORK")
+        if mmio is None or work is None:
+            probs.append("DECLARA WRITES_GPU=yes sin declarar WRITES_GPU_MMIO "
+                         "y WRITES_GPU_WORK: el validador no puede distinguir "
+                         "una escritura en registros de un vkQueueSubmit")
+        elif mmio == "yes":
+            # Esta rama no se abre. Escribir en registros de la GPU no lo
+            # levanta ninguna justificacion, porque no hay forma de atribuir
+            # despues un fallo al driver y no al hardware.
+            probs.append("WRITES_GPU_MMIO=yes: escribir en registros sigue "
+                         "siendo inadmisible, con justificacion o sin ella")
+        elif mmio == "no" and work == "yes":
+            # Admissible, pero con la misma forma que WRITES_SYSFS: la
+            # justificacion tiene que estar EN el fichero, no en la memoria de
+            # quien lo escribio. Una razon que solo existe en el commit es una
+            # razon que se pierde en el siguiente checkout.
+            if not re.search(r"RISK\s*=\s*\{", _lee(path)):
+                probs.append("WRITES_GPU_WORK=yes sin tabla RISK = { ... }: "
+                             "envia trabajo a la GPU y no deja escrito que "
+                             "riesgo asume, como ejecuta y como recupera")
 
     # 2. sysfs exige tabla
     if contract.get("WRITES_SYSFS") == "yes":
@@ -353,6 +386,51 @@ SELFTEST = [
 ]
 
 
+# Casos de VALIDACION, no solo de parseo.
+#
+# MEDIDO 2026-10-03: el autotest solo ejercitaba parse_contract(). Un cambio en
+# la regla de veredicto -- en este caso la de WRITES_GPU, que paso a mirar las
+# sub-clases -- no lo activaba: el autotest seguia diciendo OK con la regla
+# rota. Es el mismo defecto dos veces: un test que mide el parser mientras se
+# cree que mide el validador.
+#
+# Cada caso es (nombre, fuente, debe_pasar). "debe_pasar=False" significa que
+# validate() tiene que devolver AL MENOS un problema. Se comprueba la cantidad
+# minima de problemas en el negativo y la ausencia de TODOS en el positivo:
+# un negativo que se pasa porque el fichero esta roto por otra causa no
+# demuestra nada.
+VALIDACION = [
+    ("gpu sin sub-clase",
+     "# CONTRACT: name=g1" + NL + "# CONTRACT: READONLY=no" + NL
+     + "# CONTRACT: WRITES_GPU=yes" + NL + "import os" + NL,
+     False),
+    ("gpu por MMIO, con justificacion",
+     "# CONTRACT: name=g2" + NL + "# CONTRACT: READONLY=no" + NL
+     + "# CONTRACT: WRITES_GPU=yes" + NL
+     + "# CONTRACT: WRITES_GPU_MMIO=yes" + NL
+     + "# CONTRACT: WRITES_GPU_WORK=yes" + NL
+     + "# RISK = { 'porque': 'porque si' }" + NL + "import os" + NL,
+     False),
+    ("gpu por trabajo, sin tabla RISK",
+     "# CONTRACT: name=g3" + NL + "# CONTRACT: READONLY=no" + NL
+     + "# CONTRACT: WRITES_GPU=yes" + NL
+     + "# CONTRACT: WRITES_GPU_MMIO=no" + NL
+     + "# CONTRACT: WRITES_GPU_WORK=yes" + NL + "import os" + NL,
+     False),
+    ("gpu por trabajo, con tabla RISK",
+     "# CONTRACT: name=g4" + NL + "# CONTRACT: READONLY=no" + NL
+     + "# CONTRACT: WRITES_GPU=yes" + NL
+     + "# CONTRACT: WRITES_GPU_MMIO=no" + NL
+     + "# CONTRACT: WRITES_GPU_WORK=yes" + NL
+     + "# RISK = { 'que_escribe': 'VRAM via vkQueueSubmit' }" + NL
+     + "import os" + NL,
+     True),
+    ("sin GPU, contrato limpio",
+     "# CONTRACT: name=g5" + NL + "# CONTRACT: READONLY=yes" + NL + "import os" + NL,
+     True),
+]
+
+
 def selftest():
     """El validador se prueba a si mismo ANTES de validar nada.
 
@@ -403,13 +481,34 @@ def selftest():
         if got != esperado:
             fails.append("{0!r} -> {1}, esperado {2}".format(
                 content[:44], got, esperado))
+
+    fnv = os.path.join(tempfile.gettempdir(), "tk_selftest_val.py")
+    for nombre, content, debe_pasar in VALIDACION:
+        with open(fnv, "w") as _fh:
+            _fh.write(content)
+        contrato = parse_contract(fnv) or {}
+        _ok, problemas = validate(fnv, contrato)
+        if debe_pasar:
+            if problemas:
+                fails.append("VALIDACION {0}: deberia pasar y falla con "
+                             "{1}".format(nombre, problemas))
+        else:
+            if not problemas:
+                fails.append("VALIDACION {0}: deberia fallar y pasa. La regla "
+                             "no puede distinguirlo.".format(nombre))
+            elif not any("WRITES_GPU" in x or "WRITES_GPU" in str(contrato)
+                         for x in problemas):
+                fails.append("VALIDACION {0}: falla, pero por otra causa "
+                             "({1}); el vector no mide lo que dice medir"
+                             .format(nombre, problemas))
     if fails:
         print("AUTOTEST FALLA:")
         for f in fails:
             print("   " + f)
         return 1
-    print("autotest OK ({} casos de parseo de contrato, {} flags conocidos "
-          "contra el arbol real)".format(len(SELFTEST), len(conocidos)))
+    print("autotest OK ({} casos de parseo, {} de validacion, "
+          "{} flags conocidos contra el arbol real)"
+          .format(len(SELFTEST), len(VALIDACION), len(conocidos)))
     return 0
 
 
@@ -743,7 +842,24 @@ Por que existe: ...
                 if d["contrato"].get(flag) == "yes")
         mark = ""
         if flag == "WRITES_GPU" and n:
-            mark = "   <-- INACEPTABLE"
+            # El resumen tiene que decir LO MISMO que el veredicto. MEDIDO
+            # 2026-10-03: bench.py pasaba la validacion y el resumen seguia
+            # poniendo "INACEPTABLE" al lado, porque la linea miraba WRITES_GPU y
+            # no las sub-clases. Un informe que se contradice consigo mismo es
+            # peor que uno que no dice nada: entrena a ignorar el informe.
+            n_mmio = sum(1 for d, _, _, _ in rows
+                         if d["contrato"].get("WRITES_GPU") == "yes"
+                         and d["contrato"].get("WRITES_GPU_MMIO") == "yes")
+            n_work = sum(1 for d, _, _, _ in rows
+                         if d["contrato"].get("WRITES_GPU") == "yes"
+                         and d["contrato"].get("WRITES_GPU_MMIO") == "no")
+            if n_mmio:
+                mark = f"   <-- {n_mmio} en MMIO: INACEPTABLE"
+            if n_work:
+                marca = "   <-- via vkQueueSubmit, con tabla RISK"
+                mark = (mark + "\n" + " " * 26 + marca.strip()) if mark else marca
+            if not n_mmio and not n_work:
+                mark = "   <-- sin sub-clase declarada: INACEPTABLE"
         if flag == "WRITES_SYSFS" and n:
             mark = "   <-- con tabla y barrera, o no sirve"
         if flag == "MUTATES_CORPUS" and n:
