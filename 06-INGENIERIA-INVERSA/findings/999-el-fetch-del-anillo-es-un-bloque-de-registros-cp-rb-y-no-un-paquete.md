@@ -85,21 +85,69 @@ CP_RB0_CNTL|RPTR_WR_ENA = 0x80418B0D
 es exactamente lo que `rb_bufsz - 2` promete. **El campo dice lo que su nombre
 dice**, que no es lo mismo, y por eso lo medí en vez de asumirlo.
 
-### La doble escritura de `CP_RB0_CNTL` no es redundante: es una ventana
+### `CP_RB0_CNTL` se escribe tres veces — y la lectura de "ventana" era MÍA, y es FALSA
 
-`(A)` escribe el control **sin** `RB_RPTR_WR_ENA`. Entre `(A)` y `(B)` se
-escriben `WPTR`, `RPTR_ADDR` y los dos `WPTR_POLL_ADDR`. Y `(C)` **vuelve a
-escribir el control sin el bit**.
+Escribí que el patrón `(A)` sin enable → `(B)` con enable → `(C)` sin enable era
+una **ventana** de protección, y que el motivo era que `CP_RB0_BASE` se escribe
+después. **Lo refuté comparando cuatro generaciones, y la hipótesis no
+sobrevive:**
 
-El bit de enable se pone en `(B)`, se hacen las cuatro escrituras de punteros, y
-se quita en `(C)`. Hay un `mdelay(1)` justo antes de `(C)`.
+```
+fichero       escrituras de CP_RB0_CNTL          usa RB_RPTR_WR_ENA
+gfx_v6_0.c    L2161, L2164, L2176               sí (L2164)
+gfx_v7_0.c    L2556, L2559, L2572               sí (L2559)
+gfx_v8_0.c    L4250, L4253, L4266               sí (L4253)
+gfx_v10_0.c   L6525, L6545                      NO — grep de RPTR_WR_ENA vacío
+```
 
-**Y `CP_RB0_BASE` se escribe DESPUÉS, en `L4269`.** Esa es la razón de la
-ventana: sin ella el fetch puede arrancar sobre un anillo al que todavía le falta
-la dirección base. Es la única lectura que explica el orden de las líneas.
+**Las tres escrituras de `CNTL` no son una ventana: sólo dos lo son, y la que
+crea la ventana desaparece justo en la generación que la eliminó.**
 
-**Lo que NO he observado es que el hardware respete la ventana.** Que el bit tenga
-ese efecto es `NOT_PROVEN`; que el orden exista y sea ese, `PROVEN`.
+Lo que hay en GFX8 es:
+
+```
+L4250  CNTL = tmp                        (A) sin enable
+L4253  CNTL = tmp | RPTR_WR_ENA          (B) con enable
+L4254  ring->wptr = 0
+L4255  CP_RB0_WPTR = 0
+L4259  CP_RB0_RPTR_ADDR      = rptr_gpu_addr      L4260  CP_RB0_RPTR_ADDR_HI                       |  las 4 escrituras
+L4263  CP_RB_WPTR_POLL_ADDR_LO                   |  caen DENTRO
+L4264  CP_RB_WPTR_POLL_ADDR_HI                  /
+L4265  mdelay(1)
+L4266  CNTL = tmp                        (C) sin enable
+L4269  CP_RB0_BASE = rb_addr             FUERA, después
+```
+
+Y **v10 conserva `(A)`, el `mdelay(1)`, las cuatro escrituras de punteros, `(C)` y
+el `BASE` después — y quita `(B)`.** El comentario de v10 es explícito:
+
+```
+gfx_v10_0.c:6533   /* set the wb address whether it's enabled or not */
+```
+
+**"whether it's enabled or not"**. El propio driver de la generación siguiente
+dice que esas escrituras **no dependen del enable**, y por eso lo elimina.
+
+**Consecuencia, y es una corrección real de este hallazgo:** el enable **no**
+protege la ventana de punteros, y **no** está para que `BASE` llegue después.
+Si fuera eso, quitarlo en v10 habría roto el arranque, y el comentario de v10 dice lo
+contrario. **Mi `HYPOTHESIS` era una lectura plausible de un patrón de líneas,
+no una semántica. La retiro.**
+
+Lo que sí queda, y es `PROVEN`: **el bit se pone y se quita alrededor de cuatro
+escrituras de punteros, y `BASE` se escribe después de cerrarlo.** El orden es
+igual en v6, v7 y v8 — cuerpo por cuerpo, con el mismo `mdelay(1)` — y en v10 el
+mismo orden **sin** el bit. Eso es un cambio de ASIC, no una lectura mía.
+
+**Y esto es exactamente el `HYPOTHESIS` que este proyecto ya sabe no publicar.**
+Lo escribí porque el patrón *parecía* una ventana y el `mdelay(1)` *parecía*
+justificarla. El discriminante era la comparación con otra generación, y no la
+hice antes de escribir. La regla es la de siempre: **medir la misma propiedad en
+el resto del conjunto antes de preguntarse por qué este caso concreto.**
+
+**Lo que NO cambia y sigue `PROVEN`:** los valores (`0x00418B0D`), el orden, el
+doorbell, y el hecho de que el fetch se programa por MMIO y no por PM4. La
+corrección es sobre el *motivo*, no sobre los *números*.
 
 ### El anillo GFX de esta GPU usa doorbell, no MMIO de `WPTR`
 
@@ -203,7 +251,9 @@ Los pasos 2, 3 y 6 son los que faltaban. **Los tres son MMIO, y ninguno es PM4.*
 | `CP_ME_CNTL` se escribe por RMW con los tres `HALT` juntos | `PROVEN` (`L4182-4192`) |
 | El anillo GFX es el único: un solo juego `CP_RB0_*` | `PROVEN_DERIVED` |
 | `CP_RB_ACTIVE` no se usa en esta ruta | `PROVEN` (0 escritores en `gfx_v8_0.c`) |
-| El propósito de la ventana `(A)`/`(B)`/`(C)` | `HYPOTHESIS` — el orden está `PROVEN`, el motivo no |
+| El orden `(A)`/`(B)`/`(C)` y `BASE` después | `PROVEN` — y **idéntico en v6, v7, v8** |
+| Que `(B)` proteja la ventana | **`REFUTED`** — v10 quita `(B)` conservando el orden |
+| Por qué GFX8/v6/v7 ponen y quitan el enable | `NOT_DETERMINED` — v10 lo quita y dice que es opcional |
 | Que el bit de enable tenga ese efecto en hardware | `NOT_PROVEN` — requiere placa |
 | Que el CP ejecute en orden de anillo lo que trae | `NOT_PROVEN` — el estado de `018`, sin cambio |
 | Qué unidad física hace el fetch | `NOT_DETERMINED` — ver abajo |
