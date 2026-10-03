@@ -66,9 +66,9 @@ estaría reservando de más para un camino que no lo necesita; y si
 `amdgpu_ring.c:333` no alineara, el dimensionado sería insuficiente para los
 tres caminos que sí rellenan.
 
-## La pieza que faltaba en `123`
+## La pieza que faltaba en `225`
 
-`123` vio el desajuste en `amdgpu_gfx.c:1682` —el bucle que escribe
+`225` vio el desajuste en `amdgpu_gfx.c:1682` —el bucle que escribe
 `align_mask + 1` = 256 NOPs cuando el IB se pidió con 64— y lo×
 dejó como «desajuste latente, no lo llamo bug». Correcto en el veredicto,
 pero por el motivo equivocado: no es que el código esté mal, es que
@@ -77,7 +77,7 @@ pero por el motivo equivocado: no es que el código esté mal, es que
 **cantidad**, que es exactamente lo mismo que la unidad de alineación, y en ese
 camino el IB es realmente de 256 dwords. El presupuesto lo predicts mal
 porque `emit_ib_size` describe ese camino —4 dwords de puntero— y no el de
-`123`.
+`225`.
 
 ## Y lo que de verdad rellena
 
@@ -148,7 +148,7 @@ corrección tiene consecuencia sustantiva, no sólo de numerito.
 
 ## Lo que se corrige
 
-La sección «La pieza que faltaba en `123`» cita:
+La sección «La pieza que faltaba en `225`» cita:
 
 ```
 amdgpu_gfx.c:1682   for (i = 0; i <= ring->funcs->align_mask; ++i) ib->ptr[i] = nop;
@@ -169,7 +169,7 @@ Y sí existe, en `RESEARCH/kernelbuild/linux-7.1.3/.../amdgpu_gfx.c:1682` y
 `:1684`, literalmente.
 
 **Es decir: cité una línea de 7.1.3 como si fuera de 7.2.8**, y la tomé de un
-hallazgo paralelo que ya traía ese error. `123` cita además `gfx_v8_0.c:6872 /
+hallazgo paralelo que ya traía ese error. `225` cita además `gfx_v8_0.c:6872 /
 6918 / 6953`, que son los números de 7.1.3, mientras que las de 7.2.8 son
 `6875 / 6921 / 6956`. **Los dos hallazgos mezclaban los dos árboles en el mismo
 par.**

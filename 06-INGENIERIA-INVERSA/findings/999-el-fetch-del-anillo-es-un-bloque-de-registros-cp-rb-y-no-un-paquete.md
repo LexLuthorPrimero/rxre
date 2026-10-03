@@ -11,9 +11,9 @@ ABRE=qué unidad física hace el fetch (VERDICT: el corpus no lo responde)
 
 ## Qué resuelve
 
-Toda la cadena previa —`095` (tres motores), `108`/`109` (quién escribe y quién
-espera), `111` (el PFP busca el IB), `122` (los `WAIT_REG_MEM` son `hdp_flush`),
-`123` (el anillo sólo lleva punteros)— empieza **en el contenido del anillo**.
+Toda la cadena previa —`095` (tres motores), `108`/`214` (quién escribe y quién
+espera), `216` (el PFP busca el IB), `122` (los `WAIT_REG_MEM` son `hdp_flush`),
+`225` (el anillo sólo lleva punteros)— empieza **en el contenido del anillo**.
 
 Ninguna responde **cómo se arma el anillo**, que es la pregunta anterior a
 todas: si nadie programa el fetch, el resto describe un motor al que no le han
@@ -323,8 +323,8 @@ suficiente para arrancar el motor, y es lo único que este corpus sostiene.
   `CP_RB_ACTIVE` en `gfx_v8_0.c` → 0; `CP_RB_STATUS` en `.c` → 0. **Son
   `PROVEN_ABSENT` dentro del alcance leído, no `PROVEN_ABSENT` del sistema.**
 - Sin MMIO write, sin TLB, sin `insmod`. **`GPU INTACTA`.**
-- Encadenada con `095` (tres motores / tres icache), `108`/`109` (motores),
-  `111` (el PFP busca el IB), `122` (los `WAIT_REG_MEM`), `123` (el anillo sólo
+- Encadenada con `095` (tres motores / tres icache), `108`/`214` (motores),
+  `216` (el PFP busca el IB), `122` (los `WAIT_REG_MEM`), `225` (el anillo sólo
   lleva punteros), `084` (packet consumption), `121` (contabilidad de anillo).
 - **No corrige ningún hallazgo previo.** No edité `AGENTS.md` ni
   `OPEN-FRONTIERS.md`.

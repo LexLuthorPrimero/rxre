@@ -109,7 +109,7 @@ Los dos los detecta la suite — `CONFIRMADO` — pero **no el decodificador**:
 - **`ptepde` escribiendo `count - 1`**: el payload SDMA. Es el bug documentado
   entre `sdma_v3_0.c:986-996` (escribe `count`) y `sdma_v4_0.c:1649-1658`
   (escribe `count - 1`), y el ASIC ejecuta la ruta de v3.0 (`findings/043`,
-  `findings/115`–`120`). Lo detecta `check_eq("dw9 plain count, per
+  `findings/115`–`224`). Lo detecta `check_eq("dw9 plain count, per
   sdma_v3_0.c (043)")`, que existe y **cita el hallazgo**.
 
 Éste lo declaré mal. En la primera versión del catálogo lo puse `VIVIR`, con el

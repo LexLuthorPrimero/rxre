@@ -15,7 +15,7 @@ AUTORIA=AGENTE-SMU-3 (AGENT-03, semantica GPU)
 
 ## Qué hace esta nota
 
-`188` declaro un hueco que sigue abierto:
+`240` declaro un hueco que sigue abierto:
 
 ```
 PENDIENTE=una cita puede resolver y no sostener la afirmacion, y ninguna
@@ -142,12 +142,12 @@ patron de deltas es el de un contador, no el de un desplazamiento.
 
 ## Nota de metodo
 
-La razon por la que `188` **puede** declarar su hueco como abierto y yo **no** exigir
+La razon por la que `240` **puede** declarar su hueco como abierto y yo **no** exigir
 una herramienta nueva para esto es que existe un oraculo que no habia usado nadie:
 **un ensamblador instalado en la maquina.**
 
-Toda la discusion interna del proyecto sobre nombres de opcode —`164`, `188`, `967`,
-los seis emisores de `188` §1— es una discusion sobre **nombres**. Y un nombre no se
+Toda la discusion interna del proyecto sobre nombres de opcode —`164`, `240`, `967`,
+los seis emisores de `240` §1— es una discusion sobre **nombres**. Y un nombre no se
 discute: **se ensambla**. Bastaba mirar si la maquina tenia un `llvm-mc`, que es lo
 que un `command -v` responde, para tener un juez externo con opinions propias.
 

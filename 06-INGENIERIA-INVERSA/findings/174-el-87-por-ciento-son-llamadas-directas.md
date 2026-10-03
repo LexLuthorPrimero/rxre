@@ -9,7 +9,7 @@ RUNTIME=NOT_RUN · GPU INTACTA
 
 ## Qué resuelve
 
-**La pregunta de fondo del bloque entero —que `156` abrió, `157` medijo, `158` sintetizó y
+**La pregunta de fondo del bloque entero —que `232` abrió, `157` medijo, `158` sintetizó y
 `173` llevó a un intérprete de 119 operaciones— y la respuesta es un porcentaje que
 invierte el énfasis de todo lo escrito hasta ahora:
 
@@ -50,10 +50,10 @@ veinte notas describiendo por separado:**
 | | forma | qué es | quién lo instala |
 |---|---|---|---|
 | **1** | llamada directa | el código es el mismo para todos los chips | nadie, está escrito |
-| **2** | `dc->hwss.op` | el código es de la generación | **el fichero de recursos** — `156`, `159` |
+| **2** | `dc->hwss.op` | el código es de la generación | **el fichero de recursos** — `232`, `159` |
 | **3** | `params->…->funcs->op` | el código **viaja con la petición** | **quien llama** |
 
-**⇒ El nivel 3 es la regla de `156` en su forma más fuerte: la identidad de un camino la
+**⇒ El nivel 3 es la regla de `232` en su forma más fuerte: la identidad de un camino la
 lleva la tabla, y aquí la tabla va dentro de los parámetros, o sea que la lleva el
 llamante.** `PROVEN_DERIVED`. *Y eso es lo que permite que un `dce110_hwseq.c` llame a un
 despachador genérico y que la implementación que se ejecute sea la suya.*
@@ -156,7 +156,7 @@ número de funciones que hay que reescribir para otra GPU en esa ruta.**
   (2) **En la última línea impresa de mi script escribí «97 IMPLEMENTACIONES
   COMPARTIDAS», un número que ningún programa había producido.** La cifra correcta del
   cálculo es **101**, y la escribí como 97 porque la había copiado de la versión anterior
-  del programa, la que estaba mal. **Es el error de `156` —«afirmo un número que tengo a
+  del programa, la que estaba mal. **Es el error de `232` —«afirmo un número que tengo a
   la vista y no lo leo»—)
   volver a mirar la nueva. Y de nuevo lo cazó el programa, al imprimir el 87,1% y el 101
   volver a mirar la nueva. Y de nuevo lo cazó el programa, al imprimir el 87,1% y el 101
@@ -164,10 +164,10 @@ número de funciones que hay que reescribir para otra GPU en esa ruta.**
 - Encadenada con `173` (**el intérprete, su vocabulario y su lista con tope; y aquí su
   despachador y el reparto de sus 116 casos**), `172` (la capa genérica, sus 242 funciones
   de 17 líneas, y **la corrección de su total de líneas**), `170` (la regla de qué
-  versiones tienen fichero), `169` (los nueve bloques IP), `167` (las cuatro interfaces
+  versiones tienen fichero), `236` (los nueve bloques IP), `234` (las cuatro interfaces
   y su 72% en el codificador de enlace), `162` (`MAX_PIPES 6`), `161` (el reloj al 8%),
   `159` (los 52 constructores y el 21% por generación), `157` (el 58% y el puntero nulo),
-  `156` (la regla de la tabla y el constructor, y aquí su nivel más fuerte),
+  `232` (la regla de la tabla y el constructor, y aquí su nivel más fuerte),
   `155`, `154` (el `switch` de 17 casos y el mismo procedimiento), `153`, `150`, `145`,
   `140`.
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
@@ -184,7 +184,7 @@ punteros nulos».* **Esa respuesta era cierta y era la minoría: quince de cada
 ciento dieciséis llamadas del despachador.** *Y ninguna nota lo detectó porque todas
 midieron el numerador y nadie midió el denominador.* **Eso es la clase de error que ha
 producido la mayoría de las correcciones del bloque —`147` con la tabla equivocada, `148`
-con el fichero equivocado, `165` con dos criterios, `169` con nueve filas imposibles,
+con el fichero equivocado, `165` con dos criterios, `236` con nueve filas imposibles,
 `172` con un 69% falso— y su forma es siempre la misma: una afirmación que no se puede
 falsar por la magnitud de lo que afirma.**
 

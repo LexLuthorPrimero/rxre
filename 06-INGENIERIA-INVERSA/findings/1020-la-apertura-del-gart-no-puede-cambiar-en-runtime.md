@@ -229,4 +229,4 @@ GPUVM           vram_start = 0 → GART vestigial    PROVEN_DERIVED (204, 130)
 **El único `NOT_DETERMINED` que quedaba sobre la geometría del GART era el de
 este hallazgo, y está cerrado.** Lo que queda `NOT_DETERMINED` en el nodo no es
 geometría: es la semántica interna del TLB de L1 y de `SYSTEM_ACCESS_MODE = 3`,
-que pertenece a `081`/`088` y no a esta cadena.
+que pertenece a `081`/`195` y no a esta cadena.

@@ -35,7 +35,7 @@ observación ya hecha:
 236:155  - `OBSERVED` -- `journalctl -k -b`, las nueve líneas
 ```
 
-Es decir: **el trabajo ya se hizo**. `163` se titula precisamente
+Es decir: **el trabajo ya se hizo**. `233` se titula precisamente
 *log observado polaris12 y cero crtc*, y su línea 234 dice `OBSERVED`.
 
 ## 2 · La causa: una ventana de 500 caracteres

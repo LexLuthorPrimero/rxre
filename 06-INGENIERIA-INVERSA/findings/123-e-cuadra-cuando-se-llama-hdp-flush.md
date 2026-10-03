@@ -33,7 +33,7 @@ amdgpu_device.c:6613          return;
 amdgpu_device.c:6616      if (!ring && amdgpu_sriov_runtime(adev)) { ... }
 ```
 
-**Las dos salidas tempranas no aplican en esta máquina** — `116`/
+**Las dos salidas tempranas no aplican en esta máquina** — `220`/
 `amdgpu_discovery.c:3105-3125` ya probaron que no es APU, y no hay xGMI en una
 RX550 de un solo chip. **Y el anillo GFX tiene `emit_hdp_flush`**
 (`gfx_v8_0.c:6903`). **Se toma el camino PM4.**
@@ -153,7 +153,7 @@ programa.**
 **Eso cambia el reparto de trabajo de un driver propio:**
 
 - **La parte de kernel es pequeña y ya está resuelta.** Es un anillo circular,
-  un puntero, un fence. `111` lo cerró; esta nota lo confirma desde la fórmula
+  un puntero, un fence. `216` lo cerró; esta nota lo confirma desde la fórmula
   de reserva.
 - **La parte de userspace es todo el proyecto.** Codificador de comandos, ABI,
   validación, page tables, y toda la semántica GFX8.
@@ -170,7 +170,7 @@ flujo no pase por el driver.
 | Afirmación | Estado |
 |---|---|
 | `hdp_flush` es 1 por `amdgpu_ib_schedule` | `PROVEN` (`L253` + `L6611`) |
-| Las dos salidas de `flush_hdp` no aplican aquí | `PROVEN_DERIVED` (`116`, sin xGMI) |
+| Las dos salidas de `flush_hdp` no aplican aquí | `PROVEN_DERIVED` (`220`, sin xGMI) |
 | El presupuesto del driver dice 7 dwords | `PROVEN` (`gfx_v8_0.c:6926`) |
 | Un envío es una lista de N IBs | `PROVEN` (`amdgpu_ib.c:124` `:272`) |
 | El anillo se reserva por `emit_frame_size + N*emit_ib_size` | `PROVEN` (`L197-198`) |
@@ -251,8 +251,8 @@ en el plan.
 - Intento de lectura del IB en `/sys/kernel/debug/dri/`: montado, sin permiso, y
   **sin entrada para el asignador de SA**.
 - Sin MMIO write, sin TLB, sin módulos.
-- Encadenada con `122` (los `WAIT_REG_MEM` son `hdp_flush`), `111` (el anillo sólo
-  lleva el puntero), `094` (`emit_ib_size = 4`), `115`/`116`.
+- Encadenada con `122` (los `WAIT_REG_MEM` son `hdp_flush`), `216` (el anillo sólo
+  lleva el puntero), `094` (`emit_ib_size = 4`), `115`/`220`.
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 
 **Una nota de método, corta, porque es la que me produjo el hallazgo.**

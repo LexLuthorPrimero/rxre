@@ -205,9 +205,9 @@ declaración general.*
 - Encadenada con `184` (**las 21 guardas y la cadena de identidad; y aquí la contradicción
   que dejó**), `183` (otra sesión), `181` (**la cota del 27,8% desde una sola raíz, y sus
   dos puntos abiertos: `modules/` y las guardas**), `180` (otra sesión), `179` (**las cuatro
-  clases, y que `dce_calcs.c` era «sorth»**), `178` (los dos canales), `173`, `172`, `167`,
+  clases, y que `dce_calcs.c` era «sorth»**), `178` (los dos canales), `173`, `172`, `234`,
   `165`, **`151` (DML1 y DML2, y aquí su alcance corregido a familia en vez de a chip)**,
-  `159`, `156`, `149`, `140`.
+  `159`, `232`, `149`, `140`.
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`, y no se añadió ningún fichero al corpus.
 
 ## Nota de método

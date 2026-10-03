@@ -2,7 +2,7 @@
 
 WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 
-## La pregunta abierta de `103` y `104`
+## La pregunta abierta de `210` y `211`
 
 `dpm_table_start` se lee de la cabecera del firmware. El codigo calcula direcciones como
 `dpm_table_start + offsetof(Campo)` y el layout del host tiene 108 bytes de cabeza que
@@ -69,7 +69,7 @@ del firmware. Y si la tabla del firmware empieza en `dpm_table_start`, entonces:
 posicion_smc(campo) = dpm_table_start + offsetof(campo)
 ```
 
-o sea que **la lectura (A) es la correcta**, y los once usos de `103` y `104` estan
+o sea que **la lectura (A) es la correcta**, y los once usos de `210` y `211` estan
 **desviados 108 bytes**.
 
 La lectura (B) exigiria que el firmware reservara 108 bytes de hueco al principio de la
@@ -137,7 +137,7 @@ argumento se apoya en la coherencia entre `PmFuses` y `DpmTable`, que es lo espe
 no medido.
 
 No dice que la desviacion de 108 bytes se manifieste en el comportamiento de esta placa.
-`103` y `104` documentan el mecanismo; que los valores que hay en la SRAM esten o no
+`210` y `211` documentan el mecanismo; que los valores que hay en la SRAM esten o no
 correctos es `RUNTIME_MISSING`.
 
 No he visto el firmware. `NOT_IN_CORPUS`.

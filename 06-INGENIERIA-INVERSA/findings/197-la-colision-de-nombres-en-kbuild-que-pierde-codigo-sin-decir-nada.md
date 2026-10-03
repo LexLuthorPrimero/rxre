@@ -126,11 +126,11 @@ CITA=pci_iomap.h | TERMINO=unsigned long max
     | ROL=el tercer argumento es una LONGITUD, no un tipo de BAR
 ```
 
-Esto **cambia una afirmación de `176` §3**, que decía que las constantes
+Esto **cambia una afirmación de `237` §3**, que decía que las constantes
 `PCI_BARn_*` del núcleo no estaban en ningún corpus y que el mapa se haría a
 ciegas. La función no pide un tipo: pide **cuánta longitud** se quiere mapear.
 
-Y se pasa `RX550_MMIO_LEN` (2 MiB, medido por `176` con `stat()` sin root) por una
+Y se pasa `RX550_MMIO_LEN` (2 MiB, medido por `237` con `stat()` sin root) por una
 razón que no depende de lo que el cuerpo haga con el parámetro: **la longitud que
 se pide y la que hay coinciden**, así que comparen, las recorten o la ignoren, el
 resultado es el mismo.
@@ -167,7 +167,7 @@ Lo que establece y **no debería**:
 geometria correcta  ->  RX550_MMIO_NO_VERIFICADA, NO se mapea
 ```
 
-`RX550_MMIO_BAR` sigue siendo **DECLARADO y no derivado**: `176` §3 clasifica
+`RX550_MMIO_BAR` sigue siendo **DECLARADO y no derivado**: `237` §3 clasifica
 NOT_IN_CORPUS qué bloque de registros vive en qué BAR. La rama
 `if (rx->mmio.motivo == RX550_MMIO_OK)` en el probe es **inalcanzable a
 propósito**, y está escrita para que cerrarlo sea cambiar una línea.

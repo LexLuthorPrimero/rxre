@@ -17,7 +17,7 @@ llamada, y los dos medidos aquí:**
 
 | | para qué | cómo se comprueba | dónde |
 |---|---|---|---|
-| **máscara de swizzle** (`147`, `156`) | un **campo de registro** que no existe | `if (se_mask->FIELD)` | `dce_stream_encoder.c:322` |
+| **máscara de swizzle** (`147`, `232`) | un **campo de registro** que no existe | `if (se_mask->FIELD)` | `dce_stream_encoder.c:322` |
 | **puntero a función nulo** (esta nota) | una **operación** que no existe | `if (funcs->X)` | `link_hwss_dio.c:67`, `:70` |
 
 ## 1 · La tabla de esta máquina, al 58%
@@ -127,7 +127,7 @@ con que `VIRTUAL` y `MIRACAST` no se programen por esta ruta.
 **19 de las 22 son `dce110_*`, y tres son genéricas, definidas nueve líneas antes de
 la tabla.** `PROVEN`.
 
-**Esto corrobora `156` desde el otro lado: la tabla mezcla implementaciones de
+**Esto corrobora `232` desde el otro lado: la tabla mezcla implementaciones de
 generación con compartidas, así que el nombre de la tabla —`dce110_str_enc_funcs`— no
 describe el origen de sus entradas.** Y `dig_source_otg` es el `DIG_SOURCE_SELECT` de
 `147`, programado aquí.
@@ -203,7 +203,7 @@ historial del driver en una tabla.**
   cuerpo; las 22 entradas de la tabla; **la diferencia de los dos conjuntos, que es
   el número que sostiene §1**; la clasificación de las tres entradas no-`dce110_`; los
   cuatro setters por sufijo.
-- Encadenada con `156` (la identidad de un camino la da la tabla y el constructor —
+- Encadenada con `232` (la identidad de un camino la da la tabla y el constructor —
   esta nota es el inventario completo de esa tabla), `155` (**DCE 11.2, y el reloj de
   canal y el audio presentes**, corroborados aquí por la vía de la tabla),
   `154` (el `switch` que decide la señal, y aquí donde se consume),
@@ -224,7 +224,7 @@ produce la pregunta útil —**¿y no rompe?**— y la respuesta útil —**los 
 comprueban**.
 
 **Y hay una coherencia que sólo se ve al juxtaponer las dos notas:** `147` mostró que
-`if (REG(...))` es una comprobación de presencia, `156` mostró que el guard de la
+`if (REG(...))` es una comprobación de presencia, `232` mostró que el guard de la
 tabla de swizzle lo es, y esta nota enseña que **el patrón es el mismo en los dos
 niveles y con la misma forma textual**: `if (algo_que_puede_ser_nulo) usalo`. **Un
 puntero a función y una máscara de cero son las dos formas que tiene el mismo

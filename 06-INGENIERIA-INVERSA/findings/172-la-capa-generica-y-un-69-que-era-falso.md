@@ -98,7 +98,7 @@ llaman `get_*_visual_confirm_color` y la duodécima, `refresh_rate`, se llama
 RGB, RGB limitado, YCbCr601, YCbCr601 limitado, YCbCr709, YCbCr709 limitado, YCbCr2020.**
 `PROVEN`.
 
-**⇒ Y son ortogonales a los cinco valores del enum del codificador de `148` y `167`:
+**⇒ Y son ortogonales a los cinco valores del enum del codificador de `148` y `234`:
 `PIXEL_ENCODING_UNDEFINED`, `_RGB`, `_YCBCR420`, `_YCBCR422`, `_YCBCR444`.** `PROVEN`.
 
 **⇒ La diferencia es conceptual y es la observación de esta nota:** la capa genérica
@@ -215,9 +215,9 @@ contar en qué orden.
   `165` (**dos criterios de clasificación que difieren en 18,7 puntos, y aquí dos que
   difieren en un factor de diez — el mismo error, y con la misma corrección**),
   `162` (las 6 tuberías, y aquí el 93% de la capa genérica que sí programa esta GPU),
-  `161` (el reloj), `159` (los 52 constructores y el 21% por generación), `156` (la
+  `161` (el reloj), `159` (los 52 constructores y el 21% por generación), `232` (la
   tabla y el constructor, y aquí la capa que los consume), `155` (DCE 11.2),
-  `148` y `167` (el enum `pixel_encoding`, y aquí su ortogonal con el espacio de color),
+  `148` y `234` (el enum `pixel_encoding`, y aquí su ortogonal con el espacio de color),
   `150` (el enum de señal), `145` (`PROVEN_ABSENT` con causa).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 
@@ -249,8 +249,8 @@ misma confianza con la que produciría uno correcto.*
 
 **Y el corolario, que es lo que hace peligroso al 69%: un número plausible con la
 estructura de una medición es más peligroso que un número raro.** *En toda la tanda, los
-errores los ha delatado la rareza — `paso constante: False` en `156`, un rango fuera de
-límite en `168`, nueve filas sin generación en `169`.* **El 69% no era raro: era redondeado,
+errores los ha delatado la rareza — `paso constante: False` en `232`, un rango fuera de
+límite en `235`, nueve filas sin generación en `236`.* **El 69% no era raro: era redondeado,
 redondeado y con su porcentaje, y para escribirlo no hacía falta ninguna de las
 comprobaciones que las otras veces me pararon. Un error que no dispara ninguna alarma es
 el único que hay que temer, porque llega hasta el papel.**

@@ -9,7 +9,7 @@ RUNTIME=NOT_RUN · GPU INTACTA · CERROJOS=0
 
 ## Qué resuelve
 
-`167` cerró por dónde no cerraba: una cita de hallazgo puede **resolver**, **no ser
+`234` cerró por dónde no cerraba: una cita de hallazgo puede **resolver**, **no ser
 ambigua**, y aun así **no sostener** la afirmación para la que se cita. Eso no se
 puede medir porque **el término que se cita no está escrito en ningún sitio**.
 El hueco no era la herramienta: era el formato. Exactamente el mismo movimiento
@@ -103,7 +103,7 @@ cosas a la vez, o la reconciliación de clases deja de cuadrar.
 eso hay que decirlo: el campo existe para obligar a declarar *qué* sostiene la
 cita, no porque exista un modo mecánico de verificarlo. Sin `ROL=`, `TERMINO=` es
 un término suelto y no hay forma de saber contra qué afirmación se compara —
-que es la mitad del problema que `167` declaró abierto.
+que es la mitad del problema que `234` declaró abierto.
 
 Lo que sí queda abierto y **no** se ha resuelto:
 

@@ -141,7 +141,7 @@ gmc_v8_0.c:677   amdgpu_ring_emit_wreg(ring, reg, pd_addr >> 12);
 gmc_v8_0.c:680   amdgpu_ring_emit_wreg(ring, mmVM_INVALIDATE_REQUEST, 1 << vmid);
 ```
 
-**PTBA primero, luego INVALIDATE_REQUEST** — el orden de `068` y `085`,
+**PTBA primero, luego INVALIDATE_REQUEST** — el orden de `068` y `194`,
 confirmado una vez más, y **sin lectura de respuesta**: la emisión al ring no
 espera confirmación. El orden lo garantiza la cola, no un handshake.
 
@@ -185,8 +185,8 @@ semántica, y no se pueden escribir igual.
 - **Corrige `072`** (afirmación de hecho falsa, con causa identificada).
   `072` no es mío: **lo informo y no lo edito.**
 - Encadenada con `068` (orden de emisión por ring), `072` (COND_EXEC),
-  `085` (invalidate obligatorio en GFX8), `067` (VMID 0 = GART),
-  `102` (qué camino se ejecuta aquí).
+  `194` (invalidate obligatorio en GFX8), `067` (VMID 0 = GART),
+  `209` (qué camino se ejecuta aquí).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`: son de otras sesiones.
 
 **Dos notas de método.**
@@ -198,9 +198,9 @@ Si sólo hubiera leído el offset y no hecho el grep, el error no habría
 aparecido. Y si sólo hubiera leído el grep, no habría publicado el offset
 correcto.
 
-La segunda: **`102` decía que el camino de CPU no se instancia en esta GPU, y
+La segunda: **`209` decía que el camino de CPU no se instancia en esta GPU, y
 este camino de PASID es precisamente al que lleva.** Con eso, el
-`NOT_DETERMINED` de `102` sobre `amdgpu_vm_cpu_funcs` se queda más estrecho: la
+`NOT_DETERMINED` de `209` sobre `amdgpu_vm_cpu_funcs` se queda más estrecho: la
 funcionalidad existe, es reachable vía el workqueue de `amdgpu_vm_tlb_fence.c`,
 y lo que no se instancia es el *map_table* del BO por CPU. **Son dos cosas
 distintas que mi resumen anterior mezcló.**

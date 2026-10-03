@@ -9,11 +9,11 @@ RUNTIME=LOG_READ_ONLY · GPU INTACTA
 
 ## Qué resuelve
 
-**El `GLOBAL WORK SCAN` que quedaba pendiente, y la respuesta a la pregunta que `156`
+**El `GLOBAL WORK SCAN` que quedaba pendiente, y la respuesta a la pregunta que `232`
 abrió para un solo subsistema, elevada a los nueve subsistemas del chip: ¿qué versión del
 código se ejecuta en cada bloque?**
 
-**La respuesta es una tabla de nueve filas que el log ya tenía desde `163` y que nadie
+**La respuesta es una tabla de nueve filas que el log ya tenía desde `233` y que nadie
 había puesto en una nota, y una regla de tres líneas que explica por qué cuatro de esas
 nueve filas funcionan.**
 
@@ -71,11 +71,11 @@ versión completa, la lee completa para mostrarla en el log, y despacha con una 
 Medido, y es la razón por la que cuatro bloques de esta tabla funcionan sin que exista
 una implementación para su versión. `PROVEN_DERIVED`.
 
-## 3 · Y por qué esto generaliza la regla de `156`
+## 3 · Y por qué esto generaliza la regla de `232`
 
-`156` estableció, para un solo subsistema, que **la identidad de un camino de código la
+`232` estableció, para un solo subsistema, que **la identidad de un camino de código la
 dan la tabla de punteros a función y el constructor del objeto, no el nombre de la
-función ni el del fichero.** `163` lo redujo a un hecho de silicio —el IP del DC se
+función ni el del fichero.** `233` lo redujo a un hecho de silicio —el IP del DC se
 instancia como `dce_v1_0_0`— y dijo que por eso las seis generaciones DCE cablean la
 misma tabla.
 
@@ -85,7 +85,7 @@ despacho no tiene suficientes bits para distinguir las versiones que existen.**
 
 | | lo que se instancia | lo que se despacha | reutilización |
 |---|---|---|---|
-| DC (`163`, `159`) | `dce_v1_0_0` | `dce_v1_0_0` | 6 generaciones DCE, 1 tabla, 22 de 38 |
+| DC (`233`, `159`) | `dce_v1_0_0` | `dce_v1_0_0` | 6 generaciones DCE, 1 tabla, 22 de 38 |
 | GMC (`140`) | `gmc_v8_1_0` | `gmc_v8_0` | todo el mapa de memoria con el código de 8.0 |
 | SDMA | `sdma_v3_1_0` | `sdma_v3_0` | — |
 | UVD | `uvd_v6_3_0` | `uvd_v6_0` | — |
@@ -97,7 +97,7 @@ real, y cuatro de ellos porque el menor no cabe en el nombre del camino.** `PROV
 
 **Y la observación que hace útil la tabla: el único bloque cuya clave coincide con su
 versión es el único cuyo menor es cero.** `PROVEN_DERIVED`. **Es una coincidencia de
-cinco filas y no una ley, pero es la forma que tiene aquí la regla de `156`: no es que
+cinco filas y no una ley, pero es la forma que tiene aquí la regla de `232`: no es que
 el driver versione mal, es que versiona con tres componentes porque con cuatro no
 cabe.**
 
@@ -108,7 +108,7 @@ que el driver los maneja con el código del mayor, y si el IP 8.1 del GMC añade
 registro que el 8.0 no conoce, el driver no lo verá.
 
 **`140` es un ejemplo vivo: derivó el mapa de direcciones entero —`MC_VM_FB_LOCATION`,
-`num_prt_users`, la tabla del GART a 9 MiB— usando `gmc_v8_0.c`, y el log de `163` dice
+`num_prt_users`, la tabla del GART a 9 MiB— usando `gmc_v8_0.c`, y el log de `233` dice
 que el bloque se llama `gmc_v8_1_0`.** `PROVEN_DERIVED`. **Y los números salieron
 bien, porque el log también los confirma. Es decir: la reutilización funcionó en este
 caso, y eso no se sabe hasta que se comprueba, y aquí se ha comprobado.**
@@ -153,7 +153,7 @@ ficheros que nadie ha abierto.
 ## Procedencia
 
 - `OBSERVED` -- `journalctl -k -b`, las nueve líneas
-  `amdgpu 0000:01:00.0: detected ip block number N <version> (nombre)`, de las que `163`
+  `amdgpu 0000:01:00.0: detected ip block number N <version> (nombre)`, de las que `233`
   reprodujo la lista. Sin root, sin MMIO.
 - `STATIC` -- `amdgpu/amdgpu.h:1139` (la declaración de `ip_versions`),
   `:1211-1218` (`amdgpu_ip_version` con su comentario sobre qué descarta, y el
@@ -177,9 +177,9 @@ ficheros que nadie ha abierto.
 - **Y un `NOT_DETERMINED` de cuatro filas que no es un hueco sino una tarea: las
   diferencias entre `gmc_v8_0.c` y lo que el IP 8.1 añade, y lo mismo en SDMA, UVD y VCE.
   No son cuatro investigations, son una, aplicada a cuatro pares de ficheros.**
-- Encadenada con `163` (**las nueve líneas del log, que esta nota convierte en tabla**),
+- Encadenada con `233` (**las nueve líneas del log, que esta nota convierte en tabla**),
   `164` (la aritmética inversa como derivación), `159` (los seis constructores `dce110_`),
-  `156` (la regla de la tabla y el constructor, elevada de un subsistema a nueve),
+  `232` (la regla de la tabla y el constructor, elevada de un subsistema a nueve),
   `155` (DCE 11.2), `153` (los siete paths), `150` (los cuatro `cntl.signal`),
   `145` (`PROVEN_ABSENT` con causa, y `include/uapi` ausente),
   `140` (**el mapa de direcciones entero derivado con un fichero de la generación
@@ -189,7 +189,7 @@ ficheros que nadie ha abierto.
 ## Nota de método
 
 **Esta nota es la que generaliza todo el bloque, y lo hace sin añadir un hecho nuevo: usa
-nueve líneas que ya estaban escritas desde `163` y una función de tres líneas de
+nueve líneas que ya estaban escritas desde `233` y una función de tres líneas de
 `amdgpu.h`.**
 
 *La diferencia con las dieciséis anteriores es que todas ellas buscaban.* **Esta ha
@@ -215,4 +215,4 @@ cualquier lectura, y un resultado imposible es la señal de que el criterio est�
 que los datos.* **Es la misma forma que `165`: dos criterios de clasificación, y el
 criterio importa más que la respuesta.** *Y es la tercera vez en la tanda que un
 resultado imposible en lugar de uno raro es lo que delata el error — las otras dos, la
-`LINE_OUT_OF_RANGE` de `168` y el `paso constante: False` de `156`.*
+`LINE_OUT_OF_RANGE` de `235` y el `paso constante: False` de `232`.*

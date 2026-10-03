@@ -1,4 +1,4 @@
-# 110 · Corrección de `106`: `FUNCTION` es un campo de `WAIT_REG_MEM`, y no estaba ausente
+# 110 · Corrección de `213`: `FUNCTION` es un campo de `WAIT_REG_MEM`, y no estaba ausente
 
 `CLASSIFICATION=DOCUMENTATION` · `TRACK=STATIC` · `WORK_CLASS=READ_ONLY/EVIDENCE`
 `WRITE_EXECUTION=NONE` · `MODIFICATIONS=0` · `RUNTIME=NOT_RUN` · `GPU INTACTA`
@@ -8,12 +8,12 @@
 
 ## Qué corrige
 
-`106` afirmó que el campo `FUNCTION` **no existía** en GFX8, y cerró §C con
+`213` afirmó que el campo `FUNCTION` **no existía** en GFX8, y cerró §C con
 esa afirmación. **Es falso, y el error tiene una causa precisa y ticable.**
 
 ## El error: busqué un campo de paquete en los headers de registros
 
-Mi prueba en `106` fue:
+Mi prueba en `213` fue:
 
 ```
 $ grep -rn "INVALIDATE_REQUEST__FUNCTION" include/asic_reg/
@@ -53,7 +53,7 @@ No es un trigger de invalidate.
 
 ## Y la codificación está en DOS familias de headers, idénticas
 
-Esto es lo que `017` ya tenía y `106` no comprobó:
+Esto es lo que `017` ya tenía y `213` no comprobó:
 
 | | fuente | naturaleza |
 |---|---|---|
@@ -130,7 +130,7 @@ $ grep -o "WAIT_REG_MEM_FUNCTION([0-9])" gfx_v8_0.c | sort | uniq -c
 > "no compares, solo espera". El driver lo usa **una vez**, en el WAIT que sigue
 > al invalidate, y su cabecera es `0x00000000`.
 
-`017` y el `107` ajeno llegaron a esa misma conclusión por otra vía. Mi `106` la
+`017` y el `107` ajeno llegaron a esa misma conclusión por otra vía. Mi `213` la
 refutó con un grep mal dirigido. **El campo existe, tiene 7 valores, y `always`
 es el que ya estaba.**
 
@@ -148,7 +148,7 @@ gmc_8_1_sh_mask.h:6715 #define VM_INVALIDATE_REQUEST__INVALIDATE_DOMAIN_1_MASK 0
 ...  hasta _15
 ```
 
-**Dos `FUNCTION` distintos con el mismo nombre**, como en `106` pero por la razón
+**Dos `FUNCTION` distintos con el mismo nombre**, como en `213` pero por la razón
 buena: uno es de paquete PM4 y no existe en el invalidate; el otro es la
 explicación inventada (ISA de shaders) que **retiro**.
 
@@ -204,7 +204,7 @@ header de `0x51E`/`0x51F` y con él toda la frontera C.
   afirmación era correcta sobre *ese* directorio y falsa sobre el corpus. El
   error fue el alcance, no la lectura.
 - **`017` y el `107` ajeno** ya tenían la respuesta. No la redescubro; la
-  verifico y corrijo el daño que mi `106` hizo.
+  verifico y corrijo el daño que mi `213` hizo.
 
 ## Desfalsificación
 
@@ -218,8 +218,8 @@ header de `0x51E`/`0x51F` y con él toda la frontera C.
 ## UNLOCKS
 
 - **`AGENTS.md` §C se reescribe**: la línea "cerrar `FUNCTION=always`" era
-  correcta; mi `106` la cerró mal. Hay que deshacer esa edición.
-- **`106` queda marcado como parcialmente retractado**, no borrado: su
+  correcta; mi `213` la cerró mal. Hay que deshacer esa edición.
+- **`213` queda marcado como parcialmente retractado**, no borrado: su
   observación de que los 3 caminos del invalidate escriben `1 << vmid` sigue
   siendo válida; solo su explicación de `FUNCTION` cae.
 - **Precedente de método**: un `NOT_FOUND` (propio o de subagente) exige

@@ -7,18 +7,18 @@ CORRIGE A `104-once-usos-de-dpm-table-start-y-el-hueco-de-108.md` · CORROBORA Y
 
 ## Que se corrige, y que no
 
-`104` **no afirmo** sin matices que los once usos estuvieran desviados. Su propio texto lo
+`211` **no afirmo** sin matices que los once usos estuvieran desviados. Su propio texto lo
 dice en `:148-158`: si el error fuera real y tan grave, *Tonga habria arrancado mal*, y
 marca la pregunta que lo decide como `CONNECTION_MISSING` y `NOT_DETERMINED`.
 
 **La pregunta queda ahora contestada, y contestada por el otro lado.**
 
 Lo que se retira son cuatro etiquetas `PROVEN_DERIVED` y una recomendacion de codigo de
-`104`, no su prosa. Y hay que decirlo con precision: **el error de `104` no fue afirmar de
+`211`, no su prosa. Y hay que decirlo con precision: **el error de `211` no fue afirmar de
 mas en el texto, fue etiquetar como `PROVEN` unas consecuencias que el propio documento
 decia que dependian de un `NOT_DETERMINED`.**
 
-## La pregunta, tal cual la dejo `104`
+## La pregunta, tal cual la dejo `211`
 
 > `dpm_table_start` es la direccion **literal** del campo `DpmTable` de la cabecera del
 > firmware, o la direccion a la que hay que sumar 108 para llegar al primer campo que el
@@ -99,7 +99,7 @@ modela exactamente la imagen en memoria del firmware, y **no hay que sumar ni re
 
 ## Lo que esto retira
 
-| etiqueta de `104` | estado ahora |
+| etiqueta de `211` | estado ahora |
 |---|---|
 | `SMC_GRAPHICS_LEVEL_OVERRUNS_ACPI_AND_MEMORY = PROVEN_DERIVED` | **REFUTED** |
 | `SMC_MEMORY_LEVEL_OVERRUNS_LINK_LEVEL = PROVEN_DERIVED` | **REFUTED** |
@@ -113,7 +113,7 @@ modela exactamente la imagen en memoria del firmware, y **no hay que sumar ni re
 Los cuatro `REFUTED` caen por la misma razon: cada uno computa `offsetof(campo) + 108` y
 consulta que hay ahi. Ese `+ 108` es **la CONCLUSION que se estaba comprobando**, usada
 como premisa. Sumar 108 a un offset y mirar que hay, **no puede fallar**: si la lectura
-es correcta, dara lo que la lectura predice. **Es la forma circular de `104`**, y es la
+es correcta, dara lo que la lectura predice. **Es la forma circular de `211`**, y es la
 septima vez que aparece el mismo error de base, esta vez en mi propio trabajo reciente.
 
 ### La prueba numerica que cierra el caso, y es la mas simple
@@ -133,15 +133,15 @@ offsetof(SMU74_Discrete_DpmTable, LinkLevel)        = 804
 708 +  96 = 804 = offsetof(LinkLevel)            EXACTO
 ```
 
-**Los dos campos que `104` declara invadidos empiezan exactamente donde termina el array
+**Los dos campos que `211` declara invadidos empiezan exactamente donde termina el array
 anterior.** Byte a byte, sin sobrante.
 
-Eso es lo que hace la refutacion incontestable, y explica por que `104` no podia
+Eso es lo que hace la refutacion incontestable, y explica por que `211` no podia
 encontrarlo: para ver que un array se sale hay que mirar **donde empieza el campo
 siguiente**, y en este caso coincide con el final **redondeando al multiploplo de 4 de la
 propia struct**. Un desplazamiento de 108 no dejaria esa coincidencia; la habria roto.
 
-Lo que `104` reporto fue, literalmente, que el array "invade `MemoryACPILevel` (24 B)".
+Lo que `211` reporto fue, literalmente, que el array "invade `MemoryACPILevel` (24 B)".
 Y `MemoryACPILevel` esta en 684, que es donde el array **termina**. Los 24 B empiezan en
 684, no en 236.
 
@@ -150,7 +150,7 @@ exigiria que el array llegase a 912. Llega a 804.
 
 ## Y el punto mas urgente: hay una recomendacion de codigo que se retira
 
-`104` recomienda, para un driver propio, una funcion que **resta** 108:
+`211` recomienda, para un driver propio, una funcion que **resta** 108:
 
 ```c
 static inline uint32_t smc_addr(const struct polaris10_smumgr *s,
@@ -164,10 +164,10 @@ static inline uint32_t smc_addr(const struct polaris10_smumgr *s,
 
 **Se retira por completo.** Con la lectura (A), ese `- 108` **introduce** un
 desplazamiento real: cada campo caeria 108 bytes antes de su sitio, que es exactamente el
-fallo que `104` creia estar corrigiendo. Un driver propio que siguiera esa receta
+fallo que `211` creia estar corrigiendo. Un driver propio que siguiera esa receta
 escribiria la tabla DPM desplazada.
 
-Lo que sobrevive de `104` no es la aritmetica, es la **disciplina**:
+Lo que sobrevive de `211` no es la aritmetica, es la **disciplina**:
 
 - **Una sola funcion** para convertir un campo en direccion. Correcto, y ahora con la
   operacion simple:
@@ -182,13 +182,13 @@ static inline uint32_t smc_addr(const struct polaris10_smumgr *s,
 
 - **Que el compilador fuerce a pasar por ahi.** Sigue siendo la unica defensa real, porque
   el error de coordenadas es silencioso por naturaleza.
-- **Que la funcion este probada contra el layout real.** Sigue siendo la leccion de `104`:
+- **Que la funcion este probada contra el layout real.** Sigue siendo la leccion de `211`:
   comparar nombres de campos no detecta un error de base. Eso no cambia con esta
   correccion; cambia **que base hay que comprobar**.
 
 ## Y una comprobacion de correspondencia que si se sostiene
 
-`104` afirmo que el offset minimo alcanzado por una escritura del host es 108 y que
+`211` afirmo que el offset minimo alcanzado por una escritura del host es 108 y que
 ninguna baja de ahi. **Lo he vuelto a medir por via distinta**, con `smc_copy_scope` y los
 offsets de gcc, y se sostiene:
 
@@ -217,7 +217,7 @@ Esto **no** cierra el contenido de la region. Sigue `NOT_IN_CORPUS`:
   usen**.
 - `FW_SMU_INTERPRETATION` sigue abierto.
 
-Eso es coherente con `087`, que tampoco lo cierra, y con `111`: **no hay ni una sola
+Eso es coherente con `087`, que tampoco lo cierra, y con `216`: **no hay ni una sola
 lectura de verificacion en toda la ruta**, asi que el contenido de esa region no es
 observable desde el host ni siquiera con placa, sin instrumentacion nueva.
 
@@ -234,7 +234,7 @@ observable desde el host ni siquiera con placa, sin instrumentacion nueva.
   aparece **identico en las seis generaciones** (Tonga, Iceland, Fiji, CI, VegaM,
   Polaris12), con la misma estructura de destino `dpm + offsetof(SystemFlags)` y origen
   `&table->SystemFlags`.
-- `DPM_FOUR_RUNNINGS_REFUTED = REFUTED`: los cuatro `PROVEN_DERIVED` de `104`.
+- `DPM_FOUR_RUNNINGS_REFUTED = REFUTED`: los cuatro `PROVEN_DERIVED` de `211`.
 - `DPM_REFERENCE_FRAMES_DO_NOT_MIX = REFUTED`: `SMC_DPM_OFFSET_MIXES_REFERENCE_FRAMES`.
 - `DPM_104_SMC_ADDR_SUBTRACTION_WITHDRAWN = REFUTED`: la funcion recomendada restaria 108
   e introduciria el desplazamiento que pretendia evitar.
@@ -257,5 +257,5 @@ observable desde el host ni siquiera con placa, sin instrumentacion nueva.
 
 La tercera es la generalizacion. Un desplazamiento solo es real si **el codigo lo
 introduce**. Aqui el codigo no lo introduce: usa `offsetof`, que ya es la posicion
-correcta dentro del tipo. `104` busco un `+ 108` en un sitio donde la struct **ya era** el
+correcta dentro del tipo. `211` busco un `+ 108` en un sitio donde la struct **ya era** el
 desplazamiento.

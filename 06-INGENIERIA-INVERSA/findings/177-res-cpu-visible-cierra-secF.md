@@ -7,7 +7,7 @@
 
 ## Cuestión principal
 
-`169` dejó esto:
+`236` dejó esto:
 
 > *Siguiente paso: `amdgpu_res_cpu_visible()` aparece en cuatro de los cinco
 > sitios. Es el otro predicado, y determina qué BOs están sujetos al
@@ -69,7 +69,7 @@ Comprobé que no son nombres muertos:
   esta placa.
 - `AMDGPU_PL_DOORBELL`: las BOs de doorbell de KFD.
 - `AMDGPU_PL_MMIO_REMAP`: `amdgpu_ttm_alloc_mmio_remap_bo()` en
-  `amdgpu_ttm.c:2190`, y `169` ya cerró que su placement es
+  `amdgpu_ttm.c:2190`, y `236` ya cerró que su placement es
   `num_placement = 0`, o sea "nunca desconectable".
 
 Ninguno de los cinco es una rama muerta en GFX8.
@@ -78,14 +78,14 @@ Ninguno de los cinco es una rama muerta en GFX8.
 
 | | dónde | qué hace |
 |---|---|---|
-| **colocación** | `amdgpu_ttm.c:148` (`169`) | `placements[0].fpfn = visible_vram_size >> PAGE_SHIFT` — el BO **empieza** dentro de la ventana |
+| **colocación** | `amdgpu_ttm.c:148` (`236`) | `placements[0].fpfn = visible_vram_size >> PAGE_SHIFT` — el BO **empieza** dentro de la ventana |
 | **consulta** | `amdgpu_res_cpu_visible()` | el BO es visible si **todo** cabe dentro de la ventana |
 
 La primera pone el techo; la segunda lo comprueba. Un driver propio necesita las
 dos, y si implementa solo la primera acaba con BOs que empiezan dentro pero
 crecen fuera.
 
-**El número, de `169`:** `fpfn = 65536` páginas, con `visible_vram_size` =
+**El número, de `236`:** `fpfn = 65536` páginas, con `visible_vram_size` =
 256 MiB medido por `lspci`.
 
 ## La consecuencia runtime: `SIGBUS`
@@ -141,7 +141,7 @@ exactamente de que `fpfn` se cumpla.
 ## El contador existe, pero no se puede leer con lo que hay
 
 `atomic64_inc(&adev->num_vram_cpu_page_faults)` y, junto a él, la familia
-completa de `169`:
+completa de `236`:
 
 ```
 amdgpu_kms.c:793   AMDGPU_INFO_NUM_BYTES_MOVED
@@ -173,7 +173,7 @@ porque existe en AMDGPU*. El ioctl malcodificado no da error: mueve memoria de
 otro sitio.
 
 También miré si el número se podía recuperar del `.ko` cargado, como se hizo con
-la tabla de ASIC en `052`. La tabla de descriptores DRM (`amdgpu_drm_ioctl_desc`)
+la tabla de ASIC en `193`. La tabla de descriptores DRM (`amdgpu_drm_ioctl_desc`)
 **no está en este `amdgpu_kms.c`**, así que esa vía tampoco está.
 
 ### El artefacto que falta, nombrado
@@ -237,10 +237,10 @@ mediciones, sin tocar la placa.
   puede", sino "falta exactamente este fichero y esto se mide con él".
 - **Los seis contadores cubren §F entero**: bytes movidos, evictions, faults de
   CPU, uso de VRAM, uso de VRAM visible, uso de GTT.
-- **Siguiente paso**: §G. La coherencia ya tiene su flush (`156`) y suwriter
-  (`163`). Falta el lado del hardware: qué garantiza el orden entre el invalidate
+- **Siguiente paso**: §G. La coherencia ya tiene su flush (`232`) y suwriter
+  (`233`). Falta el lado del hardware: qué garantiza el orden entre el invalidate
   de `0x51e` y una lectura de la tabla. Y hay un candidato nuevo sin explorar:
-  `concurrent_flush`, que `163` dejó como condición no seguida.
+  `concurrent_flush`, que `233` dejó como condición no seguida.
 
 ## Evidencia
 

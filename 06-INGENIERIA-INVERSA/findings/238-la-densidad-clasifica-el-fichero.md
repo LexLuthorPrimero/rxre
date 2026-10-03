@@ -9,7 +9,7 @@ RUNTIME=NOT_RUN · GPU INTACTA
 
 ## Qué resuelve
 
-**La generalización que `176` nombró y que hace el método general: medir la densidad de
+**La generalización que `237` nombró y que hace el método general: medir la densidad de
 delegación de `amdgpu_dm/` y de los seis ficheros de `dc/core/` que faltaban.**
 
 **⇒ `amdgpu_dm/` son 32.304 líneas y tiene 1,0 punto de delegación por mil — el segundo
@@ -23,7 +23,7 @@ contador de referencias y un copiador de estructuras.** `PROVEN_DERIVED`.
 ## 1 · Los nueve, con el mismo criterio y el mismo programa
 
 **Puntos de delegación por mil líneas, con tres patrones: `x->funcs->y(`, `->hwss.y(`, y
-`x->y->z(` en general.** Los dos primeros son los de `176`; el tercero es un superconjunto
+`x->y->z(` en general.** Los dos primeros son los de `237`; el tercero es un superconjunto
 y por eso el secuenciador sale ahora con 195 en vez de con 108. **Son dos mediciones
 distintas y no se suman: 108 es delegación por tabla de funciones; 195 es delegación por
 cualquier puntero doble.** `PROVEN`.
@@ -104,7 +104,7 @@ lo que otros han hecho, no escribir registros.*
 —32.304 de 443.839 líneas— no necesita ni una función por chip, porque su densidad es 1,0
 y la mitad de sus Delegaciones van a tres subsistemas que ya existen.** `PROVEN_DERIVED`.
 
-## 4 · Y una salvedad sobre el máximo, que es la misma clase de error que `176`
+## 4 · Y una salvedad sobre el máximo, que es la misma clase de error que `237`
 
 **`dc_link_exports.c` da 121,6 por mil, el valor más alto de los nueve, y es el máximo
 posible por construcción:** es un fichero cuyo propósito es reenviar llamadas, así que
@@ -114,9 +114,9 @@ delegar es lo que hace. `PROVEN_DERIVED`.
 que interpretarla al revés: 121,6 no significa «muy acoplado al hardware», significa «no hace
 nada más que reenviar».** `PROVEN_DERIVED`.
 
-**⇒ Y ése es el mismo error que el 261% de `176` en su forma exacta: un valor que sale
+**⇒ Y ése es el mismo error que el 261% de `237` en su forma exacta: un valor que sale
 correcto del programa y que no significa nada porque el denominador o el numerador están
-en la unidad equivocada para la pregunta.** *En `176` fue un porcentaje sobre cien que
+en la unidad equivocada para la pregunta.** *En `237` fue un porcentaje sobre cien que
 daba 261; aquí es un cociente por mil que da 121 en un fichero de reenvío.* **Los dos se
 detectaron por la misma vía: un valor que no tiene sentido en la escala en la que se
 interpreta, y que hay que mirar antes de escribirlo en lugar de después.**
@@ -169,17 +169,17 @@ que este bloque no ha medido con la densidad.** *Es el último grande, y el mism
   veces seguidas con el mismo error y la misma causa, y las dos veces lo vi porque el
   programa se cayó — que es exactamente para lo que sirve un programa que se cae: para no
   dejarme escribir nada.*
-- **Y una medición que escribo mal y que hay que leer con la salvedad de §4:** `176` dio
+- **Y una medición que escribo mal y que hay que leer con la salvedad de §4:** `237` dio
   108 para el secuenciador contando sólo `x->funcs->y(` y `->hwss.y(`, y esta nota da 195
   añadiendo el patrón general de doble puntero. **No es una corrección de 108: es una
   medición distinta y más ancha, y las dos están escritas con su nombre en el texto.**
-- Encadenada con `176` (**la densidad como medida, y aquí la medida aplicada a los nueve
+- Encadenada con `237` (**la densidad como medida, y aquí la medida aplicada a los nueve
   ficheros que faltaban**), `175` (los 108 puntos de delegación y la distinción entre
   puntos y funciones), `174` (las tres formas de despacho y el 87%),
   `173` (el intérprete de 119 operaciones), `172` (la capa genérica y los bloques ausentes),
-  `169` (los nueve bloques IP), `167` (el 72% del codificador de enlace),
+  `236` (los nueve bloques IP), `234` (el 72% del codificador de enlace),
   `161` (el 8% del reloj), `159` (los 52 constructores y el 21%),
-  `157` (el 58% del codificador de stream), `156` (la regla de la tabla y el constructor),
+  `157` (el 58% del codificador de stream), `232` (la regla de la tabla y el constructor),
   `155`, `154`, `153`, `150`, `145`, `140`.
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 
@@ -201,14 +201,14 @@ ceros son software puro.*
 con seis huecos y siete argumentos, dos veces seguidas, con el mismo error y la misma
 causa.** *No lo detectó ninguna regla, ni la del número imposible, ni la del resultado
 raro: lo detectó que el programa se cayó.* **Y esa es la tercera forma en que un programa
-me ha parado —un booleano falso en `156`, una cita imposible en `168`, nueve filas sin
-generación en `169`, un 261% en `176`— y la más barata de todas, porque no requiere
+me ha parado —un booleano falso en `232`, una cita imposible en `235`, nueve filas sin
+generación en `236`, un 261% en `237`— y la más barata de todas, porque no requiere
 interpretar nada: basta con no tener un número.**
 
 **Y la observación que la precede, y que es la regla de esta nota: `dc_link_exports.c` da
 121,6 por mil y eso no significa «muy acoplado al hardware», significa «es un fichero de
 reenvío».** *Un valor puede salir correcto del programa y no significar nada, y la única
 forma de saberlo es preguntarse qué valdría un cero y un cien en esa escala, antes de
-escribir el número.* **En `176` el 261% se delató por ser imposible; aquí el 121,6 no es
+escribir el número.* **En `237` el 261% se delató por ser imposible; aquí el 121,6 no es
 imposible, es sólo tonto, y ése es el nivel de dificultad del error que queda: no el
 imposible ni el raro, sino el que tiene un valor plausible y un significado equivocado.**

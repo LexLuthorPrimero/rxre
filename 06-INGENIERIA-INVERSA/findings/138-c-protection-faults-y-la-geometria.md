@@ -87,7 +87,7 @@ Con los offsets del header:
 gmc_v8_0.c:680   amdgpu_ring_emit_wreg(ring, mmVM_INVALIDATE_REQUEST, 1 << vmid);
 ```
 
-**Dos instrucciones, en este orden, y sólo dos.** `128` había separado los dos
+**Dos instrucciones, en este orden, y sólo dos.** `229` había separado los dos
 mecanismos (`0x51e` frente a `0x501`); **aquí están los dos en su forma real: el
 PTBA y el invalidate, como un par, por el anillo, uno detrás del otro.**
 
@@ -280,9 +280,9 @@ leíble con un `RREG32` de `0x504`.
 - Encadenada con `137` (la configuración de TLB — esta nota responde a su
   `NOT_DETERMINED` más importante), `132` (la geometría en software, que aquí se
   cruza con la del hardware), `131` (`VM_PRT_CNTL` y `MASK_PDE0_FAULT`),
-  `099` (**resuelto aquí**), `130` (el L1 por fragmento), `128` (los dos
+  `099` (**resuelto aquí**), `130` (el L1 por fragmento), `229` (los dos
   mecanismos de invalidate — aquí los dos juntos, `L677` y `L680`),
-  `116` (BAR 256 MiB), `104` (VMID 0 = kernel), `085` (el PTBA), `083` (`dst`).
+  `220` (BAR 256 MiB), `211` (VMID 0 = kernel), `194` (el PTBA), `083` (`dst`).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 
 ## Nota de método

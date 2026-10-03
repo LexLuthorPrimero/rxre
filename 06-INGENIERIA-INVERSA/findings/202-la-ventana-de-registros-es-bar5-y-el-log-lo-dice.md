@@ -9,7 +9,7 @@ RUNTIME=READ_ONLY (journalctl -k -b) · GPU INTACTA · CERROJOS=0
 
 ## Qué resuelve
 
-`176` §3 dejó por escrito, y con razón, que **qué bloque de registros vive en
+`237` §3 dejó por escrito, y con razón, que **qué bloque de registros vive en
 qué BAR** era `NOT_IN_CORPUS`. Eso queda **cerrado por observación**, sin root y sin
 escribir nada:
 
@@ -67,12 +67,12 @@ No importa. La **observación ya dice qué rama se tomó**: el valor impreso es
 `262144`, y ese valor solo lo produce la rama del BAR 5. Un número medido en
 ejecución decide la rama sin necesitar el orden de un enum.
 
-Es el mismo criterio que `163`: no se sustituye una software-semantics por otra,
+Es el mismo criterio que `233`: no se sustituye una software-semantics por otra,
 se usa la que tiene un número detrás.
 
-## 2 · Por qué `176` no estaba equivocado y aun así lo estaba
+## 2 · Por qué `237` no estaba equivocado y aun así lo estaba
 
-`176` **midió bien**. `resource2` mide 2 MiB, con o sin root, y eso sigue siendo
+`237` **midió bien**. `resource2` mide 2 MiB, con o sin root, y eso sigue siendo
 cierto hoy.
 
 El fallo fue **la pregunta que acompañaba al número**: al mirar la tabla de
@@ -248,7 +248,7 @@ volver RX550_MMIO_LEN a 2 MiB   ->  3 checks fallan
 restaurado                        ->  27 checks, 0 failures
 ```
 
-`176` no se reescribe. Este hallazgo es el que lo corrige.
+`237` no se reescribe. Este hallazgo es el que lo corrige.
 
 ## 6 · La CORRECCION de este hallazgo, sobre sí mismo
 

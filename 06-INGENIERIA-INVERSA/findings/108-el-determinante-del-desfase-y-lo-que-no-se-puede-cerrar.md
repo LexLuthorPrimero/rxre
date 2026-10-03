@@ -2,13 +2,13 @@
 
 WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 
-> **CORREGIDO POR `113`.** El discriminante `--hueco 108` que da forma a todo este
+> **CORREGIDO POR `218`.** El discriminante `--hueco 108` que da forma a todo este
 > documento queda **REFUTADO**: **no hay hueco**. `dpm_table_start` es la base literal de la
 > tabla y `offsetof(campo)` es la posicion correcta del campo dentro de ella.
 >
 > Es decir: con `--hueco 0` —que es el caso real— el parche de UVD cae en el DWORD de
 > `UvdBootLevel`@1576, que es lo que el codigo pretendia. Y el byte que escribe es el 3
-> (ver `114`), por convencion de mascara, no por desplazamiento.
+> (ver `219`), por convencion de mascara, no por desplazamiento.
 >
 > La pregunta que este documento aislo ("¿el hueco es 0 o 108?") **tiene respuesta, y es
 > 0**. El metodo —usar la herramienta para aislar una variable— sigue siendo valido y lo
@@ -92,7 +92,7 @@ Lo que **si** se puede decir es que hay una de estas dos, y cada una tiene conse
 distinta:
 
 - **Si el firmware de 7.4 coloca los campos en `offsetof`** (igual que Tonga), entonces
-  los once usos de `104` estan desviados 108 bytes y el parche de `103`/`107` escribe
+  los once usos de `211` estan desviados 108 bytes y el parche de `210`/`107` escribe
   sobre `Smio[5]`. Eso es un defecto real, y el firmware de Tonga es la prueba de que la
   convencion de 7.4 cambio.
 - **Si el firmware de 7.4 coloca los campos en `offsetof + 108`**, entonces el host
@@ -104,7 +104,7 @@ distinta:
 
 ## Y por que esto no es una excusa para dejar el hallazgo como esta
 
-`104` y `103`/`107` estan **degradados a `PROVEN_DERIVED`**, no a "no se sabe":
+`211` y `210`/`107` estan **degradados a `PROVEN_DERIVED`**, no a "no se sabe":
 
 - El **mecanismo** es `PROVEN`: hay dos bases de coordenadas mezcladas, el codigo y el
   layout usan una y el firmware usa otra, y nada lo reconcilia.

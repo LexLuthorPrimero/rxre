@@ -9,7 +9,7 @@ RUNTIME=NOT_RUN · GPU INTACTA
 
 ## Qué resuelve
 
-`124` dejó `p->immediate` como la variable que gobierna el coste de la coherencia
+`226` dejó `p->immediate` como la variable que gobierna el coste de la coherencia
 de page tables, y dijo que faltaba derivarla. Esta nota la deriva **entera**.
 
 **Y el resultado es una política, no un accidente: el camino rápido existe y sólo
@@ -45,7 +45,7 @@ amdgpu_vm.c:550   drm_sched_entity_init(&vm->delayed,   ..., adev->vm_manager.vm
 
 **Dos entidades en un conjunto de colas, no dos colas.** Lo que `immediate`
 selecciona es (a) el pool de SA del que sale el IB, y (b) la entidad. Lo que de
-verdad cambia el comportamiento es el flag de `124`:
+verdad cambia el comportamiento es el flag de `226`:
 
 ```
 amdgpu_vm_sdma.c:135   if (fence && !p->immediate) {
@@ -144,11 +144,11 @@ amdgpu_device.c:1983   case CHIP_STONEY:            CHIP_STONEY, no comparten
 **Polaris12 cae en `default`: `num_instances = 2`, luego `vm_pte_num_scheds = 2`.**
 
 **DOS COLAS DE PAGING, UNA POR INSTANCIA SDMA.** Que es lo que hace real la
-afirmación del comentario de `amdgpu_vm_sdma.c:137` que `124` aceptó sin
+afirmación del comentario de `amdgpu_vm_sdma.c:137` que `226` aceptó sin
 comprobar: la cola de page tables está separada de la de graphics porque **los
 SDMA son un recurso distinto del anillo GFX**, y hay dos.
 
-**Y esto refina lo que dije en `124`.** Escribí "una cola de paging por instancia
+**Y esto refina lo que dije en `226`.** Escribí "una cola de paging por instancia
 SDMA" como si fuera una generalidad. **En esta GPU son exactamente dos**, y no
 por diseño sino porque el `switch` del `early_init` sólo baja a 1 para Stoney.
 
@@ -168,9 +168,9 @@ dedicado—, y lo comprobé en vez de Repetirlo.**
   `amdgpu_ring.h:91-100`, `amdgpu_cs.c:1164`, `amdgpu_gem.c:775`,
   `amdgpu_userq.c:1061`, `amdgpu_amdkfd_gpuvm.c:506`, `mes_v12_1.c:2009`.
 - Sin MMIO write, sin TLB, sin módulos, sin lectura de debugfs.
-- Encadenada con `124` (la coherencia es orden por fence), `115` (`tlb_seq` y
-  `flushed_updates`), `113` (el scheduler pide el vm_flush), `103`/`104`/`106`
-  (el registro de invalidate), `116` (`use_cpu_for_update` nunca dispara).
+- Encadenada con `226` (la coherencia es orden por fence), `115` (`tlb_seq` y
+  `flushed_updates`), `218` (el scheduler pide el vm_flush), `210`/`211`/`213`
+  (el registro de invalidate), `220` (`use_cpu_for_update` nunca dispara).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 
 ## Nota de método
@@ -199,8 +199,8 @@ fichero se resolvió.** Me pasó aquí: `SDMA_MAX_INSTANCE` aparece en `sid.h:55
 
 | | el mecanismo |
 |---|---|
-| `111` | el atajo `:NNNN` sin fichero, y `citecheck` heredaba el anterior |
-| `124` | cité `amdgpu_vm_sdma.c` con números que son de `amdgpu_vm.c` |
+| `216` | el atajo `:NNNN` sin fichero, y `citecheck` heredaba el anterior |
+| `226` | cité `amdgpu_vm_sdma.c` con números que son de `amdgpu_vm.c` |
 | `126` | `grep -h` me devolvió una línea sin decirme de qué fichero |
 
 **Los tres son: una cadena que parece una cita y no lleva el fichero.**

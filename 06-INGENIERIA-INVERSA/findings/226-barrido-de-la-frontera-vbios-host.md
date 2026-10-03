@@ -1,13 +1,13 @@
-# 226  Barrido de la frontera VBIOS→host: el patrón de 120/123 aparece en 1 de 5, y `224` (antes `120`) no estaba donde yo creía
+# 226  Barrido de la frontera VBIOS→host: el patrón de 120/123 aparece en 1 de 5, y `224` (antes `224`) no estaba donde yo creía
 
 WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 
-**CORRIGE el alcance de `224` (antes `120`)** · generaliza `225` (antes `123`) · herramienta propia `tools/ppt_validate.py`
+**CORRIGE el alcance de `224` (antes `224`)** · generaliza `225` (antes `225`) · herramienta propia `tools/ppt_validate.py`
 con `--selftest` de 29 pruebas
 
 ## Lo que hice
 
-`225` (antes `123`) termino con una frase que era un encargo: *«las validaciones faltan en el hueco entre
+`225` (antes `225`) termino con una frase que era un encargo: *«las validaciones faltan en el hueco entre
 el VBIOS declara y el driver lo usa»*. tenia **cuatro** casos de ese hueco. Un patron de cuatro
 pide barrido sistemático, y el alcance es medible: **9 subtablas del PPT con contador y 15
 offsets** en el PowerPlayInfo.
@@ -50,21 +50,21 @@ Así que construí `tools/ppt_validate.py`, que para cada getter de subtabla del
   **Con el motivo escrito en el comentario.** Eso es lo que deberia ser el patron, y es el
   unico sitio donde se cumple.
 - **Solo `get_vddc_lookup_table` tiene el problema**: capacidad constante `16`, cuenta del
-  VBIOS hasta 255, sin comparar. Es exactamente lo que publique en `225` (antes `123`), y sigue siendo
+  VBIOS hasta 255, sin comparar. Es exactamente lo que publique en `225` (antes `225`), y sigue siendo
   cierto.
 
-**Y hay una correccion de alcance que importa mas**: **`224` (antes `120`) no esta en este fichero.**
-`224` (antes `120`) era `smu7_hwmgr.c:smu7_setup_dpm_tables_v1`, donde el lazo copia desde la tabla del PPT
+**Y hay una correccion de alcance que importa mas**: **`224` (antes `224`) no esta en este fichero.**
+`224` (antes `224`) era `smu7_hwmgr.c:smu7_setup_dpm_tables_v1`, donde el lazo copia desde la tabla del PPT
 — ya correcta, con la reserva exacta— a un **array fijo** `dpm_levels[8]`. **Son dos fronteras
 distintas**:
 
 | frontera | fichero | capacidad | cuenta | estado |
 |---|---|---|---|---|
 | VBIOS -> tabla del host | `process_pptables_v1_0.c` | `ucNumEntries` (4 de 5) | VBIOS | **segura** |
-| tabla del host -> tabla del SMC | `smu7_hwmgr.c` | **8** (`MAX_REGULAR_DPM_NUMBER`) | **la misma** | **`224` (antes `120`), margen CERO** |
+| tabla del host -> tabla del SMC | `smu7_hwmgr.c` | **8** (`MAX_REGULAR_DPM_NUMBER`) | **la misma** | **`224` (antes `224`), margen CERO** |
 
 La primera frontera esta bien. **La segunda es la que falla, y falla con margen cero.** La
-herramienta solo cubre la primera, asi que **`224` (antes `120`) sigue en pie y fuera de su alcance**: no lo
+herramienta solo cubre la primera, asi que **`224` (antes `224`) sigue en pie y fuera de su alcance**: no lo
 ha refutado, no lo ha confirmado, y no lo pretendia.
 
 ## Que aporta la herramienta, mas alla del numero
@@ -121,11 +121,11 @@ marca con lo que corresponde, `TOOL_BROKEN`.
   `:500`. **El unico sitio donde hay recorte deliberado, y esta escrito por que.**
 - `ONLY_GET_VDDC_LOOKUP_TABLE_HAS_THE_PATTERN = PROVEN`: capacidad `max_levels` (16
   hardcodeado en `:283` y `:292`), cuenta `ucNumEntries` hasta 255, unico check `!= 0`.
-  **Es el hallazgo de `225` (antes `123`), y el unico de su clase.**
-- `FINDING_120_IS_IN_A_DIFFERENT_BOUNDARY = PROVEN_DERIVED`: `224` (antes `120`) es la frontera
+  **Es el hallazgo de `225` (antes `225`), y el unico de su clase.**
+- `FINDING_120_IS_IN_A_DIFFERENT_BOUNDARY = PROVEN_DERIVED`: `224` (antes `224`) es la frontera
   **tabla del host -> tabla del SMC** (`smu7_hwmgr.c`, `dpm_levels[8]`), no la que barre esta
-  herramienta. **`224` (antes `120`) no queda refutado ni confirmado aqui.**
-- `MY_PATTERN_IS_ONE_GETTER_NOT_THE_WHOLE_BOUNDARY = CORRECTED`: dije en `225` (antes `123`) que las
+  herramienta. **`224` (antes `224`) no queda refutado ni confirmado aqui.**
+- `MY_PATTERN_IS_ONE_GETTER_NOT_THE_WHOLE_BOUNDARY = CORRECTED`: dije en `225` (antes `225`) que las
   validaciones faltan «entre el VBIOS declara y el driver lo usa». **En 4 de 5 no faltan.**
 - `MY_SELFTEST_WAS_TESTING_MY_IDEA_NOT_REALITY = CORRECTED`: la distincion por `compara` era
   mia y era falsa; la real es `capacidad == cuenta`.
@@ -139,7 +139,7 @@ marca con lo que corresponde, `TOOL_BROKEN`.
 2. **Reservar a medida siempre que se pueda.** Tres de cuatro getters lo hacen, y con eso el
    desajuste no puede existir. `kzalloc_flex` con la cuenta del VBIOS **es** la validacion
    cuando el destino es flexible.
-3. **Cuando el destino sea fijo, ahi si hay que comparar**, y ahi es donde falla `224` (antes `120`), con
+3. **Cuando el destino sea fijo, ahi si hay que comparar**, y ahi es donde falla `224` (antes `224`), con
    margen cero. **Mi driver tiene que distinguir las dos fronteras**, porque en la primera la
    validacion es estructural y en la segunda tiene que ser explicita.
 4. Y la regla de proceso, que es la de este documento: **cuatro hallazgos a mano no autorizan

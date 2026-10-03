@@ -75,9 +75,9 @@ Y aqui hay que ser precisos, porque **dos cosas distintas** se pueden decir de e
 direccion, y confundirlas seria el error de base de coordenadas por sexta vez:
 
 **1. Pasa todos los checks.** La comprobacion de `smu7_set_smc_sram_address`
-(`smu7_smumgr.c:40-41`) es alineacion a 4 y rango contra `limit`. Con `112`:
-`3 & 112 == 0` (alineado) y `0x40000 > 112` (en rango). **Pasa.** Y `112` es la direccion
-del vector de arranque mas `112`, asi que **no** es la direccion 0 peligrosa de `100`; es
+(`smu7_smumgr.c:40-41`) es alineacion a 4 y rango contra `limit`. Con `217`:
+`3 & 112 == 0` (alineado) y `0x40000 > 112` (en rango). **Pasa.** Y `217` es la direccion
+del vector de arranque mas `217`, asi que **no** es la direccion 0 peligrosa de `100`; es
 un offset pequeno pero no nulo.
 
 **2. Cae dentro del rango que escribe la tabla DPM.** La copia de `:2118` escribe de
@@ -141,8 +141,8 @@ Tres hallazgos distintos, tres contextos distintos, **la misma debilidad**:
 | documento | dos escrituras al mismo destino | que lo salva |
 |---|---|---|
 | `094` | `phm_find_boot_level` y `populate_smc_initailial_state` sobre `GraphicsBootLevel` | el segundo **sobrescribe** al primero con otro indice |
-| `103`/`107` | `update_uvd_smc_table` y `update_vce_smc_table` sobre el mismo DWORD | cada mascara **preserva** el byte de la otra |
-| `110` | las dos ramas de `populate_vr_config` sobre `AllowMvddSwitch` | **nada**: escriben lo mismo, y la copia de la tabla lo pisa |
+| `210`/`107` | `update_uvd_smc_table` y `update_vce_smc_table` sobre el mismo DWORD | cada mascara **preserva** el byte de la otra |
+| `215` | las dos ramas de `populate_vr_config` sobre `AllowMvddSwitch` | **nada**: escriben lo mismo, y la copia de la tabla lo pisa |
 
 El tercero es el caso donde **no hay red**: las dos escrituras son identicas y ambas se
 pierden.
@@ -167,7 +167,7 @@ comprobacion de que el destino sea valido**.
   executed"*.
 - `SOFTREGS_FALLBACK_READ_DOES_NOT_ACCUMULATE_ERROR = PROVEN`: `:316` no acumula error,
   a diferencia de `:2517`. Dos lecturas del mismo campo con comportamientos distintos.
-- `SOFTREGS_WRITE_AT_ZERO_LANDS_INSIDE_DPM_COPY = PROVEN_DERIVED`: `112` esta en
+- `SOFTREGS_WRITE_AT_ZERO_LANDS_INSIDE_DPM_COPY = PROVEN_DERIVED`: `217` esta en
   `[108, 1884)`, la zona que escribe la copia de `:2118`.
 - `SOFTREGS_WRITE_IS_OVERWRITTEN_BY_DPM_COPY = PROVEN` el orden: `:2034` antes de
   `:2118`. **La escritura se pierde.**
@@ -183,12 +183,12 @@ Un registro de la SRAM del firmware al que se concede un permiso tiene que tener
 **propietario unico**, y tres reglas:
 
 1. **Comprobar el destino antes de escribir**, no solo que la copia pase el check de
-   rango. `112` pasa el check y no por eso es la direccion correcta.
+   rango. `217` pasa el check y no por eso es la direccion correcta.
 2. **Escribir despues de todo lo demas**, o en un punto del arranque donde se sepa que no
    hay ninguna copia posterior. `AllowMvddSwitch` debe ser **la ultima** escritura.
 3. Y **leerlo de vuelta** para confirmar. Es una escritura de un DWORD a un registro de
    permiso: releerlo y comprobar que vale 1 es un ciclo de lectura de la SRAM, que es lo
    que el driver **no hace nunca** (`100` documento que no hay ninguna verificacion).
 
-La tercera es la que convierte el fallo en detectable, y es la de `103` tambien: un
+La tercera es la que convierte el fallo en detectable, y es la de `210` tambien: un
 leer-modificar-escribir sin lectura de confirmacion no puede saber si ha surtido efecto.

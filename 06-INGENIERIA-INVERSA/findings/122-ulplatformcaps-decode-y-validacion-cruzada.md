@@ -2,12 +2,12 @@
 
 WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 
-CIERRA una lectura pendiente de `116` · CONFIRMA que la cadena de `116`/`118` no tenia una
+CIERRA una lectura pendiente de `220` · CONFIRMA que la cadena de `220`/`222` no tenia una
 puerta perdida · VALIDACION CRUZADA entre dos campos del mismo VBIOS
 
 ## El campo que llevaba dos documentos sin decodificar
 
-`116` leyo `ulPlatformCaps` y lo dejo sin usar. Vale **0x068000**, y es lo que decide que puede
+`220` leyo `ulPlatformCaps` y lo dejo sin usar. Vale **0x068000**, y es lo que decide que puede
 hacer el driver con esta placa: `process_pptables_v1_0.c:1156` lo pasa directo a
 `set_platform_caps(hwmgr, le32_to_cpu(powerplay_table->ulPlatformCaps))`.
 
@@ -81,9 +81,9 @@ Consecuencia honesta: **el driver lo ignora**, porque `set_platform_caps` no tie
 el. Que el VBIOS lo declare significa que el firmware espera algo que este driver **no
 implementa**. Que sea: **`SEMANTIC_MISSING`**, y no lo adivino.
 
-## Y la confirmacion de que no me faltaba ninguna puerta en `116`
+## Y la confirmacion de que no me faltaba ninguna puerta en `220`
 
-`115` y `116` cerraron la cadena del clock stretcher con tres condiciones
+`115` y `220` cerraron la cadena del clock stretcher con tres condiciones
 (`smu7_hwmgr.c:1938-1940`), y la ultima era `usClockStretchAmount != 0`, que leio del VBIOS.
 
 Me preocupaba que `set_platform_caps` **si** pudiera fijar
@@ -92,7 +92,7 @@ cuarta condicion sin ver. **Comprobado: no.** `set_platform_caps` (`:55-175`) co
 apariciones de `ClockStretcher`, y la capacidad solo se fija en `smu7_hwmgr.c:1938-1941` y se
 desactiva en `:1698`.
 
-**La cadena de `116` esta completa.** No habia una puerta perdida.
+**La cadena de `220` esta completa.** No habia una puerta perdida.
 
 ## Lo que estos caps significan para mi dominio
 
@@ -113,7 +113,7 @@ voltaje que el driver manipula en esta placa es 800-875 mV de VDDCI, mas un VDDG
 
 ## Clasificacion
 
-- `UL_PLATFORM_CAPS_IS_0x068000 = PROVEN`: `0x9C0A + 19` (offset medido en `116`).
+- `UL_PLATFORM_CAPS_IS_0x068000 = PROVEN`: `0x9C0A + 19` (offset medido en `220`).
 - `ONLY_VDDCI_CONTROL_AND_BACO_ARE_SET = PROVEN_DERIVED`: bits 15 y 17 contra el mapa de
   `pptable_v1_0.h:52-74`.
 - `CAPS_PREDICT_THE_VOLTAGE_DATA_AND_THEY_AGREE = PROVEN_DERIVED`: `VDDCI_CONTROL=si`
@@ -127,7 +127,7 @@ voltaje que el driver manipula en esta placa es 800-875 mV de VDDCI, mas un VDDG
 - `BIT_18_MEANING = SEMANTIC_MISSING`: el VBIOS espera algo que este driver no implementa.
   **No lo adivino.**
 - `SET_PLATFORM_CAPS_CANNOT_SET_CLOCK_STRETCHER = PROVEN_ABSENT`: cero apariciones de
-  `ClockStretcher` en `set_platform_caps` (`:55-175`). **CIERRA la duda de `116`: la cadena
+  `ClockStretcher` en `set_platform_caps` (`:55-175`). **CIERRA la duda de `220`: la cadena
   del clock stretcher esta completa, no habia una cuarta condicion.**
 - `ONLY_ONE_DYNAMIC_RAIL_IN_THIS_PPT = PROVEN_DERIVED`: VDDCI es la unica linea variable.
 

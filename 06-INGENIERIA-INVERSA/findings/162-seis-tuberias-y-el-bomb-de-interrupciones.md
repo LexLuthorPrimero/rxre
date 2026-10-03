@@ -182,7 +182,7 @@ familia.** `PROVEN_DERIVED`.
 identificadores no están en `dce_10_0_d.h`. `PROVEN_DERIVED`.
 
 **⇒ Consecuencia: los registros de interrupción no están en el mapa de DCE 10.0 que `140`
-cerró, sino en un segundo mapa.** Es el mismo patrón de dos dominios que `156` encontró
+cerró, sino en un segundo mapa.** Es el mismo patrón de dos dominios que `232` encontró
 con `DIG_FE_CNTL` en el recurso y `DP_VID_TIMING` en `gmc_v8_0.c`. `PROVEN_DERIVED`.
 
 ## 6 · Y el reparto del árbol, medido
@@ -270,7 +270,7 @@ observar sin placa, sin root y sin MMIO.
 - Encadenada con `161` (el reloj, y aquí el otro punto de contacto de la lista de
   arranque), `159` (**los seis constructores `dce110_` de `dce112_resource.c`, y aquí
   `MAX_PIPES 6` es el sexto número que concuerda**), `157` (el puntero nulo como
-  mecanismo, y aquí el mismo patrón con la forma de un bomb con log de error), `156` (dos
+  mecanismo, y aquí el mismo patrón con la forma de un bomb con log de error), `232` (dos
   dominios de registro: el DC y `VISLANDS30_IV`), `155` (los siete puntos de firmware, y
   el HPD pasa de bloqueo a hecho), `153` (los siete paths externos, que **no** son 6 y no
   deben confundirse con `MAX_PIPES`).

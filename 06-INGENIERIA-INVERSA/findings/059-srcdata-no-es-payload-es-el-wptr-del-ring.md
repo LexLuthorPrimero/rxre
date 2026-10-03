@@ -57,7 +57,7 @@ de uso conocido eran un puntero de ring.
 
 El handler se registra con su propio `amdgpu_irq_src` (`ih_v7_0_set_self_irq_funcs`,
 `ih_v7_0.c:572-575`), o sea que es un canal **distinto** del de faults. No comparte
-`src_id` con `0x92`/`0x93` (ver `052`).
+`src_id` con `0x92`/`0x93` (ver `193`).
 
 Pero el patrón es el mismo que el de `051 §4`, visto desde el otro lado:
 

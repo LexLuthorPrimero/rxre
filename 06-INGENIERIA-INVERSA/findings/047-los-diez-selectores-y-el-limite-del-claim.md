@@ -6,7 +6,7 @@
 > `CONFIG_MODULE_SIG_FORCE`, que está `# CONFIG_MODULE_SIG_FORCE is not set`.
 > Medido: `lockdown=[none]`, `SecureBoot disabled`, y un `.ko` propio **compila**
 > con `vermagic` idéntico y **sin firmar**. No hay bloqueo técnico: lo que queda
-> es NIVEL 4 → `BLOCKED_BY_AUTHORIZATION`. Ver `091`.
+> es NIVEL 4 → `BLOCKED_BY_AUTHORIZATION`. Ver `206`.
 
 `CLASSIFICATION=TOOL+CONCLUSION` · `TRACK=STATIC` · `GPU INTACTA` · `RUNTIME=NOT_RUN`
 `TOOL=tools/unreach.py` · `GENERALIZA=046` · `MODIFICATIONS=0` en el corpus

@@ -219,7 +219,7 @@ Sobre lo que esto prueba y lo que no, con el cuidado que `018` ya pidió:
 | Ambos los ejecuta el PFP | `PROVEN` | `gfx_v8_0.c:6356-6357` |
 | No hay barrera entre ellos en el path | `PROVEN` | barrido de `RELEASE_MEM` |
 | El par **no** es indivisible: nada lo hace atómico | `PROVEN_DERIVED` | no hay primitiva de atomicidad en la secuencia |
-| El `WAIT` no aporta orden ninguno | `PROVEN` | `FUNCTION(0)`=always, `mask=0` (`110`) |
+| El `WAIT` no aporta orden ninguno | `PROVEN` | `FUNCTION(0)`=always, `mask=0` (`215`) |
 | `PFP_SYNC_ME` ordena la decodificación de paquetes, no el efecto | `PROVEN` | `017 §3` |
 | **El orden hardware de ejecución de los dos packets** | **`NOT_DETERMINED`** | requiere RUNTIME; **no cambiado aquí** |
 
@@ -275,12 +275,12 @@ que es el dato que faltaba para escribir un driver propio sin asumir que el
 | `PTBA_INVALIDATE_ATOMICITY` | `NOT_DETERMINED` | **`PROVEN_DERIVED` negativo**: no hay barrier, no son atómicas | §5 |
 | `PACKET_EXECUTION_ORDER` | `NOT_DETERMINED` | **`NOT_DETERMINED` (sin cambio)**, acotado por §5 | §5 |
 | `PTE_VISIBILITY` | `PROVEN` seq / `NOT_DETERMINED` efecto | **sin cambio**, + alcance: sólo el camino GART | §6 |
-| `DISABLE_INVALIDATE_PER_DOMAIN` (bit 21 de `0x501`) | `NOT_DETERMINED` | **`NOT_DETERMINED` (sin cambio)** — sigue siendo un `RREG32` | `128` |
+| `DISABLE_INVALIDATE_PER_DOMAIN` (bit 21 de `0x501`) | `NOT_DETERMINED` | **`NOT_DETERMINED` (sin cambio)** — sigue siendo un `RREG32` | `229` |
 
 Sobre la última fila, y es la acción pendiente más rentable que queda en esta
 capa: **un solo `RREG32` de `VM_L2_CNTL2` (`0x501`) decide si todo §C describe
 algo activo.** `umr` está instalado (`/usr/bin/umr`) y es la vía no invasiva que
-`128` prefiere sobre `/dev/mem`, pero **exige root** y en esta sesión no se ha
+`229` prefiere sobre `/dev/mem`, pero **exige root** y en esta sesión no se ha
 ejecutado. Sigue `NOT_RUN`, y sigue siendo la misma lectura de siempre: sin
 escritura, reversible, y responde a tres filas abiertas.
 
@@ -314,12 +314,12 @@ escritura, reversible, y responde a tres filas abiertas.
   silicio.** Si AMD no publicó un registro, el hardware podría tenerlo sin
   nombre. Pero para el invalidate hay un argumento fuerte que no aplica a otros
   casos: el ASIC **numera y nombra 16 contextos** en `REQUEST`/`RESPONSE` y
-  `019`/`104` lo confirman por el bucle `vmid < 16` del propio driver. Un ASIC con
+  `019`/`211` lo confirman por el bucle `vmid < 16` del propio driver. Un ASIC con
   18 canales de acuse por motor habría muy probablemente los publicado, porque
   GFX9 los publica. Se mantiene como `PROVEN_ABSENT` con esa salvedad, no como
   `PROVEN_ABSENT` absoluto.
 - **El sweep es del árbol `linux-7.1.3` del corpus.** No se haContrastado con
-  `rx550-upstream-7.2.8`, que es otra copia. El hallazgo `110` documenta que el
+  `rx550-upstream-7.2.8`, que es otra copia. El hallazgo `215` documenta que el
   árbol `gmc/` puede faltar según dónde se busca; aquí se buscó en la raíz
   `include/`, que es donde existe, y se verificó con `find` implícito en el glob.
 - **La analogía `RESPONSE`↔`ACK` de §4 es `HYPOTHESIS`, no `PROVEN`.** Lo que
@@ -464,7 +464,7 @@ de valores ni de aritmética —que es donde fallaron las sesiones anteriores—
 de **ámbito**: un `grep` que encuentra el símbolo donde el símbolo existe, y no
 comprueba si existe donde se le está preguntando.
 
-La defence es la de `110`, y ya estaba escrita: *registrar la raíz de búsqueda
+La defence es la de `215`, y ya estaba escrita: *registrar la raíz de búsqueda
 antes de citar un hallazgo de ausencia*. Aquí la raíz era `include/asic_reg/gmc/`
 —donde el símbolo **no** está— y el documento lo había buscado en
 `include/asic_reg/mmhub/`, donde sí. Los dos `grep` devuelven una lista; sólo uno

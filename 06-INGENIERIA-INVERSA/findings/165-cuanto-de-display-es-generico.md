@@ -134,7 +134,7 @@ notas anteriores han medido subsystem por subsystem.** `PROVEN_DERIVED`.
 cableado, 52 funciones propias, y 7.746 líneas de cálculo de modos.** `PROVEN_DERIVED`.
 
 **Y el resto son 325.854 líneas de las que esta GPU usa una fracción, y esa fracción está
-en `link/`, `irq/` y en los ficheros compartidos que `156` ya había localizado.**
+en `link/`, `irq/` y en los ficheros compartidos que `232` ya había localizado.**
 
 ## Lo que NO cierra
 
@@ -188,10 +188,10 @@ generación*DML1* ejecuta, y `drm_info` lo da el driver al arrancar.
   esta nota lo pone en su sitio: 1,75% del árbol**), `159` (el coste de una generación
   nueva, 21%, y aquí su consecuencia: 24,8% del árbol es DML2), `157` (el 58%, que salió
   de restar dos inventarios; esta nota sale de restar dos particiones),
-  `156` (la tabla y el constructor, y aquí el reparto de 1.442 líneas de cableado),
+  `232` (la tabla y el constructor, y aquí el reparto de 1.442 líneas de cableado),
   `162` (6 tuberías, 21 ficheros de IRQ), `161` (237 líneas de reloj),
   `160` (19.451 líneas de enlace), `155` (DCE 11.2), `153` (los siete `path`),
-  `140`, `136`, `132`, `130` (memoria, verificada en `163`).
+  `140`, `136`, `132`, `130` (memoria, verificada en `233`).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 
 ## Nota de método

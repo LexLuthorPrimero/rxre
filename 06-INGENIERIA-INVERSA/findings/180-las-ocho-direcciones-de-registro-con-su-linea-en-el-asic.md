@@ -9,7 +9,7 @@ RUNTIME=NOT_RUN · GPU INTACTA · CERROJOS=0
 
 ## Qué resuelve
 
-`171` dice que el primer eslabón vacío es MMIO, y `176` midió la mitad de su
+`171` dice que el primer eslabón vacío es MMIO, y `237` midió la mitad de su
 contrato. Falta lo que decide si un offset del driver es una dirección o una
 tentaliva: **cada `#define` de registro, con la línea del ASIC que lo respalda.**
 
@@ -161,7 +161,7 @@ Ninguna. Y una advertencia sobre el alcance, porque es la que más mal puede
 usarse: **esto verifica el valor, no el uso**. Que `0x54f` sea el offset correcto
 de `PTBA` es `PROVEN`. Que el driver lo escriba donde toca, en el orden que
 GMC exige y con el campo de bits que toca, es otra pregunta, y la responden
-`findings/043`, `findings/115`–`120` y `test_pm4.c`.
+`findings/043`, `findings/115`–`224` y `test_pm4.c`.
 
 Una dirección verificada es el suelo del `§IMPLEMENTATION_GATE`, no su cierre.
 

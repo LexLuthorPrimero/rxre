@@ -170,7 +170,7 @@ CITA=<fichero.md> | TERMINO=<término literal> | ROL=<afirmación sostenida>
 y `citeambig.py --sostiene` mide si el término declarado aparece en el fichero
 citado. Con nueve citas sembradas en `rx550_pm4.h`: **9 SOSTENIDA de 9**.
 
-Lo que **no** queda resuelto es lo que el propio `168` declara pendiente:
+Lo que **no** queda resuelto es lo que el propio `235` declara pendiente:
 comprobar que el hallazgo citado sostenga la *afirmación* que `ROL=` declara, y
 no sólo que contenga el término. Eso es presencia frente a sustancia, y no sale
 de declarar un campo más.

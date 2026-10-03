@@ -119,7 +119,7 @@ que lo intentara estaría eligiendo contenido por regla.
 
 ## 4 · El caso queadogica la herramienta
 
-De los 42 movidos, uno era el `202` de **otra sesión**:
+De los 42 movidos, uno era el `242` de **otra sesión**:
 
 ```
 202-la-ventana-de-registros-es-bar5-y-el-log-lo-dice.md          (esta sesion)
@@ -138,7 +138,7 @@ y por fin **no es ambigua**:
 242-...md:135  Otra sesión publicó `202-la-ventana-de-registros-es-bar5-y-el-log-lo-dice.md`
 ```
 
-Antes de renumerar, `202` no identificaba nada. Ahora sí.
+Antes de renumerar, `242` no identificaba nada. Ahora sí.
 
 ## 5 · La reserva no atómica, que es la causa de fondo
 

@@ -63,7 +63,7 @@ que `068` ya había encontrado emitiendo uno a uno.
 ```
 
 **Tres FENCE y tres COND_EXEC**, y el `VM_FLUSH` va en segundo, justo después
-del `PIPELINE_SYNC` — que es exactamente lo que `067`, `068` y `085`
+del `PIPELINE_SYNC` — que es exactamente lo que `067`, `068` y `194`
 habían visto por partes, uno a uno.
 
 Y hay un detalle en `L6884-6886` que no es una cuenta: *"the first COND_EXEC
@@ -192,8 +192,8 @@ código es el que manda.**
   `amdgpu_ring.c:58-71` y `amdgpu_ring.c:332-339`, `amdgpu_ib.c:197-198`, `vi.h:27`.
 - Sin `RUNTIME`. Sin lectura de la GPU. Sin escrituras.
 - Encadenada con `068` (emisión, ahora con coste), `084` (`align_mask`),
-  `072` (el SWITCH_BUFFER doble, que aquí se ve saltable), `085`/`067`
-  (el `VM_FLUSH`), `090` (§G, el mismo anillo).
+  `072` (el SWITCH_BUFFER doble, que aquí se ve saltable), `194`/`067`
+  (el `VM_FLUSH`), `205` (§G, el mismo anillo).
 - Corrige la lectura de `072` sobre el SWITCH_BUFFER doble.
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`: son de otras sesiones.
 

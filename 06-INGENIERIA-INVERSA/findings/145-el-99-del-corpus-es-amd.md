@@ -9,7 +9,7 @@ RUNTIME=NOT_RUN · GPU INTACTA
 
 ## Qué resuelve
 
-**La ruta interna que nombré en `144` está agotada, y el hueco tiene una causa de una
+**La ruta interna que nombré en `231` está agotada, y el hueco tiene una causa de una
 línea.** No es que la uAPI esté repartida por el corpus y yo no la haya encontrado:
 **es que el corpus se construyó con un glob enraizado en `drivers/gpu/drm/amd/`, y
 `drm_amdgpu.h` vive fuera de ese subárbol.**
@@ -18,7 +18,7 @@ línea.** No es que la uAPI esté repartida por el corpus y yo no la haya encont
 
 ## 1 · La ruta interna, agotada
 
-`144` dejó abierta esta ruta interna: *si algún fichero de `amdkfd` declara las
+`231` dejó abierta esta ruta interna: *si algún fichero de `amdkfd` declara las
 estructuras GEM-VA o los ioctl, la uAPI estaría disponible por una vía que nadie ha
 mirado.*
 
@@ -40,7 +40,7 @@ grep -rlE '^struct drm_[a-z_]+ \{'  drivers/gpu/drm/amd
 **Cero estructuras uAPI, cero ioctl, cero estructuras `drm_*` definidas en todo el
 corpus.** La ruta interna está agotada. `PROVEN_ABSENT`.
 
-**La ruta queda en `NOT_FOUND`, que con la medición de `144` confirma el
+**La ruta queda en `NOT_FOUND`, que con la medición de `231` confirma el
 `NOT_IN_CORPUS`.**
 
 ## 2 · Y el número que explica por qué
@@ -87,7 +87,7 @@ include/uapi/drm/amd/drm_amdgpu.h
 núcleo de DRM, del que el driver usa `drm_gem_object_lookup`, `drm_file`,
 `drm_exec`, `drm_syncobj`, `drm_gem_ttm_helper`— tampoco.
 
-**Eso explica las once cabeceras que `144` declaró `FALTA` y `Documentation/` con un
+**Eso explica las once cabeceras que `231` declaró `FALTA` y `Documentation/` con un
 solo fichero. No es una poda selectiva: es un glob.**
 
 ## 4 · Y un falso positivo que costó una hipótesis entera
@@ -115,7 +115,7 @@ era un termostato.**
 
 ## 5 · La acción, y es de NIVEL 0
 
-**Para cerrar el `NOT_IN_CORPUS` de `144` no hace falta hardware, ni placa, ni root,
+**Para cerrar el `NOT_IN_CORPUS` de `231` no hace falta hardware, ni placa, ni root,
 ni cerrar la sesión gráfica. Hace falta copiar dos directorios al corpus:**
 
 ```
@@ -124,7 +124,7 @@ include/drm/              ->  drm_drv.h, drm_gem.h, drm_exec.h, drm_syncobj.h, .
 ```
 
 **Con esos dos, el corpus compila, `amdgpu_gem.c` resuelve sus once includes, y las
-cuatro filas de `144` que eran `NOT_IN_CORPUS` pasan a ser `NOT_FOUND` —que se
+cuatro filas de `231` que eran `NOT_IN_CORPUS` pasan a ser `NOT_FOUND` —que se
 cierran con un `grep`.**
 
 **Y es la acción de mayor valor informativo disponible ahora mismo en todo el
@@ -146,7 +146,7 @@ minuto.**
 
 | afirmación | estado |
 |---|---|
-| `NOT_IN_CORPUS` de `144` confirmado | `PROVEN` (cero en seis directorios) |
+| `NOT_IN_CORPUS` de `231` confirmado | `PROVEN` (cero en seis directorios) |
 | Ningún `.c` del corpus define un `struct drm_*` | `PROVEN_ABSENT` |
 | El 99,35% del corpus es `drivers/gpu/drm/amd/` | `PROVEN` (por `find`) |
 | Fuera de `amd/` hay 18 ficheros | `PROVEN` |
@@ -162,7 +162,7 @@ minuto.**
 **La segunda fila de las que se cierran copiando es la que decide el proyecto, y la
 tercera es la que nadie ha tocado: `display/` es más grande que `amdgpu/` y nadie ha
 abierto un solo fichero de él.** Para un driver propio, la salida a pantalla —la
-abertura de una ventana por un compositor— es|display| por definición, y `144` acaba
+abertura de una ventana por un compositor— es|display| por definición, y `231` acaba
 de demostrar que sin uAPI no hay compositor. **Son el mismo problema por los dos
 extremos.**
 
@@ -176,7 +176,7 @@ extremos.**
   `grep -rlE` sobre `drivers/gpu/drm/amd` para cualquier `struct drm_*`.
   **Todo impreso por programa.** El 99,35% y el 18 salen de un `os.walk`, no de una
   impresión.
-- Encadenada con `144` (la uAPI ausente — esta nota **confirma** su `NOT_IN_CORPUS`
+- Encadenada con `231` (la uAPI ausente — esta nota **confirma** su `NOT_IN_CORPUS`
   y explica la causa), `139` (el formato del PTE, cuya única fuente queda
   establecida), `143` (los registros golden), `140` (el mapa de direcciones),
   `136`/`137` (la traducción).

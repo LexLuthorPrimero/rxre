@@ -11,10 +11,10 @@ RUNTIME=OBSERVED_READ_ONLY · GPU INTACTA · sesión sway INTACTA
 
 Dominio 20 (`interrupts / IH`) del universo de `AGENTS.md`, sin ninguna iteración
 propia. Es la pieza que convierte un evento de hardware en un `dma_fence`, y lo
-que une `097`/`098` (fence) con `092` (faults).
+que une `097`/`098` (fence) con `207` (faults).
 
 **Y al seguirla he encontrado el camino real de los faults, que no es el que
-`092` dejó sugerido.**
+`207` dejó sugerido.**
 
 ## Las cinco fuentes de interrupción de GFX8
 
@@ -94,14 +94,14 @@ gfx_v8_0.c:6620   drm_sched_fault(&adev->gfx.gfx_ring[0].sched);
 **Dos manejadores, decodificacion identica, caminos distintos**: EOP acaba en
 `amdgpu_fence_process`, fault acaba en `drm_sched_fault`.
 
-**Y los dos nombres software se corresponden con los tipos de `092`**:
+**Y los dos nombres software se corresponden con los tipos de `207`**:
 `EXECUTE_PROTECTION_FAULT` <-> "illegal instruction", y
 `READ`/`WRITE_PROTECTION_FAULT` <-> "illegal register access". La correspondencia
 es de nombres, no de mecanismo, y la marco como tal.
 
-## El camino real de los faults: no es el que `092` sugiere
+## El camino real de los faults: no es el que `207` sugiere
 
-`092` documento `VM_CONTEXT*_PROTECTION_FAULT_STATUS` con sus cinco campos. Y si
+`207` documento `VM_CONTEXT*_PROTECTION_FAULT_STATUS` con sus cinco campos. Y si
 se leen — pero **en un handler de GMC, no en el de GFX**, y con dos condiciones:
 
 ```
@@ -116,7 +116,7 @@ gmc_v8_0.c:1475       dev_err(adev->dev, "  VM_CONTEXT1_PROTECTION_FAULT_STATUS 
 gmc_v8_0.c:1478       gmc_v8_0_vm_decode_fault(adev, status, addr, mc_client, entry->pasid);
 ```
 
-**Tres cosas que `092` no decia:**
+**Tres cosas que `207` no decia:**
 
 **1. `printk_ratelimit()` es incondicional.** Aunque el parametro lo permita, el
 mensaje sale **una vez**. El log del kernel tendra **un** `GPU fault detected`,
@@ -124,7 +124,7 @@ y el resto se pierde. Para un driver propio que depure faults, eso significa que
 **hay que instrumentar el registro, no esperar mas lineas de log.**
 
 **2. `vm_fault_stop` gobierna tres sitios**, y con `FIRST` **desactiva los 7
-tipos de fault** (los mismos de `092`) llamando a
+tipos de fault** (los mismos de `207`) llamando a
 `gmc_v8_0_set_fault_enable_default(adev, false)`.
 
 **3. Este es un tercer mecanismo que desactiva faults**, distinto del PRT de
@@ -157,7 +157,7 @@ y `gmc_v8_0_set_fault_enable_default(adev, false)` **no se llama**.
 habilitados y nadie los desactiva por la via de `fault_stop`.** Solo lo haria el
 PRT (`099`), que no se sabe si esta activo.
 
-**Y eso deja el mapa de faults de `092` utilizable**: los siete enables estan
+**Y eso deja el mapa de faults de `207` utilizable**: los siete enables estan
 puestos, y el handler que los lee es alcanzable.
 
 ## Lo que NO cierra
@@ -179,7 +179,7 @@ puestos, y el handler que los lee es alcanzable.
 | Si hay faults activos ahora (PRT) | `NOT_DETERMINED` — el hueco de `099` |
 
 **La penultima fila es `CORROBORATED`, no `PROVEN`, y hay que decirlo.** Los
-nombres se corresponden con los de `092`, pero que `priv_inst_irq` sea el mismo
+nombres se corresponden con los de `207`, pero que `priv_inst_irq` sea el mismo
 hardware que `EXECUTE_PROTECTION_FAULT_ENABLE_DEFAULT` **no esta demostrado**: uno
 es un `SRCID` de interrupcion y el otro un campo de un registro de control. Que
 se llamen parecido no prueba que disparen lo mismo.
@@ -196,8 +196,8 @@ generando faults. Un mapa de faults que no sabes si esta activo no es un mapa.
   `gmc_v8_0.c:1458-1482` y `:660-756`, `amdgpu_drv.c:448-455`,
   `amdgpu_vm.h:145-147`, `amdgpu_fence.c:865-905`.
 - Sin MMIO write, sin TLB, sin modulos, sin cambiar parametros.
-- Encadenada con `097`/`098` (el fence y su IRQ), `092` (los 7 tipos de fault),
-  `099` (PRT como tercer mecanismo de disable), `103`/`104` (el invalidate).
+- Encadenada con `097`/`098` (el fence y su IRQ), `207` (los 7 tipos de fault),
+  `099` (PRT como tercer mecanismo de disable), `210`/`211` (el invalidate).
 - No se edito `AGENTS.md` ni `OPEN-FRONTIERS.md`: son de otras sesiones.
 
 **Una nota de metodo, y es sobre cerrar lo que deje abierto.**

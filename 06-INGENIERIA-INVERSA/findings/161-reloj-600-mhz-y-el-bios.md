@@ -249,7 +249,7 @@ externa es un problema de PCIe que nadie ha escrito en el árbol.
 - Encadenada con `160` (**las 25,92 Gbps, y aquí el reloj que las acompaña**),
   `159` (**una de las 52 funciones de DCE 11.2 es el reloj, y son 237 líneas**),
   `158` (el espejo de la curva, tabla distinta), `157` (el patrón `if (funcs->X)`,
-  aplicado aquí a 23 NULL), `156` (constructor y tabla, a la escala más pequeña
+  aplicado aquí a 23 NULL), `232` (constructor y tabla, a la escala más pequeña
   vista: 5 filas y 2 punteros), `155` (**los siete puntos de firmware; esta nota añade
   el octavo, y es de otra clase**), `154` (la señal), `153` (los siete caminos).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.

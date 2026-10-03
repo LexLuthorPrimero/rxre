@@ -14,7 +14,7 @@ independientes garantizan colisiones. No he tocado su fichero: es su ambito.
 
 ## Cuestión principal
 
-`185` dejó **8 `switch` sin evaluar**. La pregunta era si alguno tiene un
+`239` dejó **8 `switch` sin evaluar**. La pregunta era si alguno tiene un
 `default:` que haga trabajo real, porque una rama que en esta placa **se ejecuta
 siempre** es una rama que puede esconder comportamiento.
 
@@ -22,7 +22,7 @@ siempre** es una rama que puede esconder comportamiento.
 
 Evaluar los 4 `switch`, determinar qué rama toma cada uno con el valor 0, y
 comprobar el resultado contra el log del kernel. **Cumplido**, y además se
-corrigió el recuento de `185` y una afirmación previa sobre el número de bloques IP.
+corrigió el recuento de `239` y una afirmación previa sobre el número de bloques IP.
 
 ## Primero: los 8 eran 4
 
@@ -91,11 +91,11 @@ default:
 ```
 
 **Aquí el `default:` es deliberadamente la rama de los ASIC antiguos**, igual
-que el `flush_tlb` de `185`. No es un error: es el patrón "si no lo reconozco,
+que el `flush_tlb` de `239`. No es un error: es el patrón "si no lo reconozco,
 es que soy viejo". GFX8 no está en la lista, cae en `default`, y
 `get_vram_info` es la función correcta para GCN3. **Verde por diseño.**
 
-Esto matiza `185`: la degeneración no es uniformemente mala. Donde el `default:`
+Esto matiza `239`: la degeneración no es uniformemente mala. Donde el `default:`
 es "lo antiguo", funciona.
 
 ## `gc_0_0_0_mes.bin`: un nombre roto que nunca se pide
@@ -123,7 +123,7 @@ MES empieza en Vega20 (GC10), y Polaris12 es GFX8. El log lo confirma: **0 líne
 
 ## La causa real de `182`: dos registros de versión IP, y solo uno se rellena
 
-Esto es lo importante, y explica `182`, `185` y la confirmación de TMZ de una vez.
+Esto es lo importante, y explica `182`, `239` y la confirmación de TMZ de una vez.
 
 El driver tiene **dos arrays paralelos**, y no es lo mismo:
 
@@ -149,7 +149,7 @@ default:
 
 **Polaris12 nunca entra por `default`.** `amdgpu_discovery` es el **único**
 escritor de `ip_versions[][]` (`amdgpu_discovery.c:1640, 1659, 2798-2814`), y
-`144` ya estableció que **no hay `ip_discovery.bin` para GCN3**. Por eso el array
+`231` ya estableció que **no hay `ip_discovery.bin` para GCN3**. Por eso el array
 legacy queda íntegro a cero.
 
 **Así que `182` no solo es cierto: tiene causa identificada.** Las ~94
@@ -205,7 +205,7 @@ POLARIS10/11/12/VEGAM añaden `uvd_v6_3` y `vce_v3_4` **sin**
 
 | afirmación | estado |
 |---|---|
-| Los 8 `switch` de `185` eran 4 | `PROVEN` — atribución por línea de inicio |
+| Los 8 `switch` de `239` eran 4 | `PROVEN` — atribución por línea de inicio |
 | 8 siempre verdaderas (no 13) | `PROVEN` — verificado a mano en `amdgpu_ids.c` |
 | TMZ desactivado por el `default:` | `PROVEN_RUNTIME` — log del kernel |
 | `get_vram_info` recibe la rama GCN3 | `PROVEN` — lectura |
@@ -219,7 +219,7 @@ POLARIS10/11/12/VEGAM añaden `uvd_v6_3` y `vce_v3_4` **sin**
 | El RX550 tiene UVD 6.3 y VCE 3.4 | `PROVEN_RUNTIME` — log |
 | Falta el `else` de display en POLARIS12 | `PROVEN` — lectura de `vi.c` |
 | TMZ ausente es un riesgo de seguridad | `DERIVATION` — de la ausencia de TMZ |
-| Que el resto de los 8 de `185` fuera inofensivo | `NOT_DETERMINED` |
+| Que el resto de los 8 de `239` fuera inofensivo | `NOT_DETERMINED` |
 
 ## Confounders
 

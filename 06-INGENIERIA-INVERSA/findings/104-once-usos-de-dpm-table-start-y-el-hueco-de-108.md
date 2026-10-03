@@ -20,9 +20,9 @@
 
 WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 
-## El hallazgo, y por que `103` era solo el primer caso
+## El hallazgo, y por que `210` era solo el primer caso
 
-`103` mostraba un parche que calcula la direccion de un campo como
+`210` mostraba un parche que calcula la direccion de un campo como
 `dpm_table_start + offsetof(SMU74_Discrete_DpmTable, campo)` y que por eso queda **108
 bytes** tarde, porque la copia inicial de la tabla no empieza en el offset 0.
 
@@ -41,7 +41,7 @@ sizeof(SMU74_Discrete_DpmTable) - 3 * sizeof(SMU74_PIDController),
 ```
 
 `offsetof(SystemFlags) = 108` (gcc). Los tres `SMU74_PIDController` de la cabeza los
-escribe el firmware, no el host. `088` documento ese hueco: el host escribe `[108, 1884)`.
+escribe el firmware, no el host. `195` documento ese hueco: el host escribe `[108, 1884)`.
 
 De ahi sale la regla que el codigo incumple en once sitios:
 
@@ -158,7 +158,7 @@ generaciones.
 Eso cambia el alcance de forma importante y en dos direcciones:
 
 - **Para mi placa no cambia nada**: el fallo de Polaris12 sigue siendo real y verificado.
-- **Pero `103` y `104` no son un hallazgo de Polaris12**, son de la familia SMU7 entera. Y
+- **Pero `210` y `104` no son un hallazgo de Polaris12**, son de la familia SMU7 entera. Y
   eso es un dato mas fuerte para un driver propio: no es una caracteristica exotica de la
   ruta de Polaris12 que hay que vigilar especialmente, es una convencion de codigo que
   hay que rehacer, en cualquier ruta.
@@ -258,7 +258,7 @@ en memoria. Si el desplazamiento es de 108, la comparacion falla en el primer ar
 hace falta placa: hace falta poder leer la SRAM del SMC, que es lo unico que `100` ya
 demuestra que no hay forma de verificar.
 
-> **ACTUALIZACION.** Esta pregunta ya no esta abierta: `105` la resuelve con evidencia
+> **ACTUALIZACION.** Esta pregunta ya no esta abierta: `212` la resuelve con evidencia
 > indirecta pero solida. La lectura de `PmFuses` en `:529` extrae cuatro bytes
 > consecutivos con los shifts que el layout exige, lo que prueba que el layout del host y
 > el del firmware coinciden byte a byte. De ahi se sigue la **lectura (A)**: los once
@@ -319,7 +319,7 @@ Estado corregido:
 
 ### Lo que NO queda tapado, y es donde sigue el hallazgo
 
-**`103` sigue vivo y no se corrige con esto.** El parche de UVD/VCE (`:2292`, `:2328`)
+**`210` sigue vivo y no se corrige con esto.** El parche de UVD/VCE (`:2292`, `:2328`)
 ocurre en `polaris10_update_uvd_smc_table` y `..._vce_smc_table`, que se llaman **fuera**
 de `init_smc_table`, en el camino de transicion DPM. No hay ninguna copia completa
 detras que los tape. El byte de `BootVddc` que pisan se queda pisado.
@@ -341,7 +341,7 @@ Tres veces en tres documentos consecutivos, por el mismo motivo.
 
 ## CORRECCION 2026-10-02: la invasion de MemoryLevel NO EXISTE
 
-`109` encontro un bug de ambito en `smc_copy_scope` que resolvia las variables locales
+`214` encontro un bug de ambito en `smc_copy_scope` que resolvia las variables locales
 una sola vez para el fichero entero. Con ese bug, la herramienta atribuia a `MemoryLevel`
 el rango de `GraphicsLevel`. Corregido, da lo correcto:
 
@@ -365,7 +365,7 @@ compensar** (`708..803`) contra el array **compensado** (`600..695`), que son do
 distintas.
 
 Es la **quinta vez** el mismo error: sumar 108 donde habia que restar, o comparar una
-posicion de tabla contra un offset de struct. En `102`, en `104` dos veces, en `103`, y
+posicion de tabla contra un offset de struct. En `209`, en `104` dos veces, en `210`, y
 aqui.
 
 ### Y la de GraphicsLevel, esa si se sostiene
@@ -428,9 +428,9 @@ justo lo que hace sospechar de un error de calculo antes que de tres defectos
 coincidentes. Y el error de calculo era mio: comparar el rango sin compensar contra el
 array compensado, o contra el array declarado.
 
-La quinta vez. `102`, `104` dos veces, `103`, y aqui.
+La quinta vez. `209`, `104` dos veces, `210`, y aqui.
 
 Y eso tiene una consecuencia util: **el unico sitio donde el desfase de 108 llega a la
-SRAM sin que nada lo tape sigue siendo el parche registro a registro de `103`/`107`**, que
+SRAM sin que nada lo tape sigue siendo el parche registro a registro de `210`/`107`**, que
 no es una copia sino un leer-modificar-escribir, y por eso la copia de `:2118` no lo
 cubre. Ese hallazgo no dependia de ninguna invasion y **no cae**.

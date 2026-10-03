@@ -181,7 +181,7 @@ instrucción>` y los símbolos externos no aparecen. Con `-dr` aparece la línea
 **Estuve buscando en el binario equivocado**, y lo que parecía "el compilador no
 hace esto" era "estoy mirando algo donde no se ve". Es la misma clase que buscar
 una capacidad en el directorio equivocado (`192`) o con el patrón equivocado
-(`202`/`SDMA`): **un resultado negativo con la herramienta equivocada no es un
+(`242`/`SDMA`): **un resultado negativo con la herramienta equivocada no es un
 resultado negativo.**
 
 ## Clasificación

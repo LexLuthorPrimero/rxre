@@ -14,8 +14,8 @@ Tres cosas, todas con el mismo bloqueador detrás:
 1. **El reparto de los dwords de payload de `WAIT_REG_MEM`**, abierto desde el
    principio: `soc15d.h` declara 7 campos para 5 dwords.
 2. **La atribución de los `WAIT_REG_MEM` observados**, que `107` degradó a
-   `CORROBORATED` y que `111` lo dio por tal sin resolver.
-3. **La contradicción de 1 `PFP_SYNC_ME` contra 34 fences** de `111`.
+   `CORROBORATED` y que `216` lo dio por tal sin resolver.
+3. **La contradicción de 1 `PFP_SYNC_ME` contra 34 fences** de `216`.
 
 ## El bloqueador, cerrado
 
@@ -139,7 +139,7 @@ gfx_v8_0.c:6212   amdgpu_ring_write(ring, PACKET3(PACKET3_PFP_SYNC_ME, 0));
 1 PFP_SYNC_ME observado  ==>  1 gfx_v8_0_ring_emit_vm_flush ejecutado en la ventana
 ```
 
-**PROVEN.** Y `115`/`116` explican por qué hubo exactamente uno: un compositor en
+**PROVEN.** Y `115`/`220` explican por qué hubo exactamente uno: un compositor en
 régimen no cambia de page tables, así que no pide vm_flush.
 
 **El `WAIT_REG_MEM` de ese vm_flush no estaba en la ventana** — fue
@@ -153,7 +153,7 @@ distintos.**
 |---|---|---|
 | `107` | los `WAIT_REG_MEM` del anillo, atribución `CORROBORATED` a `L6047` | **`PROVEN`: `gfx_v8_0_ring_emit_hdp_flush` `L6036-6056`, seis campos coincidentes** |
 | `108` | `PFP_SYNC_ME` como parte de la secuencia de cada vm_flush | **correcto, y ahora `PROVEN` por ser `L6212` el único emisor** |
-| `109` | los 10 `WAIT_REG_MEM` como "esperas de la secuencia" | **son `hdp_flush`, no vm_flush. Dos emisores, dos esperas, dos motores** |
+| `214` | los 10 `WAIT_REG_MEM` como "esperas de la secuencia" | **son `hdp_flush`, no vm_flush. Dos emisores, dos esperas, dos motores** |
 
 **Y una corrección dentro de mi propio razonamiento de esta tanda:** al principio
 escribí que los flags observados eran `FUNCTION=3, OPERATION=1` "sin declarar" y
@@ -197,9 +197,9 @@ formular.
 - `STATIC` -- `gfx_v8_0.c:6036-6056` `:6191-6215` `:5215-5248`, `soc15d.h`,
   `sid.h` (`PACKET3`), `GPU_HDP_FLUSH_DONE__CP0_MASK`.
 - Sin MMIO write, sin TLB, sin módulos.
-- **Corrige `107`, `108` y `109`, que son míos.**
-- Encadenada con `111` (next IB), `113` (el vm_flush lo pide el scheduler),
-  `115`/`116` (marca de agua por VMID, `use_cpu_for_update` nunca dispara).
+- **Corrige `107`, `108` y `214`, que son míos.**
+- Encadenada con `216` (next IB), `218` (el vm_flush lo pide el scheduler),
+  `115`/`220` (marca de agua por VMID, `use_cpu_for_update` nunca dispara).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 
 **Una nota sobre el método, y es la que me llevo.**

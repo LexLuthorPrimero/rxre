@@ -88,7 +88,7 @@ u64 vram_size = adev->gmc.xgmi.node_segment_size *
 
 y el camino completo es `amdgpu_gmc_get_vram_info()` →
 `amdgpu_atomfirmware_get_vram_info()`, que ya está registrado: la rama `default:`
-del switch de IP version de `190`, donde **no cae ningún caso** para GFX8.
+del switch de IP version de `198`, donde **no cae ningún caso** para GFX8.
 
 **El tamaño de VRAM lo dice el firmware, no el hardware.** Un controlador de
 memoria no tiene un registro que le diga al host cuánto tiene: eso lo sabe quien
@@ -156,7 +156,7 @@ y escrito.
 - **Un punto ciego de validación**: un cotejo que compruebe "el offset existe en
   algún header" **aprobaría esta constante**, porque `0x150a` existe en BIF.
   El alcance del cotejo es lo que decide, no el número.
-- **`190` queda cerrado por el otro lado**: el tamaño de VRAM viene de ATOMBIOS, lo
+- **`198` queda cerrado por el otro lado**: el tamaño de VRAM viene de ATOMBIOS, lo
   que confirma que el `default:` del switch de IP version es la ruta correcta para
   GFX8 — no es solo que "no cae ningún caso", es que **no debe caer ninguno**.
 - **Siguiente paso**: `RX550_MC_FB_LOCATION` es real pero **no he verificado que el

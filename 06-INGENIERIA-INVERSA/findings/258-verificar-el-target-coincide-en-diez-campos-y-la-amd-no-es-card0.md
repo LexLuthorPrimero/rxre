@@ -142,7 +142,7 @@ el log de arranque capturado. Ahora hay `OBSERVED`:
 `gmc_v8_1_0` confirma `201` y `ih_v3_0_0` confirma `183`, con evidencia de
 ejecución y no lectura de fuente.
 
-Y `register mmio size: 262144` confirma `202`: la ventana de registros es 256 KiB.
+Y `register mmio size: 262144` confirma `242`: la ventana de registros es 256 KiB.
 
 ## 6 · Los cuatro bugs que la herramienta tenía al salir por primera vez
 

@@ -9,8 +9,8 @@ RUNTIME=NOT_RUN · GPU INTACTA
 
 ## Qué resuelve
 
-**Las cuatro `NOT_DETERMINED` que dejó `169`, cerradas en un paso, y no midiendo lo que
-`169` proponía.** Se iba a contar qué registros nombra el fichero de la generación nueva
+**Las cuatro `NOT_DETERMINED` que dejó `236`, cerradas en un paso, y no midiendo lo que
+`236` proponía.** Se iba a contar qué registros nombra el fichero de la generación nueva
 y no el de la vieja; resulta que **el fichero de la generación nueva no existe**, y por
 tanto no hay nada que comparar.
 
@@ -46,9 +46,9 @@ implementaciones consecutivas con el mismo mayor y distinto menor, **salvo el ca
 **⇒ Y ese es el contraejemplo que importa: cuando un menor necesitó código propio, lo
 tuvo.** `gmc_v12_1.c` y `gfx_v9_4.c` existen, y `gfx_v12_1.c` también. `PROVEN_DERIVED`.
 
-## 2 · Y la regla, que no era la que `169` decía
+## 2 · Y la regla, que no era la que `236` decía
 
-`169` afirmó que la regla era «el nombre del driver es `<prefijo>_v<mayor>_0`». **Medido
+`236` afirmó que la regla era «el nombre del driver es `<prefijo>_v<mayor>_0`». **Medido
 sobre los 121 ficheros de versión de `amdgpu/`, esa regla es falsa como regla y cierta
 como tendencia:**
 
@@ -62,7 +62,7 @@ como tendencia:**
 `gfx_v9_4.c`, `sdma_v7_1.c`, `sdma_v5_2.c`, `sdma_v4_4.c`, `uvd_v3_1.c`, `uvd_v4_2.c`,
 `ih_v6_1.c`, `umc_v8_14.c`, `nbio_v7_11.c`, `mes_v12_1.c`, `gfxhub_v12_1.c`.
 
-**⇒ La regla real, y es la forma honesta de `156`:**
+**⇒ La regla real, y es la forma honesta de `232`:**
 
 > **amdgpu nombra un fichero después de la versión que necesitó código propio, y reutiliza
 > cuando una versión nueva no lo necesitó.**
@@ -70,13 +70,13 @@ como tendencia:**
 **No es una convención de nombres ni una limitación de la clave de despacho: es un hecho
 sobre qué versiones existen como código.** `PROVEN_DERIVED`.
 
-**⇒ Y esto corrige la explicación que `169` dio del caso del DC.** `169` dijo que las seis
+**⇒ Y esto corrige la explicación que `236` dio del caso del DC.** `236` dijo que las seis
 generaciones DCE cablean la misma tabla «porque la clave de despacho tiene tres
 componentes». **Eso explica por qué el DC 11.2 no tiene su propia tabla, pero no explica
 por qué `gmc_v8_1` no tiene su propio fichero — y la respuesta es distinta: no hay
 `dce_11_2` como fichero, del mismo modo que no hay `gmc_v8_1`.** `PROVEN_DERIVED`.
 
-**⇒ Las dos razones son distintas y ambas certain, y `169` las confundió:**
+**⇒ Las dos razones son distintas y ambas certain, y `236` las confundió:**
 - **El DC**: la clave de despacho del DC es la versión del IP, `1.0.0`, común a toda la
   familia, así que un 11.2 no puede tener su propia ruta aunque quisiera.
 - **Los otros cuatro**: la versión del IP cambió (`8.1`, `3.1`, `6.3`, `3.4`) y aun así no
@@ -113,7 +113,7 @@ fichero `dce_11_2` es lo que hace que su tabla de swizzle tenga 91 de 130 campos
 `num_prt_users` 65536, la tabla del GART a 9 MiB— **usando `gmc_v8_0.c`, que es la
 implementación del 8.0, para un bloque que se llama 8.1.** `PROVEN_DERIVED`.
 
-**Y `163` confirmó los cuatro números con el log, y `164` añadió el quinto por
+**Y `233` confirmó los cuatro números con el log, y `164` añadió el quinto por
 aritmética inversa.** `PROVEN`.
 
 **⇒ Es el único caso del bloque entero en que la reutilización está comprobada de las dos
@@ -122,7 +122,7 @@ formas: por derivación en el código y por observación en el log.** `PROVEN_DE
 **⇒ Y los otros tres —SDMA, UVD, VCE— no tienen esa comprobación, pero se sigue sin
 poder necesitar.** La evidencia que los cubriría es la misma que la del GMC: que el
 kernel anuncie el bloque y el driver no proteste. Y en esta máquina anunciar los cuatro y
-no protestar de ninguno es lo que hace el log de `163`. `PROVEN_DERIVED`.
+no protestar de ninguno es lo que hace el log de `233`. `PROVEN_DERIVED`.
 
 ## Lo que NO cierra
 
@@ -134,7 +134,7 @@ no protestar de ninguno es lo que hace el log de `163`. `PROVEN_DERIVED`.
 | 74 con menor 0 y 47 con menor distinto, de 121 | `PROVEN` |
 | La regla es «fichero tras la versión que necesitó código» | `PROVEN_DERIVED` |
 | `gfx_v9_4.c`, `gmc_v12_1.c` existen: el contraejemplo | `PROVEN_DERIVED` |
-| `169`: la clave de tres componentes explica el DC | `CORREGIDO` — es una de dos razones |
+| `236`: la clave de tres componentes explica el DC | `CORREGIDO` — es una de dos razones |
 | `140` acertó usando el fichero del 8.0 para un bloque 8.1 | `PROVEN` — derivado y observado |
 | Si el 8.1 del GMC añadió algún registro que el 8.0 no usa | **`NOT_DETERMINED`** |
 | Si el 3.4 del VCE añadió algún campo | **`NOT_DETERMINED`** |
@@ -154,7 +154,7 @@ reclamado.** Son nivel 4, y son la frontera correcta del bloque.
   `gmc_v8_1.c`, `sdma_v3_1.c`, `uvd_v6_3.c`, `vce_v3_4.c`, comprobada con `os.path.exists`;
   `amdgpu/gmc_v8_0.c` (el fichero que `140` usó, y que es la única implementación del 8.x
   del GMC); `amdgpu/amdgpu.h:1139` `:1211-1225` (la matriz de versiones y los dos
-  accesores, de `169`).
+  accesores, de `236`).
 - Medición por programa: **los cuatro casos, con su veredicto impreso uno a uno**; el
   inventario de los cinco bloques; **el reparto 74 / 47 / 121**; y la comprobación de que
   `gfx_v9_4.c`, `gmc_v12_1.c` y `gfx_v12_1.c` sí existen, que es el contraejemplo que
@@ -166,15 +166,15 @@ reclamado.** Son nivel 4, y son la frontera correcta del bloque.
   programa se cae en vez de avisar.** *Es la versión de código de la regla (c) de la
   tanda: un número que decide una conclusión tiene que imprimirlo un programa, y un
   programa que se cae no ha impreso nada.*
-- **Y una corrección de `169` que es de fondo y no de cifra: `169` dio una sola razón para
+- **Y una corrección de `236` que es de fondo y no de cifra: `236` dio una sola razón para
   un caso que tiene dos, y esta nota las separa.** El DC no tiene fichero propio porque
   su clave de despacho es común a la familia; GMC, SDMA, UVD y VCE no lo tienen porque su
   IP cambió sin que el cambio necesitara código. **La primera razón es de diseño del
   despacho y la segunda es un hecho sobre el árbol, y confundirlas hace que la segunda
   parezca una limitación de la primera.**
-- Encadenada con `169` (**las cuatro `NOT_DETERMINED` de esta nota, y su explicación
-  corregida**), `163` (**el log que anuncia los nueve bloques y no protesta de ninguno**),
-  `164` (la aritmética inversa que confirmó el mapa del GMC), `156` (la regla de la tabla
+- Encadenada con `236` (**las cuatro `NOT_DETERMINED` de esta nota, y su explicación
+  corregida**), `233` (**el log que anuncia los nueve bloques y no protesta de ninguno**),
+  `164` (la aritmética inversa que confirmó el mapa del GMC), `232` (la regla de la tabla
   y el constructor, en su forma honesta), `159` (52 funciones propias de DCE 11.2 y el
   21% del coste de una generación), `155` (DCE 11.2 y la lista de 91 de 130),
   `153` (los siete paths), `150` (los cuatro `cntl.signal`), `145` (`PROVEN_ABSENT` con
@@ -184,10 +184,10 @@ reclamado.** Son nivel 4, y son la frontera correcta del bloque.
 
 ## Nota de método
 
-**Las cuatro `NOT_DETERMINED` de `169` se cerraron sin hacer lo que `169` decía, y el
+**Las cuatro `NOT_DETERMINED` de `236` se cerraron sin hacer lo que `236` decía, y el
 descubrimiento es que la pregunta estaba mal planteada en su segunda mitad.**
 
-*`169` propuso: «contar los registros que el fichero de la generación nueva nombra y el
+*`236` propuso: «contar los registros que el fichero de la generación nueva nombra y el
 de la vieja no».* **Ese recuento es imposible si el fichero de la generación nueva no
 existe, y no existe.** *Y el paso que faltaba no era una medición sino una comprobación
 previa de existencia, que es más barata que cualquier medición y que se hace en una
@@ -195,7 +195,7 @@ línea.* **La regla es la que ya estaba en la lista desde el principio de la tan
 forma de "cuestiones de suposición": antes de medir una diferencia, comprobar que hay dos
 cosas que comparar.**
 
-**Y el resultado segundo es más valioso que el cierre: la regla que `169`fatigaba —«el
+**Y el resultado segundo es más valioso que el cierre: la regla que `236`fatigaba —«el
 nombre es `<mayor>_0`»— es falsa como regla.** *47 de 121 ficheros llevan un menor
 distinto de cero, y entre ellos `gmc_v12_1.c` y `gfx_v9_4.c`, que existen precisamente
 porque ese menor necesitó código propio.* **La regla real es «se nombra un fichero
@@ -203,7 +203,7 @@ después de la versión que necesitó código», y eso no es una convención de 
 un inventario: hay 121 versiones en el árbol, se cuentan, y ese es el número que un
 driver propio necesita.**
 
-**Y la corrección de fondo es de método y es la más útil de la tanda:** *`169` dio una
+**Y la corrección de fondo es de método y es la más útil de la tanda:** *`236` dio una
 sola razón para un caso que tiene dos, y una de las dos no era una razón sino una
 coincidencia de forma.* **El DC no tiene fichero propio porque su clave de despacho es
 `1.0.0` para toda la familia — eso es diseño. GMC, SDMA, UVD y VCE no lo tienen porque

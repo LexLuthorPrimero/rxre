@@ -61,7 +61,7 @@ driver la escribe una vez y la espera N veces, una por VMID.** `PROVEN_DERIVED`.
 
 **⇒ Y la segunda mitad de la Invalidate_request, la lectura de `VM_INVALIDATE_RESPONSE`, no la
 hace nadie en este camino: `gfx_v8_0.c:6203-6206` escribe ref=0, mask=0, interval=0x20, y el
-acuse se descarta.** `PROVEN`. Esto confirma y delimita lo que `106`/XPcción C ya habían cerrado
+acuse se descarta.** `PROVEN`. Esto confirma y delimita lo que `213`/XPcción C ya habían cerrado
 desde el otro lado.
 
 ## 2 · `gmc_v8_0_emit_flush_gpu_tlb`: dos escrituras, no tres
@@ -84,7 +84,7 @@ mismo `if (vmid < 8)` está repetido en `gmc_v7_0.c`. GFX8 tiene 16 contextos y 
 parte en dos bloques de 8.** `PROVEN_DERIVED`.
 
 **⇒ Y el puntero de tabla se escribe DESPLAZADO: `pd_addr >> 12`, el mismo `>> 12` que
-`Fragment size = 9` implica, y coherente con `189`, que cerró `0x64 = VI_POLARIS12_V_A0` como el
+`Fragment size = 9` implica, y coherente con `241`, que cerró `0x64 = VI_POLARIS12_V_A0` como el
 eslabón de identidad.** `PROVEN_DERIVED`.
 
 ## 3 · El presupuesto de dwords, y el margen que deja

@@ -9,7 +9,7 @@ RUNTIME=NOT_RUN · GPU INTACTA
 
 ## Qué resuelve
 
-**La jugada que `189` dejó escrita: corregir el mapa con los nombres de macro, re-medir, y
+**La jugada que `241` dejó escrita: corregir el mapa con los nombres de macro, re-medir, y
 contrastar contra las pruebas de imposibilidad.** `PROVEN`.
 
 **⇒ Y la poda pasa de cero pruebas de imposibilidad superadas a siete de nueve, con tres
@@ -26,7 +26,7 @@ por eso sobreviven 193 funciones de un subárbol cuya entrada sí está podada.*
 | 2 | semántica de `switch` en C | `184`: no podar si ninguna etiqueta casa | se podan **todos** los brazos explícitos y se conserva **sólo `default:`** |
 | 3 | segundo tipo de guardia: `if` sobre bandera de depuración | inexistente | `BANDERAS_FALSAS`, siete banderas |
 
-**⇒ La corrección 1 es la de `189`: `dal_asic_id.h:308` declara `FAMILY_VI 130` y
+**⇒ La corrección 1 es la de `241`: `dal_asic_id.h:308` declara `FAMILY_VI 130` y
 `dc_resource.c:141` etiqueta `case FAMILY_VI:`, así que la clave del mapa era
 `AMDGPU_FAMILY_VI`, un símbolo que se usa dos veces y no declara ninguna cabecera.**
 `PROVEN`. *Las seis guardas sobre `chip_family` dejan de no casar y se podan; los `switch`
@@ -36,7 +36,7 @@ sin coincidencia pasan de siete a cinco.*
 decidirlo cuesta una línea de la gramática de C: si ninguna etiqueta de un `switch` coincide
 con el valor, la ejecución cae a `default:` y a ningún otro brazo.** `PROVEN`. *La regla de
 `184` era una reacción a un síntoma sin diagnosticar: no podar arrastraba los 14.467
-códigos de `dc/dml2_0/` que `185` demostró que son de DCN.*
+códigos de `dc/dml2_0/` que `239` demostró que son de DCN.*
 
 **⇒ La corrección 3 es un guardia que el censo entero no veía, porque es un `if` y no un
 `switch`:**
@@ -60,7 +60,7 @@ inalcanzables, que es lo correcto.*
 |---|---|---|
 | `dc/dce60/` a cero — chip de 2013 | **FALLA** | **FALLA** (2 funciones) |
 | `dc/dce80/` a cero | FALLA | **OK** |
-| `dc/dml2_0/` a cero — `185`: es de DCN | **FALLA** | **FALLA** (246) |
+| `dc/dml2_0/` a cero — `239`: es de DCN | **FALLA** | **FALLA** (246) |
 | `dc/dce120/` a cero | FALLA | **OK** |
 | `dc/dcn30/` a cero | — | **OK** |
 | `dce112_validate_bandwidth` presente | FALLA | **OK** |
@@ -165,12 +165,12 @@ así que la evidencia para aplicarlo ya existe.*
   `AttributeError: 'tuple' object has no attribute 'get'`.** `ERROR`. *Una coma final en un
   literal de diccionario a nivel de módulo es sintácticamente válida y semánticamente otra
   cosa, que es la clase de error más difícil de ver porque el programa no dice nada.*
-- Encadenada con `189` (**el mapa con nombres de macro, que es la corrección 1 de esta
-  nota**), `188` (la cadena observada y el `PROVEN_ABSENT` del símbolo), `187` (**los dos
-  caracteres y las seis pruebas, que son las que se usan aquí de nuevo**), `185` (**DML2 es
+- Encadenada con `241` (**el mapa con nombres de macro, que es la corrección 1 de esta
+  nota**), `240` (la cadena observada y el `PROVEN_ABSENT` del símbolo), `187` (**los dos
+  caracteres y las seis pruebas, que son las que se usan aquí de nuevo**), `239` (**DML2 es
   de DCN, que es la afirmación que sostiene dos de las nueve pruebas**), `184` (**las 21
   guardas y la poda, y la regla conservadora que esta nota corrige**), `181` (las 821
-  colisiones, que son el mecanismo de fondo), `178`, `173`, `172`, `169`, `165`, `163`,
+  colisiones, que son el mecanismo de fondo), `178`, `173`, `172`, `236`, `165`, `233`,
   `151`, `140`.
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`, y no se añadió ningún fichero al corpus.
 

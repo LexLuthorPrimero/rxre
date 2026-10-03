@@ -167,7 +167,7 @@ tiene su eslabón.
 
 **Las tres abiertas son hardware, y las tres tienen nombre de registro detrás:**
 `L2_CACHE_BIGK_*` y `L2_CACHE_BIGK_VMID_MODE` en `VM_L2_CNTL3`/`VM_L2_CNTL2`, que
-`128` ya Gogh Never Wrote. **El mismo `RREG32` de `0x501` responde a más filas
+`229` ya Gogh Never Wrote. **El mismo `RREG32` de `0x501` responde a más filas
 que ninguno otro del proyecto.**
 
 ## Procedencia
@@ -178,9 +178,9 @@ que ninguno otro del proyecto.**
 - `OBSERVED` -- `"vm size is 64 GB, 2 levels, block size is 10-bit, fragment size
   is 9"`, del log de arranque, de sesión anterior.
 - Sin MMIO write, sin lectura de MMIO, sin TLB, sin módulos, sin debugfs.
-- Encadenada con `129` (`translate_further` y `num_level`), `128` (los dos
-  mecanismos de invalidate), `127` (la caché L2 de fragmentos), `085` (el flush
-  obligatorio), `103`/`104`/`106` (el registro de invalidate), `073`-`075` (GART
+- Encadenada con `129` (`translate_further` y `num_level`), `229` (los dos
+  mecanismos de invalidate), `127` (la caché L2 de fragmentos), `194` (el flush
+  obligatorio), `210`/`211`/`213` (el registro de invalidate), `073`-`075` (GART
   geometry).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 

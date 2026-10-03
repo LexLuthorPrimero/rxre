@@ -196,9 +196,9 @@ tiene su propia estructura y hay que hacerlo cuatro veces.*
   entrada y la corrección de los 15**), `173` (el intérprete de 119 operaciones, su
   vocabulario y su lista con tope), `172` (la capa genérica, y **la corrección de su
   total de líneas: 22.143, no 22.144**), `170` (la regla de qué versiones tienen
-  fichero), `169` (los nueve bloques IP), `167` (las cuatro interfaces y su 72%),
+  fichero), `236` (los nueve bloques IP), `234` (las cuatro interfaces y su 72%),
   `162` (`MAX_PIPES 6` y el tope de 714), `161` (el reloj al 8%), `159` (los 52
-  constructores y el 21%), `157` (el 58% y el puntero nulo), `156` (la regla de la tabla y
+  constructores y el 21%), `157` (el 58% y el puntero nulo), `232` (la regla de la tabla y
   el constructor, y aquí su nivel más fuerte), `155`, `154` (el `switch` de 17 casos y el
   mismo procedimiento), `153`, `150`, `145`, `143` (**el procedimiento de sembrar una
   marca y contarla, que aquí es la jugada siguiente**), `140`.

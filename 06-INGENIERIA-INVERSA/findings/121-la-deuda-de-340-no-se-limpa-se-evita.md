@@ -7,7 +7,7 @@
 
 ## Cuestión principal
 
-`120` dejó 215 citas de deuda real en 51 documentos, y deux preguntas sin
+`224` dejó 215 citas de deuda real en 51 documentos, y deux preguntas sin
 cerrar:
 
 1. De esas 215, ¿cuántas son ficheros **borrados** y cuántas **nunca
@@ -67,7 +67,7 @@ versionado **no hay registro**: no está git, no hay papelera, no hay copia. Un
 fichero borrado de disco sin llegar a commit deja exactamente la misma ausencia
 que un fichero que nunca se escribió.
 
-**La consecuencia operativa es la que importa: `120` trataba la deuda como un
+**La consecuencia operativa es la que importa: `224` trataba la deuda como un
 trabajo pendiente de análisis, y no lo es.** No hay 215 decisiones que tomar
 con datos: hay 215 referencias cuya procedencia ya no es recuperable, y la
 única acción posible sobre ellas es declararlas o reescribirlas sin pretending

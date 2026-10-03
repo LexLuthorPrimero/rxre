@@ -12,7 +12,7 @@ CIERRA:      el punto 1 del NEXT ACTION de 088
 
 ## 1 · EL DISC-RIMINANTE QUE SE PIDIÓ, Y POR QUÉ NO SE PUDO LEER
 
-`088` dejó el discriminante: `AMDGPU_PTE_PRT_FLAG(adev)` elige el bit 56
+`195` dejó el discriminante: `AMDGPU_PTE_PRT_FLAG(adev)` elige el bit 56
 (`AMDGPU_PTE_PRT_GFX12`) si `GC_HWIP >= 12.0.0`, y el bit 51
 (`AMDGPU_PTE_PRT`) si no. En GFX8 el bit 56 es `AMDGPU_PTE_TF`, así que el
 resultado decide si el driver escribe un page-fault en el bit de textura.
@@ -115,7 +115,7 @@ GC_HWIP de un ASIC GFX8  ->  major 8  ->  8 >= 12  ->  FALSE
 | El bit 56 (`AMDGPU_PTE_TF`) no se usa para PRT en GFX8 | `PROVEN_DERIVED` |
 | El valor **real** de `GC_HWIP` leído de la placa | `NOT_DETERMINED` — bloqueado por capacidad |
 
-Y el riesgo que `088` señalaba queda descartado por una vía que no necesita root:
+Y el riesgo que `195` señalaba queda descartado por una vía que no necesita root:
 **no se puede dar el caso «GC_HWIP ≥ 12 en un ASIC GFX8» con este árbol.**
 
 > El discriminante útil no era «leer el registro», era «**¿tiene el upstream un
@@ -131,7 +131,7 @@ Y el riesgo que `088` señalaba queda descartado por una vía que no necesita ro
 ## 3 · LO QUE RESULTA ES MAYOR QUE EL DISC-RIMINANTE QUE SE PIDIÓ
 
 `047` dijo que los diez selectores de `amdgpu_ip_version` son inalcanzables desde
-ficheros ASIC-específicos, y `088` corrigió que el eje correcto es el registro
+ficheros ASIC-específicos, y `195` corrigió que el eje correcto es el registro
 del bloque. La medición de este hallazgo **va un paso más allá**:
 
 > **Ninguna de las dos funciones de discovery tiene un brazo para GFX8.** No es
@@ -141,7 +141,7 @@ del bloque. La medición de este hallazgo **va un paso más allá**:
 | | alcance |
 |---|---|
 | `047` (en su forma original) | 10 selectores sin alcance |
-| `088` (eje corregido) | el bloque, no el fichero, es la unidad |
+| `195` (eje corregido) | el bloque, no el fichero, es la unidad |
 | **`089`** | **la función entera no tiene brazo para GFX8: 0 de 80 casos** |
 
 Las consecuencias son más anchas que la pregunta que lo promovió:
@@ -158,9 +158,9 @@ Las consecuencias son más anchas que la pregunta que lo promovió:
    `amdgpu_discovery.c` **no contiene la cadena `CHIP_POLARIS12` en ninguna
    línea**. Verificado.
 
-### Y esto explica el único cero de `088`
+### Y esto explica el único cero de `195`
 
-`088` encontró que `OSSYS_HWIP` es el único de los diez selectores con **cero
+`195` encontró que `OSSYS_HWIP` es el único de los diez selectores con **cero
 lecturas**. La causa estaba asignada y no leída:
 
 ```

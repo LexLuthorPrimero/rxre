@@ -286,7 +286,7 @@ que leerlo, igual que el de referencia; no puede inventarlo.** Y aquí vale
   y habrían producido una "inconsistencia" inexistente.
 - Encadenada con `139` (el formato del PTE, el contexto 0, `PAGE_TABLE_DEPTH`),
   `138` (la geometría, y la `HYPOTHESIS` que esta nota refuta), `137` (TLB y L2),
-  `136` (la cadena de coherencia), `116` (BAR 256 MiB, VRAM 2 GiB), `102`
+  `136` (la cadena de coherencia), `220` (BAR 256 MiB, VRAM 2 GiB), `209`
   (`amdgpu_vm_map_gart` inalcanzable), `083` (`dst`).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 

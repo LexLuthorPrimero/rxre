@@ -195,7 +195,7 @@ leer del hardware o de la placa.
 
 **Para un driver propio, esto significa que la mitad de display tiene una dependencia
 de firmware que ninguna cantidad de lectura de código sustituye.** Es la misma
-conclusión que `140` y `144`, y aquí tiene forma de tabla.
+conclusión que `140` y `231`, y aquí tiene forma de tabla.
 
 ## Lo que NO cierra
 
@@ -252,7 +252,7 @@ cierra con un fichero que ya está identificado y con línea.**
 - Encadenada con `152` (los dos campos del enlace y la `union` que era el `PTBA` del
   display), `151` (DML1 y los límites del DC), `150` (la `enum signal_type` y el
   `NOT_DETERMINED` de dónde se decide), `149` (la frontera DM→BIOS, que aquí tiene
-  estructura con nombre), `144` (la uAPI), `140` (el mapa de direcciones y
+  estructura con nombre), `231` (la uAPI), `140` (el mapa de direcciones y
   `MC_VM_FB_LOCATION`).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 

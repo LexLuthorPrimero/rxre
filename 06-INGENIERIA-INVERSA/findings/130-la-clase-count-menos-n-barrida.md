@@ -32,7 +32,7 @@ WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 > estado `Boot` deja `request_ps` en el `kzalloc` y convierte los 7 sitios en
 > `performance_levels[-1]`.** Eso no es un fallo de mi placa: es un defecto de contrato.
 
-**Barrido sistematico del patron que `227` (antes `125`), `228` (antes `126`) y `230` (antes `129`) habian encontrado a mano.** El
+**Barrido sistematico del patron que `227` (antes `227`), `228` (antes `228`) y `230` (antes `129`) habian encontrado a mano.** El
 alcance es mucho mayor de lo que parecia, y mi busqueda manual se estaba comiendo un tercio.
 
 ## La herramienta
@@ -100,7 +100,7 @@ Las cuatro van por `.set_sclk_od` / `.set_mclk_od` / los hooks de OD, o sea **co
 overdrive, que dispara el usuario**. `230` (antes `129`) habia encontrado dos de las cuatro; **el patron son
 cuatro funciones y diez accesos.**
 
-### Los 4 CORTOCIRCUITO_POR_OR son los filtros de duplicados de `224` (antes `120`)
+### Los 4 CORTOCIRCUITO_POR_OR son los filtros de duplicados de `224` (antes `224`)
 
 ```
 :809  if (i == 0 || dpm_table.sclk_table.dpm_levels[count - 1].value != ...)
@@ -116,13 +116,13 @@ Sin modelar el cortocircuito, la herramienta se autoporraba como SIN_GUARDIA y h
 inflado el recuento en 4. **Y hay que decir que MARCA, no RESUELVE**: solo detecta que hay un
 `||` delante en la misma linea, que no implica que el acceso sea inalcanzable.
 
-### La gravedad, aqui, es menor que en `229` (antes `128`)
+### La gravedad, aqui, es menor que en `229` (antes `229`)
 
 En mi ruta **ninguno de los 48 indexa un array flexible con capacidad propia**. Los 48 caen en
 arrays fijos (`dpm_levels[8]`, `performance_levels[2]`, `entries` de la tabla PPT), asi que un
 `count == 0` daria indice `-1` **dentro de la struct que lo contiene**, no antes de una reserva.
 
-**Eso baja la gravedad respecto a `229` (antes `128`)**, donde si se salia 28 bytes de una reserva de
+**Eso baja la gravedad respecto a `229` (antes `229`)**, donde si se salia 28 bytes de una reserva de
 `count * 28`. Aqui no hay fallo de pagina: hay lectura de basura en el campo anterior del mismo
 struct.
 
@@ -167,7 +167,7 @@ usa la mitad de los accesos.
 7. **Un VARIABLE LOCAL llamado `levels` heredaba la capacidad de un miembro homonimo de otro
    struct** (`fiji:1038` tomaba `SMU10_MAX_HARDWARE_POWERLEVELS`). **Mi propia regla
    `NAME_MATCH != SEMANTIC_MATCH`, commitida por mi propia herramienta.**
-8. **No modelaba el cortocircuito**, y se autoporraba en los 4 filtros de `224` (antes `120`).
+8. **No modelaba el cortocircuito**, y se autoporraba en los 4 filtros de `224` (antes `224`).
 9. **Y al arreglarlo, marco como cortocircuito una continuacion de linea**, que si se evalua.
    En el fixture sintetico, ademas, la extraccion numerica solo recognocia `FIJO:MACRO=8` y no
    `FIJO:8`, produciendo `FIJO{}` — peor que no decir nada.
@@ -195,7 +195,7 @@ cazado leyendo el codigo con calma.**
 2. **Un helper de "ultimo elemento" con el guarda dentro.** No `tabla->entradas[tabla->count-1]`
    esparcido por el codigo, sino `ultimo(entradas, count)` que devuelve error con `count == 0`.
    **Elimina la clase entera de un plumazo**, que es lo que un revisor no puede hacer a ojo.
-3. **Y si la excepcion es legitima (el `||` de `224` (antes `120`)), que sea explicita con un comentario.**
+3. **Y si la excepcion es legitima (el `||` de `224` (antes `224`)), que sea explicita con un comentario.**
    Aqui el cortocircuito es correcto pero invisible: se lee como un `dpm_levels[-1]`.
 4. **Un filtro de busqueda se contrasta con una herramienta antes de creerse su numero.**
    35 y 48 son ambos plausibles. **Solo uno es el bueno, y nada en el filtro lo dice.**

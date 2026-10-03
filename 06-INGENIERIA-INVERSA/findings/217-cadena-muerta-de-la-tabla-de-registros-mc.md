@@ -161,7 +161,7 @@ presupuesto.
   una direccion para ella; puede que el firmware la cargue desde su propia copia en ROM y
   que no necesite al host. **Es `NOT_IN_CORPUS`**: el firmware no esta en el arbol, y
   ninguna afirmacion sobre esto es mia sin el binario.
-- **Que el firmware lea ese campo**. `SEMANTIC_MISSING`, como en `103`.
+- **Que el firmware lea ese campo**. `SEMANTIC_MISSING`, como en `210`.
 
 Por eso el hallazgo **no dice** "Polaris12 no inicializa la tabla de registros MC, y eso es
 un fallo". Dice: **el host lee una direccion, rellena una tabla, y no hace nada con
@@ -244,5 +244,5 @@ Tres reglas, y las tres salen de lo mismo:
    en bruto", nunca el mismo.
 3. **Un retorno ignorado hay que auditarlo por el otro lado de la llamada**, no por el
    del que llama. Aqui el patron de `099` se cumple en el codigo compartido, y **la
-   consecuencia depende de si el dato se consume**. Por eso `110` y `099` juntos no bastan:
+   consecuencia depende de si el dato se consume**. Por eso `215` y `099` juntos no bastan:
    hace falta la pregunta "¿quien lee esto?" antes de afirmar el fallo.

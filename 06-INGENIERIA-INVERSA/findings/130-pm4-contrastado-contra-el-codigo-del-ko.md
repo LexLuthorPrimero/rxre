@@ -72,7 +72,7 @@ macros no inventionó ni un valor en 15 funciones.
 
 ## Y la cadena de §D, ahora en bytes
 
-La función que `110` y `121` poundieron:
+La función que `215` y `121` poundieron:
 
 ```
 $ ko_immediate.py --func gfx_v8_0_ring_emit_vm_flush
@@ -89,7 +89,7 @@ gfx_v8_0_ring_emit_vm_flush  @0x147830  544 bytes  9 stores
 ```
 
 Los 9 valores coinciden con los 9 que `pm4_emit` calculó. **La cabecera del
-`WAIT_REG_MEM` es `0x00000000`**, que es lo que `110` afirmó leyendo el fuente
+`WAIT_REG_MEM` es `0x00000000`**, que es lo que `215` afirmó leyendo el fuente
 y lo que `pm4_emit`irmo evaluando macros. Ahora está en los bytes.
 
 Y el detalle de `sib=0x82` en los 9: `base=rdx, index=rax, escala=4`, que es

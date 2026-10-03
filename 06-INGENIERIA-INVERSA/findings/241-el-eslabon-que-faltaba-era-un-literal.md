@@ -9,8 +9,8 @@ RUNTIME=NOT_RUN · GPU INTACTA
 
 ## Qué resuelve
 
-**El punto abierto de `188` —«por qué `vi_common` implica familia VI, es una convención»— y
-el eslabón que `188` cita mal: el identificador de la fuente de la revisión interna.** `PROVEN`.
+**El punto abierto de `240` —«por qué `vi_common` implica familia VI, es una convención»— y
+el eslabón que `240` cita mal: el identificador de la fuente de la revisión interna.** `PROVEN`.
 
 **⇒ `vi.c:1587` escribe `adev->external_rev_id = adev->rev_id + 0x64;` y `0x64` son 100,
 que es `VI_POLARIS12_V_A0` declarado en `dal_asic_id.h:116`.** `PROVEN`.
@@ -19,9 +19,9 @@ que es `VI_POLARIS12_V_A0` declarado en `dal_asic_id.h:116`.** `PROVEN`.
 cinco variables de las 21 guardas sólo una —`chip_family`— no es verificable en el
 corpus.** `PROVEN_DERIVED`.
 
-**⇒ Y una corrección propia, y es la más torpe de la tanda: `188` cita
+**⇒ Y una corrección propia, y es la más torpe de la tanda: `240` cita
 `adev->extern_gpu_id`, un símbolo que no existe en el corpus. La línea real dice
-`adev->external_rev_id`.** `ERROR`. `188` queda corregido.
+`adev->external_rev_id`.** `ERROR`. `240` queda corregido.
 
 ## 1 · La cadena cerrada, eslabón por eslabón
 
@@ -38,7 +38,7 @@ display/dc/core/dc_resource.c:179         dc_version = DCE_VERSION_11_2;
 **⇒ `0x64` son 100 y `VI_POLARIS12_V_A0` es 100: la misma constante aparece dos veces, una
 como macro en `display/` y otra como literal hexadecimal en `amdgpu/`.** `PROVEN`.
 
-**⇒ Y por eso el rango [100,110) de `188` es verificable: `external_rev_id` cae dentro
+**⇒ Y por eso el rango [100,110) de `240` es verificable: `external_rev_id` cae dentro
 exactamente cuando `adev->rev_id` cae en [0,10).** `PROVEN_DERIVED`. *Y `adev->rev_id` es un
 número pequeño de revisión, no el identificador de dispositivo: `0x699F` son 27039 y la
 revisión PCI `0xC7` son 199, y los tres quedan fuera del rango, que es lo que demuestra que
@@ -50,11 +50,11 @@ DCE 11.2`.** `OBSERVED`.
 **⇒ De los tres números del log, dos son copiados literalmente al ASIC id y el tercero
 tampoco: `amdgpu_dm.c:1912` pone `pci_revision_id = adev->pdev->revision` y `:1914` pone
 `chip_id = adev->pdev->device`.** `PROVEN`. *La estructura `hw_asic_id` lleva los tres, y
-`188` los trataba como uno.*
+`240` los trataba como uno.*
 
 ## 2 · La corrección: `extern_gpu_id` no existe
 
-**`188` escribió «`init_data.asic_id.hw_internal_rev = adev->extern_gpu_id;`».**
+**`240` escribió «`init_data.asic_id.hw_internal_rev = adev->extern_gpu_id;`».**
 `ERROR`.
 
 **⇒ En todo el corpus, `extern_gpu_id` aparece CERO veces. El símbolo real es
@@ -69,7 +69,7 @@ devuelve un identificador distinto que se parece al bueno.***
 
 **⇒ Y que el símbolo exista en `amdgpu.h:872` es lo que hace la diferencia entre las dos
 cadenas: `external_rev_id` es verificable porque se puede seguir hasta su definición;
-`AMDGPU_FAMILY_VI`, que `188`-PROVEN_ABSENT, no.** `PROVEN_DERIVED`.
+`AMDGPU_FAMILY_VI`, que `240`-PROVEN_ABSENT, no.** `PROVEN_DERIVED`.
 
 ## 3 · Las 21 guardas, y cuáles son verificables
 
@@ -102,7 +102,7 @@ declaración. Es correcta y no es verificable, y esas dos cosas no son lo mismo.
 ## 4 · Y por qué esto explica el fallo de la poda
 
 **La poda de `184` y `187` fallaba, y `184` lo atribuyó a que el censo mezclaba etiquetas
-entre `switch` vecinos. Eso era falso y `188` lo refutó. La causa real es esta y es
+entre `switch` vecinos. Eso era falso y `240` lo refutó. La causa real es esta y es
 estructural:** `PROVEN_DERIVED`.
 
 **⇒ El mapa `VALOR_POR_PLANTA` declara cinco variables. Dos de ellas —`dc_version` y
@@ -127,7 +127,7 @@ podar».** `PROVEN_DERIVED`.
 |---|---|
 | `vi.c:1587` da `rev_id + 0x64` y `0x64` = `VI_POLARIS12_V_A0` | `PROVEN` |
 | La cadena de identidad no usa ningún símbolo sin declarar | `PROVEN` |
-| `extern_gpu_id` no existe; el símbolo es `external_rev_id` | `PROVEN_ABSENT` — corrige a `188` |
+| `extern_gpu_id` no existe; el símbolo es `external_rev_id` | `PROVEN_ABSENT` — corrige a `240` |
 | 10 de las 21 guardas son verificables por `dc_version` | `PROVEN_DERIVED` |
 | 3 lo son por `asic_type`, y una no aplica | `PROVEN` |
 | 6 no son verificables, y una de ellas produce el valor de las otras | `PROVEN_DERIVED` |
@@ -169,13 +169,13 @@ lo que falta, y lo que falta aquí es una cabecera que no sé nombrar.*
   identificador.** `ERROR`. *La regla que sale: un identificador se cita desde una lectura
   sin filtro de ancho, o no se cita. `cut` sobre código fuente es un filtro de columnas y el
   código no tiene columnas.*
-- Encadenada con `188` (**los tres eslabones observados y el `PROVEN_ABSENT` de
+- Encadenada con `240` (**los tres eslabones observados y el `PROVEN_ABSENT` de
   `AMDGPU_FAMILY_VI`, y su `NOT_OBSERVED` del valor de la revisión interna, que aquí queda
-  con la vía de derivación**), `187` (los dos caracteres y el 48,4%), `185` (las siete
+  con la vía de derivación**), `187` (los dos caracteres y el 48,4%), `239` (las siete
   raíces), `184` (**las 21 guardas y la cadena, y su diagnóstico del fallo de la poda, que
   aquí se corrige: el defecto no era el censo sino una variable no verificable**),
-  `183` (otra sesión), `181`, `180` (otra sesión), `179`, `178`, `173`, `172`, `169`, `167`,
-  `165`, `163`, `159`, `156`, `151`, `149`, `140`.
+  `183` (otra sesión), `181`, `180` (otra sesión), `179`, `178`, `173`, `172`, `236`, `234`,
+  `165`, `233`, `159`, `232`, `151`, `149`, `140`.
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`, y no se añadió ningún fichero al corpus.
 
 ## Nota de método

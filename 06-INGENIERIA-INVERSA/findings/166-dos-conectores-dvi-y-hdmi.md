@@ -42,7 +42,7 @@ porque `HDMI-A-1` lo ocupa la iGPU.** `PROVEN_DERIVED`. **Esa numeración la hac
 núcleo de drm, no el driver de amdgpu, y es la prueba de que los conectores de las dos
 tarjetas están en un mismo registro.**
 
-**Y con esto queda cerrada `163` de otra manera que con «cero CRTC»:** no es sólo que no
+**Y con esto queda cerrada `233` de otra manera que con «cero CRTC»:** no es sólo que no
 haya nada conectado, es que **la lista de salidas de esta GPU es de longitud dos y
 conocida.**
 
@@ -119,7 +119,7 @@ encima por costumbre.**
 
 | afirmación | fuente | estado |
 |---|---|---|
-| 7 registros `DP_VID_TIMING` | `156` | el driver los declara |
+| 7 registros `DP_VID_TIMING` | `232` | el driver los declara |
 | 4 carriles, HBR3, 32,40 Gbps | `160` | el driver lo declara |
 | 7 rutas en `ext_disp_conn_info` | `153` | el driver las declara |
 | `MAX_NUMBER_OF_EXT_DISPLAY_PATH 7` | `153` | constante del driver |
@@ -219,7 +219,7 @@ hierro tiene.*
   tanda.**
 - Encadenada con `165` (las 325.854 líneas que no se ejecutan, y aquí **cuáles** no se
   ejecutan:
-  las dos salidas de una lista de dos), `163` (cero CRTC, y aquí la lista que está detrás
+  las dos salidas de una lista de dos), `233` (cero CRTC, y aquí la lista que está detrás
   de ese cero), `160` (4 carriles y HBR3, y aquí que no hay DisplayPort que los use),
   `158` (VGA sin codificador analógico, y aquí que el VGA es de la iGPU),
   `157` (los cuatro setters, y aquí cuál se usaría en cada uno de los dos conectores),

@@ -228,8 +228,8 @@ que son 25 funciones y ninguna ha sido leída.**
   sesión: las ocho direcciones de registro), `179` (las cuatro clases), `178` (los dos
   canales), `173` (**los 75 manejadores, que son la prueba de que la poda es
   incorrecta**), `172` (la capa genérica), **`151` (DML1 y DML2, confirmado y acotado)**,
-  `167`, `165` (**«cuánto de display es genérico»**), `159` (los 52 constructores),
-  `156`, `149`, `140`.
+  `234`, `165` (**«cuánto de display es genérico»**), `159` (los 52 constructores),
+  `232`, `149`, `140`.
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`, y no se añadió ningún fichero al corpus.
 
 ## Nota de método

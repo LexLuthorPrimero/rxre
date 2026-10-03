@@ -102,10 +102,10 @@ cero inventado, y que lee como «búsqueda correcta, sin resultados». Es el
 
 **5. `grep` con timeout dio `exit=124` y 0 hits** al buscar
 `PP_CLOCK_STRETCH_MASK` en el árbol entero. **Sexta vez** que me ocurre. No lo leí
-como ausencia: `124` es timeout, y lo distinguí del `1` al acotar el ámbito.
+como ausencia: `226` es timeout, y lo distinguí del `1` al acotar el ámbito.
 
 Ese `exit=124` es la razón de ser de la regla de exigir el código de salida. Un
-`124` con cero líneas es indistinguible de un `1` con cero líneas si no lo lees, y
+`226` con cero líneas es indistinguible de un `1` con cero líneas si no lo lees, y
 yo casi lo leo como el segundo.
 
 ## Lo que NO afirmo

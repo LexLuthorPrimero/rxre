@@ -125,7 +125,7 @@ reporte del firmware en algo que la CPU puede usar.
 
 ElProducer de VRAM es el **último** de la cadena, y el único de los cuatro que
 está en `amdgpu_gmc.c` con una función propia de 20 líneas. Los otros tres los
-cerraron `064`, `075` y `085`.
+cerraron `064`, `075` y `194`.
 
 **Y hay una separación que `067` ya mostró y que esta nota confirma**: la tabla
 GART de esta GPU vive en **VRAM** (`0xF400900000`, dentro del rango de arriba), y
@@ -156,5 +156,5 @@ de fijar la geometría de VRAM.**
 - `CORPUS` — `amdgpu_gmc.c:204-238`, `amdgpu_drv.c:273-285`.
 - `HOST_OBSERVATION` — sysfs (`mem_info_*`, `parameters/vramlimit`), `journalctl`.
   Sólo lectura.
-- Encadenada con `067` (tabla GART en VRAM), `064` (PTBA y MC), `085` (§B).
+- Encadenada con `067` (tabla GART en VRAM), `064` (PTBA y MC), `194` (§B).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`: son de otras sesiones.

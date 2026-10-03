@@ -60,14 +60,14 @@ que la ejecuta.** Y §B:
 | base del PTE en el PDE | **39:1** | `:700` |
 | fragmentación en el PDE | **63:59 block fragment size** | `:698` |
 
-## 2 · CONFIRMACIÓN INDEPENDIENTE DE `088`
+## 2 · CONFIRMACIÓN INDEPENDIENTE DE `195`
 
-`088` encontró `AMDGPU_PTE_SYSTEM (1ULL << 1)` en `amdgpu_vm.h:58` y lo cerró
+`195` encontró `AMDGPU_PTE_SYSTEM (1ULL << 1)` en `amdgpu_vm.h:58` y lo cerró
 por el lado del **driver**. El comentario del hardware dice **`1 system`**, y lo
 dice desde el otro lado del mismo campo.
 
 Dos fuentes, dos capas, el mismo bit. Y ahora por el motivo: **bit 1 = system**
-es precisamente lo que hace que `088` y `081` encajen:
+es precisamente lo que hace que `195` y `081` encajen:
 
 ```
 SYSTEM_ACCESS_MODE = NOT_IN_SYS   (bit de contexto, gmc_v8_0.c:840)

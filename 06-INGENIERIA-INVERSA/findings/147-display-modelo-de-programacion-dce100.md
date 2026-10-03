@@ -9,7 +9,7 @@ RUNTIME=NOT_RUN · GPU INTACTA
 
 ## Qué resuelve
 
-**El otro extremo del objetivo final.** `144` demostró que falta la entrada
+**El otro extremo del objetivo final.** `231` demostró que falta la entrada
 —el ioctl—; esto es la salida: **cómo se programa un stream encoder en esta GPU**, con
 el número exacto de campos que existen y los que no.
 
@@ -219,7 +219,7 @@ quiera dibujar algo.
   `display/dc/`: `find` + `os.walk`, impreso por programa.
 - Encadenada con `146` (el Makefile no es un manifiesto, y `display/dc/` completo),
   `145` (el 99% del corpus, y la falsa corroboración de `pptable.h`),
-  `144` (el otro extremo del objetivo: la entrada), `143` (la lista de arranque),
+  `231` (el otro extremo del objetivo: la entrada), `143` (la lista de arranque),
   `140` (el mapa de direcciones), `139` (el PTE, y el precedente de "un campo que no
   existe en este chip"), `133` (el MTYPE ausente en GFX8 — mismo patrón).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.

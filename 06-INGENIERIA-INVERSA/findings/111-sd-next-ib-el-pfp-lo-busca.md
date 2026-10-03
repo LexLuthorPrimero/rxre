@@ -15,7 +15,7 @@ RUNTIME=OBSERVED_READ_ONLY · GPU INTACTA · sesión sway INTACTA
 Resolver PTBA → INVALIDATE → WAIT → PFP_SYNC_ME → next IB.
 ```
 
-Los cuatro primeros están cerrados (`108` para la secuencia, `109` para los
+Los cuatro primeros están cerrados (`108` para la secuencia, `214` para los
 motores). **Falta el quinto: `next IB`.** Esta nota lo cierra.
 
 ## El mecanismo: dos opcodes, según qué motor busca
@@ -44,7 +44,7 @@ el flag, lo busca el PFP.
 **El ME no busca IBs.** No tiene opcode para eso. Ejecuta paquetes del flujo del
 anillo (`WAIT_REG_MEM`, `PFP_SYNC_ME`) pero nunca consume un IB.
 
-Eso es la respuesta a la pregunta de `109`: **un anillo, dos motores que ejecutan
+Eso es la respuesta a la pregunta de `214`: **un anillo, dos motores que ejecutan
 del flujo, y sólo uno —el PFP— que además busca el trabajo.**
 
 ## Y en el anillo sólo viaja el puntero
@@ -159,7 +159,7 @@ por las buenas.**
   de 8 IBs, 34 EOP, 10 `WAIT_REG_MEM`, 9 `COND_EXEC`, 1 `PFP_SYNC_ME`.
 - `STATIC` — `gfx_v8_0.c:6062-6098` y `gfx_v8_0.c:6191-6215`, `sid.h:397-414`,
   `soc15d.h:199-225`.
-- Encadenada con `108` (la secuencia y los motores), `109` (un anillo, dos
+- Encadenada con `108` (la secuencia y los motores), `214` (un anillo, dos
   motores, tres esperas), `094` (`.emit_ib_size = 4`), `096`/`097`/`098` (los
   fences), `095` (PFP/ME/CE).
 - **Corrige `108`** en un punto: `PFP_SYNC_ME` no es una vez por flush. Es mío.

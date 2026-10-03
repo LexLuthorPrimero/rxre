@@ -82,7 +82,7 @@ dos maneras: una por bloque y otra por acción.** `PROVEN_DERIVED`.
 **⇒ Y los dos bloques que `172` encontró ausentes de DCE — `HUBBUB` y `DWBC` — sí están
 en el vocabulario: hay cuatro operaciones `HUBBUB_*` y tres `DWBC_*`.** `PROVEN_DERIVED`.
 
-**⇒ Eso es la forma final de `156` y `157`, y es la más limpia de las veinte: el
+**⇒ Eso es la forma final de `232` y `157`, y es la más limpia de las veinte: el
 vocabulario de operaciones es uno solo para todos los chips, y lo que decide si una
 operación hace algo es que el fichero de la generación tenga su manejador. Una operación
 sin manejador es exactamente el puntero nulo de `157`, y la comprobación `if (funcs->X)`
@@ -128,7 +128,7 @@ siguen o lo preceden tienen entre 1 y 8.** `PROVEN_DERIVED`. **Es la misma forma
 | interfaz | declarada en | miembros | cobertura de DCE 11.x |
 |---|---|---|---|
 | `stream_encoder_funcs` | `inc/hw/stream_encoder.h:133` | 38 | **58%** (`157`) |
-| `link_encoder_funcs` | `inc/hw/link_encoder.h:113` | 32 | **72%** (`167`) |
+| `link_encoder_funcs` | `inc/hw/link_encoder.h:113` | 32 | **72%** (`234`) |
 | `enum block_sequence_func` | `hwss/hw_sequencer.h:866` | 119 | **62%** (esta nota) |
 | `clk_mgr_funcs` | `inc/hw/clk_mgr.h:299` | 25 | **8%** (`161`) |
 
@@ -142,7 +142,7 @@ decide el BIOS.** `161` lo había dicho; esta nota lo confirma por el otro lado,
 
 **⇒ Y la que más necesita es la del codificador de enlace, y ahora se sabe por qué: la
 del enlace tiene 4 entradas sin implementar — FEC y DPIA— que son USB4, y USB4 no existe
-en un chip de 2013.** `167` lo había dicho; esta nota lo confirma por el otro lado. `PROVEN_DERIVED`.
+en un chip de 2013.** `234` lo había dicho; esta nota lo confirma por el otro lado. `PROVEN_DERIVED`.
 
 **⇒ La regla del bloque entero, en una frase y con las cuatro cifras: la interfaz de un
 subsistema es tanto más grande cuanto menos de la sube el hardware.** `PROVEN_DERIVED`.
@@ -180,7 +180,7 @@ hacen los que no existen en DCE.
   `if` sin `else`), `:1342` y `:1359` y `:1374` (las definiciones de `hwss_add_*`, que
   llevan el mismo patrón);
   `display/dc/inc/hw/stream_encoder.h:133`, `display/dc/inc/hw/link_encoder.h:113`,
-  `display/dc/inc/hw/clk_mgr.h:299` (las otras tres interfaces, de `157`, `167` y `161`);
+  `display/dc/inc/hw/clk_mgr.h:299` (las otras tres interfaces, de `157`, `234` y `161`);
   los 22 subdirectorios de `display/dc/hwss/`, con sus ficheros, líneas y funciones
   contadas; `display/dc/hwss/dce110/dce110_hwseq.c` (3.563 líneas, el más grande);
   `display/dc/core/dc_hw_sequencer.h` para `MAX_PIPES 6` — realmente
@@ -195,8 +195,8 @@ hacen los que no existen en DCE.
   en minúsculas con sufijo (`pipe_control_lock_params`). Al compararlos en mayúsculas,
   los 121 salieron «sin valor» —incluidos los que sí lo tienen— y eso es imposible, y lo
   impossibility avisó.** *Es la cuarta vez en la tanda que un resultado imposible delata el
-  error: `paso constante: False` en `156`, la cita ambigua en `168`, las nueve filas sin
-  generación en `169`, y aquí los 121 «ausentes» de un enum que sí los tiene.*
+  error: `paso constante: False` en `232`, la cita ambigua en `235`, las nueve filas sin
+  generación en `236`, y aquí los 121 «ausentes» de un enum que sí los tiene.*
   (2) El primer recuento de llamadas a `hwss_add_*` dio **cero**, y con un `grep` directo
   sobre el árbol dio **230**. La causa: mi expresión de definición de función terminaba
   en `[^;]*$`, y una línea de llamada termina en `);`, así que el clasificador se comía
@@ -206,10 +206,10 @@ hacen los que no existen en DCE.
 - Encadenada con `172` (**la capa genérica, y aquí su arquitectura; los dos bloques
   ausentes de DCE y aquí que sí están en el vocabulario**), `170` (la regla de qué
   versiones tienen fichero, y aquí un `dce112` con 3 manejadores frente a un `dce110` con
-  75), `169` (los nueve bloques IP), `167` (**las cuatro interfaces, y aquí su tabla**),
+  75), `236` (los nueve bloques IP), `234` (**las cuatro interfaces, y aquí su tabla**),
   `162` (**`MAX_PIPES 6`, que es el otro factor del tope de 714**), `161` (el reloj al 8%,
   y por qué), `159` (el `x8,4` de DCE 11.0 y la serie no monótona), `157` (el 58% del
-  codificador de stream), `156` (la regla de la tabla y el constructor, elevada aquí a
+  codificador de stream), `232` (la regla de la tabla y el constructor, elevada aquí a
   «una operación sin manejador es un puntero nulo»), `155`, `154` (el `switch` de 17
   casos, y el de 119 es el mismo trabajo), `153`, `150`, `145`, `140`.
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
@@ -228,7 +228,7 @@ ejecución, no el código.** *Es la respuesta y a la vez es la pregunta siguient
 el orden para un modo concreto.*
 
 **Y lo que sale de esto es la forma más limpia de la regla que el bloque lleva veinte notas
-desarrollando.** *`156` dijo que la identidad de un camino la dan la tabla y el
+desarrollando.** *`232` dijo que la identidad de un camino la dan la tabla y el
 constructor. `157` que una operación ausente es un puntero nulo. Esta nota dice las dos
 cosas a la vez y por qué: **el vocabulario de operaciones es uno para todos los chips, y lo
 que decide si una de ellas hace algo es que el fichero de la generación tenga su

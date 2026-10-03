@@ -9,7 +9,7 @@ RUNTIME=NOT_RUN · GPU INTACTA
 
 ## Qué resuelve
 
-`124` dejó una pregunta abierta y bien formulada: *qué caché, si alguna, está en
+`226` dejó una pregunta abierta y bien formulada: *qué caché, si alguna, está en
 el camino entre la L2 y la lectura del page walker*. Y dijo que sin eso no se
 puede explicar por qué el invalidate es obligatorio en GFX8.
 
@@ -42,7 +42,7 @@ gmc_v8_0.c:870   WREG32(mmVM_L2_CNTL3, tmp);
 3. **La invalidación ocurre en `gmc_v8_0_gart_enable`**, no en el camino de
    actualización de page tables.
 
-**Y esto confirma `124` desde el otro lado.** `124` concluyó, leyendo el camino de
+**Y esto confirma `226` desde el otro lado.** `226` concluyó, leyendo el camino de
 actualización, que *no hay ninguna operación de caché sobre las page tables*.
 Ahora se ve por qué: **la caché se invalida al habilitar el GART, no en cada
 actualización.** No es que falte la operación; es que la operación no está en ese
@@ -92,7 +92,7 @@ eso es lo que invalida el TLB.**
 optimizable.** Y es una respuesta de hardware, deducida de un nombre de registro,
 un valor observado y un comentario del driver.
 
-**Y cierra `085` con el discriminante verificado en el call site**, no sólo en la
+**Y cierra `194` con el discriminante verificado en el call site**, no sólo en la
 línea del override. Los tres call sites de `amdgpu_vm_update_range`:
 
 | call site | `flush_tlb` que pide | en GFX8 |
@@ -117,7 +117,7 @@ gmc_v8_0.c:874   tmp = REG_SET_FIELD(tmp, VM_L2_CNTL4, VMC_TAP_CONTEXT0_PDE_REQU
 **Tres precisiones, porque la tercera me habría carried mal:**
 
 1. **Esto está en `gmc_v8_0_gart_enable` (`L829`), no en `early_init`.**
-2. **`CONTEXT0` es el GART**, no los VMIDs de userspace — `104` establece que el
+2. **`CONTEXT0` es el GART**, no los VMIDs de userspace — `211` establece que el
    VMID 0 es la dirección física que usa el kernel y los VMIDs 1-15 son de
    userspace. **Lo que se configura aquí es el espacio del GART.**
 3. **La polaridad no la doy por buena.** El driver **sólo** escribe 0 en estos bits
@@ -126,7 +126,7 @@ gmc_v8_0.c:874   tmp = REG_SET_FIELD(tmp, VM_L2_CNTL4, VMC_TAP_CONTEXT0_PDE_REQU
    system memory"*), o sea que **0 = no es memoria física ni compartida**, y lo
    razonable es que sea VRAM. **`CORROBORATED`, no `PROVEN`.**
 
-**Y encaja con `116`:** el BAR es de 256 MiB y la VRAM de 2 GiB, así que las
+**Y encaja con `220`:** el BAR es de 256 MiB y la VRAM de 2 GiB, así que las
 page tables no caben en el BAR y están en VRAM. **El page walker lee VRAM, no
 memoria del sistema**, y por eso el problema de coherencia CPU↔GPU que §G enuncia
 no aparece en este camino: **no hay PCIe en él.**
@@ -194,16 +194,16 @@ distintas.
 - `OBSERVED` -- `fragment_size = 9` y `block size is 10-bit` en el log de
   arranque, de sesión anterior. Sin lectura nueva de hardware.
 - Sin MMIO write, sin TLB, sin módulos, sin lectura de debugfs.
-- Encadenada con `085` (el invalidate obligatorio), `124` (la coherencia es orden),
-  `126` (el precio de la coherencia), `115`/`116` (BAR 256 MiB, VRAM en VRAM),
-  `104` (VMID 0 = kernel, 1-15 = userspace), `103`/`106` (el registro de
+- Encadenada con `194` (el invalidate obligatorio), `226` (la coherencia es orden),
+  `228` (el precio de la coherencia), `115`/`220` (BAR 256 MiB, VRAM en VRAM),
+  `211` (VMID 0 = kernel, 1-15 = userspace), `210`/`213` (el registro de
   invalidate).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 
 ## Nota de método
 
 **Estaba a punto de escribir que `VM_L2_CNTL4` configuraba de dónde leen los page
-walkers de los VMIDs de userspace, y es el GART.** Lo Paré porque `104` ya decía
+walkers de los VMIDs de userspace, y es el GART.** Lo Paré porque `211` ya decía
 que el VMID 0 es el espacio del kernel, y `CONTEXT0` no podía ser otra cosa.
 
 **Miré el nombre de la función que contenía el bloque, y era `gmc_v8_0_gart_enable`,

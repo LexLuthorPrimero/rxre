@@ -2,12 +2,12 @@
 
 WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 
-> **CORREGIDO POR `113` y `114`.** La premisa `offsetof - 108` queda **REFUTADA**:
+> **CORREGIDO POR `218` y `219`.** La premisa `offsetof - 108` queda **REFUTADA**:
 > `dpm_table_start` es la base literal de la tabla. En consecuencia quedan **REFUTED**
 > `SMC_UVD_PATCH_WRONG_OFFSET`, `SMC_UVD_PATCH_HITS_BOOT_VDDC`,
 > `SMC_UVD_PATCH_DESTROYS_BOOT_VOLTAGE` y `SMC_PATCH_OFFSET_MIXES_REFERENCE_FRAMES`.
 >
-> **SE SOSTIENE, y `114` lo rederiva**: `SMC_VCE_PATCH_SAME_WORD` — los dos parches
+> **SE SOSTIENE, y `219` lo rederiva**: `SMC_VCE_PATCH_SAME_WORD` — los dos parches
 > apuntan al DWORD 394 (`1576..1579`), porque `offsetof` se usa como ancla de palabra y el
 > byte lo elige la mascara.
 >
@@ -136,7 +136,7 @@ valor que UVD acaba de escribir si corrieron en ese orden.
 ## Por que el desfase de 108
 
 La copia empieza en `SystemFlags` porque los **tres `SMU74_PIDController` del principio**
-(108 bytes) los escribe el firmware, no el host. `088` documento ese hueco: el host escribe
+(108 bytes) los escribe el firmware, no el host. `195` documento ese hueco: el host escribe
 `[108, 1884)` y el firmware deja `[0, 108)`.
 
 El firmware, que es quien de verdad coloca los campos, **conoce la disposicion del hueco**
@@ -153,7 +153,7 @@ linea de principio, con 108 bytes de desplazamiento.
 
 > **CORRECCION.** Una version anterior de esta seccion decia que solo Polaris10 y VegaM
 > tienen el hueco de los PID Controllers y que en Tonga, Iceland y CI la copia empieza en
-> offset 0. **Es falso**, y lo corrijo aqui lo mismo que en `104`.
+> offset 0. **Es falso**, y lo corrijo aqui lo mismo que en `211`.
 
 Medido: `offsetof(SystemFlags) = 108` en las cinco cabeceras (`smu71`, `smu72`, `smu73`,
 `smu74`, `smu75`), y las cinco rutas copian la tabla inicial **desde `SystemFlags`**:
@@ -205,7 +205,7 @@ No se si el firmware lee `BootVddc` para arrancar memoria: `SEMANTIC_MISSING`.
   firmware; `offsetof` es un offset en la struct del host, que no tiene los 108 bytes de
   `PIDController`. Sumarlos mezcla dos referencias.
 - `SMC_PID_HOLE_IS_7_4_PLUS = PROVEN_DERIVED`: es la disposicion `[0, 108)` que
-  documenta `088`; en las rutas donde la copia empieza en 0 el calculo acierta.
+  documenta `195`; en las rutas donde la copia empieza en 0 el calculo acierta.
 - `SMC_PATCH_ALIGNMENT_MASKS_THE_ERROR = PROVEN`: `/= 4; *= 4` con un desfase divisible
   por 4 no produce aviso.
 - `SMC_UVD_BOOT_LEVEL_NOT_UPDATED = PROVEN_DERIVED`: el campo que el parche queria
@@ -271,16 +271,16 @@ terminan en el **mismo DWORD** (`dpm_table_start + 1576`), como muestra la tabla
 O sea que en una transicion que ungatee ambos bloques, se ejecutan dos lecturas y dos
 escrituras sobre la misma palabra, y la segunda ve lo que puso la primera.
 
-> **ACTUALIZACION.** Esta pregunta ya no esta abierta: `105` la resuelve con evidencia
+> **ACTUALIZACION.** Esta pregunta ya no esta abierta: `212` la resuelve con evidencia
 > indirecta pero solida. La lectura de `PmFuses` en `:529` extrae cuatro bytes
 > consecutivos con los shifts que el layout exige, lo que prueba que el layout del host y
 > el del firmware coinciden byte a byte. De ahi se sigue la **lectura (A)**: los once
 > usos estan **desviados 108 bytes**. Estado `PROVEN_DERIVED`.
 
-## Su unicidad frente a la correccion de `104`
+## Su unicidad frente a la correccion de `211`
 
-`104` documento el mismo patron de desfase en **once** sitios, y concluyo que eran un
-fallo grave. Una version posterior de `104` lo corrige a **latente**, porque la copia
+`211` documento el mismo patron de desfase en **once** sitios, y concluyo que eran un
+fallo grave. Una version posterior de `211` lo corrige a **latente**, porque la copia
 completa de la tabla (`:2118`) va la ultima y sobrescribe lo que las copias parciales
 escribieron desviado.
 
@@ -308,7 +308,7 @@ rama ungate), `RUNTIME_MISSING` cuantas veces ocurre.
 documento.
 
 **El campo.** Mi cuenta fue `offsetof(UvdBootLevel) + 108 = 1684 = offsetof(BootVddc)`.
-Ese es el **mismo error** que corregi a mano en `104`, por cuarta vez:
+Ese es el **mismo error** que corregi a mano en `211`, por cuarta vez:
 
 - "el offset `X` de la struct esta en la posicion `X + 108` de la tabla" — **cierto**.
 - "la posicion `X` de la tabla contiene el offset `X` de la struct" — **falso**.

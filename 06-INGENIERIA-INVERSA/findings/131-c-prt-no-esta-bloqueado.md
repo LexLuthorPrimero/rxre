@@ -128,7 +128,7 @@ desmentir o confirmar, y se desmentiría leyendo el registro.**
 `099` estaba en `BLOCKED_BY_CONDICIÓN_DE_SESIÓN` con la explicación *"no hay
 observable"*. **Esa explicación era incorrecta: el observable es un registro.**
 
-**Y se acumula con `128`. Hay ahora un bloque de lectura que responde a más
+**Y se acumula con `229`. Hay ahora un bloque de lectura que responde a más
 preguntas abiertas que ninguna otra cosa del proyecto:**
 
 | registro | dirección | qué responde |
@@ -137,7 +137,7 @@ preguntas abiertas que ninguna otra cosa del proyecto:**
 | `VM_PRT_CNTL` | **`0x534`** | si PRT está activo; por qué se disparó pese a que el driver borra el flag |
 
 **Dos registros, ocho dwords en total, y contiguos en el mapa de GMC.** Con eso se
-pueden cerrar simultáneamente `099`, la última fila abierta de `128`, y la
+pueden cerrar simultáneamente `099`, la última fila abierta de `229`, y la
 pregunta de `130` sobre las particiones del L2 — **sin placa y sin nada que no sea
 un `RREG32`.**
 
@@ -180,8 +180,8 @@ configura — eso es `PROVEN`. Que la máquina genere faults por esa vía es
   le encuentra la dirección.
 - Sin MMIO write, sin lectura de MMIO, sin TLB, sin módulos, sin debugfs.
 - Encadenada con `099` (PRT bloqueado — esta nota lo reabre), `130` (el L1 guarda
-  un PTE por fragmento), `128` (los dos mecanismos de invalidate), `127`/`129`
-  (la caché de fragmentos), `105`/`092` (faults de VM).
+  un PTE por fragmento), `229` (los dos mecanismos de invalidate), `127`/`129`
+  (la caché de fragmentos), `212`/`207` (faults de VM).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 
 ## Nota de método

@@ -272,7 +272,7 @@ tiempo: es un límite del corpus, y hay que decirlo.
 - Encadenada con `140` (el mapa de direcciones, que da los números de VRAM y GART
   que esta nota usa), `139` (los bits de `ENABLE_L1_FRAGMENT_PROCESSING`),
   `137`/`138` (la configuración de TLB y L2), `136` (la cadena de coherencia),
-  `116` (BAR 256 MiB), `083` (`dst`).
+  `220` (BAR 256 MiB), `083` (`dst`).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 
 ## Nota de método

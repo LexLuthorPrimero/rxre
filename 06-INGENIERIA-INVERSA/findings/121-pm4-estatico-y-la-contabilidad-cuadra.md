@@ -93,7 +93,7 @@ reserva porque `usepfp` es falso (`gfx_v8_0.c:6194`, `:6210`). Una aritmética q
 el driver no documenta y que sale exacta por los tres lados.
 
 Esto **confirma por vía independiente** que `PFP_SYNC_ME` es condicional, que
-`110`Establishió leyendo el código.
+`215`Establishió leyendo el código.
 
 ## Y el `NUM_WREG` que sobraba no es un error
 
@@ -114,9 +114,9 @@ El multiplicador es del motor; el número de WREGs es el máximo. Sobrar por uno
 correcto. **No es un bug, y es el tipo de cosa que parece un bug** — por eso
 hacía falta medirlo en vez de leerlo.
 
-## Verificación independiente de `110`
+## Verificación independiente de `215`
 
-`110` cerró que la cabecera del `WAIT_REG_MEM` del vm-flush vale
+`215` cerró que la cabecera del `WAIT_REG_MEM` del vm-flush vale
 `0x00000000`, leyéndolo. Aquí sale **por evaluación de macros**, un mecanismo
 distinto:
 

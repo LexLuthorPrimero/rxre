@@ -90,9 +90,9 @@ ausencia: no he buscado lo suficiente.
 
 ## 5 · Corrección a `052 §5`
 
-`052` decía "la tabla tiene **112** vectores declarados". El número es correcto
+`193` decía "la tabla tiene **112** vectores declarados". El número es correcto
 como número de `#define`, pero induce a leer 112 como rango de valores posibles.
-La cifra correcta para el rango es **73**. No he editado `052`: su scope lo tiene
+La cifra correcta para el rango es **73**. No he editado `193`: su scope lo tiene
 otro proceso. Este documento lo deja corregido.
 
 ## Nota de proceso

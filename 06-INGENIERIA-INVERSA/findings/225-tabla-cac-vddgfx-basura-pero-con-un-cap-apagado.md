@@ -26,7 +26,7 @@ for (i = 0; i < vddc_lookup_pp_tables->ucNumEntries; i++) { /* escribe hasta la 
 (`:283` y `:292`), y `ucNumEntries` es un `UCHAR` del VBIOS: **0..255**.
 
 Un VBIOS con 17 o mas entradas escribe fuera de la reserva. El unico check es que no sea
-cero. **Es el mismo patron que `224` (antes `120`), y aqui es mas limpio**, porque las dos cantidades
+cero. **Es el mismo patron que `224` (antes `224`), y aqui es mas limpio**, porque las dos cantidades
 estan **en la misma funcion**, a cuatro lineas de distancia, y no hay ninguna que las ligue.
 
 **Parte 2 · lo que hace en MI placa esa tabla es basura, y no se lee.**
@@ -128,7 +128,7 @@ validacion. Y las tres son **cambios legitimos del PPT**: un firmware que quiera
 control de VDDGFX en esta placa tendria que poner el cap a 1, y si no regenerase la tabla
 CAC, el driver leeria 65282 mV y leeria ceros en los dos estados mas rapidos.
 
-Es el mismo patron del borde de `224` (antes `120`), visto desde el otro lado: **el formato y el host
+Es el mismo patron del borde de `224` (antes `224`), visto desde el otro lado: **el formato y el host
 estan emparejados sin holgura y sin validacion, y la seguridad viene de que hoy los dos
 lados encajan.**
 
@@ -171,7 +171,7 @@ lados encajan.**
 3. **Comprobar que un indice de una tabla cabe en la otra.** `ucVddInd` viene de una tabla y
    se usa para indexar otra, y **nadie mira que quepa**. Es la comprobacion de una linea mas
    con un mensaje claro.
-4. **Y la regla general, que es la de todo este bloque desde `224` (antes `120`):** *la seguridad no puede
+4. **Y la regla general, que es la de todo este bloque desde `224` (antes `224`):** *la seguridad no puede
    depender de que hoy los dos lados encajen.* Las tres validaciones que faltan aqui
    estan todas en el hueco entre **"el VBIOS declara"** y **"el driver lo usa"**. Ese hueco es
    el sitio donde tiene que estar el trabajo, y **no hay ninguna linea de codigo ahi**.

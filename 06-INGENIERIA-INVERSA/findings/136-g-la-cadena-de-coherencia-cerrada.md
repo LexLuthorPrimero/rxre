@@ -144,7 +144,7 @@ en el camino de escritura de page tables de esta GPU.**
 | Si el hardware acepta fragmento 9 o lo satura | **`NOT_PROVEN`** — un `RREG32` |
 
 **Lo que queda abierto es hardware, y las dos últimas filas son el mismo bloque de
-lectura de `128`/`131`:** `0x501` para el estado de la caché, `0x534` para PRT.
+lectura de `229`/`131`:** `0x501` para el estado de la caché, `0x534` para PRT.
 
 **Pero la parte de software de §G está cerrada, y eso es lo que AGENTS.md pedía:**
 *resolver `CPU ↔ page tables ↔ GPU ↔ TLB ↔ GPU caches` sin asumir coherencia por
@@ -161,8 +161,8 @@ PTE hasta el invalidate.**
 - Encadenada con `133` (el MTYPE no existe en GFX8), `132` (los flags),
   `130` (el L1 guarda un PTE por fragmento), `129` (la granularidad),
   `127` (la caché L2 — esta nota le responde la pregunta que abrió),
-  `128` (los mecanismos de invalidate), `116` (BAR 256 MiB, VRAM),
-  `085` (el flush obligatorio).
+  `229` (los mecanismos de invalidate), `220` (BAR 256 MiB, VRAM),
+  `194` (el flush obligatorio).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`.
 
 ## Nota de método

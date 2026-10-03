@@ -255,7 +255,7 @@ directo sobre si el dummy importa. **No requiere F1.**
 - Sin `RUNTIME`. Sin lectura de la GPU. Sin escrituras.
 - Encadenada con `094` (los tres `FENCE` del frame), `095` (los tres motores),
   `086` (BAR = 256 MiB), `072` (COND_EXEC, cuya cuenta está en el writeback),
-  `090` (§G, el grano del L2).
+  `205` (§G, el grano del L2).
 - Cierra los dominios 19 y 22 en su parte de software.
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`: son de otras sesiones.
 

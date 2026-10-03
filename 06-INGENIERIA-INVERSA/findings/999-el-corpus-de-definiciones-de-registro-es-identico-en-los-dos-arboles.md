@@ -16,7 +16,7 @@ El proyecto usa **dos árboles de fuente a la vez** y ya ha pagado por confundir
 - `RESEARCH/kernelbuild/linux-7.1.3` — 153 findings lo citan como `CORPUS`.
 - `rx550-upstream-7.2.8` — los hallazgos 012, 013, 023, 031, 114 lo citan como `CORPUS`.
 
-Los `126` y `127` registran el daño real: **citar números de línea de un árbol como
+Los `228` y `127` registran el daño real: **citar números de línea de un árbol como
 si fueran del otro produjo dos afirmaciones `REFUTED`**. Ninguno de los dos midió
 si el corpus de **definiciones de registro** —los ficheros que dan el valor de un
 offset y de una máscara— difiere entre ambos. Sin esa medición, una base de datos

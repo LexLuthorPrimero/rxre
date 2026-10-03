@@ -9,7 +9,7 @@ RUNTIME=NOT_RUN · GPU INTACTA
 
 ## Qué resuelve
 
-`103`/`104`/`106` cerraron `VM_INVALIDATE_REQUEST`: 16 bits, uno por dominio, el
+`210`/`211`/`213` cerraron `VM_INVALIDATE_REQUEST`: 16 bits, uno por dominio, el
 que escribe `gfx_v8_0_ring_emit_vm_flush`. `127` encontró por el otro lado
 `VM_L2_CNTL2.INVALIDATE_ALL_L1_TLBS`, que se dispara al habilitar el GART y
 pocas veces más.
@@ -36,7 +36,7 @@ registros.
 | B | todo a una vez | `VM_L2_CNTL2.INVALIDATE_ALL_L1_TLBS` | 1 | `gmc_v8_0_gart_enable`, y en reset |
 | C | la caché L2 | `VM_L2_CNTL2.INVALIDATE_L2_CACHE` | 1 | idéntico bloque |
 
-**A es el mecanismo de `103`/`104`/`106`. B y C son de init y reset.**
+**A es el mecanismo de `210`/`211`/`213`. B y C son de init y reset.**
 
 ## El interruptor: `DISABLE_INVALIDATE_PER_DOMAIN`
 
@@ -82,16 +82,16 @@ gmc_v8_0.c:863   WREG32(mmVM_L2_CNTL2, tmp);
 **El driver está preservando deliberadamente la configuración de reset de la caché
 de fragmentos, y sólo pulsa los dos disparadores.**
 
-## Consecuencia para `124`, que había dejado la pregunta abierta
+## Consecuencia para `226`, que había dejado la pregunta abierta
 
-`124` preguntó *qué caché, si alguna, está en el camino entre la L2 y la lectura
+`226` preguntó *qué caché, si alguna, está en el camino entre la L2 y la lectura
 del page walker*, y la dejó `NOT_DETERMINED` por hardware.
 
 **Hay un campo que se llama `PDE_CACHE_EFFECTIVE_SIZE`.** Bits 28-30, tres bits:
 siete valores posibles. **El hardware tiene una caché de PDEs con tamaño
 configurable, y el driver no la programa.**
 
-**Así que la respuesta a `124` tiene dos mitades, y las dos son útiles:**
+**Así que la respuesta a `226` tiene dos mitades, y las dos son útiles:**
 
 - **La caché existe** y hay un registro que la dimensiona. `PROVEN`.
 - **El driver no la toca.** `PROVEN`. El tamaño efectivo es el del reset, y no
@@ -107,7 +107,7 @@ explican por qué `L1157` fuerza el flush en GFX8.**
 `gfx_v8_0_ring_emit_vm_flush` es el mecanismo A, y **depende de un bit que el
 driver no programa.** Si el reset de esta GPU viniera con `DISABLE_INVALIDATE_PER_DOMAIN`
 a 1, el invalidate por dominio **no funcionaría**, y todo el camino de `§C`
-—`103`, `104`, `106`, `115`, `116`— estaría describiendo un mecanismo inactivo.
+—`210`, `211`, `213`, `115`, `220`— estaría describiendo un mecanismo inactivo.
 
 **Eso es la pregunta que ahora manda, y es de una lectura de registro.**
 
@@ -189,9 +189,9 @@ observable más rentable que queda en todo §C y §G.
 - Búsqueda de los siete campos en los 2787 ficheros del corpus con `grep -rn`, con
   el nombre de fichero.
 - Sin MMIO write, sin lectura de MMIO, sin TLB, sin módulos, sin debugfs.
-- Encadenada con `103`/`104`/`106` (el invalidate por VMID), `127` (la caché L2 de
-  fragmentos), `124`/`126` (la coherencia y su precio), `115`/`116` (marca de agua
-  y frecuencia), `085` (el flush obligatorio en GFX8).
+- Encadenada con `210`/`211`/`213` (el invalidate por VMID), `127` (la caché L2 de
+  fragmentos), `226`/`228` (la coherencia y su precio), `115`/`220` (marca de agua
+  y frecuencia), `194` (el flush obligatorio en GFX8).
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`. No se editó ningún header.
 
 ## Nota de método

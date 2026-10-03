@@ -27,7 +27,7 @@ realmente en el ring**.
 ## Primero, qué es `FUNCTION` (y no es lo que parecía)
 
 `FUNCTION` **no es un campo de `VM_INVALIDATE_REQUEST`**. Los 16 bits de ese
-registro son `INVALIDATE_DOMAIN_0..15` (y `104` ya lo verlo). `FUNCTION` es un
+registro son `INVALIDATE_DOMAIN_0..15` (y `211` ya lo verlo). `FUNCTION` es un
 selector del paquete **`WAIT_REG_MEM`**:
 
 ```
@@ -124,14 +124,14 @@ comparaciones reales, no esperas vacías.**
 ## Por qué `always` no aparece en operación normal
 
 `gfx_v8_0.c:6199-6202` está en `ring_emit_vm_flush` — es la emisión de
-`068`/`085`/`103`. **Sólo se emite cuando hay un invalidate de TLB**, que en esta
-GPU es un evento raro (`085`utes que en GFX8 cada actualización de page table lo
+`068`/`194`/`210`. **Sólo se emite cuando hay un invalidate de TLB**, que en esta
+GPU es un evento raro (`194`utes que en GFX8 cada actualización de page table lo
 exige, pero las actualizaciones son infrecuentes).
 
 **Los 8 paquetes observados son de `gfx_v8_0.c:6047`, que es el emisor de la
 espera de CP**, no del invalidate. Durante mi captura no hubo un flush de TLB.
 
-**Eso es consistente con `085`**: el invalidate es obligatorio *cuando hay una
+**Eso es consistente con `194`**: el invalidate es obligatorio *cuando hay una
 actualización de page table*, no en cada frame.
 
 ## Lo que esto cierra y lo que no
@@ -145,7 +145,7 @@ actualización de page table*, no en cada frame.
 | Las otras 5 nunca se emiten | `PROVEN_ABSENT` |
 | En el ring vivo: 8 de 8 con `FUNCTION=3` | **`OBSERVED`** |
 | Los observados son `EQUAL`+`WR_WAIT_WR_REG`+`pfp` | **`OBSERVED`** |
-| Provienen de `gfx_v8_0.c:6047` | **`CORROBORATED`** — ver `109` |
+| Provienen de `gfx_v8_0.c:6047` | **`CORROBORATED`** — ver `214` |
 | No son condiciones vacuas | `OBSERVED` |
 | `always` con `ref=0, mask=0` no compara nada | `PROVEN` (`017`) |
 | **Qué hace el hardware al recibir `always`** | **`NOT_DETERMINED`** |
@@ -178,8 +178,8 @@ razonamiento, y **por eso no es un atajo documental: esDiscriminante runtime**.
 - **CONFOUNDER**: `debugfs` es sólo lectura aquí (a diferencia de
   `amdgpu_fence_info`, `098`). El volcado del ring no ejecuta nada.
 - Corrige/completa `017`, que es de otra sesión: **lo informo, no lo edito.**
-- Encadenada con `017` (encoding y el `ref=0/mask=0`), `068`/`085` (el emitter),
-  `103`/`104` (el invalidate), `097` (el volcado del ring).
+- Encadenada con `017` (encoding y el `ref=0/mask=0`), `068`/`194` (el emitter),
+  `210`/`211` (el invalidate), `097` (el volcado del ring).
 - Cierra el ítem explícito de `AGENTS.md` L413.
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`: son de otras sesiones.
 

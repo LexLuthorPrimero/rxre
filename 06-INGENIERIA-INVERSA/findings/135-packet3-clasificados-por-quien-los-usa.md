@@ -146,7 +146,7 @@ de E1 son "el hardware *podría*", no "el hardware *puede*". Para convertirlo
 en capacidad real hace falta una lista de capacidad por ASIC, y **no está en el
 corpus**.
 
-Es la misma trampa que `112` documentó con las cabeceras: un header
+Es la misma trampa que `217` documentó con las cabeceras: un header
 desgenerado por el ASIC es un mapa de posibilidades, no un inventario de lo que
 esta placa tiene.
 
@@ -201,7 +201,7 @@ esta placa tiene.
   firmware, se convierte `NOT_DETERMINED` en `PROVEN`. Es la frontera que
   bloquea la capacidad real.
 - **`sid.h` no es un inventario**: hay que decirlo cada vez que se cite como
-  "lo que el hardware tiene", o se repite el error de `112` a escala.
+  "lo que el hardware tiene", o se repite el error de `217` a escala.
 
 ## Evidencia
 

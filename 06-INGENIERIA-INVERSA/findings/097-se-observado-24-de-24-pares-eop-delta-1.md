@@ -207,7 +207,7 @@ dijo que está en RAM del sistema y es legible sin TLB. **Y eso sí cerraría el
   tocó, y por eso esto no es F1.
 - Encadenada con `096` (la que esto verifica), `094` (los 3 FENCE del frame),
   `095` (PFP_SYNC_ME, observado 8 veces), `068` (COND_EXEC, observado 16),
-  `083`/`090` (§G).
+  `083`/`205` (§G).
 - Corrige una suposición mía anterior sobre el opcode del EOP.
 - No se editó `AGENTS.md` ni `OPEN-FRONTIERS.md`: son de otras sesiones.
 

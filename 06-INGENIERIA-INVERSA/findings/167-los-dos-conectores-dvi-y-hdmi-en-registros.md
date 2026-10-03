@@ -99,10 +99,10 @@ programa profundidad de color, el DVI no puede.** `PROVEN_DERIVED`.
 
 ### Error 1 — «el código es de DCE 11.0, no de esta GPU» → **`REFUTED`**
 
-Ya lo refutó `156` y lo confirmó `159`: `dce112_resource.c:519` construye un
+Ya lo refutó `232` y lo confirmó `159`: `dce112_resource.c:519` construye un
 `dce110_stream_encoder` con el constructor de DCE 11.0, y los cinco constructores de ese
 fichero son `dce110_*`. **El helper y los tres setters están en el camino de esta
-máquina.** `156` y `159` stands.
+máquina.** `232` y `159` stands.
 
 ### Error 2 — «la semántica del bit es otra» → **`CONFIRMADO`, y nunca fue refutado**
 
@@ -217,8 +217,8 @@ valor que significa no cambiarlo.** `PROVEN_DERIVED`.
 
 **Y la primera rama es la de los chips sin `HDMI_DATA_SCRAMBLE_EN`:**
 `if (!enc110->se_mask->HDMI_DATA_SCRAMBLE_EN)`. **Dos centinelas distintos en el mismo
-`if / else if`:** la máscara de campo de `156` en la condición del `if`, y la dirección de
-registro de `156` en la del `else if`. `PROVEN_DERIVED`.
+`if / else if`:** la máscara de campo de `232` en la condición del `if`, y la dirección de
+registro de `232` en la del `else if`. `PROVEN_DERIVED`.
 
 ## Lo que NO cierra
 
@@ -232,7 +232,7 @@ registro de `156` en la del `else if`. `PROVEN_DERIVED`.
 | Décimo punto de contacto con firmware | `PROVEN_DERIVED` |
 | DVI: sólo RGB de 8 bits, y por `ASSERT` | `PROVEN` |
 | HDMI: cuatro profundidades de color, codificadas 0 a 3 | `PROVEN` |
-| `148` error 1: el código es de DCE 11.0 | **`REFUTED`** por `156` y `159` |
+| `148` error 1: el código es de DCE 11.0 | **`REFUTED`** por `232` y `159` |
 | `148` error 2: la semántica es YCbCr 4:2:2 | **`CONFIRMADO`**, nunca refutado |
 | `148`: el bit 4 y la máscara 0x10 | `PROVEN_DERIVED` |
 | `148` `PROVEN_ABSENT`: conclusión certa, prueba del fichero erróneo | `PROVEN_DERIVED` |
@@ -251,7 +251,7 @@ y `NOT_DETERMINED` del lado de la placa.
 
 ## Procedencia
 
-- `STATIC` -- `display/dc/dce/dce_stream_encoder.c:267-330` (setter de DP, de `156`),
+- `STATIC` -- `display/dc/dce/dce_stream_encoder.c:267-330` (setter de DP, de `232`),
   `:505-531` (el helper completo, con su `if / else if` sobre `TMDS_CNTL` y
   `DIG_FE_CNTL`), `:534-596` (el setter de HDMI completo, con su llamada al BIOS, su
   `if / else if` de `HDMI_CONTROL` y su `switch` de profundidad de color),
@@ -261,7 +261,7 @@ y `NOT_DETERMINED` del lado de la placa.
   `:116-117` (`SE_SF`), `:307-313` (la macro `SE_COMMON_MASK_SH_LIST_DCE112`, con
   `HDMI_CLOCK_CHANNEL_RATE` y `HDMI_DATA_SCRAMBLE_EN` en `:310-311` y
   `DIG_FE_CNTL` en `:312-313`); `display/dc/resource/dce112/dce112_resource.c:513-519`
-  (de `156`), y las dos ocurrencias de `SE_COMMON_MASK_SH_LIST_DCE112` en ese fichero;
+  (de `232`), y las dos ocurrencias de `SE_COMMON_MASK_SH_LIST_DCE112` en ese fichero;
   `include/asic_reg/dcn/dcn_3_2_1_sh_mask.h:28826-28838` (el único sitio del árbol donde
   existe `DIG_FE_CNTL__TMDS_PIXEL_ENCODING_MASK`, con shift `0x1c` y máscara
   `0x10000000`).
@@ -285,7 +285,7 @@ y `NOT_DETERMINED` del lado de la placa.
 - Encadenada con `166` (**los dos conectores que existen, y aquí los registros que
   escribirían**), `160` (**los 4 carriles, y aquí que el HDMI los usa y que el `8` del
   enum es el DVI doble enlace**), `158` (los cuatro setters, y aquí sus cuerpos),
-  `157` (la tabla y la cobertura del 58%), `156` (**los dos centinelas —máscara de campo
+  `157` (la tabla y la cobertura del 58%), `232` (**los dos centinelas —máscara de campo
   y dirección de registro— en un solo `if / else if`**), `155` (DCE 11.2 y la lista
   `DCE112` de 91 de 130), `154` (el `connector_signal` que se le pasa al BIOS),
   `153` (los siete paths), `150` (el enum de señal, del que salen los cuatro `cntl.signal`).
