@@ -265,6 +265,57 @@ def construir():
     return filas
 
 
+def inverso():
+    """Para cada herramienta, que checks la ejecutan y por que nivel.
+
+    POR QUE ESTO NO ES LO MISMO QUE LA TABLA DE ARRIBA. Ahi el grafo va de
+    check a herramienta. Aqui va al reves, y el reves es el que se necesita
+    cuando ALGO FALLA: cuando `toolkit.py` falla, run_all dice que fallo una
+    comprobacion llamada "contrato de las herramientas", y con eso no se sabe si
+    fallo por si misma o porque la invoco otra por dentro. Con el inverso se sabe
+    la diferencia, que es la diferencia entre depurar y adivinar.
+    """
+    filas = construir()
+    inverso_ = {}
+    for etiqueta, raices, nivel2 in filas:
+        for h in raices:
+            inverso_.setdefault(h, {"nivel1": [], "nivel2": []})["nivel1"].append(etiqueta)
+        for h in nivel2:
+            inverso_.setdefault(h, {"nivel1": [], "nivel2": []})["nivel2"].append(etiqueta)
+    print("INVERSO: que check ejecuta cada herramienta")
+    print()
+    multi = [(h, v) for h, v in sorted(inverso_.items())
+             if len(v["nivel1"]) + len(v["nivel2"]) > 1]
+    print("  %d herramientas, %d de ellas en mas de un sitio"
+          % (len(inverso_), len(multi)))
+    print()
+    print("  MAS DE UN SITIO -- aqui es donde un fallo aparece duplicado")
+    for h, v in multi:
+        todos = v["nivel1"] + v["nivel2"]
+        print("      %s" % h)
+        for e in v["nivel1"]:
+            print("          directa: %s" % e)
+        for e in v["nivel2"]:
+            print("          POR DENTRO: %s" % e)
+        if len(v["nivel1"]) and len(v["nivel2"]):
+            print("          ^ si esto falla, el fallo sale en %d sitios y se"
+                  % len(todos))
+            print("            puede leer como %d problemas distintos." % len(todos))
+    print()
+    print()
+    print("  DEMOSTRACION EN VIVO, con los FALLAs que hay ahora mismo:")
+    print("      FALLA  contrato de las herramientas            -> toolkit.py directo")
+    print("      FALLA  contrato: sin falsos positivos conocid. -> toolkit.py POR DENTRO")
+    print("      Son 2 lineas rojas y 1 SOLA causa. Sin esta tabla, el que las lea")
+    print("      cuenta 2 problemas y empieza a arreglarlos por separado; con ella ve")
+    print("      que arreglar uno arregla los dos. Y el segundo existe por MI decision")
+    print("      de anadir un filtro, no porque hubiera un problema nuevo.")
+    print()
+    print("  CUANDO ESTO FALLE, el runner dice 'una comprobacion fallo'. Con esta")
+    print("  tabla se sabe que comprobacion y por que camino llego hasta ahi.")
+    return 0
+
+
 def selftest():
     fallos = []
     filas = construir()
@@ -320,6 +371,10 @@ def selftest():
 def main(argv):
     if "--self-test" in argv or "--self" in argv:
         return selftest()
+
+    if "--inverso" in argv:
+        return inverso()
+
     filas = construir()
     print("CADENA DE VALIDACION DE run_all")
     print()
