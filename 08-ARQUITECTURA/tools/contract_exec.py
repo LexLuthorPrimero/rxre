@@ -285,6 +285,56 @@ def sha1(herramienta):
 def main(argv):
     if "--self-test" in argv or "--self" in argv:
         return selftest()
+    if "--vigilar" in argv or "--fijar-vigila" in argv:
+        # POR QUE ESTO Y NO SOLO --origen. El hash ya salia, y ya habia pagado una
+        # vez: bench.py cambio dos veces en dos iteraciones (L725 -> L853). Pero
+        # solo servia si alguien se acordaba de mirar. Un dato que hay que ir a
+        # buscar no vigila nada.
+        #
+        # Aqui el hash se COMPARA con el de la ultima ejecucion y el runner lo
+        # ejecuta siempre. Eso convierte una convencion en una invariante: el
+        # aviso llega solo.
+        import json
+        base = os.path.join(TOOLS, "contract_exec.vigila.json")
+        actual = {}
+        for f in sorted(os.listdir(TOOLS)):
+            if f.endswith(".py"):
+                filas = clasificar(f)
+                if filas:
+                    actual[f] = sha1(f)
+        if "--fijar-vigila" in argv:
+            with open(base, "w", encoding="utf-8") as fh:
+                json.dump(actual, fh, indent=1, sort_keys=True)
+            print("vigila fijada con %d ficheros" % len(actual))
+            return 0
+        try:
+            with open(base, encoding="utf-8") as fh:
+                previo = json.load(fh)
+        except (OSError, ValueError):
+            print("no hay vigilia registrada: ejecuta --fijar-vigila")
+            return 2
+        cambiados = [f for f in actual if previo.get(f) not in (None, actual[f])]
+        nuevos = [f for f in actual if f not in previo]
+        print("VIGILIA DE HASHES: %d ficheros con escrituras clasificadas"
+              % len(actual))
+        print()
+        if not cambiados and not nuevos:
+            print("  sin cambios desde la ultima medicion: las cifras siguen")
+            print("  aplicando a estos ficheros.")
+            return 0
+        print("  ** %d FICHERO(S) CAMBIARON DESDE LA ULTIMA MEDICION **"
+              % len(cambiados))
+        print("  Las cifras que se midieron sobre ellos YA NO APLICAN, aunque")
+        print("  el numero no se haya movido.")
+        for f in cambiados:
+            print("      %-22s %s -> %s" % (f, previo.get(f), actual[f]))
+        for f in nuevos:
+            print("      %-22s NUEVO (no estaba en la medicion anterior)" % f)
+        print()
+        print("  Esto NO es un fallo: es un cambio. Lo que no es admisible es que")
+        print("  el cambio pase inadvertido, porque entonces el hallazgo sigue")
+        print("  citando un fichero que ya no es ese.")
+        return 1
     if "--fragmento" in argv:
         # LO QUE HACE, Y POR QUE EXISTE. Escribir el hash en la salida de la
         # herramienta no sirve de nada si el hallazgo no lo lleva: un dato que

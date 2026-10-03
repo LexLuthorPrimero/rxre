@@ -376,6 +376,14 @@ def main():
         # rc=3 y no 1: hoy el unico caso (bench.py) NO esta versionado, y cambiar
         # el contrato de otra sesion para que deje de salir seria cambiar una
         # declaracion para silenciar un validador. El 3 lo dice sin tocar nada.
+        # AVISA SOLO. Compara los hashes de los ficheros clasificados con los de
+        # la ultima ejecucion, y avisa si alguno cambio. rc=1 y no es un fallo: es
+        # un cambio. Lo que no es admisible es que pase inadvertido, porque
+        # entonces un hallazgo sigue citando un fichero que ya no es ese.
+        # rc esperado 0 en el caso normal; si sale 1, LEERLO antes de fiarse de
+        # cualquier cifra medida sobre esos ficheros.
+        ("vigilia: ningun fichero clasificado ha cambiado",
+         ["contract_exec.py", "--vigilar"], 0, 0),
         ("capacidad: WRITES_GPU declarado sin uso",
          ["contract_exec.py", "--capacidad"], 3, 3),
         ("commitmsg_lint: sin residuos en 25 mensajes",
