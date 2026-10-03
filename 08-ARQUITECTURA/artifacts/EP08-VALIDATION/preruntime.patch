@@ -1,0 +1,109 @@
+--- 03-EXPERIMENTOS/ep08-doorbell-suppression/preruntime.sh	2026-10-03 14:48:51.515350391 -0300
++++ 08-ARQUITECTURA/artifacts/EP08-VALIDATION/preruntime.sh.repaired	2026-10-03 14:49:04.014478545 -0300
+@@ -45,10 +45,59 @@
+ readonly NHWA_OFF_PCI_VENDOR=60
+ readonly NHWA_OFF_PCI_DEVICE=62
+ 
++# ---Reparacion EP08-REPAIR 2026-10-03: el script USA $NHWA_OFF_PCI_SUB_VEN,
++# $NHWA_OFF_PCI_SUB_DEV y $NHWA_OFF_PCI_REVISION y no existian. Con `set -u`
++# eso es un error fatal. Los tres se declaran aqui.
++#
++# PROVENIENCIA, y es DISTINTA de la de las constantes de identidad de arriba:
++# estos tres no son identidad de la placa, son POSICIONES DE CAMPO en
++# struct pci_dev. Se han medido HOY sobre el BTF del modulo en ejecucion:
++#   /sys/kernel/btf/vmlinux   struct pci_dev
++#   subsystem_vendor  offset 64   (2 bytes, short)
++#   subsystem_device  offset 66   (2 bytes, short)
++#   revision          offset 72   (1 byte,  u8)
++# y se declaran con fecha a proposito: son una LINEA BASE, y lo que el guard
++# tiene que detectar es que se muevan. Fijarlas hoy es lo que las hace utiles
++# mañana. Rellenarlas con la identidad de la placa habria sido circular; esto
++# no lo es, porque la pregunta que responden es otra.
++readonly NHWA_OFF_PCI_SUB_VEN=64
++readonly NHWA_OFF_PCI_SUB_DEV=66
++readonly NHWA_OFF_PCI_REVISION=72
++
++# $NHWA_OFF_ASIC_TYPE lo USA el script en P8 y no existia; el valor ya estaba
++# declarado arriba con otro nombre. Se declara como alias, NO como otro numero:
++# dos literales iguales en dos sitios pueden divergir sin que nada lo note, y
++# este harness ya ha demostrado que leen mal los campos que compara.
++readonly NHWA_OFF_ASIC_TYPE="$NHWA_ASIC_TYPE_OFFSET"
++
+ # Identidad PCI EXACTA del dispositivo objetivo (ver PRE2).
+ readonly TARGET_PCI_VENDOR="0x1002"
+ readonly TARGET_PCI_DEVICE="0x699f"
+ 
++# ---Reparacion EP08-REPAIR 2026-10-03: estas cuatro las USA el script desde la
++# linea 153 y NO existian. Bajo `set -u` su ausencia es un error fatal, no un
++# valor vacio, y por eso el harness abortaba en P2 antes de medir nada.
++#
++# PROVENIENCIA, que es lo que las hace no circulares:
++#   TARGET_PCI_SUB_VEN/DEV  HARDWARE-FINGERPRINT.md:60  SUBSYS 0x1002:0x0b04
++#                           + snapshot del proyecto hermano 2026-09-19 08:52:36
++#                             (sha256 92d0c378ee366044a74f7480d0457224fa9fb64cf3606c3678c4c212ea430b32)
++#                             linea 84: "Subsystem: ... [1002:0b04]"
++#   TARGET_PCI_REVISION     HARDWARE-FINGERPRINT.md:59  REVISION 0xc7
++#                           + el mismo snapshot, linea 83: "(rev c7)"
++#   TARGET_MODALIAS         DERIVADO por composicion de los cuatro campos de
++#                           arriba, NO observado. Por eso su comprobacion es de
++#                           COHERENCIA entre campos, no de identidad: sirve para
++#                           que los cinco coincidan entre si, no para anadir un
++#                           quinto dato independiente.
++#
++# NO se han leido del sysfs de hoy. Leerlos ahi seria responder "¿es esta la
++# placa?" con la placa que hay ahora.
++readonly TARGET_PCI_SUB_VEN="0x1002"
++readonly TARGET_PCI_SUB_DEV="0x0b04"
++readonly TARGET_PCI_REVISION="0xc7"
++readonly TARGET_MODALIAS="pci:v00001002d0000699Fsv00001002sd00000B04bc03sc00i00"
++
+ # Prefijo de texto que constitutes la ÚNICA evidencia válida de ejecución
+ readonly TEST_PASS_LITERAL="ib ring tests passed."
+ 
+@@ -166,6 +215,15 @@
+     || die "P2 FAIL: el driver enlazado no es amdgpu"
+   info "P2 driver:      amdgpu OK"
+ 
++  # P2.5 root. Las precondiciones siguientes (P3-P7) leen /sys/kernel/debug/dri,
++  # que es root-only, y las PHASE 6/7/8 hacen insmod/rmmod. El harness exigia
++  # root en cinco sitios y no lo comprobaba en ninguno: sin privilegio el
++  # fallo es "Permiso denegado" en P4, que no lleva a nadie a la causa.
++  # Comprobado aqui porque es la unica precondicion que se ANADE, no se corrige.
++  [ "$(id -u)" -eq 0 ] || die "P2.5 FAIL: este harness necesita root (lee debugfs y hace insmod).
++     id -u = $(id -u). Sin sudo el fallo aparecera en P4, no aqui."
++  info "P2.5 root:        OK (uid 0)"
++
+   # P3 debugfs montado
+   mountpoint -q /sys/kernel/debug || die "P3 FAIL: debugfs no montado"
+   info "P3 debugfs:       montado"
+@@ -188,7 +246,7 @@
+   # P8 OFFSET GUARD — el guard real
+   local off
+   off=$(pahole -C amdgpu_device /sys/kernel/btf/amdgpu 2>/dev/null \
+-        | awk '/no_hw_access/ {print $(NF-1)}')
++        | awk '/no_hw_access/ {print $(NF-2)}')
+   info "P8 no_hw_access:  $off (esperado $NHWA_OFFSET_EXPECTED)"
+   if [ "$off" != "$NHWA_OFFSET_EXPECTED" ]; then
+     die "INVALID_PRECONDITION — offset de no_hw_access cambió a '$off'.
+@@ -201,14 +259,14 @@
+ 
+   # offsets de la cadena de identidad, que el pre_handler también usa
+   local a_pdev a_asic p_ven p_dev
+-  a_pdev=$(pahole -C amdgpu_device /sys/kernel/btf/amdgpu 2>/dev/null | awk '/struct pci_dev \*/{print $(NF-1); exit}')
+-  a_asic=$(pahole -C amdgpu_device /sys/kernel/btf/amdgpu 2>/dev/null | awk '/\<asic_type\>/{print $(NF-1); exit}')
+-  p_ven=$(pahole -C pci_dev /sys/kernel/btf/vmlinux 2>/dev/null | awk '/\<vendor\>/{print $(NF-1); exit}')
+-  p_dev=$(pahole -C pci_dev /sys/kernel/btf/vmlinux 2>/dev/null | awk '/\<device\>/{print $(NF-1); exit}')
++  a_pdev=$(pahole -C amdgpu_device /sys/kernel/btf/amdgpu 2>/dev/null | awk '/struct pci_dev \*/{if (!s) {print $(NF-2); s=1}}')
++  a_asic=$(pahole -C amdgpu_device /sys/kernel/btf/amdgpu 2>/dev/null | awk '/\<asic_type\>/{if (!s) {print $(NF-2); s=1}}')
++  p_ven=$(pahole -C pci_dev /sys/kernel/btf/vmlinux 2>/dev/null | awk '/\<vendor\>/{if (!s) {print $(NF-2); s=1}}')
++  p_dev=$(pahole -C pci_dev /sys/kernel/btf/vmlinux 2>/dev/null | awk '/\<device\>/{if (!s) {print $(NF-2); s=1}}')
+   local p_sven p_sdev p_rev
+-  p_sven=$(pahole -C pci_dev /sys/kernel/btf/vmlinux 2>/dev/null | awk '/subsystem_vendor/{print $(NF-1); exit}')
+-  p_sdev=$(pahole -C pci_dev /sys/kernel/btf/vmlinux 2>/dev/null | awk '/subsystem_device/{print $(NF-1); exit}')
+-  p_rev=$(pahole -C pci_dev /sys/kernel/btf/vmlinux 2>/dev/null | awk '/\<revision\>/{print $(NF-1); exit}')
++  p_sven=$(pahole -C pci_dev /sys/kernel/btf/vmlinux 2>/dev/null | awk '/subsystem_vendor/{if (!s) {print $(NF-2); s=1}}')
++  p_sdev=$(pahole -C pci_dev /sys/kernel/btf/vmlinux 2>/dev/null | awk '/subsystem_device/{if (!s) {print $(NF-2); s=1}}')
++  p_rev=$(pahole -C pci_dev /sys/kernel/btf/vmlinux 2>/dev/null | awk '/\<revision\>/{if (!s) {print $(NF-2); s=1}}')
+   info "P8 pdev=$a_pdev  asic_type=$a_asic  pci.vendor=$p_ven  pci.device=$p_dev"
+   [ "$a_pdev" = "$NHWA_OFF_PDEV" ]      || die "INVALID_PRECONDITION — pdev ($a_pdev) != $NHWA_OFF_PDEV"
+   [ "$a_asic" = "$NHWA_OFF_ASIC_TYPE" ] || die "INVALID_PRECONDITION — asic_type ($a_asic) != $NHWA_OFF_ASIC_TYPE"
