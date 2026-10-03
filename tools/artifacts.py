@@ -541,11 +541,20 @@ def gen_open_frontiers(root: str, ind: Indice) -> str:
             "`SIN_PISTAS` son los unicos que ningun texto del proyecto dice"
             " como cerrar.", "",
             "## Los huecos", "",
-            "| finding | linea | clase | via | fuerza | marca | registros |",
-            "|---|---|---|---|---|---|---|"]
-    for x in sorted(filas, key=lambda y: (y[0], y[2])):
-        out.append("| %s | %d | `%s` | `%s` | %d | %s | %s |"
-                   % (x[0], x[2], x[3], x[4], x[5], x[6],
+            # LA COLUMNA `fichero` NO ES COSMETICA. El numero de hallazgo NO es
+            # unico: hay 74 numeros con dos o tres ficheros, y sin el nombre la
+            # fila "050 | 110" no identifica que fichero es. Medido el 2026-10-03:
+            # 25 de las 93 filas SIN_PISTAS tienen el numero colisionado, o sea
+            # que una de cada cuatro no se puede atribuir ni leer.
+            #
+            # El dato estaba: `frontier.py` mete `documento` en cada hueco desde
+            # la linea 193, y `filas` lo traia en x[1] desde siempre. Solo faltaba
+            # imprimirlo.
+            "| finding | fichero | linea | clase | via | fuerza | marca | registros |",
+            "|---|---|---|---|---|---|---|---|"]
+    for x in sorted(filas, key=lambda y: (y[0], y[1], y[2])):
+        out.append("| %s | `%s` | %d | `%s` | `%s` | %d | %s | %s |"
+                   % (x[0], x[1], x[2], x[3], x[4], x[5], x[6],
                       ", ".join("`%s`" % r for r in x[7]) or "-"))
     out += ["",
             "Obsoletos declarados por el propio findings: %d."
@@ -1210,7 +1219,7 @@ def selftest() -> int:
     return 0
 
 
-def main() -> int:
+def main(argv=None) -> int:
     ap = argparse.ArgumentParser(
         description="genera los artefactos de AGENTS.md y audita referencias internas")
     ap.add_argument("--escribir", action="store_true",
@@ -1219,7 +1228,7 @@ def main() -> int:
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--solo-referencias", action="store_true")
     ap.add_argument("--selftest", action="store_true")
-    args = ap.parse_args()
+    args = ap.parse_args(argv[1:])
 
     if args.selftest:
         return selftest()
@@ -1397,4 +1406,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv))
