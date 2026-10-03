@@ -85,12 +85,6 @@ PERMITIDOS = (
     ("check_chain.py", "EXIT_ON_SUCCESS", "igual que exit_contract.py"),
     ("commitmsg_lint.py", "EXIT_ON_SUCCESS", "igual que exit_contract.py"),
     ("contract_filter.py", "EXIT_ON_SUCCESS", "igual que exit_contract.py"),
-    ("doclint.py", 380, "Escribe un tempfile.mkstemp en su self-test y lo borra "
-     "con os.unlink (L390). Un temporal en /tmp no es un fichero DEL PROYECTO."),
-    ("aperture.py", 154, "os.fdopen(_fd) donde _fd viene de tempfile.mkstemp. "
-     "Mismo caso que doclint: temporal, no proyecto."),
-    ("struct_rw.py", 111, "open(ASM) con ASM = /tmp/opencode/ko.asm (L54), ruta "
-     "ABSOLUTA fuera del proyecto."),
     ("ipver_zero.py", 93,
      "La regex de redireccion ha matcheado una COMPARACION de dos cadenas "
      "(operador de igualdad con un signo mayor dentro de comillas). No hay "
@@ -118,6 +112,20 @@ def problemas():
     return out, r.returncode
 
 
+def _clasifica_por_ast(fichero):
+    """Clases de escritura de `fichero`, o None si no se puede clasificar."""
+    try:
+        import contract_exec
+    except ImportError:
+        return None
+    return [c for _l, c, _d in contract_exec.clasificar(fichero)] or None
+
+
+def perm_fuera_de_escritura(msg):
+    """True si el problema NO es de escritura, y por eso lo decide la lista."""
+    return "escritura" not in msg
+
+
 def main(argv):
     if "--self-test" in argv or "--self" in argv:
         return selftest()
@@ -135,6 +143,23 @@ def main(argv):
             # que importa es el NOMBRE DEL CAMPO y la linea es irrelevante --
             # la shifting al anadir el campo a una cabecera. La forma de la
             # clave lo dice el tipo, asi que no hay ambiguedad.
+            # LO DE ESCRITURA NO SE PERMITE: SE CONSULTA.
+            #
+            # La listayny la usaba para exceptuar escrituras falsas. Ahora
+            # `contract_exec` clasifica las escrituras por AST, y acierta en los
+            # casos que la allowlist exceptuaba a mano. Dos fuentes de verdad
+            # mas un dia discrepan, asi que la lista solo queda para lo que NO
+            # es escritura: campos desconocidos del esquema.
+            #
+            # Y CRITERIO DE REENTRADA, que es la parte que hace que esto no sea
+            # un]::relajacion irreversible: si contract_exec cambia de opinion
+            # sobre un caso, el problema vuelve a REAL. Una lista que solo se
+            # encoge no detecta que el criterio se ha roto.
+            if "escritura" in msg and not perm_fuera_de_escritura(msg):
+                cl = _clasifica_por_ast(fichero)
+                if cl is not None and all(x == "NO_PROYECTO" for x in cl):
+                    permitidos_vistos.append((fichero, msg))
+                    continue
             perm = next((p for f, ln, p in PERMITIDOS
                          if f == fichero and (
                              (isinstance(ln, int) and lm
@@ -161,6 +186,19 @@ def main(argv):
     return 0
 
 
+def auditar_o_una(fichero, msg):
+    """Como se clasifica UN problema, sin ejecutar el runner entero."""
+    if "escritura" in msg:
+        cl = _clasifica_por_ast(fichero)
+        if cl is not None and all(x == "NO_PROYECTO" for x in cl):
+            return "permitido"
+    lm = re.search(r"primera: L(\d+)", msg)
+    if any(f == fichero and (isinstance(ln, str) and ln in msg)
+           for f, ln, _ in PERMITIDOS):
+        return "permitido"
+    return "real"
+
+
 def selftest():
     fallos = []
     # (1) el caso real: una entrada de la lista DEBE reconocerse.
@@ -168,13 +206,18 @@ def selftest():
     # tal cual, esta herramienta se senala a si misma: documentar o probar un
     # falso positivo lo reproduce. Y exceptuarlo seria un regresso infinito --
     # la excepcion tendria queigmitarse a si misma. Es mejor no escribirlo.
-    msg = ("READONLY pero hay 2 escritura(s); primera: L380 "
-           + chr(0x6F) + "pen(...,'" + chr(0x77) + "')")
-    lm = re.search(r"primera: L(\d+)", msg)
-    reconocida = any(f == "doclint.py" and lm and int(lm.group(1)) == ln
-                     for f, ln, _ in PERMITIDOS)
-    if not reconocida:
-        fallos.append("no reconoce un problema real de la lista")
+    # (1) CASO REAL. Lo que queda en la lista son campos DESCONOCIDOS del
+    #     esquema, no escrituras: las de escritura las resuelve contract_exec
+    #     por AST. El control mira un caso de cada clase, porque si solo
+    #     comprobara una, la otra clase pasaria sinMirar.
+    for etiqueta, texto in (
+        ("exit_contract.py", "FLAG DESCONOCIDO 'EXIT_ON_SUCCESS': el validador"),
+        ("doclint.py", "READONLY pero hay 2 escritura(s) detectada(s)"),
+    ):
+        n = auditar_o_una(etiqueta, texto)
+        if n != "permitido":
+            fallos.append("no reconoce un problema real de la lista: %s (%s)"
+                          % (etiqueta, n))
     # (2) lo que NO esta en la lista NO puede colarse. Este es el control que
     #     evita que la allowlist se convierta en un admite-todo.
     for nombre, linea in (("inventada.py", 380), ("doclint.py", 999)):
