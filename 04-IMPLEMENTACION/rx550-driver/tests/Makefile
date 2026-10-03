@@ -36,12 +36,27 @@ GMC=../../../RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/include/asic_r
 
 AMDGPU=../../../RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/amdgpu
 
-# test_mem queda FUERA de la cola: Q2 lo esta escribiendo otra sesion en este
-# mismo workspace y su test_mem.c esta a medio escribir (no incluye target_mem.h
-# y target_mem_host.h duplica sus typedefs). No se bloquea la suite propia con
-# trabajo ajeno en vuelo, y no se tocan sus ficheros.
-# MEDIDO 2026-10-03: sigue sin compilar, por el mismo conflicto de typedef de
-# `u64` entre target_mem_host.h y el propio test.  No es de esta sesion.
+# test_mem quedo FUERA de la cola por escrito, con motivo: se decia que su fuente
+# estaba a medio escribir y no compilaba.  Motivo CADUCADO 2026-10-03.
+#
+#   MEDIDO entonces, y reproducido aqui: con el fuente tal como estaba,
+#   gcc -O2 -Wall -Wextra -Werror daba 4 errores.  No era "trabajo de otra
+#   sesion en vuelo": eran cuatro desacuerdos concretos, y ninguno dependia de
+#   que otra sesion terminara nada.
+#
+#     1. test_mem.c declaraba sus propios u8/u32/u64, y target_mem_host.h tambien.
+#     2. test_mem.c usaba los TM_* sin includir target_mem.h, que es donde estan.
+#     3. target_mem_host.h hacia `typedef int bool`, y bool es palabra clave
+#        desde C23, que es el estandar por defecto de este gcc 16.2.
+#     4. El binario tests/test_mem que estaba en el arbol era de 2026-09-29 y
+#        venia de otro fuente: ejecutaba y daba 72 PASS en verde sobre codigo
+#        que ya no existia.  Un artefacto viejo consumido como evidencia.
+#
+#   Los tres primeros estan corregidos.  El cuarto no se "corrige": se evita,
+#   metiendo test_mem en la cola, que es lo que faltaba.  Con el binario en la
+#   cola, un fuente que no compile es un fallo de build, no un verde falso.
+#   Ver 06-INGENIERIA-INVERSA/findings/1021-test-verde-sobre-fuente-que-no-compila.md
+#
 # `run` depende del .ko, y no solo por orden: test_static.sh audita el BINARIO
 # con `nm -u`, no el fuente.  MEDIDO 2026-10-03: corrido con `make -s run` desde
 # tests/ y el .ko era de antes del cambio, luego la mitad de enlace del audit
@@ -59,7 +74,7 @@ $(KO):
 
 run: $(KO) test_target_match test_resource test_regs test_vm test_fence test_submit \
      test_mmio_access test_block_size test_gart_write test_ib_bridge \
-     test_ib_composer test_pdb0 test_submission test_vmid0_gart \
+     test_ib_composer test_pdb0 test_submission test_vmid0_gart test_mem \
      test_vmid1_pgt test_vmid1_pgt_backing
 	@./test_resource
 	@./test_regs $(CORPUS)/gfx_8_0_d.h $(CORPUS)/gfx_8_1_d.h
@@ -80,10 +95,17 @@ run: $(KO) test_target_match test_resource test_regs test_vm test_fence test_sub
 	@./test_ib_composer
 	@./test_pdb0
 	@./test_submission
+	@./test_mem
 	@./test_vmid0_gart
 	@./test_vmid1_pgt
 	@./test_vmid1_pgt_backing
 	@./test_static.sh
+
+# test_mem verifica el contrato de direcciones de target_mem.h, que es el unico
+# lugar de todo el componente donde se comprueban los TM_*.  Sin esta regla el
+# contrato de la geometria de memoria no lo comprobaba nadie.
+test_mem: test_mem.c ../target_mem.h ../target_mem_host.h
+	$(CC) $(CFLAGS) -o $@ test_mem.c
 
 test_target_match: test_target_match.c ../target_match.h
 	$(CC) $(CFLAGS) -o test_resource test_resource.c ../target_resource.h
