@@ -3203,3 +3203,55 @@ original                                           23 OK, rc=0
 **LIMITE DECLARADO en la salida.** No mide un techo. La GPU no se ha puesto bajo
 carga, asi que los relojes maximos son `NOT_DETERMINED`. Y `gpu_busy_percent` es
 lo que el driver **afirma**, no una medida.
+
+## `cn8.py`: las TRES categorias de salida, y por que `INVALID` no es `FALLA`
+
+**Que cambia.** Antes `cn8` tenia dos salidas: verde y `rc=1`. Todo lo que no
+salia bien acababa en el mismo sitio, y eso mezclaba **tres cosas distintas**:
+
+```
+rc=0   todo pasa
+rc=1   ALGO esta mal en el proyecto (un documento, un control)
+rc=1   la HERRAMIENTA no ha podido comprobar nada (fichero ausente, ilegible)
+```
+Las dos ultimas se leian igual, y quien lo lea obtiene la conclusion
+equivocada: **si el fichero no existe, el proyecto no esta roto; la herramienta
+no pudo correr.** Es el mismo principio que el `C0` de `bootcheck` y el `rc=4` de
+`gputel`, aplicado a `cn8`, que era el que se quedaba sin el.
+
+**AHORA.**
+
+```
+todo bien ................. rc=0    41 controles OK
+propiedad violada ......... rc=1    1 FALLA,   0 INVALID   <- el documento esta mal
+fichero ilegible .......... rc=4    0 FALLA,   1 INVALID   <- la herramienta no pudo leer
+```
+
+**MEDIDO, no declarado.** Las tres lineas son salidas reales, no una intention:
+
+- `rc=0`: la suite completa en verde.
+- `rc=1`: mutando la ventana a `-1` (impossible por construccion), con el
+  detalle `la mas reciente es 2026-10-03, hace 0 dias`.
+- `rc=4`: apuntando la lectura a un fichero inexistente. **Antes eso era un
+  `FileNotFoundError` con traceback**, que es lo que se arreglo aqui.
+
+**UN HALLAZGO SOBRE EL ENMASCARAMIENTO, que casi me hace dudar de la prueba.**
+La primera vez que intente demostrar el `rc=1` mutando la ventana a `0` dias, el
+control **paso en verde**. La razon: mi commit de ese mismo dia habia anadido una
+cabecera `## 2026-10-03`, luego `_edad = 0` y la ventana `0` se cumplia sola. O
+sea que **la mutacion no era mala: los datos habian cambiado de tal modo que la
+propiedad era cierta de verdad.** Eso es, irónicamente, la mejor prueba de que
+el control mide algo real y no un literal: **cambia con los datos, y no con el
+codigo que lo rodea.** Se rehizo la demostracion con ventana `-1`, que es
+imposible, y ahi si falla.
+
+**LA REGLA, FORMULA.** *Una herramienta que no puede comprobar nada debe decirlo
+con una categoria propia, no con la de "ha fallado".* Si comparte categoria,
+quien lee tiene que adivinar cual de las dos cosas pasó, y **en el caso de los
+controles esa adivinanza se paga en confianza**: un control que reporta "FALLA"
+cuando en realidad no pudo mirar enseña a ignorar sus FALLA de verdad.
+
+**Y LO QUE NO SE HA ARREGLADO.** El guardia de "no hay ninguna cabecera
+`## AAAA-MM-DD` en el CHANGELOG" sigue **sin probar**, porque en este proyecto
+siempre hay fechas. Es un guardia escrito y no ejercitado, y queda anotado como
+tal en vez de darse por bueno.

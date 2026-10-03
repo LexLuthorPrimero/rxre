@@ -46,6 +46,22 @@ def chk(nombre, cond, detalle=""):
         FALLOS.append(nombre)
 
 
+# MEDIDO: "no he podido comprobar" y "he comprobado y falla" son DOS COSAS, y
+# mezclarlas hace que una herramienta que no puede correr se lea como un proyecto
+# roto. Es el mismo principio que el C0 de bootcheck y el rc=4 de gputel, aqui
+# aplicado a cn8, que solo tenia las dos categorias que se confundian.
+INVALIDOS = []
+
+
+def chk_inv(nombre, cond, detalle=""):
+    """INVALID: la comprobacion no se pudo hacer. No es un fallo del proyecto."""
+    if cond:
+        print("  OK    %s" % nombre)
+    else:
+        print("  INVALID %s %s" % (nombre, detalle))
+        INVALIDOS.append(nombre)
+
+
 def main():
     vbios = os.path.join(AQUI, "capturas", "amdgpu_vbios.txt")
     if not os.path.exists(vbios):
@@ -401,11 +417,22 @@ def main():
     import datetime as _dt
     import re as _re
     _HOY = _dt.date.today()
-    with open(os.path.join(_docs, "CHANGELOG-RESEARCH.md"),
-              encoding="utf-8") as _h:
-        _FECHAS = sorted(set(_re.findall(r"^## (\d{4}-\d{2}-\d{2})",
-                                         _h.read(), _re.M)))
-    if not _FECHAS:
+    try:
+        with open(os.path.join(_docs, "CHANGELOG-RESEARCH.md"),
+                  encoding="utf-8") as _h:
+            _texto = _h.read()
+    except OSError as _e:
+        _texto = None
+        chk_inv("el CHANGELOG se puede leer", False,
+                "no se pudo abrir (%s). Esto es INVALID, no un fallo del proyecto"
+                % _e)
+    _FECHAS = sorted(set(_re.findall(r"^## (\d{4}-\d{2}-\d{2})",
+                                     _texto or "", _re.M)))
+    if _texto is None:
+        _FECHAS = None
+    if _FECHAS is None:
+        pass          # ya se reporto como INVALID; no se calcula nada mas
+    elif not _FECHAS:
         chk("el CHANGELOG tiene una entrada reciente", False,
             "no he encontrado ninguna cabecera '## AAAA-MM-DD'")
     else:
@@ -484,6 +511,12 @@ def main():
               % len(FALLOS))
         print("autoridad hasta que se arreglen.")
         return 1
+    if INVALIDOS:
+        print("  INVALID_RESULT: %d comprobacion(es) NO se pudieron hacer."
+              % len(INVALIDOS))
+        print("  Esto NO es un proyecto roto: es una herramienta que no"
+              " pudo leer. rc=4")
+        return 4
     print("todos los controles pasan")
     return 0
 

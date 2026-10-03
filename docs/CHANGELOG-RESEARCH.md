@@ -3192,3 +3192,62 @@ pretendia detectar.**
 
 Suite: check.sh 41 | cn7 97 | cn8 33 | gfx8blocks 24/24 | gchwip_alcance 21/21 |
 bootcheck 10/10 | gputel 23/23. GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.
+
+---
+
+## 2026-10-03 · opencode · `cn8` tiene tres salidas, y `INVALID` no es `FALLA`
+
+```
+OBJECT   revkit/cn8.py, docs/TOOLS-STATUS.md
+ACTION   FIX (el defecto que ayer deje anotado sin arreglar) + LIMITATION declarada
+TRACK    TOOLING · WRITE_EXECUTION NONE · MODIFICATIONS_CORPUS=0 · GPU INTACTA
+```
+
+**CIERRO EL DEFECTO QUE DEJE ANOTADO SIN ARREGLAR.** Ayer escribi que si el fichero
+del CHANGELOG no existe, el `open()` lanza excepcion y cn8 revienta con traceback.
+Lo reproduje primero, porque no quiero arreglar de memoria lo que no he visto
+romper: confirmado, `FileNotFoundError`. Y arreglado.
+
+**LO QUE HABIA TRAS EL: TRES COSAS MEZCLADAS EN DOS SALIDAS.**
+
+rc=0 todo pasa
+rc=1 ALGO esta mal en el proyecto
+rc=1 la HERRAMIENTA no ha podido comprobar nada
+
+Las dos ultimas se leian igual, y quien lo lea concluye que el proyecto esta roto
+cuando lo que pasa es que la herramienta no pudo correr. Es el mismo principio que
+el C0 de bootcheck y el rc=4 de gputel, aplicado a cn8, que era el que se quedaba
+sin el.
+
+**AHORA, Y LAS TRES SALIDAS ESTAN MEDIDAS, NO DECLARADAS:**
+  todo bien ................. rc=0   41 controles OK
+  propiedad violada ......... rc=1   1 FALLA,   0 INVALID   <- el documento esta mal
+  fichero ilegible .......... rc=4   0 FALLA,   1 INVALID   <- la herramienta no pudo leer
+
+**Y UN ENMASCARAMIENTO QUE CASI ME HACE DUDAR DE LA PROPIA PRUEBA.** La primera vez
+que intente demostrar el rc=1 mutando la ventana a 0 dias, el control PASO EN VERDE.
+La razon: mi commit de ese mismo dia habia anadido una cabecera ## 2026-10-03, luego
+_edad = 0 y la ventana 0 se cumplia sola. O sea que la mutacion no era mala: los
+DATOS habian cambiado de tal modo que la propiedad era cierta de verdad. E ironicamente
+es la mejor prueba de que el control mide algo real y no un literal: **cambia con
+los datos, y no con el codigo que lo rodea.** Se rehizo con ventana -1, imposible por
+construccion, y ahi si falla.
+
+REGLA, EN FORMULA: UNA HERRAMIENTA QUE NO PUEDE COMPROBAR NADA DEBE DECIRLO CON UNA
+CATEGORIA PROPIA, NO CON LA DE "ha fallado". Si comparte categoria, quien lee tiene que
+adivinar cual de las dos cosas paso, y **en el caso de los controles esa adivinanza se
+paga en confianza**: un control que reporta FALLA cuando en realidad no pudo mirar
+ensena a ignorar sus FALLA de verdad.
+
+**LO QUE SEGUIN SIN ARREGLAR.** El guardia de "no hay ninguna cabecera ## AAAA-MM-DD"
+sigue SIN PROBAR, porque en este proyecto siempre hay fechas. Guardia escrito y no
+ejercitado, anotado como tal en vez de darse por bueno.
+
+**HIGIENE DE LAS PRUEBAS.** Todas las mutaciones se hicieron sobre una copia
+`_mut_cn8.py` EN EL SITIO, con el sha256 del original comprobado antes y despues:
+identico, y la copia borrada. Y el patron que ya me salio dos veces queda firmado: **rc
+sin el numero de FALLA al lado no es un resultado de una prueba de mutacion, es el
+sintoma de un arnes roto.**
+
+check.sh 41 | cn7 97 | cn8 33 | gfx8blocks 24/24 | gchwip_alcance 21/21 |
+bootcheck 10/10 | gputel 23/23. GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.
