@@ -389,3 +389,46 @@ un falso negativo no.*
   una tras otra, corrigiendo la anterior.** Eso no lo puede detectar ninguna
   herramienta, porque no hay forma de saber quién escribió qué. Es la razón por la
   que el cruce no basta, y no un defecto suyo.
+---
+
+# CORRECCIÓN DE ALCANCE: `bench.py` cambió mientras este hallazgo estaba escrito
+
+Al sacar el desglose por origen, `contract_exec` clasificó `bench.py L725` como
+`PROYECTO`. Este hallazgo dice que `bench.py` **no** escribe ficheros del proyecto.
+Una de las dos cosas ya no es cierta.
+
+La línea 725 **ya no es** la que se cita arriba:
+
+```
+bench.py:725   with open(path, "w") as f:
+                   json.dump(doc, f, indent=1, sort_keys=True)
+```
+
+Antes era un `os.utime`, que es mtime y no contenido. Ahora es una escritura de
+contenido en un artefacto JSON.
+
+**Esto no invalida el hallazgo, lo acota en el tiempo:**
+
+- Lo que se midió —cero escrituras de proyecto— era cierto **cuando se midió**.
+- `bench.py` está **sin versionar**, así que otra sesión lo edita cuando quiere y no
+  hay commit que fije el estado en el que se hizo la afirmación.
+- **Lo que sigue en pie, porque no depende del fichero**: `bench.py` declara
+  `WRITES_GPU=yes`, sus cuatro `subprocess` van todos a `vcp`, y `vcp` **no** toca
+  la barra de registros. Eso se comprobó sobre el binario, que tampoco ha cambiado.
+
+## Y esto es lo que el desglose por origen salio
+
+La herramienta etiqueta cada caso como versionado o ajeno, y al hacerlo vio el
+cambio. **No lo buscaba: lo vio porque estaba contando por origen.** Un conteo
+que no distingue de dónde viene cada caso no puede notar que un caso cambió; solo
+puede decir cuántas veces ha corrido.
+
+Ese es el argumento a favor de la acción anterior, y sale de un fallo suyo y no de
+su diseño.
+
+## Límite del límite
+
+No he vuelto a medir `bench.py` entero después del cambio: solo la línea 725 y el
+contrato. Las cuatro llamadas a `subprocess` se midieron **antes** del cambio, así
+que si esa edición tocó también la parte que delega, la cadena podría tener otro
+eslabón. `NOT_DETERMINED`.

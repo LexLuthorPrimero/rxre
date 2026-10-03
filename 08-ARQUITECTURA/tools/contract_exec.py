@@ -260,6 +260,52 @@ def declaradas_sin_uso(profundidad=3):
 def main(argv):
     if "--self-test" in argv or "--self" in argv:
         return selftest()
+    if "--origen" in argv:
+        # DE QUE HERRAMIENTAS VIENEN LOS CASOS, Y POR QUE HACE FALTA DECIRLO.
+        #
+        # "El criterio funciona" y "el criterio funciona con lo que yo NO escribi"
+        # son afirmaciones de fuerza distinta. La segunda sobrevive a que yo tenga
+        # un sesgo; la primera no. Y hasta ahora solo se decia la primera, con
+        # un numero unico que no distingue lo mio de lo ajeno.
+        import subprocess as sp
+        mias, ajenas = [], []
+        for f in sorted(os.listdir(TOOLS)):
+            if not f.endswith(".py"):
+                continue
+            filas = contract_exec_placeholder = clasificar(f)
+            if not filas:
+                continue
+            try:
+                v = sp.run(["git", "ls-files", "--error-unmatch",
+                            os.path.join(TOOLS, f)],
+                           cwd=ROOT, capture_output=True,
+                           timeout=60).returncode == 0
+            except Exception:
+                v = False
+            (mias if v else ajenas).append((f, filas))
+        print("ORIGEN DE LOS CASOS QUE EL CRITERIO HA CLASIFICADO")
+        print()
+        print("  versionadas  %-22s %s" % ("(versionado = en git)", "casos"))
+        for f, filas in mias:
+            print("      %-22s %s" % (f, ", ".join(
+                "%s:L%d" % (c[:6], l) for l, c, _d in filas)))
+        print("  NO versionadas  %s" % "(ajenas: las escribio otra sesion)")
+        for f, filas in ajenas:
+            print("      %-22s %s" % (f, ", ".join(
+                "%s:L%d" % (c[:6], l) for l, c, _d in filas)))
+        print()
+        tot = len(mias) + len(ajenas)
+        print("  %d herramientas con escrituras clasificadas: %d versionadas,"
+              % (tot, len(mias)))
+        print("  %d NO versionadas." % len(ajenas))
+        if len(ajenas) < len(mias):
+            print()
+            print("  AVISO, y es el punto: la mayoria de los casos son de")
+            print("  herramientas MIAS. Eso no las invalida, pero significa que")
+            print("  la afirmacion 'el criterio funciona' se apoya en el conjunto")
+            print("  donde yo garantizo. La cifra de arriba es la que hay que")
+            print("  citar, no el total.")
+        return 0
     if "--capacidad" in argv:
         filas = declaradas_sin_uso()
         print("CAPACIDAD DECLARADA SIN USO: WRITES_GPU=yes y nadie toca la barra")
