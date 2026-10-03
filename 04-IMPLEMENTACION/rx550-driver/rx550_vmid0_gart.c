@@ -8,7 +8,19 @@
  */
 #include "rx550_vmid0_gart.h"
 
+/* COMPATIBILIDAD KBUILD.  El kernel no tiene <string.h>: tiene
+ * <linux/string.h>.  Mismo split que rx550_spaces.h y rx550_mmio_access.h, y
+ * por el mismo motivo: este .c se compila de las dos formas, en el modulo y en
+ * los tests de host.  MEDIDO 2026-10-03: sin esto, cuatro .c de este
+ * componente no compilaban bajo kbuild y por eso no estaban en obj-m.
+ *
+ * Este fichero no usa nada mas de libc: sin allocator, sin MMIO, sin ring.
+ */
+#ifdef __KERNEL__
+#include <linux/string.h>
+#else
 #include <string.h>
+#endif
 
 /* Posiciones de campo.  FACT: asic_reg/gmc/gmc_8_2_sh_mask.h, que es el header
  * que incluye gfx_v8_0.c:42 para esta ASIC (POLARIS12 = GFX8.2).  No se cita

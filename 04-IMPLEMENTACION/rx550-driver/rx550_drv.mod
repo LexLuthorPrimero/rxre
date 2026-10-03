@@ -2,3 +2,7 @@
 ./pci_resource.o
 ./rx550_mmio_access.o
 ./rx550_pdb0.o
+./rx550_vmid0_gart.o
+./rx550_vmid1_pgt.o
+./rx550_submission.o
+./rx550_gart_write.o

@@ -37,9 +37,20 @@
 #ifndef RX550_SUBMISSION_H
 #define RX550_SUBMISSION_H
 
+/* COMPATIBILIDAD KBUILD: mismo split que rx550_spaces.h.
+ * MEDIDO 2026-10-03: con los tres includes de user, estos .c no compilaban
+ * bajo kbuild y por eso no estaban en obj-m.  La rama de userspace no cambia:
+ * es la misma que habia antes.
+ */
+#ifdef __KERNEL__
+#include <linux/types.h>
+#define UINT64_C(x) U64_C(x)
+#define UINT32_C(x) U32_C(x)
+#else
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#endif
 
 /* ── los dos numeros que no son el mismo numero ─────────────────────── */
 #define RX550_PM4_PACKET_TYPE3		UINT32_C(3)		/* PACKET_TYPE3, vid.h:90 */

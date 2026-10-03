@@ -30,10 +30,16 @@
 
 /* COMPATIBILIDAD KBUILD: ver la nota equivalente en rx550_mmio_access.h.
  * u8/u32/u64 son los mismos tipos de ancho fijo; UINT64_C pasa a U64_C.
+ *
+ * UINT32_C se mapea igual porque rx550_vmid0_gart.h:305 lo usa y este es el
+ * header del que lo hereda.  MEDIDO 2026-10-03: sin esta linea, ese .c no
+ * compilaba bajo kbuild con "declaracion implicita de la funcion UINT32_C",
+ * mientras en userspace pasaba sin decir nada porque <stdint.h> si lo trae.
  */
 #ifdef __KERNEL__
 #include <linux/types.h>
 #define UINT64_C(x) U64_C(x)
+#define UINT32_C(x) U32_C(x)
 #else
 #include <stdint.h>
 #include <stdbool.h>
