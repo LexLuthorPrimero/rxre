@@ -84,15 +84,32 @@ def reservations():
     return out
 
 
-def next_free(lowest=False):
+def next_free(lowest=False, taken=None):
     """Siguiente numero reservable.
 
     Por defecto devuelve MAX+1, NO el hueco mas bajo. El historico tiene
     huecos reales (no existe 004), y rellenar el hueco mas bajo numbraria un
     hallazgo nuevo como "4" en medio de 121: confuso y peor de trazar.
     Rellenar huecos es una operacion distinta, y se pide con lowest=True.
+
+    `taken` EXISTE para que quien llama decida de donde sale el conjunto. Por
+    defecto sale de ahi, como siempre, para no romper a los que no pasan nada.
+
+    POR QUE: leer el arbol DENTRO de la funcion hacia que el self-test no
+    pudiera aislarse. El lock ya va a un temporal, pero los numeros seguian
+    saliendo de los hallazgos reales, asi que el test dependia del estado global
+    en LECTURA. Aislar la escritura no aísla la lectura: es el mismo error por
+    otro lado.
+
+    Y el caso que lo hace necessary, no comodo: sin `taken`, un self-test con un
+    conjunto vacio devolveria 1, y reservaria el numero 1 de un proyecto que
+    va por el 503. Un test que reserva un numero que el proyecto podria usar no
+    esta probando la funcion: esta usando el numero mas valuables que hay.
     """
-    taken = used_numbers() | set(reservations())
+    if taken is None:
+        taken = used_numbers() | set(reservations())
+    else:
+        taken = set(taken)
     if not taken:
         return 1
     if lowest:
@@ -167,11 +184,15 @@ class Lock:
         return False
 
 
-def reserve(title="", lowest=False):
-    """Devuelve (numero, ruta_reserva). Atomico respecto a otros procesos."""
+def reserve(title="", lowest=False, taken=None):
+    """Devuelve (numero, ruta_reserva). Atomico respecto a otros procesos.
+
+    `taken` se pasa a `next_free`. Ver la nota de ahi: existe para que el
+    self-test pueda decidir el conjunto y no leer el arbol real.
+    """
     os.makedirs(RESDIR, exist_ok=True)
     with Lock(os.path.join(LOCKDIR, "owner")):
-        n = next_free(lowest)
+        n = next_free(lowest, taken)
         path = os.path.join(RESDIR, "%03d-%s.res" % (n, STUB_PREFIX))
         # write+rename: si alguien leyo la lista hace un instante, no ve un
         # fichero a medio escribir.
@@ -265,49 +286,57 @@ def self_test():
     #    un test de la_barata de los demas. Ademas dejaba ficheros .res de
     #    verdad en findings/_reservas/, o sea que un test que no deberia tocar
     #    nada escribia en el arbol.
+    # El conjunto de numeros tambien es del temporal: {7, 9, 10}. Fijado a
+    # mano para que el resultado sea 11 SIEMPRE, y el test pueda comprobarlo con
+    # un numero exacto en vez de con "mayor que lo que hay ahora mismo". Con el
+    # arbol real, el mismo test pasa con 504 y con 503 segun cuando se ejecute:
+    # verde en los dos casos, comprobando cosas distintas.
+    # El conjunto de numeros tambien sale del temporal: {7, 9, 10}, fijado a
+    # mano para que el resultado sea 11 SIEMPRE. Asi el test comprueba un numero
+    # EXACTO, no "mayor que lo que hay ahora mismo". Con el arbol real, el mismo
+    # test pasa con 504 y con 503 segun cuando se ejecute: verde en los dos
+    # casos, comprobando cosas distintas.
+    fijo = {7, 9, 10}
     a = b = None
     with _Aislado() as (lockdir, resdir):
-        a, _ = reserve("self-test A")
-        b, _ = reserve("self-test B")
-        _test_res = [n for n in (a, b)
-                     if os.path.exists(os.path.join(resdir, "%03d-%s.res"
-                                                   % (n, STUB_PREFIX)))]
-        # El control de .tmp va AQUI, dentro del aislamiento. Si mira el
-        # directorio real despues, ya no comprueba los .tmp que dejo este test:
-        # el temporal se borra al salir. Un control que ha cambiado de sujeto
-        # sin que se note sigue dando verde, y verde sin comprobar es peor que
-        # no tener control.
+        a, _ = reserve("self-test A", taken=fijo)
+        b, _ = reserve("self-test B", taken=fijo | {a})
+        if a != 11:
+            fails.append("con taken={7,9,10} esperaba 11 y devolvio %d" % a)
+        if b != 12:
+            fails.append("con taken={7,9,10,11} esperaba 12 y devolvio %d" % b)
+        if a == b:
+            fails.append("dos reservas seguidas dieron el mismo numero %d" % a)
+        elif b <= a:
+            fails.append("reservas no crecientes: %d luego %d" % (a, b))
+        # 5. La reserva tiene que verse en disco: es lo que ve la otra sesion.
+        res = reservations()
+        for n in (a, b):
+            ruta = os.path.join(resdir, "%03d-%s.res" % (n, STUB_PREFIX))
+            if not os.path.exists(ruta):
+                fails.append("falta el fichero de reserva %s" % ruta)
+            if n not in res:
+                fails.append("la reserva %d no aparece en reservations()" % n)
+        # 6. El contenido del fichero de reserva tiene los campos que se leen.
+        ruta = os.path.join(resdir, "%03d-%s.res" % (a, STUB_PREFIX))
+        try:
+            with open(ruta, encoding="utf-8") as fh:
+                body = fh.read()
+        except OSError as e:
+            fails.append("no se pudo leer la reserva: %s" % e)
+            body = ""
+        for campo in ("RESERVADO numero=%03d" % a, "self-test A"):
+            if campo not in body:
+                fails.append("el fichero de reserva no contiene %r" % campo)
+        # Y el control de .tmp AQUI, dentro del aislamiento: si mira el
+        # directorio real despues, deja de comprobar los .tmp del propio test.
+        # Un control que cambia de sujeto sin que se note sigue dando verde, y
+        # verde sin comprobar es peor que no tener control.
         _tmp_left = [x for x in os.listdir(resdir) if x.endswith(".tmp")]
         if _tmp_left:
             fails.append("quedaron .tmp en el directorio aislado: %s"
                          % _tmp_left)
-    if not _test_res:
-        fails.append("la reserva aislada no escribio ningun fichero")
-    if a == b:
-        fails.append("dos reservas seguidas dieron el mismo numero %d" % a)
-    elif b <= a:
-        fails.append("reservas no crecientes: %d luego %d" % (a, b))
-    if a in used_numbers():
-        fails.append("la reserva %d se conto como hallazgo existente" % a)
 
-        # 5. La reserva tiene que verse en disco: es lo que ve la otra sesion.
-        res = reservations()
-        for n in (a, b):
-            path = os.path.join(RESDIR, "%03d-%s.res" % (n, STUB_PREFIX))
-            if not os.path.exists(path):
-                fails.append("falta el fichero de reserva %s" % path)
-            if n not in res:
-                fails.append("la reserva %d no aparece en reservations()" % n)
-
-        # 6. El contenido del fichero de reserva tiene los 3 campos que se leen.
-        path = os.path.join(RESDIR, "%03d-%s.res" % (a, STUB_PREFIX))
-        with open(path, encoding="utf-8") as fh:
-            body = fh.read()
-        for campo in ("RESERVADO numero=%03d" % a, "self-test A"):
-            if campo not in body:
-                fails.append("el fichero de reserva no contiene %r" % campo)
-
-        pass   # checks 5 y 6, dentro del directorio aislado
 
     # 7. release borra de verdad, y release de lo que no existe NO dice que si.
     #    Tambien dentro del aislamiento: `a` se reservo en el temporal, asi que
