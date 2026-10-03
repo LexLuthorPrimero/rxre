@@ -1,0 +1,7 @@
+script	sha256	bytes
+03-EXPERIMENTOS/ep08-doorbell-suppression/preruntime.sh	c0349f7f72bb00c5ccfce567c4736ef9bfbeeb48b270e9849533c38875826633	25513
+
+oraculo	veredicto	detalle
+O1_BOUNDS	FAIL	8 referencias sin asignar bajo set -u: NHWA_OFF_ASIC_TYPE NHWA_OFF_PCI_REVISION NHWA_OFF_PCI_SUB_DEV NHWA_OFF_PCI_SUB_VEN TARGET_MODALIAS TARGET_PCI_REVISION TARGET_PCI_SUB_DEV TARGET_PCI_SUB_VEN
+O2_FIELDINDEX	MEDIDO	NF=6 NF-1=1 NF-2=381969
+O3_TOOLPIN	PINNED v1.30	el layout de columnas de pahole es lo que fija cual NF es el offset
