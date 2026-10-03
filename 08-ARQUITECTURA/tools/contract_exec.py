@@ -303,6 +303,8 @@ def main(argv):
         # ejecuta siempre. Eso convierte una convencion en una invariante: el
         # aviso llega solo.
         import json
+        import subprocess
+        import time
         base = os.path.join(TOOLS, "contract_exec.vigila.json")
         actual = {}
         for f in sorted(os.listdir(TOOLS)):
@@ -310,21 +312,57 @@ def main(argv):
                 filas = clasificar(f)
                 if filas:
                     actual[f] = sha1(f)
+        # EPOQUE DE LA MEDICION. Re-fijar la linea base tiene un efecto que antes
+        # no se dejaba ver: ABSORBE todo lo que hubiera cambiado desde la
+        # fijacion anterior, incluido el trabajo sin commitear de otra sesion.
+        # Un --fijar-vigila hecho despues de que otra sesion cambiara bench.py
+        # deja de avisar de ese cambio, y no hay forma de saberlo mirando el
+        # JSON: por eso el JSON lleva su propia edad y el HEAD con el que se
+        # fijo. La garantia de la vigilia es SOLO hacia delante desde aqui.
+        try:
+            head = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
+                                  cwd=ROOT, capture_output=True, text=True,
+                                  timeout=20).stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            head = "DESCONOCIDO"
         if "--fijar-vigila" in argv:
+            doc = {"_meta": {"fijada": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                             "git_head": head,
+                             "nota": "cualquier cambio anterior a esta hora "
+                                     "queda absorbido y no se avisara de el"},
+                   "ficheros": actual}
             with open(base, "w", encoding="utf-8") as fh:
-                json.dump(actual, fh, indent=1, sort_keys=True)
-            print("vigila fijada con %d ficheros" % len(actual))
+                json.dump(doc, fh, indent=1, sort_keys=True)
+            print("vigila fijada con %d ficheros (epoch %s, HEAD %s)"
+                  % (len(actual), doc["_meta"]["fijada"], head))
             return 0
         try:
             with open(base, encoding="utf-8") as fh:
-                previo = json.load(fh)
+                doc = json.load(fh)
         except (OSError, ValueError):
             print("no hay vigilia registrada: ejecuta --fijar-vigila")
             return 2
+        # VERSION DEL FORMATO. La v1 era un dict plano fichero->sha1. Aceptar
+        # ambos evita romper una linea base ya escrita, pero avisando: si no
+        # hay epoch no se puede saber que ventana cubre la medicion, y eso es
+        # justo lo que el consumidor necesita para no creerse mas de lo que
+        # la vigila puede sostener.
+        if isinstance(doc, dict) and "ficheros" in doc:
+            meta, previo = doc.get("_meta", {}), doc["ficheros"]
+        else:
+            meta, previo = {}, doc
+        if not meta:
+            print("AVISO: la linea base no lleva epoch (formato v1). Se puede "
+                  "decir QUE ficheros cambiaron, pero no desde cuando: la "
+                  "ventana de esta medicion NO es determinable.")
         cambiados = [f for f in actual if previo.get(f) not in (None, actual[f])]
         nuevos = [f for f in actual if f not in previo]
         print("VIGILIA DE HASHES: %d ficheros con escrituras clasificadas"
               % len(actual))
+        if meta:
+            print("  ventana desde %s (HEAD %s). Lo anterior esta absorbido:"
+                  % (meta.get("fijada", "?"), meta.get("git_head", "?")))
+            print("  esta vigila avisa de cambios POSTERIORES, no de los previos.")
         print()
         if not cambiados and not nuevos:
             print("  sin cambios desde la ultima medicion: las cifras siguen")
