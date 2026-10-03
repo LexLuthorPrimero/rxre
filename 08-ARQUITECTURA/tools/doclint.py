@@ -49,10 +49,18 @@ import sys
 import glob
 
 ROOT = "/home/lucas/Escritorio/RX550-INVESTIGACION"
+# NO son solo el corpus de referencia: tambien las raices de NUESTRO codigo.
+# El nombre miente y por eso lo digo aqui. La razon de incluir 07-DRIVER es
+# concreta: el entregable del proyecto es el driver, y hasta ahora NINGUNA cita
+# a un fichero suyo pasaba por el linter -- un hallazgo sobre el driver se
+# apoyaba en citas que el linter no podia resolver y por tanto no podia
+# verificar. Un linter que no cubre el sujeto de sus documentos no cubre el
+# documento: cubre el decorado.
 CORPUS_ROOTS = [
     f"{ROOT}/RESEARCH/working/linux-7.1.3",
     f"{ROOT}/08-ARQUITECTURA",
     f"{ROOT}/04-IMPLEMENTACION",
+    f"{ROOT}/07-DRIVER",
     "/usr/src/kernels/7.1.3-200.nobara.fc44",
 ]
 
@@ -133,8 +141,19 @@ KNOWN_CLASSES = {
 }
 
 
+_INDEX = None
+
+
 def build_index():
-    """{ruta_absoluta: lineas} para resolver citas sin releer el disco cada vez."""
+    """{ruta_absoluta: lineas} para resolver citas sin releer el disco cada vez.
+
+    Con memorizacion, porque el autotest la construye para probar el RESOLUTOR y
+    main() la vuelve a pedir para lintear. Sin cache el indice se recorre dos
+    veces por documento, que es como se vuelve un linter inservible.
+    """
+    global _INDEX
+    if _INDEX is not None:
+        return _INDEX
     idx = {}
     for root in CORPUS_ROOTS:
         if not os.path.isdir(root):
@@ -147,6 +166,7 @@ def build_index():
                         idx[p] = open(p, errors="replace").read().split("\n")
                     except OSError:
                         pass
+    _INDEX = idx
     return idx
 
 
@@ -368,6 +388,31 @@ def selftest():
                          "en vez de error -- el control esta sin efecto")
     finally:
         os.unlink(_ruta)
+    # -- el RESOLUTOR de citas, en las tres direcciones ----------------------
+    # Un filtro que solo sabe decir "no" es un muro, y uno que solo sabe decir
+    # "si" es un sello. Las dos mitades van juntas o el test no vale.
+    idx = build_index()
+    # (1) el caso real DEBE contar. rx550_mc.h solo existe en 07-DRIVER/, asi
+    #     que esto falla entero si la raiz no se indexa: no es decorativo.
+    r = resolve("rx550_mc.h", idx)
+    if r is None or not r.endswith("07-DRIVER/kernel/rx550_mc.h"):
+        fails.append("el resolutor no encuentra rx550_mc.h (¿07-DRIVER sin indexar?)")
+    # (2) lo que no existe NO debe resolverse. Si esto pasara, cualquier nombre
+    #     inventado en una cita daria por verificado.
+    if resolve("rx550_este_fichero_no_existe.h", idx) is not None:
+        fails.append("el resolutor devuelve un fichero que no existe")
+    # (3) lo ambiguo NO debe resolverse, y sobre todo no debe elegir uno.
+    #     dalsmc.h esta 3 veces y smu9_driver_if.h 2 en el indice real, asi que
+    #     este caso sale de los datos, no de un nombre inventado para pasar.
+    for ambiguo in ("smu9_driver_if.h",):
+        if resolve(ambiguo, idx) is not None:
+            fails.append("el resolutor elige uno de los %s"
+                         % len([p for p in idx
+                                if os.path.basename(p) == ambiguo]))
+    if not any(os.path.basename(p) == "smu9_driver_if.h" for p in idx):
+        fails.append("el control de ambiguedad es vacio: smu9_driver_if.h "
+                     "ya no colisiona, el test ha dejado de probar nada")
+
     # intrusiones lexicales conocidas
     for frag in ("fjCpu", "zyj", "annon"):
         if not any(re.search(p, frag) for p, _ in KNOWN_INTRUSIONS):

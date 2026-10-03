@@ -157,6 +157,39 @@ indexar. Esas 25 ocurrencias **no son verificables aqui**, y declararlas
 arregladas seria el error de decir "todo bien" donde lo que hay es "no puedo
 mirar".
 
+## Y despues, dos herramientas de citas con DOS arboles de referencia
+
+Buscando el tool que `048` nombra (`audit_citations`) me equivoque de directorio y
+estuve a punto de escribir que **no existia**. Existe:
+`tools/audit_citations.sh`. Es la **quinta vez** que un negativo me viene de
+mirar el sitio equivocado, y la segunda vez que el negativo estaba a punto de
+convertirse en afirmacion en el registro. Un negativo de un instrumento mal
+dirigido no es un negativo: es ruido con forma de conclusion.
+
+Leyendolo sale algo que no buscaba:
+
+```
+tools/audit_citations.sh:68  AMD="$ROOT/rx550-upstream-7.2.8/linux-7.2.8/drivers/gpu/drm/amd"
+```
+
+**Hay tres arboles de kernel en juego**, y ninguno coincide con los otros dos:
+
+| arbol | version | quien lo usa |
+|---|---|---|
+| kernel en ejecucion | `7.1.3-200.nobara.fc44.x86_64` | lo que corre en esta placa |
+| `RESEARCH/working/linux-7.1.3` | 7.1.3 | indice de `doclint` |
+| `rx550-upstream-7.2.8` | **7.2.8** | `audit_citations.sh` |
+
+Y `audit_citations.sh` **si** cubre `07-DRIVER` (4 referencias), que es
+justamente lo que le he anadido a `doclint`: **el hueco existia en una
+herramienta y ya estaba resuelto en la otra**, y no lo supe hasta que el linter
+me obligo a mirar.
+
+Consecuencia que no es cosmetica: **una cita verificada por `audit_citations` no
+esta verificada contra el kernel que corre.** 7.2.8 y 7.1.3 no son el mismo
+amdgpu. Las dos herramientas son correctas en lo que hacen y **no son
+intercambiables**, y nada en el proyecto lo dice.
+
 ## Confounders
 
 - **`--self` solo mira `0[23]*.md`.** Mis hallazgos recientes (`279`, `286`) no

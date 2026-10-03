@@ -29,7 +29,7 @@ $ grep -c "mmVM_" include/asic_reg/gmc/gmc_8_1_d.h        -> 61
 
 Esto no es un detalle de nomenclatura. Significa que:
 
-- `gfx_8_0.c` (el fichero grande, con los shaders) **no toca el page walker**.
+- `gfx_v8_0.c` (el fichero grande, con los shaders) **no toca el page walker**.
 - `gmc_v8_0.c` (el fichero que programa la VM) es el dueño de §A y §B.
 - `VM_CONTEXT1_PROTECTION_FAULT_STATUS` **no está** en `gfx_8_0_sh_mask.h`, está
   en `gmc_8_1_sh_mask.h:6849`.

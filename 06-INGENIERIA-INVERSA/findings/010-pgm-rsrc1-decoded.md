@@ -143,7 +143,7 @@ y es un candidato a diferencia entre el comportamiento de referencia y el de un 
 ## 6. Dónde están los demás registros que un ensamblador necesita
 
 `gfx_8_0_sh_mask.h` contiene 50 registros `COMPUTE_*` con sus campos. Los de la secuencia de
-dispatch (`gfx_8_0.c:1535-1564`):
+dispatch (`gfx_v8_0.c:1535-1564`):
 
 | Registro en el código | Available | Campos |
 |---|---|---|
