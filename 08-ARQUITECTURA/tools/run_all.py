@@ -128,13 +128,19 @@ def main():
     # 0. integridad del corpus, SIEMPRE primero
     rc, ok = run("INTEGRIDAD DEL CORPUS (antes)",
                  ["python3", GUARD, "--git"], want_lines=10)
-    results.append(("integridad", ok))
+    results.append(("integridad", ok, "objetivo"))
 
     if check_only:
         print("\nsolo integridad; fin.")
         return 0 if all(o for _, o in results) else 1
 
     # 1. herramientas de analisis
+    CLASES_VISTAS = set()
+    # --solo-objetivo / --solo-aparato. Con esto el numero que se lee como
+    # "estado del proyecto" y el que se lee como "estado de la validacion" dejan
+    # de ser el mismo numero.
+    MODO = ("aparato" if "--solo-aparato" in sys.argv
+            else "objetivo" if "--solo-objetivo" in sys.argv else "todos")
     tools = [
         ("cierre de includes de gfx_v8_0.c",
          ["include_closure.py", "gfx_v8_0.c", "--opcodes"], 0),
@@ -371,7 +377,8 @@ def main():
         # Fuera del runner esto seria un control que se ejecuta a veces, y eso
         # es una convencion con comentarios. Adentro es una invariante: si una
         # herramienta empieza a devolver otra cosa de la que dice, salta aqui.
-        ("exit_contract: EXIT_ON_SUCCESS se cumple", ["exit_contract.py"], 0, 0),
+        ("exit_contract: EXIT_ON_SUCCESS se cumple",
+         ["exit_contract.py"], 0, 0, "aparato"),
         # WRITES_GPU=yes sin acceso a la barra en toda la cadena de delegacion.
         # rc=3 y no 1: hoy el unico caso (bench.py) NO esta versionado, y cambiar
         # el contrato de otra sesion para que deje de salir seria cambiar una
@@ -383,11 +390,11 @@ def main():
         # rc esperado 0 en el caso normal; si sale 1, LEERLO antes de fiarse de
         # cualquier cifra medida sobre esos ficheros.
         ("vigilia: ningun fichero clasificado ha cambiado",
-         ["contract_exec.py", "--vigilar"], 0, 0),
+         ["contract_exec.py", "--vigilar"], 0, 0, "aparato"),
         ("capacidad: WRITES_GPU declarado sin uso",
-         ["contract_exec.py", "--capacidad"], 3, 3),
+         ["contract_exec.py", "--capacidad"], 3, 3, "aparato"),
         ("commitmsg_lint: sin residuos en 25 mensajes",
-         ["commitmsg_lint.py", "--commits=25"], 0, 0),
+         ["commitmsg_lint.py", "--commits=25"], 0, 0, "aparato"),
         # Colisiones de nombre entre los 4 directorios de herramientas. rc=1
         # si hay CONFLICTO (mismo nombre, hash distinto): son dos
         # herramientas que se contradicen segun el directorio desde el que se
@@ -398,9 +405,9 @@ def main():
         # haria que el check fallara siempre, y un check que falla siempre no
         # informa de nada.
         ("cite_registry: ningun conflicto de nombre NUEVO",
-         ["cite_registry.py", "--guardio"], 0, 0),
+         ["cite_registry.py", "--guardio"], 0, 0, "aparato"),
         ("cite_registry: autotest (respuesta conocida y negativos)",
-         ["cite_registry.py", "--self-test"], 0, 0),
+         ["cite_registry.py", "--self-test"], 0, 0, "aparato"),
         # La reserva de numeros de hallazgo. num_collision mide 37 duplicados
         # y esta sesion choco 3 veces (111, 119, 120) con otra escribiendo.
         # El self-test RESERVA y LIBERA de verdad: comprobar que el numero no
@@ -450,10 +457,25 @@ def main():
         # codigo concreto, que es una declaracion sobre que codigos son
         # validos para esa herramienta.
         rc_tol = t[3] if len(t) > 3 else None
+        # CLASE de la comprobacion: "objetivo" (el hardware, el driver, el
+        # proyecto) o "aparato" (las herramientas de validacion que construi
+        # esta sesion). Es el QUINTO campo, con valor por defecto, para que las
+        # tuplas de cuatro sigan valiendo y nadie tenga que reescribirlas.
+        #
+        # POR QUE. El runner ha pasado de 63 a 66 comprobaciones y las tres
+        # ultimas que anadi miden MI aparato. run_all rc=3 significa hoy cosas
+        # distintas segun si las FALLAs vienen del hardware o de las
+        # herramientas, y esa ambiguedad crece con cada herramienta que anado.
+        clase = t[4] if len(t) > 4 else "objetivo"
+        if MODO == "objetivo" and clase != "objetivo":
+            continue
+        if MODO == "aparato" and clase != "aparato":
+            continue
+        CLASES_VISTAS.add(clase)
         rc, ok = run(label, ["python3", os.path.join(HERE, a[0])] + a[1:],
                      want_lines=n,
                      rc_ok=[0, rc_tol] if rc_tol is not None else None)
-        results.append((label, ok))
+        results.append((label, ok, clase))
 
     # 2. linter de documentos. Esto es lo que mas me ha ahorrado.
     print(f"\n{'=' * 70}")
@@ -467,20 +489,24 @@ def main():
     for l in lines[-14:]:
         print(l)
     print(f"[{dt:.1f}s  rc={r.returncode}]")
-    results.append(("doclint", r.returncode == 0))
+    results.append(("doclint", r.returncode == 0, "objetivo"))
 
     # 3. integridad DESPUES. Si algo toco el corpus, esto lo dice.
     rc, ok = run("INTEGRIDAD DEL CORPUS (despues)",
                  ["python3", GUARD, "--git"], want_lines=10)
-    results.append(("integridad final", ok))
+    results.append(("integridad final", ok, "objetivo"))
 
     # resumen
     print(f"\n{'=' * 70}")
     print("RESUMEN")
     print(f"{'=' * 70}")
-    for label, ok in results:
-        print(f"  {'OK  ' if ok else 'FALLA'}  {label}")
-    bad = [l for l, ok in results if not ok]
+    for label, ok, cactual in results:
+        print(f"  {'OK  ' if ok else 'FALLA'}  [{cactual}] {label}")
+    if MODO != "todos":
+        print()
+        print("  modo --solo-%s: %d comprobaciones de esa clase"
+              % (MODO, len(results)))
+    bad = [l for l, ok, _c in results if not ok]
 
     # POR QUE UNA LINEA ROJA PUEDE SER LA MISMA LINEA ROJA DOS VECES.
     #
