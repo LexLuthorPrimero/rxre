@@ -312,6 +312,13 @@ def main():
         # un emisor cambia y la constante no, esta comprobacion falla.
         ("driver_offsets: 19/17 dwords de vm-flush contados",
          ["driver_offsets.py", "--vflush"], 0, 0),
+        # Residuos de codificacion en los mensajes de commit. rc=1 si hay.
+        # Va en el runner y no solo antes de escribir porque un control que
+        # depende de que te acuerdes se salta: el que revisa es el mismo que
+        # acaba de escribir el texto y ya lo tiene en la cabeza. Asi el residuo
+        # sale en run_all y no se queda.
+        ("commitmsg_lint: sin residuos en 25 mensajes",
+         ["commitmsg_lint.py", "--commits=25"], 0, 0),
         # Colisiones de nombre entre los 4 directorios de herramientas. rc=1
         # si hay CONFLICTO (mismo nombre, hash distinto): son dos
         # herramientas que se contradicen segun el directorio desde el que se
