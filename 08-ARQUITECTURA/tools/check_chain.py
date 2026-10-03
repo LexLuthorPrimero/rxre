@@ -354,6 +354,37 @@ def main(argv):
         print("      %-24s directa %d vez/veces, anidada %d"
               % (h, len(raices[h]), len(anidado[h])))
     print()
+    # CUANTAS HERRAMIENTAS SE EJECUTAN DE VERDAD. Un verde de run_all se lee
+    # como "66 OK", y eso no es el numero de herramientas: un check puede
+    # invocar tres. Sin esta cifra, la ejecucion oculta no se puede cuantificar.
+    invocadas1 = {}
+    for etiqueta, raices, _ in filas:
+        for h in raices:
+            invocadas1[h] = invocadas1.get(h, 0) + 1
+    nivel2_todas = {}
+    for etiqueta, raices, nivel2 in filas:
+        for h in nivel2:
+            nivel2_todas[h] = nivel2_todas.get(h, 0) + 1
+    distintas = set(invocadas1) | set(nivel2_todas)
+    print()
+    print("  HERRAMIENTAS QUE SE EJECUTAN, NO CHECKS")
+    print("      checks                       %d" % len(filas))
+    print("      herramientas distintas       %d" % len(distintas))
+    print("      invocaciones de nivel 1      %d" % sum(invocadas1.values()))
+    print("      invocaciones de nivel 2      %d" % sum(nivel2_todas.values()))
+    print("      total de invocaciones        %d"
+          % (sum(invocadas1.values()) + sum(nivel2_todas.values())))
+    print()
+    repetidas = sum(invocadas1.values()) + sum(nivel2_todas.values()) - len(distintas)
+    print("      invocaciones REPETIDAS (una misma herramienta en varios sitios): %d"
+          % repetidas)
+    print()
+    print("      Y UNA CORRECCION A MI PROPIA ETIQUETA, porque la primera vez que")
+    print("      salio esto lei la diferencia como 'checks sin herramienta', y NO")
+    print("      lo son: son llamadas a la MISMA herramienta mas de una vez. Un")
+    print("      numero cuya interpretacion no he comprobado no se imprime con una")
+    print("      etiqueta inventada al lado.")
+
     print()
     print("  CUADRE CONTRA EL RUNNER, que es lo que hace falta que cuadre:")
     print("      run_all imprime una linea por resultado: 64 OK + 2 FALLA = 66")
