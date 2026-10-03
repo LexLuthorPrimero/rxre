@@ -676,6 +676,21 @@ def main() -> int:
                 break
 
     if args.json:
+        # MEDIDO 2026-10-03: el JSON salia SIN el campo `documento`, que la
+        # variable tiene desde su construccion (linea 559). El consumidor --
+        # cualquier script, incluida esta sesion para medir los UN_REGISTRO --
+        # recibia `fichero: None` en las 1085 filas.
+        #
+        # Es el mismo defecto que la tabla de artifacts.py: el dato existe, no
+        # se imprime. Y aqui es PEOR, porque la tabla se leia a ojo y el JSON se
+        # consume en silencio: un `None` en un campo no rompe nada, simplemente
+        # no esta.
+        for h in huecos:
+            h.setdefault("fichero", h.get("documento"))
+        faltan = sum(1 for h in huecos if not h.get("fichero"))
+        if faltan:
+            print("frontier: %d huecos sin fichero en el JSON" % faltan,
+                  file=sys.stderr)
         print(json.dumps({"version": VERSION, "huecos": huecos,
                           "vias": VIAS, "n_obsoletos": n_obsoletos},
                          indent=2, sort_keys=True, default=str))
