@@ -4044,3 +4044,100 @@ VBIOS. Los 300 MHz son el nivel que el SMU elige con el workload a cero, y por
 que lo elige con tan poca actividad es lo que queda por delante.
 
 GPU INTACTA. WRITE_EXECUTION NONE. NO SE TOCO EL CORPUS NI LAS CAPTURAS.
+## 2026-10-03 · opencode · `atomrom.py ppt`: el pptable v1, con el layout que se autovalida
+
+```
+OBJECT   revkit/atomrom.py (nuevo subcomando ppt + 10 vectores),
+         revkit/check.sh
+ACTION   BUILD de una herramienta, sobre lectura. GPU sin tocar.
+TRACK    TOOLING · WRITE_EXECUTION NONE · GPU INTACTA
+```
+
+**POR QUE, Y POR QUE AHORA.** EV-50 cerro la cadena del mclk **a mano**, en un
+script desechable. Eso no es autoridad: es un resultado que solo existe mientras el
+script viva. Y el valor esta demostrado, porque el parseo produce la explicacion de
+una anomalia medida. Ademas el contrato a validar ya estaba escrito por esta misma
+sesion: el struct trae `usTableSize`, y **un layout correcto se reconoce solo**.
+
+**LO QUE HACE, Y LA ORDEN DE SUS TRES CONTROLES.** `atomrom.py ppt`:
+
+1. Localiza `PowerPlayInfo` por la master data table, como el driver
+   (`GetIndexIntoMasterTable(DATA, PowerPlayInfo)`), reusando `buscar_masters`.
+2. **Calcula** el layout de `ATOM_Tonga_POWERPLAYTABLE` desde la lista de campos.
+3. **Valida**: `usTableSize` calculado tiene que ser igual al leido. Si no,
+   `rc=4 INVALID` y no imprime ninguna tabla. Prefiere no responder a responder mal.
+4. Solo entonces vuelca las tablas de dependencia, **comprobando plausibilidad**.
+
+El punto 3 va primero a proposito: si el layout no esta demostrado, todo lo demas
+seria inventado. Y el punto 4 va porque un reloj de 1879048199 MHz no es un dato
+raro: es un byte leido en el sitio equivocado, y una herramienta que no
+distingue las dos cosas no es autoridad.
+
+**DOS ERRORES PROPIOS QUE LA HERRAMIENTA ME HIZO VER, Y QUE NO HABRIA VISTO SIN ELLA.**
+
+- Escribi `SCLK_REC = 12` a mano. El registro suma **11**. Con 12 el volcado dio
+  1879048199 y 134217733 como si fueran relojes, y los imprimio sin protestar.
+- Al corregirlo a 11, seguia dando basura, porque **`ucRevId` decide el registro y
+  yo loeria el equivocado**: el driver hace `if (sclk_dep_table->ucRevId < 1)`, y
+  esta tabla tiene **`ucRevId = 1`**, o sea que usa `ATOM_Polaris_...`, que anade
+  `ulSclkOffset`: 11 + 4 = **15**.
+
+Y como lo resolvi **sin que nadie me lo dijera**: el control de plausibilidad, aplicado
+a los 144 candidatos de (tamano, desplazamiento), deja **UN SOLO** con todos los
+relojes plausibles, y es 15 con desplazamiento 3. Despues el codigo del driver
+confirma 15. **Dos vias independientes, mismo numero.**
+
+**LOS DIEZ VECTORES, Y LO QUE TARDARON EN SER REALES.** Los siete primeros probaban
+funciones auxiliares. Al mutar la herramienta, **dos escaparon**:
+
+| mutacion | resultado |
+|---|---|
+| eliminar la comprobacion de `usTableSize` | **NO la cazaba** |
+| elegir siempre el registro de Tonga | **NO la cazaba** |
+
+Motivo, y es el mismo defecto de siempre: `fabricar_rom()` no mete ninguna
+`PowerPlayInfo`, o sea que **`cmd_ppt` no se ejecutaba nunca en el autotest**. Un
+self-test que prueba piezas y no el camino que corre tiene un hueco, y el hueco es
+donde se cuelan los errores. Anadido un `PowerPlayInfo` sintetico que si se
+ejecuta, con la tabla de sclk incluida **con `ucRevId = 1`**, que es lo que obliga a
+pasar por la rama de Polaris.
+
+Ahora si, y con las cinco mutaciones cazadas:
+
+```
+OK  'eliminada la comprobacion de usTableSize'   -> rc=1
+OK  'registro de sclk siempre el de Tonga'        -> rc=1
+OK  'plausibilidad siempre verdadera'            -> rc=1
+OK  'campo del mclk cambiado de tamano'           -> rc=1
+OK  'INVALID de reloj imposible ignorado'         -> rc=1
+LAS 5 CAZADAS: True     atomrom.py INTACTO
+```
+
+**Y UN VECTOR QUE ERA UN VECTOR MENOS, LA TERCERA VEZ EN ESTA RONDA.** Una de las
+mutaciones de la primera tanda dio "no la caza", y era que **el escapado del shell
+hizo que la mutacion no se aplicara**: se ejecuto el autotest sobre una copia
+intacta. Si lo hubiera anotado como fallo de la herramienta, habria "arreglado" una herramienta correcta por un vector mal construido. Todas las
+mutaciones se aplican y se **verifican aplicadas** antes de ejecutar nada.
+
+**LO QUE LA HERRAMIENTA DICE, MEDIDO SOBRE EL VBIOS REAL.** Validacion del layout:
+`usTableSize` calculado 77, leido 77, **COINCIDE**. 11 subtablas dentro, 3 ausentes.
+Y las dos escaleras de reloj:
+
+```
+MCLK  3 entradas: 30000 / 62500 / 150000   -> 300 / 625 / 1500 MHz
+SCLK  8 entradas: 21400 55100 73400 98000 100000 102000 104600 107100
+                   -> 214  551  734  980  1000   1020   1046   1071 MHz
+```
+
+La de sclk **envuelve la medicion**: `gputel` mide sclk entre 997 y 1069 MHz con
+~1040 de tipico, y aqui hay entradas en 1000, 1020, 1046 y 1071. Los valores
+medidos caen sobre entradas concretas de una tabla del hardware de la tarjeta.
+
+**LIMITES DECLARADOS, EN LA PROPIA SALIDA.** Se decodifica `PowerPlayInfo` y sus
+tablas de dependencia; las otras subtablas se localizan y **no** se decodifican:
+son `NOT_IMPLEMENTED`, no tablas vacias. Y el `x10` de los relojes es la convencion
+de ATOM, **informada y no aplicada**: el valor crudo es el dato, y multiplicar es
+decision de quien lee, no un numero escondido en la herramienta.
+
+check.sh rc=0 TODO CORRECTO, con `ppt` dentro del bloque del VBIOS real. GPU
+INTACTA. WRITE_EXECUTION NONE. NO SE TOCO EL CORPUS NI LAS CAPTURAS.

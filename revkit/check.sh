@@ -434,6 +434,10 @@ if [ -f capturas/amdgpu_vbios.txt ]; then
     # kernel ve en amdgpu_vram_mm. Si no coinciden, el VBIOS describiria otra
     # tarjeta, y eso habria que saberlo antes de usar nada de lo suyo.
     run "atomrom: VRAM_Info + parte number"        python3 atomrom.py vram capturas/amdgpu_vbios.txt
+    # El pptable v1: es lo que explica de donde salen los relojes que se miden en
+    # reposo. El layout se valida contra usTableSize antes de imprimir nada, asi
+    # que un rc=0 aqui significa "el layout esta demostrado", no "ha impreso algo".
+    run "atomrom: pptable v1 y su tabla de mclk"    python3 atomrom.py ppt capturas/amdgpu_vbios.txt
     # pm4dec sobre el anillo real: el decode tiene que salir limpio, sin
     # problemas de truncamiento. Con el PKT0 mal tratado, esto no cuadraba.
     run "pm4dec: anillo GFX real"                   python3 pm4dec.py capturas/amdgpu_ring_gfx.txt

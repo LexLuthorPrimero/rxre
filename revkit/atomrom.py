@@ -48,6 +48,7 @@ expresamente para que NOT_IMPLEMENTED no se lea como AUSENTE.
 """
 import argparse
 import hashlib
+import io
 import os
 import struct
 import sys
@@ -482,6 +483,230 @@ def cmd_autotest(a):
         print("  FALLA encuentra candidatas con un tamano erroneo")
         fallos.append("buscar_masters con tamano malo")
 
+    # --- el PPTABLE, con vectores que cazan MI propia clase de error ---
+    #
+    # Escribi SCLK_REC = 12 a mano cuando el struct suma 11, y el volcado salio
+    # con 1879048199 MHz impreso como si fuera un dato. Estos vectores existen para
+    # que eso no vuelva a pasar sin que la herramienta lo note.
+    off, calc = _layout_ppt()
+    print("-" * 66)
+    print("PPT (PowerPlayInfo), en ROM sintetico")
+
+    # una tabla de dependencia de mclk de tres entradas, con relojes plausibles
+    def _mclk_tab(entradas, recsz=MCLK_REC, holgura=0):
+        # holgura: se reserva sitio de mas a proposito, para que un registro de
+        # tamano equivocado NO se detecte por salirse del buffer sino por la
+        # plausibilidad. Los dos controles tienen que poder probarse por separado:
+        # si el mutante siempre revienta por limites, el vector de plausibilidad
+        # no llega a ejercitarse y parece que funciona cuando no se ha probado.
+        b = bytearray(2 + len(entradas) * recsz + holgura)
+        b[0] = 0
+        b[1] = len(entradas)
+        for i, clk in enumerate(entradas):
+            o = 2 + i * recsz
+            b[o] = 0
+            struct.pack_into("<HHH", b, o + 1, 800, 0, 1000)
+            struct.pack_into("<I", b, o + 7, clk)
+        return bytes(b)
+
+    buenos = (30000, 62500, 150000)
+    rev, n, filas, recsz, desp, ok = _dep_entries(
+        _mclk_tab(buenos), 0, MCLK_CAMPOS, "MCLK")
+    if ok and n == 3 and [f[2] for f in filas] == list(buenos) and recsz == 13:
+        print("  OK    lee 3 entradas de mclk con el registro de 13 bytes")
+    else:
+        print("  FALLA lectura de mclk: n=%d recsz=%d ok=%s vals=%s"
+              % (n, recsz, ok, [f[2] for f in filas]))
+        fallos.append("lectura de mclk")
+
+    # V1: un reloj implausible tiene que ruido, no imprimirse
+    malos = (30000, 1879048199, 150000)
+    rev, n, filas, recsz, desp, ok = _dep_entries(
+        _mclk_tab(malos), 0, MCLK_CAMPOS, "MCLK")
+    if not ok:
+        print("  OK    un reloj de 1879048199 marca la tabla como NO plausible")
+    else:
+        print("  FALLA acepta 1879048199 como reloj: no puede distinguir")
+        print("         un dato imposible de un dato raro")
+        fallos.append("plausibilidad no detecta un reloj imposible")
+
+    # V2, Y ESTE ES EL IMPORTANTE: un registro de tamano equivocado. Con el
+    # equivocado los bytes siguen cabiendo y no hay limites que lo delaten, asi
+    # que la plausibilidad es la UNICA defensa. Este vector es el que habria
+    # cazado mi SCLK_REC = 12.
+    for malo in (MCLK_REC - 1, MCLK_REC + 1, MCLK_REC - 4, MCLK_REC + 2):
+        rev, n, filas, recsz, desp, ok = _dep_entries(
+            _mclk_tab(buenos, malo, holgura=32), 0, MCLK_CAMPOS, "MCLK")
+        if ok:
+            print("  FALLA con registro de %d bytes NO marca la tabla como no"
+                  " plausible" % malo)
+            fallos.append("registro de %d bytes pasa la plausibilidad" % malo)
+            break
+    else:
+        print("  OK    un registro de tamano equivocado se marca como no plausible")
+        print("        (con el buffer inflado, para que lo detecte la plausibilidad")
+        print("         y no un desbordamiento)")
+
+    # y el otro control, por separado. Y aqui el vector tiene que ser un buffer
+    # TRUNCADO, no uno construido con el tamano equivocado: _mclk_tab dimensiona
+    # el buffer a partir del tamano del registro, asi que un mutante de tamano
+    # NUNCA se sale por limites y este vector no se ejercitaba. Que un control no
+    # se ejercite es tan malo como que no exista.
+    try:
+        _dep_entries(_mclk_tab(buenos)[:20], 0, MCLK_CAMPOS, "MCLK")
+        print("  FALLA una tabla truncada no da error")
+        fallos.append("truncamiento silencioso")
+    except RomInvalido:
+        print("  OK    una tabla truncada da RomInvalido, no una tabla mas corta")
+
+    # V3: el calculo del layout es el que da credibilidad, y se comprueba
+    if calc == 77 and off["usMclkDependencyTableOffset"] == 43 \
+            and off["usStateArrayOffset"] == 35:
+        print("  OK    el layout del pptable se calcula a 77 bytes y los offsets")
+        print("        del mclk y del state array caen donde deben")
+    else:
+        print("  FALLA el layout calculado no es el esperado: %d bytes, mclk@%d"
+              % (calc, off["usMclkDependencyTableOffset"]))
+        fallos.append("layout del pptable")
+
+    # V4: el registro de sclk se elige por revision, y los dos dan distinto
+    if (_tam(SCLK_CAMPOS_TONGA) == 11 and _tam(SCLK_CAMPOS_POLARIS) == 15):
+        print("  OK    registro de sclk: Tonga 11 bytes, Polaris 15, por revision")
+    else:
+        print("  FALLA los registros de sclk no son 11 y 15: %d y %d"
+              % (_tam(SCLK_CAMPOS_TONGA), _tam(SCLK_CAMPOS_POLARIS)))
+        fallos.append("registros de sclk")
+
+    # --- y ahora el CAMINO REAL: cmd_ppt sobre un PowerPlayInfo SINTETICO ---
+    #
+    # Los vectores anteriores probaban las funciones auxiliares. Eso, y solo eso,
+    # deja dos huecos que se ven mutando: quitar la comprobacion de usTableSize no
+    # los detecta, y elegir siempre el registro de Tonga tampoco. Porque
+    # fabricar_rom() no mete ninguna PowerPlayInfo, asi que cmd_ppt no se ejecutaba
+    # nunca en el autotest. Un self-test que prueba piezas y no el camino que
+    # corre tiene un hueco, y el hueco es justo donde se cuelan los errores.
+    def _ppt_sintetico(rom, mclk=(30000, 62500, 150000), tabla_size=None,
+                      Offsets=None, buen_tam=True):
+        base = len(rom) - 1024
+        t = bytearray(778)
+        struct.pack_into("<HBB", t, 0, 778, 7, 1)
+        t[4] = 0
+        struct.pack_into("<H", t, _layout_ppt()[0]["usTableSize"],
+                         tabla_size if tabla_size is not None else _layout_ppt()[1])
+        off = _layout_ppt()[0]
+        struct.pack_into("<H", t, off["usStateArrayOffset"], 77)
+        for k in ("usFanTableOffset", "usThermalControllerOffset",
+                  "usVddcLookupTableOffset", "usVddgfxLookupTableOffset",
+                  "usMMDependencyTableOffset", "usVCEStateTableOffset",
+                  "usPowerTuneTableOffset", "usPCIETableOffset"):
+            struct.pack_into("<H", t, off[k], 0)
+        # tabla de dependencia de sclk, con ucRevId = 1, que es lo que obliga al
+        # driver --y a esta herramienta-- a usar el registro de POLARIS y no el de
+        # Tonga. Sin esta tabla, cmd_ppt no llegaba a la rama de sclk y la
+        # seleccion de registro no se probaba: la mutacion "siempre Tonga" pasaba
+        # porque el codigo mutado no se ejecutaba nunca.
+        deps = 400
+        struct.pack_into("<H", t, off["usSclkDependencyTableOffset"], deps)
+        n_s = 3
+        t[deps] = 1                       # ucRevId = 1 -> registro Polaris
+        t[deps + 1] = n_s
+        for i, clk in enumerate((98000, 102000, 104600)):
+            o = deps + 2 + i * SCLK_REC_POLARIS
+            t[o] = 0
+            struct.pack_into("<H", t, o + 1, 0)
+            struct.pack_into("<I", t, o + 3, clk)
+            struct.pack_into("<I", t, o + 11, 0)   # ulSclkOffset
+        # tabla de dependencia de mclk al final de la tabla
+        dep = 600
+        struct.pack_into("<H", t, off["usMclkDependencyTableOffset"], dep)
+        b0, b1 = 2, 2 + len(mclk) * MCLK_REC
+        t[dep] = 0
+        t[dep + 1] = len(mclk)
+        for i, clk in enumerate(mclk):
+            o = dep + 2 + i * MCLK_REC
+            t[o] = 0
+            struct.pack_into("<HHH", t, o + 1, 800, 0, 1000)
+            struct.pack_into("<I", t, o + 7, clk)
+        d2 = bytearray(rom)
+        d2[base:base + 778] = t
+        mt = 0x97F2
+        idx = TABLAS_MASTER.index("PowerPlayInfo")
+        struct.pack_into("<H", d2, mt + HEADER_COMUN + 2 * idx, base)
+        return bytes(d2)
+
+    class _Silencio:
+        def write(self, x):
+            return len(x)
+
+        def flush(self):
+            pass
+
+    real = sys.stdout
+
+    # A: el camino bueno, con usTableSize correcto
+    sys.stdout = _Silencio()
+    try:
+        rc_ok = cmd_ppt(_ppt_sintetico(rom), a)
+    finally:
+        sys.stdout = real
+    if rc_ok == 0:
+        print("  OK    cmd_ppt acepta una PowerPlayInfo sintetica bien formada")
+    else:
+        print("  FALLA cmd_ppt rechaza una tabla bien formada: rc=%d" % rc_ok)
+        fallos.append("cmd_ppt rechaza lo valido")
+
+    # B: y el hueco real. usTableSize INCORRECTO tiene que dar rc=4
+    sys.stdout = _Silencio()
+    try:
+        rc_malo = cmd_ppt(_ppt_sintetico(rom, tabla_size=78), a)
+    finally:
+        sys.stdout = real
+    if rc_malo == 4:
+        print("  OK    usTableSize erroneo -> rc=4 INVALID, no numeros falsos")
+    else:
+        print("  FALLA usTableSize erroneo -> rc=%d: sigue imprimiendo la tabla"
+              % rc_malo)
+        fallos.append("cmd_ppt no detecta usTableSize erroneo")
+
+    # C-bis: los relojes de sclk tienen que leerse con el registro de POLARIS. Con
+    # el de Tonga (11 en vez de 15) las entradas se desalinean y salen numeros que
+    # no son relojes, asi que la comprobacion es sobre los VALORES, no sobre el
+    # codigo: es lo unico que distingue un registro de otro sin leerlos.
+    _cap = io.StringIO()
+
+    class _Toma:
+        def write(self, x):
+            _cap.write(x)
+            return len(x)
+
+        def flush(self):
+            pass
+
+    sys.stdout = _Toma()
+    try:
+        cmd_ppt(_ppt_sintetico(rom), a)
+    finally:
+        sys.stdout = real
+    salida = _cap.getvalue()
+    if "98000" in salida and "104600" in salida:
+        print("  OK    los relojes de sclk se leen con el registro de Polaris")
+    else:
+        print("  FALLA los relojes de sclk no salen con el registro correcto")
+        fallos.append("registro de sclk en el camino real")
+
+    # C: y un reloj imposible dentro de la tabla bien formada
+    sys.stdout = _Silencio()
+    try:
+        rc_clk = cmd_ppt(_ppt_sintetico(rom, mclk=(30000, 1879048199, 150000)), a)
+    finally:
+        sys.stdout = real
+    if rc_clk == 4:
+        print("  OK    un reloj imposible -> rc=4 INVALID, no una tabla")
+    else:
+        print("  FALLA un reloj imposible -> rc=%d: se imprime como si fuera dato"
+              % rc_clk)
+        fallos.append("cmd_ppt imprime relojes imposibles")
+
     print("-" * 66)
     if fallos:
         print("%d fallo(s): atomrom.py NO puede usarse como autoridad."
@@ -798,10 +1023,289 @@ def cmd_vram(d, a):
     return 0 if coincide else 5
 
 
+# ---------------------------------------------------------------------------
+# EL PPTABLE v1, Y POR QUE ESTA SEPARADO DE `tablas`
+# ---------------------------------------------------------------------------
+# `tablas` localiza y da el HEADER de cada tabla, y dice explicitamente que el
+# CONTENIDO no se decodifica. Aqui se decodifica UNA tabla, la que explica una
+# medicion: PowerPlayInfo, y dentro de ella la tabla de dependencia de reloj de
+# memoria. Es la que responde de donde sale el mclk que se mide en reposo.
+#
+# EL LAYOUT NO SE ESCRIBE A MANO. Los offsets se CALCULAN de la lista de campos
+# de ATOM_Tonga_POWERPLAYTABLE (pptable_v1_0.h), y luego se comprueba contra
+# usTableSize, que el propio struct lleva. Ese es el motivo de que la herramienta
+# sea creible: un layout correcto se reconoce solo, porque el formato ofrece un
+# checksum de si mismo. Si el layout fuera erroneo, usTableSize no casaria y esto
+# dira INVALID en vez de imprimir numeros.
+#
+# Se calcula en pack(1), que es como van las tablas ATOM, y eso tambien se
+# comprueba: si usTableSizeCalculado != usTableSizeLeido, no se sigue.
+PPTX_CAMPOS = [
+    ("sHeader", 4), ("ucTableRevision", 1), ("usTableSize", 2),
+    ("ulGoldenPPID", 4), ("ulGoldenRevision", 4), ("usFormatID", 2),
+    ("usVoltageTime", 2), ("ulPlatformCaps", 4),
+    ("ulMaxODEngineClock", 4), ("ulMaxODMemoryClock", 4),
+    ("usPowerControlLimit", 2), ("usUlvVoltageOffset", 2),
+    ("usStateArrayOffset", 2), ("usFanTableOffset", 2),
+    ("usThermalControllerOffset", 2), ("usReserv", 2),
+    ("usMclkDependencyTableOffset", 2), ("usSclkDependencyTableOffset", 2),
+    ("usVddcLookupTableOffset", 2), ("usVddgfxLookupTableOffset", 2),
+    ("usMMDependencyTableOffset", 2), ("usVCEStateTableOffset", 2),
+    ("usPPMTableOffset", 2), ("usPowerTuneTableOffset", 2),
+    ("usHardLimitTableOffset", 2), ("usPCIETableOffset", 2),
+    ("usGPIOTableOffset", 2), ("usReserved[6]", 12),
+]
+PPTX_OFF, _pos = {}, 0
+for _n, _sz in PPTX_CAMPOS:
+    PPTX_OFF[_n] = _pos
+    _pos += _sz
+PPTX_SIZE = _pos
+
+# Los tamaños de registro se CALCULAN de sus listas de campos, NUNCA a mano.
+#
+# MEDIDO, Y ESTO ES UN ERROR QUE COMETI AL ESCRIBIR LA PRIMERA VERSION: puse
+# SCLK_REC = 12 a mano y el registro suma 11. Con 12 el volcado daba 1879048199 y
+# 134217733 como si fueran relojes, y la herramienta los imprimio sin protestar.
+# Lo grave no es el 12: es que imprimio numeros sin plausibilidad como si fueran
+# un dato. Un reloj de graficos de 1879048 MHz no es un dato raro, es un dato
+# imposible, y una herramienta que no distingue las dos cosas no se puede usar
+# como autoridad.
+#
+# Y hay un detalle que hace esto peor y no mejor: los DOS tamaños caben dentro de
+# la tabla, asi que ningun control de limites los separa. Por eso el control de
+# plausibilidad no es opcional, es la unica defensa que queda.
+MCLK_CAMPOS = [("ucVddcInd", 1), ("usVddci", 2), ("usVddgfxOffset", 2),
+               ("usMvdd", 2), ("ulMclk", 4), ("usReserved", 2)]
+# El registro de sclk depende de la REVISION de la tabla, y el driver lo hace
+# explicito: `if (sclk_dep_table->ucRevId < 1)` usa ATOM_Tonga_..., y la otra
+# rama usa ATOM_Polaris_..., que anade ulSclkOffset. 11 + 4 = 15.
+#
+# MEDIDO, y con dos vias independientes: (a) el control de plausibilidad de esta
+# herramienta, applied a los 144 candidatos de (tamano, desplazamiento), deja UN
+# SOLO con todos los relojes plausibles: 15 con desplazamiento 3. (b) el codigo
+# del driver, que para ucRevId >= 1 usa el registro de Polaris. Las dos dan 15.
+# La herramienta NO busca el tamano: usa el del struct, y el control de
+# plausibilidad queda como el que avisa si alguna vez dejaran de encajar.
+SCLK_CAMPOS_TONGA = [("ucVddInd", 1), ("usVddcOffset", 2), ("ulSclk", 4),
+                     ("usEdcCurrent", 2), ("ucReliabilityTemperature", 1),
+                     ("ucCKSVOffsetandDisable", 1)]
+SCLK_CAMPOS_POLARIS = SCLK_CAMPOS_TONGA + [("ulSclkOffset", 4)]
+
+
+def _tam(campos):
+    return sum(sz for _, sz in campos)
+
+
+def _desplaz(campos, campo):
+    o = 0
+    for n, sz in campos:
+        if n == campo:
+            return o
+        o += sz
+    raise KeyError(campo)
+
+
+MCLK_REC = _tam(MCLK_CAMPOS)
+SCLK_REC = _tam(SCLK_CAMPOS_TONGA)
+SCLK_REC_POLARIS = _tam(SCLK_CAMPOS_POLARIS)
+
+# Un reloj de memoria o de graficos de esta familia esta en el orden de
+# 10^5..10^6 kHz. Fuera de eso no es un reloj raro: es un byte leido en el sitio
+# equivocado, y decirlo es parte del contrato.
+PLO_CLOCKS_KHZ = (10000, 2000000)
+
+
+def _layout_ppt():
+    """El layout se recalcula cada vez, para que no pueda desincronizarse de la
+    lista de campos."""
+    off, pos = {}, 0
+    for n, sz in PPTX_CAMPOS:
+        off[n] = pos
+        pos += sz
+    return off, pos
+
+
+def _dep_entries(d, base, campos, nombre):
+    """
+    Vuelca una tabla de dependencia, con el registro CALCULADO de sus campos.
+
+    Devuelve ademas si los relojes son plausibles. No es un adorno: es lo unico
+    que distingue un tamano de registro correcto de uno equivocado, porque con
+    el equivocado los bytes siguen cabiendo y no hay ninguna otra senal.
+    """
+    recsz = _tam(campos)
+    desp = _desplaz(campos, "ulMclk" if "ulMclk" in [c for c, _ in campos]
+                    else "ulSclk")
+    rev = u8(d, base)
+    n = u8(d, base + 1)
+    filas = []
+    plausible = True
+    for i in range(n):
+        b = base + 2 + i * recsz
+        if b + recsz > len(d):
+            raise RomInvalido("%s: la entrada %d se sale del ROM (offset 0x%X)"
+                              % (nombre, i, b))
+        clk = u32(d, b + desp)
+        if not (PLO_CLOCKS_KHZ[0] <= clk <= PLO_CLOCKS_KHZ[1]):
+            plausible = False
+        filas.append((i, b, clk))
+    return rev, n, filas, recsz, desp, plausible
+
+
+def cmd_ppt(d, a):
+    """
+    Decodifica PowerPlayInfo y sus tablas de dependencia de reloj.
+
+    Se valida ANTES de imprimir nada: si el layout no casa con usTableSize, el
+    resultado es INVALID, no una lista de numeros plausibles. Esa distincion es
+    la que separa esta herramienta de buscar un valor hasta encontrar algo que
+    encaje.
+    """
+    valida(d)
+    masters = buscar_masters(d)
+    if not masters:
+        print("INVALID: no se encuentra la master data table, el layout del")
+        print("corpus no describe este ROM. No es 'no hay tabla'.")
+        return 4
+    mt = masters[0]
+    idx = TABLAS_MASTER.index("PowerPlayInfo")
+    pp = u16(d, mt + HEADER_COMUN + 2 * idx)
+    if pp == 0:
+        print("INVALID: PowerPlayInfo no esta presente (offset 0).")
+        return 4
+    sz = u16(d, pp)
+    if pp + sz > len(d):
+        print("INVALID: PowerPlayInfo en 0x%X declara %d bytes y el ROM tiene %d"
+              % (pp, sz, len(d)))
+        return 4
+
+    off, calc = _layout_ppt()
+    leido = u16(d, pp + off["usTableSize"])
+    print("PowerPlayInfo en 0x%04X, %d bytes, formato %d contenido %d"
+          % (pp, sz, u8(d, pp + 2), u8(d, pp + 3)))
+    print("  master data table en 0x%04X, PowerPlayInfo es la tabla %d de %d"
+          % (mt, idx + 1, len(TABLAS_MASTER)))
+    print()
+    print("VALIDACION DEL LAYOUT, que es lo que da credibility al resto:")
+    print("  usTableSize calculado del layout = %d" % calc)
+    print("  usTableSize leido del ROM        = %d" % leido)
+    if calc != leido:
+        print("  NO COINCIDE -> layout NO demostrado. Se para aqui.")
+        print("  No se imprime ninguna tabla: preferible INVALID a numeros falsos.")
+        return 4
+    print("  COINCIDE -> el layout esta demostrado")
+    uc, crev = u8(d, pp + off["ucTableRevision"]), u16(d, pp + off["usFormatID"])
+    print("  ucTableRevision = %d   usFormatID = %d" % (uc, crev))
+    print("  usVoltageTime = %d us (microsegundos)"
+          % u16(d, pp + off["usVoltageTime"]))
+    print("  ulMaxODEngineClock = %d kHz   ulMaxODMemoryClock = %d kHz"
+          % (u32(d, pp + off["ulMaxODEngineClock"]),
+             u32(d, pp + off["ulMaxODMemoryClock"])))
+    print()
+
+    nombres = {"usStateArrayOffset": "StateArray",
+               "usFanTableOffset": "FanTable",
+               "usThermalControllerOffset": "ThermalController",
+               "usMclkDependencyTableOffset": "MclkDependencyTable",
+               "usSclkDependencyTableOffset": "SclkDependencyTable",
+               "usVddcLookupTableOffset": "VddcLookupTable",
+               "usVddgfxLookupTableOffset": "VddgfxLookupTable",
+               "usMMDependencyTableOffset": "MMDpendencyTable",
+               "usVCEStateTableOffset": "VCEStateTable",
+               "usPPMTableOffset": "PPMTable",
+               "usPowerTuneTableOffset": "PowerTuneTable",
+               "usHardLimitTableOffset": "HardLimitTable",
+               "usPCIETableOffset": "PCIETable",
+               "usGPIOTableOffset": "GPIOTable"}
+    dentro = fuera = 0
+    print("SUBTABLAS que declara la cabecera:")
+    for campo, nombre in nombres.items():
+        v = u16(d, pp + off[campo])
+        if v == 0:
+            print("  %-22s ausente" % nombre)
+            fuera += 1
+            continue
+        ok = 0 < v < sz
+        dentro += ok
+        print("  %-22s @0x%04X (%4d) %s" % (nombre, v, v, "" if ok else "FUERA"))
+    print("  -> %d subtablas dentro de la tabla, %d ausentes" % (dentro, fuera))
+    print()
+
+    # La de memoria: la que explica el mclk medido.
+    mclk_off = u16(d, pp + off["usMclkDependencyTableOffset"])
+    if mclk_off:
+        rev, n, filas, recsz, desp, ok = _dep_entries(d, pp + mclk_off,
+                                                    MCLK_CAMPOS, "MCLK")
+        print("TABLA DE DEPENDENCIA DE MCLK, en 0x%04X" % (pp + mclk_off))
+        print("  ucRevId = %d   ucNumEntries = %d   registro = %d bytes"
+              % (rev, n, recsz))
+        print()
+        print("  ATOM_Tonga_MCLK_Dependency_Record { ucVddcInd; usVddci;")
+        print("    usVddgfxOffset; usMvdd; ulMclk; usReserved; }")
+        print()
+        print("  %-3s %-10s %-8s %-15s %-8s %-12s %-9s %s"
+              % ("#", "ucVddcInd", "usVddci", "usVddgfxOffset", "usMvdd",
+                 "ulMclk", "x10 kHz", "MHz"))
+        for i, b, clk in filas:
+            print("  %-3d %-10d %-8d %-15d %-8d %-12d %-9d %.0f"
+                  % (i, u8(d, b), u16(d, b + 1), u16(d, b + 3),
+                     u16(d, b + 5), clk, clk * 10, clk * 10 / 1000.0))
+        if not ok:
+            print()
+            print("  INVALID: alguno de esos relojes esta fuera de %d..%d kHz."
+                  % PLO_CLOCKS_KHZ)
+            print("  Un reloj fuera de ese rango no es un reloj raro: son bytes")
+            print("  leidos en el sitio equivocado. El tamano de registro NO esta")
+            print("  demostrado y la tabla NO se da por buena.")
+            return 4
+        print()
+        print("  UNIDAD: el driver copia el valor CRUDO, sin multiplicar")
+        print("  (process_pptables_v1_0.c: clk = le32_to_cpu(ulMclk)). El x10 es la")
+        print("  convencion de unidades de ATOM, y se comprueba por si los tres")
+        print("  valores son relojes de memoria plausibles para esta tarjeta.")
+        print("  NO se aplica: se informa, para que el multiplicar sea decision")
+        print("  de quien lee y no un dato escondido en la herramienta.")
+        print()
+
+    sclk_off = u16(d, pp + off["usSclkDependencyTableOffset"])
+    if sclk_off:
+        # el registro lo elige la revision, igual que el driver
+        campos_s = SCLK_CAMPOS_TONGA if u8(d, pp + sclk_off) < 1 else SCLK_CAMPOS_POLARIS
+        nombre_r = "Tonga" if u8(d, pp + sclk_off) < 1 else "Polaris"
+        rev, n, filas, recsz, desp, ok = _dep_entries(d, pp + sclk_off,
+                                                    campos_s, "SCLK")
+        print("  ucRevId = %d -> registro %s de %d bytes, por revision"
+              % (rev, nombre_r, recsz))
+        print("TABLA DE DEPENDENCIA DE SCLK, en 0x%04X" % (pp + sclk_off))
+        print("  ucNumEntries = %d" % n)
+        print()
+        if not ok:
+            print()
+            print("  INVALID: alguno de esos relojes esta fuera de %d..%d kHz."
+                  % PLO_CLOCKS_KHZ)
+            print("  El tamano de registro NO esta demostrado.")
+            return 4
+        print("  %-3s %-9s %-13s %-11s %-9s %-9s %s"
+              % ("#", "ucVddInd", "usVddcOffset", "ulSclk", "x10 kHz", "MHz",
+                 "usEdcCurrent"))
+        for i, b, clk in filas:
+            print("  %-3d %-9d %-13d %-11d %-9d %-9.0f %d"
+                  % (i, u8(d, b), u16(d, b + 1), clk, clk * 10, clk * 10 / 1000.0,
+                     u16(d, b + 7)))
+        print()
+    print("LIMITES, DICHOS:")
+    print("  - Se decodifica PowerPlayInfo y sus tablas de dependencia. Las otras")
+    print("    subtablas se LOCALIZAN y no se decodifican: son NOT_IMPLEMENTED,")
+    print("    no tablas vacias.")
+    print("  - El x10 sobre los relojes es la convencion de ATOM, informada, no")
+    print("    aplicada. El valor crudo es el dato.")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(
         description="parseo del VBIOS ATOM de la RX550")
-    ap.add_argument("cmd", choices=["rom", "tablas", "firmware", "vram",
+    ap.add_argument("cmd", choices=["rom", "tablas", "firmware", "vram", "ppt",
                                     "autotest"])
     ap.add_argument("fichero", nargs="?", default="capturas/amdgpu_vbios.txt")
     a = ap.parse_args()
@@ -822,6 +1326,8 @@ def main():
         return cmd_vram(d, a)
     if a.cmd == "rom":
         return cmd_rom(d, a)
+    if a.cmd == "ppt":
+        return cmd_ppt(d, a)
     return cmd_tablas(d, a)
 
 
