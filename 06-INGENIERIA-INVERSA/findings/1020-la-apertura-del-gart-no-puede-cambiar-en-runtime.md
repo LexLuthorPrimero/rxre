@@ -1,4 +1,12 @@
-# 1011 · La apertura del GART no puede cambiar en runtime: sus dos entradas son constantes de carga, y el `512 MiB` de `amdgpu_device.c` es un default anterior al `switch`, no un cambio
+# 1020 · La apertura del GART no puede cambiar en runtime: sus dos entradas son constantes de carga, y el `512 MiB` de `amdgpu_device.c` es un default anterior al `switch`, no un cambio
+
+```
+RENUMERADO: 1011 → 1020 el 2026-10-03. Dos sesiones tomaron 1011 con veinte
+segundos de diferencia. Mi reserva era anterior (16:04:03) pero la herramienta
+que reparte números no puede ni ver los de 4 cifras (§8), así que la colisión
+era previsible y no fue culpa de quien reservó. Renumerar era gratis porque
+nadie citaba el 1011 todavía; el coste de renumerar sube con cada cita.
+```
 
 ```
 CLASSIFICATION=DOCUMENTATION+REPAIR · TRACK=STATIC
