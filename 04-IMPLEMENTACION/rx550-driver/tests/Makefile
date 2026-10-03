@@ -75,6 +75,7 @@ $(KO):
 run: $(KO) test_target_match test_resource test_regs test_vm test_fence test_submit \
      test_mmio_access test_block_size test_gart_write test_ib_bridge \
      test_ib_composer test_pdb0 test_submission test_vmid0_gart test_mem \
+     test_ctxpt \
      test_vmid1_pgt test_vmid1_pgt_backing
 	@./test_resource
 	@./test_regs $(CORPUS)/gfx_8_0_d.h $(CORPUS)/gfx_8_1_d.h
@@ -96,6 +97,7 @@ run: $(KO) test_target_match test_resource test_regs test_vm test_fence test_sub
 	@./test_pdb0
 	@./test_submission
 	@./test_mem
+	@./test_ctxpt
 	@./test_vmid0_gart
 	@./test_vmid1_pgt
 	@./test_vmid1_pgt_backing
@@ -106,6 +108,14 @@ run: $(KO) test_target_match test_resource test_regs test_vm test_fence test_sub
 # contrato de la geometria de memoria no lo comprobaba nadie.
 test_mem: test_mem.c ../target_mem.h ../target_mem_host.h
 	$(CC) $(CFLAGS) -o $@ test_mem.c
+
+# test_ctxpt comprueba la REGLA que decide que registro de tabla de paginas
+# corresponde a un VMID.  La tabla de mnemonicos verifica cada entrada por
+# separado contra el header, y eso NO demuestra que esten en el orden correcto:
+# la relacion entre ellas es lo que tiene el corte en 8, y no estaba escrita en
+# ninguna parte del componente.  Ver finding 1025.
+test_ctxpt: test_ctxpt.c ../rx550_mmio_access.c ../rx550_mmio_access.h
+	$(CC) $(CFLAGS) -o $@ test_ctxpt.c ../rx550_mmio_access.c
 
 test_target_match: test_target_match.c ../target_match.h
 	$(CC) $(CFLAGS) -o test_resource test_resource.c ../target_resource.h

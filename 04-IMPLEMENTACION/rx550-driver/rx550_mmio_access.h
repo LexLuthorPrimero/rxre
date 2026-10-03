@@ -577,6 +577,67 @@ static inline uint32_t rx550_block_size_decode(uint32_t reg_value)
  * no depende de ningun mapa. */
 int rx550_mmio_reg_of(enum rx550_vmid1_reg_id id, struct rx550_reg *out);
 
+/* ── EL REGISTRO DE TABLA DE PAGINAS DE UN VMID ────────────────────────────
+ *
+ *  ESTA FUNCION EXISTE PORQUE LA REGLA NO ESTA EN LA TABLA, Y LA TABLA NO
+ *  PUEDE TENERLA.
+ *
+ *  La tabla declara 16 mnemonicos, uno por entrada, y cada uno se verifica por
+ *  separado contra gmc_8_1_d.h.  Eso NO demuestra que el contexto 1 este en el
+ *  registro correcto: 0x550 esta bien como mnemonico, y 0x551 tambien, y
+ *  0x5a0 tambien, y una tabla de 16 entradas todas correctas por separado puede
+ *  estar en 16 indices equivocados a la vez sin que ninguna comprobacion lo
+ *  note.  Lo que demuestra la correccion es la RELACION entre ellos, y la
+ *  relacion no esta escrita en ninguna parte de este componente.
+ *
+ *  La relacion, del corpus y solo del corpus:
+ *
+ *    gmc_v8_0.c:672-676, gmc_v8_0_emit_flush_gpu_tlb()
+ *        if (vmid < 8)
+ *                reg = mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR + vmid;
+ *        else
+ *                reg = mmVM_CONTEXT8_PAGE_TABLE_BASE_ADDR + vmid - 8;
+ *        amdgpu_ring_emit_wreg(ring, reg, pd_addr >> 12);
+ *
+ *    gmc_8_1_d.h:636-655     los 16 indices, y solo dos bloques
+ *        0..7    mmVM_CONTEXT0..7_PAGE_TABLE_BASE_ADDR  = 0x54f .. 0x556
+ *        8..15   mmVM_CONTEXT8..15_PAGE_TABLE_BASE_ADDR = 0x50e .. 0x515
+ *
+ *  O sea:  la regla es POSICIONAL, tiene un CORTE en 8, y los dos bloques NO son
+ *  contiguos ni en el mismo orden.  Un `base + vmid` sin el corte escribe en
+ *  0x50e para el VMID 8, que es el registro del VMID 15 del otro bloque, y
+ *  produce un fallo que no se ve hasta que una pagina se mapea mal.
+ *
+ *  Indice, no offset:  el numero de gmc_8_1_d.h es el indice, y el offset en
+ *  bytes es indice * 4.  Es la misma trampa que ya documenta test_pdb0 con
+ *  mmCP_RB0_RPTR, y por eso el tipo de salida se llama reg_index.
+ *
+ *  vmid >= 16 se rechaza:  mmVM_INVALIDATE_REQUEST tiene 16 dominios
+ *  (gmc_8_0.c:637, bucle vmid 1..15), asi que no hay un contexto 16 al que
+ *  escribir aunque la aritmetica_CONTINUE_dando un indice dentro de BAR5.
+ */
+uint32_t rx550_mmio_ctx_pt_base_index(unsigned vmid);
+
+/* El VALOR que se escribe en ese registro:  el numero de pagina, no la
+ * direccion.
+ *
+ *  gmc_8_0.c:675   amdgpu_ring_emit_wreg(ring, reg, pd_addr >> 12)
+ *  gmc_8_1_sh_mask.h:6879
+ *      VM_CONTEXT0_PAGE_TABLE_BASE_ADDR__PHYSICAL_PAGE_NUMBER_MASK = 0xfffffff
+ *
+ *  28 bits, y el campo empieza en el bit 0.  Un >> 12 sobre una direccion de
+ *  40 bits da exactamente 28, asi que el campo cabe entero.  Si la direccion
+ *  tuviera mas de 40 bits, el truncamiento seria SILENCIOSO y el error no
+ *  apareceria hasta que la pagina se lea mal:  por eso se rechaza en vez de
+ *  cortar.
+ */
+#define RX550_PT_PAGE_SHIFT	12u
+#define RX550_PT_PN_BITS		28u
+#define RX550_PT_MAX_PD_ADDR	((UINT64_C(1) << RX550_PT_PN_BITS) << RX550_PT_PAGE_SHIFT) - UINT64_C(1)
+
+/* Devuelve 0 y no escribe nada en `out` si la direccion no cabe en 40 bits. */
+int rx550_mmio_pt_value(uint64_t pd_addr, uint32_t *out);
+
 /* Resuelve un registro a su offset DENTRO del mapa, comprobando la ventana.
  *
  * Y ESTA ES LA FRONTERA DEL MODULO:  aqui se decide si el acceso procede.  Si
