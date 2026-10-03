@@ -203,6 +203,25 @@ def acceso_mmio(herramienta):
     return ("codigo", hits) if hits else None
 
 
+def versionada(herramienta):
+    """Si el fichero esta en git. Hecho, no opinion.
+
+    NO es "de quien es". La autoria no se deduce del codigo: un fichero puede
+    estar versionado y ser mio, o sin versionar y mio tambien. Lo que se
+    comprueba es si esta VERSIONADO, que es un hecho, y es el mismo criterio que
+    usa toolkit.py para su excepcion AJENA. Reusarlo es lo que evita tener dos
+    reglas distintas para lo mismo.
+    """
+    import subprocess as sp
+    try:
+        r = sp.run(["git", "ls-files", "--error-unmatch",
+                    os.path.join(TOOLS, herramienta)],
+                   cwd=ROOT, capture_output=True, text=True, timeout=60)
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
 def declaradas_sin_uso(profundidad=3):
     """[{herramienta, declara, cadena, donde}] para WRITES_GPU=yes sin acceso."""
     out = []
@@ -249,8 +268,21 @@ def main(argv):
             print("  ninguna herramienta declara WRITES_GPU=yes")
             return 0
         malas = 0
+        bloqueadas = 0
         for f in filas:
             if f["donde"] is None:
+                if not versionada(f["herramienta"]):
+                    f["bloqueada"] = True
+                    bloqueadas += 1
+                    print("  %-22s DECLARADA_SIN_USO  [BLOQUEADA: no versionada]"
+                          % f["herramienta"])
+                    print("      cadena revisada (%d): %s"
+                          % (len(f["cadena"]), ", ".join(f["cadena"][:6])))
+                    print("      Es trabajo de otra sesion. Se registra y NO se")
+                    print("      toca: cambiar el contrato de otro para que deje de")
+                    print("      salir seria cambiar una declaracion para silenciar")
+                    print("      un validador, que es el error propio ya medido.")
+                    continue
                 malas += 1
                 print("  %-22s DECLARADA_SIN_USO" % f["herramienta"])
                 print("      cadena revisada (%d): %s"
@@ -261,6 +293,15 @@ def main(argv):
                 h, via, acc = f["donde"]
                 print("  %-22s OK, acceso en %s (%s de %s): %s"
                       % (f["herramienta"], h, acc[0], via, acc[1][:3]))
+        print()
+        if not malas and not bloqueadas:
+            print("  ninguna capacidad declarada queda sin uso")
+            return 0
+        if not malas:
+            print()
+            print("  rc=3  NINGUNA es versionada. Se registra y no se toca.")
+            print("        El campo sigue sin distinguir, y eso se dice.")
+            return 3
         print()
         if malas:
             print("  DECLARADA_SIN_USO: %d. Un campo de capacidad puesto a yes sin"

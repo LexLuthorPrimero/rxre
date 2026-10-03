@@ -372,6 +372,12 @@ def main():
         # es una convencion con comentarios. Adentro es una invariante: si una
         # herramienta empieza a devolver otra cosa de la que dice, salta aqui.
         ("exit_contract: EXIT_ON_SUCCESS se cumple", ["exit_contract.py"], 0, 0),
+        # WRITES_GPU=yes sin acceso a la barra en toda la cadena de delegacion.
+        # rc=3 y no 1: hoy el unico caso (bench.py) NO esta versionado, y cambiar
+        # el contrato de otra sesion para que deje de salir seria cambiar una
+        # declaracion para silenciar un validador. El 3 lo dice sin tocar nada.
+        ("capacidad: WRITES_GPU declarado sin uso",
+         ["contract_exec.py", "--capacidad"], 3, 3),
         ("commitmsg_lint: sin residuos en 25 mensajes",
          ["commitmsg_lint.py", "--commits=25"], 0, 0),
         # Colisiones de nombre entre los 4 directorios de herramientas. rc=1
