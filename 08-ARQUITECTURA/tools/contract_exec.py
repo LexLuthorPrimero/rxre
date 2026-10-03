@@ -1,7 +1,15 @@
 #!/usr/bin/env python3
 # CONTRACT: name=contract_exec
-# CONTRACT: READONLY=yes
-# CONTRACT: WRITES_FILES=no
+# WRITES_FILES=yes, y no por cortesia: es lo que hace. El modo --fijar-vigila
+# escribe contract_exec.vigila.json en este mismo directorio (599 bytes el
+# 2026-10-03, comprobado). Declarar WRITES_FILES=no era una DECLARACION FALSA en
+# una herramienta cuyo trabajo es clasificar las de otras: mientras dice eso, la
+# fila que contrato da sobre ella no es creible, y con ella todas las que se
+# derivan de su veredicto. Los modos de ANALISIS (--vigilar, --capacidad,
+# --origen) no escriben nada; solo la fijacion de la linea base si, y por eso
+# WRITES_FILES=yes y no READONLY=yes.
+# CONTRACT: READONLY=no
+# CONTRACT: WRITES_FILES=yes
 # CONTRACT: WRITES_SYSFS=no
 # CONTRACT: MUTATES_CORPUS=no
 # CONTRACT: WRITES_GPU=no

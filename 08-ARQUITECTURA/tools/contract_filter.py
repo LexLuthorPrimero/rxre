@@ -85,6 +85,11 @@ PERMITIDOS = (
     ("check_chain.py", "EXIT_ON_SUCCESS", "igual que exit_contract.py"),
     ("commitmsg_lint.py", "EXIT_ON_SUCCESS", "igual que exit_contract.py"),
     ("contract_filter.py", "EXIT_ON_SUCCESS", "igual que exit_contract.py"),
+    ("contract_exec.py", "EXIT_ON_SUCCESS",
+     "Campo real del esquema CONTRACT, verificado por exit_contract.py. Lo que se "
+     "permite es el aviso de 'campo no conocido' de toolkit.py, no la ausencia de "
+     "comprobacion. Ademas esta herramienta declara WRITES_FILES=yes con razon "
+     "escrita: su modo --fijar-vigila escribe contract_exec.vigila.json."),
     ("gfx8_opcode.py", "EXIT_ON_SUCCESS",
      "Mismo caso que exit_contract.py: EXIT_ON_SUCCESS es un campo real del "
      "esquema CONTRACT y lo verifica exit_contract.py ejecutando la "
