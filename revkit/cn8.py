@@ -386,9 +386,34 @@ def main():
     _ok, _d = _tiene("klog", "TOOLS-STATUS.md")
     chk("la herramienta nueva aparece en TOOLS-STATUS", _ok,
         "(buscado 'klog': %s)" % _d)
-    _ok, _d = _tiene("2026-10-02", "CHANGELOG-RESEARCH.md")
-    chk("el CHANGELOG tiene entrada de hoy", _ok,
-        "(buscado '2026-10-02': %s)" % _d)
+    # MEDIDO: este control decia "el CHANGELOG tiene entrada de hoy" y MIRABA UN
+    # LITERAL, "2026-10-02". No miraba hoy. Seguiria en verde para siempre aunque
+    # no escribiera nada, y se rompio el dia que el reloj paso al 2026-10-03 y la
+    # entrada era de ayer. **Un control que no puede fallar en lo que dice
+    # comprobar es peor que ninguno**, y este lo era, en mi propio codigo.
+    #
+    # Lo que se comprueba ahora es una PROPIEDAD real y comprobable: que la
+    # entrada mas reciente del CHANGELOG no sea mas antigua que una ventana dada.
+    # Eso puede fallar de verdad (una semana sin escribir es un problema) y no se
+    # rompe a medianoche. La ventana de 3 dias es la que hace que el trabajo hecho
+    # ayer a las 23:59 siga contando como reciente, sin convertir el control en
+    # "acepta cualquier cosa".
+    import datetime as _dt
+    import re as _re
+    _HOY = _dt.date.today()
+    with open(os.path.join(_docs, "CHANGELOG-RESEARCH.md"),
+              encoding="utf-8") as _h:
+        _FECHAS = sorted(set(_re.findall(r"^## (\d{4}-\d{2}-\d{2})",
+                                         _h.read(), _re.M)))
+    if not _FECHAS:
+        chk("el CHANGELOG tiene una entrada reciente", False,
+            "no he encontrado ninguna cabecera '## AAAA-MM-DD'")
+    else:
+        _ult = max(_dt.date.fromisoformat(x) for x in _FECHAS)
+        _edad = (_HOY - _ult).days
+        chk("el CHANGELOG tiene una entrada de los ultimos 3 dias", _edad <= 3,
+            "la mas reciente es %s, hace %d dias (hoy %s, ventana 3)"
+            % (_ult, _edad, _HOY))
 
     # --- integridad de formato de docs/, que NADIE vigilaba -------------------
     #

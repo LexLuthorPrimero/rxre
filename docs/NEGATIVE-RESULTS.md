@@ -1432,3 +1432,76 @@ fallos de fase de init ............. 0    <- el resultado
 3. **`grep -c` que devuelve 0 y `grep -c` que devuelve 0 son indistinguibles a
    menos que sepas que el canal lee.** Por eso el control va en la MISMA linea de
    comando que el resultado, con el mismo criterio de estilo.
+
+## NR-2026-10-03-a · Un control mio que no podia fallar, y solo lo vi porque
+cambio la fecha del reloj
+
+`CLASSIFICATION=ERROR` · `TRACK=TOOLING` · `WRITE_EXECUTION=NONE` · `GPU INTACTA`
+
+**EL HALLAZGO.** Cambio la fecha del sistema a **2026-10-03** y, antes de nada,
+mire si la suite seguia en verde, porque varios controles miden "hoy". Seguia
+verde. Y ese fue **el sintoma**, no la tranquilizacion: **un control que depende
+de la fecha del reloj solo puede fallar una vez al ano, y ese dia es cuando
+nadie mira.**
+
+**LO QUE DECIA Y LO QUE HACIA.** El control de `cn8.py` se llamaba
+
+```
+chk("el CHANGELOG tiene entrada de hoy", ...)
+    y por dentro hacia:  _tiene("2026-10-02", "CHANGELOG-RESEARCH.md")
+```
+
+Es decir: decia **hoy** y **miraba un literal**. No miraba hoy. Pasaba porque
+yo habia escrito una entrada el 2026-10-02, y **habria seguido pasando para
+siempre** aunque no escribiera nada hoy mismo, y se habria roto el dia que
+alguien borrase aquella entrada, por un motivo que no tiene nada que ver con lo
+que el control afirma.
+
+**Regla, y laformula exacta.** *Un control tiene que comprobar una PROPIEDAD, no
+una CONSTANTE.* "Hay una entrada hoy" comprobado con un literal no es una
+comprobacion: es una decoracion con `if`. Y **un control que no puede fallar en
+lo que dice comprobar es peor que ninguno**, porque ocupa sitio, da sensacion de
+cubrir, y roba la confianza que deberiareserved para los que si fallan.
+
+**LO QUE HAY AHORA.** Se comprueba la propiedad real: que la entrada **mas
+reciente** del CHANGELOG no sea mas antigua que una ventana. Lee las cabeceras
+`## AAAA-MM-DD`, se queda con la maxima, y exige edad <= 3 dias.
+
+```
+  ventana 0 dias (hoy 00:39 no hay entrada de HOY) ..... FALLA  <- la propiedad falla
+  el control acepta siempre ........................... rc=0, sin FALLA
+  original ............................................ OK, rc=0
+```
+
+**Y LAS TRES MUTACIONES NO SON IGUALES, que es lo que hay que decir de ellas.**
+
+1. **Con ventana 0 el control FALLA.** Se demuestra que puede fallar. Ese es el
+   unico caso que importa.
+2. **Poner el control a `True` no lo detecta nadie.** Y no deberia: **un control
+   no puede verificar su propia supresion.** No lo cuento como hueco; lo cuento
+   como una propiedad de los controles, igual que un test no puede probar que no
+   se ha borrado a si mismo.
+3. **La rama de "no hay ninguna fecha" queda sin probar**, porque en este
+   proyecto siempre hay fechas. Es un **guardia sin verificar**, y queda
+   anotado como tal en vez de darlo por bueno.
+
+**Y UN DEFECTO REAL QUE LA MUTACION 3 DESTAPO, Y QUE NO ESTA ARREGLADO.** Si el
+fichero del CHANGELOG **no existe**, el `open()` lanza excepcion y `cn8` revienta
+con un traceback, en vez de decir `INVALID_RESULT`. O sea: **una entrada
+inexistente produce un fallo que no es de los que el control sabe nombrar.** Es
+la misma clase que el `rc=3` de `gputel` cuando no encuentra el arbol hwmon, y
+la solucion ya existe ahi: convertir la ausencia en un codigo de salida, no en un
+traceback. **Queda pendiente y anotado, no escondido.**
+
+**Y UN ERROR DE ARNÉS QUE ME DIO CONFIANZA FALSA, por segunda vez.** Monte un
+arbol temporal con `docs/` para mutar `cn8`, y los tres mutantes salieron con
+`rc=1` y **cero** controles en rojo. Uno leyo eso como "el arnés funciona" cuando
+era justo lo contrario: **`rc=1` con `0 FALLA` significa que algo revienta, no
+que el control paso**. Para que el mutante vea lo mismo que el original hay que
+montar el entorno que el original necesita: `cn8` depende del VBIOS capturado, y
+por eso la copia tiene que ir **en el sitio**, con el `sha256` del original
+comprobado antes y despues. Verificado: identico, y la copia borrada.
+
+**La leccion, y es la general:** `rc` sin numero de `FALLA` al lado no es un
+resultado de una prueba de mutacion. Es el sintoma de un arnes roto, que es
+justo lo que la prueba de mutacion pretendia detectar.

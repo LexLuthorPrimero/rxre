@@ -3130,3 +3130,65 @@ propia salida, que es donde un limite debe estar.
 check.sh 41 (con bootcheck y gputel dentro) | cn7 97 | cn8 33 | gfx8blocks 24/24 |
 gchwip_alcance 21/21 | bootcheck 10/10 | gputel 23/23.
 GPU INTACTA. WRITE_EXECUTION NONE. MODIFICATIONS 0.
+
+---
+
+## 2026-10-03 · opencode · un control mio que no podia fallar, y solo lo vi porque cambio la fecha
+
+```
+OBJECT   revkit/cn8.py, docs/NEGATIVE-RESULTS.md
+ACTION   FIX de un control + LIMITATION declarada
+TRACK    TOOLING · WRITE_EXECUTION=NONE · MODIFICATIONS_CORPUS=0 · GPU INTACTA
+```
+
+**EL SINTOMA, NO LA TRANQUILIZACION.** Cambio la fecha del sistema a 2026-10-03 y,
+antes de nada, mire si la suite seguia en verde, porque varios controles miden
+"hoy". Seguia verde. Y eso fue el sintoma: **un control que depende de la fecha del
+reloj solo puede fallar una vez al ano, y ese dia es cuando nadie mira.**
+
+**LO QUE DECIA Y LO QUE HACIA.** El control de cn8 se llamaba "el CHANGELOG tiene
+entrada de hoy" y por dentro hacia _tiene("2026-10-02", ...). Decia HOY y MIRABA UN
+LITERAL. No miraba hoy. Pasaba porque ayer escribi una entrada, y habria seguido
+pasando para siempre aunque no escribiera nada hoy, y se habria roto el dia que
+alguien borrase aquella entrada, por un motivo que no tiene nada que ver con lo que
+el control afirma.
+
+REGLA, Y LA FORMULA EXACTA: **UN CONTROL TIENE QUE COMPROBAR UNA PROPIEDAD, NO UNA
+CONSTANTE.** "Hay una entrada hoy" comprobado con un literal no es una
+comprobacion, es una decoracion con `if`. Y un control que no puede fallar en lo que
+dice comprobar es PEOR QUE NINGUNO, porque ocupa sitio, da sensacion de cubrir, y roba
+la confianza que deberia reservarse para los que si fallan.
+
+**LO QUE HAY AHORA.** Se comprueba la propiedad real: que la entrada MAS RECIENTE no
+sea mas antigua que una ventana. Lee las cabeceras ## AAAA-MM-DD, se queda con la
+maxima, y exige edad <= 3 dias. Con ventana 0 FALLA, lo que demuestra que puede
+fallar.
+
+**Y LAS TRES MUTACIONES NO SON IGUALES, y eso hay que decirlo.**
+- ventana 0 -> FALLA. Se demuestra que puede fallar. Es el unico caso que importa.
+- control puesto a True -> nadie lo detecta. Y no deberia: **un control no puede
+  verificar su propia supresion.** No es un hueco, es una propiedad de los controles.
+- rama de "no hay ninguna fecha" -> sin probar, porque aqui siempre hay fechas. Es un
+  GUARDIA SIN VERIFICAR y queda anotado como tal.
+
+**UN DEFECTO REAL QUE ESA TERCERA MUTACION DESTAPO, Y QUE NO ESTA ARREGLADO.** Si el
+CHANGELOG no existe, el `open()` lanza excepcion y cn8 revienta con traceback, en vez
+de decir INVALID_RESULT. Una entrada inexistente produce un fallo que el control no
+sabe nombrar. Es la misma clase que el rc=3 de gputel sin arbol hwmon, y la solucion ya
+existe ahi: convertir la ausencia en un codigo de salida. **Queda pendiente y
+anotado, no escondido.**
+
+**Y UN ERROR DE ARNÉS QUE ME DIO CONFIANZA FALSA, por segunda vez.** Monte un arbol
+temporal con `docs/` para mutar cn8 y los tres mutantes salieron con rc=1 y CERO
+controles en rojo. Uno leyo eso como "el arnes funciona" cuando era lo contrario:
+**rc=1 con 0 FALLA significa que algo revienta, no que el control paso.** Para que el
+mutante vea lo que ve el original hay que montarle el entorno que el original necesita:
+cn8 depende del VBIOS capturado, con lo que la copia tiene que ir EN EL SITIO, con el
+sha256 del original comprobado antes y despues. Verificado: identico, copia borrada.
+
+**LECCION GENERAL: `rc` sin el numero de FALLA al lado no es un resultado de una prueba
+de mutacion. Es el sintoma de un arnes roto, que es justo lo que la prueba de mutacion
+pretendia detectar.**
+
+Suite: check.sh 41 | cn7 97 | cn8 33 | gfx8blocks 24/24 | gchwip_alcance 21/21 |
+bootcheck 10/10 | gputel 23/23. GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.
