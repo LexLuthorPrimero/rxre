@@ -179,4 +179,97 @@ grep "AJENA([1-9])" <salida>                  -> 6
 grep "FALLA([1-9])" <salida>                  -> 7
 ```
 
-`WRITE_EXECUTION=NONE`. `MODIFICATIONS=0`. `GPU INTACTA`.
+`WRITE_EXECUTION=NONE`. `MODIFICATIONS=0`. `GPU INTACTA`.---
+
+# AÑADIDO A `551`: qué comprueba `toolkit.py` de verdad
+
+Pregunta: ¿valida lo que la herramienta **declara**, o lo que **hace**?
+
+## Las dos cosas, y la parte que puede no servir
+
+```
+scan_writes(path)   "Que patrones de escritura hay, por analisis de texto"
+```
+
+Regex sobre el **texto**: `open(...,'w'|'a'|'x')`, `['"]>['"]`, etc. Y luego
+cruza: `READONLY` no puede tener escrituras.
+
+Eso detectó mi mentira (`READONLY=yes` con `--fijar` escribiendo), y **no pudo
+detectarla leyendo comentarios**. Así que hace las dos cosas: lo declarado y una
+aproximación textual de lo hecho.
+
+**Y la propia herramienta dice cómo de débil es esa parte:**
+
+> Expresiones que delatan escritura. **Debilis por construccion** — no distingue
+> "w" de "r+" bien, y no ve escrituras via **subprocess** — pero es lo que hay.
+
+## El bucle, que es lo que importa
+
+```
+WRITES_SYSFS    si escribe en /sys      (tabla + --write)
+```
+
+- `runtime_obs.py` es la **única** herramienta que declara `WRITES_SYSFS=yes`.
+- Lo que se verifica es **una tabla de escrituras con justificación** más el
+  conmutador `--write`.
+- **No se ejecuta nada.** No hay ninguna comprobación de que la tabla sea
+  cierta.
+
+Es decir: **la única herramienta que escribe en el hardware de esta placa está
+validada por su propio comentario y por su propia tabla.** El validador que
+debería impedir que una herramienta escriba en el hardware se apoya en que esa
+herramienta **diga** que escribe.
+
+Y a eso se le añade que su detector de escrituras:
+- **no distingue `"w"` de `"r+"`** — un `r+` evade la comprobación
+- **no ve escrituras por `subprocess`** — `subprocess.run(["sh","-c","..."])`
+  evade la comprobación entera
+
+## Por qué esto no es "el validador es malo"
+
+El resto del diseño de `toolkit.py` es **cuidado y está razonado**: la excepción
+`AJENA` con su motivo, el intento fallido de la edad registrado, el autotest de la
+distinción propia/ajena, y ejemplos concretos de herramientas que declaran mal. Esto es
+trabajo pensado.
+
+El hueco es de un tipo distinto y muy concreto: **la capacidad más peligrosa es
+la única que se verifica por declaración**. Todo lo demás —`READONLY`,
+`WRITES_FILES`, `MUTATES_CORPUS`— se puede contrastar contra el texto porque
+escribir un fichero deja una marca en el código. Escribir en `/sys` no deja
+marca: el comentario es lo único que hay.
+
+## Lo que esto NO dice
+
+- **No digo que `runtime_obs.py` escriba de más.** No lo he ejecutado ni auditado
+  su tabla. Lo que digo es que **nada fuera de su comentario lo contradice**.
+- **No es un defecto del texto de `toolkit.py`.** Es un límite de lo que es
+  posible verificar estáticamente, y está escrito. El defecto sería **no decirlo**
+  en ningún sitio, que es lo que pasa.
+- `WRITES_GPU=yes` lo declara el propio `toolkit.py`; no he seguido ese camino.
+
+## Clasificación
+
+| afirmación | estado |
+|---|---|
+| `toolkit.py` valida lo declarado **y** lo textual | `PROVEN` — `scan_writes` |
+| su autodescripción admite `r+` y `subprocess` como huecos | `PROVEN` — comentario |
+| `runtime_obs.py` es la única con `WRITES_SYSFS=yes` | `PROVEN` |
+| `WRITES_SYSFS` se verifica con tabla + conmutador, sin ejecutar | `PROVEN` |
+| la tabla de escrituras es veraz | **`NOT_OBSERVED`** |
+| `runtime_obs.py` escribe más de lo que declara | **`NOT_DETERMINED`** |
+| la regex confunde `r+` con lectura | `PROVEN` — declarado por la propia herramienta |
+
+## UNLOCK
+
+- **Verificar por declaración y verificar por ejecución son capacidades
+  distintas, y solo la segunda sirve para lo que no deja marca en el código.**
+  Escribir un fichero se ve en el texto; escribir en `/sys`, no.
+- **Una herramienta con capacidad de hardware debería exigir una evidencia de su
+  ejecución, no una tabla que ella misma escribe.** Es la diferencia entre
+  `NOT_OBSERVED` y `CORROBORATED` aplicada al contrato, no al hardware.
+- **Siguiente paso**: el coste de verificar `runtime_obs.py` de verdad es alto
+  —requiere ejecutarla— y por eso `NOT_DETERMINED` es la respuesta honesta y no
+  una tarea urgente. Lo que **sí** es barato y útil: que `toolkit.py` **diga en
+  su salida** que las capacidades de hardware se verifican por declaración, para
+  que quien lea `run_all` no las tome por lo mismo que `READONLY`, que sí se
+  verifica contra el texto.
