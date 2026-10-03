@@ -123,12 +123,54 @@ def siguiente(ind: Dict[str, List[str]], desde: int = 1,
     return out
 
 
+# El registro del otro allocator.  MEDIDO 2026-10-03:
+#
+#   tools/nextnum.py                  -> .nextnum.lock                 43 reservas
+#   08-ARQUITECTURA/tools/findnum.py  -> findings/_reservas/*.res        5 reservas
+#
+# Dos herramientas que hacen lo mismo, con dos registros, y NINGUNA ve las
+# reservas de la otra.  Los dos leen el directorio de hallazgos, asi que un
+# numero CON fichero se ve ocupado por las dos;  el hueco es la ventana entre
+# "reservado" y "fichero escrito", que es exactamente la ventana para la que
+# existe la reserva.
+#
+# O sea:  con este cambio, 1026 reservado aqui y 1020 en el otro registro NO
+# pueden coexistir.  Sin el, si.  Y dos hallazgos con el mismo numero son los
+# 74 que ya hay, en su fuente y no en su consecuencia.
+#   El registro del otro allocator NO esta en `.write-lock/findnum`:  ese
+#   directorio es el LOCK, y solo contiene `owner`.  Las reservas son ficheros
+#   `NNNN-reservado.res` en el propio directorio de hallazgos.  MEDIDO: leer el
+#   LOCKdio un conjunto vacio y seemed que el arreglo habia funcionado.
+LOCK_AJENO = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "06-INGENIERIA-INVERSA", "findings", "_reservas")
+
+
+def _reservas_del_registro_ajeno() -> set:
+    out = set()
+    try:
+        names = os.listdir(LOCK_AJENO)
+    except OSError:
+        return out
+    for name in names:
+        if not name.endswith(".res"):
+            continue
+        m = re.match(r"^(\d{3,})-", name)
+        if m:
+            out.add(m.group(1))
+    return out
+
+
 def reservados() -> set:
-    """Numeros ya RESERVADOS, leidos del registro de bloque.
+    """Numeros ya RESERVADOS: los de ESTE registro y los del otro allocator.
 
     Sin esto la reserva no se ve a si misma: el registro vive en el fichero de
     bloqueo y `indice` mira ficheros de hallazgos, asi que una segunda reserva
-    del mismo numero se concedia. Es el fallo que los dos vectores_detectaron.
+    del mismo numero se concedia. Es el fallo que los dos vectores detectaron.
+
+    Y ahora tampoco se ve la reserva del otro allocator.  Los dos registros se
+    leen, y sus formatos son distintos a proposito: este es una linea por
+    numero, el otro es un fichero `NNNN-slug.res` por numero.
     """
     out = set()
     try:
@@ -139,7 +181,7 @@ def reservados() -> set:
                     out.add(l)
     except OSError:
         pass
-    return out
+    return out | _reservas_del_registro_ajeno()
 
 
 def reservar(n: str, d: str) -> dict:

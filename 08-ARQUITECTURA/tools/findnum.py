@@ -83,9 +83,50 @@ def used_numbers(directorio=None):
     return out
 
 
-def reservations():
-    """Reservas vigentes: {numero: (titulo, timestamp)}."""
+# El registro del otro allocator.  MEDIDO 2026-10-03: hay DOS herramientas que
+# reservan numeros de hallazgo y cada una con su propio registro, y ninguna ve
+# las reservas de la otra:
+#
+#   tools/nextnum.py                  -> .nextnum.lock            43 reservas
+#   08-ARQUITECTURA/tools/findnum.py  -> findings/_reservas/*.res   5 reservas
+#
+# Las dos leen el directorio de hallazgos, asi que un numero CON fichero se ve
+# ocupado por las dos.  El hueco es la ventana entre "reservado" y "fichero
+# escrito", que es justo la ventana para la que existe una reserva.  Y dos
+# hallazgos con el mismo numero son los 74 que ya hay:  aqui esta su fuente.
+LOCK_AJENO = os.path.join(ROOT, ".nextnum.lock")
+
+
+def _reservas_del_registro_ajeno() -> dict:
+    """Reservas que hizo `tools/nextnum.py`, en formato {numero: (titulo, "")}.
+
+    Su registro es una linea por numero, sin titulo ni fecha, asi que las dos
+    titulos se inventan como cadenas vacias: lo que se necesita de el es SOLO la
+    ocupacion, que es un dato que no depende de la forma del registro.
+    """
     out = {}
+    try:
+        with open(LOCK_AJENO, encoding="utf-8", errors="replace") as fh:
+            for l in fh:
+                l = l.strip()
+                # \d{3,} y NO \d{3}:  un ancho de tres es EXACTO, y por eso
+                # los numeros de cuatro digitos no se verian nunca.
+                if re.match(r"^\d{3,}$", l):
+                    out[int(l)] = ("", "")
+    except OSError:
+        pass
+    return out
+
+
+def reservations():
+    """Reservas vigentes: {numero: (titulo, timestamp)}.
+
+    Incluye las del otro allocator.  MEDIDO 2026-10-03: antes de esto, este
+    modulo ciaba 5 reservas y habia 48 en el arbol;  las otras 43 eran
+    invisibles para el, que es el unico caso en que una reserva puede servir de
+    algo.
+    """
+    out = dict(_reservas_del_registro_ajeno())
     if not os.path.isdir(RESDIR):
         return out
     for name in sorted(os.listdir(RESDIR)):
@@ -159,6 +200,15 @@ class _Aislado:
     Es un context manager para que el estado global se restaure SIEMPRE, incluso
     si la prueba revienta. Un `finally` escrito a mano se olvida; esto no se
     olvida porque es la unica forma de que el bloque salga.
+
+    LOCK_AJENO entra aqui por lo mismo, y porque el self-test lo demostrara:
+    al empezar a leer el registro del otro allocator se olvido de aislarlo, y
+    dos vectores devolvieron 1026 en vez de 11 y 12.  El sintoma parecia un
+    cambio de comportamiento de `next_free()`, y no lo era: era una lectura del
+    estado global real colandose en un test que se creia aislado.
+
+    O sea: aislar la escritura no aisla la lectura, y el arreglo de arriba
+    anadio una lectura mas.  El self-test lo dijo, que es para lo que existe.
     """
 
     def __enter__(self):
@@ -170,6 +220,11 @@ class _Aislado:
         # sombrea el global, y al leerlo antes de asignarlo sale
         # UnboundLocalError. Que es justo el error que salio.
         self._lock, self._res = globals()["LOCKDIR"], globals()["RESDIR"]
+        self._ajeno = globals()["LOCK_AJENO"]
+        # El registro ajeno se copia a un temporal VACIO, no se apunta al
+        # original:  si se apunta, el test depende otra vez del estado global.
+        globals()["LOCK_AJENO"] = os.path.join(self._tmp, "ajeno.lock")
+        open(globals()["LOCK_AJENO"], "w").close()
         self._find = FIND_AISLADO
         globals()["FIND_AISLADO"] = os.path.join(self._tmp, "hallazgos")
         os.makedirs(globals()["FIND_AISLADO"], exist_ok=True)
@@ -179,6 +234,7 @@ class _Aislado:
         return globals()["LOCKDIR"], globals()["RESDIR"]
 
     def __exit__(self, *a):
+        globals()["LOCK_AJENO"] = self._ajeno
         import shutil
         globals()["LOCKDIR"] = self._lock
         globals()["RESDIR"] = self._res
@@ -298,6 +354,28 @@ def commit(n, title, stub="titulo"):
     git("add", "-A", os.path.relpath(RESDIR, ROOT))
     git("commit", "-q", "-m", "findnum: libera la reserva %03d" % n)
     return 0, path
+
+
+def _vector_registro_ajeno(tmp_lock):
+    """La reserva del otro allocator tiene que verse desde aqui.
+
+    Sin este vector, quitar `_reservas_del_registro_ajeno()` no rompe NADA del
+    self-test:  `reservations()` volveria a 5 entradas, `next_free()` volveria a
+    dar los mismos numeros, y todo pasaria.  Es decir, el arreglo se podria
+    deshacer sin que nadie se entere, que es la forma mas habitual de que un
+    arreglo no exista.
+    """
+    with open(tmp_lock, "w", encoding="utf-8") as fh:
+        fh.write("1021\n1022\n")
+    try:
+        r = reservations()
+        if 1021 not in r or 1022 not in r:
+            return "las reservas del registro ajeno no se ven: %r" % (sorted(r)[-3:],)
+        if next_free(taken=set(r) | {1025}) != 1026:
+            return "next_free ignora la reserva ajena"
+    finally:
+        open(tmp_lock, "w").close()
+    return None
 
 
 def self_test():
@@ -502,12 +580,19 @@ def self_test():
 
     release(b)
 
+    # (d) El registro ajeno, dentro del aislamiento:  con un temporal con dos
+    #     reservas, tienen que verse desde aqui.
+    with _Aislado():
+        prob = _vector_registro_ajeno(LOCK_AJENO)
+        if prob:
+            fails.append(prob)
+
     if fails:
         print("self-test FALLA (%d)" % len(fails))
         for f in fails:
             print("   " + f)
         return 1
-    print("self-test OK (8 vectores, 3 controles)")
+    print("self-test OK (8 vectores, 4 controles)")
     return 0
 
 
