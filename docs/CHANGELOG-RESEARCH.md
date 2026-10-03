@@ -4230,3 +4230,108 @@ OK  sclk siempre Tonga                LAS 9 CAZADAS: True
 
 Trece vectores en total, y `check.sh` rc=0 TODO CORRECTO con `ppt` dentro del
 bloque del VBIOS real. GPU INTACTA. WRITE_EXECUTION NONE.
+## 2026-10-03 · opencode · la StateArray: el pptable declara DOS estados y cuatro niveles, y el reposo es el nivel bajo
+
+```
+OBJECT   revkit/atomrom.py (StateArray en ppt), docs/CHANGELOG-RESEARCH.md
+ACTION   Extension de la herramienta. 13 vectores, 14 mutaciones. GPU sin tocar.
+TRACK    EVIDENCE + TOOLING · READ_ONLY · GPU INTACTA
+```
+
+**PRIMERO, UNA CORRECCION A MI MISMO MENSAJE.** En el mensaje anterior escribi que
+esta tabla tenia "4 entradas". **No lo sabia: lo di por supuesto.** Medido:
+`ucNumEntries = 2`. Dos estados. Y de dos sale cuatro, que es donde empieza lo
+interesante.
+
+**LO QUE LA TABLA ES, Y EL NOMBRE ENGAÑA.** `ATOM_Tonga_State`, de 20 bytes:
+
+```
+ucEngineClockIndexHigh  ucEngineClockIndexLow
+ucMemoryClockIndexHigh  ucMemoryClockIndexLow
+ucPCIEGenLow/High       ucPCIELaneLow/High
+usClassification  ulCapsAndSettings  usClassification2  ucUnused[4]
+```
+
+Los nombres `High` y `Low` **no son las dos mitades de un indice de 16 bits**. El
+driver los usa **por separado** y saca **dos niveles de rendimiento distintos**:
+
+```
+mclk_dep_table->entries[state_entry->ucMemoryClockIndexLow].ulMclk
+... y otro con ...IndexHigh,  "Performance levels are arranged from low to high"
+```
+
+O sea que cada entrada de estado son **dos pares de reloj**. Es lo que hace esta
+tabla: unir "que reloj" con "que estado de la maquina". Un nombre de campo que
+promete un entero partido y entrega dos entradas distintas es un nombre que
+trabaja en contra de quien lo lee.
+
+**LO QUE DECLARA ESTA TARJETA, MEDIDO:**
+
+```
+  #  class  memLow  memHigh   nivel bajo mclk/sclk        nivel alto mclk/sclk
+  0     0      0       0     30000 /  21400 kHz          30000 /  21400 kHz
+  1     5      0       2     30000 /  21400 kHz         150000 / 107100 kHz
+
+  2 estados -> 4 niveles de rendimiento, y todas las referencias caben en sus tablas
+```
+
+**Y AQUI CIERRA LA CADENA DE LA MEMORIA, CON UNA CORROBORACION INDEPENDIENTE.**
+`gputel` midio **mclk 300 MHz en reposo**, y eso es **exactamente el nivel bajo** de
+los dos estados. No es una coincidencia de valor: es el nivel que el hardware de
+esta tarjeta declara como bajo. Y el nivel alto, 1500 MHz, es el indice 2 de la
+tabla de mclk, que es el maximo declarado.
+
+**UN DATO QUE NO ESPERABA, Y QUE EXPLICA UNA MEDICION VIEJA.** La tabla de mclk
+tiene **tres** entradas: 30000, 62500 y 150000. Y los estados **solo usan los
+indices 0 y 2**. El **62500, que son 625 MHz, no lo referencia ningun estado**. Eso
+explica por que en el arranque de una sesion anterior se midio mclk a 625 MHz: es
+una entrada de la tabla que existe, pero que no es un nivel de ningun estado. Es
+la diferencia entre "el hardware puede funcionar ahi" y "el hardware para ahi", y
+son cosas distintas.
+
+**LO QUE NO CIERRA, Y NO SE DEJA DECIR QUE SÍ.** El vddgfx de 812-881 mV sigue sin
+explicarse: la unica entrada real de `VddgfxLookupTable` es 900 mV, y las demas son
+relleno. Y los estados no llevan voltaje propio: lo llevan los indices
+`usVddci`/`usMvdd` de las tablas de dependencia. `NOT_DETERMINED`, con la pista
+intacta: lo pone el SMU.
+
+**Y UNA CONCLUSIÓN PARA UN DRIVER PROPIO, QUE ES LO QUE ESTO VALE.** El pptable de
+esta tarjeta, decodificado, dice:
+- 3 frecuencias de memoria: 300, 625 y 1500 MHz
+- 8 frecuencias de graficos: 214 a 1071 MHz
+- 2 estados, 4 niveles, y el reposo es 300 MHz / 214 MHz
+
+Eso es **el techo de lo que la placa sabe hacer por DPM**, leido del VBIOS, no del
+codigo del driver. Un driver propio tiene aqui su lista de niveles autorizada, y
+sabe que puede afinar el DPM sin inventar frecuencias.
+
+**CINCO DEFECTOS PROPIOS EN ESTA RONDA, Y CUATRO ERAN DEL TEST.**
+
+1. Imprimi `usClassification` en el offset 14, que es `usClassification2`. Los dos
+   valen 0 aqui, asi que el error era **invisible** y por eso tampoco hacia falta
+   para cazar mutaciones: es un error de lectura mio, no un defecto de la
+   herramienta. Ahora el desplazamiento sale del layout calculado.
+2. El reparto esperado del vector de relleno lo escribi a mano y no correspondia al
+   fixture.
+3. **La mutacion del tamano del registro no la cazaba NINGUN vector**, porque el
+   fixture lo construia la misma definicion que iba a comprobar. Mutarla cambiaba
+   escritor y lector a la vez. Un test construido con la cosa que prueba no puede
+   detectar que la cosa este mal.
+4. Comprobar presencia global de un valor **no caza** el intercambio de High y Low:
+   el valor no desaparece, se va de columna. Y el espaciado no es fijo, porque la
+   columna alinea con `%7d` y depende de los digitos. Resuelto con regex sensible
+   al orden e insensible al espaciado, con los valores derivados del fixture.
+5. **Y LA MAS IMPORTANTE: EL ARNÉS DE MUTACIÓN MENTÍA.** Un comentario mio partio una
+   sentencia, el fichero dejo de parsear, y el arnés reporto "las 14 cazadas":
+   todas "fallaban" por el error de sintaxis. **Un mutante que no parsea no es una
+   deteccion, es un crash.** Ahora cada mutante se parsea ANTES de ejecutarse, y un
+   mutante que no parsea se reporta como INVALID, no como cazado.
+
+**RESULTADO FINAL DE LA HERRAMIENTA.** 13 vectores, y 14 mutaciones, todas
+aplicadas, verificadas aplicadas, **parseadas** y ejecutadas: las 14 cazadas. La
+quinceava "mutacion" que probe --sustituir el literal `15` por `SCLK_REC_POLARIS`--
+**no es una mutacion**: ambas valen 15, es una forma equivalente. Se registra como
+tal y no como hueco, porque un arnes que cuenta como fallo una mutacion que no
+muta tambien miente.
+
+check.sh rc=0 TODO CORRECTO. GPU INTACTA. WRITE_EXECUTION NONE.

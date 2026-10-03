@@ -50,6 +50,7 @@ import argparse
 import hashlib
 import io
 import os
+import re
 import struct
 import sys
 
@@ -591,7 +592,7 @@ def cmd_autotest(a):
     # nunca en el autotest. Un self-test que prueba piezas y no el camino que
     # corre tiene un hueco, y el hueco es justo donde se cuelan los errores.
     def _ppt_sintetico(rom, mclk=(30000, 62500, 150000), tabla_size=None,
-                      Offsets=None, buen_tam=True):
+                      state_roto=False, sclk_sint=(98000, 102000, 104600)):
         base = len(rom) - 1024
         t = bytearray(778)
         struct.pack_into("<HBB", t, 0, 778, 7, 1)
@@ -634,6 +635,23 @@ def cmd_autotest(a):
         struct.pack_into("<H", t, dep3 + 10, 0xFF02)
         struct.pack_into("<H", t, dep3 + 18, 0xFF03)
 
+        # StateArray sintetica, con bytes literales de 20 por entrada, y con un
+        # indice FUERA de rango a proposito en un caso aparte.
+        sa = 200
+        struct.pack_into("<H", t, off["usStateArrayOffset"], sa)
+        t[sa] = 1
+        t[sa + 1] = 2
+        # estado 0: todo indice 0 -> nivel bajo = entrada 0 de cada tabla
+        # estado 1: Low = 0, High = indice 2 (mclk) y 1 (sclk, que tiene 3)
+        _pares = ((0, 0, 0, 0), (9, 0, 9, 0)) if state_roto \
+            else ((0, 0, 0, 0), (1, 0, 2, 0))
+        for i, (engH, engL, memH, memL) in enumerate(_pares):
+            o = sa + 2 + i * 20
+            t[o + 0] = engH
+            t[o + 1] = engL
+            t[o + 2] = memH
+            t[o + 3] = memL
+
         deps = 400
         struct.pack_into("<H", t, off["usSclkDependencyTableOffset"], deps)
         n_s = 3
@@ -642,7 +660,7 @@ def cmd_autotest(a):
         # bytes LITERALES, 15 por registro, por el mismo motivo que las tablas de
         # voltaje: si el fixture se construye con la definicion que va a comprobar,
         # mutarla cambia escritor y lector a la vez y el control no puede fallar.
-        for i, clk in enumerate((98000, 102000, 104600)):
+        for i, clk in enumerate(sclk_sint):
             o = deps + 2 + i * 15
             t[o] = 0
             struct.pack_into("<H", t, o + 1, 0)
@@ -699,6 +717,82 @@ def cmd_autotest(a):
         print("  FALLA usTableSize erroneo -> rc=%d: sigue imprimiendo la tabla"
               % rc_malo)
         fallos.append("cmd_ppt no detecta usTableSize erroneo")
+
+    # D: la StateArray. Dos cosas: que los pares de reloj salen bien, y que un
+    # indice fuera de rango da rc=4 y no una referencia rota impresa como dato.
+    _cap = io.StringIO()
+
+    class _Toma:
+        def write(self, x):
+            _cap.write(x)
+            return len(x)
+
+        def flush(self):
+            pass
+
+    sys.stdout = _Toma()
+    try:
+        rc_sa = cmd_ppt(_ppt_sintetico(rom), a)
+    finally:
+        sys.stdout = real
+    salida_sa = _cap.getvalue()
+    # El valor que tiene que aparecer sale del PROPIO fixture, no de un literal.
+    # Puse "3000000 kHz" a mano y no corresponde a nada de la tabla sintetica: un
+    # numero escrito aqui que no encaja con el dato da un FALLA que parece un fallo
+    # de la herramienta. Es la segunda vez en este comando.
+    # MEDIDO: solo comprobar los valores de MCLK no caza el intercambio de High y
+    # Low, porque ese intercambio solo cambia el sclk. Hace falta comprobar los dos
+    # rails del par del nivel alto, y derivarlos del fixture en vez de escribirlos.
+    _espera_bajo = "%d kHz" % buenos[0]
+    _espera_alto = "%d kHz" % buenos[2]
+    # Y no basta con que el valor APAREZCA: hay que que este en la columna
+    # correcta. MEDIDO: comprobar presencia global no caza el intercambio de High
+    # y Low, porque el valor no desaparece, se va de la columna "alto" a la de
+    # "bajo". El control tiene que mirar LA LINEA del estado, no el documento.
+    # el filtro tiene que ser el de las filas de estado, que son las unicas con
+    # DOS relojes separados por "/". Con "empieza por 1" tambien entraban filas de
+    # la tabla de voltaje, y habia mas de una.
+    _fila1 = [l for l in salida_sa.splitlines()
+              if l.strip().startswith("1 ") and "kHz /" in l]
+    # Y no basta con que un valor aparezca: el intercambio de High y Low no cambia
+    # QUE valores salen, cambia EN QUE COLUMNA. Asi que se comprueban los PARES
+    # completos y en orden, derivados del fixture. Lo pongo FUERA de la condicion
+    # porque un comentario en mitad de un parentesis abierto la rompe: lo compro.
+    # El espaciado NO es fijo: la columna alinea con %7d, asi que "/  98000" lleva
+    # dos espacios y "/ 102000" uno, segun los digitos. Escribir el par esperado a
+    # mano con dos espacios fijos dava un FALLA con la herramienta bien. Se regex,
+    # que es SENSIBLE AL ORDEN --que es lo que hay que cazar-- e insensible al
+    # espaciado, que es decoracion.
+    _sb = (98000, 102000, 104600)
+    _rx_bajo = re.compile(r"%d\s*kHz\s*/\s+%d\s*kHz" % (buenos[0], _sb[0]))
+    _rx_alto = re.compile(r"%d\s*kHz\s*/\s+%d\s*kHz" % (buenos[2], _sb[1]))
+    _ok_sa = (rc_sa == 0
+              and "2 entradas de estado -> 4 niveles de rendimiento" in salida_sa
+              and "todas las referencias caben en sus tablas" in salida_sa
+              and _espera_bajo in salida_sa and _espera_alto in salida_sa
+              and len(_fila1) == 1
+              and bool(_rx_bajo.search(_fila1[0]))
+              and bool(_rx_alto.search(_fila1[0])))
+    if _ok_sa:
+        print("  OK    la StateArray resuelve los pares de reloj: 2 estados, 4 niveles")
+    else:
+        print("  FALLA la StateArray no resuelve como debe: rc=%d" % rc_sa)
+        for _l in salida_sa.splitlines():
+            if "niveles de rendimiento" in _l or "FUERA" in _l:
+                print("        %s" % _l.strip())
+        fallos.append("StateArray en el camino real")
+
+    # y un indice deliberadamente fuera de rango
+    sys.stdout = _Toma()
+    try:
+        rc_malo = cmd_ppt(_ppt_sintetico(rom, state_roto=True), a)
+    finally:
+        sys.stdout = real
+    if rc_malo == 4:
+        print("  OK    un indice fuera de rango -> rc=4, no una referencia rota")
+    else:
+        print("  FALLA un indice fuera de rango -> rc=%d" % rc_malo)
+        fallos.append("indice de la StateArray fuera de rango")
 
     # C-ter: una entrada de voltaje fuera de rango tiene que CONTARSE como
     # relleno, no imprimirse como si fuera un voltaje. Es el mismo control que el
@@ -1200,6 +1294,20 @@ PLO_MV = (100, 2000)
 # ATOM_Tonga_Voltage_Lookup_Record, tambien de pptable_v1_0.h
 VLUT_CAMPOS = [("usVdd", 2), ("usCACLow", 2), ("usCACMid", 2), ("usCACHigh", 2)]
 
+# ATOM_Tonga_State, de pptable_v1_0.h. OJO con los nombres: ucEngineClockIndexHigh
+# y ucEngineClockIndexLow NO son las dos mitades de un indice de 16 bits. El driver
+# los usa POR SEPARADO y saca dos niveles de rendimiento distintos:
+#     mclk_dep_table->entries[state_entry->ucMemoryClockIndexLow].ulMclk
+#     ... y otro con ...IndexHigh, "arranged from low to high".
+# O sea que cada entrada de estado son DOS pares de reloj. Es lo que hace esta
+# tabla: unir "que reloj" con "que estado de la maquina".
+STATE_CAMPOS = [("ucEngineClockIndexHigh", 1), ("ucEngineClockIndexLow", 1),
+                ("ucMemoryClockIndexHigh", 1), ("ucMemoryClockIndexLow", 1),
+                ("ucPCIEGenLow", 1), ("ucPCIEGenHigh", 1),
+                ("ucPCIELaneLow", 1), ("ucPCIELaneHigh", 1),
+                ("usClassification", 2), ("ulCapsAndSettings", 4),
+                ("usClassification2", 2), ("ucUnused", 4)]
+
 
 def _layout_ppt():
     """El layout se recalcula cada vez, para que no pueda desincronizarse de la
@@ -1345,6 +1453,8 @@ def cmd_ppt(d, a):
             print("  demostrado y la tabla NO se da por buena.")
             return 4
         print()
+        _mclk = [c for _, _, c in filas]
+        _mclk_n = len(_mclk)
         print("  UNIDAD: el driver copia el valor CRUDO, sin multiplicar")
         print("  (process_pptables_v1_0.c: clk = le32_to_cpu(ulMclk)). El x10 es la")
         print("  convencion de unidades de ATOM, y se comprueba por si los tres")
@@ -1371,6 +1481,8 @@ def cmd_ppt(d, a):
                   % PLO_CLOCKS_KHZ)
             print("  El tamano de registro NO esta demostrado.")
             return 4
+        _sclk = [c for _, _, c in filas]
+        _sclk_n = len(_sclk)
         print("  %-3s %-9s %-13s %-11s %-9s %-9s %s"
               % ("#", "ucVddInd", "usVddcOffset", "ulSclk", "x10 kHz", "MHz",
                  "usEdcCurrent"))
@@ -1414,6 +1526,69 @@ def cmd_ppt(d, a):
             print("  ATENCION: el relleno se parece a un patron (0xFF00 + n), no")
             print("  a una tabla de voltajes. Las entradas fuera de rango NO se")
             print("  usan y no se usan: se cuentan y se dicen.")
+        print()
+
+    # La StateArray: la que une "que reloj" con "que estado". Se valida que los
+    # indices que declara quepan en las tablas a las que apuntan, porque un indice
+    # fuera de rango no es un dato raro: es una referencia rota.
+    sa = u16(d, pp + off["usStateArrayOffset"])
+    if sa:
+        if "_mclk" not in dir() or "_sclk" not in dir():
+            print("  la StateArray declara referencias a las tablas de reloj, pero")
+            print("  alguna de esas tablas no esta presente. NO se resuelve: se dice.")
+            print("LIMITES, DICHOS:")
+            return 4
+        recsz = _tam(STATE_CAMPOS)
+        srev = u8(d, pp + sa)
+        sn = u8(d, pp + sa + 1)
+        print("STATE ARRAY, en 0x%04X" % (pp + sa))
+        print("  ucRevId = %d   ucNumEntries = %d   registro = %d bytes"
+              % (srev, sn, recsz))
+        print()
+        nm = _mclk_n
+        ns = _sclk_n
+        print("  Cada entrada produce DOS niveles de rendimiento, porque el driver")
+        print("  usa IndexLow e IndexHigh por separado. No son nibbles de un indice:")
+        print("  son dos entradas distintas de la misma tabla.")
+        print()
+        print("  %-4s %-7s %-8s %-8s %-24s %-24s"
+              % ("#", "class", "memLow", "memHigh", "nivel bajo mclk/sclk",
+                 "nivel alto mclk/sclk"))
+        fuera = []
+        for i in range(sn):
+            o = pp + sa + 2 + i * recsz
+            if o + recsz > len(d):
+                raise RomInvalido("StateArray: la entrada %d se sale del ROM" % i)
+            engH, engL = u8(d, o), u8(d, o + 1)
+            memH, memL = u8(d, o + 2), u8(d, o + 3)
+
+            def _res(idx_, tabla, total, nombre, estado):
+                if idx_ < total:
+                    return "%7d kHz" % tabla[idx_]
+                fuera.append(1)
+                return "FUERA(%d)" % idx_
+
+            bajo = "%s /%s" % (_res(memL, _mclk, nm, "m", i),
+                               _res(engL, _sclk, ns, "s", i))
+            alto = "%s /%s" % (_res(memH, _mclk, nm, "m", i),
+                               _res(engH, _sclk, ns, "s", i))
+            # el desplazamiento sale del layout calculado: antes ponia un 14 a
+            # mano, que es usClassification2 y no usClassification. Los dos valen
+            # 0 en esta tabla, asi que el error era invisible aqui, y por eso
+            # tampoco hacia falta para cazar mutaciones: es un error de lectura
+            # mio, no un defecto de la herramienta.
+            print("  %-4d %-7d %-8d %-8d %-24s %-24s"
+                  % (i, u16(d, o + _desplaz(STATE_CAMPOS, "usClassification")),
+                     memL, memH, bajo, alto))
+        print()
+        print("  %d entradas de estado -> %d niveles de rendimiento"
+              % (sn, sn * 2))
+        if fuera:
+            print("  INVALID: %d referencias apuntan fuera de su tabla. No es un"
+                  % len(fuera))
+            print("  dato raro: es una referencia rota, y la tabla no se da por buena.")
+            return 4
+        print("  todas las referencias caben en sus tablas")
         print()
 
     print("LIMITES, DICHOS:")
