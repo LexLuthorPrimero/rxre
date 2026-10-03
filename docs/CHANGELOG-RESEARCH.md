@@ -3271,7 +3271,9 @@ mano para `cn7` y `cn8`. Dos mecanismos para una idea es donde empiezan las
 cosas a desincronizarse, y efectivamente se desincronizaron.
 
 **LO MEDIDO, Y NO LO QUE SUPONIA.** Antes de anadir un codigo nuevo mire las
-salidas reales: **17 herramientas, 30 `return <entero>`, 5 codigos distintos**.
+salidas reales: **17 herramientas, 167 `return <entero>` literales, 5 codigos distintos**
+(reparto: 67 con `0`, 41 con `1`, **30 con `2`**, 15 con `4`, 9 con `3`,
+5 con `5`). Los 30 eran los que medi al principio; el 167 es el total.
 `run()` mapeaba `0` a OK, `4` a INVALID y **todo lo demas a FALLO**. Ese `4`
 venia de `cn8`/`bootcheck`/`gputel`/`klog`, que si lo usan. El resto lo
 asumia. Y el supuesto era falso:
@@ -3299,6 +3301,43 @@ que es exactamente la confusion que el propio `check.sh` dice evitar en su
 cabecera. Cometiendola en su propia funcion de ejecucion. Con el protocolo
 medido, esa misma invocacion da `INVALID rc=2` y la suite sale `rc=4`, que es lo
 que `rc=4` quiere decir.
+
+**Y EL MAPA GLOBAL RESULTABA ESTAR MAL PARA 4 DE LOS 5 CODIGOS.** Publicado el
+mapa, me puse a verificarlo entero, porque una generalizacion medida en una
+muestra es el fallo de siempre. Intenté clasificar los 167 sitios por palabra
+clave y **el escaner resulto ser un instrumento inutil**: etiqutaba `return 0`
+como INVALID porque en la ventana de 14 lineas de contexto habia un comentario con
+la palabra "falta". No extraje ninguna conclusion de esa tabla. Los 9 sitios con
+`rc=3` son pocos, y los leí a mano:
+
+| sitio | lo que dice | clase real |
+|---|---|---|
+| `bootcheck.py:242` | "%d control(es) en rojo" | FALLO |
+| `captura.py:157` | "el plan se contradice a si mismo" | FALLO |
+| `dires.py:176` | "un indice que no encuentra lo que se sabe que esta" | FALLO |
+| `sello.py:400` | "eso no lo puede hacer un script" | FALLO |
+| `btfsnap.py:239` | "NO ESTA pahole" | INVALID |
+| `pm4dec.py:958` | "Sin la tabla de opcodes" | INVALID |
+| `gfx8blocks.py:537` | "ERROR/INVALID: 0 funciones. No es un resultado." | INVALID |
+
+O sea que **`rc=3` tambien esta sobrecargado**, y yo lo habia dado por bueno. Un
+mapa global no puede ser correcto cuando 4 de los 5 codigos no-0/1 lo estan. Lo
+que hay ahora es un mapa global como **default** mas una tabla de **excepciones
+medidas por herramienta**, que es lo unico que la suite necesita hoy: `pm4dec`
+y `gfx8blocks` con `rc=3` es INVALID, `btfsnap` con `rc=3` y `rc=5` es INVALID, y
+`bootcheck` y `cn8` con `rc=3` siguen siendo FALLO.
+
+**Y LA EXCEPCION NO FUNCIONABA, Y LA AUTOCOMPRUEBA NO LO CAZO.** Inyectando un
+stub `pm4dec.py` que sale con `rc=3` en una copia de `check.sh`, la suite daba
+`FALLO` donde debia dar `INVALID`. La causa: `basename "$_t"` devuelve
+`pm4dec.py` **con** extension y las etiquetas del `case` son `pm4dec` **sin**
+ella, asi que no casaba. Y la autocomprueba no lo vio porque llamaba
+`clasifica_de pm4dec 3` a mano, **con una forma de argumento que el llamador real
+nunca produce**. Un control probado con una forma de entrada que la vida real no
+usa no cubre el camino por el que se ejecuta. Los casos usan ahora `pm4dec.py`, y
+la prueba de punta a punta mete stubs de **cinco** herramientas con el mismo
+`rc=3`: las tres con excepcion dan INVALID y las otras dos dan FALLO. Con la
+tabla vacia, las cinco darian FALLO.
 
 **LO QUE HAY AHORA.** `clasifica()` lleva el mapa medido y se autocomprueba
 antes de usarse: `0` OK; `2` y `4` INVALID; `1`, `3`, `5`, `126`, `127` y

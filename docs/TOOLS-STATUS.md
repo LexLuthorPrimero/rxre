@@ -3309,9 +3309,34 @@ linea `run "..." ./atomrom.py rom /tmp/no-existe`, la suite salia `rc=1` con
 `FALLO rc=2`; con el mapa nuevo, esa misma linea da `INVALID rc=2` y la suite sale
 `rc=4`. Sin tocar ninguna herramienta ni ningun artefacto compartido.
 
-**LIMITE DECLARADO.** El mapa es global y el `5` esta sobrecargado (C-016). Con
-`btfsnap` en un modo que pueda dar `OSError`, haria falta partirlo por
-herramienta. No se hace mientras no se ejercite.
+**EL MAPA GLOBAL ES UN DEFAULT, NO UNA VERDAD, Y HAY EXCEPCIONES MEDIDAS.** De
+los 5 codigos que no son 0 ni 1, **cuatro estan sobrecargados** (C-016), asi que
+un unico mapa no puede ser correcto. `clasifica_de <herramienta> <rc>` aplica el
+mapa global y despues una tabla de excepciones, que es lo unico que la suite
+necesita hoy:
+
+| herramienta | rc que para ella es INVALID | por que |
+|---|---|---|
+| `pm4dec` | `3` | sin tabla de opcodes no hay decode |
+| `btfsnap` | `3`, `5` | sin `pahole`, y `OSError` de BTF |
+| `gfx8blocks` | `3` | 0 funciones no es un resultado |
+
+La clave se normaliza con `${1%.py}`: medido, `basename` devuelve `pm4dec.py`
+**con** extension y las etiquetas son sin ella, y sin esa normalizacion la
+excepcion no se aplicaba nunca.
+
+**LIMITE DECLARADO.** La tabla de excepciones es un parche, no un protocolo: las
+herramientas deberian **declarar** el suyo. Envejece, y el disparador para
+arreglarla esta escrito en C-016.
+
+**VALIDACION DE LA EXCEPCION, Y POR QUE HACE FALTA.** La autocomprueba llama a
+`clasifica_de` con los nombres **con** extension, que es lo que `basename`
+entrega. La primera version usaba los nombres sin ella, y por eso **no pudo
+cazar** el bug de la clave: un control probado con una forma de entrada que la
+vida real no usa no cubre el camino por el que se ejecuta. Y la prueba de punta a
+punta mete stubs de **cinco** herramientas con el mismo `rc=3`: `pm4dec`,
+`btfsnap` y `gfx8blocks` dan INVALID; `bootcheck` y `cn8` dan FALLO. Con la tabla
+vacia, los cinco darian FALLO.
 
 ## `cn8.py`: dos controles reparados, y un canal informativo que no existia
 

@@ -996,6 +996,28 @@ caerian fuera y darian `rc=5`*. Y `pm4dec.py` **si** tiene `return 5`. Asi que u
 comentario es correcto y el otro no, y solo se separa midiendo los `return` de cada
 fichero por separado en vez de leerlos como un texto corrido.
 
+**MEDICION QUE AMPLIA ESTA MISMA CONTRADICCION A LOS OTROS CODIGOS.** Al
+verificar el mapa publicado, leyendo a mano los 9 sitios con `rc=3` (son pocos, y
+un escaner por palabra clave no servia: etiqutaba `return 0` como INVALID porque
+en 14 lineas de contexto habia un comentario con "falta"):
+
+| sitio | lo que dice | clase real |
+|---|---|---|
+| `bootcheck.py:242` | "%d control(es) en rojo" | FALLO |
+| `captura.py:157` | "el plan se contradice a si mismo" | FALLO |
+| `dires.py:176` | "un indice que no encuentra lo que se sabe que esta" | FALLO |
+| `sello.py:400` | "eso no lo puede hacer un script" | FALLO |
+| `btfsnap.py:239` | "NO ESTA pahole" | INVALID |
+| `pm4dec.py:958` | "Sin la tabla de opcodes" | INVALID |
+| `gfx8blocks.py:537` | "ERROR/INVALID: 0 funciones. No es un resultado." | INVALID |
+
+**Asi que de los 5 codigos que no son 0 ni 1, cuatro estan sobrecargados**: `2`
+(falta el dato / me invocaste mal), `3` (comprobado y fallo / falta una
+dependencia), `4` y `5`. Y el recuento real es de **167** `return <entero>`
+literales en las 17 herramientas (67 con `0`, 41 con `1`, 30 con `2`, 15 con `4`,
+9 con `3`, 5 con `5`), no 30: los 30 eran los `return 2` y asi esta escrito en el
+CHANGELOG de esta ronda, corregido.
+
 **LA CONTRADICCION QUE QUEDA ABIERTA, Y ES MAS INTERESANTE.** El `rc=5` esta
 sobrecargado en el kit:
 
@@ -1008,23 +1030,40 @@ Con el mapa que hay ahora en `clasifica()`, un `OSError` de `btfsnap` se
 reportaria como FALLO. **No esta ejercitado hoy** porque la suite solo invoca
 `btfsnap` en modo `--self-test`.
 
-**MEDICION DE ALCANCE.** 17 herramientas, **30** `return <entero>`, 5 codigos
-distintos (`0`, `1`, `2`, `3`, `4`, `5`), mas el `126` que es de shell. `run()`
+**MEDICION DE ALCANCE.** 17 herramientas, **167** `return <entero>` literales, 5
+codigos distintos (`0`, `1`, `2`, `3`, `4`, `5`), mas el `126` que es de shell.
+De los 167, 30 son `return 2`: los 30 que medi al principio y el unico numero que
+circulaba hasta que se conto entero. `run()`
 mapeaba `0` a OK, `4` a INVALID y **todo lo demas a FALLO**, con `2` significando
 "falta el fichero" en al menos 12 herramientas. Medido con ejecucion real:
 `atomrom.py rom <inexistente>` -> `rc=2`, `pm4dec.py <inexistente>` -> `rc=2`.
 
-**RESOLUCION PARCIAL APLICADA.** `clasifica()` lleva ahora el mapa medido
-(`0` OK; `2` y `4` INVALID; resto FALLO) y se autocomprueba antes de usarse. El
-`5` sigue en FALLO porque es el caso mayoritario medido, y **la ambiguedad queda
-registrada a proposito** en vez de repartirse en silencio.
+**RESOLUCION PARCIAL APLICADA.** `clasifica()` lleva el mapa medido
+(`0` OK; `2` y `4` INVALID; resto FALLO) como **default**, mas una tabla de
+**excepciones medidas por herramienta**, porque un mapa global no puede ser
+correcto con cuatro de los cinco codigos sobrecargados. La tabla es corta y
+esta justificada sitio a sitio:
 
-**LO QUE LA RESOLVERIA, Y NO ESTA HECHO.** Partir el mapa por herramienta, o
-declarar el protocolo en una tabla que las herramientas lean. Cuesta mas que el
-beneficio mientras `btfsnap` solo se ejecute en `--self-test`, asi que la rama
-queda `DEFERRED` y se reabre en cuanto una linea de la suite invoque una
-herramienta en un modo que pueda dar `rc=5` por `OSError`. **El disparador esta
-escrito**, que es lo que evita que esto se convierta en deuda invisible.
+| herramienta | rc que para ella es INVALID |
+|---|---|
+| `pm4dec` | `3` (sin tabla de opcodes) |
+| `btfsnap` | `3` (sin pahole), `5` (OSError de BTF) |
+| `gfx8blocks` | `3` (0 funciones no es un resultado) |
+
+`bootcheck` y `cn8` con `rc=3` **siguen siendo FALLO**, y eso tambien esta
+probado: la prueba de punta a punta mete stubs de cinco herramientas con el mismo
+`rc=3` y las tres con excepcion dan INVALID mientras las otras dos dan FALLO.
+
+**LO QUE LA RESOLVERIA, Y NO ESTA HECHO.** Que las herramientas **declaren** su
+protocolo, en vez de que el orquestador lo adivine por tabla. El orquestador no
+puede saber si el `5` de una herramienta es "dato incoherente" o "no he podido":
+se lo dice el codigo de la herramienta, y por eso el problema es de **protocolo
+ausente entre herramientas**. La tabla de excepciones es el parche de
+trabajo, no la solucion: envejece. Cuesta mas que el beneficio mientras solo
+afecte a tres herramientas y tres codigos, asi que la rama queda `DEFERRED`, y
+**el disparador esta escrito**: se reabre en cuanto una linea de la suite
+invoque una herramienta con un codigo sobrecargado que no este en la tabla, o
+en cuanto una herramienta nueva use `3` o `5`.
 
 **POR QUE ESTA CONTRADICCION NO LA RESUELVE `check.sh` SINO EL CODIGO.** Un
 orquestador no puede saber si el `5` de una herramienta es "dato incoherente" o

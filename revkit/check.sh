@@ -72,6 +72,65 @@ clasifica() {
     esac
 }
 
+# EXCEPCIONES MEDIDAS POR HERRAMIENTA, Y POR QUE HACE FALTAN.
+#
+# El mapa de arriba es un priori, y resulto estar mal para 4 de los 5 codigos que
+# no son 0 ni 1: los 167 `return <entero>` literales de las 17 herramientas
+# comparten el mismo numero para intenciones distintas. Medido leyendo el mensaje
+# de cada sitio, no por palabra clave:
+#
+#   rc=3  bootcheck "N control(es) en rojo" ............ FALLO
+#         captura   "el plan se contradice a si mismo" .. FALLO
+#         dirs      "un indice que no encuentra lo que
+#                    se sabe que esta" .................. FALLO
+#         sello     "eso no lo puede hacer un script" ... FALLO
+#         btfsnap   "NO ESTA pahole" .................... INVALID
+#         pm4dec    "Sin la tabla de opcodes" .......... INVALID
+#         gfx8blocks "ERROR/INVALID: 0 funciones" ....... INVALID
+#
+#   rc=5  pm4dec  "N direcciones NO caben en la VRAM" .. FALLO
+#         btfsnap OSError al leer o escribir la BTF .... INVALID
+#
+#   rc=2  "falta el fichero o la dependencia" .......... INVALID  (12 herramientas)
+#         ibtrace/pte/verdiff "me invocaste mal" ....... USAGE, que aqui se
+#         reporta como INVALID. No se ejercita: las lineas de la suite pasan
+#         argumentos literales, asi que un error de uso seria determinista.
+#
+# El mapa global se queda como DEFAULT y estas son las unicas excepciones que
+# necesita la suite hoy, medidas una a una. Si una herramienta nueva trae un
+# codigo sobrecargado, se anade aqui; no se ensancha el mapa global, que es
+# justamente lo que lo hacia falso.
+invalidable_para() {
+    # MEDIDO, Y ERA UN BUG REAL: `basename "$_t"` devuelve "pm4dec.py", CON
+    # extension, y las etiquetas del case son "pm4dec", SIN ella. No casaba, la
+    # excepcion no se aplicaba y `run` daba FALLO donde debia dar INVALID. Lo
+    # probe inyectando un stub con el mismo codigo que una herramienta real, y el
+    # nombre se extrajo bien: el fallo estaba en la clave, no en la extraccion.
+    #
+    # Y lo que mas da pena: la autocomprueba NO lo cazo, porque llamaba
+    # `clasifica_de pm4dec 3` a mano, con una forma de argumento que el llamador
+    # real nunca produce. Un control que se prueba con una forma de entrada que
+    # la vida real no usa, no cubre el camino por el que se ejecuta. Los casos
+    # nuevos usan la forma REAL, con extension.
+    case "${1%.py}" in
+        pm4dec)    echo "3" ;;
+        btfsnap)   echo "3 5" ;;
+        gfx8blocks) echo "3" ;;
+        *)         echo "" ;;
+    esac
+}
+
+# La clase de un rc para UNA herramienta concreta: la del mapa global, salvo que
+# esa herramienta lo use como "no he podido comprobar".
+clasifica_de() {
+    local herramienta="$1" rc="$2" extra c
+    if [ "$rc" -eq 0 ]; then echo OK; return; fi
+    for c in $(invalidable_para "$herramienta"); do
+        if [ "$rc" -eq "$c" ]; then echo INVALID; return; fi
+    done
+    clasifica "$rc"
+}
+
 resumen() {
     if [ "$fallos" -ne 0 ]; then
         echo "$fallos validacion(es) FALLIDA(S): se comprobo y no pasan."
@@ -138,6 +197,23 @@ autocomprueba_clasificador() {
     resumen >/dev/null 2>&1 || _rc=$?
     [ "$_rc" -eq 1 ] || malos=$((malos+1)) total=$((total+1))
 
+    # LAS EXCEPCIONES MEDIDAS. Sin estos casos, `invalidable_para` podria devolver
+    # una cadena vacia o equivocada y la suite no se enteraria: el mapa global
+    # seguia dando FALLO, que es justo lo que hay que detectar.
+    # LA FORMA REAL, CON EXTENSION: es lo que `basename` entrega. La version
+    # anterior de estos mismos casos usaba "pm4dec" sin ".py", que es una forma
+    # que el llamador real NUNCA produce, y por eso no podia cazar el bug.
+    [ "$(clasifica_de pm4dec.py 3)"    = INVALID ] || malos=$((malos+1)) total=$((total+1))
+    [ "$(clasifica_de pm4dec.py 5)"    = FALLO ]   || malos=$((malos+1)) total=$((total+1))
+    [ "$(clasifica_de pm4dec.py 2)"    = INVALID ] || malos=$((malos+1)) total=$((total+1))
+    [ "$(clasifica_de pm4dec.py 0)"    = OK ]      || malos=$((malos+1)) total=$((total+1))
+    [ "$(clasifica_de btfsnap.py 3)"   = INVALID ] || malos=$((malos+1)) total=$((total+1))
+    [ "$(clasifica_de btfsnap.py 5)"   = INVALID ] || malos=$((malos+1)) total=$((total+1))
+    [ "$(clasifica_de gfx8blocks.py 3)" = INVALID ] || malos=$((malos+1)) total=$((total+1))
+    # los dos que NO deben moverse: el mismo rc, distinta herramienta
+    [ "$(clasifica_de bootcheck.py 3)" = FALLO ]   || malos=$((malos+1)) total=$((total+1))
+    [ "$(clasifica_de cn8.py 3)"       = FALLO ]   || malos=$((malos+1)) total=$((total+1))
+
     fallos=$_f0; invalidos=$_i0
 
     if [ "$malos" -ne 0 ]; then
@@ -150,10 +226,22 @@ autocomprueba_clasificador() {
 
 run() {
     local nombre="$1"; shift
-    local salida rc clase
+    local salida rc clase herr
     salida=$("$@" 2>&1)
     rc=$?
-    clase=$(clasifica "$rc")
+    # el nombre de la herramienta es el primer token que parece un script: el
+    # comando puede ser "./x.py", "python3 x.py" o "python3 /ruta/x.py"
+    herr=""
+    for _t in "$@"; do
+        case "$(basename "$_t")" in
+            *.py) herr=$(basename "$_t"); break ;;
+        esac
+    done
+    if [ -n "$herr" ]; then
+        clase=$(clasifica_de "$herr" "$rc")
+    else
+        clase=$(clasifica "$rc")
+    fi
     case "$clase" in
     OK)
         RESULTADOS+=("OK      $nombre")
@@ -197,6 +285,9 @@ for _rc in 0 1 2 3 4 5 126 127; do
 done
 echo "  clasificador de codigos de salida: OK, medido sobre 8 codigos reales"
 echo "    mapa:$_mapa"
+for _h in pm4dec btfsnap gfx8blocks; do
+    echo "    excepcion medida: $_h -> INVALID con rc=$(invalidable_para "$_h")"
+done
 echo
 
 # --- integridad de los propios scripts -------------------------------
