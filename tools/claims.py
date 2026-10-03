@@ -574,7 +574,21 @@ def extraer(lineas: List[str]) -> List[Dict[str, object]]:
             frase = texto[ini_txt:fin_txt].strip()[:240]
             filas.append({
                 "clase": clase,
-                "linea": ini,
+                # LA LINEA DEL TOKEN, NO LA DEL PARRAFO.
+                #
+                # MEDIDO 2026-10-03: con la linea del parrafo, 2269 de 2470
+                # filas de tabla publicaban una linea que NO era la de su
+                # token -- el 92%. Una tabla entera es UN parrafo (no hay linea
+                # vacia que la corte), asi que sus doce filas salian todas con
+                # la linea de la primera. Quien iba a OPEN-FRONTIERS.md a ver el
+                # hueco caia en la fila equivocada, y la tabla es la mayoria de
+                # la frontera.
+                #
+                # El desplazamiento del token dentro del texto del parrafo se
+                # convierte a linea contando saltos. Es exacto porque `texto`
+                # es la concatenacion de lineas consecutivas con "\n".
+                "linea": ini + texto[:m.start()].count("\n"),
+                "linea_parrafo": ini,
                 # Una fila de tabla NO es una afirmacion: `| asercion |
                 # NOT_DETERMINED |` es una celda. La frase que sale de ahi no
                 # termina en punto, no tiene verbo y su "estado" lo decide la
@@ -1095,6 +1109,45 @@ def selftest() -> int:
     print("=== claims selftest ===\\n")
     fallos = 0
 
+    # [20] LA LINEA PUBLICADA TIENE QUE SER LA DEL TOKEN.
+    #
+    # Una tabla markdown entera es UN parrafo, porque no hay linea vacia que la
+    # corte. Antes, cada fila de una tabla salia con la linea de la PRIMERA, y
+    # medido sobre el corpus eso hacia que 4463 de 6243 filas (el 71,5%)
+    # apuntaran a una linea donde no estaba su token.
+    #
+    # El control usa una tabla de TRES filas con clases distintas, y exige que
+    # las tres salgan en tres lineas distintas. Con la version anterior las tres
+    # saldrian en la misma, que es exactamente el fallo.
+    # SIN lineas vacias entre filas, porque una tabla markdown de verdad no las
+    # tiene. Con lineas vacias cada fila seria su propio parrafo, `ini` ya seria
+    # la linea correcta, y el control pasaria con el codigo roto: asi se
+    # escribio la primera vez, y no detecto la mutacion.
+    t3 = [
+        "afirmacion | estado",
+        "|---|---",
+        "| una | `PROVEN` |",
+        "| dos | `NOT_DETERMINED` |",
+        "| tres | `OBSERVED` |",
+    ]
+    f3, _fuera3 = extraer(t3)
+    por_clase = {x["clase"]: x["linea"] for x in f3}
+    fallos_antes = fallos
+    for clase, debe in (("PROVEN", 3), ("NOT_DETERMINED", 4), ("OBSERVED", 5)):
+        if clase not in por_clase:
+            print("  FAIL [%20d] no extrajo la clase %s" % (20, clase))
+            fallos += 1
+        elif por_clase[clase] != debe:
+            print("  FAIL [%20d] %s: linea %d, esperaba %d"
+                  % (20, clase, por_clase[clase], debe))
+            fallos += 1
+    if len(set(por_clase.values())) != len(por_clase):
+        print("  FAIL [%20d] clases compartiendo linea: se sigue publicando la "
+              "del parrafo" % 20)
+        fallos += 1
+    if fallos == fallos_antes:
+        print("  OK   [20] tres clases de una tabla, en tres lineas distintas")
+
     texto = [
         "# 099 · titulo",
         "",
@@ -1305,7 +1358,7 @@ def selftest() -> int:
     if fallos:
         print("RESULT: FAIL (%d)" % fallos)
         return 1
-    print("RESULT: PASS (20 vectores)")
+    print("RESULT: PASS (21 vectores)")
     return 0
 
 
