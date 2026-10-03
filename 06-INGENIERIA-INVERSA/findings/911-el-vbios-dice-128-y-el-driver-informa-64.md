@@ -24,6 +24,29 @@ ni una sola vez.** `PROVEN`
     D09001 Lexa XL A0 GDDR5 128bit 2GB 214e/300m
 ```
 
+## Corroborado por un SEGUNDO instrumento, el 2026-10-03
+
+`312` midio la superficie de lectura por ioctl y escribio un instrument
+independiente, `amdinfo.c`, que abria `renderD129` con `O_RDWR` y pedia
+`AMDGPU_INFO_VBIOS`. Ese camino no usa `vbiosread.py`: son dos programas
+distintos, mismo nodo, mismo kernel.
+
+```
+  tamano del volcado            58880 bytes      (los dos instrumentos)
+  offset 0x131 del volcado      "128bit 2GB 214e/300m"
+  'GDDR5' en el ROM             si
+  '128bit' en el ROM            si
+  '64bit'  en el ROM            NO, en ningun byte
+```
+
+Los dos coinciden byte a byte en tamano y en el contenido del offset. Eso sube
+el claim de "un volcado" a "dos volcados por dos caminos", que es la diferencia
+entre una observacion y una reproduccion.
+
+**El instrumento duplicado no se ha versionado.** `amdinfo.c` ya existe y cubre
+la superficie; `amdvbios.c` hacia lo mismo que `vbiosread.py` y se borro. Un
+segundo binario que hace lo mismo no es evidencia, es ruido.
+
 **⇒ `PROVEN`: el driver no lee de ahí. `amdgpu_atombios.c:770-793` returns
 `igp_info->info_8.ucUMAChannelNumber * 64`, y el comentario de la línea 778 dice, textual, «get any
 igp specific overrides». Es una función de IGP aplicado a una tarjeta discreta, y el 64 es el
