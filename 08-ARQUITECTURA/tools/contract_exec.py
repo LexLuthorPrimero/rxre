@@ -257,6 +257,31 @@ def declaradas_sin_uso(profundidad=3):
     return out
 
 
+def sha1(herramienta):
+    """Hash del fichero TAL COMO ESTA AHORA.
+
+    POR QUE, y no por reproducibilidad de los resultados: porque una
+    afirmacion sobre un fichero SIN VERSIONAR no tiene fecha de caducidad. Alguien
+    lo edita cuando quiere y nadie puede saber cuando deja de ser cierta.
+
+    Pasó con bench.py esta misma sesion: 932 decia "cero escrituras de proyecto"
+    y al contar por origen salio PROYECTO en L725, porque otra sesion lo habia
+    editado. El hallazgo era cierto cuando se escribio y dejo de serlo sin que
+    nadie lo dijera.
+
+    Con el hash, un hallazgo puede decir "esto se midio sobre bench.py con sha1
+    abc123", y quien lo lea puede comprobar si sigue siendo el mismo fichero. Sin
+    el, solo puede fiarse.
+    """
+    import hashlib
+    ruta = os.path.join(TOOLS, herramienta)
+    try:
+        with open(ruta, "rb") as fh:
+            return hashlib.sha1(fh.read()).hexdigest()[:12]
+    except OSError:
+        return "?"
+
+
 def main(argv):
     if "--self-test" in argv or "--self" in argv:
         return selftest()
@@ -287,12 +312,16 @@ def main(argv):
         print()
         print("  versionadas  %-22s %s" % ("(versionado = en git)", "casos"))
         for f, filas in mias:
-            print("      %-22s %s" % (f, ", ".join(
+            print("      %-22s %-12s %s" % (f, sha1(f), ", ".join(
                 "%s:L%d" % (c[:6], l) for l, c, _d in filas)))
         print("  NO versionadas  %s" % "(ajenas: las escribio otra sesion)")
         for f, filas in ajenas:
-            print("      %-22s %s" % (f, ", ".join(
+            print("      %-22s %-12s %s" % (f, sha1(f), ", ".join(
                 "%s:L%d" % (c[:6], l) for l, c, _d in filas)))
+        print()
+        print("  el hash es del fichero TAL COMO ESTA en esta ejecucion. Es lo")
+        print("  que hay que citar en un hallazgo: sin el, no hay forma de saber")
+        print("  si la medicion sigue describiendo ese fichero.")
         print()
         tot = len(mias) + len(ajenas)
         print("  %d herramientas con escrituras clasificadas: %d versionadas,"
