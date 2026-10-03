@@ -336,7 +336,56 @@ El fichero de la prueba de mutaciones (`5b`) no está en el repositorio: la
 mutación se aplica sobre una copia en `/tmp/opencode/drv-q8/mut*/` y se tira. Lo
 que queda es el caso `5b` en el test, que es lo que hay que poder reejecutar.
 
-## 11. Qué cambió de estado
+## 11. Un fallo mío, en la mecánica, que casi fue peor que el defecto
+
+Lo dejo escrito porque `COORDINACION.md` § Regla 5 dice que un problema de otro es
+de otro, y esto **me** pasó y casi no es de otro:
+
+```
+git commit --amend --no-edit -- <unpath>
+```
+
+Se usó para anexar el estado canónico a este turno. Pero entre mi commit y el
+`--amend` **otra sesión commiteó** (978), así que el `HEAD` ya no era el mío y el
+`--amend` **reescribió su commit**: mi fichero entró dentro de su commit `978`, con
+su mensaje, que no dice nada de él. Firma del síntoma: el `git show --stat` de su
+commit listaba dos ficheros y el suyo no los tenía antes.
+
+Recuperado, y esto es lo que hay que copiar:
+
+```
+git reflog            →  el hash original: b18c465
+git reset --soft <hash-original>
+git commit -- <solo-mi-path>
+```
+
+`--soft` y no `--mixed` ni `--hard`, por una razón concreta: **el índice tenía
+trabajo ajeno staged** —el borrado de `975-corregcion-a-974-…`, de la otra
+sesión— y `--mixed` lo des-stagearía, `--hard` además le pisaría el árbol de
+trabajo. Con `--soft` el índice queda idéntico y un `git commit -- <path>`
+sube solo mi fichero.
+
+Estado tras la recuperación, comprobado:
+
+```
+b18c465  978 del otro        1 fichero, identico al original
+ba11b77  977 (bis) mio       1 fichero, DRIVER-MISSION-STATE.md
+10a798d  977 mio             8 ficheros, el hallazgo y la reparacion
+staged ajeno                 intacto
+```
+
+La lección, que es la generalización del §6.3 y más fuerte que él:
+
+> **`--amend` no es "arreglar mi commit". Es "reescribir el commit que tenga
+>HEAD ahora mismo".** En un árbol compartido donde seis sesiones commitean, entre
+>el `git add` y el `git commit` el `HEAD` puede haber cambiado. Un `--amend` con
+> pathspec **no** está protegido por el pathspec: reescribe la commit entera.
+
+La defensa no es tener cuidado: es no usar `--amend` en un árbol compartido. Un
+commit rehecho es otro commit, con su hash nuevo, y el hash viejo sigue
+funcionando solo porque nadie lo había anotado todavía.
+
+## 12. Qué cambió de estado
 
 ```
 RX550_GART_ENTRY_COUNT como cota global de rango   REFUTED   (contrafactual gartsize=1024)
