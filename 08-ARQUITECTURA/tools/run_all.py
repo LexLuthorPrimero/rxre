@@ -367,6 +367,11 @@ def main():
         # depende de que te acuerdes se salta: el que revisa es el mismo que
         # acaba de escribir el texto y ya lo tiene en la cabeza. Asi el residuo
         # sale en run_all y no se queda.
+        # El codigo de salida, DECLARADO y COMPROBADO, en cada verificacion.
+        # Fuera del runner esto seria un control que se ejecuta a veces, y eso
+        # es una convencion con comentarios. Adentro es una invariante: si una
+        # herramienta empieza a devolver otra cosa de la que dice, salta aqui.
+        ("exit_contract: EXIT_ON_SUCCESS se cumple", ["exit_contract.py"], 0, 0),
         ("commitmsg_lint: sin residuos en 25 mensajes",
          ["commitmsg_lint.py", "--commits=25"], 0, 0),
         # Colisiones de nombre entre los 4 directorios de herramientas. rc=1

@@ -58,6 +58,33 @@ TOOLKIT = os.path.join(ROOT, "08-ARQUITECTURA/tools/toolkit.py")
 # es un error del detector: es que documentar un falso positivo reproduce el
 # falso positivo. Se permite y se dice por que.
 PERMITIDOS = (
+    # EL PROPIO FILTRRO, y el caso que hace evidente que la allowlist tambien
+    # necesita actualizarse cuando el esquema crece.
+    #
+    # `EXIT_ON_SUCCESS` es un campo REAL, anadido al esquema CONTRACT para que el
+    # codigo de salida quede declarado y no sea convencion oral. Lo comprueba
+    # `exit_contract.py`, que ejecuta la herramienta y mira lo que devuelve.
+    #
+    # `toolkit.py` no lo conoce porque su lista de flags validas es la anterior
+    # al campo, y lo rechaza como "FLAG DESCONOCIDO". Aqui hay dos cosas:
+    #
+    #   1. el mensaje es CORRECTO: toolkit no sabe lo que significa ese campo.
+    #   2. por eso no se permite el problema ENTERO: lo que se permite es que
+    #      aparezca el aviso de "campo no conocido", que es informacion, no que
+    #      la declaracion deje de comprobarse. La comprobacion la hace
+    #      exit_contract, y esa corre en el runner.
+    #
+    # Es la diferencia entre "el validador no reconoce esto" y "esto no se
+    # comprueba". Lo primero es tolerable; lo segundo no.
+    ("exit_contract.py", "EXIT_ON_SUCCESS",
+     "Campo real del esquema CONTRACT, anadido para que el codigo de salida quede "
+     "declarado. Lo verifica exit_contract.py ejecutando la herramienta; aqui lo "
+     "que se permite es el aviso de toolkit de 'campo no conocido', que es "
+     "informacion, no la ausencia de comprobacion."),
+    ("cite_registry.py", "EXIT_ON_SUCCESS", "igual que exit_contract.py"),
+    ("check_chain.py", "EXIT_ON_SUCCESS", "igual que exit_contract.py"),
+    ("commitmsg_lint.py", "EXIT_ON_SUCCESS", "igual que exit_contract.py"),
+    ("contract_filter.py", "EXIT_ON_SUCCESS", "igual que exit_contract.py"),
     ("doclint.py", 380, "Escribe un tempfile.mkstemp en su self-test y lo borra "
      "con os.unlink (L390). Un temporal en /tmp no es un fichero DEL PROYECTO."),
     ("aperture.py", 154, "os.fdopen(_fd) donde _fd viene de tempfile.mkstemp. "
@@ -103,8 +130,16 @@ def main(argv):
     for fichero, mensajes in sorted(probs.items()):
         for msg in mensajes:
             lm = re.search(r"primera: L(\d+)", msg)
+            # La clave puede ser una LINEA (int) o un TROZO DE MENSAJE (str).
+            # Hace falta la segunda forma para "FLAG DESCONOCIDO 'X'": ahi lo
+            # que importa es el NOMBRE DEL CAMPO y la linea es irrelevante --
+            # la shifting al anadir el campo a una cabecera. La forma de la
+            # clave lo dice el tipo, asi que no hay ambiguedad.
             perm = next((p for f, ln, p in PERMITIDOS
-                         if f == fichero and lm and int(lm.group(1)) == ln), None)
+                         if f == fichero and (
+                             (isinstance(ln, int) and lm
+                              and int(lm.group(1)) == ln)
+                             or (isinstance(ln, str) and ln in msg))), None)
             if perm:
                 permitidos_vistos.append((fichero, msg))
             else:
