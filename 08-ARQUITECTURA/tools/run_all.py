@@ -378,6 +378,18 @@ def main():
         # el check de arriba pasara por la razon equivocada.
         ("reenvio_freeze: mapa congelado integro",
          ["reenvio_freeze.py", "--verificar"], 1, 0),
+        # El inventario de citas AMBIGUAS. No se anade como check que deba dar
+        # cero: las 1739 existen porque el numero de hallazgo no es unico, y eso
+        # es una decision de politica pendiente (hallazgo 308). Un check que
+        # falla hasta que alguien decida es ruido en el runner.
+        #
+        # Lo que se anade es el SELF-TEST de la herramienta, que si tiene que
+        # pasar: verifica que la auto-cita no se cuenta, que la colision se
+        # filtra, y que el estado de cada cita corresponde a su pista. Sin eso,
+        # el inventario puede dar cualquier numero y seguir pareciendo un
+        # inventario.
+        ("ambig_citas: reparto en tres clases",
+         ["ambig_citas.py", "--self-test"], 1, 1),
         # El contrato de hardware del driver cotejado con las definiciones del
         # ASIC. §8: la implementacion no es autoridad sobre la semantica. rc=0
         # exige que TODAS las constantes de registro esten CONFIRMADAS.
