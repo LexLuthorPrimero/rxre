@@ -272,4 +272,120 @@ marca: el comentario es lo único que hay.
   una tarea urgente. Lo que **sí** es barato y útil: que `toolkit.py` **diga en
   su salida** que las capacidades de hardware se verifican por declaración, para
   que quien lea `run_all` no las tome por lo mismo que `READONLY`, que sí se
-  verifica contra el texto.
+  verifica contra el texto.---
+
+# AÑADIDO A `551`: los 7 `FALLA` no son una clase, son cuatro
+
+Y el resultado se invierte al verificar cual es cual.
+
+## La definición manda, y es explícita
+
+De la cabecera de `toolkit.py`:
+
+```
+WRITES_FILES    si escribe ficheros DEL PROYECTO
+READONLY        solo lee
+```
+
+**"del proyecto"** es la palabra que lo cambia todo. Un `tempfile.mkstemp` en
+`/tmp` no es un fichero del proyecto.
+
+## Los 7, uno por uno
+
+| herramienta | qué señala el validador | ¿escribe del proyecto? | veredicto |
+|---|---|---|---|
+| `doclint.py` | 2 escrituras, L380 `open(...,'w')` | **no** — `mkstemp` + `unlink` en 390 | **FALSO POSITIVO** |
+| `aperture.py` | 2 escrituras, L154 `os.fdopen(_fd,"w")` | **no** — `_fd` viene de `mkstemp` | **FALSO POSITIVO** |
+| `ipver_zero.py` | 5 escrituras, L93 `redireccion` | **no** | **FALSO POSITIVO** |
+| `pm4_emit.py` | 1 escritura, L983 `redireccion` | **no** | **FALSO POSITIVO** |
+| `findings_index.py` | 1 escritura, L391 `open(destino,"w")` | **sí** — `REENVIO_MD` en el árbol | **VERDADERO POSITIVO** |
+| `struct_rw.py` | 1 escritura, L111 `open(ASM,"w")` | **no** — `/tmp/opencode/ko.asm` | **FALSO POSITIVO** |
+| `scopeguard.py` | SIN CONTRATO | — | fuera de mi alcance |
+
+**5 de 6 son falsos positivos.** Y `ipver_zero.py:93` es el caso extremo:
+
+```c
+ipver_zero.py:93     if op == ">":
+```
+
+La expresión regular de "redirección de escritura" es `['"]>['"]`, y ha
+matcheado **una cadena que contiene `">"`**. Es una comparación de cadenas, no
+una escritura. Lo mismo en `pm4_emit.py:983`, donde `"> 8 bits"` está dentro de
+un mensaje de texto.
+
+## Lo que esto cambia sobre el validador
+
+**No es que detecte de más. Es que no puede distinguir lo que detecta.**
+
+- **Falsos positivos**: una redirección dentro de un *string*; un `mkstemp` de un
+  self-test; un fichero en `/tmp`.
+- **Verdadero positivo**: `findings_index.py` escribe `REENVIO_MD` en el árbol y
+  declara `READONLY=yes` / `WRITES_FILES=no`. **Eso sí es una mentira**, y es la
+  única de las seis.
+
+O sea: **5 ruido y 1 señal real**, mezclados en la misma columna con el mismo
+formato. Quien mire la tabla no puede separarlos, y la herramienta no se lo
+facilita.
+
+Y la consecuencia amarga: **la única mentira real de las seis es una que no es
+mía** — `findings_index.py` no está entre las que toco. Yo tenía cuatroEMENTOS
+declarados y cuatro son **falsos positivos** sobre herramientas que declaran
+correctamente.
+
+## Por qué `doclint.py` aparecía como ejemplo en el propio `toolkit.py`
+
+Su cabecera dice:
+
+```
+doclint.py      declara escritura      <- FALSO, doclint no escribe nada
+```
+
+Y eso, ahora, es **una confusión con la que tropieza el propio validador**: el
+comentario. Se puede leer como "el validador se equivoca con doclint" cuando lo
+real es "doclint declara bien y el validador lo señala igual". La frase debería
+decir qué es: **el comentario se refiere a que `WRITES_FILES` era unnecessary, no
+a que el validador tenga razón**.
+
+## Lo que esto NO dice
+
+- **No he modificado `toolkit.py`**: tiene 52 inserciones y 15 borrados sin
+  commitear de otra sesión.
+- **No he medido si hay más falsos positivos fuera de estos 6.** He revisado
+  los que el validador señaló.
+- **La regex de redirección no la he leído**, solo he visto qué matchea. Que
+  matchee `">"` dentro de un string es `OBSERVED`; que no tenga más casos es
+  `NOT_DETERMINED`.
+- `struct_rw.py` escribe en `/tmp/opencode/ko.asm`: **ruta absoluta, no del
+  proyecto**. Lo he comprobado y sigue siendo falso positivo. No he buscado si
+  escribe en otro sitio.
+
+## Clasificación
+
+| afirmación | estado |
+|---|---|
+| `WRITES_FILES` significa "ficheros del proyecto" | `PROVEN` — la cabecera lo dice |
+| `ipver_zero.py:93` es una comparación, no una escritura | `OBSERVED` |
+| `pm4_emit.py:983` está dentro de un string | `OBSERVED` |
+| `doclint` y `aperture` escriben temporales, no del proyecto | `OBSERVED` |
+| `struct_rw.py` escribe en `/tmp/opencode/ko.asm` | `OBSERVED` |
+| `findings_index.py` escribe `REENVIO_MD` en el árbol | `OBSERVED` |
+| 5 de los 6 señalados son falsos positivos | `PROVEN` — uno por uno |
+| `findings_index.py` es la única declaración falsa | `PROVEN` |
+| la regex de redirección tiene más casos como este | `NOT_DETERMINED` |
+| hay falsos positivos fuera de estos 6 | `NOT_OBSERVED` |
+
+## UNLOCKS
+
+- **El aviso de alcance que añadí a `run_all` sigue siendo necesario, y este caso
+  dice por qué**: si 5 de 6 alertas son ruido, la capacidad que **sí** importa
+  acaba enterrada. Un validador que no puede filtrar su propio ruido. Eventually
+  se deja de mirar.
+- **La definición de la flag es la que juzga, y estaba a dos líneas de leer.**
+  `WRITES_FILES = "ficheros del proyecto"`. Con esa definición, cuatro de las
+  herramientas que yo arreglaba hace un rato estaban **bien** y las acabo de
+  "arreglar" por el motivo equivocado si me fiara solo del `FALLA`.
+- **Siguiente paso, y sale de aquí**: el `FALLA` de `findings_index.py` es la
+  única cosa real que queda, y es pequeña: `escribir_reenvio()` escribe
+  `REENVIO_MD` en el árbol, así que `WRITES_FILES=yes`. No es mía, pero el
+  cambio son dos líneas de comentario, y un validador con un solo positivo
+  creíble entre seis señales es un validador que se lee.
