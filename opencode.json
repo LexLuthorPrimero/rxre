@@ -1,28 +1,22 @@
 {
   "$schema": "https://opencode.ai/config.json",
-
-  "default_agent": "coordinator",
-
+  "default_agent": "rx550",
   "experimental": {
     "subagent_depth": 1
   },
-
   "permission": {
     "bash": {
       "*": "allow",
-
       "sudo": "allow",
       "sudo *": "allow",
       "su": "allow",
       "su *": "allow",
       "doas": "deny",
       "pkexec": "deny",
-
       "systemctl": "deny",
       "systemctl *": "deny",
       "service *": "deny",
       "journalctl --vacuum*": "deny",
-
       "shutdown": "deny",
       "shutdown *": "deny",
       "reboot": "deny",
@@ -30,7 +24,6 @@
       "halt": "deny",
       "init 0": "deny",
       "init 6": "deny",
-
       "rm -rf /": "deny",
       "rm -rf /*": "deny",
       "rm -rf ~": "deny",
@@ -43,7 +36,6 @@
       "shred *": "deny",
       "chown -R *": "ask",
       "chmod -R 777 /*": "deny",
-
       "git commit*": "allow",
       "git push*": "deny",
       "git reset --hard*": "deny",
@@ -52,7 +44,6 @@
       "git clean *": "ask",
       "git rebase*": "ask",
       "git filter-branch*": "deny",
-
       "c1 *": "deny",
       "run_c1*": "deny",
       "vkmark *": "deny",
@@ -64,7 +55,6 @@
       "nvidia-smi*": "deny",
       "nvtop*": "deny",
       "amdgpu_top*": "deny",
-
       "echo * > /sys/*": "deny",
       "echo * >/sys/*": "deny",
       "tee /sys/*": "deny",
@@ -79,7 +69,6 @@
       "rmmod *": "deny",
       "rm /sys/*": "deny",
       "sed -i* /sys/*": "deny",
-
       "curl * | sh": "allow",
       "curl * | bash": "allow",
       "wget * | sh": "deny",
@@ -90,11 +79,9 @@
       "apt install*": "allow",
       "apt remove*": "ask",
       "npm install -g*": "allow",
-
       "history -c*": "deny",
       "> ~/.bash_history": "deny"
     },
-
     "edit": {
       "*": "allow",
       "/etc/*": "deny",
@@ -105,27 +92,22 @@
       "**/*.env": "deny",
       "**/*.env.*": "deny"
     },
-
     "read": {
       "*": "allow",
       "**/*.env": "allow",
       "**/*.env.*": "allow"
     },
-
     "webfetch": "allow",
     "websearch": "allow",
-
     "task": {
       "*": "allow",
       "adversarial-reviewer": "allow",
       "document-auditor": "allow",
       "source-critic": "allow"
     },
-
     "external_directory": "allow",
     "doom_loop": "allow"
   },
-
   "agent": {
     "adversarial-reviewer": {
       "mode": "subagent",
@@ -163,7 +145,6 @@
         "question": "allow"
       }
     },
-
     "document-auditor": {
       "mode": "subagent",
       "description": "Verifies traceability of a document set: hashes, table integrity, cross-references, declared counts versus actual rows, and state-token consistency. Read-only.",
@@ -197,7 +178,6 @@
         "question": "deny"
       }
     },
-
     "source-critic": {
       "mode": "subagent",
       "description": "Rates a source on authority, date, version, scope and what it does NOT prove, and asks whether a primary source was available. Read-only.",
