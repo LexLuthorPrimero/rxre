@@ -1,0 +1,40 @@
+#version 450
+// uvec4 variant: 16 B per thread per access instead of 4 B.
+//
+// WHY THIS EXISTS
+//   membw.comp moves 4 B per thread and tops out at 41.2 GB/s while the mclk
+//   ceiling allows ~96 GB/s.  Two explanations remain, and they imply opposite
+//   conclusions about whether the driver or the DRAM is the limit:
+//     H1  the memory system genuinely sustains ~41 GB/s for this access stream
+//     H2  4 B/thread does not generate enough memory-level parallelism to
+//         saturate DRAM, and the kernel, not the hardware, is the limit
+//   A 16 B/thread access issues one wide load instead of four narrow ones, so
+//   H2 predicts a clear gain and H1 predicts none.  The oracle is unchanged in
+//   kind: every lane is still predicted by the host and compared element-wise.
+
+layout(local_size_x = 256) in;
+
+layout(set = 0, binding = 0) readonly buffer Src4 { uvec4 data[]; } src;
+layout(set = 0, binding = 1) writeonly buffer Dst4 { uvec4 data[]; } dst;
+
+layout(push_constant) uniform PC4 {
+  uint n;      // number of uvec4 elements
+  uint iters;  // ALU iterations per element
+  uint seed;   // xor mask, part of the oracle
+  uint base;   // element offset of this chunk
+} pc;
+
+void main() {
+  uint i = pc.base + gl_GlobalInvocationID.x;
+  if (i >= pc.base + pc.n) return;
+
+  uvec4 v = src.data[i];
+  for (uint k = 0u; k < pc.iters; k++) {
+    v.x = (v.x ^ (v.x << 13)) * 0x5bd1e995u;
+    v.y = (v.y ^ (v.y << 13)) * 0x5bd1e995u;
+    v.z = (v.z ^ (v.z << 13)) * 0x5bd1e995u;
+    v.w = (v.w ^ (v.w << 13)) * 0x5bd1e995u;
+  }
+  v.x ^= pc.seed; v.y ^= pc.seed; v.z ^= pc.seed; v.w ^= pc.seed;
+  dst.data[i] = v;
+}

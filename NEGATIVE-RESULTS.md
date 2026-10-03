@@ -293,5 +293,154 @@ donde nadie lo busca.
 | 255 | 207 | REFUTED | **⇒ `REFUTED`. Ninguna de las tres contradicciones era real. La contradicción estaba e |
 | 255 | 208 | REFUTED | herramienta, no en el conocimiento.** `REFUTED`. |
 | 255 | 225 | PROVEN_ABSENT | cerrado como `PROVEN_ABSENT` del parámetro.** `PROVEN_DERIVED`. |
+| 261 | 40 | PROVEN_ABSENT | **⇒ `PROVEN_ABSENT`: no había ninguna forma de ejecutar trabajo en el ASIC objetivo. L |
+| 261 | 42 | PROVEN_ABSENT | de lo que había en el sistema.** `PROVEN_ABSENT`. |
+| 265 | 13 | PROVEN_ABSENT | datos de GFX8— en `PROVEN_ABSENT`, y con él explica por qué el reloj de memoria no sub |
+| 265 | 15 | PROVEN_ABSENT | **⇒ `PROVEN_ABSENT`. El driver de Linux publica cinco tamaños de caché en |
+| 265 | 17 | PROVEN_ABSENT | requiere un fichero `ip_discovery.bin`. Para Polaris12 ese fichero no existe.** `PROVE |
+| 265 | 101 | PROVEN_ABSENT | en `amdgpu_atombios_get_gfx_info`.** `PROVEN_ABSENT`. |
+| 265 | 132 | PROVEN_ABSENT | **⇒ `PROVEN_ABSENT`, con el alcance del §13 del prompt maestro y la regla de lectura c |
+| 265 | 135 | PROVEN_ABSENT | descubrimiento, y el contenido del directorio de firmware del sistema.** `PROVEN_ABSEN |
+| 266 | 20 | REFUTED | Mi hipotesis previa —que era un float IEEE754— queda **`REFUTED`**: al |
+| 269 | 199 | REFUTED | feature versions del kernel— declara `NOT_DETERMINED` en vez de `REFUTED`. Es |
+| 270 | 28 | REFUTED | 718,4 que yo anuncié.** `REFUTED`. |
+| 271 | 27 | NEGATIVE_RESULT | la meseta— y el resultado es un `NEGATIVE_RESULT`: el barrido mide la tasa de emisión  |
+| 271 | 91 | REFUTED | **⇒ `REFUTED`. El salto primo, que desalinea cada acceso y rompe cualquier patrón reco |
+| 271 | 92 | REFUTED | da el mismo resultado: razón 1,00 en todo el rango. La explicación no es el prefetch.* |
+| 272 | 21 | REFUTED | **⇒ `REFUTED`: `btfq/cus.md` afirma que `max_cu_per_sh` viene de |
+| 272 | 24 | REFUTED | está en su `switch`.** `REFUTED`. |
+| 272 | 96 | REFUTED | **⇒ `REFUTED`. `btfq/cus.md` dice: «`max_cu_per_sh` viene del VBIOS (`amdgpu_device.c: |
+| 272 | 97 | REFUTED | `gpu_info_fw->gc_num_cu_per_sh`)». La cita es exacta pero la función no corre aquí.**  |
+| 275 | 33 | PROVEN_ABSENT | `PROVEN_ABSENT` para el metodo. |
+| 275 | 189 | PROVEN_ABSENT | `:1881`. Es `PROVEN_ABSENT` estaticamente, no un hueco del tool. Y tiene una |
+| 275 | 199 | PROVEN_ABSENT | / direccion leida del SMC / 654, 1872, 1881 / **`PROVEN_ABSENT` estatico** / |
+| 275 | 223 | PROVEN_ABSENT | son `PROVEN_ABSENT` estaticamente, y el tool ya las separa con otro mensaje. |
+| 276 | 106 | REFUTED | **⇒ `REFUTED`. La meseta de `271` no era una propiedad del hardware. Era el kernel mid |
+| 276 | 107 | REFUTED | una fracción del trabajo que el banco declaraba.** `REFUTED`. |
+| 277 | 15 | NEGATIVE_RESULT | kernel de ocupación baja— y el resultado es un `NEGATIVE_RESULT` con un dato colateral |
+| 278 | 102 | PROVEN_ABSENT | / `:654` / `pm_fuse_table_offset` / direccion que lee el SMC: `PROVEN_ABSENT` / |
+| 280 | 91 | PROVEN_ABSENT | De los 4 sin resolver, **3 son `PROVEN_ABSENT`** (`:654`, `:1872`, `:1881`: |
+| 280 | 167 | PROVEN_ABSENT | 0 falsos, 4 sin resolver de los que 3 son `PROVEN_ABSENT`**. |
+| 285 | 119 | REFUTED | **⇒ `REFUTED`. `284` especuló que podía ser numeración de buses PCI —la función está e |
+| 285 | 122 | REFUTED | numeración no era una explicación.** `REFUTED`. |
+| 287 | 49 | REFUTED | **⇒ `REFUTED`. El módulo entero —hipótesis H2, `idx = acc % WSIZE`, que en GFX8 se emu |
+| 287 | 50 | REFUTED | cuesta 0,03 ciclos, el 3,6% del total. No es el coste.** `REFUTED`. |
+| 287 | 82 | REFUTED | **⇒ `REFUTED`. La diferencia es 0,0305 ns por iteración, 0,03 ciclos, el 3,6% del tota |
+| 287 | 85 | REFUTED | y este no lo es.** `REFUTED`. |
+| 287 | 175 | REFUTED | **⇒ `REFUTED`. La conclusión de `277` —«el kernel es issue-bound y no memory-bound»— e |
+| 287 | 176 | REFUTED | Es memory-bound: 443 ciclos de latencia por acceso dependiente es exactamente eso.** ` |
+| 287 | 178 | REFUTED | **⇒ `REFUTED`. El argumento de imposibilidad de `282` §3 es inválido por encuadre: com |
+| 287 | 180 | REFUTED | además el número estaba mal formado por el error de división.** `REFUTED`. |
+| 288 | 18 | REFUTED | **⇒ `REFUTED`. La hipótesis del TLB —«lo que crece con el conjunto es el número de pág |
+| 288 | 20 | REFUTED | bytes, unas pocas páginas o muchas, la latencia es idéntica.** `REFUTED`. |
+| 288 | 22 | REFUTED | **⇒ `REFUTED`. La segunda explicación candidata tampoco encaja: el modelo de acierto u |
+| 288 | 24 | REFUTED | **acierto de caché de 6905 ciclos**, que es absurdo para una L2.** `REFUTED`. |
+| 288 | 84 | REFUTED | **⇒ `REFUTED`. A partir de 1 MiB la razón es 1,00 en los cuatro puntos. Repartir los m |
+| 288 | 86 | REFUTED | depende del número de bytes, no del número de páginas que los contienen.** `REFUTED`. |
+| 288 | 107 | REFUTED | **⇒ `REFUTED`. Una latencia de acierto de caché de 6905 ciclos es absurda: un acierto  |
+| 288 | 108 | REFUTED | GFX8 es de decenas de ciclos. El modelo no describe esta curva.** `REFUTED`. |
+| 292 | 188 | NEGATIVE_RESULT | con otra forma dan `NO_EN_DISPATCH`. Es un `NEGATIVE_RESULT` **acotado**. |
+| 292 | 211 | REFUTED | / mi hipótesis de contaminación alta / `REFUTED` / |
+| 293 | 419 | PROVEN_ABSENT | `PROVEN_ABSENT`, y aquí el que no llega es el método. |
+| 402 | 119 | PROVEN_ABSENT | / `NO_RESUELTO` / `:654` `:1872` `:1881` / `PROVEN_ABSENT`: direcciones que decide el  |
+| 403 | 13 | PROVEN_ABSENT | > `PROVEN_ABSENT` sobre 898 ficheros, con `exit` verificado. |
+| 403 | 79 | PROVEN_ABSENT | ## El segundo punto de entrada: `PROVEN_ABSENT` |
+| 403 | 107 | PROVEN_ABSENT | `PROVEN_ABSENT` dentro de `{pm/ ∪ amdgpu/}` = 898 ficheros. No lo afirmo sobre el |
+| 500 | 9 | PROVEN_ABSENT | > las `PROVEN_ABSENT` de siempre. Y el hueco que se persiguió al final de `280` |
+| 500 | 177 | PROVEN_ABSENT | `NO_RESUELTO` restantes son `PROVEN_ABSENT` por diseño: direcciones que lee el |
+| 502 | 275 | REFUTED | `PROVEN` o `REFUTED`. |
+| 503 | 114 | PROVEN_ABSENT | `PROVEN_ABSENT`, porque no he revisado el camino de DC de forma exhaustiva. |
+| 503 | 132 | REFUTED | / «el decodificador de display está en `dce_v8_0.c`» / `REFUTED` para esta GPU / |
+| 504 | 136 | REFUTED | / existe detección automática de caducidad / **`REFUTED`** — nada en el protocolo la h |
+| 504 | 205 | REFUTED | / esos PID **bloquean** algo / **`REFUTED`** — el kernel los solto / |
+| 505 | 75 | PROVEN_ABSENT | antes de concluir, habría publicado un **`PROVEN_ABSENT` inventado** — un |
+| 505 | 76 | PROVEN_ABSENT | `PROVEN_ABSENT` sobre un símbolo que existe y se usa dos veces. |
+| 506 | 181 | REFUTED | Con eso `:666` pasa a `PROVEN` o `REFUTED`, y el caso de lectura en cero queda |
+| 551 | 113 | PROVEN_ABSENT | diferencia es la que separa `NOT_OBSERVED` de `PROVEN_ABSENT`, y aquí es |
+| 551 | 140 | PROVEN_ABSENT | / sus contratos están mal / **`NOT_OBSERVED`**, no `PROVEN_ABSENT` / |
+| 600 | 78 | PROVEN_ABSENT | / `:654` `:1872` `:1881` / `NO_RESUELTO` / `PROVEN_ABSENT` / |
+| 602 | 283 | REFUTED | **⇒ `REFUTED`: el bus de 64 bits. `PROVEN_DERIVED`: el bus es de 128 bits o más. `NOT_ |
+| 604 | 12 | REFUTED | > / «No he probado que `polaris10_smumgr.c` se ejecute en mi placa» / **`REFUTED` por  |
+| 604 | 13 | REFUTED | > / «si la respuesta es swsmu, la rama entera describe código muerto» / **`REFUTED`**: |
+| 604 | 202 | REFUTED | `NOT_PROVEN` a `PROVEN` o a `REFUTED`. |
+| 605 | 154 | PROVEN_ABSENT | Concluí `PROVEN_ABSENT` y **escribí que no había struct con el que comparar**. |
+| 605 | 166 | PROVEN_ABSENT | conclusión `PROVEN_ABSENT`: el bloque legacy no se registra nunca. |
+| 606 | 64 | REFUTED | **⇒ `REFUTED`: la atribución de `602` §4. Los 6,8 ms por despacho NO son coste de desc |
+| 606 | 109 | REFUTED | **⇒ `REFUTED`: el discriminante de `282`. Esa nota usó `--mem=host` para separar VRAM  |
+| 606 | 111 | REFUTED | separado.** `REFUTED` |
+| 608 | 12 | REFUTED | > / «el VBIOS va empaquetado y el struct no» / **`REFUTED`**: los dos van empaquetados |
+| 608 | 13 | REFUTED | > / «este árbol lee direcciones imposibles» / **`REFUTED`**: leía el struct mal, no el |
+| 608 | 14 | REFUTED | > / «este árbol no conduce mi placa» / **`REFUTED`**: la versión coincide (`7.1.3-200. |
+| 608 | 15 | REFUTED | > / «la captura está truncada» / **`REFUTED`**: el option header declara 115×512 = 588 |
+| 608 | 46 | REFUTED | > - `601` **sigue `REFUTED`**, y ahora el BTF lo confirma. |
+| 608 | 138 | REFUTED | **No hay desfase de 2 bytes. `601` era `PROVEN` y es `REFUTED`.** |
+| 608 | 198 | REFUTED | / «desfase de 2 bytes en la tabla PCIe» (`601`) / **`REFUTED`** / |
+| 608 | 257 | REFUTED | driver, y con ella `:2118` queda `PROVEN` o `REFUTED`. |
+| 609 | 14 | REFUTED | **⇒ `REFUTED`, por tercera vez y con el mismo número: el coste de 6,8 ms NO es por env |
+| 609 | 15 | REFUTED | una vez.** `REFUTED` |
+| 609 | 49 | REFUTED | 16 MiB, da 1,19 ms. Con ello queda `REFUTED` que el coste sea el mínimo de los dos: ah |
+| 901 | 12 | REFUTED | > / «el VBIOS va empaquetado y el struct no» / **`REFUTED`**: los dos van empaquetados |
+| 901 | 13 | REFUTED | > / «este árbol lee direcciones imposibles» / **`REFUTED`**: leía el struct mal, no el |
+| 901 | 14 | REFUTED | > / «este árbol no conduce mi placa» / **`REFUTED`**: la versión coincide (`7.1.3-200. |
+| 901 | 15 | REFUTED | > / «la captura está truncada» / **`REFUTED`**: el option header declara 115×512 = 588 |
+| 901 | 42 | REFUTED | > `REFUTED` con evidencia, no con una inferencia. |
+| 901 | 159 | REFUTED | / el árbol que conduce mi placa es este / **`REFUTED`** / |
+| 901 | 202 | PROVEN_ABSENT | constante mal. Es **undécima** vez que un error mío produce un `PROVEN_ABSENT` |
+| 901 | 235 | REFUTED | `linux-7.1.3/` del corpus, **la premisa del corpus queda `REFUTED`** y con ella |
+| 902 | 43 | REFUTED | **⇒ `REFUTED`: que el coste de `606` §3 y `607` sea el tamaño reservado. Con la reserv |
+| 902 | 44 | REFUTED | 64 MiB y el separado bajando a 4 MiB, el coste cae de 6,99 a 1,22 ms.** `REFUTED` |
+| 902 | 46 | REFUTED | **⇒ `REFUTED`: que sea el separado. Con la reserva en 16 MiB y el separado en 16 MiB,  |
+| 902 | 47 | REFUTED | 0,24 ms; con la reserva en 64 MiB y el mismo separado en 16 MiB, es 7,06 ms.** `REFUTE |
+| 904 | 78 | REFUTED | `ATOM_Polaris10_PCIE_Record` sin relleno y tamaño 8: **`601` sigue `REFUTED`**. |
+| 905 | 13 | REFUTED | **⇒ `REFUTED`: que el pago dependa del rango de direcciones. Dos configuraciones con l |
+| 905 | 15 | REFUTED | Idénticos hasta la tercera cifra.** `REFUTED` |
+| 906 | 64 | REFUTED | `entries[] @2`. **`601` sigue `REFUTED`**, y ahora con la autoridad del módulo. |
+| 906 | 100 | REFUTED | / «el VBIOS va empaquetado y el struct no» / **`REFUTED`**: los dos van empaquetados / |
+| 906 | 101 | REFUTED | / «este árbol lee direcciones imposibles» / **`REFUTED`**: era mi probe / |
+| 906 | 102 | REFUTED | / «este árbol no conduce mi placa» / **`REFUTED`**: la versión coincide y el árbol es  |
+| 906 | 103 | REFUTED | / «la captura está truncada» / **`REFUTED`** en `901`, dos veces / |
+| 906 | 112 | REFUTED | / `601`: «desfase de 2 bytes en la PCIe» / **`REFUTED`**, ahora con BTF / |
+| 906 | 149 | REFUTED | `901`llegó a `REFUTED` sobre el árbol, y a un capítulo entero dedicado a un |
+| 908 | 17 | REFUTED | **⇒ `REFUTED`: que la tabla `gfx_v8_0_gpu_early_init` describa este ASIC.** Para CHIP_ |
+| 908 | 20 | REFUTED | MMIO. `PROVEN`. `REFUTED` |
+| 922 | 12 | REFUTED | > / «mi placa no aplica AVFS con clock stretching off» / **`REFUTED`**: `polaris10_smu |
+| 922 | 154 | PROVEN_ABSENT | concluir `PROVEN_ABSENT`. Me acordé de la lección de `907` —buscar `#define` |
+| 923 | 66 | PROVEN_ABSENT | por no haber buscado: es `PROVEN_ABSENT` tras búsqueda completa. |
+| 923 | 67 | PROVEN_ABSENT | - `ATOM_VRAM_INFO_TABLE`: `PROVEN_ABSENT` en el árbol, igual que el anterior. |
+| 924 | 3 | PROVEN_ABSENT | Estado: `PROVEN_ABSENT` para la capacidad que se buscaba. Cierra una frontera que esta |
+| 925 | 96 | REFUTED | / «`a0..a2` no son coeficientes de una curva» / **`REFUTED`**: son `BTCGB_VDROOP_TABLE |
+| 926 | 13 | REFUTED | > / «no son coeficientes de una curva» / **`REFUTED`** / |
+| 932 | 74 | PROVEN_ABSENT | / una que **sí** escribe MMIO y declara `no` / **`PROVEN_ABSENT` en falso** / |
+| 933 | 3 | PROVEN_ABSENT | Estado: `282` CORROBORADA con el flag vivo. `--mem=2`: `PROVEN_ABSENT` como modo utili |
+| 934 | 11 | REFUTED | > **Lo que sigue en pie, y es la parte que justifica este instrumento:** el `REFUTED`  |
+| 934 | 20 | REFUTED | Estado: un `REFUTED` y un `PROVEN` nuevo. Cierra el punto que `933` dejó abierto sobre |
+| 937 | 37 | PROVEN_ABSENT | `935` concluyo `PROVEN_ABSENT`: que el struct de 96 bytes no aparecia en la ruta. |
+| 937 | 47 | PROVEN_ABSENT | equivocé en la 2 al llevar la respuesta de la 1 a la 2. **Un `PROVEN_ABSENT` |
+| 937 | 200 | PROVEN_ABSENT | **1. Escribi un `PROVEN_ABSENT` que no se sostenia.** Lo escribi la iteracion |
+| 937 | 202 | PROVEN_ABSENT | **Un `PROVEN_ABSENT` es la afirmacion mas fuerte que se puede hacer sobre un |
+| 939 | 70 | PROVEN_ABSENT | **Estado: `PROVEN_ABSENT` de consumidores, con el alcance declarado arriba.** Los |
+| 939 | 170 | REFUTED | **Estado: `NOT_DETERMINED`, no `PROVEN` y no `REFUTED`.** El motivo exacto: |
+| 939 | 183 | PROVEN_ABSENT | justamente el error que `935` cometio al escribir un `PROVEN_ABSENT` sin scope. |
+| 946 | 59 | PROVEN_ABSENT | `PROVEN_ABSENT` del sensor.** |
+| 949 | 138 | PROVEN_ABSENT | ambito y no `PROVEN_ABSENT`.** |
+| 967 | 157 | PROVEN_ABSENT | - **No hay un `PROVEN_ABSENT` de ambigüedad.** Solo que con estas dos reglas de agrupa |
+| 967 | 167 | REFUTED | `013` queda `REFUTED` en su lectura de ambigüedad y `CORROBORATED` en su descripción d |
+| 970 | 221 | PROVEN_ABSENT | `NOT_AVAILABLE` o `PROVEN_ABSENT` para toda observacion MMIO de GFX8 — que es |
+| 970 | 419 | REFUTED | `requiere hardware` es `REFUTED` en su parte sustantiva. |
+| 970 | 439 | PROVEN_ABSENT | entonces el estado correcto es `NOT_DETERMINED`, no `PROVEN_ABSENT`. |
+| 974 | 239 | PROVEN_ABSENT | `PROVEN_ABSENT`. |
+| 976 | 83 | REFUTED | / ese camino se ejecuta en Polaris12 / **`REFUTED` por inalcanzable** / |
+| 976 | 84 | REFUTED | / forzar no-retry-fault y marcar el bit 51 son la misma escritura / **`REFUTED` en est |
+| 976 | 212 | PROVEN_ABSENT | ioctl exacto de KFD es `NOT_FOUND` aqui, **no** `PROVEN_ABSENT`. |
+| 977 | 151 | PROVEN_ABSENT | Corolario que se escribe para que no se repita: `PROVEN_ABSENT` habría sido la |
+| 977 | 196 | NEGATIVE_RESULT | en verde. Es un `NEGATIVE_RESULT` convertido en puerta. |
+| 981 | 120 | PROVEN_ABSENT | Esto es **`NOT_FOUND`, no `PROVEN_ABSENT`**, y la distincion es la que decide si |
+| 986 | 59 | PROVEN_ABSENT | **Veredicto: `PROVEN_ABSENT` en el arbol del kernel, en 7.1.3 y en 7.2.8.** No |
+| 986 | 82 | PROVEN_ABSENT | / "los headers no estan en el corpus" / **`PROVEN_ABSENT` en el kernel, dos versiones* |
+| 986 | 119 | PROVEN_ABSENT | oraculo para convertir `NOT_FOUND` en `PROVEN_ABSENT`»— **ya esta hecho**: el manifies |
+| 986 | 179 | PROVEN_ABSENT | `981` fallo por presentando `NOT_FOUND` como `PROVEN_ABSENT` hacia abajo, y por |
+| 986 | 180 | PROVEN_ABSENT | presentar `PROVEN_ABSENT` hacia arriba en su recomendacion —que era como no lo sabia. |
+| 986 | 191 | PROVEN_ABSENT | Esa distincion es la que separa `NOT_FOUND` de `PROVEN_ABSENT`, que son estados |
+| 987 | 114 | PROVEN_ABSENT | **`CB / DB` = 3, confirmado por `981`, y `986` lo subio a `PROVEN_ABSENT` en el |
 
-**Total**: 285 resultados negativos registrados.
+**Total**: 434 resultados negativos registrados.

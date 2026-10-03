@@ -1,0 +1,205 @@
+{
+ "artefacto": "bench",
+ "comparabilidad": {
+  "comparables": {},
+  "difieren": [],
+  "estado": "SIN_PREVIA",
+  "nota": "primera corrida de esta suite: no hay con que comparar"
+ },
+ "contexto": {
+  "iters": [
+   512,
+   2048
+  ],
+  "n": 5
+ },
+ "cwd": "/home/lucas/Escritorio/RX550-INVESTIGACION/08-ARQUITECTURA/tools",
+ "fallos": [
+  "[0].celdas.4=INVALID",
+  "[0].celdas.16=INVALID",
+  "[0].celdas.64=INVALID",
+  "[0].celdas.128=INVALID",
+  "[1].celdas.4=INVALID",
+  "[1].celdas.16=INVALID",
+  "[1].celdas.64=INVALID",
+  "[1].celdas.128=INVALID",
+  "[2].celdas.4=INVALID",
+  "[2].celdas.16=INVALID",
+  "[2].celdas.64=INVALID",
+  "[2].celdas.128=INVALID",
+  "[3].celdas.4=INVALID",
+  "[3].celdas.16=INVALID",
+  "[3].celdas.64=INVALID",
+  "[3].celdas.128=INVALID"
+ ],
+ "hardware": {
+  "bar_size": null,
+  "kernel": "7.1.3-200.nobara.fc44.x86_64",
+  "mclk_hz": 1500000000,
+  "pci": null,
+  "pci_device": null,
+  "power_uw": 11167000,
+  "sclk_hz": 1071000000,
+  "temp_mc": 48000
+ },
+ "instrumento": {
+  "binario": "/home/lucas/Escritorio/RX550-INVESTIGACION/08-ARQUITECTURA/tools/vcp",
+  "binario_fresco": true,
+  "binario_frescura": [
+   {
+    "binario_mtime": 1791025845.1905615,
+    "binario_sha256": "739b3394ab54ee73",
+    "estado": "AL DIA",
+    "fuente_mtime": 1791023188.5254774,
+    "fuente_sha256": "7e7037cadea20251"
+   }
+  ],
+  "binario_sha256": "739b3394ab54ee730a3c166392b081bdeee29e730a1ec2f8dab9262c3ab622e2",
+  "fuente": "/home/lucas/Escritorio/RX550-INVESTIGACION/08-ARQUITECTURA/tools/vulkan_compute_probe.c",
+  "fuente_sha256": "7e7037cadea20251652a542ab03069faf8fe95b85d2038594b94de114b790b2a",
+  "spv_frescos": true
+ },
+ "puerta_de_reloj": {
+  "estado": "RELOJ_ESTABLE",
+  "lecturas": 11,
+  "marcas": [
+   {
+    "donde": "rejilla:r16MiB_s4",
+    "sclk_hz": 1071000000
+   },
+   {
+    "donde": "rejilla:r16MiB_s16",
+    "sclk_hz": 1071000000
+   },
+   {
+    "donde": "rejilla:r32MiB_s4",
+    "sclk_hz": 1070150000
+   },
+   {
+    "donde": "rejilla:r32MiB_s16",
+    "sclk_hz": 1071000000
+   },
+   {
+    "donde": "rejilla:r64MiB_s4",
+    "sclk_hz": 1071000000
+   },
+   {
+    "donde": "rejilla:r64MiB_s16",
+    "sclk_hz": 1071000000
+   },
+   {
+    "donde": "rejilla:r64MiB_s64",
+    "sclk_hz": 1068520000
+   },
+   {
+    "donde": "rejilla:r128MiB_s4",
+    "sclk_hz": 1071000000
+   },
+   {
+    "donde": "rejilla:r128MiB_s16",
+    "sclk_hz": 1071000000
+   },
+   {
+    "donde": "rejilla:r128MiB_s64",
+    "sclk_hz": 1071000000
+   },
+   {
+    "donde": "rejilla:r128MiB_s128",
+    "sclk_hz": 1071000000
+   }
+  ],
+  "max_hz": 1071000000,
+  "min_hz": 1068520000,
+  "razon": 1.0023209673192828,
+  "umbral": 1.25
+ },
+ "resultado": [
+  {
+   "celdas": {
+    "128": {
+     "motivo": "SUBRANGE > WSIZE, imposible por invariante",
+     "veredicto": "INVALID"
+    },
+    "16": {
+     "motivo": "faltan puntos validos para el ajuste",
+     "veredicto": "INVALID"
+    },
+    "4": {
+     "motivo": "faltan puntos validos para el ajuste",
+     "veredicto": "INVALID"
+    },
+    "64": {
+     "motivo": "SUBRANGE > WSIZE, imposible por invariante",
+     "veredicto": "INVALID"
+    }
+   },
+   "reserva_mib": 16
+  },
+  {
+   "celdas": {
+    "128": {
+     "motivo": "SUBRANGE > WSIZE, imposible por invariante",
+     "veredicto": "INVALID"
+    },
+    "16": {
+     "motivo": "faltan puntos validos para el ajuste",
+     "veredicto": "INVALID"
+    },
+    "4": {
+     "motivo": "faltan puntos validos para el ajuste",
+     "veredicto": "INVALID"
+    },
+    "64": {
+     "motivo": "SUBRANGE > WSIZE, imposible por invariante",
+     "veredicto": "INVALID"
+    }
+   },
+   "reserva_mib": 32
+  },
+  {
+   "celdas": {
+    "128": {
+     "motivo": "SUBRANGE > WSIZE, imposible por invariante",
+     "veredicto": "INVALID"
+    },
+    "16": {
+     "motivo": "faltan puntos validos para el ajuste",
+     "veredicto": "INVALID"
+    },
+    "4": {
+     "motivo": "faltan puntos validos para el ajuste",
+     "veredicto": "INVALID"
+    },
+    "64": {
+     "motivo": "faltan puntos validos para el ajuste",
+     "veredicto": "INVALID"
+    }
+   },
+   "reserva_mib": 64
+  },
+  {
+   "celdas": {
+    "128": {
+     "motivo": "faltan puntos validos para el ajuste",
+     "veredicto": "INVALID"
+    },
+    "16": {
+     "motivo": "faltan puntos validos para el ajuste",
+     "veredicto": "INVALID"
+    },
+    "4": {
+     "motivo": "faltan puntos validos para el ajuste",
+     "veredicto": "INVALID"
+    },
+    "64": {
+     "motivo": "faltan puntos validos para el ajuste",
+     "veredicto": "INVALID"
+    }
+   },
+   "reserva_mib": 128
+  }
+ ],
+ "suite": "rejilla",
+ "timestamp": "20261003-082552",
+ "veredicto": "INVALID"
+}

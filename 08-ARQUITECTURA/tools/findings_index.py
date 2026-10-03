@@ -152,6 +152,54 @@ def reenvios(filas, d=FIND):
     return salida
 
 
+def reenvios_estable(d=FIND, destino=None):
+    """El mapa de renumeraciones que NO depende de un diff que va a desaparecer.
+
+    `reenvios()` deriva los pares de `git ls-tree HEAD` contra el arbol de
+    trabajo. Eso tiene una consecuencia fatal: en cuanto se commitea el
+    renumerado, la comparacion da vacio y el mapa deja de existir -- junto con
+    la capacidad de detectar una cita colgando, que es justo lo que viene a
+    reparar.
+
+    Por eso el mapa se congela en `REENVIO-FINDINGS.tsv` (vease
+    `reenvio_freeze.py`) y esta funcion lo lee de ahi. Solo si el fichero no
+    existe cae al metodo viejo, para que la herramienta siga siendo usable en
+    un arbol donde nadie congelo nada.
+
+    La prioridad es la correcta porque el fichero congelado es un DATO
+    versionado y el diff es una MEDIDA de un instante. Si discrepan, el diff
+    gana solo por ausencia del dato; nunca por ser mas reciente.
+    """
+    if destino is None:
+        destino = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "REENVIO-FINDINGS.tsv")
+    if os.path.exists(destino):
+        filas = []
+        try:
+            with open(destino, encoding="utf-8") as fh:
+                texto = fh.read()
+        except OSError:
+            texto = ""
+        for ln in texto.splitlines():
+            if not ln.strip() or ln.startswith("#"):
+                continue
+            p = ln.split("\t")
+            if len(p) != 4:
+                continue
+            try:
+                filas.append({"viejo": int(p[0]), "nuevo": int(p[1]),
+                              "reasignado": p[2] == "SI", "stem": p[3],
+                              "fuente": "congelado"})
+            except ValueError:
+                continue
+        if filas:
+            return filas
+    out = reenvios(escanear(d), d)
+    for r in out:
+        r["fuente"] = "diff"
+    return out
+
+
 def _stem(fichero):
     return fichero.split("-", 1)[1] if "-" in fichero else fichero
 
@@ -411,7 +459,7 @@ def main(argv):
         print("findings_index: no existe %s" % FIND, file=sys.stderr)
         return 2
     col = colisiones(filas)
-    rev = reenvios(filas)
+    rev = reenvios_estable(d=FIND)
 
     if "--escribir-reenvio" in argv:
         dest, err = escribir_reenvio()

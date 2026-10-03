@@ -1,0 +1,6 @@
+# Sesiones que rx550-continua NO debe reanudar. Una sesionID por linea.
+# Borra una linea para volver a incluirla. El fichero puede no existir.
+#
+# Lista vacia a proposito: el objetivo es que TAMBien se reanude la sesion que
+# configuro el vigilante (ses_efd308a...). Antes figuraba aqui y por eso yo no
+#_COUNTaba como agente mantenido.

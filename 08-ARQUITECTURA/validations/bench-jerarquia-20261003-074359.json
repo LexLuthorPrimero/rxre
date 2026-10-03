@@ -1,0 +1,226 @@
+{
+ "artefacto": "bench",
+ "contexto": {
+  "iters": [
+   512,
+   2048
+  ],
+  "n": 5
+ },
+ "cwd": "/home/lucas/Escritorio/RX550-INVESTIGACION/08-ARQUITECTURA/tools",
+ "fallos": [],
+ "hardware": {
+  "bar_size": null,
+  "kernel": "7.1.3-200.nobara.fc44.x86_64",
+  "mclk_hz": 300000000,
+  "pci": null,
+  "pci_device": null,
+  "power_uw": 6135000,
+  "sclk_hz": 1056750000,
+  "temp_mc": 37000
+ },
+ "instrumento": {
+  "binario": "/home/lucas/Escritorio/RX550-INVESTIGACION/08-ARQUITECTURA/tools/vcp",
+  "binario_fresco": true,
+  "binario_frescura": [
+   {
+    "binario_mtime": 1791023188.9772725,
+    "binario_sha256": "739b3394ab54ee73",
+    "estado": "AL DIA",
+    "fuente_mtime": 1791023188.5254774,
+    "fuente_sha256": "7e7037cadea20251"
+   }
+  ],
+  "binario_sha256": "739b3394ab54ee730a3c166392b081bdeee29e730a1ec2f8dab9262c3ab622e2",
+  "fuente": "/home/lucas/Escritorio/RX550-INVESTIGACION/08-ARQUITECTURA/tools/vulkan_compute_probe.c",
+  "fuente_sha256": "7e7037cadea20251652a542ab03069faf8fe95b85d2038594b94de114b790b2a",
+  "spv_frescos": true
+ },
+ "resultado": {
+  "filas": [
+   {
+    "accesos": 1024,
+    "fraccion_de_host": 0.1358904109589041,
+    "gpu_mediana_ms": 0.00992,
+    "huella": {
+     "accesos_por_linea": 1.5705521472392638,
+     "cobertura": 0.63671875,
+     "lineas_buffer": 1024,
+     "lineas_tocadas": 652
+    },
+    "iters": 4,
+    "mediana_s": 7.3e-05,
+    "ns_por_acceso": 71.2890625,
+    "sigma_s": 1.6644518617250546e-05,
+    "w_kib": 64,
+    "wsize": 16384
+   },
+   {
+    "accesos": 4096,
+    "fraccion_de_host": 0.3121951219512195,
+    "gpu_mediana_ms": 0.0256,
+    "huella": {
+     "accesos_por_linea": 1.5814671814671815,
+     "cobertura": 0.63232421875,
+     "lineas_buffer": 4096,
+     "lineas_tocadas": 2590
+    },
+    "iters": 16,
+    "marginal_ns": 2.9296875000000004,
+    "mediana_s": 8.2e-05,
+    "ns_por_acceso": 20.01953125,
+    "sigma_s": 2.2632719677493468e-05,
+    "w_kib": 256,
+    "wsize": 65536
+   },
+   {
+    "accesos": 16384,
+    "fraccion_de_host": 0.6217721518987341,
+    "gpu_mediana_ms": 0.09824,
+    "huella": {
+     "accesos_por_linea": 1.5811619378498358,
+     "cobertura": 0.6324462890625,
+     "lineas_buffer": 16384,
+     "lineas_tocadas": 10362
+    },
+    "iters": 64,
+    "marginal_ns": 6.184895833333332,
+    "mediana_s": 0.000158,
+    "ns_por_acceso": 9.6435546875,
+    "sigma_s": 2.0125605580950848e-05,
+    "w_kib": 1024,
+    "wsize": 262144
+   },
+   {
+    "accesos": 65536,
+    "fraccion_de_host": 0.8140000000000002,
+    "gpu_mediana_ms": 0.45584,
+    "huella": {
+     "accesos_por_linea": 1.5847943317292579,
+     "cobertura": 0.6309967041015625,
+     "lineas_buffer": 65536,
+     "lineas_tocadas": 41353
+    },
+    "iters": 256,
+    "marginal_ns": 8.178710937499998,
+    "mediana_s": 0.00056,
+    "ns_por_acceso": 8.544921875,
+    "sigma_s": 1.856232744027537e-05,
+    "w_kib": 4096,
+    "wsize": 1048576
+   },
+   {
+    "accesos": 131072,
+    "fraccion_de_host": 0.885719591457753,
+    "gpu_mediana_ms": 0.95392,
+    "huella": {
+     "accesos_por_linea": 1.5814290195699912,
+     "cobertura": 0.6323394775390625,
+     "lineas_buffer": 131072,
+     "lineas_tocadas": 82882
+    },
+    "iters": 512,
+    "marginal_ns": 7.888793945312502,
+    "mediana_s": 0.001077,
+    "ns_por_acceso": 8.21685791015625,
+    "sigma_s": 2.7155846515989867e-05,
+    "w_kib": 8192,
+    "wsize": 2097152
+   },
+   {
+    "accesos": 262144,
+    "fraccion_de_host": 0.8896969696969698,
+    "gpu_mediana_ms": 1.23312,
+    "huella": {
+     "accesos_por_linea": 1.5823072094258535,
+     "cobertura": 0.631988525390625,
+     "lineas_buffer": 262144,
+     "lineas_tocadas": 165672
+    },
+    "iters": 1024,
+    "marginal_ns": 2.3574829101562504,
+    "mediana_s": 0.001386,
+    "ns_por_acceso": 5.28717041015625,
+    "sigma_s": 0.0010938545790003349,
+    "w_kib": 16384,
+    "wsize": 4194304
+   },
+   {
+    "accesos": 524288,
+    "fraccion_de_host": 0.909974461875228,
+    "gpu_mediana_ms": 2.49424,
+    "huella": {
+     "accesos_por_linea": 1.5827896740459422,
+     "cobertura": 0.6317958831787109,
+     "lineas_buffer": 524288,
+     "lineas_tocadas": 331243
+    },
+    "iters": 2048,
+    "marginal_ns": 5.168914794921874,
+    "mediana_s": 0.002741,
+    "ns_por_acceso": 5.2280426025390625,
+    "sigma_s": 0.0009910270632026152,
+    "w_kib": 32768,
+    "wsize": 8388608
+   },
+   {
+    "accesos": 1048576,
+    "fraccion_de_host": 0.9585628742514972,
+    "gpu_mediana_ms": 6.563280000000001,
+    "huella": {
+     "accesos_por_linea": 1.5819968679184935,
+     "cobertura": 0.6321125030517578,
+     "lineas_buffer": 1048576,
+     "lineas_tocadas": 662818
+    },
+    "iters": 4096,
+    "marginal_ns": 7.831573486328126,
+    "mediana_s": 0.006847,
+    "ns_por_acceso": 6.529808044433594,
+    "sigma_s": 0.0012144396897335002,
+    "w_kib": 65536,
+    "wsize": 16777216
+   }
+  ],
+  "forma_de_la_curva": "SUBIDA",
+  "lectura": "el coste marginal por acceso SUBE al crecer el conjunto de trabajo, que es la firma de un codo de cache: al dejar de caber, cada acceso se va a memoria",
+  "marginal_final_ns": 6.500244140625,
+  "marginal_inicial_ns": 4.557291666666666,
+  "marginales": [
+   {
+    "entre_kib": "64->256",
+    "marginal_ns": 2.9296875000000004
+   },
+   {
+    "entre_kib": "256->1024",
+    "marginal_ns": 6.184895833333332
+   },
+   {
+    "entre_kib": "1024->4096",
+    "marginal_ns": 8.178710937499998
+   },
+   {
+    "entre_kib": "4096->8192",
+    "marginal_ns": 7.888793945312502
+   },
+   {
+    "entre_kib": "8192->16384",
+    "marginal_ns": 2.3574829101562504
+   },
+   {
+    "entre_kib": "16384->32768",
+    "marginal_ns": 5.168914794921874
+   },
+   {
+    "entre_kib": "32768->65536",
+    "marginal_ns": 7.831573486328126
+   }
+  ],
+  "nota_huella": "la cobertura de la huella se mantiene en 0.637, asi que el barrido SI barre el conjunto de trabajo y lo que se mide no es saturacion",
+  "razon_final_sobre_inicial": 1.4263392857142858,
+  "veredicto": "PASS"
+ },
+ "suite": "jerarquia",
+ "timestamp": "20261003-074359",
+ "veredicto": "PASS"
+}

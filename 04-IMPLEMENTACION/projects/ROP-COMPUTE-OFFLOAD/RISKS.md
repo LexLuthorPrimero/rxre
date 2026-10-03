@@ -4,7 +4,7 @@
 - **Ordering:** API requires in-order fragment execution for blend and deterministic output (CUDARaster enforces it; Laine §ordering). Compute loses it → *wrong images* unless you re-sort or sacrifice deterministic output. High severity.
 - **Hole-free rasterization:** D3D/VK raster rules (top-left, pixel centers) must be reproduced bit-exactly; CUDARaster dedicates a stage to it; off-by-one at edge treads = artifacts. Medium-high.
 - **Depth precision / format:** packing depth into 64-bit ints loses mantissa bits (CuRast uses 28-bit depth = reduced precision) → z-fighting risk. High for exactness-focused projects.
-- **MSAA coverage semantics:** sample-position-dependent behavior must be emulated per sample; 「hardware does this at sample frequency」— software replication is a conformance minefield.
+- **MSAA coverage semantics:** sample-position-dependent behavior must be emulated per sample; "hardware does this at sample frequency"— software replication is a conformance minefield.
 
 ## 2. PERFORMANCE TRAPDOORS (specific to Polaris12)
 - **Atomic contention:** 2M+ 1080p vis-buffer lines hit one 512 KB L2. At 60 fps you have 33 ms/frame to eat ~2M RMW + resolve reads through the nominal/estimated

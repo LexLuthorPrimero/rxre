@@ -96,5 +96,5 @@ awk -F'\t' 'NR<=3{next}
 { printf "\n%s   [distingue los dos: %s]\n", $1, $4
   printf "   struct intacto    : %s\n", $2
   printf "   struct desplazado : %s\n", $3 }' "$TSV"
-rm -rf "$FAKE" "$OUT/.run_orig.sh" "$OUT/.run_rep.sh"
+rm -rf "$FAKE" "$OUT/.run_orig.sh" "$OUT/.run_rep.sh" "$OUT/.v"
 echo; echo "escrito: $TSV"

@@ -30,9 +30,23 @@ Con 2GB de VRAM, la gestión de memoria es crítica. La GPU usa un espacio de di
 *   **GART (Graphics Address Remapping Table) / VMID:** Necesitas configurar las tablas de páginas (Page Tables) para que la GPU pueda acceder a la RAM del sistema (GTT) y a la VRAM.
 *   **Consejo de ingeniería:** No intentes implementar un *page fault* handler completo al principio. Empieza asignando memoria contigua física (usando `dma_alloc_coherent` en el kernel o reservando bloques grandes) y mapeándola 1:1 en el espacio de direcciones de la GPU.
 
+> **CORREGIDO: `dri/0` NO es la RX 550, es la Intel.** En esta maquina el nodo
+> DRM de la AMD es **`card1`** y el de la integrada es **`card0`**:
+>
+> ```
+>   /sys/class/drm/card0/device -> vendor 0x8086 device 0x0412  (i915, Haswell GT3)
+>   /sys/class/drm/card1/device -> vendor 0x1002 device 0x699f  (amdgpu, Lexa PRO)
+> ```
+>
+> Medido con `tools/fingerprint.py`. Las tres rutas numeradas de esta seccion
+> apuntaban a la GPU equivocada y ahora usan la forma por DIRECCION PCI,
+> `0000:01:00.0`, que es la que ya usaba `revkit/` y no depende del orden de
+> sondeo. El numero de `cardN` **no esta garantizado** en ningun kernel: depende
+> del orden de probe, y en esta placa la integrada sale antes. Ver findings/253.
+
 ### 4. Herramientas para tu Ingeniería Inversa
 Ya que estás en Nobara, tienes acceso a herramientas brutales para ver qué hace el driver oficial (`amdgpu`) y replicarlo:
-*   **`amdgpu` debugfs:** Monta `debugfs` y mira `/sys/kernel/debug/dri/0/amdgpu_pm_info` o los registros.
+*   **`amdgpu` debugfs:** Monta `debugfs` y mira `/sys/kernel/debug/dri/0000:01:00.0/amdgpu_pm_info` o los registros.
 *   **`radeon_profile` / `corectrl`:** Úsalos para ver cómo el driver oficial cambia los P-states.
 *   **BPFTrace / ftrace:** Puedes tracear las funciones del kernel `amdgpu_ring_emit_...` para ver exactamente qué bytes está escribiendo el driver oficial en los registros MMIO antes de ejecutar un comando.
 *   **Lectura de registros en C:** Escribe una pequeña utilidad en C que lea el registro `mmSCRATCH_REG0` (o cualquier registro de scratch) para verificar que tu mapeo de MMIO funciona correctamente.
@@ -96,9 +110,9 @@ git clone https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
 - **`amdgpu` debugfs**: 
   ```bash
   sudo mount -t debugfs none /sys/kernel/debug
-  cat /sys/kernel/debug/dri/0/amdgpu_register_read  # (requiere patch o tool)
+  cat /sys/kernel/debug/dri/0000:01:00.0/amdgpu_register_read  # (requiere patch o tool)
   ```
-- **`radeon_reg`** (script de la comunidad): Lee registros MMIO via `/sys/kernel/debug/dri/0/`.
+- **`radeon_reg`** (script de la comunidad): Lee registros MMIO via `/sys/kernel/debug/dri/0000:01:00.0/`.
 - **Tu propio tool en C**: Usa `pcimem` o un módulo de kernel para leer `mmSCRATCH_REG0` (0x24000) y verificar que puedes leer/escribir.
 
 ---

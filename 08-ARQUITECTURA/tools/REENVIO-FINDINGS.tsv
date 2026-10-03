@@ -1,0 +1,81 @@
+# REENVIO-FINDINGS.tsv -- mapa CONGELADO de renumeraciones de hallazgos.
+#
+# POR QUE ESTE FICHERO EXISTE
+#   findings_index.reenvios() deriva este mapa comparando `git ls-tree HEAD`
+#   contra el arbol de trabajo. Al commitear la renumeracion esa comparacion
+#   da VACIO y el mapa desaparece. Este fichero es la copia permanente.
+#
+#   La tabla Markdown FINDINGS-RENUMERACIONES.md es una VISTA de aqui.
+#   Este es el dato. Ante discrepancia, gana este.
+#
+# CONSUMIDORES
+#   findings_index.reenvios_estable()  -- lee el mapa congelado
+#   08-ARQUITECTURA/tools/refs_repair.py -- repara citas colgando
+#
+# COLUMNAS
+#   viejo       numero que se escribio antes del renumerado
+#   nuevo       numero que tiene HOY ese mismo hallazgo
+#   reasignado  SI = el numero viejo esta ocupado HOY por OTRO contenido
+#               no = el numero viejo quedo libre; la cita no miente
+#   stem        nombre de fichero SIN el numero, completo
+#
+# NOTA SOBRE `reasignado=no`: si vale `no`, una cita `` `viejo` `` no apunta a
+#   un hallazgo equivocado, sino a que ese numero ya no existe. Es un caso
+#   distinto, y mas barato. Ver 075 -> 975/976 en la tabla.
+#
+# PROCEDENCIA
+#   generado_por  08-ARQUITECTURA/tools/reenvio_freeze.py --congelar
+#   generado_en    2026-10-03T16:41:57-0300
+#   fuente         findings_index.reenvios() sobre el arbol de trabajo
+#   git_head       a75060397058fe0c0ce9bf82036868d96861cdfa
+#   git_head_corto a75060397058
+#   pares          43
+#   sha256_cuerpo  9a208d177bfd251703c372d1df02ec8eb4e7ed6f04bffa6b53de909eff60829e
+#
+# NO EDITAR A MANO. Para cambiarlo: borrarlo y volver a congelar ANTES de que
+#   el renumerado este commiteado, o usar
+#   reenvio_freeze.py --congelar --forzar --confirmar-obsoleto
+#
+52	193	SI	tabla-de-asic-desde-el-binario.md
+85	194	SI	huella-de-escritura-del-host-dentro-de-la-tabla-dpm.md
+88	195	SI	cache-validada-por-longitud.md
+89	196	SI	codificacion-de-frecuencia-de-reloj-punto-fijo.md
+90	205	SI	regla-de-intercambio-y-cambio-de-codificacion-en-navi.md
+91	206	SI	contrato-de-niveles-y-un-limite-no-comprobado.md
+92	207	SI	palabra-de-voltaje-empaquetada-y-busqueda-por-techo.md
+93	208	SI	lut-de-voltaje-del-smc.md
+102	209	SI	siete-campos-de-pmfuses-se-suben-a-cero.md
+103	210	SI	sc-handshake-de-completacion-existe-y-072-se-equivoco.md
+104	211	SI	sc-invalidate-request-response-16-bits.md
+105	212	SI	la-disposicion-del-firmware-por-un-shift-de-bits.md
+106	213	SI	herramienta-de-cobertura-de-escrituras-en-la-sram.md
+109	214	SI	ambito-de-variable-un-bug-de-la-herramienta-que-cazaba-mis-conclusiones.md
+110	215	SI	allowmvddswitch-se-escribe-a-soft-regs-start.md
+111	216	SI	cero-verificacion-de-lo-escrito-en-la-sram.md
+112	217	SI	cadena-muerta-de-la-tabla-de-registros-mc.md
+113	218	SI	sd-el-vm-flush-lo-pide-el-scheduler.md
+114	219	SI	el-byte-que-se-escribe-no-es-offsetof-del-campo.md
+116	220	SI	clock-stretch-amount-leido-del-vbios.md
+117	221	SI	fw-smc-es-el-de-esta-placa-confirmado-por-dos-vias.md
+118	222	SI	tjmax-93-a-operating-temp-43.md
+119	223	SI	resultado-negativo-estados-ppt-sin-relojes.md
+120	224	SI	dpm-levels-8-contra-una-cuenta-solo-validada-con-ge-1.md
+123	225	SI	tabla-cac-vddgfx-basura-pero-con-un-cap-apagado.md
+124	226	SI	barrido-de-la-frontera-vbios-host.md
+125	227	SI	enable-dpm-tasks-devuelve-cero.md
+126	228	SI	contrato-de-error-de-los-1093-asserts.md
+128	229	SI	copia-sin-cota-contra-array-fijo-de-8.md
+144	231	SI	ip-version-del-firmware-cierra-gfx-hwip.md
+156	232	SI	coherencia-cpu-gpu-tres-mecanismos.md
+163	233	SI	escritor-cpu-desactivado-por-dos-razones.md
+167	234	SI	una-cita-puede-resolver-y-no-servir.md
+168	235	SI	los-600mhz-son-el-techo-de-hdmi-2-0.md
+169	236	SI	los-nueve-bloques-ip.md
+176	237	SI	la-densidad-de-delegacion.md
+177	238	SI	la-densidad-clasifica-el-fichero.md
+185	239	SI	tlb-de-gfx8-entra-en-bloques-de-8-pte.md
+188	240	SI	la-cadena-de-identidad-observada.md
+189	241	SI	el-eslabon-que-faltaba-era-un-literal.md
+190	198	SI	tres-correcciones-de-la-poda.md
+202	242	SI	los-registros-caben-en-bar5-con-4x-de-holgura.md
+975	976	no	corregcion-a-974-el-escritor-del-bit-51-es-inalcanzable-en-gfx8.md

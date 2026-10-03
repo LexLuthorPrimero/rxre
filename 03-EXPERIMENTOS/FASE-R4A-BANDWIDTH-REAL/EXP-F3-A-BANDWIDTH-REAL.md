@@ -21,8 +21,8 @@ Interfaces consultadas (todas de **solo lectura**; ninguna escritura):
 | C1 | `/sys/class/drm/card1/device/mem_info_*` | **LEIDO** (VERIFIED) |
 | C2 | `/sys/class/drm/card1/device/pp_dpm_{mclk,sclk}`, `power_profile` | **LEIDO** (VERIFIED) |
 | C3 | `/sys/class/drm/card1/device/hwmon/hwmon2/{power1_cap,power1_input}` | **LEIDO** (VERIFIED; sin energy1_input) |
-| D1 | `/sys/kernel/debug/dri/0/amdgpu_benchmark` | **DENEGADO** (sin sudo sin-password) — lectura que, por código del driver, devuelve solo "usage"; las transferencias corren exclusivamente en `.write`. No legible esta sesión. |
-| D2 | `/sys/kernel/debug/dri/0/amdgpu_pm_info` | **DENEGADO** (sin sudo) |
+| D1 | `/sys/kernel/debug/dri/1/amdgpu_benchmark` | **DENEGADO** (sin sudo sin-password) — lectura que, por código del driver, devuelve solo "usage"; las transferencias corren exclusivamente en `.write`. No legible esta sesión. |
+| D2 | `/sys/kernel/debug/dri/1/amdgpu_pm_info` | **DENEGADO** (sin sudo) |
 | E1 | `dmesg` | **DENEGADO** (sin privilegios; /dev/kmsg root) |
 
 - No se escribió registro alguno; no se tocó `power1_cap`, `pp_dpm_*`, runtime-PM, `ppfeaturemask`, clocks, GRUB, Mesa, kernel. No se creó workload ni se ejecutó benchmark. **D1 nunca se escribiría** (equivaldría a ejecutar benchmarks del driver).

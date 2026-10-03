@@ -43,8 +43,17 @@ nuevo que no entre en la lista tiene que verse, no desaparecer.
 | 110 | `CORRIGE` | `CORRIGE` | 106 | 110 CORRIGE a 106 |
 | 135 | `CERRADO_POR` | `CIERRA` | 191 | 135 --CERRADO_POR-> 191  (sentido NO calculado) |
 | 182 | `CORRIGE` | `CORRIGE` | 144 | 182 CORRIGE a 144 |
+| 974 | `CORRECTS` | `CORRIGE!` | 131 | 974 CORRECTS a 131 |
+| 976 | `CORRECTS` | `CORRIGE` | 974 | 976 CORRECTS a 974 |
+| 976 | `CORRECTS` | `CORRIGE!` | 101 | 976 CORRECTS a 101 |
+| 978 | `CORRECTS` | `CORRIGE` | 976 | 978 CORRECTS a 976 |
+| 978 | `CORRECTS` | `CORRIGE!` | 101 | 978 CORRECTS a 101 |
+| 981 | `CORRECTS` | `CORRIGE` | 979 | 981 CORRECTS a 979 |
+| 986 | `CORRECTS` | `CORRIGE` | 979 | 986 CORRECTS a 979 |
+| 986 | `CORRECTS` | `CORRIGE` | 981 | 986 CORRECTS a 981 |
+| 987 | `CORRECTS` | `CORRIGE` | 979 | 987 CORRECTS a 979 |
 
-**Total**: 19 aristas de contradiccion, 11 verbos.
+**Total**: 28 aristas de contradiccion, 11 verbos.
 
 ## Verbos de relacion que NO son de contradiccion
 
@@ -54,8 +63,9 @@ exclusion sea visible.
 
 | verbo | usos |
 |---|---|
-| `CONTINUES` | 45 |
+| `CONTINUES` | 66 |
 | `COMPLEMENTS` | 10 |
+| `CORROBORADO_POR` | 5 |
 | `CLAUSULA_RETRACTADA_POR` | 4 |
 | `CONFIRMA` | 3 |
 | `HALLAZGO` | 3 |
@@ -68,15 +78,17 @@ exclusion sea visible.
 | `AUDITA` | 1 |
 | `CONFIRMADO_POR` | 1 |
 | `CORREGIDO_POR` | 1 |
+| `CORRIGE_A` | 1 |
 | `GENERALIZADO_POR` | 1 |
 | `MEDIDO_EN_MI_ASIC_POR` | 1 |
 | `MEDIDO_POR` | 1 |
 | `MISMA_CLASE_QUE` | 1 |
+| `NUMERO` | 1 |
 | `REFINA` | 1 |
 | `RESUELVE` | 1 |
 | `RETRACTADO_POR` | 1 |
 | `RETRACTA_LA_PROMESA_DE` | 1 |
 | `STRENGTHENS` | 1 |
 
-23 verbos excluidos, 89 aristas.
+26 verbos excluidos, 117 aristas.
 Si aparece uno nuevo aqui, es que no se ha decidido que clase es -- que es distinto de que no lo sea.

@@ -2,7 +2,7 @@
 
 <!-- GENERADO POR tools/artifacts.py. NO EDITAR A MANO: la siguiente ejecucion lo sobrescribe. -->
 
-Los 759 huecos abiertos de 194 findings, y por donde se cierran.
+Los 1016 huecos abiertos de 281 findings, y por donde se cierran.
 
 **Generado desde la salida de `tools/frontier.py --json`**, no reimplementando su clasificacion. Dos recuentos del mismo conjunto divergen sin que nadie lo note.
 
@@ -10,14 +10,14 @@ Los 759 huecos abiertos de 194 findings, y por donde se cierran.
 
 | via | huecos | que significa |
 |---|---|---|
-| `SPEC_NO_PUBLICADO` | 240 | falta documentacion que no existe (033) |
-| `RUNTIME_ACTIVO` | 212 | solo se cierra observando comportamiento |
-| `POR_DEFINICION` | 113 | es una convencion que se elige, no se descubre |
-| `UN_REGISTRO` | 98 | se cierra leyendo un registro de la tarjeta |
-| `SIN_PISTAS` | 66 | el texto no dice que haria falta para cerrarlo |
-| `DIFERENCIAL` | 30 | se cierra repitiendo con un parametro y comparando |
+| `SPEC_NO_PUBLICADO` | 339 | falta documentacion que no existe (033) |
+| `RUNTIME_ACTIVO` | 276 | solo se cierra observando comportamiento |
+| `POR_DEFINICION` | 132 | es una convencion que se elige, no se descubre |
+| `UN_REGISTRO` | 108 | se cierra leyendo un registro de la tarjeta |
+| `SIN_PISTAS` | 93 | el texto no dice que haria falta para cerrarlo |
+| `DIFERENCIAL` | 68 | se cierra repitiendo con un parametro y comparando |
 
-**Total: 759 huecos.**
+**Total: 1016 huecos.**
 `SIN_PISTAS` son los unicos que ningun texto del proyecto dice como cerrar.
 
 ## Los huecos
@@ -777,11 +777,268 @@ Los 759 huecos abiertos de 194 findings, y por donde se cierran.
 | 256 | 106 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: Inmed | - |
 | 256 | 136 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: Inmed | - |
 | 256 | 193 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: Inmed | - |
-| 257 | 52 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: inmediat | - |
-| 257 | 74 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: inmediat | - |
-| 257 | 160 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: inmediat | - |
-| 257 | 160 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: inmediat | - |
-| 257 | 175 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: inmediat | - |
-| 257 | 175 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: inmediat | - |
+| 257 | 160 | `NOT_DETERMINED` | `POR_DEFINICION` | 1 | documento entero: frase: Conve | - |
+| 257 | 160 | `NOT_DETERMINED` | `POR_DEFINICION` | 1 | documento entero: frase: Conve | - |
+| 257 | 175 | `NOT_DETERMINED` | `POR_DEFINICION` | 1 | documento entero: frase: Conve | - |
+| 257 | 175 | `NOT_DETERMINED` | `POR_DEFINICION` | 1 | documento entero: frase: Conve | - |
+| 258 | 209 | `NOT_DETERMINED` | `POR_DEFINICION` | 1 | documento entero: frase: Conve | - |
+| 258 | 209 | `NOT_DETERMINED` | `POR_DEFINICION` | 1 | documento entero: frase: Conve | - |
+| 258 | 235 | `NOT_PROVEN` | `POR_DEFINICION` | 1 | documento entero: frase: Conve | - |
+| 258 | 235 | `NOT_PROVEN` | `POR_DEFINICION` | 1 | documento entero: frase: Conve | - |
+| 258 | 250 | `NOT_DETERMINED` | `POR_DEFINICION` | 1 | documento entero: frase: Conve | - |
+| 258 | 250 | `NOT_DETERMINED` | `POR_DEFINICION` | 1 | documento entero: frase: Conve | - |
+| 259 | 110 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: orden | - |
+| 259 | 110 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: orden | - |
+| 261 | 193 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: laten | - |
+| 261 | 193 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: laten | - |
+| 261 | 198 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: laten | - |
+| 261 | 211 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: laten | - |
+| 261 | 221 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: laten | - |
+| 261 | 221 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: laten | - |
+| 262 | 29 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: orden | - |
+| 262 | 111 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | parrafo: orden | - |
+| 262 | 117 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: orden | - |
+| 262 | 138 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: orden | - |
+| 262 | 138 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: orden | - |
+| 262 | 154 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: orden | - |
+| 262 | 156 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 2 | frase: orden | - |
+| 263 | 5 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 2 | frase: orden | - |
+| 263 | 92 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: orden | - |
+| 263 | 131 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: orden | - |
+| 263 | 131 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: orden | - |
+| 265 | 12 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 265 | 137 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 265 | 137 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 265 | 156 | `NOT_DETERMINED` | `DIFERENCIAL` | 2 | parrafo: diferencia entre | - |
+| 265 | 156 | `NOT_DETERMINED` | `DIFERENCIAL` | 2 | parrafo: diferencia entre | - |
+| 266 | 76 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: no esta | - |
+| 269 | 184 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 269 | 196 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 270 | 141 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: latencia | - |
+| 271 | 128 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 271 | 128 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 272 | 190 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: no esta | - |
+| 272 | 190 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: no esta | - |
+| 272 | 207 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: no esta | - |
+| 273 | 84 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 273 | 90 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 273 | 119 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 274 | 52 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 275 | 205 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | parrafo: orden | - |
+| 277 | 121 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: latencia | - |
+| 277 | 121 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: latencia | - |
+| 277 | 139 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | parrafo: latencia | - |
+| 277 | 139 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | parrafo: latencia | - |
+| 278 | 117 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | parrafo: orden | - |
+| 278 | 149 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 2 | frase: orden | - |
+| 279 | 120 | `NOT_DETERMINED` | `UN_REGISTRO` | 1 | mmMC_VM_FB_LOCATION | `mmMC_VM_FB_LOCATION` |
+| 280 | 155 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 2 | frase: orden | - |
+| 281 | 135 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 281 | 135 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 281 | 156 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 281 | 156 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 282 | 59 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: no esta | - |
+| 282 | 179 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: no esta | - |
+| 282 | 179 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: no esta | - |
+| 282 | 189 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: no esta | - |
+| 282 | 189 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: no esta | - |
+| 283 | 137 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: laten | - |
+| 283 | 137 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: laten | - |
+| 284 | 78 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 284 | 78 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 284 | 115 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 284 | 120 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 284 | 120 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 284 | 139 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 285 | 21 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 285 | 76 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 285 | 76 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 285 | 102 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 285 | 102 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 285 | 131 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 285 | 131 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 286 | 136 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: latencia | - |
+| 286 | 136 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: latencia | - |
+| 287 | 166 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: latencia | - |
+| 287 | 166 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: latencia | - |
+| 288 | 26 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: latencia | - |
+| 288 | 26 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: latencia | - |
+| 288 | 124 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: latencia | - |
+| 288 | 124 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: latencia | - |
+| 289 | 128 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: orden | - |
+| 289 | 128 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: orden | - |
+| 290 | 104 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 290 | 104 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 290 | 117 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 290 | 117 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 291 | 421 | `UNKNOWN` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 292 | 130 | `NOT_DETERMINED` | `POR_DEFINICION` | 1 | documento entero: frase: conve | - |
+| 292 | 197 | `NOT_DETERMINED` | `POR_DEFINICION` | 1 | documento entero: frase: conve | - |
+| 292 | 197 | `NOT_DETERMINED` | `POR_DEFINICION` | 1 | documento entero: frase: conve | - |
+| 293 | 188 | `UNKNOWN` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 305 | 246 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 401 | 195 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 401 | 211 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 3 | frase: no esta | - |
+| 402 | 126 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 2 | frase: orden | - |
+| 403 | 134 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: orden | - |
+| 403 | 159 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: orden | - |
+| 403 | 215 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | parrafo: orden | - |
+| 500 | 162 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 2 | frase: orden | - |
+| 501 | 149 | `NOT_PROVEN` | `POR_DEFINICION` | 1 | documento entero: frase: conve | - |
+| 502 | 273 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: orden | - |
+| 503 | 110 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 503 | 123 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 504 | 126 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 504 | 242 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 505 | 5 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: NO es | - |
+| 506 | 5 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: orden | - |
+| 550 | 148 | `NOT_DETERMINED` | `POR_DEFINICION` | 1 | documento entero: frase: conve | - |
+| 550 | 184 | `NOT_DETERMINED` | `DIFERENCIAL` | 2 | parrafo: cambia el resultado | - |
+| 551 | 120 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: NO ES | - |
+| 551 | 252 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: NO ES | - |
+| 551 | 264 | `NOT_DETERMINED` | `DIFERENCIAL` | 2 | parrafo: diferencia entre | - |
+| 551 | 351 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: NO ES | - |
+| 551 | 364 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: NO ES | - |
+| 601 | 177 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 602 | 12 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 602 | 98 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 602 | 98 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 602 | 233 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 602 | 233 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 602 | 283 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 602 | 283 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 604 | 5 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: orden | - |
+| 604 | 100 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: orden | - |
+| 604 | 138 | `NOT_PROVEN` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: orden | - |
+| 604 | 146 | `NOT_PROVEN` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: orden | - |
+| 604 | 200 | `NOT_PROVEN` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: orden | - |
+| 605 | 5 | `NOT_PROVEN` | `UN_REGISTRO` | 1 | documento entero: mmRCC_CONFIG | - |
+| 605 | 141 | `NOT_PROVEN` | `UN_REGISTRO` | 1 | documento entero: mmRCC_CONFIG | - |
+| 605 | 210 | `NOT_DETERMINED` | `UN_REGISTRO` | 1 | documento entero: mmRCC_CONFIG | - |
+| 606 | 113 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 606 | 113 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 606 | 152 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 606 | 152 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 606 | 166 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 606 | 166 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 607 | 146 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 607 | 146 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 607 | 157 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 607 | 157 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 608 | 30 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 608 | 192 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 608 | 192 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 609 | 27 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 609 | 27 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 609 | 117 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 609 | 117 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 609 | 136 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 609 | 136 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 609 | 142 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 609 | 142 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 901 | 153 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: orden | - |
+| 901 | 153 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: orden | - |
+| 901 | 178 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: orden | - |
+| 902 | 132 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 902 | 132 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 902 | 148 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 902 | 148 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: difer | - |
+| 903 | 148 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: laten | - |
+| 903 | 148 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: laten | - |
+| 903 | 151 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: laten | - |
+| 903 | 151 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: laten | - |
+| 903 | 156 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: laten | - |
+| 903 | 156 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: laten | - |
+| 905 | 64 | `NOT_DETERMINED` | `DIFERENCIAL` | 2 | seccion: frase: cambia con el | - |
+| 905 | 64 | `NOT_DETERMINED` | `DIFERENCIAL` | 2 | seccion: frase: cambia con el | - |
+| 905 | 133 | `NOT_DETERMINED` | `DIFERENCIAL` | 2 | seccion: frase: cambia con el | - |
+| 905 | 133 | `NOT_DETERMINED` | `DIFERENCIAL` | 2 | seccion: frase: cambia con el | - |
+| 908 | 96 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: no esta | - |
+| 908 | 96 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: no esta | - |
+| 908 | 129 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: no esta | - |
+| 908 | 129 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: no esta | - |
+| 908 | 143 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: no esta | - |
+| 908 | 143 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: no esta | - |
+| 909 | 66 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 909 | 66 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 909 | 141 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 909 | 141 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 911 | 114 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: NO es | - |
+| 911 | 114 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: NO es | - |
+| 911 | 125 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: NO es | - |
+| 911 | 125 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: NO es | - |
+| 922 | 134 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: orden | - |
+| 922 | 140 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | seccion: frase: orden | - |
+| 923 | 3 | `NOT_DETERMINED` | `POR_DEFINICION` | 1 | documento entero: frase: decis | - |
+| 923 | 51 | `NOT_DETERMINED` | `POR_DEFINICION` | 1 | documento entero: frase: decis | - |
+| 923 | 61 | `NOT_DETERMINED` | `POR_DEFINICION` | 1 | documento entero: frase: decis | - |
+| 923 | 73 | `NOT_DETERMINED` | `POR_DEFINICION` | 1 | documento entero: frase: decis | - |
+| 924 | 55 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | parrafo: inmediat | - |
+| 925 | 47 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | parrafo: no esta | - |
+| 925 | 75 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 925 | 80 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 925 | 139 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 926 | 104 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 931 | 181 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | parrafo: no esta | - |
+| 932 | 100 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 3 | frase: no esta | - |
+| 932 | 114 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: no esta | - |
+| 932 | 249 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: no esta | - |
+| 932 | 263 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: no esta | - |
+| 932 | 314 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: no esta | - |
+| 932 | 376 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: no esta | - |
+| 932 | 431 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: no esta | - |
+| 933 | 83 | `NOT_DETERMINED` | `DIFERENCIAL` | 2 | seccion: frase: cambia con el | - |
+| 934 | 78 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | parrafo: visible para | - |
+| 938 | 42 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 939 | 170 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 939 | 197 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 939 | 238 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 940 | 3 | `NOT_DETERMINED` | `DIFERENCIAL` | 1 | documento entero: frase: cambi | - |
+| 941 | 18 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 941 | 152 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 941 | 186 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 941 | 186 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 941 | 186 | `UNKNOWN` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 941 | 186 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 941 | 234 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 941 | 234 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 942 | 122 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: No es | - |
+| 945 | 141 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: no se | - |
+| 951 | 41 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: no esta | - |
+| 952 | 4 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: LATEN | - |
+| 952 | 94 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: LATEN | - |
+| 952 | 142 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: LATEN | - |
+| 954 | 167 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 954 | 167 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 954 | 167 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 954 | 167 | `UNKNOWN` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 958 | 4 | `NOT_DETERMINED` | `RUNTIME_ACTIVO` | 1 | documento entero: frase: orden | - |
+| 970 | 303 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 970 | 362 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 970 | 425 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 970 | 425 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 970 | 458 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 3 | frase: no esta | - |
+| 974 | 194 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: NOT_PUBLISHED | - |
+| 974 | 194 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: NOT_PUBLISHED | - |
+| 974 | 194 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: NOT_PUBLISHED | - |
+| 974 | 194 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 2 | seccion: frase: NOT_PUBLISHED | - |
+| 976 | 140 | `NOT_DETERMINED` | `UN_REGISTRO` | 2 | seccion: frase: un registro | - |
+| 976 | 140 | `NOT_DETERMINED` | `UN_REGISTRO` | 2 | seccion: frase: un registro | - |
+| 978 | 63 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 978 | 133 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 978 | 133 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 981 | 150 | `NOT_DETERMINED` | `UN_REGISTRO` | 1 | documento entero: frase: un so | - |
+| 981 | 150 | `NOT_DETERMINED` | `UN_REGISTRO` | 1 | documento entero: frase: un so | - |
+| 981 | 150 | `NOT_DETERMINED` | `UN_REGISTRO` | 1 | documento entero: frase: un so | - |
+| 981 | 150 | `NOT_DETERMINED` | `UN_REGISTRO` | 1 | documento entero: frase: un so | - |
+| 986 | 111 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 991 | 49 | `NOT_PROVEN` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: NOT_P | - |
+| 991 | 146 | `NOT_PROVEN` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: NOT_P | - |
+| 991 | 186 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: NOT_P | - |
+| 992 | 98 | `NOT_PROVEN` | `SPEC_NO_PUBLICADO` | 3 | frase: No esta | - |
+| 992 | 108 | `NOT_DETERMINED` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 992 | 108 | `NOT_PROVEN` | `SPEC_NO_PUBLICADO` | 1 | documento entero: frase: no es | - |
+| 993 | 254 | `NOT_DETERMINED` | `SIN_PISTAS` | 0 |  | - |
+| 993 | 260 | `NOT_PROVEN` | `SIN_PISTAS` | 0 |  | - |
 
-Obsoletos declarados por el propio findings: 36.
+Obsoletos declarados por el propio findings: 43.

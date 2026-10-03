@@ -1,0 +1,4 @@
+# Artefactos de construccion de este componente.
+# El binario no tiene extension y las reglas globales del repo no lo cubren.
+pm4_test
+.stripped.tmp

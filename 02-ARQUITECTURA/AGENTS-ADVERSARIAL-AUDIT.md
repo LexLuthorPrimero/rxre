@@ -1,3 +1,18 @@
+> ## ⚠️ SUBORDINADO A `AGENTS.md` — NO ES INSTRUCCIÓN ACTIVA
+>
+> Este fichero **no gobierna**. Es un documento de trabajo: material de
+> referencia, un borrador o una auditoría. La instrucción que manda para
+> cualquier agente en este repositorio es **`AGENTS.md` en la raíz**, que
+> contiene AGENTS V10 (22728 bytes, sha256 `7ee238e77ba11bc5ef62112493e7c6930f1b32aba8b3bf235eaccaf4422776d4`).
+>
+> Lo que aquí dice puede **contradecir** al prompt vigente. Donde discrepe,
+> **manda `AGENTS.md`** — y manda también sobre cualquier `AGENTS-*.md` del
+> árbol. Lo que aquí aporta son datos y propuestas que un agente puede leer,
+> citar o incorporar: nunca autoridad propia.
+>
+> Verificado el 2026-10-03. Para comprobar que el prompt vigente es el mismo:
+> `sha256sum AGENTS.md` debe dar `7ee238e77ba11bc5`.
+
 # AGENTS-ADVERSARIAL-AUDIT — ¿`AGENTS.md` gobierna la conducta o sólo la describe?
 
 **FECHA:** 2026-09-27 · **WORK_CLASS=DOCUMENTATION** · **ORIGIN=AUDITORÍA_SOLICITADA**

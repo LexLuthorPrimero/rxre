@@ -1,0 +1,23 @@
+=== HWMON (ACTIVE) ===
+freq1_input          214000000 
+freq2_input          300000000 
+in0_input            687 
+in0_label            vddgfx 
+power1_input         3227000 
+power1_label         PPT 
+power1_cap           35000000 
+power1_cap_default   35000000 
+power1_cap_min       0 
+power1_cap_max       35000000 
+temp1_input          28000 
+temp1_crit           97000 
+temp1_emergency      cat: /sys/class/drm/card1/device/hwmon/hwmon1/temp1_emergency: No existe el fichero o el directorio 
+temp1_label          edge 
+temp2_input          cat: /sys/class/drm/card1/device/hwmon/hwmon1/temp2_input: No existe el fichero o el directorio 
+temp2_emergency      cat: /sys/class/drm/card1/device/hwmon/hwmon1/temp2_emergency: No existe el fichero o el directorio 
+temp3_input          cat: /sys/class/drm/card1/device/hwmon/hwmon1/temp3_input: No existe el fichero o el directorio 
+pwm1                 75 
+pwm1_enable          2 
+pwm1_min             0 
+pwm1_max             255 
+fan1_input           cat: /sys/class/drm/card1/device/hwmon/hwmon1/fan1_input: Argumento inválido 

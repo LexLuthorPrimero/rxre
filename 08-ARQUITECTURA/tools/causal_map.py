@@ -316,7 +316,7 @@ def contradicciones(claims):
         #
         # El corte correcto es "estado epistemico >= DERIVATION", no
         # "PROVEN". Lo que se excluye es NOT_DETERMINED, HYPOTHESIS y los
-        # valores sin estado, que son fronteras y路况, no afirmaciones.
+        # valores sin estado, que son fronteras ysituacion, no afirmaciones.
         UMBRAL = FUERZA["DERIVATION"]
         # "-1" es el valor de un PARAMETRO DE MODULO sin definir, no el valor
         # efectivo. El ASIC usa el automatico. Mezclarlo con el valor real es

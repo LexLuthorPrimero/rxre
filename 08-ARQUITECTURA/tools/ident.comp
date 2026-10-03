@@ -1,0 +1,13 @@
+#version 450
+// SOLO una specialization constant. Si el banco roto y el arreglado dan el mismo
+// tiempo con este kernel, la diferencia de cache.comp NO viene de me[1].
+layout(local_size_x = 64) in;
+layout(constant_id = 0) const uint ITERS = 1u;
+layout(std430, binding = 0) buffer B { uint d[]; };
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    uint a = d[i];
+    for (uint k = 0u; k < ITERS; k++) a = a * 1664525u + 1013904223u;
+    a ^= (a >> 13);
+    d[i] = a;
+}

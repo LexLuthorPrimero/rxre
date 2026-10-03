@@ -700,22 +700,70 @@ def gen_contradictions(root: str, ind: Indice) -> str:
     return "\n".join(out)
 
 
-RE_SELFTEST = re.compile(
-    r"--selftest|def\s+selftest\b|add_argument\(\s*[\"']--selftest")
+# LAS TRES GRAFIAS, y no es arbitrario: `toolreg.py:237` ya las recorre en
+# este orden para resolver el flag de cada herramienta. aqui se hacia igual,
+# con la misma precedencia, para que las dos herramientas no se contradigan.
+#
+# MEDIDO, y este es el motivo de existir. Hay 61 herramientas con
+# `--selftest` y 4 con `--self-test`. Las cuatro estaban mal clasificadas,
+# NO porque sus tests fallaran, sino porque `artifacts.py` llamaba solo a
+# `--selftest` y caia en la ejecucion normal:
+#
+#   integridad.py --self-test   rc=0   27 casos, 0 fallos   <- sano
+#   citas.py       --self-test   rc=0   19 casos, 0 fallos   <- sano
+#   atom_chain.py  --self-test   rc=2   exige un argumento
+#   toolreg.py     --selftest    rc=2   no tiene test propio: es un agregador
+#
+# Dos de ellas, `integridad.py` y `citas.py`, tienen VECTORES QUE PASAN y
+# estaban marcadas como no validadas. AGENTS.md dice que una herramienta no
+# validada no puede cerrar una afirmacion critica, luego 46 vectores que
+# funcionan estaban inadmissible, y con ellos los hallazgos que dependen de
+# ellos. El mismo fallo que el de ayer, una capa mas abajo: la primera
+# correccion (no declarar selftest) tapaba el sintoma y dejaba la causa.
+GRAFIA_SELFTEST = ("--selftest", "--self-test", "selftest")
 
 
-def declara_selftest(path: str):
-    """¿El fichero DECLARA sostener `--selftest`? True / False / None(sin leer).
+def flag_selftest(path: str):
+    """Que grafia de flag declara esta herramienta. La primera que exista,
+    en el orden de `GRAFIA_SELFTEST`, que es el de `toolreg.py:237`.
 
-    Deliberadamente NO decide si el selftest pasa. Decide si EXISTE, que es
-    la pregunta que faltaba y que es la que separa dos cosas que la version
-    anterior confundia en una sola.
+    None = no declara ninguna. No decide si el test pasa: decide CON QUE
+    PALABRA se le puede preguntar, que es justo lo que faltaba.
     """
     try:
         with open(path, "r", errors="replace") as fh:
-            return bool(RE_SELFTEST.search(fh.read()))
+            txt = fh.read()
     except OSError:
         return None
+    for g in GRAFIA_SELFTEST:
+        if g in txt:
+            return g
+    if re.search(r"\b(?:def|function)\s+selftest", txt):
+        return "--selftest" if path.endswith(".sh") else None
+    return None
+
+
+def declara_selftest(path: str):
+    """¿La herramienta DECLARA un selftest alcanzable?
+
+    TRES estados, y la distincion es la que hace el trabajo:
+      True   declara una grafia de flag
+      False  NO declara ninguna
+      None   el fichero no se pudo leer (no es "no declara")
+
+    `flag_selftest` devuelve None para "no declara" y para "ilegible" por
+    igual; aqui se separan. MEDIDO: con la trichotomy rota, el vector que
+    distingue "no declara" de "ilegible" daba FAIL, porque una cosa se
+    comparaba contra False y la otra tambien. Un None donde se esperaba
+    False es el mismo falso veredicto del que estamos hablando, un nivel
+    mas abajo.
+    """
+    try:
+        with open(path, "r", errors="replace") as fh:
+            fh.read()
+    except OSError:
+        return None
+    return flag_selftest(path) is not None
 
 
 def clasificar(declara, rc=None, expiro=False, err=None):
@@ -798,19 +846,29 @@ def gen_tools_status(root: str, ind: Indice) -> str:
         # distinta de "no existe".
         #
         # PERO EL CODIGO DE SALIDA SOLO SIGNIFICA ALGO SI HAY UN SELFTEST AL
-        # QUE CORRESPONDER, y esa tercera comprobacion no estaba. MEDIDO:
-        # integridad.py NO declara selftest --su unica salida es
-        # `sys.exit(main(sys.argv))`, sin argparse-- y su rc=1 significa "la
-        # auditoria encontro DUPLICADOS 1, CONTAMINADOS 6", que es el tool
-        # haciendo su trabajo. Marcarla TOOL_BROKEN decia "el selftest FALLA"
-        # sobre una herramienta que no tiene selftest que fallar.
+        # PERO EL CODIGO DE SALIDA SOLO SIGNIFICA ALGO SI HAY UN SELFTEST AL
+        # QUE CORRESPONDER, y esa tercera comprobacion no estaba.
         #
-        # Alcance MEDIDO, sin exagerarlo: sobre 62 herramientas con rc
-        # conocido, UNA caia en la rama falsa. Las otras 6 sin selftest
-        # salian UNVALIDATED por la rama de `.sh` o por rc=2, o sea por
-        # casualidad y no por logica. Y el error simetrico --rc=0 sin
-        # selftest daba VALIDATED-- tampoco lo comete ninguna hoy, pero
-        # seguia disponible.
+        # CORRECCION DE AYER, que quedo a medias y ahora importa: la primera
+        # version de este arreglo concluyo que "integridad.py NO declara
+        # selftest --su unica salida es sys.exit(main(sys.argv)), sin
+        # argparse--". ERA FALSO, y lo demuestra la linea 524 del propio
+        # archivo: `if "--self-test" in a:`. La herramienta tiene 27 vectores
+        # que PASAN (`--self-test` -> rc=0, 27 casos, 0 fallos). Lo que no
+        # tenia era la GRAFIA que se le pedia aqui: `--selftest`, sin guion.
+        # El sintoma --rc=1 de la auditoria leido como test roto-- era correcto
+        # de observar; la CAUSA que se escribio en el comentario era
+        # inventada, y tapaba la de verdad.
+        #
+        # LA CAUSA REAL, MEDIDA: hay 61 herramientas con `--selftest` y 4 con
+        # `--self-test` (atom_chain, citas, integridad, toolreg). Las cuatro
+        # caian en la ejecucion normal en vez de en su test, y dos de ellas
+        # --integridad y citas-- tienen vectores que pasan. 46 vectores que
+        # funcionan estaban invisibles para el registro, y AGENTS.md dice que
+        # una herramienta no validada no cierra una afirmacion critica.
+        #
+        # Y `toolreg.py:237` ya recorria las tres grafias para resolver esto.
+        # La convencion existia; aqui no se aplicaba.
         #
         # Y LA COLUMNA `selftest` DE LA TABLA DECIA "si" EN LAS 70 FILAS,
         # incluidas las 4 que la propia tabla marca TOOL_UNVALIDATED. No era
@@ -824,12 +882,22 @@ def gen_tools_status(root: str, ind: Indice) -> str:
         st_declara = "si" if declara else "NO"
         if f.endswith(".sh"):
             detalle = "script: sin convencion de selftest"
+        elif not declara:
+            detalle = "sin selftest"
         else:
+            # SE LE PREGUNTA CON LA GRAFIA QUE DECLARA, no con la que este
+            # fichero prefs. MEDIDO: 61 herramientas declaran `--selftest` y
+            # 4 declaran `--self-test`; preguntar a las 4 por `--selftest`
+            # las hacia caer en su ejecucion normal. `flag_selftest` resuelve
+            # la grafia y `toolreg.py:237` la resuelve igual, para que las
+            # dos herramientas no se contradigan.
+            flag = flag_selftest(p) or "--selftest"
             try:
-                cmd = ([sys.executable, p, "--selftest"] if f.endswith(".py")
-                       else [p, "--selftest"])
+                cmd = ([sys.executable, p, flag] if f.endswith(".py")
+                       else [p, flag])
                 r = subprocess.run(cmd, capture_output=True, timeout=120)
                 estado, detalle = clasificar(declara, rc=r.returncode)
+                detalle = "%s [flag %s]" % (detalle, flag)
             except subprocess.TimeoutExpired:
                 estado, detalle = clasificar(declara, expiro=True)
             except OSError as e:
@@ -1089,10 +1157,13 @@ def selftest() -> int:
     try:
         _con = os.path.join(_d, "con.py")
         _sin = os.path.join(_d, "sin.py")
+        _gui = os.path.join(_d, "gui.py")
         with open(_con, "w") as _fh:
             _fh.write('ap.add_argument("--selftest", action="store_true")\n')
         with open(_sin, "w") as _fh:
             _fh.write("import sys\nsys.exit(main(sys.argv))\n")
+        with open(_gui, "w") as _fh:
+            _fh.write('if "--self-test" in a:\n    return self_test()\n')
         _c1 = (declara_selftest(_con) is True
                and declara_selftest(_sin) is False
                and declara_selftest(os.path.join(_d, "no.py")) is None)
@@ -1100,6 +1171,28 @@ def selftest() -> int:
             print("  OK   %-18s si / NO / ausente se distinguen" % "declara")
         else:
             print("  FAIL %-18s no distingue si / NO / ausente" % "declara")
+            fallos += 1
+        # Y LA GRAFIA, que es el defecto real. `integridad.py` declara
+        # `--self-test` y durante dos sesiones se le pidio `--selftest`.
+        _f1 = flag_selftest(_con)
+        _f2 = flag_selftest(_gui)
+        _f3 = flag_selftest(_sin)
+        if (_f1 == "--selftest" and _f2 == "--self-test" and _f3 is None):
+            print("  OK   %-18s cada grafia se resuelve a la suya" % "flag")
+        else:
+            print("  FAIL %-18s --selftest=%r --self-test=%r ninguno=%r"
+                  % ("flag", _f1, _f2, _f3))
+            fallos += 1
+        # y que la precedencia sea la de toolreg.py:237, no una arbitraria
+        _ambos = os.path.join(_d, "ambos.py")
+        with open(_ambos, "w") as _fh:
+            _fh.write('ap.add_argument("--self-test")\n'
+                      'ap.add_argument("--selftest")\n')
+        if flag_selftest(_ambos) == "--selftest":
+            print("  OK   %-18s con dos grafias gana la de convencion" % "prece")
+        else:
+            print("  FAIL %-18s con dos grafias dio %r"
+                  % ("prece", flag_selftest(_ambos)))
             fallos += 1
     finally:
         import shutil as _sh
@@ -1109,11 +1202,11 @@ def selftest() -> int:
     if fallos:
         print("RESULT: FAIL (%d)" % fallos)
         return 1
-    # Los 14 de siempre, mas los 11 vectores del clasificador que se han
-    # anadido aqui: 7 de la tabla `casos`, mas `detalle`, `simetrico` y
-    # `declara`. La cifra se cuenta, no se supone: si se olvida actualizar,
+    # Los 14 de siempre, mas los 13 vectores del clasificador que se han
+    # anadido aqui: 7 de la tabla `casos`, mas `detalle`, `simetrico`, `declara`,
+    # `flag` y `prece`. La cifra se cuenta, no se supone: si se olvida actualizar,
     # el numero se vuelve una decoracion y deja de ser una comprobacion.
-    print("RESULT: PASS (%d vectores)" % (NVEC_ANTES + 11))
+    print("RESULT: PASS (%d vectores)" % (NVEC_ANTES + 13))
     return 0
 
 

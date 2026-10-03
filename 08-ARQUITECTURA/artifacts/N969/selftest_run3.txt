@@ -1,0 +1,69 @@
+ERROR: no se encuentra un nodo amdgpu en /sys/class/drm
+SELF-TEST de runtime_obs -- ¿el instrumento puede fallar?
+instrumento: /home/lucas/Escritorio/RX550-INVESTIGACION/08-ARQUITECTURA/tools/runtime_obs.py
+objetivo:    1002:699F
+
+=== [C1] seccion inexistente -> debe dar error explicito ===
+  clase      : DEBE_FALLAR
+  respuesta  : nodo amdgpu detectado: card1  pci /sys/devices/pci0000:00/0000:00:01.0/0000:01:00.0
+  stderr     : ERROR: seccion desconocida: no_existe_esta_seccion. connues: ['tabla_escrituras', 'nodo', 'vmid', 'pci', 'module', 'bootlog', 'debugfs']
+  rc         : 1
+  REFUTACION : un rc=0 aqui seria un fallo de contrato directo: aceptaria una seccion que no existe
+  veredicto  : CONTROL_OK
+
+=== [C2] /sys/class/drm sin ningun nodo amdgpu -> debe fallar ===
+  clase      : DEBE_FALLAR
+  respuesta  : detect() aborta con SystemExit(1) | leyo del arbol falso: ['/sys/class/drm/card0/device/uevent']
+  rc         : 1
+  REFUTACION : que detect() devolviera un nodo con un unico DRIVER=i915 en el arbol; lo leido fue ['/sys/class/drm/card0/device/uevent'], o sea el estimulo llego
+  veredicto  : CONTROL_OK
+
+=== [C3] nodo amdgpu con PCI_ID 1002:687F (otro ASIC) -> debe rechazarse ===
+  clase      : DEBE_FALLAR
+  respuesta  : detect() ACEPTO el nodo: card=card0 gpu=/sys/devices/pci0000:00/0000:00:03.0/0000:03:00.0. La PCI_ID 1002:687F NO es 1002:699F y no se ha comparado. | leyo del arbol falso: ['/sys/class/drm/card0/device/uevent']
+  rc         : 1
+  REFUTACION : que detect() rechazara el ASIC ajeno. El estimulo llego=True (leo ['/sys/class/drm/card0/device/uevent']), luego el rechazo, si lo hubo, fue por este nodo y no por el real
+  veredicto  : NO_PUEDE_FALLAR
+
+=== [C4] seccion `pci`: 12 lecturas, si fallan todas rc != 0 ===
+  clase      : DEBE_FALLAR
+  respuesta  : rc=0; 12 lecturas con marcador de error; la seccion se imprime igual, con 12 lineas
+  INDEPENDIENTE (el dato era accesible): {"vendor": "0x1002", "device": "0x699f", "subsystem_vendor": "0x1002", "revision": "0xc7"}
+  rc         : 0
+  REFUTACION : los campos de 0000:01:00.0 eran LEGIBLES ({"vendor": "0x1002", "device": "0x699f", "subsystem_vendor": "0x1002", "revision": "0xc7"}, config presente=True); el fallo es del instrumento, no del entorno
+  veredicto  : NO_PUEDE_FALLAR
+
+=== [C5] debugfs montado pero EACCES -> no debe decir 'NO montado' ===
+  clase      : DEBE_FALLAR
+  respuesta  : nodo amdgpu detectado: card1  pci /sys/devices/pci0000:00/0000:00:01.0/0000:01:00.0
+
+=== debugfs ===
+  estado                                 debugfs NO montado: esta fuente no existe aqui
+  rc         : 0
+  REFUTACION : /proc/mounts: debugfs montado=True; stat(/sys/kernel/debug/dri) -> errno 13 (13=EACCES, 2=ENOENT). Si fuera 2, 'no montado' seria defendible
+  veredicto  : NO_PUEDE_FALLAR
+
+=== [C6] la regex de la linea 180 extrae un BDF real ===
+  clase      : AFIRMACION
+  respuesta  : patron='pci[0-9a-f:]+/([0-9a-f:]+)$' aciertos=0/3
+  detalle    : {"/sys/devices/pci0000:00/0000:00:01.0/0000:01:00.0": null, "/sys/devices/pci0000:00/0000:0a:03.0/0000:0a:03.0": null, "/sys/devices/pci0000:00/0000:03:00.0/0000:03:00.0": null}
+  rc         : 0
+  REFUTACION : que devolviera '0000:01:00.0' para la primera ruta; devolvio None
+  veredicto  : CLAIM_REFUTADA
+
+================================================================
+  CONTROL_OK        : 2  (C1, C2)
+  NO_PUEDE_FALLAR   : 3  (C3, C4, C5)
+  CLAIM_REFUTADA    : 1  (C6)
+  NOT_DETERMINED    : 0
+
+  NO_PUEDE_FALLAR -> C3: nodo amdgpu con PCI_ID 1002:687F (otro ASIC) -> debe rechazarse
+  NO_PUEDE_FALLAR -> C4: seccion `pci`: 12 lecturas, si fallan todas rc != 0
+  NO_PUEDE_FALLAR -> C5: debugfs montado pero EACCES -> no debe decir 'NO montado'
+  CLAIM_REFUTADA  -> C6: la regex de la linea 180 extrae un BDF real
+
+  RESULTADO: TOOL_INVALID -- falla en silencio ante fallo de
+             observacion. Sus secciones no pueden usarse
+             como evidencia mientras esto siga.
+             NOTA: esto NO dice que no observe nada. Dice que
+             no distingue 'lei' de 'no lei'.

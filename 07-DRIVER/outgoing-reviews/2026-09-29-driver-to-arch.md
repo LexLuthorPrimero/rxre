@@ -24,7 +24,7 @@ con una capa de indirección fina, para que la migración a DRM no toque el ABI.
 No lo hice porque me pareció sobreingeniería en un skeleton. Si crees que no lo
 es, dímelo.
 
-## Pregunta 2 — gran未定 del ABI: `0x02` y `0x03` son placeholders
+## Pregunta 2 — gran duda del ABI: `0x02` y `0x03` son placeholders
 
 Dejé `rx550_submit_compute` y `rx550_wait_fence` como `__u64 reserved[N]` a
 propósito, para no congelar una suposición en números que no se pueden

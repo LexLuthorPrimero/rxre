@@ -68,7 +68,7 @@ VALOR
 
 ### Correccion del diagnostico de F12 (2026-10-02): era EACCES y lo lei como NOT_FOUND
 
-Lo que habia escrito decia, en essence, que `/sys/kernel/debug/dri/0/` "no
+Lo que habia escrito decia, en essence, que `/sys/kernel/debug/dri/1/` "no
 existe". **Eso estaba mal**, y es la conversion que las reglas prohiben.
 
 ```
@@ -76,8 +76,8 @@ codigos: ENOENT = 2 (no existe)      EACCES = 13 (sin permiso)
 
 /sys/kernel/debug                        OK  modo=0o700
 /sys/kernel/debug/dri                    EACCES
-/sys/kernel/debug/dri/0                  EACCES
-/sys/kernel/debug/dri/0/amdgpu_vm_info   EACCES
+/sys/kernel/debug/dri/1                  EACCES
+/sys/kernel/debug/dri/1/amdgpu_vm_info   EACCES
 ```
 El padre es `0700 root:root` y debugfs **esta montado** (`/proc/mounts` lo
 confirma). A partir de ahi, `stat` devuelve **EACCES**, no `ENOENT`. Y con

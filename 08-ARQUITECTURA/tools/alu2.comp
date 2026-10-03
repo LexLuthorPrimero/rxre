@@ -1,0 +1,19 @@
+#version 450
+layout(local_size_x = 64) in;
+layout(constant_id = 0) const uint ITERS = 1u;
+layout(std430, binding = 0) buffer B { uint d[]; };
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    uint a0=d[i], a1=d[i+1], a2=d[i+2], a3=d[i+3], a4=d[i+4], a5=d[i+5], a6=d[i+6], a7=d[i+7];
+    for (uint k = 0u; k < ITERS; k++) {
+        a0=a0*1664525u+1013904223u; a0^=a0>>13; a0=a0*1103515245u+12345u;
+        a1=a1*1664525u+1013904223u; a1^=a1>>13; a1=a1*1103515245u+12345u;
+        a2=a2*1664525u+1013904223u; a2^=a2>>13; a2=a2*1103515245u+12345u;
+        a3=a3*1664525u+1013904223u; a3^=a3>>13; a3=a3*1103515245u+12345u;
+        a4=a4*1664525u+1013904223u; a4^=a4>>13; a4=a4*1103515245u+12345u;
+        a5=a5*1664525u+1013904223u; a5^=a5>>13; a5=a5*1103515245u+12345u;
+        a6=a6*1664525u+1013904223u; a6^=a6>>13; a6=a6*1103515245u+12345u;
+        a7=a7*1664525u+1013904223u; a7^=a7>>13; a7=a7*1103515245u+12345u;
+    }
+    d[i]=a0^a1^a2^a3^a4^a5^a6^a7;
+}

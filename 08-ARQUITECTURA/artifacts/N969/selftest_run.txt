@@ -1,0 +1,69 @@
+ERROR: no se encuentra un nodo amdgpu en /sys/class/drm
+ERROR: no se encuentra un nodo amdgpu en /sys/class/drm
+SELF-TEST de runtime_obs -- ¿el instrumento puede fallar?
+instrumento: /home/lucas/Escritorio/RX550-INVESTIGACION/08-ARQUITECTURA/tools/runtime_obs.py
+objetivo:    1002:699F
+
+=== [C1] seccion inexistente -> debe dar error explicito ===
+  estimulo   : seccion inexistente -> debe dar error explicito
+  respuesta  : nodo amdgpu detectado: card1  pci /sys/devices/pci0000:00/0000:00:01.0/0000:01:00.0
+  stderr     : ERROR: seccion desconocida: no_existe_esta_seccion. connues: ['tabla_escrituras', 'nodo', 'vmid', 'pci', 'module', 'bootlog', 'debugfs']
+  rc         : 1
+  REFUTACION : un rc=0 aqui seria un fallo de contrato directo: la herramienta aceptaria una seccion que no existe
+  veredicto  : CONTROL_OK
+
+=== [C2] /sys/class/drm sin ningun nodo amdgpu -> debe fallar ===
+  estimulo   : /sys/class/drm sin ningun nodo amdgpu -> debe fallar
+  respuesta  : detect() aborta con SystemExit(1)
+  rc         : 1
+  REFUTACION : si detect() devolviera un nodo, el instrumento estaria observando una GPU que no existe
+  veredicto  : CONTROL_OK
+
+=== [C3] nodo amdgpu con PCI_ID 1002:687F (otro ASIC) -> debe rechazarse ===
+  estimulo   : nodo amdgpu con PCI_ID 1002:687F (otro ASIC) -> debe rechazarse
+  respuesta  : detect() rechazo el nodo: SystemExit(1)
+  rc         : 0
+  REFUTACION : que detect() rechazara un amdgpu de otro ASIC; si lo acepta, el instrumento no puede detectar un TARGET_MISMATCH, que es lo que el proyecto exige
+  veredicto  : NO_PUEDE_FALLAR
+
+=== [C4] seccion `pci`: 12 lecturas, si fallan todas rc != 0 ===
+  estimulo   : seccion `pci`: 12 lecturas, si fallan todas rc != 0
+  respuesta  : rc=0; 12 lecturas devolvieron marcador de error; seccion impresa con 12 lineas
+  INDEPENDIENTE (el dato era accesible): {"vendor": "0x1002", "device": "0x699f", "subsystem_vendor": "0x1002", "revision": "0xc7"}
+  rc         : 0
+  REFUTACION : los 4 campos de 0000:01:00.0 eran LEGIBLES ({"vendor": "0x1002", "device": "0x699f", "subsystem_vendor": "0x1002", "revision": "0xc7"}, config presente=True); o sea que el fallo es del instrumento, no del entorno. Un rc!=0 habria delatado el fallo.
+  veredicto  : NO_PUEDE_FALLAR
+
+=== [C5] debugfs montado pero EACCES -> no debe decir 'NO montado' ===
+  estimulo   : debugfs montado pero EACCES -> no debe decir 'NO montado'
+  respuesta  : nodo amdgpu detectado: card1  pci /sys/devices/pci0000:00/0000:00:01.0/0000:01:00.0
+
+=== debugfs ===
+  estado                                 debugfs NO montado: esta fuente no existe aqui
+  rc         : 0
+  NOTA       : CONFLICTO
+  REFUTACION : /proc/mounts dice debugfs montado=True; stat(/sys/kernel/debug/dri) -> errno 13 (13=EACCES, 2=ENOENT); isdir=False. Si errno fuera 2, 'no montado' seria defendible.
+  veredicto  : NO_PUEDE_FALLAR
+
+=== [C6] la regex de la linea 180 extrae un BDF real ===
+  estimulo   : la regex de la linea 180 extrae un BDF real
+  respuesta  : patron='pci[0-9a-f:]+/([0-9a-f:]+)$' aciertos=0/3 -> {'/sys/devices/pci0000:00/0000:00:01.0/0000:01:00.0': None, '/sys/devices/pci0000:00/0000:0a:03.0/0000:0a:03.0': None, '/sys/devices/pci0000:00/0000:03:00.0/0000:03:00.0': None}
+  rc         : 0
+  REFUTACION : que el patron devolviera el BDF '0000:01:00.0' para una ruta real de sysfs; si no, GPU nunca sera un BDF y seccion_pci() construira rutas imposibles
+  veredicto  : FALLO_INESPERADO
+
+==============================================================
+  controles que pasan          : 2
+  controles que NO pueden fallar: 4
+  NOT_DETERMINED               : 0
+
+  NO PUEDE FALLAR -> C3: nodo amdgpu con PCI_ID 1002:687F (otro ASIC) -> debe rechazarse
+  NO PUEDE FALLAR -> C4: seccion `pci`: 12 lecturas, si fallan todas rc != 0
+  NO PUEDE FALLAR -> C5: debugfs montado pero EACCES -> no debe decir 'NO montado'
+  NO PUEDE FALLAR -> C6: la regex de la linea 180 extrae un BDF real
+
+  RESULTADO: TOOL_INVALID -- el instrumento falla en silencio
+             ante fallo de observacion. Sus secciones no
+             pueden usarse como evidencia mientras esto siga.
+             NOTA: esto NO dice que no observe nada. Dice que
+             no distingue 'lei' de 'no lei'.

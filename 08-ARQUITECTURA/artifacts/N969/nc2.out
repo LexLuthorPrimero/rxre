@@ -1,0 +1,10 @@
+nodo amdgpu detectado: card1  pci /sys/devices/pci0000:00/0000:00:01.0/0000:01:00.0
+
+=== module ===
+  vm_block_size                          -1
+  vm_fragment_size                       -1
+  vm_size                                -1
+  vm_update_mode                         -1
+  srcversion                             D68004925455E20A24C2B87
+  version                                <errno 2>
+

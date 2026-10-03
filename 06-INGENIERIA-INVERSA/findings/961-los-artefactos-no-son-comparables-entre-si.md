@@ -1,7 +1,8 @@
-# 961 — Dos artefactos con `PASS` y relojes a 313 y 1071 MHz: los 57 artefactos del banco no son comparables entre sí
+# 961 — Dos artefactos con `PASS` y relojes a 313 y 1071 MHz: el 12 % de los pares del banco no son comparables entre sí
 
 Estado: `PROVEN`. `bench.py` 24 de 24; 6 suites.
 Alcance: `08-ARQUITECTURA/validations/`, 57 artefactos.
+AUTORIA=AGENTE-SMU
 
 ## El hueco que había
 
@@ -102,9 +103,27 @@ despreciado siempre.
 
 ## Lo que queda abierto
 
-- **Los 57 artefactos anteriores no tienen bloque de comparabilidad.** Se puede leer de ellos el
-  reloj y reconstruir qué comparaciones están todavía licenciadas, y cuáles no lo están. Es un barrido
-  de un minuto sobre datos que ya existen, y **no está hecho**.
+- ~~Los 57 artefactos anteriores no tienen bloque de comparabilidad.~~ **Hecho**, y el resultado
+  importa: contando pares, no artefactos sueltos,
+
+  ```
+  suite          n     licencia       pares no comparables / totales
+  coalescencia   2     NINGUNA        1 de 1
+  jerarquia      5     PARCIAL        4 de 10
+  regresion     11     todas          0 de 55
+  textura        5     PARCIAL        4 de 10
+
+  total, sin selftest: 9 de 76 pares NO comparables (12 %)
+  ```
+
+  **El daño está concentrado, no repartido.** `coalescencia` tiene dos artefactos a 338 y 1071 MHz:
+  **ninguna** pareja es comparable, así que la serie es inútil para comparar entre corridas, y su
+  contenido dentro de una misma corrida sigue valiendo. `jerarquia` y `textura` pierden el 40 % de sus
+  pares. `regresion` está limpia: sus once artefactos están todos a 1071 MHz.
+
+  Esto corrige la lectura de arriba. El titular «los 57 artefactos no son comparables» era
+  exagerado: el 88 % de los pares sí lo son. Lo que no es comparable es una **cuarta parte** de las
+  comparaciones, concentrada en las suites nuevas.
 - **La tolerancia del 10 % es un número puesto por mí**, sin justificar. Con la relación de reloj que
   se observa (0,29 a 3,4×) cualquier tolerancia entre 5 % y 30 % daría la misma respuesta, así que
   el numero no importa *ahora*. Importara cuando haya que afinar de verdad.

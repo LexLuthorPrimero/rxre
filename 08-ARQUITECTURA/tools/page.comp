@@ -1,0 +1,39 @@
+#version 450
+// DISCRIMINANTE de 287-1 y 262-1. La pregunta: ¿el barrido del conjunto de trabajo mide
+// CACHE o mide TLB?
+//
+// Dos patrones sobre la MISMA huella en bytes y el MISMO numero de accesos, que se
+// diferencian solo en cuantas paginas distintas tocan:
+//   PAGE = 0  el indice avanza contiguo:，很多 accesos por misma pagina
+//             (con WSIZE = 1024 dwords = 1 pagina de 4 KiB, todo cae en 1 pagina)
+//   PAGE = 1  el indice avanza de pagina en pagina: 1 acceso por paginadistincta
+//             (WSIZE dwords pero solo se tocan WSIZE/1024 paginas)
+//
+// Si la latencia depende del numero de PAGINAS y no de la huella, la diferencia entre
+// los dos modos es enorme con la misma cantidad de bytes. Si depende de la CACHE, la
+// diferencia es pequena. Ese es el discriminante de dos salidas.
+layout(local_size_x = 64) in;
+layout(constant_id = 0) const uint ITERS = 1u;
+layout(constant_id = 1) const uint WSIZE = 1024u;   /* dwords de la huella */
+layout(constant_id = 2) const uint PAGE  = 0u;      /* 0=contiguo, 1=paginado */
+layout(std430, binding = 0) buffer B { uint d[]; };
+uint hash(uint x) {
+    x ^= x >> 16; x *= 0x7feb352du;
+    x ^= x >> 15; x *= 0x846ca68bu;
+    x ^= x >> 16;
+    return x;
+}
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    uint NPAG = (WSIZE + 1023u) / 1024u;            /* paginas de 4 KiB en la huella */
+    uint idx = (PAGE == 0u) ? (i % WSIZE)
+                             : ((i % NPAG) * 1024u + (i % 1024u));
+    uint acc = 0u;
+    for (uint k = 0u; k < ITERS; k++) {
+        uint v = d[idx];
+        acc = acc * 1664525u + v + 1013904223u;
+        idx = acc % WSIZE;                          /* la cadena sigue siendo dependiente */
+        acc = acc + idx;
+    }
+    d[WSIZE + i] = acc;
+}

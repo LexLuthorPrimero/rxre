@@ -1,4 +1,5 @@
 # 958 — La huella no se satura: la hipótesis de `952` queda REFUTADA, y el «escalón de 8 MiB» era ruido
+AUTORIA=AGENTE-SMU
 
 Estado: `REFUTADA` la primera hipótesis de `952`. `271-1` sigue `NOT_DETERMINED` con menos candidatos.
 Instrumento nuevo: `huella.py`, 7 de 7, con la réplica verificada contra el banco en 4 configuraciones.

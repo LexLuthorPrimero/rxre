@@ -1,0 +1,2 @@
+t_s,gpu_busy,mem_busy,sclk_hz,mclk_hz,vddgfx_mv,ppt_uw,edge_mC,pwm,cksum
+0.000,0,0,350940000,300000000,700,4120000,29000,75,694546746

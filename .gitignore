@@ -89,3 +89,63 @@ RESEARCH/
 # Cerrojo de turno entre las tres sesiones de IA (ver COORDINACION.md).
 # Un cerrojo versionado ensucia `git status` con una entrada que cambia cada vez.
 .write-lock/
+
+# MEDIDO 2026-10-03: 13,7 GB de los 14 GB sin seguimiento eran ESTOS DOS
+# directorios. Sin ellos en el .gitignore el arbol no se puede commitear de una
+# vez, y `git add -A` arrastraria 9 GB de cache regenerable al historial.
+#
+# 08-ARQUITECTURA/cache/ lo escribe tools/rx550/funcspan.py, y el propio
+# tool lo declara REBUILDABLE, no storage (su linea 52), con el techo por
+# BYTES en su linea 61. El nombre de cada entrada es `<fuente>.<hash16>.json`
+# mas un `.pid`: la clave es el hash de la ENTRADA, luego el valor esta en la
+# entrada y no en el fichero. Versionar la cache fijaria el resultado de una
+# ejecucion concreta y volveria obsoleto lo que la herramienta tiene que
+# recalcular cuando cambia el corpus.
+08-ARQUITECTURA/cache/
+
+# El AST que consume el pool de `agents/`. Mismo criterio: derivado, y
+# reconstruible desde el corpus con clang.
+06-INGENIERIA-INVERSA/agents/ast/
+
+# MODULO COMPILADO DEL DRIVER PROPIO. `git ls-files` dice que ya hay 6 .o
+# versionados de antes, pero el .ko de 628 KB no tiene por que joins: lo que
+# hace falta para reproducir la compilacion es el Makefile y las fuentes, y
+# el .ko es un artefacto con la marca del kernel que lo compilo.
+*.ko
+
+# --- SELLADO 2026-10-03 -----------------------------------------------------
+# MEDIDO antes de escribir esto: de 518 hallazgos en disco, 139 estaban SIN
+# SEGUIR; de 101 ficheros en tools/, 95 sin seguir; de 42 en 07-DRIVER/kernel/,
+# 23 sin seguir. Es decir, la mayor parte de la evidencia y del motor de
+# herramientas vivia fuera del control de versiones. Este bloque solo saca de en
+# medio lo que NO es contenido, para que `git add -A` pueda meter lo demas.
+
+# TEMPORALES DE KBUILD. El driver propio compila en 04-IMPLEMENTACION/rx550-driver
+# y kbuild deja un .cmd por objeto con el comando exacto. Se regeneran con
+# `make`; el Makefile ya dice lo mismo. Medido: 23 de ellos.
+*.o.cmd
+*.symvers.cmd
+Module.symvers
+.tmp_versions/
+
+# SENTINELA DE ABANDONO. 5 bytes ("NO - ") en la raiz y 8 en el driver. Es un
+# marcador deliberado, no contenido. Anclado a la raiz; el del driver cuelga de
+# un arbol que si se versiona entero, asi que ese se deja seguir.
+/abandonado
+
+# MISCELANEA EN LA RAIZ, medida una a una:
+#   "Archivo de texto.txt"  0 bytes
+#   ingenir.txt             0 bytes  (ya esta versionado; la regla no lo borra)
+#   untracked_raw.json      2 bytes  ("[]")
+#   AGENTS.md.new           copia BYTE A BYTE de AGENTS.md (`cmp` = identico).
+#                           Lo regenera el harness al abrir sesion; AGENTS.md es
+#                           la copia que cuenta.
+/Archivo de texto.txt
+/ingenir.txt
+/untracked_raw.json
+/AGENTS.md.new
+
+# RESERVA DE NUMEROS DE HALLAZGO. Cambia en cada hallazgo nuevo: es estado, no
+# dato, y se reconstruye con tools/nextnum.py sobre el disco. Mismo criterio
+# que .write-lock/, que ya estaba ignorado.
+/.nextnum.lock

@@ -52,20 +52,53 @@ nombre está en la lista de miembros, el objetivo del `.c` y el objetivo del
 enlazado **son el mismo fichero**, y `make` da por cumplido el enlace sin compilar
 el `.c`.
 
-La forma que lo evita, y que usa upstream en todo el árbol, es que el objeto con
-el nombre del módulo **nunca sea miembro de sí mismo**:
+La forma que lo evita es que el objeto con el nombre del módulo **nunca sea
+miembro de sí mismo**. Y eso no es una regla inventada a partir de una mala
+experiencia: es lo que hace el corpus entero, y se recalcula:
+
+```
+$ python3 tools/lint.py --censo
+
+declaraciones de objeto compuesto en el corpus:   87
+el .o del módulo NO es miembro:                   87
+el .o del módulo SÍ es miembro:                    0
+```
+
+Y amdgpu lo dice con su propio nombre, que es donde se ve la diferencia:
+
+```
+amdgpu/Makefile:51    amdgpu-y := amdgpu_drv.o
+```
+
+El módulo se llama `amdgpu` y su primer objeto se llama `amdgpu_drv.o`. El
+sufijo `_drv` va en el **módulo** allí y en el **fichero** aquí, y los dos evitan
+la misma colisión.
+
+### CORRECCION: lo que este hallazgo decía de memoria
+
+La primera versión de este §2 afirmaba:
 
 ```
 i915_core.o    no i915.o
 amdgpu_kms.o   no amdgpu.o
 ```
 
+Las dos parejas venían de memoria, sin un solo fichero del proyecto que las
+sostuviera, y **la segunda era incorrecta**: lo que amdgpu evita no es
+`amdgpu_kms.o`, es `amdgpu.o`. El mismo error llegó al comentario de
+`07-DRIVER/kernel/Makefile`, que además afirmaba que la forma `rx550_drv-y` era
+**incorrecta**. No lo es: `-y` es la forma que usa amdgpu en la línea 51 de su
+Makefile, y el fallo que se produjo nunca fue de forma sino de nombres.
+
+Un diagnóstico atribuido a la sintaxis cuando la causa es otra cosa deja el
+síntoma volver en cuanto se corrige lo que no era. Y un criterio necesita su
+fuente, no un recuerdo.
+
 Aquí no se puede renombrar `rx550_drv.c` → `rx550_pci.c`, porque **cinco
 referencias en tres hallazgos inmutables** citan `rx550_drv.c:N` (`114:130`,
 `114:183`, `171:22`, `171:136`, `189:130`) y los hallazgos no se reescriben. Un
-fichero renombrado rompe citas que por regla ya no se pueden arreglar. Un fichero
-con nombre colisionable deja de serlo cuando se renombra; el coste de renombrar
-aquí es mayor que el beneficio, y la decisión se declara en
+fichero renombrado rompe citas que por regla ya no se pueden arreglar. El coste
+de renombrar es mayor que el beneficio, y la decisión queda escrita en
 `07-DRIVER/kernel/Makefile`.
 
 Así que `rx550_mmio.c` entra por `#include` desde `rx550_drv.c`. Consecuencia
@@ -195,8 +228,32 @@ Sobre el árbol real: **0 filas**. Sobre una copia del Makefile real con la
 colisión reintroducida: **1 fila**, en la línea correcta.
 
 ```
-16 -> 26 vectores
+16 -> 30 vectores
 ```
+
+Cuatro de los catorce vectores nuevos no son del clasificador sino del **censo**,
+y uno de ellos comprueba que un corpus ausente devuelve `(0, 0, 0, [])` en vez de
+un censo de cero: entrada que falta no es un resultado.
+
+### El error 17 es el más instructivo de todos
+
+`KBUILD_COLISION` buscaba `(\w+)-objs :=` y ya. La forma `-y` —**la que usa
+amdgpu**, y la primera que se escribió en este proyecto — pasaba sin detectar. Y
+el censo, que sí usaba la regex correcta, contaba 87 declaraciones sin que nada
+fallara: un criterio contradiciéndose a sí mismo en el mismo fichero, a treinta
+líneas de distancia, y ningún vector lo cazaba porque todos los anteriores
+usaban `-objs`.
+
+```
+$ python3 -c "lint.escanear_kbuild('M','obj-m := a.o\na-y := a.o b.o\n')"
+
+  -objs -> 1 fila(s)  KBUILD_COLISION
+  -y    -> 0 fila(s)  NO DETECTADA     <-- antes de corregir
+```
+
+Un criterio de clasificación tiene que ser una convención **verificada contra el
+binario**, no una frase en un comentario. Y tiene que probarse en **las dos**
+formas que existen, o no está probado.
 
 Un vector que se pasó por el motivo equivocado, y que por eso es el más útil de
 los diez: esperaba **un** `KBUILD_SIN_OBJETO` donde la colisión real deja sin
@@ -204,8 +261,9 @@ compilar **todos** los miembros, o sea **dos**. El vector estaba mal, no la regl
 
 ## 7 · Errores propios de esta ronda
 
-Catorce, y la mayoría son el mismo hallazgo repetido: **una afirmación escrita sin
-comprobarla**.
+Dieciséis, y la mayoría son el mismo hallazgo repetido: **una afirmación escrita
+sin comprobarla**. Los dos últimos son los más caros, porque los dosfallen en
+código y en el hallazgo, que es donde un error se propaga solo.
 
 | # | error | quién lo cazó |
 |---|---|---|
@@ -223,6 +281,9 @@ comprobarla**.
 | 12 | `sed` multilínea en una receta: `@#` llega al shell y rompe la sintaxis | el shell |
 | 13 | bloque de comentario duplicado por dos ediciones apiladas | la lectura del fichero |
 | 14 | resumen de `drvchain` que ya no describía la tabla | la lectura de la tabla |
+| 15 | la convención de upstream citada **de memoria** en el hallazgo | `--censo`: 87 de 87 |
+| 16 | la misma convención, y deformada, escrita en el **Makefile** | `--censo` y `amdgpu/Makefile:51` |
+| 17 | `KBUILD_COLISION` no entendía `-y`, solo `-objs`: la colisión en la forma de amdgpu pasaba **sin detectar** | un vector con `-y` |
 
 El 4 es el que más cuesta: `git checkout` no es reversible para trabajo sin
 commitear, y la costumbre de «volver al original para comparar» es exactamente la
@@ -251,7 +312,7 @@ cargarlo es NIVEL 4 y sigue sin autorización.
   07-DRIVER/kernel/rx550_drv.c       include + rama inalcanzable a propósito
   07-DRIVER/kernel/Makefile          la no colisión, con el motivo
   07-DRIVER/tests/test_mmio.c        26 checks
-  tools/lint.py                      3 clases kbuild, 26 vectores
+  tools/lint.py                      3 clases kbuild + --censo, 29 vectores
   tools/drvchain.py                  grado INVOCA, 14 vectores
   /tmp/opencode/kbtest2/             el reproductor de dos ficheros
 ```

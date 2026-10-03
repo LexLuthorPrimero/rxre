@@ -1,0 +1,31 @@
+{
+  "mmMC_SEQ_MISC0_FIJI": "gmc_v8_0.c:1108 bajo CHIP_FIJI||CHIP_VEGAM; inalcanzable",
+  "polaris12_smc_sk.bin": "no existe; CHIP_POLARIS12 no tiene rama CGS_UCODE_ID_SMU_SK",
+  "mmVM_PT_BASE_ADDRESS": "0 ocurrencias; en GFX8 el PTBA es mmVM_CONTEXT{n}_PAGE_TABLE_BASE_ADDR",
+  "smu_version": "el unico pr_info esta en smu8_smumgr.c:747; Polaris12 corre smu7",
+  "gfx_8_1_exclusivos_en_ruta_GFX8": "27 no se usan en gfx_v8_0.c (si en gfx_v9/v10)",
+  "generado_por": "post-reinicio 2026-10-02",
+  "con_universo": [
+    {
+      "afirmacion": "el despachador de ASIC para POLARIS12 esta en este corpus",
+      "veredicto": "PROVEN_ABSENT",
+      "universo": [
+        "drivers/gpu/drm/amd/amdgpu/**",
+        "drivers/gpu/drm/amd/**"
+      ],
+      "control_positivo": {
+        "busqueda": "amdgpu_asic_init definido",
+        "resultado": "0 definiciones; y amdgpu_soc15_init con 0 invocaciones, o sea el universo SI contiene ficheros .c analizables y la busqueda funciona",
+        "contraprueba": "grep -c 'amdgpu_asic_init' sobre el arbol devuelve 0, pero el mismo grep sobre 'gmc_v8_0' devuelve >0, luego el escaneo no esta vacio por fallo"
+      },
+      "comprobaciones": [
+        "CHIP_POLARIS12 ausente de amdgpu_discovery.c",
+        "CHIP_POLARIS12 ausente de soc15.c",
+        "sienna_cichlid_init: 0 referencias en el arbol",
+        "gfx_v8_0.c incluye gfx_8_0_*.h, no gc_10_3_0_*"
+      ],
+      "consecuencia": "alcanzabilidad por ASIC no cerrable con este corpus",
+      "clase": "F (cero silencioso) evitada por el control positivo"
+    }
+  ]
+}

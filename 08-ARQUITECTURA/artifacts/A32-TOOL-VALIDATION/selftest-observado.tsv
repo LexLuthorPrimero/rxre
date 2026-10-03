@@ -1,0 +1,76 @@
+# AGENT-32 A32-1 observacion directa de selftests
+# git_status_antes=ee5a33ba3f15b74d despues=d813136e714a4fb8
+# filas=72
+tool	kind	rc	timeout	stdout_b	stderr_b	dur_s	verdict	detail	binario	invocada
+artifacts.py	EJECUTADA	0	no	2088	0	0.17	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/artifacts.py --selftest
+asic_resolver.py	EJECUTADA	0	no	139	0	0.08	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/asic_resolver.py --selftest
+assert_contract.py	EJECUTADA	0	no	73	0	0.14	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/assert_contract.py --selftest
+atom_chain.py	EJECUTADA	2	no	0	69	0.03	TOOL_RC_OTHER	rc=2	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/atom_chain.py --selftest
+audit_citations.sh	EJECUTADA	0	no	810	0	15.45	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/audit_citations.sh --selftest
+cap_census.py	EJECUTADA	0	no	151	0	0.06	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/cap_census.py --selftest
+citas.py	EJECUTADA	-1	si	0	0	180.31	TOOL_TIMEOUT	supera 180s; no es un fallo del selftest	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/citas.py --selftest
+citations.py	EJECUTADA	0	no	1891	0	0.10	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/citations.py --selftest
+citeambig.py	EJECUTADA	0	no	1449	0	0.12	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/citeambig.py --selftest
+citegen.py	EJECUTADA	0	no	612	0	0.08	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/citegen.py --selftest
+claim.py	EJECUTADA	0	no	1406	0	0.08	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/claim.py --selftest
+claims.py	EJECUTADA	0	no	1698	0	0.10	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/claims.py --selftest
+constmap.py	EJECUTADA	0	no	1963	0	1.61	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/constmap.py --selftest
+contradict.py	EJECUTADA	0	no	148	0	0.13	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/contradict.py --selftest
+corroboration.py	EJECUTADA	0	no	1255	0	0.07	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/corroboration.py --selftest
+count_guard.py	EJECUTADA	0	no	92	0	10.26	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/count_guard.py --selftest
+docscan.py	EJECUTADA	0	no	1831	0	0.15	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/docscan.py --selftest
+drift.py	EJECUTADA	0	no	3009	0	0.14	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/drift.py --selftest
+driroute.py	EJECUTADA	0	no	524	0	1.25	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/driroute.py --selftest
+drvchain.py	EJECUTADA	0	no	1142	0	0.06	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/drvchain.py --selftest
+dupenum.py	EJECUTADA	0	no	508	0	0.07	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/dupenum.py --selftest
+envcheck.py	EJECUTADA	0	no	992	0	0.38	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/envcheck.py --selftest
+evidence_search.py	EJECUTADA	0	no	463	0	0.16	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/evidence_search.py --selftest
+fingerprint.py	EJECUTADA	0	no	1261	0	1.33	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/fingerprint.py --selftest
+flags_inventory.py	EJECUTADA	0	no	3024	0	5.45	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/flags_inventory.py --selftest
+frontier.py	EJECUTADA	0	no	1018	0	0.11	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/frontier.py --selftest
+gccverify.py	EJECUTADA	0	no	191	0	0.54	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/gccverify.py --selftest
+govcheck.py	EJECUTADA	1	no	1745	0	12.24	TOOL_SELFTEST_FAIL	rc=1	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/govcheck.py --selftest
+hcconsist.py	EJECUTADA	0	no	1050	0	0.09	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/hcconsist.py --selftest
+hwip.py	EJECUTADA	0	no	428	0	0.08	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/hwip.py --selftest
+implgate.py	EJECUTADA	1	no	1237	0	0.11	TOOL_SELFTEST_FAIL	rc=1	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/implgate.py --selftest
+integridad.py	EJECUTADA	1	no	4729	0	0.09	TOOL_SELFTEST_FAIL	rc=1	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/integridad.py --selftest
+ipsolve.py	EJECUTADA	0	no	1197	0	0.12	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/ipsolve.py --selftest
+kdeps.c	FUENTE_C		no				TOOL_SOURCE_ONLY	no es ejecutable sin compilar	NO	-
+lint.py	EJECUTADA	0	no	2103	0	5.15	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/lint.py --selftest
+mountcheck.py	EJECUTADA	0	no	998	0	0.05	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/mountcheck.py --selftest
+msg_census.py	EJECUTADA	0	no	142	0	0.09	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/msg_census.py --selftest
+mutate.py	EJECUTADA	0	no	365	0	0.61	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/mutate.py --selftest
+mutscore.py	EJECUTADA	0	no	1913	0	12.69	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/mutscore.py --selftest
+nextnum.py	EJECUTADA	0	no	1374	0	0.82	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/nextnum.py --selftest
+oracle.sh	EJECUTADA	1	no	984	0	0.83	TOOL_SELFTEST_FAIL	rc=1	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/oracle.sh --selftest
+pipeline.py	EJECUTADA	0	no	147	0	0.10	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/pipeline.py --selftest
+pm4census.py	EJECUTADA	0	no	652	0	0.07	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/pm4census.py --selftest
+pm4decode.c	FUENTE_C		no				TOOL_SOURCE_ONLY	no es ejecutable sin compilar	NO	-
+pm4dw.c	FUENTE_C		no				TOOL_SOURCE_ONLY	no es ejecutable sin compilar	SI	-
+ppt_validate.py	EJECUTADA	0	no	100	0	3.52	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/ppt_validate.py --selftest
+reftriage.py	EJECUTADA	0	no	958	0	0.07	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/reftriage.py --selftest
+reg_census.py	EJECUTADA	0	no	150	0	0.06	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/reg_census.py --selftest
+reg_resolve.py	EJECUTADA	0	no	150	0	0.07	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/reg_resolve.py --selftest
+regconst.py	EJECUTADA	0	no	919	0	0.07	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/regconst.py --selftest
+regtable_audit.py	EJECUTADA	0	no	153	0	0.08	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/regtable_audit.py --selftest
+relations.py	EJECUTADA	0	no	1708	0	0.08	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/relations.py --selftest
+round.py	EJECUTADA	0	no	1363	0	0.07	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/round.py --selftest
+routeaudit.py	EJECUTADA	0	no	1158	0	0.06	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/routeaudit.py --selftest
+rx550pm4val.c	FUENTE_C		no				TOOL_SOURCE_ONLY	no es ejecutable sin compilar	SI	-
+rx550ref.c	FUENTE_C		no				TOOL_SOURCE_ONLY	no es ejecutable sin compilar	SI	-
+smc_copy_scope.py	EJECUTADA	0	no	77	0	0.08	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/smc_copy_scope.py --selftest
+smc_layout.py	EJECUTADA	0	no	147	0	0.10	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/smc_layout.py --selftest
+snapshot.py	EJECUTADA	0	no	2660	0	0.77	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/snapshot.py --selftest
+struct_layout.py	EJECUTADA	0	no	152	0	0.13	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/struct_layout.py --selftest
+sysaccess.py	EJECUTADA	0	no	1007	0	0.09	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/sysaccess.py --selftest
+toolcheck.py	EJECUTADA	0	no	149	0	1.20	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/toolcheck.py --selftest
+toolreg.py	EJECUTADA	0	no	864	0	0.10	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/toolreg.py --selftest
+trace_path.py	EJECUTADA	0	no	144	0	0.07	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/trace_path.py --selftest
+treescope.py	EJECUTADA	0	no	965	0	0.05	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/treescope.py --selftest
+uninit_copy.py	EJECUTADA	0	no	74	0	0.06	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/uninit_copy.py --selftest
+unreach.py	EJECUTADA	0	no	689	0	0.06	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/unreach.py --selftest
+validate_rx550_final.py	EJECUTADA	2	no	0	121	1.04	TOOL_RC_OTHER	rc=2	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/validate_rx550_final.py --selftest
+vmid_map.py	EJECUTADA	0	no	361	0	0.06	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/vmid_map.py --selftest
+vocabpm4.py	EJECUTADA	0	no	724	0	0.06	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/vocabpm4.py --selftest
+which_hw.py	EJECUTADA	0	no	307	0	0.06	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/which_hw.py --selftest
+xref.py	EJECUTADA	0	no	244	0	0.50	TOOL_SELFTEST_PASS	rc=0	-	/home/lucas/Escritorio/RX550-INVESTIGACION/tools/xref.py --selftest

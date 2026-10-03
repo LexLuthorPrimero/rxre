@@ -194,12 +194,12 @@ offsets de gcc, y se sostiene:
 
 | escritura | destino | offset |
 |---|---|---:|
-| `:2115` | `dpm_table_start + offsetof(SystemFlags)` | 108 |
+| `:2118` (la herramienta decia `:2115`; corregido al anclar la llamada) | `dpm_table_start + offsetof(SystemFlags)` | 108 |
 | `:140` | `dpm_table_start + offsetof(VRConfig)` | 112 |
 | `:147`/`:1046`/`:2594` | `dpm_table_start + offsetof(GraphicsLevel)` | 236 |
 | `:155`/`:1215`/`:2597` | `dpm_table_start + offsetof(MemoryLevel)` | 708 |
 | `:164` | `dpm_table_start + offsetof(BootMVdd)` | 1592 |
-| `:2396` | `dpm_table_start + offsetof(LowSclkInterruptThreshold)` | 1692 |
+| `:2398` (la herramienta decia `:2396`; corregido al anclar la llamada) | `dpm_table_start + offsetof(LowSclkInterruptThreshold)` | 1692 |
 
 **Minimo 108. Ninguno por debajo.** Y esa propiedad **solo es esperable bajo (A)**: en (B),
 los 108 bytes iniciales de la struct serian precisamente la region que el firmware

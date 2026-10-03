@@ -1,0 +1,49 @@
+#version 450
+// DISCRIMINANTE de 262-1b. 289 midio que el nivel mas rapido retiene entre 256 y 320 KiB de
+// conjunto de trabajo, pero lo midio con una taxonomia de direcciones concreta: el hilo i
+// era dueño del bloque contiguo [i*B, i*B+B). Ese reparto hace que los 64 hilos de un
+// wavefront toquen direcciones ADYACENTES, es decir lineas de cache consecutivas, que caen
+// en conjuntos consecutivos de la cache.
+//
+// La pregunta que 289 dejo abierta: ¿es ese numero el TAMANO FISICO del nivel, o el
+//conjunto que cabe con ESTE reparto?
+//
+// GRP separa esos dos casos. El numero de bloques es siempre items, luego la huella total
+// no cambia, y el numero de hilos tampoco:
+//
+//   GRP = 1   bloque del hilo i = i
+//            los 64 hilos de un wavefront ocupan 64 bloques contiguos
+//   GRP = N   bloque = (i/64)*64 + ((i%64)*N mod 64)
+//            los 64 hilos de un wavefront ocupan bloques separados, y el indice sigue
+//            dentro de rango porque el segundo termino es una PERMUTACION de 0..63
+//            siempre que N sea coprimo con 64. Con N par no es permutacion y habria
+//            bloques compartidos entre hilos, que es otro experimento y no este.
+//
+// NOTA sobre una version anterior de este fichero: usaba (i%64)*N + (i/64), que con
+// N=1 NO da i, sino (i%64) + i/64. Eso hacia que GRP=1 no fuese equivalente a
+// reuse.comp, y el control de equivalencia lo detecto antes de medir. La forma correcta
+// para que GRP=1 sea la identidad es permutar DENTRO de cada grupo de 64.
+//
+// Si la capacidad es fisica, el plano de la curva aparece a la misma huella con cualquier
+// GRP. Si lo que se agota es el reparto entre vias, el plano se desplaza con GRP.
+layout(local_size_x = 64) in;
+layout(constant_id = 0) const uint ITERS = 1u;
+layout(constant_id = 1) const uint WSIZE = 1024u;
+layout(constant_id = 2) const uint B     = 16u;
+layout(constant_id = 4) const uint GRP   = 1u;   /* separacion entre bloques de un wavefront */
+layout(std430, binding = 0) buffer BUF { uint d[]; };
+void main() {
+    uint i   = gl_GlobalInvocationID.x;
+    /* NW = 64 como constante de compilacion, no specialization constant: wave_front_size
+     * es 64 en gfx_v8_0.c:7124, verificado en 272, y no hay hueco para otra constant
+     * sin ambiguedad. Es un hecho del ASIC, no un parametro del experimento. */
+    const uint NW = 64u;
+    uint blk = ((i / NW) * NW + ((i % NW) * GRP) % NW) * B;
+    uint acc = 0u;
+    for (uint k = 0u; k < ITERS; k++) {
+        uint idx = blk + ((acc ^ k) % B);
+        uint v   = d[idx];
+        acc = acc * 1664525u + v + 1013904223u;
+    }
+    d[WSIZE + i] = acc;
+}

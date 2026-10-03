@@ -1,0 +1,138 @@
+{
+ "artefacto": "bench",
+ "comparabilidad": {
+  "comparables": {
+   "bar_size": {
+    "ahora": null,
+    "anterior": null,
+    "estado": "NO_COMPARABLE"
+   },
+   "mclk_hz": {
+    "ahora": 625000000,
+    "anterior": 1500000000,
+    "estado": "DIFIERE",
+    "razon": 0.4166666666666667
+   },
+   "pcie_gen": {
+    "ahora": null,
+    "anterior": null,
+    "estado": "NO_COMPARABLE"
+   },
+   "pcie_width": {
+    "ahora": null,
+    "anterior": null,
+    "estado": "NO_COMPARABLE"
+   },
+   "sclk_hz": {
+    "ahora": 1070150000,
+    "anterior": 1071000000,
+    "estado": "igual",
+    "razon": 0.9992063492063492
+   }
+  },
+  "difieren": [
+   "mclk_hz"
+  ],
+  "estado": "NO_COMPARABLE",
+  "nota": "la medicion es valida; lo que no esta licenciada es compararla con la anterior",
+  "previo": "bench-coalescencia-20261003-035907.json"
+ },
+ "contexto": {
+  "iters": [
+   512,
+   2048
+  ],
+  "n": 5
+ },
+ "cwd": "/home/lucas/Escritorio/RX550-INVESTIGACION/08-ARQUITECTURA/tools",
+ "fallos": [],
+ "hardware": {
+  "bar_size": null,
+  "kernel": "7.1.3-200.nobara.fc44.x86_64",
+  "mclk_hz": 1500000000,
+  "pci": null,
+  "pci_device": null,
+  "power_uw": 11112000,
+  "sclk_hz": 1070150000,
+  "temp_mc": 44000
+ },
+ "instrumento": {
+  "binario": "/home/lucas/Escritorio/RX550-INVESTIGACION/08-ARQUITECTURA/tools/vcp",
+  "binario_fresco": true,
+  "binario_frescura": [
+   {
+    "binario_mtime": 1791025845.1905615,
+    "binario_sha256": "739b3394ab54ee73",
+    "estado": "AL DIA",
+    "fuente_mtime": 1791023188.5254774,
+    "fuente_sha256": "7e7037cadea20251"
+   }
+  ],
+  "binario_sha256": "739b3394ab54ee730a3c166392b081bdeee29e730a1ec2f8dab9262c3ab622e2",
+  "fuente": "/home/lucas/Escritorio/RX550-INVESTIGACION/08-ARQUITECTURA/tools/vulkan_compute_probe.c",
+  "fuente_sha256": "7e7037cadea20251652a542ab03069faf8fe95b85d2038594b94de114b790b2a",
+  "spv_frescos": true
+ },
+ "resultado": {
+  "aviso": "el factor es de TIEMPO TOTAL a este ITERS, no de tiempo marginal. El modo contiguo paga el pago unico de ~6,7 ms que 609 midio y el disperso no lo paga, asi que el factor BAJA al subir ITERS y se acerca al de 602, que se calculo sobre la pendiente y no sobre el total. Con ITERS=2048 y huella de 256 MiB el pago unico es una fraccion grande del tiempo del contiguo: el factor aqui sale menor que el titular de 602 y las dos cosas son ciertas.",
+  "filas": [
+   {
+    "factor_sobre_disperso": 1.0,
+    "gb_por_s_utiles": 1.5553676330419817,
+    "mediana_s": 0.345173,
+    "minimo_s": 0.345089,
+    "modo": "disperso",
+    "n": 5,
+    "rechazadas": 0,
+    "veredicto": "PASS"
+   },
+   {
+    "factor_sobre_disperso": 18.145034957682807,
+    "gb_por_s_utiles": 28.22220007359512,
+    "mediana_s": 0.019023,
+    "minimo_s": 0.019,
+    "modo": "contiguo",
+    "n": 5,
+    "rechazadas": 0,
+    "veredicto": "PASS"
+   },
+   {
+    "factor_sobre_disperso": 31.580329368709975,
+    "gb_por_s_utiles": 49.11902214089661,
+    "mediana_s": 0.01093,
+    "minimo_s": 0.010853,
+    "modo": "difusion",
+    "n": 5,
+    "rechazadas": 0,
+    "veredicto": "PASS"
+   }
+  ],
+  "huella_mib": 256,
+  "iters": 2048,
+  "puerta_de_reloj": {
+   "estado": "RELOJ_ESTABLE",
+   "lecturas": 3,
+   "marcas": [
+    {
+     "donde": "coalescencia:disperso",
+     "sclk_hz": 1071000000
+    },
+    {
+     "donde": "coalescencia:contiguo",
+     "sclk_hz": 1071000000
+    },
+    {
+     "donde": "coalescencia:difusion",
+     "sclk_hz": 1071000000
+    }
+   ],
+   "max_hz": 1071000000,
+   "min_hz": 1071000000,
+   "razon": 1.0,
+   "umbral": 1.25
+  }
+ },
+ "suite": "coalescencia",
+ "timestamp": "20261003-082237",
+ "veredicto": "PASS"
+}

@@ -1,0 +1,584 @@
+{
+  "contract": {
+    "version": "1.0",
+    "sha256": "2f931942648a1b3d641abb849b702198",
+    "estado": "TOOL_VALIDATED",
+    "asserts": "38/38",
+    "proposito": "contrasta los offsets que el driver del mandato asume contra el corpus, por grafo de includes",
+    "resultado": "26 registros nombrados, 26 confirmados, 0 sin resolver; 0x2002 corroborado por dos caminos",
+    "semantica": {
+      "SEMANTICA_PROBADA": 2,
+      "ROL_PROBADO": 10,
+      "CAMPOS_NOMBRADOS": 14,
+      "SOLO_DIRECCION": 0,
+      "NO_DETERMINED": 0
+    },
+    "bits": {
+      "campos": 162,
+      "con_shift": 162,
+      "obsoleto": 2,
+      "registros_codificados": 26
+    },
+    "crossblock": {
+      "registro_compartido": "mmSRBM_SOFT_RESET",
+      "bloques": [
+        "GFX",
+        "GMC",
+        "SDMA"
+      ],
+      "escrituras": 12,
+      "serializadas": 0,
+      "ruta_VI": {
+        "escrituras": 327,
+        "funciones": 71,
+        "un_registro": 31,
+        "multi_registro": 40,
+        "con_mutex": 4,
+        "sin_mutex_init": 12,
+        "sin_mutex_runtime": 24,
+        "duplicados": 0,
+        "discrepancias": 0
+      },
+      "via_ops_solo": 6,
+      "manejador_irq": 1,
+      "veredicto": "24 funciones de runtime escriben varios registros sin mutex; la unica en contexto IRQ es gmc_v8_0_vm_fault_interrupt_state"
+    }
+  },
+  "crosscheck": {
+    "version": "1.0",
+    "sha256": "5862e73e0aefe525b501fc16c52da1ff",
+    "estado": "TOOL_VALIDATED",
+    "asserts": "11/11",
+    "veredictos": [
+      "CONFIRMADO",
+      "DIFIERE",
+      "NO_RESOLUBLE",
+      "INDIRECTO"
+    ],
+    "correcciones": [
+      101,
+      102,
+      103
+    ]
+  },
+  "regctx": {
+    "version": "2.0",
+    "sha256": "3d77ea372a51db35b906cfcc1ed00a0f",
+    "estado": "TOOL_VALIDATED",
+    "asserts": "27/27"
+  },
+  "report": {
+    "version": "1.0",
+    "sha256": "1aafa977b63edcaba0f416c915a087f7",
+    "estado": "TOOL_VALIDATED",
+    "asserts": "17/17",
+    "proposito": "emite informes con tablas CALCULADAS; incluye el nodo de correcciones",
+    "nodos": [
+      "REGISTROS",
+      "AFIRMACIONES",
+      "CORRECCIONES"
+    ],
+    "taxonomia": {
+      "correcciones_parseadas": 102,
+      "max": 112,
+      "clases": 14,
+      "dominantes": {
+        "espacio_de_offset": 10,
+        "ambito equivocado": 8,
+        "cero silencioso": 7
+      },
+      "sin_clase": 36,
+      "nota": "36 correcciones no encajan en ninguna clase definida: la taxonomia describe sintomas, no causas"
+    }
+  },
+  "funcspan": {
+    "version": "1.0",
+    "sha256": "fceb01d9a35c08b246f44a085e500533",
+    "estado": "TOOL_VALIDATED",
+    "asserts": "25/25",
+    "proposito": "funcion que contiene una linea, via AST de clang; respaldo regex declarado",
+    "caso_negativo": "una linea de comentario no pertenece a ninguna funcion y se declara",
+    "correcciones": [
+      113,
+      114,
+      118,
+      119,
+      126,
+      129,
+      130,
+      139,
+      140,
+      142,
+      143,
+      144,
+      145,
+      146,
+      147,
+      148,
+      149,
+      150,
+      151
+    ],
+    "cache": {
+      "recorte_por_bytes": true,
+      "proteccion_del_conjunto": true,
+      "dueno_vivo_intocable": true,
+      "aserciones": 11
+    }
+  },
+  "callgraph": {
+    "version": "1.0",
+    "sha256": "e33189c019a6ff17550b33c32291ad15",
+    "estado": "TOOL_VALIDATED",
+    "asserts": "12/12",
+    "proposito": "quien llama a cada funcion, via FunctionDecl ENCLOSING del AST",
+    "vias": [
+      "DIRECTA (CallExpr)",
+      "INDIRECTA (tabla de ops)"
+    ],
+    "control_negativo": "AST 0 llamadas + texto >1 aparicion => DISCREPANCIA, no codigo muerto",
+    "correcciones": [
+      115,
+      116,
+      117,
+      120,
+      121
+    ]
+  },
+  "conflicto": {
+    "version": "1.0",
+    "sha256": "86a9e2981c2a854dd479ad5eb28676fd",
+    "estado": "TOOL_VALIDATED",
+    "asserts": "30/30",
+    "proposito": "registros que DOS funciones de riesgo escriben sin mutex",
+    "resultado": {
+      "riesgo": 24,
+      "registros": 111,
+      "con_conflicto": 13,
+      "mismo_bloque": 13,
+      "sin_conflicto": 11,
+      "autofiguras": 0,
+      "bloques": {
+        "GFX": 9,
+        "GFXHUB": 4,
+        "GMC": 9,
+        "SDMA": 2
+      }
+    },
+    "caso_mas_limpio": "mmRLC_CGTT_MGCG_OVERRIDE: gfx_v8_0.c:5618 vs :5718, RMW sin mutex en el mismo bloque",
+    "nota_TOOL_PARTIAL": "el self-test sintetico NO cubre el corpus; se evalua aparte con su coste",
+    "correcciones": [
+      127,
+      128,
+      133,
+      134,
+      135,
+      136
+    ],
+    "correccion_135": "la PTBA NO la comparten gart_enable y gart_disable: era lectura de tabla truncada",
+    "comunes_reales": [
+      "mmMC_VM_MX_L1_TLB_CNTL",
+      "mmVM_CONTEXT0_CNTL",
+      "mmVM_CONTEXT1_CNTL",
+      "mmVM_L2_CNTL",
+      "mmVM_L2_CNTL2"
+    ],
+    "descarte": {
+      "objeto": "gmc_v8_0_vm_fault_interrupt_state (gmc_v8_0.c:1385), unico manejador IRQ de las 24",
+      "comparte": "mmVM_CONTEXT0_CNTL y mmVM_CONTEXT1_CNTL, con gart_enable (:829) y gart_disable (:972)",
+      "patron": "RMW en ambos: la IRQ borra bits de fault, gart_enable pone ENABLE_CONTEXT",
+      "riesgo_si_se_solaparan": "perdida de actualizacion, no disputa de orden",
+      "veredicto": "DESCARTADO por construccion",
+      "motivo": "la IRQ entra por amdgpu_irq.c:579 con spin_lock_irqsave(&adev->irq.lock) y hace el RMW DENTRO; gart_enable (span 829-946) no toma ningun lock y su unico llamante es gmc_v8_0_hw_init, de proceso",
+      "asserts": "7 asserts fijan el descarte; si alguien anade mutex a gart_enable, cambian"
+    }
+  },
+  "paths": {
+    "version": "1.0",
+    "sha256": "a5082f0c0c057a8a6fdc9ea1b2fe5425",
+    "estado": "TOOL_VALIDATED",
+    "asserts": "10/10",
+    "proposito": "la ruta del corpus en un solo sitio",
+    "hallazgo": "HIPOTESIS REFUTADA: las 3 formas dan la misma clave de cache"
+  },
+  "alcance": {
+    "version": "1.0",
+    "sha256": "efa6ae0be4979061f8e160c3617aa40c",
+    "estado": "TOOL_VALIDATED",
+    "asserts": "37/37",
+    "proposito": "raiz asincrona o de proceso, transitiva, para las 13 en conflicto",
+    "resultado": {
+      "reparto": {
+        "VIA_OPS": 13
+      },
+      "raices_asincronas": 0,
+      "top": 0
+    },
+    "veredicto": "las 13 quedan NOT_DETERMINED por falta del dispatcher de ASIC",
+    "motivo": "toda cadena se agota en una tabla de ops; la raiz ES amdgpu_asic_init, que PROVEN_ABSENT en este corpus",
+    "correcciones": [
+      152,
+      153,
+      156,
+      157,
+      158,
+      159,
+      186,
+      187,
+      188,
+      189,
+      190
+    ],
+    "no_afirmado": "que las 13 sean de proceso; VIA_OPS no es un veredicto de contexto",
+    "anillo": {
+      "segundo": [
+        "amdgpu_ip.c",
+        "amdgpu_device.c",
+        "amdgpu_job.c"
+      ],
+      "puntos_de_entrada": 12,
+      "aserciones": 49,
+      "estado": "TOOL_VALIDATED"
+    }
+  },
+  "transiciones": {
+    "version": "1.0",
+    "sha256": "809041997b0326565e54c24074c6f196",
+    "estado": "TOOL_VALIDATED",
+    "asserts": "22/22",
+    "proposito": "agrupar las 13 en conflicto por conflicto, y leer cada grupo como estructura",
+    "resultado": {
+      "funciones": 13,
+      "pares": 2,
+      "trios": 3,
+      "cuadra": "2x2+3x3=13",
+      "par_coarse_medium": {
+        "regs": [
+          "mmRLC_CGTT_MGCG_OVERRIDE"
+        ],
+        "rmw": "ambas",
+        "riesgo": "perdida de actualizacion"
+      },
+      "par_light_sleep": {
+        "regs": 9,
+        "ptba": false,
+        "riesgo": "no cuantificado"
+      },
+      "sin_nombre": 0
+    },
+    "correcciones": [
+      160,
+      161,
+      162,
+      163,
+      164,
+      165,
+      166
+    ],
+    "no_afirmado": "que las 13 sean seguras: agrupar describe el solape, no lo impide"
+  },
+  "ciclo": {
+    "version": "1.0",
+    "sha256": "4e300d9468138db340c411721eeef018",
+    "estado": "TOOL_VALIDATED",
+    "asserts": "22/22",
+    "proposito": "los 3 trios como ciclos de vida, con invariante comprobable",
+    "resultado": {
+      "ciclos": 3,
+      "forma": "los 3 con 1 setup + 1 teardown",
+      "con_restaurador": 2,
+      "sin_rol": 1,
+      "invariante_verificado": "mc_stop pone MC_SHARED_BLACKOUT_CNTL.BLACKOUT_MODE=1 y mc_resume lo pone a 0 (gmc_v8_0.c:181-201)",
+      "registro_sin_setup": "mmGCVM_L2_CNTL3 lo escribe gart_disable y no lo toca gart_enable"
+    },
+    "correcciones": [
+      167
+    ],
+    "no_afirmado": "que mmGCVM_L2_CNTL3 este mal inicializado: su inicializador cae en el dispatcher ausente"
+  },
+  "bits": {
+    "version": "1.0",
+    "sha256": "f124e7b0bf5adfd474463f2b84852432",
+    "estado": "TOOL_VALIDATED",
+    "asserts": "21/21",
+    "proposito": "los bits que escribe cada fase, y si son disjuntos o se solapan",
+    "resultado": {
+      "contextos_campos": 22,
+      "mismo_valor": 22,
+      "mascaras": {
+        "setup": "0x17 (4 bits)",
+        "teardown": "0x0",
+        "irq": "0x249248 (7 bits)"
+      },
+      "solapes": {
+        "setup_irq": "0x0",
+        "setup_teardown": "0x0"
+      }
+    },
+    "hallazgo": "el setup (config por defecto + ENABLE_CONTEXT) y la IRQ (bits de notificacion) son fases DISJUNTAS",
+    "hipotesis_refutada": "la IRQ usa nombres de CONTEXT1 sobre CONTEXT0; no es bug, los 22 campos coinciden en valor",
+    "correcciones": [
+      168
+    ]
+  },
+  "pisa": {
+    "version": "1.0",
+    "sha256": "249fda01c2ef1cbdfdbda388762abadd",
+    "estado": "TOOL_VALIDATED",
+    "asserts": "18/18",
+    "proposito": "quien escribe un registro ENTERO (literal) y quien solo por campo",
+    "resultado": {
+      "funciones": 13,
+      "con_escritura_en_bruto": 4,
+      "gart_disable": [
+        "mmVM_CONTEXT0_CNTL",
+        "mmVM_CONTEXT1_CNTL",
+        "mmVM_L2_CNTL2"
+      ],
+      "gart_enable": [
+        "mmVM_CONTEXT0_CNTL2",
+        "mmVM_CONTEXT1_CNTL2",
+        "mmVM_CONTEXT1_PAGE_TABLE_START_ADDR"
+      ]
+    },
+    "hallazgo": "gart_disable borra CONTEXT0_CNTL entero: es el unico que pone ENABLE_CONTEXT=0, y lo hace borrando la palabra",
+    "correcciones": [
+      169
+    ]
+  },
+  "revierte": {
+    "version": "1.0",
+    "sha256": "de88ebcbe2ff6b8b985a8a93d1fee707",
+    "estado": "TOOL_VALIDATED",
+    "asserts": "18/18",
+    "proposito": "¿el ciclo devuelve el registro al estado que encontro?",
+    "resultado": {
+      "CONTEXT0_CNTL": {
+        "recupera": "0x17 (4)",
+        "pierde": "0xffdb6da0 (21)",
+        "reversible": false
+      },
+      "CONTEXT1_CNTL": {
+        "recupera": "0xf492497 (14)",
+        "pierde": "0xf0924920 (11)",
+        "reversible": false
+      }
+    },
+    "campos_perdidos_cont0": 12,
+    "hallazgo": "gart_disable borra CONTEXT0_CNTL entero y gart_enable solo repone 3 campos: repetir el ciclo pierde los campos de proteccion",
+    "acoplamiento": "la IRQ es la unica que pone los bits de notificacion; repetir el ciclo sin ella los pierde",
+    "correcciones": [
+      171,
+      172,
+      173
+    ]
+  },
+  "mandato": {
+    "sha_rx550_target_c": "ce0aa79eb0d02f4d30834302952274be",
+    "sha_mmio_access_c": "043e24c5dca469fc3848c939c0bfdda7",
+    "escritura_registros": "NINGUNA de configuracion; solo readl en el probe (rx550_mmio_access.c:400) y un writel generico sin usar (:405)",
+    "clasificacion_correcta": "PROVEN_CORPUS_WRITES / DECLARED_NOT_WRITTEN con el motivo correcto: un escritor que no sepa que campos hay no puede conservar nada",
+    "hallazgo": {
+      "afirmacion": "los 7 campos *_INTERRUPT de VM_CONTEXT1_CNTL son DECLARED_NOT_WRITTEN: el corpus no los toca",
+      "veredicto": "FALSO a nivel de corpus",
+      "realidad": "el corpus los escribe en gmc_v8_0_vm_fault_interrupt_state (gmc_v8_0.c:1391-1418), mascara 0x249248",
+      "matiz": "SI es cierto que gart_enable y gart_disable no los tocan; lo falso es 'el corpus no los toca'",
+      "consecuencia": "un escritor que los preserve creyendo que nadie los pone sobreescribira la notificacion de faults que la IRQ configura",
+      "clase": "A (escaneo acotado al par setup/teardown dio 0 y se concluyo ausente)"
+    },
+    "tabla_campos": {
+      "veredicto_datos": "CORRECTOS",
+      "filas": 28,
+      "registros": {
+        "VM_CONTEXT1_CNTL": 22,
+        "MC_VM_MX_L1_TLB_CNTL": 6,
+        "VM_CONTEXT0_CNTL": 0
+      },
+      "filas_con_mask_o_shift_distintos": 0,
+      "cobertura": "INCOMPLETA: falta VM_CONTEXT0_CNTL, que gart_disable pone a cero (gmc_v8_0.c:977)",
+      "reutilizable": "los 22 campos de CONTEXT0_CNTL tienen nombre y valor identicos a los de CONTEXT1: la tabla de CONTEXT1 sirve tal cual",
+      "inferencia": "ERRONEA en 7 campos _INTERRUPT (los pone la IRQ, no son DECLARED_NOT_WRITTEN)"
+    },
+    "correcciones": [
+      175,
+      176,
+      177,
+      178,
+      179,
+      180,
+      181
+    ],
+    "sha_mandato_py": "c3d30fc4e9ae5c3881b2f194c69a554a",
+    "herramienta": {
+      "version": "1.0",
+      "estado": "TOOL_VALIDATED",
+      "asserts": "23/23 con sandbox; 18/18 sin el",
+      "proposito": "contrastar la tabla de campos del mandate contra los headers ASIC, por registro",
+      "salida": {
+        "VM_CONTEXT1_CNTL": {
+          "declarados": 22,
+          "header": 22,
+          "estado": "CORRECTO"
+        },
+        "MC_VM_MX_L1_TLB_CNTL": {
+          "declarados": 6,
+          "header": 6,
+          "estado": "CORRECTO"
+        },
+        "VM_CONTEXT0_CNTL": {
+          "declarados": 0,
+          "header": 22,
+          "estado": "AUSENTE"
+        }
+      },
+      "criterio_de_header": "el header donde existen TODOS los campos del mandate; con empate se declara AMBIGUO",
+      "correcciones": [
+        177,
+        182,
+        183,
+        184,
+        185
+      ],
+      "parche": {
+        "artefacto": "/var/tmp/rx550/patches/rx550-mmio-cnt0-provenance.patch",
+        "bytes": 7997,
+        "sandbox": "TABLA PASS · COMPILACION PASS · SUITE SKIP_ENTORNO · TODO PASS",
+        "cambios": [
+          "+22 filas de VM_CONTEXT0_CNTL con comentario",
+          "7 _INTERRUPT: DECLARED_NOT_WRITTEN -> PROVEN_CORPUS_WRITES, fuente gmc_v8_0.c:1391"
+        ],
+        "verificado": "bucle cerrado: original AUSENTE/CORRECTO -> sandbox CORRECTO en los 3 registros",
+        "arbol_compartido": "rx550_mmio_access.c sha 043e24c5dca469fc3848c939c0bfdda7, sin cambios; staged 0",
+        "correcciones": [
+          179,
+          180,
+          181
+        ],
+        "guarda_escritura": "SKIP_ESCRITURA fuera de /var/tmp/rx550 (correccion 185)",
+        "veredictos": [
+          "PASS",
+          "SKIP_ENTORNO",
+          "SKIP_ESCRITURA",
+          "FAIL"
+        ],
+        "mandate_real": "TABLA PASS · COMPILACION SKIP_ESCRITURA · SUITE 276/0 · TODO PASS"
+      },
+      "rastro": {
+        "funcion": "rastro_corpus(registro, campo)",
+        "modos": [
+          "RMW_CAMPO",
+          "RMW_MASCARA",
+          "AUSENTE"
+        ],
+        "alias_hub": "_registro_de_este_hub(): MC_ -> MC_/GCMC_/MMMC_/MMC_",
+        "aserciones": 27,
+        "estado": "TOOL_VALIDATED"
+      }
+    },
+    "cobertura": {
+      "registros_nombrados": 26,
+      "existen_en_corpus": 26,
+      "desconocidos": 0,
+      "ficheros": [
+        "target_regs.h (10)",
+        "rx550_mmio_access.c (16)"
+      ],
+      "control_negativo": "drm_gpuvm es un TIPO: exige prefijo mm/reg",
+      "negativo_no_es_defecto": "235 registros del corpus que el mandate no nombra es alcance distinto (esqueleto), no cobertura faltante",
+      "limite_del_mi_escaneo": "mmVM_CONTEXT1_PAGE_TABLE_BASE_ADDR lo escribe el corpus por offset calculado (gmc_v8_0.c:676): un escaneo por nombre no lo ve"
+    }
+  },
+  "correcciones": 182,
+  "correcciones_max": 237,
+  "run-all": {
+    "automatizacion_id": "run-all.sh",
+    "estado": "REUSABLE",
+    "proposito": "ejecutar el self-test de las 15 herramientas y dar un veredicto unico",
+    "artefacto": "KIT-VERDICT.json",
+    "aserciones": 360,
+    "suelo": 300,
+    "estados": [
+      "PASS",
+      "SKIP_ENTORNO",
+      "INVALID_RESULT",
+      "TOOL_MISSING"
+    ],
+    "correcciones": [
+      200,
+      201,
+      202,
+      203,
+      204,
+      205,
+      206,
+      207,
+      208,
+      209,
+      210,
+      211,
+      212,
+      213,
+      214,
+      215,
+      216,
+      217,
+      218,
+      219,
+      220,
+      221,
+      222,
+      223,
+      224,
+      225,
+      226,
+      227,
+      228,
+      229,
+      230,
+      231,
+      232,
+      233,
+      234,
+      235,
+      236,
+      237
+    ],
+    "modo_falla": "exit 0 sin artefacto = INVALID_RESULT; sin artefacto = INVALID_RESULT",
+    "casos_limite_validados": [
+      "exit 0 con log vacio",
+      "log sin recuento",
+      "recuento 0/0",
+      "suelo no alcanzado",
+      "suelo alcanzado",
+      "destino no escribible",
+      "herramienta inexistente"
+    ],
+    "selftest": "39 asserts TOOL_VALIDATED",
+    "metodo": "el selftest lanza el script REAL con $RX550_KIT_DIR/$RX550_KIT_PLAN sobre fixtures; no reimplementa la logica",
+    "plan": "kit.plan: tarea:modo:timeout:entorno argumento",
+    "autocomprobacion": "plan vs registradas; un desajuste es INVALID_RESULT",
+    "veredicto": "PASS",
+    "detalle": "15 pasaron, 0 SKIP_ENTORNO, 341 aserciones",
+    "fingerprint": {
+      "hash": "edf2d30d51fd6cac",
+      "campos": 18,
+      "nodo_drm": "card1",
+      "vram": "2147483648",
+      "placa": "ECS H81H3-M4",
+      "nota": "la VRAM se lee de debugfs y da 2147483648 B; el nodo DRM se resuelve por enlace real, y es card1 porque card0 es la iGPU"
+    },
+    "tareas_de_veredicto": [
+      "mandato-parche-sandbox",
+      "mandato-parche-real"
+    ],
+    "modo": "--self-test usa FIXTURES; el resto usa CODIGO",
+    "logs_de_veredicto": "/var/tmp/rx550/kit-logs/",
+    "correccion_231": "el plan se expande con envsubst; eval NO expande un resultado",
+    "comparacion": {
+      "estado": "REPRODUCIBLE",
+      "salida_propia": 4,
+      "que_compara": "estado y recuento por tarea, en orden de nombre",
+      "que_no_compara": "el artefacto entero: lleva rutas y numeros de linea que cambian sin que cambie el resultado"
+    }
+  }
+}

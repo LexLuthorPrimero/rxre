@@ -1,0 +1,44 @@
+# AGENT-22 DPM capture (device HELD ACTIVE via renderD129 open)
+# host: 7.1.3-200.nobara.fc44.x86_64  gpu: 1002:699f rev c7
+# runtime_status: active
+
+=== pp_num_states ===
+states: 2
+0 boot
+1 performance
+=== pp_dpm_sclk (FULL) ===
+0: 214Mhz *
+1: 551Mhz 
+2: 734Mhz 
+3: 980Mhz 
+4: 1000Mhz 
+5: 1020Mhz 
+6: 1046Mhz 
+7: 1071Mhz 
+=== pp_dpm_mclk (FULL) ===
+0: 300Mhz *
+1: 625Mhz 
+2: 1500Mhz 
+=== pp_dpm_pcie (FULL) ===
+0: 2.5GT/s, x8 
+1: 5.0GT/s, x16 *
+=== pp_cur_state ===
+1
+=== pp_force_state ===
+
+=== pp_power_profile_mode ===
+NUM        MODE_NAME     SCLK_UP_HYST   SCLK_DOWN_HYST SCLK_ACTIVE_LEVEL     MCLK_UP_HYST   MCLK_DOWN_HYST MCLK_ACTIVE_LEVEL
+  0   BOOTUP_DEFAULT:        -                -                -                -                -                -
+  1 3D_FULL_SCREEN *:        0              100               30                3               16               20
+  2     POWER_SAVING:       10                0               30                -                -                -
+  3            VIDEO:        -                -                -               10               16               31
+  4               VR:        0               11               50                0              100               10
+  5          COMPUTE:        0                5               30                -                -                -
+  6           CUSTOM:        -                -                -                -                -                -
+=== pp_sclk_od / pp_mclk_od ===
+0
+0
+=== power_dpm_state ===
+performance
+=== power_dpm_force_performance_level ===
+auto
