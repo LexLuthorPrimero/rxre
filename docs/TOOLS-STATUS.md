@@ -3359,6 +3359,20 @@ vacia, los cinco darian FALLO.
    imprime. Y hay que sospechar de cualquier linea de este fichero que diga
    "informativo" y pase por `chk`.
 
+**ESTA HERRAMIENTA YA CONTESTA LA PREGUNTA "DONDE VIVE ESTE BLOQUE", Y ESO SE
+HA OLVIDADO AL MENOS UNA VEZ.** La columna `en` de `--funcs` lleva bloque ->
+fichero para los 10 bloques de POLARIS12, incluidos los que estan fuera de
+`amdgpu/`. Con ella se ve que la divergencia de nombres es **triple**: en 6 de los
+10, el nombre del bloque, el de la tabla `.funcs` y el del fichero **son tres
+nombres distintos** (`gmc_v8_1_ip_block` / `gmc_v8_0_ip_funcs` /
+`gmc_v8_0.c`). Buscar `X_ip_block` en `X.c` da 0 resultados en 5 de los 10.
+
+Medido el coste de no mirar: se concluyo "8 de 10 bloques ilegibles", lo que
+habria cerrado la frontera EV-43 como `NOT_IN_CORPUS`, cuando los 10 son legibles.
+Por eso `--funcs` ahora imprime el aviso en su propio limite, y por eso la regla
+es: **una herramienta VALIDATED que ya responde se usa antes de reconstruir la
+respuesta a mano**.
+
 **LO QUE SE MIDIO ANTES DE CAMBIAR NADA.** 17 ficheros de `docs/`, contados con
 la metrica de linea (`l.strip().startswith("```")`), no con "todas las
 apariciones": contar tambien los que estan en medio de una frase roba la paridad y

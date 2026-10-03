@@ -532,6 +532,14 @@ def main(argv):
         print("  LIMITE: solo las tablas .funcs de los bloques. NO cubre los fops")
         print("  de DRM, los sysfs, el debugfs ni los ioctls, que tambien entran")
         print("  por puntero y son la via por la que el KERNEL llama al driver.")
+        print("  OJO, que esto ya ha costado una conclusion falsa: el nombre del")
+        print("  bloque, el de la tabla .funcs y el del fichero son TRES nombres")
+        print("  distintos. En 6 de los 10 no coinciden dos. Buscar 'X_ip_block' en")
+        print("  'X.c' da 0 resultados en 5 de los 10, y ese 0 no significa que el")
+        print("  bloque no exista: significa que la ruta esa no existe. Para")
+        print("  POLARIS12: gmc_v8_1 vive en gmc_v8_0.c, y su tabla se llama")
+        print("  gmc_v8_0_ip_funcs; sdma_v3_1 en sdma_v3_0.c; pp_smu en")
+        print("  pm/powerplay/amd_powerplay.c. Use la columna 'en' de arriba.")
         if total == 0:
             print("  ERROR/INVALID: 0 funciones. No es un resultado.")
             return 3

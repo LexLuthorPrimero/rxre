@@ -3403,3 +3403,108 @@ fences, comprobado en el acto), el control falla `rc=1` nombrando el documento.
 
 check.sh TODO CORRECTO (rc=0) | cn8 todos los controles pasan | selfcheck 30/30.
 GPU INTACTA. WRITE_EXECUTION NONE.
+## 2026-10-03 · opencode · EV-44: `gmc_v8_1` ES `gmc_v8_0`, y el nombre del bloque no dice donde vive
+
+```
+OBJECT   RESEARCH/.../amdgpu/gmc_v8_0.c, revkit/gfx8blocks.py --funcs
+ACTION   LECTURA ESTATICA pura. No se toco la GPU ni el corpus.
+TRACK    EVIDENCE · READ_ONLY_CORPUS · WRITE_EXECUTION=NONE · GPU INTACTA
+```
+
+**PUNTO DE PARTIDA, Y ERA UN NOT_DETERMINED CONCRETO.** EV-43 dejo abierto que
+contrastar, por via estatica, lo que `hw_init` de GMC **deberia haber escrito** con
+lo que la telemetria de reposo **si** refleja. Sin tocar la GPU.
+
+**LO PRIMERO, Y FUE FALSO.** `gmc_v8_1.c` no existe en ningun arbol de este repo,
+asi que conclui que la pregunta no era cerrable. **Era falso, y por dos suposiciones
+encadenadas.** La primera: supuse que un bloque `X_ip_block` vive en `X.c`. La
+segunda: cuando esa suposicion fallo, supuse que los arboles estaban podados.
+
+La verdad, medida: **`gmc_v8_1_ip_block` esta definido en `amdgpu/gmc_v8_0.c`**:
+
+```
+const struct amdgpu_ip_block_version gmc_v8_1_ip_block = {
+        .type = AMD_IP_BLOCK_TYPE_GMC, .major = 8, .minor = 1, .rev = 0,
+        .funcs = &gmc_v8_0_ip_funcs,
+};
+```
+
+O sea que **no existen funciones `gmc_v8_1_*`**, y no por accidentede busqueda: el
+bloque v8_1 **reutiliza la tabla de funciones de v8_0 sin cambios**. El `.minor = 1`
+identifica la version y **no discrimina comportamiento**. Es el caso "bloque !=
+tabla != fichero" de EV-40, aqui con una consecuencia de primer orden: para
+POLARIS12, GMC **es** el codigo de v8_0.
+
+**LO QUE `hw_init` HACE, Y LO QUE NO.** `gmc_v8_0_hw_init` para POLARIS12 hace
+**cuatro** cosas y nada mas:
+
+1. `gmc_v8_0_init_golden_registers(adev)`
+2. `gmc_v8_0_mc_program(adev)`
+3. `gmc_v8_0_polaris_mc_load_microcode(adev)` -- rama POLARIS10/11/12
+4. `gmc_v8_0_gart_enable(adev)`
+
+**No programa DPM, ni relojes, ni voltajes.** Y esa es la respuesta al
+NOT_DETERMINED: **el estado que `gputel` mide en reposo --mclk clavado a 300 MHz,
+sclk ~1040 MHz, vddgfx 0,81-0,88 V, PPT 6-7 W-- no lo escribe GMC.** Lo escribe
+`pp_smu` (que vive en `pm/powerplay/amd_powerplay.c`, no en `amdgpu/`) y el SMU. Es
+la primera vez que la telemetria y el codigo secontradicen de forma util: no se
+contradicen, se **reparten**.
+
+**LOS GOLDEN REGISTERS DE POLARIS12, QUE SON CUATRO.** Para POLARIS12 la rama es
+`golden_settings_polaris11_a11` y **una sola** secuencia, sin el
+`<asic>_mgcg_cgcg_init` que si reciben Fiji, Tonga, Carrizo y Stoney:
+
+```
+mmVM_PRT_APERTURE0_LOW_ADDR, 0x0fffffff, 0x0fffffff,
+mmVM_PRT_APERTURE1_LOW_ADDR, 0x0fffffff, 0x0fffffff,
+mmVM_PRT_APERTURE2_LOW_ADDR, 0x0fffffff, 0x0fffffff,
+mmVM_PRT_APERTURE3_LOW_ADDR, 0x0fffffff, 0x0fffffff
+```
+
+POLARIS12 **comparte tabla con POLARIS11 y VEGAM**; POLARIS10 tiene la suya. Eso
+no es un detalle: es la clase de ASIC de la que sale todo el GMC de esta tarjeta.
+
+**LA TRAMPA QUE MAS CUESTA, Y LA MEDI.** El nombre
+`golden_settings_polaris11_a11` esta en **tres** ficheros del mismo arbol, con
+contenido distinto:
+
+| fichero | contenido | registros |
+|---|---|---|
+| `amdgpu/gmc_v8_0.c:92` | `mmVM_PRT_APERTURE0..3_LOW_ADDR` | 4 |
+| `amdgpu/sdma_v3_0.c:117` | `mmSDMA{0,1}_{CHICKEN_BITS,CLK_CTRL,GFX/RLC{0,1}_IB_CNTL}` | 10 |
+| `amdgpu/gfx_v8_0.c:339` | otra cosa | otra |
+
+Leer el fichero equivocado no da una lista incompleta: da una lista **falsa**, y
+de bloques distintos. Un nombre de tabla no identifica su tabla.
+
+**LA RESPUESTA A LA PREGUNTA YA ESTABA HECHA, Y YO NO LA USE.** `gfx8blocks.py
+--funcs` **ya resolvia bloque -> fichero** y lo lleva impreso en la columna `en`.
+Sus 10 filas:
+
+```
+vi_common -> amdgpu/vi.c              gmc_v8_1  -> amdgpu/gmc_v8_0.c
+tonga_ih  -> amdgpu/tonga_ih.c        gfx_v8_0  -> amdgpu/gfx_v8_0.c
+sdma_v3_1 -> amdgpu/sdma_v3_0.c       pp_smu    -> pm/powerplay/amd_powerplay.c
+amdgpu_vkms -> amdgpu/amdgpu_vkms.c   dm        -> display/amdgpu_dm/amdgpu_dm.c
+uvd_v6_3  -> amdgpu/uvd_v6_0.c         vce_v3_4  -> amdgpu/vce_v3_0.c
+```
+
+Coincide **10 de 10** con lo que derive a mano despues. Y el mismo output muestra
+que la divergencia de nombres es **triple**, no doble: en 6 de los 10 bloques el
+nombre del bloque, el de la tabla `.funcs` y el del fichero **son tres nombres
+distintos** (`gmc_v8_1_ip_block` / `gmc_v8_0_ip_funcs` / `gmc_v8_0.c`). Las 145
+funciones registradas salen de ahi.
+
+**MIS TRES INTENTOS FALLIDOS, QUE SON EL CONTENIDO REAL DE ESTA RONDA.** Busque el
+bloque en `amdgpu/<nombre>.c` y concluí "8 de 10 ilegibles". Luego mire en el arbol
+entero con un extractor propio que **tardo mas de 120 s y fueogado**, y cuya
+extraccion de definiciones salio defectuosa (devolvio 0 en vez de 93). El unico
+metodo que funciono fue el que ya usaba `gfx8blocks.py`.
+
+La leccion no es "tengo que tener cuidado". Es: **una herramienta VALIDATED que ya
+responde la pregunta se usa antes de construir la respuesta a mano**, y cuando la
+suposicion propia contradice a la herramienta, la suposicion es lo dudoso. Por
+eso, antes de afirmar "no se puede", el orden es: buscar la respuesta en las
+herramientas existentes, y despues en el codigo.
+
+GPU INTACTA. WRITE_EXECUTION NONE. NO SE TOCO EL CORPUS.
