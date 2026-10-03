@@ -1,7 +1,17 @@
 #!/usr/bin/env python3
 # CONTRACT: name=findings_index
-# CONTRACT: READONLY=yes
-# CONTRACT: WRITES_FILES=no
+# NO es READONLY, y no por una excepcion: `--escribir-reenvio` genera
+# FINDINGS-RENUMERACIONES.md en la raiz del proyecto. Declararse read-only
+# mientras se escribe un fichero del proyecto es la clase de mentira que
+# invalida el resto de la tabla de contratos.
+#
+# Y no es la primera vez que se declara al reves en esta herramienta: antes de
+# corregirlo, `toolkit.py` ya lo senalaba como uno de los FALLA. El aviso era
+# CIERTO y la causa era ESTA. Se comprobaba leyendo la definicion de la flag --
+# WRITES_FILES es "si escribe ficheros DEL PROYECTO" -- y no por lo que el
+# mensaje del validador pareciera decir.
+# CONTRACT: READONLY=no
+# CONTRACT: WRITES_FILES=yes
 # CONTRACT: WRITES_SYSFS=no
 # CONTRACT: MUTATES_CORPUS=no
 # CONTRACT: WRITES_GPU=no
