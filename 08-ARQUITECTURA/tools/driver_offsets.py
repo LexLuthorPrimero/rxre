@@ -37,6 +37,7 @@ Uso:
   driver_offsets.py --fichero N      uno
   driver_offsets.py --pm4           opcode de paquete del driver vs sid.h/vid.h
   driver_offsets.py --pm4           opcode de paquete vs sid.h/vid.h
+  driver_offsets.py --vflush      dwords de la secuencia de vm-flush
   driver_offsets.py --campos       shifts de campo vs sid.h/vid.h
   driver_offsets.py --self-test
 
@@ -185,6 +186,58 @@ def cotejo_pm4():
             mal += 1
     return filas, ok, mal
 
+
+
+# ------------------------------------------------- SECUENCIA DE INVALIDACION
+# Ni opcode ni registro: el numero de DWORDS que escribe la secuencia de
+# vm-flush. Es el ultimo contrato numerico del driver, y gobierna si el TLB se
+# invalida entero. Se cuenta LEYENDO los emisores, no creyendo la constante: si
+# un emisor cambia y la constante no, esta herramienta lo ve.
+RE_EMIT = re.compile(r"buf\[ib->length_dw\+\+\]")
+
+
+def _dwords(nombre):
+    """Cuantos dwords escribe un emisor del driver, contados en su cuerpo."""
+    ruta = os.path.join(DRV, "rx550_pm4.c")
+    with open(ruta, encoding="utf-8", errors="replace") as fh:
+        texto = fh.read().split("\n")
+    total, dentro = 0, False
+    for linea in texto:
+        if re.match(r"^(__u32|void|static).*\b%s\s*\(" % nombre, linea):
+            dentro = True
+            continue
+        if dentro:
+            total += len(RE_EMIT.findall(linea))
+            if linea.startswith("}"):
+                return total
+    return None
+
+
+def cotejo_vflush():
+    wd, wr, pf = _dwords("rx550_pm4_write_data"), \
+                   _dwords("rx550_pm4_wait_reg_mem"), \
+                   _dwords("rx550_pm4_pfp_sync_me")
+    filas, ok, mal = [], 0, 0
+    if None in (wd, wr, pf):
+        return [("no se pudo contar un emisor", "-", 0, "NO_ENCONTRADO", "-")], 0, 1
+    gfx = wd + wd + wr + pf        # PTBA + invalidate + wait + pfp
+    nofp = wd + wd + wr            # PTBA + invalidate + wait
+    # El desglose se escribe con los NOMBRES de los emisores, no con numeros
+    # sueltos: "5+5" no dice de donde sale, y un desglose que no se puede
+    # leer es peor que no dar ninguno.
+    desglose = ("2 write_data(%d+%d) + wait(%d) + pfp(%d)"
+                % (wd, wd, wr, pf))
+    desglose_nopfp = "2 write_data(%d+%d) + wait(%d)" % (wd, wd, wr)
+    for nombre, cuenta, declarado, desglose in (
+            ("VM_FLUSH_DW (con PFP)", gfx, 19, desglose),
+            ("VM_FLUSH_DW_NO_PFP", nofp, 17, desglose_nopfp)):
+        est = "CONFIRMADO" if cuenta == declarado else "** DIFIERE **"
+        if est == "CONFIRMADO":
+            ok += 1
+        else:
+            mal += 1
+        filas.append((nombre, desglose, cuenta, est, "declarado %d" % declarado))
+    return filas, ok, mal
 
 
 # ------------------------------------------------------------- CAMPOS
@@ -336,6 +389,13 @@ def self_test():
         fails.append("%d campos no coinciden: %s"
                      % (malc, [f for f in filas if f[4] != "CONFIRMADO"]))
 
+    # 6. ANCLA DE LA SECUENCIA DE INVALIDACION. Los 19 y 17 NO se creyen: se
+    #    cuentan los dwords que escriben los emisores. Dos write_data + wait +
+    #    pfp_sync_me. Si un emisor cambiara y la constante no, esto falla.
+    _f, _ok, _mal = cotejo_vflush()
+    if _mal:
+        fails.append("la secuencia de vm-flush no cuadra: %s" % [f for f in _f])
+
     for nom, off in (("RX550_MM_VM_CTX0_PTBA", 0x54F),
                      ("RX550_MM_VM_CTX8_PTBA", 0x50E),
                      ("RX550_MM_VM_INVALIDATE_REQ", 0x51E)):
@@ -370,6 +430,18 @@ def main(argv):
         if not ficheros:
             print("driver_offsets: no existe %s" % base, file=sys.stderr)
             return 2
+
+    if "--vflush" in argv:
+        filas, ok2, mal = cotejo_vflush()
+        print("secuencia de vm-flush: dwords CONTADOS en los emisores")
+        print()
+        for nombre, desglose, cuenta, est, src in filas:
+            print("  %-20s %-40s = %-3s %-12s %s"
+                  % (nombre, desglose, cuenta, est, src))
+        print()
+        print("CONFIRMADOS %d de %d" % (ok2, len(filas)))
+        return 1 if mal else 0
+
 
     if "--campos" in argv:
         filas, ok2, mal = cotejo_campos()

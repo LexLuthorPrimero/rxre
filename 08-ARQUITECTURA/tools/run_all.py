@@ -308,6 +308,10 @@ def main():
         # un paquete BIEN FORMADO que hace OTRA cosa, y eso si da sintomas.
         ("driver_offsets: 8 campos de paquete contra la ISA",
          ["driver_offsets.py", "--campos"], 0, 0),
+        # Los dwords de la secuencia de vm-flush, CONTADOS en los emisores. Si
+        # un emisor cambia y la constante no, esta comprobacion falla.
+        ("driver_offsets: 19/17 dwords de vm-flush contados",
+         ["driver_offsets.py", "--vflush"], 0, 0),
         # La reserva de numeros de hallazgo. num_collision mide 37 duplicados
         # y esta sesion choco 3 veces (111, 119, 120) con otra escribiendo.
         # El self-test RESERVA y LIBERA de verdad: comprobar que el numero no
