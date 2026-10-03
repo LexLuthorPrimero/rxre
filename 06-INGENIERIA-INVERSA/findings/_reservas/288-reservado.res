@@ -1,3 +1,0 @@
-RESERVADO numero=288 pid=186110
---help
-2026-10-03T01:30:03
