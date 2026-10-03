@@ -3772,3 +3772,94 @@ que la revision de la tabla sea la que se espera, son dos cosas; la segunda qued
 pendiente de medir en el parseo.
 
 GPU INTACTA. WRITE_EXECUTION NONE. NO SE TOCO EL CORPUS NI LAS CAPTURAS.
+## 2026-10-03 · opencode · EV-48: `300000` no esta en `PowerPlayInfo`, y la CORRECCION de una afirmacion mia
+
+```
+OBJECT   revkit/capturas/amdgpu_vbios.txt (SOLO LECTURA), /tmp/opencode/polaris12_smc.bin
+ACTION   Lectura + busqueda multi-codificacion. Corrijo EV-45.
+TRACK    EVIDENCE + CORRECTION · READ_ONLY · WRITE_EXECUTION NONE · GPU INTACTA
+```
+
+**CORRECCION PRIMERO, Y ES MIA.** En EV-45 escribi que `kernelbuild`, con 103.617
+ficheros, **"no esta podado, esta entero"**. **Es falso**, y lo afirme por un
+**recuento de ficheros**, que no es una completitud. Medido:
+
+| arbol | ficheros en total | `.c` en `amdgpu/` | ficheros en `amd/` |
+|---|---|---|---|
+| `baseline/linux-7.1.3` | 2.787 | 304 | 2.689 |
+| `working/linux-7.1.3` | 2.787 | 304 | 2.689 |
+| `kernelbuild/linux-7.1.3` | **103.617** | 304 | **2.689** |
+
+Los tres tienen el subarbol `amd/` **identico**, byte a byte en la lista de
+ficheros (`diff` sale vacio). `kernelbuild` anade 100.830 ficheros **fuera** de
+`amd/`: esta completo para el *kernel* y **podado igual que los otros para el
+driver**. Son tres copias del mismo snapshot de amdgpu, no tres niveles de
+completitud. Y los que faltan estan en los tres:
+
+```
+AUSENTES en TODOS los arboles:  amdgpu_powerplay.c  atomctrl.c
+                                 amdgpu_atombios.c   soc15.c   nbio.c
+```
+
+**LO QUE ESO CIERRA Y LO QUE DEJA ABIERTO.** Para el paso de EV-47 hacen falta
+**dos** piezas, y **las dos faltan**:
+
+1. El parser que convierte `PowerPlayInfo` en `phm_ppt_v1_information`: vive en
+   `atomctrl.c`, ausente.
+2. **El layout en disco**: `phm_ppt_v1_clock_voltage_dependency_table` solo
+   aparece como **puntero** en `hwmgr.h`. Su definicion estaria en
+   `pp_table.h`, y **`pp_table.h` no existe** en `pm/powerplay/inc/`.
+
+O sea que el unico struct de pptable que hay en el corpus es el de punteros, que
+es la forma en memoria y no sirve para parsear un binario. **La cadena de EV-47 no
+se cierra con lo que hay.**
+
+**LO QUE SI SE MIDIO, Y CON DOS VIAS.** La cabecera ATOMROM de `PowerPlayInfo`:
+
+```
+usStructureSize = 778   == el tamaño declarado por atomrom.py tablas   <== VIA 1
+ucTableFormatRevision = 7, ucTableContentRevision = 1  -> "rev 7.1"    <== VIA 2
+```
+
+Las dos vias son independientes y concuerdan: la tabla existe, mide lo que dice
+medir, y su revision es la que el inventario dio.
+
+**LA AFIRMACION FALSABLE DE EV-47, RESULTADO: NO CONFIRMADA.** EV-47 dijo que el
+300 MHz "tiene que ser una entrada de `vdd_dep_on_mclk`". Busqueda en el blob de
+778 bytes, y **para no refutar con una busqueda que solo buscaba una unidad**,
+once codificaciones:
+
+| codificacion | resultado |
+|---|---|
+| u32 LE 300000 kHz | no aparece |
+| u32 BE 300000 kHz | no aparece |
+| u32 LE 600000 / 1200000 / 1500000 / 3000000 | no aparece |
+| u32 LE 30000 (decenas de kHz) | **aparece en +0x18E** |
+| u32 LE 3000 (MHz) | **aparece en +0x127, +0x136, +0x145** |
+| u16 LE 300 | **aparece en +0x25D** |
+
+Y en el binario del SMU, por si el pptable estuviera ahi: `300000` tampoco, y
+`30000` aparece dos veces.
+
+**LO QUE DICTO, Y LO QUE NO.** No aparece el valor en kHz, que es la unidad
+natural. **Aparecen** `30000`, `3000` y `300`, y **no los atribuyo a ningun
+campo**, porque sin el layout no se puede: un `30000` en el offset +0x18E puede ser
+el reloj de memoria en decenas de kHz, o un voltaje, o un timeout. Atribuirlo sin
+layout seria el error que este proyecto no hace.
+
+- La afirmacion de EV-47: **NO CONFIRMADA**. Estado: `NOT_DETERMINED`, y la razon
+  esta medida y es concreta: faltan `atomctrl.c` y `pp_table.h` en los tres
+  arboles.
+- La tabla con forma de frecuencia que si hay (8 valores: 480, 192, 224, 256, 768,
+  100, 384 y 150 MHz, leidos a offset par) son **observaciones sin atribuir**.
+  Registrados como tales, no convertidos en campos.
+- `300000` ausente: eso si es un dato, y es un resultado para mi hipótesis de EV-47.
+  Es el resultado que queria y no salio.
+
+**DONDE QUEDA LA PREGUNTA, Y QUE LA ABRIRIA.** Si los niveles de mclk no estan en
+`PowerPlayInfo`, quedan dos sitios: otra tabla del VBIOS, o el **pptable soft del
+propio SMU**, que EV-46 descarto porque la cabecera es `v1_0` y las versiones con
+pptable son `v2_0` y `v2_1`. Medido el binario: `300000` tampoco esta ahi. Queda
+una tercera via, la de las tablas del PSP, que pasa por `F12`.
+
+GPU INTACTA. WRITE_EXECUTION NONE. NO SE TOCO EL CORPUS NI LAS CAPTURAS.
