@@ -10,7 +10,9 @@ histórica, pero no son localizadores operativos actuales.
 - `../PATCH-REGISTRY-FINAL.md` — registro único de correcciones y procedimientos.
 - `../PROBLEM-STATUS-FINAL.md` — estados finales por problema.
 - `../INSTALL.md`, `../ROLLBACK.md`, `../TESTING.md` — preparación, rollback y pruebas.
-- `../RELEASE-CANDIDATE.md` y `../FINAL-RELEASE-REPORT.md` — gates y publicación.
+- `../ESTADO.md` — gates de publicación, informe de release y bloqueos. Consolida
+  los documentos de estado que se movieron a
+  `../archive/documentacion-compactada-20261003/`.
 - `../01-AUDITORIA/FINAL-VALIDATION/` — captura read-only de la instalación actual.
 
 La consolidación no declara resueltos la estabilidad, DPM/PM, KWin/Wayland,
@@ -20,14 +22,28 @@ VFIO, C1, RA24 ni la disponibilidad de extensiones Vulkan. El estado editorial
 ## Cómo empezar
 
 1. **`00-INDICE/MASTER-RESEARCH-STATUS.md`** — estado vigente, Addenda D6, ASIC/counters y Gate P0.
-2. **`00-INDICE/FINAL-RESEARCH-STATUS.md`** — resumen ejecutivo histórico del cierre; no
-   sustituye al maestro vigente.
+2. **`../ESTADO.md`** — estado consolidado del compresor, la publicación y el host.
+   Incorpora el resumen histórico del cierre que estaba en
+   `archive/documentacion-compactada-20261003/FINAL-RESEARCH-STATUS.md`.
 3. **`02-ARQUITECTURA/RX550_BUILD_SPECIFICATION.txt`** — especificación técnica de
    construcción de `rx550-torneo` (45 secciones).
 4. **`00-INDICE/R2-GLOBAL-DOCUMENTATION-MAP.md`** — mapa de navegación `DRAFT/CONFLICT` por capas.
 5. **`00-INDICE/PROJECT-DOCUMENTATION-STATUS.md`** — estado por elemento del ecosistema.
 6. **`00-INDICE/DIAGRAMAS/README.md`** — convención de vistas Mermaid `DRAFT/CONFLICT`.
 7. **`00-INDICE/HYPOTHESIS-REGISTER.md`** — registro textual H1–H12, sin veredictos.
+
+## Estado
+
+**`../ESTADO.md`** es el documento único de estado del proyecto. Consolida seis
+documentos que se declaraban "estado final" y competían entre sí
+(`PROYECTO_STATUS.md`, `CIERRE_PROYECTO.md`, `RELEASE-CANDIDATE.md`,
+`FINAL-RELEASE-REPORT.md`, `RELEASE-EXCLUSIONS.md`,
+`00-INDICE/FINAL-RESEARCH-STATUS.md`), con las cifras medidas, sus limitaciones y
+la fuente de cada una. Los originales están en
+`archive/documentacion-compactada-20261003/`, con su manifiesto y sus hashes.
+
+`PATCH-REGISTRY-FINAL.md` y `PROBLEM-STATUS-FINAL.md` siguen en la raíz: los
+citan 23 y 27 documentos respectivamente, y son canónicos, no duplicados.
 
 ## Documentos de investigación y arquitectura
 
