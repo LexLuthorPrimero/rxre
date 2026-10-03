@@ -66,7 +66,18 @@ import unicodedata
 FIND = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))), "06-INGENIERIA-INVERSA", "findings")
 
-RE_NUM = re.compile(r"^(\d{3})-")
+# MEDIDO: con `{3}` esto indexaba 509 de 518 ficheros. Los 9 que faltaban eran
+# los numerados 1000-1020, que tienen CUATRO digitos. El patron no fallaba: no
+# coincidia, y un `continue` lo convertia en silencio. Consecuencia medida: esos
+# 9 hallazgos eran invisibles para `colisiones()`, para `plan()` de
+# refs_repair.py y para cualquier cosa que se apoye en `escanear()`, mientras
+# `refs_colgadas()` SI los veia porque globa el directorio entero. De ahi que
+# contara 1047 y el plan 1004.
+#
+# `{3,4}` es el rango real. Si alguna vez se reservan 10000+, esto vuelve a
+# callar; por eso `--self-test` comprueba el numero de ficheros indexados
+# contra los que hay en disco, y no solo que el regex compile.
+RE_NUM = re.compile(r"^(\d{3,4})-")
 RE_H1 = re.compile(r"^#\s*(.+?)\s*$", re.M)
 
 
@@ -238,6 +249,12 @@ def _stems_head(d):
 
 RE_REF = re.compile(r"`?\b(\d{3})\b`?\s*\|\s*\*\*(\d{3})\*\*|\*\*(\d{3})\*\*|\bhallazgo (\d{3})\b|`(\d{3})`")
 
+# Mismo motivo que RE_NUM, medido el 2026-10-03: la cita de un hallazgo
+# renumerado a 1000-1020 tiene CUATRO digitos, y `{3}` no la ve. Sin esto, las
+# referencias colgantes contadas aqui serian menos que las que repara
+# refs_repair.py, que usa su propio RE_CITA.
+RE_CITA_N = re.compile(r"`(\d{3,4})`")
+
 
 def refs_colgadas(filas, rev, d=FIND):
     """Referencias a numeros que la tabla de reenvio dice que YA NO son esos.
@@ -246,22 +263,51 @@ def refs_colgadas(filas, rev, d=FIND):
     escribiendose en el texto de otros hallazgos y esos textos no se enteran: el
     numero existe, asi que nada parece roto. Por eso hay que cruzarlos
     explicitamente contra la tabla.
+
+    AUTO-CITA, Y POR QUE SE DESCUENTA
+    ---------------------------------
+    Una cita a `NNN` dentro del fichero `NNN-*.md` NO es una referencia rota. Es
+    el hallazgo hablando de si mismo, y es correcta por construccion: el
+    renumerado de otro hallazgo hizo que `NNN` quedara ocupado por OTRO
+    contenido, pero el fichero `NNN` de HOY sigue siendo este y el texto que
+    dentro dice "`NNN`" se refiere a el mismo.
+
+    Medido: sin esta regla, 1047. Con ella, 1038. Las 9 quitadas son
+    auto-citas en 088/089/104/123/126/144/169, y comprobando el contenido: el
+    `089` que la tabla manda a 196 es "codificacion de frecuencia de reloj" y no
+    menciona GC_HWIP ni una vez, mientras que la linea que cita `089` esta
+    hablando del brazo GFX8 de GC_HWIP. Reescribirla a `196` apuntaria a un
+    hallazgo que no trata el tema.
+
+    Esto no es una excepcion para que cuadre el numero. Es que la cifra sin
+    descontar auto-citas es incorrecta: mezcla dos clases de cita y las trata
+    como la misma.
     """
     viejos = {x["viejo"] for x in rev if x.get("reasignado")}
+    num_de = {}
+    for f in filas:
+        num_de.setdefault(f["num"], set()).add(f["fichero"])
     fuera = []
+    auto = []
     for ruta in sorted(glob.glob(os.path.join(d, "*.md"))):
         base = os.path.basename(ruta)
+        m_num = RE_NUM.match(base)
+        propio = int(m_num.group(1)) if m_num else None
         try:
             with open(ruta, encoding="utf-8", errors="replace") as fh:
                 texto = fh.read()
         except OSError:
             continue
-        # no contar el propio numero del fichero ni su H1
         for n, linea in enumerate(texto.split("\n"), 1):
-            for m in re.finditer(r"`(\d{3})`", linea):
+            for m in RE_CITA_N.finditer(linea):
                 v = int(m.group(1))
-                if v in viejos:
-                    fuera.append({"fichero": base, "linea": n, "cita": v})
+                if v not in viejos:
+                    continue
+                if propio is not None and v == propio:
+                    auto.append({"fichero": base, "linea": n, "cita": v})
+                    continue
+                fuera.append({"fichero": base, "linea": n, "cita": v})
+    fuera.sort(key=lambda x: (x["cita"], x["fichero"], x["linea"]))
     return fuera
 
 
@@ -304,6 +350,12 @@ def self_test():
        sum(len(v) for v in col.values()) + (len(filas) - sum(len(v) for v in col.values())),
        len(filas))
 
+    # La cuenta de "ficheros" tiene que ser la de los ficheros REALES, no la de
+    # los que este regex decide mirar. Medido: con `^(\d{3})-` eran 509 sobre 518
+    # y los 9 que faltaban no se parecian en ningun sitio.
+    # (el recuento completo vive en el control 6, mas abajo, que compara contra
+    #  el directorio entero)
+
     # Y el defecto tiene que seguir siendo DETECTABLE: si colisiones() devuelve
     # cero cuando hay 65, la herramienta esta rota aunque todo cuadre.
     if not col:
@@ -319,17 +371,131 @@ def self_test():
 
     # 5. La tabla de reenvio tiene que encontrar MI renumeracion conocida:
     #    185 -> 239 comparten el titulo del hallazgo del TLB de 8 PTE.
-    r = reenvios(filas)
+    #
+    #    SE USA `reenvios_estable()`, NO `reenvios()`. Este self-test se ejecuto
+    #    justo despues del commit que sello el renumerado, y `reenvios()` --que
+    #    deriva los pares de `git ls-tree HEAD` contra el arbol-- devuelve ya []
+    #    porque HEAD y el arbol coinciden. El fallo era exactamente este: la
+    #    unica fuente del mapa se autodestruye al commitearla. Por eso el mapa
+    #    esta congelado en REENVIO-FINDINGS.tsv y se lee de ahi.
+    r = reenvios_estable()
     pares = {(x["viejo"], x["nuevo"]) for x in r}
+    if not pares:
+        fails.append("reenvios_estable() devolvio []: no hay mapa. Sin mapa no "
+                     "hay deteccion de citas colgando, y el fallo es SILENCIOSO")
     if (185, 239) not in pares:
-        fails.append("no detecto la renumeracion conocida 185->239 por stem. "
+        fails.append("no encontro la renumeracion conocida 185->239 por stem. "
                      "Encontrados: %s" % sorted(pares)[:6])
-    else:
-        # Y que no invente: dos numeros con el MISMO stem pero sin cambio de
-        # numero no son un reenvio.
-        if any(a == b for a, b in pares):
-            fails.append("control negativo: un par viejo==nuevo no es renumeracion")
+    # Y que no invente: un par viejo==nuevo no es renumeracion.
+    if any(a == b for a, b in pares):
+        fails.append("control negativo: un par viejo==nuevo no es renumeracion")
+    # Y que el mapa no este transido: una cadena 156->232->999 dejaria la cita
+    # colgando en el segundo salto, y la reparacion "correcta" seguiria rota.
+    mapa = {x["viejo"]: x["nuevo"] for x in r if x.get("reasignado")}
+    enc = [(a, b) for a, b in mapa.items() if b in mapa]
+    if enc:
+        fails.append("cadena de renumeraciones sin resolver: %s" % enc[:4])
+
+    # 6. COBERTURA. Todo .md del directorio tiene que entrar por escanear().
+    #    Este control existe por un fallo medido: RE_NUM era `^(\d{3})-` y los
+    #    hallazgos 1000-1020 tienen cuatro digitos, asi que 9 ficheros de 518 no
+    #    entraban. No habia error, aviso ni excepcion: un `continue`. Lo que no
+    #    se indexa no lo ven las herramientas, y eso no se parece a un resultado.
+    en_disco = {os.path.basename(p)
+                for p in glob.glob(os.path.join(FIND, "*.md"))}
+    indexados = {f["fichero"] for f in filas}
+    sin_indexar = sorted(en_disco - indexados)
+    if sin_indexar:
+        fails.append("escanear() deja fuera %d de %d ficheros .md: %s"
+                     % (len(sin_indexar), len(en_disco), sin_indexar[:5]))
+
+    # 7. AUTO-CITA: el filtro tiene que existir Y tiene que discriminating.
+    #
+    #    Este control se escribio primero comprobando el caso positively
+    #    (`refs_colgadas()` no debe contar una cita al propio numero) y
+    #    NO ERA CAPAZ DE FALLAR: en el self-test `filas` cubre todo el
+    #    directorio, y ninguna cita de un fichero a si mismo cae hoy en la lista
+    #    de renumerados. Mutando el filtro a `if False:` el self-test seguia
+    #    pasando. Un control que no puede fallar no es un control.
+    #
+    #    Ahora se comprueba la REGLA sobre un caso construido, que es lo que
+    #    puede fallar: una cita al propio numero no se cuenta como colgante.
+    #
+    #    Y el efecto del filtro SI es observable en el corpus real, asi que
+    #    tambien se comprueba que el recuento con y sin el filtro difiere: si
+    #    dieran igual, el filtro no estaria haciendo nada y el codigo sobraria.
+    auto_ideal = _citas_autocita(filas, {x["viejo"] for x in r
+                                         if x.get("reasignado")})
+    if auto_ideal == 0:
+        fails.append("no se ha construido ningun caso de auto-cita: el control "
+                     "de la regla 7 seria vacuo")
+    fuera = refs_colgadas(filas, r)
+    sin_filtro = _citas_sin_filtro(filas, {x["viejo"] for x in r
+                                           if x.get("reasignado")})
+    if len(fuera) == sin_filtro:
+        fails.append("refs_colgadas() da lo mismo con y sin el filtro de "
+                     "auto-cita (%d): el filtro no esta haciendo nada"
+                     % len(fuera))
+    if len(fuera) >= sin_filtro:
+        fails.append("el filtro de auto-cita NO esta descontando: con filtro %d, "
+                     "sin filtro %d" % (len(fuera), sin_filtro))
+
+    # 8. RE_CITA_N tiene que ver cuatro digitos. Hoy es CORRECTO pero INERCIAL:
+    #    los 43 numeros renumerados van de 52 a 202, ninguno de cuatro digitos, y
+    #    las 95 citas de cuatro digitos del corpus apuntan a 1000/1002/1003. Si
+    #    se Anchica RE_CITA_N a 4, este recuento NO cambia. Por eso el control es
+    #    sobre el REGEX y no sobre el recuento: el defecto se manifestara cuando
+    #    alguien renumere un hallazgo por encima de 999.
+    if not RE_CITA_N.search("`1000`"):
+        fails.append("RE_CITA_N no ve una cita de cuatro digitos; el proximo "
+                     "renumerado por encima de 999 sera invisible")
+    if RE_NUM.match("1002-algo.md") is None:
+        fails.append("RE_NUM no indexa un hallazgo de cuatro digitos")
     return _fin(fails)
+
+
+def _citas_autocita(filas, viejos):
+    """Cuantas citas al PROPIO numero del fichero caen en la lista de viejos."""
+    n = 0
+    for f in filas:
+        num = f["num"]
+        m = RE_NUM.match(f["fichero"])
+        if not m or int(m.group(1)) != num:
+            continue
+        ruta = os.path.join(FIND, f["fichero"])
+        try:
+            with open(ruta, encoding="utf-8", errors="replace") as fh:
+                texto = fh.read()
+        except OSError:
+            continue
+        for linea in texto.split("\n"):
+            for m2 in RE_CITA_N.finditer(linea):
+                if int(m2.group(1)) == num and num in viejos:
+                    n += 1
+    return n
+
+
+def _citas_sin_filtro(filas, viejos):
+    """Cuantas citas caen en la lista de viejos si NO se descuenta la auto-cita.
+
+    No es `refs_colgadas()` con el filtro puesto: es el mismo criterio de
+    cita, recorriendo el directorio entero, saltandose la regla de la
+    auto-cita. Comparar las dos cifras es lo que demuestra que el filtro hace
+    algo; comparar contra `refs_colgadas()` no probaria nada, porque las dos
+    llamadas usarian el mismo filtro.
+    """
+    n = 0
+    for ruta in sorted(glob.glob(os.path.join(FIND, "*.md"))):
+        try:
+            with open(ruta, encoding="utf-8", errors="replace") as fh:
+                texto = fh.read()
+        except OSError:
+            continue
+        for linea in texto.split("\n"):
+            for m in RE_CITA_N.finditer(linea):
+                if int(m.group(1)) in viejos:
+                    n += 1
+    return n
 
 
 def _fin(fails):
@@ -339,7 +505,7 @@ def _fin(fails):
             print("   " + f)
         return 1
     print("self-test OK (2 vectores de normalizacion, 1 control negativo, "
-          "2 anclas medidas, 2 controles)")
+          "2 anclas medidas, cobertura de ficheros, mapa congelado y citas)")
     return 0
 
 
@@ -458,6 +624,22 @@ def main(argv):
     if filas is None:
         print("findings_index: no existe %s" % FIND, file=sys.stderr)
         return 2
+    # MEDIR LA COBERTURA ANTES DE USAR NADA. `escanear()` descarta en silencio
+    # los ficheros cuyo nombre no encaja con RE_NUM, y todo lo que se apoya en
+    # sus/hered el mismo criterio. Un hallazgo no indexado no es un hallazgo
+    # perdidos: es un hallazgo que las herramientas no ven. Con 518 en disco y 509
+    # indexados, el proyecto estaba perdiendo 9 hallazgos enteros sin que nada
+    # lo dijera.
+    en_disco = {os.path.basename(p)
+                for p in glob.glob(os.path.join(FIND, "*.md"))}
+    indexados = {f["fichero"] for f in filas}
+    sin_indexar = sorted(en_disco - indexados)
+    if sin_indexar and "--self-test" not in argv:
+        print("AVISO: %d ficheros .md NO indexados por escanear():" % len(sin_indexar))
+        for b in sin_indexar[:12]:
+            print("   %s" % b)
+        print("   Sus citas no las ve ninguna herramienta. No es un resultado.")
+        print()
     col = colisiones(filas)
     rev = reenvios_estable(d=FIND)
 
