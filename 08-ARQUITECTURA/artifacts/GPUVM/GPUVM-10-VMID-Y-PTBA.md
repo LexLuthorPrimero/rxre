@@ -1,9 +1,18 @@
 # GPUVM-AGENT-10 · El nodo que falta entre §1 y §2: QUIÉN ASIGNA EL VMID
 
-> **Addendum al grafo de GPUVM.** No edita `docs/KNOWLEDGE-GRAPH.md`: su ambito
-> (`.write-lock/docs`, owner PID 24792) no corre pero tomarlo exige autorizacion
-> humana de LOCK_TAKEOVER, que esta sesion no tiene. Este fichero es el texto
-> para pegar cuando alguien con ese permiso lo integre.
+> **Addendum al grafo de GPUVM.** La unica via de integracion viable es
+> `docs/KNOWLEDGE-GRAPH.md`, y por una razon que no es de lock sino de
+> ARQUITECTURA, medida el 2026-10-03 (ver §7):
+>
+> ```
+> RAIZ  KNOWLEDGE-GRAPH.md   GENERADO por tools/artifacts.py. Se sobreescribe.
+>                            NO admite prosa escrita a mano.
+>                             └ solo recoge aristas de las CABECERAS de findings
+> docs/ KNOWLEDGE-GRAPH.md   escrito a mano. Es el unico que admite este texto.
+> ```
+>
+> El ambito `.write-lock/docs` (owner PID 24792) no corre, pero tomarlo exige
+> autorizacion humana de LOCK_TAKEOVER, que esta sesion no tiene.
 >
 > ```
 > AGENCIA_DE_ORIGEN   agente AGENT-10 (GPUVM)
@@ -245,13 +254,73 @@ ESTE NODO  ──UNE──>  §1 (PTBA: de donde sale pd_addr)
 2. El corpus se leio en working/linux-7.1.3. Las cifras de 3.1 se cruzaron en
    4 de 4 raices; las de §1 y §2, solo en working. `baseline/` y
    `working/` son identicos en los ficheros citados salvo indicacion.
-3. No se integro en docs/KNOWLEDGE-GRAPH.md. Ver cabecera.
+3. No se integro en docs/KNOWLEDGE-GRAPH.md. Ver cabecera y §7: la causa NO es
+   solo el lock, es que este fichero es estructuralmente inalcanzable desde
+   ambos grafos.
 4. No se abrio ninguna frontera nueva en OPEN-FRONTIERS.md: PO-10-C se puede
    cerrar ya con lo medido, y PO-10-A/B dependen de F1, que ya existe.
 5. El valor de `concurrent_flush=false` se deduce de `asic_type < CHIP_VEGA10`.
    El orden del enum no se leyo literalmente en esta ronda: se infiere de que
    el propio driver usa esa comparacion para GFX8 y de que EV-39 ya fijo que
    la version de GC_HWIP es 0. Clasificado PROVEN_DERIVED, no PROVEN.
+```
+
+---
+
+## 7 · POR QUE ESTE FICHERO NO ESTA EN EL GRAFO (medido, no supuesto)
+
+```
+PROBLEMA   hay DOS ficheros KNOWLEDGE-GRAPH.md y este contenido no cabe en
+           ninguno de los dos sin una accion que aun no se ha hecho.
+
+RAIZ       KNOWLEDGE-GRAPH.md
+  · GENERADO por tools/artifacts.py, con SELLADO = "NO EDITAR A MANO:
+    la siguiente ejecucion lo sobrescribe"   (artifacts.py:83, 420)
+  · la regeneracion es un acto explicito (--escribir), NO el comportamiento
+    por defecto                                            (artifacts.py:50)
+  · sus filas salen de las CABECERAS de findings, no de prosa
+           -> anadir este texto a mano no solo se perderia: la siguiente
+              regeneracion lo borraria sin avisar
+
+docs/      KNOWLEDGE-GRAPH.md
+  · escrito a mano (§1, §2, §3b, §3c, ...). SI admite este contenido
+  · es la UNICA via viable
+  · su ambito .write-lock/docs tiene owner PID 24792, NOT_RUNNING.
+    Tomarlo = LOCK_TAKEOVER = exige autorizacion humana. No la tengo
+
+PRUEBA, con control negativo (no solo lectura de codigo)
+  reimplementando el indice de relations.py:167 sobre el arbol real:
+      indexados por relations.py : 509
+      mi artefacto existe        : True
+      esta en el indice          : False
+      control docs/KNOWLEDGE-GRAPH.md : False   <- el control tambien falla
+  el control es lo que hace la prueba: sin el, "no aparece" podria ser que
+  el extractor esta roto. Con el, se sabe que la Exclusion es real
+
+CONSECUENCIA HONESTA
+  este artefacto es una hoja de trabajo, NO un nodo del grafo. Mientras no se
+  integre, un agente que solo lea KNOWLEDGE-GRAPH.md sigue afirmara que el
+  invalidate no tiene ack, y omitira que hay un punto de software que DECIDE
+  si se emite. Ese segundo punto de fallo silencioso es el aporte de §1.
+
+QUE LO HARIA INTEGRABLE, y por que NO se hizo en este turno
+  via A  pegar §1 en docs/KNOWLEDGE-GRAPH.md (§1, entre las dos cadenas)
+          -> requiere autorizacion humana de LOCK_TAKEOVER sobre docs/
+  via B  crear un finding NUMERADO en 06-INGENIERIA-INVERSA/findings/ con las
+          aristas en su cabecera, y regenerar el grafo de la raiz
+          -> relations.py SOLO indexa ahi, asi que es la via que alimenta
+             el grafo medido
+          -> NO se hizo porque el asignador de numeros esta LIBERADO pero
+             SIN COMMIT en este momento exacto:
+                 .write-lock/findnum -> AGENT-03, "LIBERADO 16:00", commit=NO
+                 514 ficheros .md, 408 numeros distintos, 74 colisiones
+                 y un renumerado en vuelo que HEAD no contiene
+             tomar un numero ahora puede colisionar contra un mapa que va a
+             cambiar. Un finding con numero equivocado es peor que ninguno:
+             se propaga solo por las relaciones que lo lean
+  la via B es la correcta y queda pendiente de coordinacion. Anotada, no
+  ejecutada.
+
 ```
 
 AUTORIA=AGENT-10-GPUVM
