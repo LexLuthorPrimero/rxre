@@ -1505,3 +1505,103 @@ comprobado antes y despues. Verificado: identico, y la copia borrada.
 **La leccion, y es la general:** `rc` sin numero de `FALLA` al lado no es un
 resultado de una prueba de mutacion. Es el sintoma de un arnes roto, que es
 justo lo que la prueba de mutacion pretendia detectar.
+
+## NR-2026-10-03-b · Un control mio que FALLABA porque alguien ARREGLO un documento
+
+`CLASSIFICATION=ERROR` · `TRACK=TOOLING` · `WRITE_EXECUTION=NONE` · `GPU INTACTA`
+
+**EL HALLAZGO.** El control de paridad de ` ``` ` de `cn8.py` se llamaba
+
+```
+los documentos con numero IMPAR de fences son los que ya se sabian, ni uno mas ni uno menos
+  condicion:  impares == DEUDA_FENCES
+```
+
+Es decir: **igualdad exacta** de dos conjuntos. Y el resultado fue que `cn8`
+paso a `rc=1` FALLA **porque otra sesion habia arreglado un documento**.
+
+**LA MEDICION, Y NO ES TEORIA.** Conteo de ` ``` ` a linea, el metodo que el
+propio control usa:
+
+| documento | en `b2407a4` | en `HEAD` |
+|---|---|---|
+| `docs/CONTRADICTIONS.md` | 85, **impar** | 86, **par** |
+| `docs/EVIDENCE-MATRIX.md` | 225, impar | 225, impar |
+| `docs/MASTER-RESEARCH-STATUS.md` | 13, impar | 13, impar |
+
+`DEUDA_FENCES` no se toco en ninguno de los dos commits. O sea que la deuda
+acreditada seguia contando `CONTRADICTIONS.md` como impagada, y el control
+fallaba. **El trabajo bien hecho se reportaba como incumplimiento.**
+
+**POR QUE ESTE CONTROL NO SIRVE Y EL ANTERIOR SI.** La igualdad exacta de dos
+conjuntos confunde dos cosas que no se parecen en nada:
+
+- `DEUDA_FENCES - impares` = **deuda pagada**. Una mejora. No deberia romper nada.
+- `impares - DEUDA_FENCES` = **rotura nueva sin acreditar**. Eso si deberia romper.
+
+Un control que falla cuando arreglas, y que no dice en que direccion fallo, es
+un **obstaculo**, no un control: enseña a la gente a no tocar la deuda. Y el
+comentario que el propio control tenia lo decia sin darse cuenta: *"falla si uno
+viejo se arregla... justo cuando hay que actualizar la lista a proposito y no por
+descuido"*. Reconocia el problema y lo llamaba procedimiento.
+
+**LO QUE HAY AHORA.** Dos condiciones, una por direccion:
+
+- `impares <= DEUDA_FENCES` es FALLA, y el mensaje **nombra** los documentos sin
+  acreditar. Es la invariante que importa: que nadie rompa la paridad en
+  silencio.
+- `DEUDA_FENCES - impares` se **informa** por `info()`, para que la lista se pode.
+  Y la deuda de `CONTRADICTIONS.md` se podo el 2026-10-03, con nota de por que,
+  para que si alguien vuelve a romperlo sepa que esta pagada de verdad y no que
+  su entrada se borro por descuido.
+
+**CAPACIDAD DE FALLAR, MEDIDA.** Con un `.md` nuevo de **3** ` ``` ` (impar,
+verificado en el acto antes de usarlo), `cn8` da `rc=1` y nombra el documento.
+Con un `.md` nuevo de **2** (par), `rc=0`. Con la lista ya podada, el mismo caso
+impar sigue dando `rc=1`. La mutacion se hizo sobre una **copia** de `cn8.py` con
+`_docs` redirigido a un directorio temporal de enlaces simbolicos; `docs/` real no
+se toco y el `sha256` de `cn8.py` se comprobo antes y despues.
+
+**LA REGLA, Y ES MAS GENERAL QUE ESTE CASO.** *Un control que exige que el mundo
+este igual que como estaba, castiga que el mundo cambie para bien.* Cuando el
+control sea de la forma "el conjunto observadO es exactamente el conjunto
+acreditado", hay quePARTIRLO por la direccion de la diferencia antes de
+aceptarlo: una direccion es deuda que alguien pago, y la otra es deuda que
+alguien creo.
+
+## NR-2026-10-03-c · Mi vector de prueba no era un vector, y casi borra un control correcto
+
+`CLASSIFICATION=ERROR` · `TRACK=TOOLING` · `WRITE_EXECUTION=NONE` · `GPU INTACTA`
+
+**EL HALLAZGO.** Para demostrar que el control nuevo de paridad **no podia
+fallar** —el fallo grave, el de NR-2026-10-03-a, repetido— meti un `.md` con
+` ``` ` impares. El control **no fallo**: `rc=0`, todo verde.
+
+La conclusion inmediata, y la que estuvo a punto depublicarse, era "el control no
+funciona, lo borro". **Estaba equivocado.** Mi fichero de prueba tenia **4**
+` ``` `, o sea **4 es par**. No mutaba nada. Lo llame "mutacion" porque se lo
+llame yo, y **un nombre no es un dato**.
+
+**POR QUE ESTO ES PEOR QUE EL ERROR DE ORIGEN.** Un control malo se puede
+borrar y volver a escribir. Un **vector de prueba mal construido** no: produce
+una conclusion falsa que apunta al objetivo equivocado, y el objetivo equivocado
+equivale a borrar la parte del sistema que si funcionaba. Un fallo de
+construccion del instrumento que pretendia medir el fallo.
+
+**LO QUE SE HACE AHORA, Y ES LO UNICO QUE SIRVE.** El vector se **verifica
+antes de usarse**, con una asercion que no puede callarse:
+
+```
+n = numero de "```" a linea del fichero escrito
+assert n == 3, "escritura con %d fences, esperaba 3" % n
+assert n % 2 == 1, "VECTOR MAL CONSTRUIDO: %d fences es PAR" % n
+```
+
+Con eso el vector 1 (3 fences) hace fallar el control `rc=1` nombrando el
+documento; el vector 2 (2 fences) deja `rc=0`. Los dos comprobados.
+
+**LA REGLA.** *Un vector de prueba se valida a si mismo antes de usarse contra su
+objetivo.* Si el vector puede ser silenciosamente correcto, el unico resultado
+que produce es ruido con apariencia de medida. Y antes de concluir "el control no
+puede funcionar", comprobar **el vector**, no solo el control: los dos son
+instrumentos y los dos pueden estar rotos.

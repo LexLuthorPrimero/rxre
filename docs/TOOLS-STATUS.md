@@ -3255,3 +3255,106 @@ cuando en realidad no pudo mirar enseña a ignorar sus FALLA de verdad.
 `## AAAA-MM-DD` en el CHANGELOG" sigue **sin probar**, porque en este proyecto
 siempre hay fechas. Es un guardia escrito y no ejercitado, y queda anotado como
 tal en vez de darse por bueno.
+
+## `check.sh` y `clasifica()`: el codigo de salida del kit, medido y autocomprobado
+
+`CONTRACTO` · `STATE=VALIDATED` · `VALIDADO=2026-10-03` · `GPU INTACTA`
+
+**QUE MIDE.** Que la suite diga la verdad sobre su propia ejecucion. Antes de esto
+decia una cosa que no era la que hacia: `run()` contaba **todo** `rc != 0` como
+`FALLO`, o sea que "no he podido comprobar" y "he comprobado y no pasa" llegaban
+al resumen como lo mismo.
+
+**EL MAPA, Y CADA FILA CON SU ORIGEN, NO SUPUESTA.**
+
+| rc | clase | de donde sale el dato |
+|---|---|---|
+| `0` | OK | - |
+| `2` | INVALID | "falta el dato": medido con `atomrom.py rom <inexistente>` y `pm4dec.py <inexistente>`; ambos imprimen "no existe". Tambien `cn7` sin `sid.h`, `cn8` sin VBIOS, `captura` sin `RX550_SUDO_PASS` |
+| `4` | INVALID | "no pude comprobar". `pm4dec` lo dice: `"NO CONTRASTADO: falta amdgpu_vram_mm ... Saliendo con codigo 4"` |
+| `1` | FALLO | se comprobo y no pasa |
+| `3` | FALLO | el fichero no tiene lo que se le pidio (`pm4dec`: "el anillo no contiene INDIRECT_BUFFER") |
+| `5` | FALLO | el dato es incoherente (`pm4dec`: direcciones que NO caben en la VRAM). **Ver C-016: en `btfsnap` el 5 es un `OSError`, o sea INVALID** |
+| `126`, `127` | FALLO | script no ejecutable / no existe. Eso si es un fallo real |
+
+**AUTOCOMPRUEBA, Y LAS TRES SALIDAS DEL RESUMEN.** `clasifica` se prueba a si
+mismo con los 8 codigos de la tabla **antes** de usarse, y si falla, la suite
+aborta con `rc=4` sin ejecutar nada: con el clasificador roto, toda clasificacion
+posterior es inventada. `resumen` se prueba con las tres combinaciones
+(`0/0` -> 0, `0/1` -> 4, `1/0` -> 1) **sobre los globales reales**, con guardado y
+restauracion.
+
+**POR QUE ESO NO ES OPCIONAL.** Perdi el `exit 1` de la rama de fallos al
+reescribir el resumen, y una suite con fallos imprimia "1 validacion(es)
+FALLIDA(S)" y luego "TODO CORRECTO", con `rc=0`. **Una suite rota que reporta
+exito.** Lo compre porque probe las rutas OK e INVALID y **no probe la ruta
+FALLO**, que era la que perdia el `exit`. Por eso el resumen es una **funcion** y
+no codigo suelto al final: una funcion se puede llamar con valores sinteticos y
+comprobar su `rc` sin correr la suite entera.
+
+**EL MAPA QUE SE IMPRIME SE GENERA DESDE LA FUNCION.** Mientras se escribio a mano
+--`"0=OK, 4=INVALID, resto=FALLO"`-- seguia diciendo eso **despues** de que el
+protocolo cambiara. La linea que informa del clasificador era capaz de mentir
+sobre el clasificador, y por el mismo motivo el total de casos de la autocomprueba
+lo cuenta el codigo que los ejecuta en vez de escribirlo.
+
+**`rc=4` DE LA SUITE COMPLETA.** Si no hay fallos pero hay validaciones no
+comprobables, `check.sh` sale `rc=4`, dice que **eso no es un proyecto roto** y
+lista cuales son. Las herramientas implicadas no son autoridad para lo que no
+midieron.
+
+**VALIDACION MEDIDA.** Suite real `rc=0` "TODO CORRECTO". Y el defecto
+reproducido de punta a punta: con el mapa viejo, inyectando en una **copia** la
+linea `run "..." ./atomrom.py rom /tmp/no-existe`, la suite salia `rc=1` con
+`FALLO rc=2`; con el mapa nuevo, esa misma linea da `INVALID rc=2` y la suite sale
+`rc=4`. Sin tocar ninguna herramienta ni ningun artefacto compartido.
+
+**LIMITE DECLARADO.** El mapa es global y el `5` esta sobrecargado (C-016). Con
+`btfsnap` en un modo que pueda dar `OSError`, haria falta partirlo por
+herramienta. No se hace mientras no se ejercite.
+
+## `cn8.py`: dos controles reparados, y un canal informativo que no existia
+
+`CONTRACTO` · `STATE=VALIDATED` · `VALIDADO=2026-10-03` · `GPU INTACTA`
+
+**LO QUE SE HA REPARADO, EN UN PUNTO.**
+
+1. **El control de paridad de ` ``` ` fallaba cuando alguien ARREGLO un
+   documento.** Exigia `impares == DEUDA_FENCES` (igualdad exacta) y la deuda
+   pagada de `CONTRADICTIONS.md` lo tiro a `rc=1`. Medido: 85 impares en `b2407a4`,
+   86 pares en `HEAD`, y la lista sin tocar. Ahora son dos condiciones, una por
+   direccion: `impares <= DEUDA_FENCES` es FALLA y **nombra** los documentos sin
+   acreditar; `DEUDA_FENCES - impares` se informa por `info()` para podar la lista.
+   Detalle completo en **NR-2026-10-03-b**.
+
+2. **`chk()` imprime el `detalle` solo cuando falla.** Los dos
+   `chk(..., True, "informativo: ...")` del fichero eran, por tanto, canales de
+   observacion que **no producian ninguna observacion**: escritos a proposito
+   para informar y silenciosos por construccion. Anadido `info()`, que siempre
+   imprime. Y hay que sospechar de cualquier linea de este fichero que diga
+   "informativo" y pase por `chk`.
+
+**LO QUE SE MIDIO ANTES DE CAMBIAR NADA.** 17 ficheros de `docs/`, contados con
+la metrica de linea (`l.strip().startswith("```")`), no con "todas las
+apariciones": contar tambien los que estan en medio de una frase roba la paridad y
+senala documentos que estan bien. Los que estan en medio de frase se informan
+aparte, y no rompen nada.
+
+**CAPACIDAD DE FALLAR, CON VECTORES VERIFICADOS ANTES DE USARLOS.**
+
+| vector | ` ``` ` | esperado | medido |
+|---|---|---|---|
+| `.md` nuevo, par | 2 | `rc=0` | `rc=0` |
+| `.md` nuevo, impar | 3 | `rc=1`, nombrado | `rc=1`, nombrado |
+| lista ya podada + impar | 3 | `rc=1` | `rc=1` |
+
+Todos sobre una **copia** de `cn8.py` con `_docs` redirigido a un directorio
+temporal de enlaces simbolicos; `docs/` real intacto y `sha256` comprobado antes y
+despues. El primer vector que intente usar **no era un vector**: tenia 4, o sea
+era par, y si no llego a verificarlo habria borrado un control correcto. Cuento en
+**NR-2026-10-03-c**.
+
+**DEUDA ACREDITADA.** `EVIDENCE-MATRIX.md` (225, impar) y
+`MASTER-RESEARCH-STATUS.md` (13, impar). Los dos de otra sesion, y no se tocan: el
+control existe para que no haya que arreglar el documento ajeno, no para imponer la
+paridad a costa de pisar trabajo en vuelo.

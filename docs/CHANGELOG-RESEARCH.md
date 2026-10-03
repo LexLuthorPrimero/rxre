@@ -3251,3 +3251,116 @@ sintoma de un arnes roto.**
 
 check.sh 41 | cn7 97 | cn8 33 | gfx8blocks 24/24 | gchwip_alcance 21/21 |
 bootcheck 10/10 | gputel 23/23. GPU INTACTA. WRITE_EXECUTION NONE. NIVEL 0/1.
+## 2026-10-03 · opencode · el codigo de salida era una suposicion: 30 `return` medidos, y un control que fallaba por ARREGLAR
+
+```
+OBJECT   revkit/check.sh, revkit/cn8.py, docs/NEGATIVE-RESULTS.md,
+         docs/CONTRADICTIONS.md, docs/TOOLS-STATUS.md
+ACTION   FIX del orquestador + FIX de dos controles de cn8 + contrato medido
+TRACK    TOOLING · WRITE_EXECUTION=NONE · MODIFICATIONS_CORPUS=0 · GPU INTACTA
+```
+
+**DE DONDE SALIA ESTO, Y ERA UNA TAREA MENOR DE LO QUE PARECIA.** El plan era
+extender la distincion `INVALID`/`FALLA` a `cn7` y `selfcheck` para que las cinco
+herramientas hablaran el mismo idioma. Al mirar si `cn7` tenia ya esa distincion,
+resulto que si: devuelve `rc=2` cuando falta el corpus, con un comentario que
+explica por que `rc=0` seria mentira. Y al mirar como lo consumia el
+orquestador, resulto que `check.sh` tenia **dos mecanismos distintos para la
+misma idea**: un `rc=4` generico dentro de `run()`, y un `elif rc==2` escrito a
+mano para `cn7` y `cn8`. Dos mecanismos para una idea es donde empiezan las
+cosas a desincronizarse, y efectivamente se desincronizaron.
+
+**LO MEDIDO, Y NO LO QUE SUPONIA.** Antes de anadir un codigo nuevo mire las
+salidas reales: **17 herramientas, 30 `return <entero>`, 5 codigos distintos**.
+`run()` mapeaba `0` a OK, `4` a INVALID y **todo lo demas a FALLO**. Ese `4`
+venia de `cn8`/`bootcheck`/`gputel`/`klog`, que si lo usan. El resto lo
+asumia. Y el supuesto era falso:
+
+- **`rc=2` significa "falta el dato"**, no "fallo". Medido con ejecucion real:
+  `atomrom.py rom <fichero que no existe>` -> `rc=2`, y `pm4dec.py <fichero que
+  no existe>` -> `rc=2`. Los dos imprimen "no existe". Tambien `cn7` (sin
+  `sid.h`), `cn8` (sin VBIOS), `captura` (sin `RX550_SUDO_PASS`), `dirs`,
+  `sello`, `huerfanos`, `ibpools`.
+- **`rc=4` significa "no pude comprobar"** en unos sitios y "fallo" en otros.
+  `pm4dec` lo dice literalmente: `"NO CONTRASTADO: falta amdgpu_vram_mm ...
+  Saliendo con codigo 4"`.
+
+**EL DEFECTO ESTABA ACTIVO, Y LO REPRODUCE DE PUNTA A PUNTA.** Inyectando en
+una **copia** de `check.sh` la invocacion `atomrom.py rom <inexistente>` (sin
+tocar ninguna herramienta ni ningun artefacto compartido), la suite entera
+terminaba en `rc=1` con
+
+```
+PRUEBA: atomrom con fichero ausente            FALLO rc=2
+```
+
+Es decir: **"no he podido comprobar" reportado como "el proyecto esta roto"**,
+que es exactamente la confusion que el propio `check.sh` dice evitar en su
+cabecera. Cometiendola en su propia funcion de ejecucion. Con el protocolo
+medido, esa misma invocacion da `INVALID rc=2` y la suite sale `rc=4`, que es lo
+que `rc=4` quiere decir.
+
+**LO QUE HAY AHORA.** `clasifica()` lleva el mapa medido y se autocomprueba
+antes de usarse: `0` OK; `2` y `4` INVALID; `1`, `3`, `5`, `126`, `127` y
+cualquier otro FALLO. El mapa que se imprime en la cabecera **se genera desde
+la funcion**, no se reescribe a mano: mientras estaba escrito a mano, seguia
+diciendo "0=OK, 4=INVALID, resto=FALLO" **despues** de que el protocolo
+cambiara, o sea que la linea que informa del clasificador era capaz de mentir
+sobre el clasificador. La suite devuelve `rc=4` cuando no hay fallos pero si
+validaciones no comprobables, y nombra cuales son.
+
+**UN CONTROL QUE FALLABA POR ARREGLAR (esto va a NEGATIVE-RESULTS).** El control
+de paridad de fences de `cn8` exigia que el conjunto de documentos impares
+fuese **exactamente** la deuda acreditada. Medicion: entre mi commit `b2407a4` y
+`HEAD`, otra sesion pago la deuda de `CONTRADICTIONS.md` (85 fences impares ->
+86 pares). `cn8` paso a `rc=1` FALLA. **El trabajo bien hecho se reportaba como
+incumplimiento**, y el control no distinguia en que direccion se habia roto. La
+igualdad exacta de dos conjuntos confunde "alguien rompio la paridad" con
+"alguien la arreglo". Ahora son dos condiciones: `impares` fuera de la deuda
+acreditada es FALLA, y la deuda ya pagada se **informa** para poder podarla.
+
+**LO MISMO, OTRA VEZ, EN UN CANAL ENTERO.** `chk()` imprime el `detalle` **solo
+cuando falla**, asi que los dos `chk(..., True, "informativo: ...")` que tenia
+`cn8` eran canales de observacion que **no producian ninguna observacion**:
+escritos a proposito para informar y silenciosos por construccion. Anadido
+`info()`, que siempre imprime. Regla: sospechar de cualquier linea que diga
+"informativo" y pase por `chk`.
+
+**MIS ERRORES, TODOS MEDIDOS, TODOS DE LA MISMA CLASE.** Un nombre, un numero o
+un comentario escrito con forma de dato y no verificado:
+
+1. Al reescribir el resumen de `check.sh` **perdi el `exit 1` de la rama de
+   fallos**: una suite con fallos imprimia "1 validacion(es) FALLIDA(S)" y a
+   continuacion "TODO CORRECTO", con `rc=0`. **Una suite rota que reporta
+   exito.** Y lo compre porque probe las rutas OK e INVALID y **no probe la
+   ruta FALLO**, que era la que perdia el `exit`.
+2. Defini `autocomprueba_clasificador` dos veces en el fichero; bash usa la
+   ultima, asi que funcionaba por casualidad.
+3. Dentro de esa autocomprueba, `local fallos=0` **tapaba** el global que
+   `resumen` lee, y yo preparaba los casos con variables (`f`, `i`) que
+   `resumen` no ve. O sea: **el control no podia probar lo que decia probar**,
+   dos veces en el mismo bloque.
+4. Escribi `"de 13 casos"` cuando eran 12. Un total escrito a mano; ahora lo
+   cuenta el mismo codigo que ejecuta los casos.
+5. Busque `FALLA` en un informe que escribe `FALLO`, y conclui que un test
+   fallaba en silencio porque no encontraba la palabra que no existe.
+6. Afirme que "`check.sh` no distingue el `rc=2`" sin mirar las lineas 256 y 273,
+   donde si lo distingue. Medi antes de publicarlo y era falso.
+7. Escribi dos ideogramas CJK en un comentario de `check.sh`. Los describo en
+   vez de reproducirlos para no dejar CJK en el arbol. Y **CN-R12, un control
+   de otra sesion que ya existia, me lo cazó**: esa es la vez que mas me sirve,
+   un control escrito por otro me atrapa a mi. Y por el mismo camino dos veces en
+   la misma ronda, porque la correccion la escribi en el fichero equivocado.
+   sesion que ya existia, me lo cazó**. Esa es la vez que mas me sirve: un
+   control escrito por otro me atrapa a mi.
+
+**Y UN VECTOR DE PRUEBA QUE NO ERA VECTOR.** Intente demostrar que el control
+nuevo de fences no podia fallar, metiendo un `.md` con fences impares, y el
+control **no fallo**: porque mi fichero tenia **4** fences, o sea era **par**. Lo
+llamaba "mutacion" sin haber comprobado que mutaba. Si me hubiera parado en
+"el control no funciona", habria **borrado un control correcto** por un vector
+mal construido. Con el vector bien construido y verificado antes de usarlo (3
+fences, comprobado en el acto), el control falla `rc=1` nombrando el documento.
+
+check.sh TODO CORRECTO (rc=0) | cn8 todos los controles pasan | selfcheck 30/30.
+GPU INTACTA. WRITE_EXECUTION NONE.

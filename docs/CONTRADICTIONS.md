@@ -972,3 +972,62 @@ DATO QUE APARECE DE PASO, y que ya era un claim cerrado
   procederes independientes, mismo numero.
 
 ---
+
+## C-016 · `rc=5` significa dos cosas distintas, y el codigo de salida no tiene protocolo
+
+`CLASSIFICATION=CONTRADICTION` · `STATE=OPEN` · `TRACK=TOOLING` · `GPU INTACTA`
+
+**AFIRMACION A.** `check.sh` (linea 294) dice: *"firmware contrasta los clocks del
+VBIOS con las frecuencias que la GPU tiene ahora. Sale con `rc=5` si la unidad no
+cuadra y `rc=4` si no puede contrastar"*.
+
+**AFIRMACION B.** `atomrom.py` tiene estos codigos de retorno, medidos:
+
+```
+5 return 0     9 return 1     1 return 2     4 return 4
+```
+
+**No hay ningun `return 5`.** El `rc=5` que el comentario atribuye a `atomrom` no
+existe en esa herramienta.
+
+**DISCRIMINANTE QUE RESUELVE UNA DE LAS DOS, Y NO MEZCLA LAS DOS.** El mismo
+comentario, en la linea 307, habla de `pm4dec`: *"si el layout estuviera mal,
+caerian fuera y darian `rc=5`*. Y `pm4dec.py` **si** tiene `return 5`. Asi que un
+comentario es correcto y el otro no, y solo se separa midiendo los `return` de cada
+fichero por separado en vez de leerlos como un texto corrido.
+
+**LA CONTRADICCION QUE QUEDA ABIERTA, Y ES MAS INTERESANTE.** El `rc=5` esta
+sobrecargado en el kit:
+
+| herramienta | `rc=5` significa | deberia ser |
+|---|---|---|
+| `pm4dec.py` | "%d direcciones NO caben en la VRAM" -- el dato es incoherente | FALLO |
+| `btfsnap.py` | `OSError` al leer o escribir la BTF -- no he podido comprobar | INVALID |
+
+Con el mapa que hay ahora en `clasifica()`, un `OSError` de `btfsnap` se
+reportaria como FALLO. **No esta ejercitado hoy** porque la suite solo invoca
+`btfsnap` en modo `--self-test`.
+
+**MEDICION DE ALCANCE.** 17 herramientas, **30** `return <entero>`, 5 codigos
+distintos (`0`, `1`, `2`, `3`, `4`, `5`), mas el `126` que es de shell. `run()`
+mapeaba `0` a OK, `4` a INVALID y **todo lo demas a FALLO**, con `2` significando
+"falta el fichero" en al menos 12 herramientas. Medido con ejecucion real:
+`atomrom.py rom <inexistente>` -> `rc=2`, `pm4dec.py <inexistente>` -> `rc=2`.
+
+**RESOLUCION PARCIAL APLICADA.** `clasifica()` lleva ahora el mapa medido
+(`0` OK; `2` y `4` INVALID; resto FALLO) y se autocomprueba antes de usarse. El
+`5` sigue en FALLO porque es el caso mayoritario medido, y **la ambiguedad queda
+registrada a proposito** en vez de repartirse en silencio.
+
+**LO QUE LA RESOLVERIA, Y NO ESTA HECHO.** Partir el mapa por herramienta, o
+declarar el protocolo en una tabla que las herramientas lean. Cuesta mas que el
+beneficio mientras `btfsnap` solo se ejecute en `--self-test`, asi que la rama
+queda `DEFERRED` y se reabre en cuanto una linea de la suite invoque una
+herramienta en un modo que pueda dar `rc=5` por `OSError`. **El disparador esta
+escrito**, que es lo que evita que esto se convierta en deuda invisible.
+
+**POR QUE ESTA CONTRADICCION NO LA RESUELVE `check.sh` SINO EL CODIGO.** Un
+orquestador no puede saber si el `5` de una herramienta es "dato incoherente" o
+"no he podido". Se lo dice el propio codigo de la herramienta, y por eso el
+problema es de **protocolo ausente entre herramientas**, no del clasificador. Un
+clasificador no puede arreglar una semantica sobrecargada que viene de arriba.

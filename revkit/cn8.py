@@ -53,6 +53,16 @@ def chk(nombre, cond, detalle=""):
 INVALIDOS = []
 
 
+# MEDIDO: `chk` solo enseña `detalle` CUANDO FALLA. Consecuencia medida aqui: los
+# dos `chk(..., True, "informativo: ...")` que tenia eran DECORATIVOS, es decir
+# canales de observacion que no produzcan ninguna observacion. Escritos a proposito
+# para informar y silenciosos por construccion. Un `info` que no se ve no es un
+# `info`, y hay que sospechar de cualquier linea de este fichero que diga
+# "informativo" y pase por `chk`.
+def info(nombre, detalle=""):
+    print("  info  %s %s" % (nombre, detalle))
+
+
 def chk_inv(nombre, cond, detalle=""):
     """INVALID: la comprobacion no se pudo hacer. No es un fallo del proyecto."""
     if cond:
@@ -451,11 +461,29 @@ def main():
     #
     # El deficit esta ACREDITADO y se fija como conjunto conocido, medido en
     # 2026-10-02. Asi este control no obliga a arreglar el documento de otra
-    # sesion, y a cambio falla si uno NUEVO se rompe o si uno viejo se arregla
-    # (en ese segundo caso el conjunto deja de cuadrar, que es justo cuando hay
-    # que actualizar la lista a proposito y no por descuido).
-    DEUDA_FENCES = {"EVIDENCE-MATRIX.md", "CONTRADICTIONS.md",
-                    "MASTER-RESEARCH-STATUS.md"}
+    # sesion, y a cambio falla si uno NUEVO se rompe.
+    #
+    # MEDIDO 2026-10-03: el comentario de arriba decia "y a cambio falla si uno
+    # viejo se arregla", y era verdad, y era un DEFECTO. Medir lo que decia era
+    # exactamente lo contrario de lo que queria decir. Y no es teoria: entre mi
+    # commit b2407a4 y HEAD, otra sesion pago la deuda de CONTRADICTIONS.md
+    # (85 fences impares -> 86 pares), y cn8 paso a rc=1 FALLA. El trabajo bien
+    # hecho --arreglar la paridad-- sereported comoincumplimiento.
+    #
+    # La igualdad EXACTA de dos conjuntos confunde las dos direcciones, que no se
+    # parecen en nada:
+    #     DEUDA - impares  = deuda PAGADA. Es una mejora. No debe romper nada.
+    #     impares - DEUDA  = rotura NUEVA sin acreditar. Eso si debe romper.
+    # Un control que falla cuando arreglas, y que no distingue por que fallo, no
+    # es un control: es un obstacle, y teaches a la gente a no arreglar. Asi que
+    # la igualdad exacta se parte en dos, y la deuda pagada se INFORMA para que la
+    # lista se pode, que es lo que hay que hacer con ella.
+    # CONTRADICTIONS.md se podo el 2026-10-03: entre b2407a4 (85 fences, impar) y
+    # HEAD lo dejo PAR (86) otra sesion. Es su fichero, no lo he tocado; lo que
+    # mido es su recuento. Se poda para que la lista no mienta sobre el estado, y
+    # con esta nota para que quien vuelva a romperlo sepa que el documento esta
+    # pagado de verdad y no que su entrada se borro por descuido.
+    DEUDA_FENCES = {"EVIDENCE-MATRIX.md", "MASTER-RESEARCH-STATUS.md"}
     F3 = chr(96) * 3
     impares = set()
     inline = {}
@@ -476,14 +504,18 @@ def main():
         _in = _t.count(F3) - _a
         if _in:
             inline[_f] = _in
-    chk("docs/: los documentos con numero IMPAR de fences son los que ya se "
-        "sabian, ni uno mas ni uno menos",
-        impares == DEUDA_FENCES,
-        "(impares ahora: %s; deuda acreditada: %s)"
-        % (sorted(impares), sorted(DEUDA_FENCES)))
-    chk("docs/: el recuento de fences es el de linea, y los ``` en medio de "
-        "una frase seAvisan en vez de romper la paridad",
-        True, "(``` en medio de frase, informativo: %s)" % (inline,))
+    chk("docs/: ningun documento IMPAR fuera de la deuda acreditada",
+        impares <= DEUDA_FENCES,
+        "(impares sin acreditar: %s; impares: %s; deuda: %s)"
+        % (sorted(impares - DEUDA_FENCES), sorted(impares),
+           sorted(DEUDA_FENCES)))
+    # La direccion que antes Was FALLA. Ahora se informa y se pide podar la lista.
+    _pagadas = sorted(DEUDA_FENCES - impares)
+    info("deudas de fences YA PAGADAS: se pueden podar de la lista",
+         "(%s)" % (_pagadas if _pagadas else "ninguna, la lista esta al dia"))
+    info("el recuento de fences es el de linea: los ``` en medio de una frase "
+         "se avisAN pero no rompen la paridad",
+         "(en medio de frase: %s)" % (inline if inline else "ninguno",))
 
     # Cabeceras duplicadas: un bloque copiado dos veces no se ve leyendo, y ya
     # me paso una vez con la correccion de F12. El unico duplicado que hay es de
