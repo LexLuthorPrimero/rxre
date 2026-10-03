@@ -143,3 +143,48 @@ La primera versión de la herramienta **informaba 0 colisiones con cualquier ent
 las familias en un dict indexado por valor, donde dos nombres con el mismo valor no son representables.
 No era una medición: era una tautología. Se detectó al darle datos que no podían ser ciertos, no al
 ejecutarla. Un instrumento que no puede fallar no es evidencia, por muy verde que sea su salida.
+
+---
+
+# ACTUALIZACION DE ESTADO (977) — Q8 de `OPEN` a `PARTIAL`
+
+Workspace `06-DRIVER-C-ASM-PERFORMANCE`, rol AGENT-06 (driver C / ASM / performance).
+Una pregunta, respuesta binaria: de las 16 suites C de
+`04-IMPLEMENTACION/rx550-driver/tests/`, ¿cuáles compilan, cuáles se ejecutan y cuántas
+aserciones pasan? Discriminante: `gcc -Werror` y el código de salida. Riesgo cero.
+
+```
+SUITES_EN_LA_PUERTA_ANTES        7 de 16
+COMPILAN_Y_PASAN                 15 de 16     2 814 aserciones C + 34 estaticas
+NO_COMPILAN                       1           test_mem, Q2, de otra sesion
+PUERTA_ANTES                      PARTIAL     sin puerta detras de 2 345 aserciones
+PUERTA_AHORA                      PARTIAL     15 de 16, 2 848 aserciones, rc 0 x3
+```
+
+El subproducto que no era hipotético: **`rx550_gart_write.c` no compilaba**, porque
+`rx550_gart_write.c:39` usaba `RX550_GART_ENTRY_COUNT`, retirada de `rx550_vmid0_gart.h:69`
+con un motivo escrito. No lo veía nadie porque el módulo no incluye ese `.c` y la cola de
+`run` no incluía su test. Un fichero que ninguna puerta compila es invisible por construcción.
+
+Y la lectura contraintuitiva, que queda escrita porque es lo que se llevaría mal:
+**65 536 no era un número inventado.** Sale de `amdgpu_gart.c:533`
+(`num_gpu_pages = gmc.gart_size / 4096`) con el `gart_size = 256 MiB` por defecto de
+POLARIS12 (`gmc_v8_0.c:595`). Lo que no era un hecho es que valiera *siempre*:
+`gart_size` depende de `gartsize`, `module_param_named(..., 0600)` en `amdgpu_drv.c:293`,
+aplicado en `gmc_v8_0.c:604-605`. Con `gartsize=1024` esta ASIC tiene **262 144** entradas.
+La retirada fue correcta; lo que estaba mal es que se quedó a medias.
+
+```
+Q8 TEST_MATRIX        OPEN -> PARTIAL
+  la puerta existe y mide 15 de 16; la 16 depende de trabajo ajeno en vuelo
+```
+
+Un resultado negativo propio, que vale más que el verde: con la guarda `B` del batch
+writer **retirada entera**, la suite daba **56 pass, 0 fail**. Los centinelas estaban
+pegados al array, y una fuga 1 000 entradas más allá no los toca. Se añadió el caso `5b`,
+con la fuga cayendo dentro de la reserva, y `B` pasó a ser detectable. Una puerta en
+verde, sin haber visto fallar, no dice que tenga dientes.
+
+```
+STOP_CONDITIONS        ninguna cumplida.  RUNTIME_REQUIRED = NO.
+```
