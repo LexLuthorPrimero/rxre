@@ -41,6 +41,16 @@ Y el nodo no es un fichero cualquiera:
 dice. Con `O_RDWR` el descriptor tiene permiso de escritura y el `ioctl` que se
 ejecute depende de lo que el que llama pida.
 
+**Y MEDIDO DESPUES, con el mapa de 312:** con `O_RDONLY` la capa DRM rechaza
+TODOS los ioctl de `AMDGPU_INFO`, incluidos los que son de lectura. **0 de 19
+responden con `O_RDONLY`; 15 de 19 con `O_RDWR`.** El permiso de escritura del
+descriptor decide si se puede siquiera *preguntar*.
+
+Eso no convierte a estas herramientas en escritoras, porque `AMDGPU_INFO_*` es
+lectura por definicion. Lo que hace es separar dos cosas que el contrato
+confunde: lo que el programa **hace** con los datos, que es `WRITES_GPU=no`, y
+lo que el descriptor **permite**, que no lo describe nadie.
+
 Es decir: `WRITES_GPU=no` es una **declaracion**, y con `O_RDWR` la
 declaracion y el descriptor no coinciden. Hoy el codigo solo lanza
 `AMDGPU_INFO_DEV_INFO`, que es de lectura, asi que no hay escritura. Pero:
