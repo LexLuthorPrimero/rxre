@@ -1,0 +1,16 @@
+fase	ts	runtime_status	power_state	gpu_busy	mem_busy	power1_input	pp_dpm_sclk
+--- fase A: dispositivo en reposo (runtime autosuspend) ---
+A	2026-10-03T15:58:21-03:00	suspended	D3hot	ERR(1)	?	ERR(1)	?	ERR(1)	?	ERR(1)	?	
+A	2026-10-03T15:58:22-03:00	suspended	D3hot	ERR(1)	?	ERR(1)	?	ERR(1)	?	ERR(1)	?	
+A	2026-10-03T15:58:23-03:00	suspended	D3hot	ERR(1)	?	ERR(1)	?	ERR(1)	?	ERR(1)	?	
+A	2026-10-03T15:58:24-03:00	suspended	D3hot	ERR(1)	?	ERR(1)	?	ERR(1)	?	ERR(1)	?	
+A	2026-10-03T15:58:25-03:00	suspended	D3hot	ERR(1)	?	ERR(1)	?	ERR(1)	?	ERR(1)	?	
+A	2026-10-03T15:58:26-03:00	suspended	D3hot	ERR(1)	?	ERR(1)	?	ERR(1)	?	ERR(1)	?	
+--- fase B: cliente Vulkan abre el dispositivo (resume por runtime PM) ---
+B	2026-10-03T15:58:29-03:00	active	D0	OK	0	OK	0	OK	3195000	OK	0: 214Mhz *1: 551Mhz 2: 734Mhz 3: 980Mhz 4: 1000Mhz 5: 1020Mhz 6: 1046Mhz 7: 1071Mhz 	
+B	2026-10-03T15:58:30-03:00	active	D0	OK	0	OK	0	OK	3196000	OK	0: 214Mhz *1: 551Mhz 2: 734Mhz 3: 980Mhz 4: 1000Mhz 5: 1020Mhz 6: 1046Mhz 7: 1071Mhz 	
+B	2026-10-03T15:58:31-03:00	active	D0	OK	0	OK	0	OK	3191000	OK	0: 214Mhz *1: 551Mhz 2: 734Mhz 3: 980Mhz 4: 1000Mhz 5: 1020Mhz 6: 1046Mhz 7: 1071Mhz 	
+--- fase C: tras la salida del cliente ---
+C	2026-10-03T15:58:32-03:00	active	D0	OK	0	OK	0	OK	3160000	OK	0: 214Mhz *1: 551Mhz 2: 734Mhz 3: 980Mhz 4: 1000Mhz 5: 1020Mhz 6: 1046Mhz 7: 1071Mhz 	
+C	2026-10-03T15:58:33-03:00	active	D0	OK	0	OK	0	OK	3144000	OK	0: 214Mhz *1: 551Mhz 2: 734Mhz 3: 980Mhz 4: 1000Mhz 5: 1020Mhz 6: 1046Mhz 7: 1071Mhz 	
+C	2026-10-03T15:58:34-03:00	active	D0	OK	0	OK	0	OK	3141000	OK	0: 214Mhz *1: 551Mhz 2: 734Mhz 3: 980Mhz 4: 1000Mhz 5: 1020Mhz 6: 1046Mhz 7: 1071Mhz 	
