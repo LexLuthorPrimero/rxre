@@ -111,6 +111,96 @@ Y hay un orden que este proyecto ya tiene escrito y que aquí se cumple entero:
 vía de recuperación, después se toca lo que pueda dejarte sin escritorio**. Leer la ROM no
 puede dejarlo sin escritorio.
 
+## CORRECCION SEGUNDA: la fila de L1/L2 era código muerto para esta ASIC
+
+El nodo ATOMBIOS-DECODER lo/localizo por call graph y lo he verificado yo. **Mi tabla
+de este hallazgo es incorrecta en una fila, y es la que justificaba parte de la petición
+de root.**
+
+Yo escribí: *«tamaños de caché L1 y L2 → `amdgpu_discovery.c:1767-1786`»*.
+
+MEDIDO, la cadena entera:
+
+```
+amdgpu_device.c:1980    case CHIP_POLARIS12:            <-- listado EXPLICITO
+amdgpu_device.c:1989        r = vi_set_ip_blocks(adev); <-- este grupo
+amdgpu_device.c:1994    default: r = amdgpu_discovery_set_ip_blocks(adev);
+
+amdgpu_discovery.c:1721  static int amdgpu_discovery_get_gfx_info(...)
+amdgpu_discovery.c:2998      amdgpu_discovery_get_gfx_info(adev);   dentro de set_ip_blocks
+amdgpu_discovery.c:3031      amdgpu_discovery_get_gfx_info(adev);   dentro de set_ip_blocks
+```
+
+`CHIP_POLARIS12` está en el grupo de `vi_set_ip_blocks`. `amdgpu_discovery_set_ip_blocks`
+**solo se alcanza por `default:`**. Luego para esta ASIC
+`amdgpu_discovery_get_gfx_info` **no se llama**, y las líneas 1767-1786 —que leen
+`gc_l1_instruction_cache_size_per_sqc`, `gc_l1_data_cache_size_per_sqc`, `gc_gl2c_per_sa`,
+`gc_gl2c_size_per_instance`— **no se ejecutan**.
+
+> Las líneas que cité existen, son correctas, y no dicen nada de esta GPU.
+
+### Y mi verificación de esa refutación estuvo a punto de ser falsa
+
+Primero busqué los llamantes con el grep **acotado al directorio `amdgpu/`** y devolvió
+**una sola línea, la definición**. Es decir: «sin llamantes». Si acepto eso, borro la
+petición de root entera y **borro algo que sigue siendo válido**.
+
+Con alcance completo —todo el árbol del kernel— hay **dos** llamantes, ambos dentro de
+`amdgpu_discovery_set_ip_blocks`, uno bajo `case CHIP_CYAN_SKILLFISH` y otro bajo
+`default:`.
+
+> Cuarta vez esta sesión que concluyo «no existe» desde un alcance que no lo cubre. Y
+> esta vez el error iba en la dirección que **borra** trabajo, que es la peor: un
+> `NOT_FOUND` erroneo no añade nada, pero un `PROVEN_ABSENT` erroneo **tapa una línea
+> que funciona**.
+
+La regla que sale, y que es la inversa de la que vengo aplicando: **un `NOT_FOUND` con
+alcance corto es inocuo; un alcance corto aplicado a una *refutación* es destructivo.**
+Porque para refutar hay que mirar más, no menos.
+
+### Qué queda de la petición de root, con las tres filas restadas
+
+| fila | de dónde sale de verdad | ¿la abre la ROM? |
+|---|---|---|
+| CU, SE, CU-por-SH, tile pipes | `amdgpu_atombios.c:744-750` — **sí se ejecuta** para Polaris12 | **SÍ** |
+| tamaño de L1 | ya medido por KFD: 16 KB y 32 KB (`kfd_crat.c:94,103,113`) | **NO hace falta** |
+| tamaño de L2 | **no está en ninguna parte**: `kfd_crat.c:122` es `TODO: Add L2 Cache information` | **NO** |
+| bytes por slot de scratch | registro MMIO, `gfx_v8_0.c:7123,7125` | **NO** |
+
+O sea que **la petición de root no desbloquea L1, L2 ni scratch**. Solo la geometría de
+CU/SE, que es la fila que ya era la buena. Y esa sigue en pie porque
+`amdgpu_atombios.c:744-750` **no** es el camino de `amdgpu_discovery_set_ip_blocks`: lo
+llama `amdgpu_atombios_get_gfx_info`, y para Polaris12 esa ruta está viva
+(`gfx_v8_0.c:1676-1681`).
+
+**Mi titular se reduce a una cosa, y sigue siendo real:** leer la ROM para el bloque
+`GFX_Info` de la ATOMBIOS, que es donde está la geometría de CU. Todo lo demás ya está
+medido por otra vía o no existe.
+
+### Y una trampa de versión que el decodificador ha detectado
+
+`amdgpu_atombios.c:745` lee el byte +7 **sin mirar `frev` ni `crev`**:
+
+```c
+adev->gfx.config.max_shader_engines = gfx_info->info.max_shader_engines;
+adev->gfx.config.max_tile_pipes     = gfx_info->info.max_tile_pipes;   /* +7 */
+```
+
+Y ese mismo byte tiene dos nombres según la cabecera:
+
+```
+atombios.h:5653        UCHAR   max_tile_pipes;
+atomfirmware.h:1844    uint8_t reserved;          /* en v2_4 / v2_7 */
+```
+
+Si la ROM trae versión 2.4 o posterior, **el driver lee como tile pipes un byte que el
+firmware llama reservado**, y se lo copiará a `gfx.config.max_tile_pipes` sin que nada
+avise. Verificado por mí en las dos cabeceras.
+
+Es un hallazgo que no habría salido sin el decodificador, y es de la clase que este
+proyecto busca: no un valor mal leído, sino **un valor leído con la semántica del
+firmware equivocado**.
+
 ## CORRECCION, y es de las mias
 
 Este hallazgo se commiteo con dos errores que el nodo GEOMETRIA-SEGUNDA-FUENTE
