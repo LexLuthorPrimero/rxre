@@ -344,8 +344,36 @@ _Static_assert(offsetof(struct rx550_pgt_backing, root_dma)
 _Static_assert(offsetof(struct rx550_pgt_backing, leaf_dma)
 	       > offsetof(struct rx550_pgt_backing, leaves),
 		"las dma de las hojas tienen que ir despues de las hojas");
-_Static_assert(RX550_VMID1_BLOCK_SIZE_MIN
-	       == RX550_VMID1_BLOCK_SIZE_DEMOSTRADO,
-		"el minimo codificable deberia coincidir con el demostrado");
+/* MEDIDO 2026-10-04, CORREGIDO.  Esto decia
+ *
+ *     _Static_assert(BLOCK_SIZE_MIN == BLOCK_SIZE_DEMOSTRADO,
+ *                   "el minimo codificable deberia coincidir con el demostrado");
+ *
+ * y era una tautologia disfrazada de invariante.  DEMOSTRADO estaba DEFINIDO
+ * como  MIN  —`#define ..._DEMOSTRADO ..._MIN`—  de modo que la asercion se
+ * cumplia por construccion y no podia fallar.  Un control que no puede fallar
+ * no es un control,  y ademas enunciaba una regla FALSA:  que el minimo
+ * codificable tiene que ser el valor que escribe el corpus.  No tienen por que
+ * coincidir,  y para esta tarjeta NO coinciden:
+ *
+ *     MIN        = 9    codificable:  el campo de 4 bits representa [9, 24]
+ *     DEMOSTRADO = 10   lo que el corpus ESCRIBE en esta ASIC,  derivado de
+ *                          gmc_v8_0.c:1127 + amdgpu_vm.c:2436-2466
+ *
+ * El 9 es el valor del reset de GFX9,  no el de GFX8.  Ver la nota larga en
+ * rx550_vmid1_pgt.h,  donde esta la cadena.
+ *
+ * LO QUE SI SE COMPRUEBA, y si puede fallar:
+ *   - que DEMOSTRADO cae dentro del rango codificable
+ *   - que su campo cabe en el ancho del campo
+ *   - que NO es el minimo,  que es justamente lo que la asercion rota
+ *     afirmaba  —y una comprobacion negativa asi tambien puede fallar. */
+_Static_assert(RX550_VMID1_BLOCK_SIZE_DEMOSTRADO >= RX550_VMID1_BLOCK_SIZE_MIN
+	       && RX550_VMID1_BLOCK_SIZE_DEMOSTRADO <= RX550_VMID1_BLOCK_SIZE_MAX,
+		"el block_size demostrado tiene que caer en el rango codificable");
+_Static_assert(RX550_VMID1_BLOCK_SIZE_MAX - RX550_VMID1_BLOCK_SIZE_MIN == 15u,
+		"el rango codificable son exactamente 16 valores, que es lo que cabe en los 4 bits de PAGE_TABLE_BLOCK_SIZE");
+_Static_assert(RX550_VMID1_BLOCK_SIZE_DEMOSTRADO != RX550_VMID1_BLOCK_SIZE_MIN,
+		"el demostrado NO es el minimo: el 9 es el reset de GFX9, no el valor de GFX8");
 
 #endif /* RX550_VMID1_PGT_BACKING_H */

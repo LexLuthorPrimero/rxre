@@ -232,32 +232,73 @@ enum rx550_vmid1_reg_id {
 	RX550_REG_CTX15_PT_BASE				= 14,
 	RX550_REG_INVALIDATE_REQUEST			= 15,
 	RX550_REG_INVALIDATE_RESPONSE			= 16,
-	RX550_REG_CTX0_PROT_FAULT_DEFAULT		= 17,
-	RX550_REG_CTX1_PROT_FAULT_DEFAULT		= 18,
-	RX550_REG_CTX0_PT_BASE				= 19,
-	RX550_REG_CTX1_PT_BASE				= 20,
-	RX550_REG_CTX2_PT_BASE				= 21,
-	RX550_REG_CTX3_PT_BASE				= 22,
-	RX550_REG_CTX4_PT_BASE				= 23,
-	RX550_REG_CTX5_PT_BASE				= 24,
-	RX550_REG_CTX6_PT_BASE				= 25,
-	RX550_REG_CTX7_PT_BASE				= 26,
-	RX550_REG_CTX0_PT_START				= 27,
-	RX550_REG_CTX1_PT_START				= 28,
-	RX550_REG_CTX0_PT_END				= 29,
-	RX550_REG_CTX1_PT_END				= 30,
+	/* ── MEDIDO 2026-10-04, CORRIGIDO.  FALTABAN NUEVE REGISTROS PRT ─────────
+	 *
+	 * Cierre del hallazgo 1034.  La tabla no tenia NINGUN registro PRT,  y el
+	 * hallazgo media que el corpus escribe cuatro de ellos —las cuatro
+	 * mmVM_PRT_APERTURE*_LOW_ADDR de la tabla golden gmc_v8_0.c:92-97— en una
+	 * ruta de hardware que la secuencia no contiene.  Un registro que el corpus
+	 * ESCRIBE y nuestra tabla no declara no es un hueco menor:
+	 * rx550_gart_es_legible() responderia "no legible" por AUSENCIA,  que es un
+	 * motivo distinto de "no legible por la columna access".
+	 *
+	 * Se ponen NUEVE y no cuatro.  Los cuatro LOW son los que escribe la tabla
+	 * golden;  los cuatro HIGH y mmVM_PRT_CNTL no los escribe nadie en GFX8,
+	 * pero EXISTEN (gmc_8_1_d.h:617-625)  y declarar cuatro de nueve deja al
+	 * lector creyendo que los otros cinco no existen:  es el mismo motivo por el
+	 * que el renumerado del 2026-10-03 metio los trece mmVM_CONTEXTn_PT_BASE en
+	 * lugar de las dos anclas.
+	 *
+	 * Y LA RENUMERACION, y por que no se apilan al final.  Los nueve caen por
+	 * offset entre mmVM_INVALIDATE_RESPONSE (0x51f)  y
+	 * mmVM_CONTEXT0_PROTECTION_FAULT_DEFAULT_ADDR (0x546),  y la tabla esta
+	 * ordenada por offset ASCENDENTE —regla declarada en la cabecera del
+	 * array—,  de modo que los indices 17..38 pasan a 26..47.  Una tabla que
+	 * dice estar ordenada y no lo esta es peor que una que no dice nada.  Y no
+	 * se desperdicia ningun valor:  nada persiste estos numeros,  porque el
+	 * resolutor de offset a registro es POSICIONAL,  no por valor.
+	 *
+	 * MEDIDO, y el fallo salio:  la primera version inserto el bloque con
+	 * "= 17..25"  y luego paso el MISMO renumerador por el fichero entero,  de
+	 * modo que los nuevos se volvieron a sumar 9  y chocaron con los viejos:
+	 * dos nombres con el 26.  El orden correcto es renumerar primero  e insertar
+	 * despues con los indices ya fijos.
+	 */
+	RX550_REG_PRT_APERTURE0_LOW     = 17,
+	RX550_REG_PRT_APERTURE1_LOW     = 18,
+	RX550_REG_PRT_APERTURE2_LOW     = 19,
+	RX550_REG_PRT_APERTURE3_LOW     = 20,
+	RX550_REG_PRT_APERTURE0_HIGH    = 21,
+	RX550_REG_PRT_APERTURE1_HIGH    = 22,
+	RX550_REG_PRT_APERTURE2_HIGH    = 23,
+	RX550_REG_PRT_APERTURE3_HIGH    = 24,
+	RX550_REG_PRT_CNTL              = 25,
+	RX550_REG_CTX0_PROT_FAULT_DEFAULT		= 26,
+	RX550_REG_CTX1_PROT_FAULT_DEFAULT		= 27,
+	RX550_REG_CTX0_PT_BASE				= 28,
+	RX550_REG_CTX1_PT_BASE				= 29,
+	RX550_REG_CTX2_PT_BASE				= 30,
+	RX550_REG_CTX3_PT_BASE				= 31,
+	RX550_REG_CTX4_PT_BASE				= 32,
+	RX550_REG_CTX5_PT_BASE				= 33,
+	RX550_REG_CTX6_PT_BASE				= 34,
+	RX550_REG_CTX7_PT_BASE				= 35,
+	RX550_REG_CTX0_PT_START				= 36,
+	RX550_REG_CTX1_PT_START				= 37,
+	RX550_REG_CTX0_PT_END				= 38,
+	RX550_REG_CTX1_PT_END				= 39,
 	/*  Los tres siguientes y el APERTURE_* de abajo son de bloques DISTINTOS:
 	 *  no confundirlos.  El comentario sobre la identity aperture sigue
 	 *  valiendo donde estaba. */
-	RX550_REG_IDENTITY_APERTURE_LOW			= 31,
-	RX550_REG_IDENTITY_APERTURE_HIGH		= 32,
-	RX550_REG_IDENTITY_PHYSICAL_OFFSET		= 33,
-	RX550_REG_L2_CNTL4				= 34,
-	RX550_REG_APERTURE_LOW				= 35,
-	RX550_REG_APERTURE_HIGH				= 36,
-	RX550_REG_APERTURE_DEFAULT			= 37,
-	RX550_REG_MX_L1_TLB_CNTL				= 38,
-	RX550_REG_NR					= 39,
+	RX550_REG_IDENTITY_APERTURE_LOW			= 40,
+	RX550_REG_IDENTITY_APERTURE_HIGH		= 41,
+	RX550_REG_IDENTITY_PHYSICAL_OFFSET		= 42,
+	RX550_REG_L2_CNTL4				= 43,
+	RX550_REG_APERTURE_LOW				= 44,
+	RX550_REG_APERTURE_HIGH				= 45,
+	RX550_REG_APERTURE_DEFAULT			= 46,
+	RX550_REG_MX_L1_TLB_CNTL				= 47,
+	RX550_REG_NR					= 48,
 };
 
 /* El descriptor de un mnemonico, o NULL si el id no existe. */
@@ -443,63 +484,104 @@ extern const uint32_t rx550_reg_field_count;
  * construcción:  el puntero a la fila i es la fila i.
  *
  * El test que lo ve compara el NOMBRE,  y por eso hay uno. */
+/* ── MEDIDO 2026-10-04.  ESTE ENUM SE GENERA DESDE EL ORDEN DE LA TABLA ─────
+ *
+ * No se escribe a mano desde hace un tiempo,  y la razon no es estetica:  M11
+ * exige que enum[k] y rx550_reg_fields[k] sean el MISMO campo,  y en cuanto las
+ * dos listas se editan por separado cualquier insercion las desalinea.  La
+ * asimetria que acabo de aparecer es el ejemplo:  la tabla tenia 22 campos de
+ * CONTEXT0_CNTL y 7 de VM_PRT_CNTL,  y el enum no los tenia,  de modo que M11
+ *|reporto que el enum[49] declaraba MX_ENABLE_L1_TLB y la tabla tenia el
+ * campo 49 de CONTEXT0.  Los dos indices existen y los dos son ciertos,  y por
+ * eso el fallo no se ve al imprimir la tabla:  se ve al IMPRIMIR LA PAREJA.
+ *
+ * GENERARLO,  y no repararlo a mano,  porque una reparacion manual de 81 lineas
+ * es exactamente el tipo de cosa que se deshace en la siguiente insercion.
+ * La tabla manda;  este enum es su sombra.
+ */
 enum rx550_field_id {
-	RX550_FLD_CNTL_ENABLE_CONTEXT                         = 0,
-	RX550_FLD_CNTL_PAGE_TABLE_DEPTH                       = 1,
-	RX550_FLD_CNTL_RANGE_PROT_FAULT_DEFAULT               = 2,
-	RX550_FLD_CNTL_DUMMY_PAGE_PROT_FAULT_DEFAULT          = 3,
-	RX550_FLD_CNTL_PDE0_PROT_FAULT_DEFAULT                = 4,
-	RX550_FLD_CNTL_VALID_PROT_FAULT_DEFAULT               = 5,
-	RX550_FLD_CNTL_READ_PROT_FAULT_DEFAULT                = 6,
-	RX550_FLD_CNTL_WRITE_PROT_FAULT_DEFAULT               = 7,
-	RX550_FLD_CNTL_EXECUTE_PROT_FAULT_DEFAULT             = 8,
-	RX550_FLD_CNTL_BLOCK_SIZE                             = 9,
-	RX550_FLD_CNTL_RANGE_PROT_FAULT_INTERRUPT             = 10,
-	RX550_FLD_CNTL_DUMMY_PAGE_PROT_FAULT_INTERRUPT        = 11,
-	RX550_FLD_CNTL_PDE0_PROT_FAULT_INTERRUPT              = 12,
-	RX550_FLD_CNTL_VALID_PROT_FAULT_INTERRUPT             = 13,
-	RX550_FLD_CNTL_READ_PROT_FAULT_INTERRUPT              = 14,
-	RX550_FLD_CNTL_WRITE_PROT_FAULT_INTERRUPT             = 15,
-	RX550_FLD_CNTL_EXECUTE_PROT_FAULT_INTERRUPT           = 16,
-	RX550_FLD_CNTL_PDE0_PROT_FAULT_SAVE                   = 17,
-	RX550_FLD_CNTL_VALID_PROT_FAULT_SAVE                  = 18,
-	RX550_FLD_CNTL_READ_PROT_FAULT_SAVE                   = 19,
-	RX550_FLD_CNTL_WRITE_PROT_FAULT_SAVE                  = 20,
-	RX550_FLD_CNTL_EXECUTE_PROT_FAULT_SAVE                = 21,
-	RX550_FLD_L2_ENABLE_L2_CACHE                          = 22,
-	RX550_FLD_L2_ENABLE_L2_FRAGMENT_PROCESSING            = 23,
-	RX550_FLD_L2_ENABLE_L2_PTE_CACHE_LRU_UPDATE_BY_WRITE  = 24,
-	RX550_FLD_L2_ENABLE_L2_PDE0_CACHE_LRU_UPDATE_BY_WRITE = 25,
-	RX550_FLD_L2_EFFECTIVE_L2_QUEUE_SIZE                  = 26,
-	RX550_FLD_L2_CONTEXT1_IDENTITY_ACCESS_MODE            = 27,
-	RX550_FLD_L2_ENABLE_DEFAULT_PAGE_OUT_TO_SYSTEM_MEMORY = 28,
-	RX550_FLD_L2C2_INVALIDATE_ALL_L1_TLBS                 = 29,
-	RX550_FLD_L2C2_INVALIDATE_L2_CACHE                    = 30,
-	RX550_FLD_L2C3_L2_CACHE_BIGK_ASSOCIATIVITY            = 31,
-	RX550_FLD_L2C3_BANK_SELECT                            = 32,
-	RX550_FLD_L2C3_L2_CACHE_BIGK_FRAGMENT_SIZE            = 33,
-	RX550_FLD_L2C4_VMC_TAP_CONTEXT0_PDE_REQUEST_PHYSICAL  = 34,
-	RX550_FLD_L2C4_VMC_TAP_CONTEXT0_PDE_REQUEST_SHARED    = 35,
-	RX550_FLD_L2C4_VMC_TAP_CONTEXT0_PDE_REQUEST_SNOOP     = 36,
-	RX550_FLD_L2C4_VMC_TAP_CONTEXT0_PTE_REQUEST_PHYSICAL  = 37,
-	RX550_FLD_L2C4_VMC_TAP_CONTEXT0_PTE_REQUEST_SHARED    = 38,
-	RX550_FLD_L2C4_VMC_TAP_CONTEXT0_PTE_REQUEST_SNOOP     = 39,
-	RX550_FLD_L2C4_VMC_TAP_CONTEXT1_PDE_REQUEST_PHYSICAL  = 40,
-	RX550_FLD_L2C4_VMC_TAP_CONTEXT1_PDE_REQUEST_SHARED    = 41,
-	RX550_FLD_L2C4_VMC_TAP_CONTEXT1_PDE_REQUEST_SNOOP     = 42,
-	RX550_FLD_L2C4_VMC_TAP_CONTEXT1_PTE_REQUEST_PHYSICAL  = 43,
-	RX550_FLD_L2C4_VMC_TAP_CONTEXT1_PTE_REQUEST_SHARED    = 44,
-	RX550_FLD_L2C4_VMC_TAP_CONTEXT1_PTE_REQUEST_SNOOP     = 45,
-	RX550_FLD_CNTL0_ENABLE_CONTEXT                        = 46,
-	RX550_FLD_CNTL0_PAGE_TABLE_DEPTH                      = 47,
-	RX550_FLD_CNTL0_RANGE_PROTECTION_FAULT_ENABLE_DEFAULT = 48,
-	RX550_FLD_MX_ENABLE_L1_TLB                            = 49,
-	RX550_FLD_MX_ENABLE_L1_FRAGMENT_PROCESSING            = 50,
-	RX550_FLD_MX_SYSTEM_ACCESS_MODE                       = 51,
-	RX550_FLD_MX_SYSTEM_APERTURE_UNMAPPED_ACCESS          = 52,
-	RX550_FLD_MX_ENABLE_ADVANCED_DRIVER_MODEL             = 53,
-	RX550_FLD_MX_ECO_BITS                                 = 54,
-	RX550_FLD_NR                                          = 55,
+	RX550_FLD_CNTL1_ENABLE_CONTEXT                              = 0,
+	RX550_FLD_CNTL1_PAGE_TABLE_DEPTH                            = 1,
+	RX550_FLD_CNTL1_RANGE_PROTECTION_FAULT_ENABLE_DEFAULT       = 2,
+	RX550_FLD_CNTL1_DUMMY_PAGE_PROTECTION_FAULT_ENABLE_DEFAULT  = 3,
+	RX550_FLD_CNTL1_PDE0_PROTECTION_FAULT_ENABLE_DEFAULT        = 4,
+	RX550_FLD_CNTL1_VALID_PROTECTION_FAULT_ENABLE_DEFAULT       = 5,
+	RX550_FLD_CNTL1_READ_PROTECTION_FAULT_ENABLE_DEFAULT        = 6,
+	RX550_FLD_CNTL1_WRITE_PROTECTION_FAULT_ENABLE_DEFAULT       = 7,
+	RX550_FLD_CNTL1_EXECUTE_PROTECTION_FAULT_ENABLE_DEFAULT     = 8,
+	RX550_FLD_CNTL1_PAGE_TABLE_BLOCK_SIZE                       = 9,
+	RX550_FLD_CNTL1_RANGE_PROTECTION_FAULT_ENABLE_INTERRUPT     = 10,
+	RX550_FLD_CNTL1_DUMMY_PAGE_PROTECTION_FAULT_ENABLE_INTERRUPT= 11,
+	RX550_FLD_CNTL1_PDE0_PROTECTION_FAULT_ENABLE_INTERRUPT      = 12,
+	RX550_FLD_CNTL1_VALID_PROTECTION_FAULT_ENABLE_INTERRUPT     = 13,
+	RX550_FLD_CNTL1_READ_PROTECTION_FAULT_ENABLE_INTERRUPT      = 14,
+	RX550_FLD_CNTL1_WRITE_PROTECTION_FAULT_ENABLE_INTERRUPT     = 15,
+	RX550_FLD_CNTL1_EXECUTE_PROTECTION_FAULT_ENABLE_INTERRUPT   = 16,
+	RX550_FLD_CNTL1_PDE0_PROTECTION_FAULT_ENABLE_SAVE           = 17,
+	RX550_FLD_CNTL1_VALID_PROTECTION_FAULT_ENABLE_SAVE          = 18,
+	RX550_FLD_CNTL1_READ_PROTECTION_FAULT_ENABLE_SAVE           = 19,
+	RX550_FLD_CNTL1_WRITE_PROTECTION_FAULT_ENABLE_SAVE          = 20,
+	RX550_FLD_CNTL1_EXECUTE_PROTECTION_FAULT_ENABLE_SAVE        = 21,
+	RX550_FLD_L2_ENABLE_L2_CACHE                                = 22,
+	RX550_FLD_L2_ENABLE_L2_FRAGMENT_PROCESSING                  = 23,
+	RX550_FLD_L2_ENABLE_L2_PTE_CACHE_LRU_UPDATE_BY_WRITE        = 24,
+	RX550_FLD_L2_ENABLE_L2_PDE0_CACHE_LRU_UPDATE_BY_WRITE       = 25,
+	RX550_FLD_L2_EFFECTIVE_L2_QUEUE_SIZE                        = 26,
+	RX550_FLD_L2_CONTEXT1_IDENTITY_ACCESS_MODE                  = 27,
+	RX550_FLD_L2_ENABLE_DEFAULT_PAGE_OUT_TO_SYSTEM_MEMORY       = 28,
+	RX550_FLD_L22_INVALIDATE_ALL_L1_TLBS                        = 29,
+	RX550_FLD_L22_INVALIDATE_L2_CACHE                           = 30,
+	RX550_FLD_L23_L2_CACHE_BIGK_ASSOCIATIVITY                   = 31,
+	RX550_FLD_L23_BANK_SELECT                                   = 32,
+	RX550_FLD_L23_L2_CACHE_BIGK_FRAGMENT_SIZE                   = 33,
+	RX550_FLD_L24_VMC_TAP_CONTEXT0_PDE_REQUEST_PHYSICAL         = 34,
+	RX550_FLD_L24_VMC_TAP_CONTEXT0_PDE_REQUEST_SHARED           = 35,
+	RX550_FLD_L24_VMC_TAP_CONTEXT0_PDE_REQUEST_SNOOP            = 36,
+	RX550_FLD_L24_VMC_TAP_CONTEXT0_PTE_REQUEST_PHYSICAL         = 37,
+	RX550_FLD_L24_VMC_TAP_CONTEXT0_PTE_REQUEST_SHARED           = 38,
+	RX550_FLD_L24_VMC_TAP_CONTEXT0_PTE_REQUEST_SNOOP            = 39,
+	RX550_FLD_L24_VMC_TAP_CONTEXT1_PDE_REQUEST_PHYSICAL         = 40,
+	RX550_FLD_L24_VMC_TAP_CONTEXT1_PDE_REQUEST_SHARED           = 41,
+	RX550_FLD_L24_VMC_TAP_CONTEXT1_PDE_REQUEST_SNOOP            = 42,
+	RX550_FLD_L24_VMC_TAP_CONTEXT1_PTE_REQUEST_PHYSICAL         = 43,
+	RX550_FLD_L24_VMC_TAP_CONTEXT1_PTE_REQUEST_SHARED           = 44,
+	RX550_FLD_L24_VMC_TAP_CONTEXT1_PTE_REQUEST_SNOOP            = 45,
+	RX550_FLD_CNTL0_ENABLE_CONTEXT                              = 46,
+	RX550_FLD_CNTL0_PAGE_TABLE_DEPTH                            = 47,
+	RX550_FLD_CNTL0_RANGE_PROTECTION_FAULT_ENABLE_DEFAULT       = 48,
+	RX550_FLD_CNTL0_RANGE_PROTECTION_FAULT_ENABLE_INTERRUPT     = 49,
+	RX550_FLD_CNTL0_DUMMY_PAGE_PROTECTION_FAULT_ENABLE_INTERRUPT= 50,
+	RX550_FLD_CNTL0_DUMMY_PAGE_PROTECTION_FAULT_ENABLE_DEFAULT  = 51,
+	RX550_FLD_CNTL0_PDE0_PROTECTION_FAULT_ENABLE_INTERRUPT      = 52,
+	RX550_FLD_CNTL0_PDE0_PROTECTION_FAULT_ENABLE_DEFAULT        = 53,
+	RX550_FLD_CNTL0_PDE0_PROTECTION_FAULT_ENABLE_SAVE           = 54,
+	RX550_FLD_CNTL0_VALID_PROTECTION_FAULT_ENABLE_INTERRUPT     = 55,
+	RX550_FLD_CNTL0_VALID_PROTECTION_FAULT_ENABLE_DEFAULT       = 56,
+	RX550_FLD_CNTL0_VALID_PROTECTION_FAULT_ENABLE_SAVE          = 57,
+	RX550_FLD_CNTL0_READ_PROTECTION_FAULT_ENABLE_INTERRUPT      = 58,
+	RX550_FLD_CNTL0_READ_PROTECTION_FAULT_ENABLE_DEFAULT        = 59,
+	RX550_FLD_CNTL0_READ_PROTECTION_FAULT_ENABLE_SAVE           = 60,
+	RX550_FLD_CNTL0_WRITE_PROTECTION_FAULT_ENABLE_INTERRUPT     = 61,
+	RX550_FLD_CNTL0_WRITE_PROTECTION_FAULT_ENABLE_DEFAULT       = 62,
+	RX550_FLD_CNTL0_WRITE_PROTECTION_FAULT_ENABLE_SAVE          = 63,
+	RX550_FLD_CNTL0_EXECUTE_PROTECTION_FAULT_ENABLE_INTERRUPT   = 64,
+	RX550_FLD_CNTL0_EXECUTE_PROTECTION_FAULT_ENABLE_DEFAULT     = 65,
+	RX550_FLD_CNTL0_EXECUTE_PROTECTION_FAULT_ENABLE_SAVE        = 66,
+	RX550_FLD_CNTL0_PAGE_TABLE_BLOCK_SIZE                       = 67,
+	RX550_FLD_PRTCNTL_CB_DISABLE_READ_FAULT_ON_UNMAPPED_ACCESS  = 68,
+	RX550_FLD_PRTCNTL_TC_DISABLE_READ_FAULT_ON_UNMAPPED_ACCESS  = 69,
+	RX550_FLD_PRTCNTL_L2_CACHE_STORE_INVALID_ENTRIES            = 70,
+	RX550_FLD_PRTCNTL_L1_TLB_STORE_INVALID_ENTRIES              = 71,
+	RX550_FLD_PRTCNTL_CB_DISABLE_WRITE_FAULT_ON_UNMAPPED_ACCESS = 72,
+	RX550_FLD_PRTCNTL_TC_DISABLE_WRITE_FAULT_ON_UNMAPPED_ACCESS = 73,
+	RX550_FLD_PRTCNTL_MASK_PDE0_FAULT                           = 74,
+	RX550_FLD_MX_ENABLE_L1_TLB                                  = 75,
+	RX550_FLD_MX_ENABLE_L1_FRAGMENT_PROCESSING                  = 76,
+	RX550_FLD_MX_SYSTEM_ACCESS_MODE                             = 77,
+	RX550_FLD_MX_SYSTEM_APERTURE_UNMAPPED_ACCESS                = 78,
+	RX550_FLD_MX_ENABLE_ADVANCED_DRIVER_MODEL                   = 79,
+	RX550_FLD_MX_ECO_BITS                                       = 80,
+	RX550_FLD_NR                                          = 81,
 };
 
 
@@ -926,7 +1008,7 @@ _Static_assert(RX550_MMIO_SIZE == 0x40000u,
 		"el tamaño de la apertura de registros es un dato del host medido");
 _Static_assert(sizeof(struct rx550_mmap_offset) == sizeof(uint64_t),
 		"el offset tiene que caber en el tipo que lo representa");
-_Static_assert(RX550_REG_NR == 39u,
+_Static_assert(RX550_REG_NR == 48u,
 		"la tabla de registros tiene 39 entradas: 20 de la secuencia + 13 del bloque de contextos 2..7 y 9..15");
 	/*  D3.  Los tres de la identity aperture son tres ids consecutivos, y
 	 *  los tres usan el ancla de 28 bits de numero de pagina con shift 0.
@@ -969,7 +1051,7 @@ _Static_assert((RX550_MX_ACCESS_MODE_MASK >> RX550_MX_ACCESS_MODE_SHIFT) == 0x3u
  *      total                       55
  *
  *  Ver el finding 1030. */
-_Static_assert(RX550_FLD_NR == 55u,
+_Static_assert(RX550_FLD_NR == 81u,
 		"la tabla de campos tiene 22+7+2+3+12+3+6 = 55 entradas");
 /* Y D1:  el rango del VALOR tiene que ser el rango del CAMPO desplazado por la
  * base.  Si alguien cambia la base y no el rango, estas dos lo dicen. */

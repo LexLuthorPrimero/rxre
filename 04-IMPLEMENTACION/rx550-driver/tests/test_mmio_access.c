@@ -712,6 +712,13 @@ static void m9_layer_separation(const char *dir)
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 /* Los dos registros con campo, y la palabra que el header usa para ellos. */
+/* El .h PROPIO.  MEDIDO 2026-10-04:  hasta ahora M11 comparaba la tabla contra
+ * una lista escrita a mano  —una TERCERA copia del orden—,  y al anadir 26
+ * campos a la tabla las tres se desalinearon.  El enum vive en un fichero que el
+ * compilador no vuelve a leer cuando solo se toca el .c,  de modo que leerlo es
+ * la unica forma de que este control pueda fallar de verdad. */
+#define RX550_NUESTRO_H	"../rx550_mmio_access.h"
+
 #define M10_CNTL_REG	"VM_CONTEXT1_CNTL"
 #define M10_MX_REG	"MC_VM_MX_L1_TLB_CNTL"
 
@@ -761,6 +768,34 @@ static char *m10_read(const char *path, char *buf, size_t bufsz,
 	if (out_len)
 		*out_len = n;
 	return buf;
+}
+
+/* El enum de campos ABREVIA el nombre del registro  —RX550_FLD_CNTL0_ para
+ * VM_CONTEXT0_CNTL,  RX550_FLD_MX_ para MC_VM_MX_L1_TLB_CNTL—  de modo que el
+ * identificador completo no es el nombre del campo sino el nombre del campo con
+ * un prefijo.  El sufijo es lo que se compara.
+ *
+ * Y POR QUE SUFIJO Y NO "CONTIENE":  "CONTIENE" daria verde a un enum que
+ * declarase un campo que no existe,  porque el nombre buscado puede aparecer
+ * dentro de otro mas largo.  Un sufijo que termina en el limite de la cadena es
+ * una coincidencia exacta  —salvo que el campo sea prefijo de otro,  y eso lo
+ * descarta el mismo test  porque el sufijo acabaria antes del fin—.
+ *
+ * Y EL CASO INVERSO,  que es el que importa:  un enum con el MISMO nombre en el
+ * indice equivocado pasa los dos controles por separado y falla en la
+ * EMPAREJA.  Por eso la comparacion de arriba es por indice declarado,  no por
+ * posicion recorrida. */
+static bool m10_nombre_coincide(const char *campo, const char *enum_nombre)
+{
+	size_t lc, le;
+
+	if (!campo || !enum_nombre)
+		return false;
+	lc = strlen(campo);
+	le = strlen(enum_nombre);
+	if (le < lc)
+		return false;
+	return strcmp(campo, enum_nombre + (le - lc)) == 0;
 }
 
 /* Extrae de gmc_8_1_sh_mask.h  REG__FIELD_MASK = valor   y   REG__FIELD__SHIFT.
@@ -1075,8 +1110,18 @@ static void m10_field_completeness(const char *shmask, const char *gmc_c)
 			{ "VM_L2_CNTL2",          2 },
 			{ "VM_L2_CNTL3",          3 },
 			{ "VM_L2_CNTL4",         12 },
-			{ "VM_CONTEXT0_CNTL",     3 },
+			{ "VM_CONTEXT0_CNTL",    22 },
 			{ "MC_VM_MX_L1_TLB_CNTL", 6 },
+			/* MEDIDO 2026-10-04: CONTEXT0_CNTL estaba en 3 y subio a 22.
+			 * MEDIDO que CONTEXT0_CNTL y CONTEXT1_CNTL tienen el MISMO
+			 * layout: 22 campos, los mismos nombres, CERO diferencias de
+			 * mascara o shift.  Declarar 3 de 22 no era una decision
+			 * fundamentada:  era media verdad.  Y el hueco hacia el que
+			 * apuntaba ya no existe.
+			 *
+			 * Y VM_PRT_CNTL entra con 7,  por el hallazgo 1034:  el
+			 * corpus lo escribe desde set_prt()  (gmc_v8_0.c:775, :790). */
+			{ "VM_PRT_CNTL",          7 },
 		};
 		const unsigned n_esp = (unsigned)(sizeof(esperado) /
 						 sizeof(esperado[0]));
@@ -1118,10 +1163,18 @@ static void m10_field_completeness(const char *shmask, const char *gmc_c)
 	}
 	CHECK(solo_de_la_tabla,
 	      "M10 los siete registros del nodo, con su reparto exacto");
-	CHECK_EQ((uint32_t)h_in_header, 55u, "M10 el total de la tabla");
+	/* MEDIDO 2026-10-04: era 55  y el reparto era 22+7+2+3+12+3+6.  Ahora el
+	 * reparto es 22+7+2+3+12+22+6+7  —los diecinueve campos de CONTEXT0_CNTL
+	 * que faltaban y los siete de VM_PRT_CNTL—  y el total 81.  El segundo
+	 * CHECK es el que de verdad importa:  es una SUMA,  no una constante,  de
+	 * modo que si alguien añade un campo a la tabla sin tocar el reparto,  o
+	 * al reves,  los dos CHECK juntos lo dicen.  Un total escrito a mano
+	 * arriba seria una copia mas  —la cuarta lista—  y no detectaria el
+	 * desajuste que el reparto si detecta. */
+	CHECK_EQ((uint32_t)h_in_header, 81u, "M10 el total de la tabla");
 	CHECK_EQ(rx550_reg_field_count,
-		 22u + 7u + 2u + 3u + 12u + 3u + 6u,
-		 "M10 el total es la suma del reparto de los siete");
+		 22u + 7u + 2u + 3u + 12u + 22u + 6u + 7u,
+		 "M10 el total es la suma del reparto de los ocho");
 
 	/* ── CONTRA EL CORPUS: lo que gmc_v8_0.c programa tiene que estar ──
 	 * Este es el lado que detecta D2 y D3. */
@@ -1531,93 +1584,96 @@ static void m11_field_ops(void)
 		 *  Y la lección es la del D1 entera:  una lista escrita a mano que
 		 *  duplica la tabla hay que contrastarla,  no deducir su tamaño de
 		 *  la tabla. */
-		static const char *const nombres[] = {
-			"ENABLE_CONTEXT",                                
-			"PAGE_TABLE_DEPTH",                              
-			"RANGE_PROTECTION_FAULT_ENABLE_DEFAULT",         
-			"DUMMY_PAGE_PROTECTION_FAULT_ENABLE_DEFAULT",    
-			"PDE0_PROTECTION_FAULT_ENABLE_DEFAULT",          
-			"VALID_PROTECTION_FAULT_ENABLE_DEFAULT",         
-			"READ_PROTECTION_FAULT_ENABLE_DEFAULT",          
-			"WRITE_PROTECTION_FAULT_ENABLE_DEFAULT",         
-			"EXECUTE_PROTECTION_FAULT_ENABLE_DEFAULT",       
-			"PAGE_TABLE_BLOCK_SIZE",                         
-			"RANGE_PROTECTION_FAULT_ENABLE_INTERRUPT",       
-			"DUMMY_PAGE_PROTECTION_FAULT_ENABLE_INTERRUPT",  
-			"PDE0_PROTECTION_FAULT_ENABLE_INTERRUPT",        
-			"VALID_PROTECTION_FAULT_ENABLE_INTERRUPT",       
-			"READ_PROTECTION_FAULT_ENABLE_INTERRUPT",        
-			"WRITE_PROTECTION_FAULT_ENABLE_INTERRUPT",       
-			"EXECUTE_PROTECTION_FAULT_ENABLE_INTERRUPT",     
-			"PDE0_PROTECTION_FAULT_ENABLE_SAVE",             
-			"VALID_PROTECTION_FAULT_ENABLE_SAVE",            
-			"READ_PROTECTION_FAULT_ENABLE_SAVE",             
-			"WRITE_PROTECTION_FAULT_ENABLE_SAVE",            
-			"EXECUTE_PROTECTION_FAULT_ENABLE_SAVE",          
-			"ENABLE_L2_CACHE",                               
-			"ENABLE_L2_FRAGMENT_PROCESSING",                 
-			"ENABLE_L2_PTE_CACHE_LRU_UPDATE_BY_WRITE",       
-			"ENABLE_L2_PDE0_CACHE_LRU_UPDATE_BY_WRITE",      
-			"EFFECTIVE_L2_QUEUE_SIZE",                       
-			"CONTEXT1_IDENTITY_ACCESS_MODE",                 
-			"ENABLE_DEFAULT_PAGE_OUT_TO_SYSTEM_MEMORY",      
-			"INVALIDATE_ALL_L1_TLBS",                        
-			"INVALIDATE_L2_CACHE",                           
-			"L2_CACHE_BIGK_ASSOCIATIVITY",                   
-			"BANK_SELECT",                                   
-			"L2_CACHE_BIGK_FRAGMENT_SIZE",                   
-			"VMC_TAP_CONTEXT0_PDE_REQUEST_PHYSICAL",         
-			"VMC_TAP_CONTEXT0_PDE_REQUEST_SHARED",           
-			"VMC_TAP_CONTEXT0_PDE_REQUEST_SNOOP",            
-			"VMC_TAP_CONTEXT0_PTE_REQUEST_PHYSICAL",         
-			"VMC_TAP_CONTEXT0_PTE_REQUEST_SHARED",           
-			"VMC_TAP_CONTEXT0_PTE_REQUEST_SNOOP",            
-			"VMC_TAP_CONTEXT1_PDE_REQUEST_PHYSICAL",         
-			"VMC_TAP_CONTEXT1_PDE_REQUEST_SHARED",           
-			"VMC_TAP_CONTEXT1_PDE_REQUEST_SNOOP",            
-			"VMC_TAP_CONTEXT1_PTE_REQUEST_PHYSICAL",         
-			"VMC_TAP_CONTEXT1_PTE_REQUEST_SHARED",           
-			"VMC_TAP_CONTEXT1_PTE_REQUEST_SNOOP",            
-			"ENABLE_CONTEXT",                                
-			"PAGE_TABLE_DEPTH",                              
-			"RANGE_PROTECTION_FAULT_ENABLE_DEFAULT",         
-			"ENABLE_L1_TLB",                                 
-			"ENABLE_L1_FRAGMENT_PROCESSING",                 
-			"SYSTEM_ACCESS_MODE",                            
-			"SYSTEM_APERTURE_UNMAPPED_ACCESS",               
-			"ENABLE_ADVANCED_DRIVER_MODEL",                  
-			"ECO_BITS",                                      
-		};
-		static const uint32_t n_nombres =
-			(uint32_t)(sizeof(nombres) / sizeof(nombres[0]));
-		bool nombres_ok = true;
-		uint32_t t;
+		/* ── MEDIDO 2026-10-04.  EL ORDEN SE LEE DEL PROPIO .h,  NO DE UNA ──
+		 * LISTA ESCRITA A MANO.
+		 *
+		 * Antes habia aqui una lista escrita a mano con los nombres de campo en
+		 * el orden de la tabla.  Era una TERCERA COPIA  —la tabla en el .c,  el
+		 * enum en el .h,  y esta—  y las tres se editaban por separado,  de modo
+		 * que cualquier insercion las desalineaba.  MEDIDO que ya habia pasado:
+		 * al anadir 22 campos de VM_CONTEXT0_CNTL y 7 de VM_PRT_CNTL,  el enum
+		 * se regenero desde la tabla  y la lista seguia con 55.  M11 reporto que
+		 * el enum[49] declaraba MX_ENABLE_L1_TLB y la tabla tenia el campo 49 de
+		 * CONTEXT0:  los dos indices existen y los dos son ciertos,  y por eso el
+		 * fallo no se ve al imprimir la tabla,  se ve al imprimir la PAREJA.
+		 *
+		 * Que comprueba ahora,  y por que sigue pudiendo fallar:  el enum esta en
+		 * un .h que el compilador no vuelve a leer cuando solo se toca el .c.
+		 * Si alguien inserta una fila en la tabla y no regenera el enum,  esto lo
+		 * ve.  Y lo ve por PAREJAS,  que es lo que faltaba:  comparar punteros no
+		 * detecta un desplazamiento.
+		 *
+		 * Lo que ya NO puede hacer,  y queda escrito:  corroborar el CONTENIDO
+		 * con una segunda fuente.  Con el enum generado desde la tabla,  M11 es
+		 * un control de SINCRONIA entre el .h y el .c.  El contenido lo
+		 * corroboran M10 contra gmc_8_1_sh_mask.h,  registro a registro. */
+		static char hdr_nuestro[1u << 18];
+		size_t nn = 0;
+		char *hn;
+		uint32_t leidos_enum = 0;
+		bool parejas_ok = true;
 
-		/*  Y primero:  la lista tiene que COBRAR TODA la tabla.  Si la
-		 *  tabla crece y la lista no,  esto lo dice por el lado que
-		 *  falta,  en vez de leer fuera de rango. */
-		CHECK_EQ(rx550_reg_field_count, n_nombres,
-			 "M11 la lista de nombres.expected cubre los %u campos "
-			 "de la tabla; si no, hay que actualizarla",
-			 n_nombres);
+		hn = m10_read(RX550_NUESTRO_H, hdr_nuestro, sizeof(hdr_nuestro), &nn);
+		CHECK(hn != NULL,
+		      "M11 se pudo leer rx550_mmio_access.h: sin el no hay contra que "
+		      "comparar el orden del enum");
+		if (hn) {
+			/* Se recorre el .h en orden y se empareja cada RX550_FLD_* con su
+			 * indice declarado.  Un salto o una repeticion se ven como un
+			 * desajuste,  que es exactamente el fallo que se busca. */
+			char *p = hn;
+			uint32_t idx = 0;
 
-		for (t = 0; t < n_nombres && t < rx550_reg_field_count; t++) {
-			const struct rx550_reg_field *f =
-				rx550_field_of((enum rx550_field_id)t);
+			while ((p = strstr(p, "RX550_FLD_")) != NULL) {
+				char nom[128];
+				char *q = p + strlen("RX550_FLD_");
+				unsigned k = 0, idx_decl = 0;
+				const struct rx550_reg_field *f;
 
-			if (!f || !f->name || strcmp(f->name, nombres[t]) != 0) {
-				nombres_ok = false;
-				printf("  FALLO  M11 el enum[%u] declara %s y la "
-				       "tabla tiene %s\n", t, nombres[t],
-				       f ? f->name : "(nada)");
-				g_fail++;
+				if (*q == 'N' && strncmp(q, "NR", 2) == 0)
+					break;
+				while (q[k] && (q[k] == '_' || q[k] == '\''
+					      || (q[k] >= 'A' && q[k] <= 'Z')
+					      || (q[k] >= '0' && q[k] <= '9'))) {
+					nom[k] = q[k];
+					k++;
+				}
+				nom[k] = '\0';
+				{
+					char *eq = strstr(q + k, "=");
+
+					if (!eq) { p = q + k; continue; }
+					idx_decl = (uint32_t)strtoul(eq + 1, NULL, 10);
+				}
+				f = rx550_field_of((enum rx550_field_id)idx_decl);
+				/* La pareja que importa:  el indice que el .h DECLARA  contra el
+				 * nombre que la .c tiene en ese indice. */
+				if (idx_decl != idx) {
+					parejas_ok = false;
+					printf("  FALLO  M11 el .h declara RX550_FLD_%s = %u  "
+					       "y le toca el %u:  el enum y la tabla estan "
+					       "desalineados\n", nom, idx_decl, idx);
+					g_fail++;
+				} else if (!f || !f->name
+					   || !m10_nombre_coincide(f->name, nom)) {
+					parejas_ok = false;
+					printf("  FALLO  M11 el enum[%u] declara RX550_FLD_%s y la "
+					       "tabla tiene %s\n", idx, nom,
+					       f && f->name ? f->name : "(nada)");
+					g_fail++;
+				}
+				leidos_enum++;
+				idx++;
+				p = q + k;
 			}
 		}
-		CHECK(nombres_ok,
-		      "M11 el nombre que declara el enum es el que la tabla tiene "
-		      "en esa posicion; comparar solo punteros no lo ve");
-	}
-}
+		CHECK_EQ(leidos_enum, rx550_reg_field_count,
+			 "M11 el enum declara una entrada por cada fila de la tabla; si no, "
+			 "hay que regenerarlo desde la tabla");
+		CHECK(parejas_ok,
+		      "M11 el nombre que declara el enum es el que la tabla tiene en "
+		      "esa posicion, y el .h y la .c estan sincronizados");
+	}}
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 
@@ -1868,8 +1924,18 @@ static void m12_identity_aperture(void)
 		 *  El numero va escrito a mano y no leido del enum a proposito:  si
 		 *  se leyera del enum,  compararia la tabla consigo misma y una
 		 *  entrada de mas o de menos no la notaria. */
-		CHECK_EQ(total, 39u,
-			 "M12 la tabla tiene las 39 entradas del contrato vigente");
+		/* MEDIDO 2026-10-04: eran 39.  Suben a 48 por los NUEVE registros
+		 * PRT del hallazgo 1034:  los cuatro mmVM_PRT_APERTURE*_LOW_ADDR que
+		 * la tabla golden escribe,  mas los cuatro HIGH y mmVM_PRT_CNTL que
+		 * escribe set_prt()  (gmc_v8_0.c:775-814).  Los nueve caen por
+		 * offset entre mmVM_INVALIDATE_RESPONSE (0x51f)  y
+		 * mmVM_CONTEXT0_PROTECTION_FAULT_DEFAULT_ADDR (0x546),  que es donde
+		 * los pone la regla de orden ascendente,  de modo que los indices
+		 * 17..38 se corrieron a 26..47.  El numero sigue escrito a mano a
+		 * proposito,  por el mismo motivo que decia antes:  leerlo del enum
+		 * compararia la tabla consigo misma. */
+		CHECK_EQ(total, 48u,
+			 "M12 la tabla tiene las 48 entradas del contrato vigente");
 		CHECK(rx550_vmid1_reg_get(RX550_REG_NR) == NULL,
 		      "M12 un id fuera de rango no resuelve");
 	}

@@ -181,6 +181,81 @@ const struct rx550_vmid1_reg rx550_vmid1_regs[] = {
 	"lectura que sincroniza la invalidacion; no hay timeout documentado",
 	"gmc_8_1_d.h:616",			RX550_REG_PROVEN
 },
+/* ── MEDIDO 2026-10-04.  NUEVE REGISTROS PRT,  por offset.  Cierre del ─────
+ * hallazgo 1034.  MEDIDO que byte_offset es reg*4 en las 38 filas que ya
+ * estaban,  sin una sola excepcion  —el propio array lo documenta junto a la
+ * identity aperture:  0x575*4=0x15d4—,  asi que los nueve de abajo se DERIVAN
+ * con esa relacion  y no se copian.
+ *
+ * LOS NUEVE,  Y POR QUE NUEVE Y NO CUATRO.  El hallazgo 1034 media que el
+ * corpus escribe las cuatro mmVM_PRT_APERTURE*_LOW_ADDR de la tabla golden.
+ * Los cinco restantes TAMBIEN los escribe el corpus,  MEDIDO,  pero desde
+ * set_prt()  (gmc_v8_0.c:775-814),  que es una via REACTIVA a la que este driver
+ * no llega.  Los cinco son por eso PROVEN y no DECLARED:  la columna conf dice
+ * si el corpus lo escribe,  no si lo escribe en el camino del arranque.  Mi
+ * primera version ponia DECLARED en los cinco  y la puerta M13 lo rechazo,  con
+ * razon.
+ *
+ * UN DEFECTO QUE LA PUERTA ENCONTRO.  Las cuatro LOW citaran gmc_v8_0.c:94-97
+ * y el bloque empieza en :93,  de modo que cada LOW citeaba la LOW SIGUIENTE.
+ * Cuatro citas equivocadas,  del mismo tipo que las que este componente lleva
+ * tres commits corrigiendo.  Abajo dicen 93, 94, 95 y 96.
+ *
+ * CONFIDENCE Y LAS CITAS.  La columna source apunta a donde se DEFINE el
+ * simbolo (gmc_8_1_d.h),  que es lo que comprueba la puerta M13.  La evidencia de
+ * que el corpus lo ESCRIBE va en la columna consumer,  que es para eso.
+ *
+ * access:  "RW" en los cuatro LOW porque la tabla golden los escribe con
+ * AND_MASK = 0x0fffffff,  y amdgpu_device.c:959-975 hace RMW en ese caso:
+ * tmp = RREG32(reg)  y luego escribe.  Hay un RREG32 de esos mnemonicos en el
+ * corpus  —gmc_v8_0.c:798-807—,  de modo que la anotacion esta medida y no
+ * inventada.  En los cinco de set_prt()  igual:  leen antes de escribir.
+ */
+{
+	"mmVM_PRT_APERTURE0_LOW_ADDR",       0x52c, 0x14b0, 32, "RW", "GLOBAL",
+	"la tabla golden lo pone a 0x0fffffff: ventana VACIA para cualquier HIGH.  gmc_v8_0.c:93",
+	"gmc_8_1_d.h:617",                 RX550_REG_PROVEN
+},
+{
+	"mmVM_PRT_APERTURE1_LOW_ADDR",       0x52d, 0x14b4, 32, "RW", "GLOBAL",
+	"la tabla golden lo pone a 0x0fffffff: ventana VACIA para cualquier HIGH.  gmc_v8_0.c:94",
+	"gmc_8_1_d.h:618",                 RX550_REG_PROVEN
+},
+{
+	"mmVM_PRT_APERTURE2_LOW_ADDR",       0x52e, 0x14b8, 32, "RW", "GLOBAL",
+	"la tabla golden lo pone a 0x0fffffff: ventana VACIA para cualquier HIGH.  gmc_v8_0.c:95",
+	"gmc_8_1_d.h:619",                 RX550_REG_PROVEN
+},
+{
+	"mmVM_PRT_APERTURE3_LOW_ADDR",       0x52f, 0x14bc, 32, "RW", "GLOBAL",
+	"la tabla golden lo pone a 0x0fffffff: ventana VACIA para cualquier HIGH.  gmc_v8_0.c:96",
+	"gmc_8_1_d.h:620",                 RX550_REG_PROVEN
+},
+{
+	"mmVM_PRT_APERTURE0_HIGH_ADDR",      0x530, 0x14c0, 32, "RW", "GLOBAL",
+	"lo escribe set_prt(), via REACTIVA que este driver no alcanza.  Reset NO medido: no hay ningun asic_reg/gmc/ default.h.  gmc_v8_0.c:811",
+	"gmc_8_1_d.h:621",                 RX550_REG_PROVEN
+},
+{
+	"mmVM_PRT_APERTURE1_HIGH_ADDR",      0x531, 0x14c4, 32, "RW", "GLOBAL",
+	"lo escribe set_prt(), via REACTIVA que este driver no alcanza.  Reset NO medido: no hay ningun asic_reg/gmc/ default.h.  gmc_v8_0.c:812",
+	"gmc_8_1_d.h:622",                 RX550_REG_PROVEN
+},
+{
+	"mmVM_PRT_APERTURE2_HIGH_ADDR",      0x532, 0x14c8, 32, "RW", "GLOBAL",
+	"lo escribe set_prt(), via REACTIVA que este driver no alcanza.  Reset NO medido: no hay ningun asic_reg/gmc/ default.h.  gmc_v8_0.c:813",
+	"gmc_8_1_d.h:623",                 RX550_REG_PROVEN
+},
+{
+	"mmVM_PRT_APERTURE3_HIGH_ADDR",      0x533, 0x14cc, 32, "RW", "GLOBAL",
+	"lo escribe set_prt(), via REACTIVA que este driver no alcanza.  Reset NO medido: no hay ningun asic_reg/gmc/ default.h.  gmc_v8_0.c:814",
+	"gmc_8_1_d.h:624",                 RX550_REG_PROVEN
+},
+{
+	"mmVM_PRT_CNTL",                       0x534, 0x14d0, 32, "RW", "GLOBAL",
+	"lo escribe set_prt() en :775 y :790,  via REACTIVA que este driver no alcanza.  Reset no medido",
+	"gmc_8_1_d.h:625",                   RX550_REG_PROVEN
+},
 {
 	"mmVM_CONTEXT0_PROTECTION_FAULT_DEFAULT_ADDR",0x546, 0x1518, 32, "W", "CONTEXT0",
 	"destino de los faults del contexto del GART: PFN de la pagina dummy",
@@ -528,6 +603,98 @@ const struct rx550_reg_field rx550_reg_fields[] = {
 				"gmc_v8_0.c:895",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
 { "VM_CONTEXT0_CNTL", "RANGE_PROTECTION_FAULT_ENABLE_DEFAULT",  0x00000010u,  4, 1, 1u,
 				"gmc_v8_0.c:896",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+
+/* ── MEDIDO 2026-10-04.  LOS DIECINUEVE QUE FALTABAN ─────────────────────────
+ *
+ * CONTEXT0_CNTL y CONTEXT1_CNTL tienen el MISMO layout:  MEDIDO sobre
+ * gmc_8_1_sh_mask.h,  22 campos en cada uno,  los mismos 22 nombres,  y CERO
+ * diferencias de mascara o de shift.  Y esta tabla declaraba 22 de uno y 3 del
+ * otro.  La asimetria estaba documentada en la cabecera  —"POR QUE SOLO
+ * VM_CONTEXT1_CNTL Y NO EL CONTEXT0"—  pero el sentido de esa nota era al reves
+ * de lo que dice:  lo justificado era declarar los TRES que el corpus escribe
+ * en el CONTEXT0,  y no fue motivo para dejar los DIECINUEVE invisibles.
+ *
+ * DECLARED_NOT_WRITTEN,  que es distinto de NO_CORPUS:  el corpus los DEFINE con
+ * su mascara y su shift,  y no los ESCRIBE en GFX8.  La prueba de que no los
+ * escribe es negativa  —gmc_v8_0.c solo toca ENABLE_CONTEXT, PAGE_TABLE_DEPTH y
+ * RANGE_PROTECTION_FAULT_ENABLE_DEFAULT del contexto 0,  y eso es un barrido
+ * del fichero entero y no una cita—,  asi que queda CORROBORADO,  no
+ * PROVEN_ABSENT por autoridad propia.
+ *
+ * LAS MASCARAS NO ESTAN COPIADAS.  Estan leidas del header por el mismo
+ * procedimiento que el resto de la tabla,  CON LA VALIDACION de que ningun par
+ * de campos se solape una vez colocado  (22 campos, 22 shifts distintos,  cero
+ * solapes).  Sin esa validacion,  un shift mal parseado que valga cero produce
+ * una tabla que PARECE coherente.  Y asi fallo:  la primera lectura pedia
+ * SHIFT decimal y el header los escribe en HEX,  de modo que todos los shifts
+ * salieron 0  y los campos se solapaban.  La puerta no lo habria visto.
+ */
+{ "VM_CONTEXT0_CNTL", "RANGE_PROTECTION_FAULT_ENABLE_INTERRUPT",0x8u, 3, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6585", RX550_FIELD_DECLARED_NOT_WRITTEN },
+{ "VM_CONTEXT0_CNTL", "DUMMY_PAGE_PROTECTION_FAULT_ENABLE_INTERRUPT",0x40u, 6, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6589", RX550_FIELD_DECLARED_NOT_WRITTEN },
+{ "VM_CONTEXT0_CNTL", "DUMMY_PAGE_PROTECTION_FAULT_ENABLE_DEFAULT",0x80u, 7, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6591", RX550_FIELD_DECLARED_NOT_WRITTEN },
+{ "VM_CONTEXT0_CNTL", "PDE0_PROTECTION_FAULT_ENABLE_INTERRUPT",0x200u, 9, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6593", RX550_FIELD_DECLARED_NOT_WRITTEN },
+{ "VM_CONTEXT0_CNTL", "PDE0_PROTECTION_FAULT_ENABLE_DEFAULT",0x400u, 10, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6595", RX550_FIELD_DECLARED_NOT_WRITTEN },
+{ "VM_CONTEXT0_CNTL", "PDE0_PROTECTION_FAULT_ENABLE_SAVE",0x800u, 11, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6597", RX550_FIELD_DECLARED_NOT_WRITTEN },
+{ "VM_CONTEXT0_CNTL", "VALID_PROTECTION_FAULT_ENABLE_INTERRUPT",0x1000u, 12, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6599", RX550_FIELD_DECLARED_NOT_WRITTEN },
+{ "VM_CONTEXT0_CNTL", "VALID_PROTECTION_FAULT_ENABLE_DEFAULT",0x2000u, 13, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6601", RX550_FIELD_DECLARED_NOT_WRITTEN },
+{ "VM_CONTEXT0_CNTL", "VALID_PROTECTION_FAULT_ENABLE_SAVE",0x4000u, 14, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6603", RX550_FIELD_DECLARED_NOT_WRITTEN },
+{ "VM_CONTEXT0_CNTL", "READ_PROTECTION_FAULT_ENABLE_INTERRUPT",0x8000u, 15, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6605", RX550_FIELD_DECLARED_NOT_WRITTEN },
+{ "VM_CONTEXT0_CNTL", "READ_PROTECTION_FAULT_ENABLE_DEFAULT",0x10000u, 16, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6607", RX550_FIELD_DECLARED_NOT_WRITTEN },
+{ "VM_CONTEXT0_CNTL", "READ_PROTECTION_FAULT_ENABLE_SAVE",0x20000u, 17, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6609", RX550_FIELD_DECLARED_NOT_WRITTEN },
+{ "VM_CONTEXT0_CNTL", "WRITE_PROTECTION_FAULT_ENABLE_INTERRUPT",0x40000u, 18, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6611", RX550_FIELD_DECLARED_NOT_WRITTEN },
+{ "VM_CONTEXT0_CNTL", "WRITE_PROTECTION_FAULT_ENABLE_DEFAULT",0x80000u, 19, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6613", RX550_FIELD_DECLARED_NOT_WRITTEN },
+{ "VM_CONTEXT0_CNTL", "WRITE_PROTECTION_FAULT_ENABLE_SAVE",0x100000u, 20, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6615", RX550_FIELD_DECLARED_NOT_WRITTEN },
+{ "VM_CONTEXT0_CNTL", "EXECUTE_PROTECTION_FAULT_ENABLE_INTERRUPT",0x200000u, 21, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6617", RX550_FIELD_DECLARED_NOT_WRITTEN },
+{ "VM_CONTEXT0_CNTL", "EXECUTE_PROTECTION_FAULT_ENABLE_DEFAULT",0x400000u, 22, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6619", RX550_FIELD_DECLARED_NOT_WRITTEN },
+{ "VM_CONTEXT0_CNTL", "EXECUTE_PROTECTION_FAULT_ENABLE_SAVE",0x800000u, 23, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6621", RX550_FIELD_DECLARED_NOT_WRITTEN },
+{ "VM_CONTEXT0_CNTL", "PAGE_TABLE_BLOCK_SIZE",0xf000000u, 24, 4, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6623", RX550_FIELD_DECLARED_NOT_WRITTEN },
+/* ── MEDIDO 2026-10-04.  mmVM_PRT_CNTL (0x534),  offset 0x14d0 DERIVADO ────
+ *
+ * El mnemonic es mmVM_PRT_CNTL en gmc_8_1_d.h:625  y el prefijo de campo es
+ * VM_PRT_CNTL__  en gmc_8_1_sh_mask.h:6793:  MEDIDO,  con el mismo prefijo que
+ * los otros ocho del bloque PRT.  No hay discrepancia MM_/VM_ que documentar.
+ * Mi primer comentario de aqui afirmaba que si la habia,  y estaba escrito de
+ * memoria en vez de medirlo.
+ *
+ * Ni uno de los siete lo escribe el corpus en el camino del arranque:  set_prt()
+ * los alcanza desde amdgpu_vm.c:1450,  una via REACTIVA que este driver no
+ * alcanza.  Y ninguno tiene valor de reset en el corpus,  porque no existe
+ * ningun asic_reg/gmc/ default.h.  NOT_DETERMINED,  y declarado como tal.
+ */
+{ "VM_PRT_CNTL", "CB_DISABLE_READ_FAULT_ON_UNMAPPED_ACCESS",0x1u, 0, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6793", RX550_FIELD_DECLARED_NOT_WRITTEN },
+{ "VM_PRT_CNTL", "TC_DISABLE_READ_FAULT_ON_UNMAPPED_ACCESS",0x2u, 1, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6795", RX550_FIELD_DECLARED_NOT_WRITTEN },
+{ "VM_PRT_CNTL", "L2_CACHE_STORE_INVALID_ENTRIES",0x4u, 2, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6797", RX550_FIELD_DECLARED_NOT_WRITTEN },
+{ "VM_PRT_CNTL", "L1_TLB_STORE_INVALID_ENTRIES",0x8u, 3, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6799", RX550_FIELD_DECLARED_NOT_WRITTEN },
+{ "VM_PRT_CNTL", "CB_DISABLE_WRITE_FAULT_ON_UNMAPPED_ACCESS",0x10u, 4, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6801", RX550_FIELD_DECLARED_NOT_WRITTEN },
+{ "VM_PRT_CNTL", "TC_DISABLE_WRITE_FAULT_ON_UNMAPPED_ACCESS",0x20u, 5, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6803", RX550_FIELD_DECLARED_NOT_WRITTEN },
+{ "VM_PRT_CNTL", "MASK_PDE0_FAULT",0x40u, 6, 1, RX550_FIELD_NO_CORPUS,
+				"gmc_8_1_sh_mask.h:6805", RX550_FIELD_DECLARED_NOT_WRITTEN },
+
 /* ── MC_VM_MX_L1_TLB_CNTL  (0x819, offset 0x2064) ── */
 { "MC_VM_MX_L1_TLB_CNTL", "ENABLE_L1_TLB",			0x00000001u, 0, 1, 1u, "gmc_v8_0.c:844", RX550_FIELD_PROVEN_CORPUS_WRITES },
 { "MC_VM_MX_L1_TLB_CNTL", "ENABLE_L1_FRAGMENT_PROCESSING",	0x00000002u, 1, 1, 1u, "gmc_v8_0.c:845", RX550_FIELD_PROVEN_CORPUS_WRITES },
