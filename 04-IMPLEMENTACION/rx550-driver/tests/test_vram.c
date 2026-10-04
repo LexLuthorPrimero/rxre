@@ -288,6 +288,40 @@ static void fase_no_garantizado(void)
 	      "un size absurdo se acepta si cumple el contrato: NO es verificable aqui");
 }
 
+/* ── el espacio de errores, y que se propague ─────────────────────────── */
+static void fase_errores(void)
+{
+	struct rx550_vram_resource r;
+	int rc;
+
+	printf("espacio de errores\n");
+
+	/* Los seis codigos son DISTINTOS.  Un espacio de errores donde dos
+	 * codigos valen lo mismo no es un espacio de errores: es un -1 con
+	 * nombres. */
+	CHECK(RX550_VRAM_OK == 0, "OK == 0");
+	CHECK(RX550_VRAM_ERR_NULO != RX550_VRAM_ERR_ALIGN, "NULO != ALIGN");
+	CHECK(RX550_VRAM_ERR_ALIGN != RX550_VRAM_ERR_SIN_MEM, "ALIGN != SIN_MEM");
+	CHECK(RX550_VRAM_ERR_SIN_MEM != RX550_VRAM_ERR_BACKEND, "SIN_MEM != BACKEND");
+	CHECK(RX550_VRAM_ERR_BACKEND != RX550_VRAM_ERR_INVALIDO, "BACKEND != INVALIDO");
+	CHECK(RX550_VRAM_ERR_INVALIDO != RX550_VRAM_ERR_DOBLE, "INVALIDO != DOBLE");
+	CHECK(RX550_VRAM_ERR_NULO < 0 && RX550_VRAM_ERR_DOBLE <= -90,
+	      "el rango es -90.. y todos negativos");
+	CHECK(RX550_VRAM_ERR_DOBLE > -100, "y no colisiona con -1..-3 de los otros");
+
+	/* Y el filtro se puede expresar EN TERMINOS DEL CODIGO, no de un -1
+	 * anonimo.  Este es el punto: antes no habia nada que nombrar. */
+	r = buena(TABLA_ALIGN);
+	CHECK(rx550_vram_resource_valid(&r, TABLA_BYTES, TABLA_ALIGN) == 0,
+	      "un vector valido no es ningun error");
+	r = buena(TABLA_ALIGN);
+	r.owner = NULL;
+	CHECK(rx550_vram_resource_valid(&r, TABLA_BYTES, TABLA_ALIGN) != 0,
+	      "y uno invalido es uno, aunque el filtro no lo distinga todavia");
+	rc = RX550_VRAM_ERR_INVALIDO;
+	CHECK(rc != 0, "el codigo del filtro es no-cero, como el -1 que sustituye");
+}
+
 int main(void)
 {
 	printf("test_vram — contrato de la frontera de VRAM\n\n");
@@ -299,6 +333,7 @@ int main(void)
 	fase_preexistentes();
 	fase_mutacion();
 	fase_no_garantizado();
+	fase_errores();
 
 	printf("\n  %d pass, %d fail\n", pass, fail);
 	return fail ? 1 : 0;
