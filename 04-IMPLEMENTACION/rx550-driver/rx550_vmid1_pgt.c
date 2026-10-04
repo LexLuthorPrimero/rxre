@@ -98,12 +98,26 @@ static uint64_t rx550_roundup_pow2(uint64_t v)
 /* amdgpu_vm.c:2368-2379  amdgpu_vm_get_block_size() */
 static uint32_t rx550_get_block_size(uint64_t t)
 {
-	uint32_t bits = rx550_fls64(t) - 1u + 18u;	/* ilog2(t) + 18 */
+	/* MEDIDO 2026-10-04, D4.  El 18 es un literal del CORPUS
+	 * (amdgpu_vm.c:2359,  "unsigned bits = ilog2(vm_size) + 18;")  y por eso se
+	 * declara aqui con su nombre.  NO es RX550_VM_PFN_SHIFT:  aquel es el
+	 * segundo factor de max_pfn = vm_size_gb << 18 (amdgpu_vm.c:2421),  que es
+	 * OTRO 18 del mismo fichero y con el mismo sentido  —GB a paginas de 4 KiB—
+	 * pero de una cuenta distinta.  Los dos se declaran en su componente y no
+	 * se fusionan:  este modulo no incluye rx550_vm_geom.h a proposito, porque
+	 * la geometria de una ventana y la aritmetica de una funcion helper no son
+	 * la misma dependencia. */
+	uint32_t bits = rx550_fls64(t) - 1u + RX550_VMID1_BITS_POR_GB;	/* ilog2(t) + 18 */
 
 	/* "Make sure the PD is 4K in size up to 8GB address space.
 	 *  Above that split equal between PD and PTs" */
 	if (t <= 8)
-		return bits - 9u;
+		/* MEDIDO 2026-10-04, D4.  Este 9 NO es el offset del campo
+		 * PAGE_TABLE_BLOCK_SIZE:  es el ancho MINIMO de un nivel de tabla, el
+		 * que hace que un PD quepa en 4 KiB (amdgpu_vm.c:2361-2364, y el 512 de
+		 * amdgpu_vm_pt.c:88).  Confundir los dos 9 es justo lo que este
+		 * componente advierte mas abajo,  asi que cada uno tiene nombre. */
+		return bits - RX550_VMID1_NIVEL_MIN_BITS;
 	return (bits + 3u) / 2u;
 }
 
@@ -196,7 +210,10 @@ int rx550_vmid1_geometry(uint64_t vm_size_bytes, struct rx550_vmid1_geom *out)
 
 		if (seed < 0)
 			return RX550_PGT_ERR_VM_SIZE_INCOHERENT;
-		level = (int64_t)rx550_div_round_up((uint64_t)seed, 9u) - 1;
+		/* D4:  el 9 de amdgpu_vm.c:2427 es el ancho de nivel, el mismo que
+		 * arriba y que RX550_VMID1_NIVEL_MIN_BITS, y por eso se nombra. */
+		level = (int64_t)rx550_div_round_up((uint64_t)seed,
+						 RX550_VMID1_NIVEL_MIN_BITS) - 1;
 		if (level < 0)
 			return RX550_PGT_ERR_VM_SIZE_INCOHERENT;
 
@@ -231,18 +248,29 @@ int rx550_vmid1_geometry(uint64_t vm_size_bytes, struct rx550_vmid1_geom *out)
 	 * Ese argumento era mas fuerte de lo que la evidencia sostiene, y por eso
 	 * la guarda se ha sustituido por una que se puede derivar del registro.
 	 *
-	 * LO QUE SE SABE DE CADA VALOR
+	 * LO QUE SE SABE DE CADA VALOR, CORREGIDO
 	 *
-	 *   block_size 9   DEMONSTRADO_EN_GFX8
-	 *                  gmc_v8_0.c:933-934, la unica escritura de
-	 *                  PAGE_TABLE_BLOCK_SIZE en todo el fichero
+	 * MEDIDO 2026-10-04, D2:  este bloque estaba AL REVES, y era la TERCERA
+	 * cadena de provenance obsoleta que declaraba el 9 como el valor de esta
+	 * ASIC.  Las otras dos eran el comentario del enum
+	 * RX550_PGT_ERR_UNSUPPORTED_BLOCK_SIZE (rx550_vmid1_pgt.h) y el texto del
+	 * switch de diagnostico de este mismo fichero;  las dos se han corregido en
+	 * este mismo turno.  La clasificacion correcta ya estaba escrita en
+	 * rx550_vmid1_pgt.h:169-196 y esta copia se habia quedado atras:
 	 *
-	 *   block_size 10  COMPUTADO_POR_LA_ARITMETICA_Y_CODIFICABLE
-	 *                  amdgpu_vm.c:2375-2376 lo produce para ventana de 2 GiB
-	 *                  gmc_8_2_sh_mask.h  el campo son 4 bits en el shift 24,
-	 *                  y el corpus escribe block_size - 9, luego el rango
-	 *                  codificable es [9, 24] y 10 cabe con el valor 1
-	 *                  NO ESCRIBE_EN_GFX8   y eso se declara, no se disimula
+	 *   block_size 9   CODIFICABLE_SIN_ALCANZAR
+	 *                  lo daria el reset de GFX9 (mmhub_1_0_default.h), no el de
+	 *                  esta ASIC.  El corpus escribe 9 solo por la rama
+	 *                  `num_level > 1` de amdgpu_vm.c:2451-2452, y GFX8 nunca la
+	 *                  toma porque max_level = 1 (gmc_v8_0.c:1127)
+	 *
+	 *   block_size 10  DEMOSTRADO_EN_GFX8
+	 *                  es el valor que sale de gmc_v8_0.c:1127 con la ventana de
+	 *                  64 GiB de esta maquina, y el corpus lo escribe en
+	 *                  gmc_v8_0.c:933-934 con el valor de campo 1
+	 *
+	 *   block_size 24  EL TOPE DEL CAMPO
+	 *                  codificable, no alcanzado por esta ASIC
 	 *
 	 * ASI QUE LA GUARDA ES EL RANGO DEL CAMPO, no el valor que el corpus
 	 * llega a usar.  Y con ella, una ventana de 2 o 4 GiB produce una raiz
@@ -268,7 +296,7 @@ int rx550_vmid1_geometry(uint64_t vm_size_bytes, struct rx550_vmid1_geom *out)
 	/* gfxhub_v1_0.c:267-268  PAGE_TABLE_DEPTH = num_level */
 	out->depth_field	= num_level;
 	/* gmc_v8_0.c:933-934  PAGE_TABLE_BLOCK_SIZE = block_size - 9 */
-	out->block_size_field	= block_size - 9u;
+	out->block_size_field	= block_size - RX550_VMID1_BLOCK_OFFSET;
 	/* El nivel intermedio:  con num_level == 1 no hay ninguno entre la raiz y
 	 * la hoja,  asi que level_bytes es el de una hoja.  Se deja declarado
 	 * para que el consumidor tenga el campo con nombre y no una constante
@@ -695,7 +723,12 @@ const char *rx550_vmid1_err_str(int rc)
 	case RX550_PGT_ERR_UNSUPPORTED_LEVEL:
 		return "num_level distinto de 1: no demostrado para GFX8";
 	case RX550_PGT_ERR_UNSUPPORTED_BLOCK_SIZE:
-		return "block_size distinto de 9: no demostrado para GFX8";
+		/* MEDIDO 2026-10-04, D2.  Decia "block_size distinto de 9: no
+		 * demostrado para GFX8".  FALSO:  la guarda de arriba acepta el
+		 * rango codificable del campo, [9, 24].  Un diagnostico que nombra
+		 * un valor donde el codigo comprueba un rango ensena al que lo
+		 * lee a diagnosticar el numero equivocado. */
+		return "block_size fuera del rango codificable [9, 24]";
 	case RX550_PGT_ERR_VM_SIZE_INCOHERENT:
 		return "la cobertura derivada no es la ventana pedida";
 	case RX550_PGT_ERR_NO_BACKING:
