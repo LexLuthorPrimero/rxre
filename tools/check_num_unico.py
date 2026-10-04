@@ -20,11 +20,16 @@ CODIGOS DE SALIDA, Y POR QUE NO SON 0 Y 1
   1  (no se usa) reservado: 1 es error generico y se confunde con un linter
   2  falta `findings/` o el indice
   3  hay colisiones sin fila en el indice
-  4  quedan citas por numero a un numero duplicado
+  4  RETIRADO.  Era "quedan citas por numero a un numero duplicado".  MEDIDO el
+     2026-10-04: se cuenta, se imprime y NO es codigo de salida.  La afirmacion
+     no se puede cumplir sin inventar el destino de la mitad de las citas; las
+     cifras, el motivo y lo que se hace en su lugar estan en
+     `08-ARQUITECTURA/CITAS-POR-NUMERO-DECLARACION.md`.  La constante se conserva
+     con su valor para no romper a quien la compruebe
   5  el indice de disco no regenera identico               <- el indice esta viejo
   6  queda una cita por numero a un duplicado en CODIGO    <- el defecto de HOY
 
-  PRECEDENCIA, y no es arbitraria: 2 > 5 > 3 > 6 > 4.
+  PRECEDENCIA, y no es arbitraria: 2 > 5 > 3 > 6.
 
     2 antes que nada: sin `findings/` o sin indice no hay nada que afirmar.
     5 antes que 3 y 4: A2 y A3 se miden CONTRA el indice. Si el indice no
@@ -232,6 +237,42 @@ EXIT_CITAS_AMBIGUAS = 4
 EXIT_INDICE_VIEJO = 5
 EXIT_CITA_AMBIGUA_EN_CODIGO = 6
 
+# MEDIDO 2026-10-04, y anadido por el nodo principal al landing de CITAS-PROSA-A3.
+#
+# EL CODIGO 4 SE RETIRO,  y con razon:  "quedan citas por numero a un duplicado" no
+# se puede cumplir sin inventar el destino de la mitad de las citas.  MEDIDO que de
+# las 2152  la mitad son AMBIGUAS  —correctas pero sin decir a cual van—,  y esa no
+# es una reparacion:  es una ambiguedad del RENUMERADO,  que REUTILIZA el numero
+# viejo.  Un codigo de salida que obliga a resolver lo que no tiene solucion  es un
+# codigo que obliga a resolverlo mal.
+#
+# Y EL CENSO MIDIO C3 = 0  —0 confirmadas sobre 132 adjudicaciones—,  que es lo que
+# hace la situacion tolerable.  PERO MEDIDO que ese cero NO se propaga a la puerta:
+#
+#     se inyecta una cita de la clase C3  —dos hallazgos duplicados  y la prosa
+#     atribuye a uno lo que solo sostiene el otro—   ->   rc = 0
+#
+# Es decir:  la puerta NO DETECTA una cita equivocada.  Y eso no es culpa de la cita
+# inyectada:  es que "no hay citas equivocadas"  es un RESULTADO DE CENSO,  no una
+# invariante,  y una invariante que no se puede comprobar no puede quedarse
+# capturando el codigo de salida.
+#
+# LO QUE SI SE PUEDE COMPROBAR,  y es lo que este codigo dice:  UN CENSO CADUCA.
+# MEDIDO que el censo adjudico 2152  —la corrida del expediente—  y que la poblacion
+# medida despues fue 2222.  Hay 70 citas que nadie ha adjudicado nunca,  y para ellas
+# "no hay C3"  no esta medido:  no se sabe.
+#
+# Asi que este codigo NO afirma que las citas esten bien.  Afirma que la MEDIDA que
+# lo dijo ya no cubre lo que hay,  y eso es un hecho  —no un juicio—.
+EXIT_CITAS_SIN_ADJUDICAR = 7
+
+# La poblacion que el censo de 2026-10-04 adjudico.  Es una DECLARACION,  y el unico
+# modo de que deje de ser cierta es que la poblacion cambie  —que es lo que este
+# codigo mide—  o que se vuelva a adjudicar,  y entonces se actualiza aqui  con su
+# fecha,  como se actualiza un hash.
+CENSO_POBLACION = 2152
+CENSO_CITA = "08-ARQUITECTURA/CITAS-POR-NUMERO-DECLARACION.md"
+
 # Numero de hallazgo: 3 o 4 digitos. `\d{3}` es un ancho EXACTO y en cuanto
 # existe `1000-algo.md` deja de casar: es el fallo ya medido y corregido en
 # `findings_index.py:RE_NUM` y en `findnum.py`. Aqui va `\d{3,4}` por el mismo
@@ -244,6 +285,46 @@ RE_NUM = re.compile(r"^(\d{3,4})-(.+)\.md$")
 RE_CITA_LL = re.compile(r"(?<![\w/.\-])(\d{3,4}):(\d+)\b")
 RE_CITA_BT = re.compile(r"`(\d{3,4})`")
 RE_CITA_RUTA = re.compile(r"findings/(\d{3,4})(?![\d\w\-])")
+
+# MEDIDO 2026-10-04 (nodo CITAS-PROSA-A3).  LAS NO-CITAS, y por que NO se
+# resuelven con una heuristica.
+#
+# De las 2152 citas que A3 contaba, 25 NO SON CITAS: 22 son patrones binarios de
+# 3-4 bits de la tabla de decodificacion SIB de x86-64 (`001`, `010`, `100`,
+# `101`) y 3 son rangos de bits de registro (`D0[127:0]`).  El defecto esta en el
+# DETECTOR, no en la prosa.
+#
+# MEDIDO Y DESCARTADO: dos heuristicas, y las dos son MEJORES que el defecto.
+#   (a) el numero dentro de corchetes, por el balance global: descarta 421, de
+#       las cuales 359 NO son no-citas.  En markdown el balance se abre con el
+#       primer `[` sin cerrar --un enlace, una tabla, un literal de regex-- y ya
+#       no vuelve a cero, asi que todo lo demas parece "dentro de corchetes".
+#   (b) adyacencia a `[` o `]`: descarta 8, de las cuales 5 son citas reales.
+#       `**[REFUTADO en `272`]**` acaba en `]` por el markdown, no por un rango.
+#   (c) firma de fila (dos o mas tokens de solo 0/1 en la linea) mas cabecera de
+#       tabla: descarta 11, de las cuales 3 son citas reales.  Una lista de
+#       numeros de hallazgo como `001`,`010`,`021` tiene exactamente la misma
+#       firma que una fila de patrones binarios.
+#
+# Un detector que borra citas reales es peor que uno que las cuenta de mas: la
+# que cuenta de mas se ve en la tabla, y la que borra no se ve.  Por eso esto NO
+# es una heuristica sino una DECLARACION por fichero, con coincidencia EXACTA de
+# ruta y con su razon escrita: el mismo patron que ya usa
+# `tools/CITA-CODIGO-EXCEPTIONS.txt` para el codigo.  Una lista cerrada no puede
+# borrar una cita en un fichero que nadie declaro.
+NO_CITA_FICHEROS = {
+    "05-FUENTES-EXTERNAS/FASE-R0-EXTERNAL-KNOWLEDGE/"
+    "R0-7-REFERENCIA-X86-64-LECTURA-DESENSAMBLADO.md":
+        "tabla de decodificacion SIB de x86-64: los 3-4 digitos son PATRONES "
+        "BINARIOS (001, 010, 100, 101 = base/index de ModRM), no numeros de "
+        "hallazgo. 22 ocurrencias.",
+    "08-ARQUITECTURA/artifacts/Q5-MEM-TABLES/mem-tables.txt":
+        "volcado de tablas de memoria: `D0[127:0]` es un RANGO DE BITS de un "
+        "registro. 1 ocurrencia.",
+    "08-ARQUITECTURA/artifacts/Q5-ISA-CAP12/cap12.txt":
+        "volcado del ISA: `D0[127:0]` y `S2.u[127:0]` son RANGOS DE BITS de un "
+        "registro. 2 ocurrencias.",
+}
 
 EXT_LEIBLES = (".md", ".py", ".sh", ".c", ".h", ".txt", ".tsv")
 EXCLUIDOS_PROPIO = ("RESEARCH", "rx550-upstream-7.2.8", "archive",
@@ -520,6 +601,7 @@ def citas_por_numero(raiz: str, por_num, alcance="propio", limite_ficheros=None)
     dups = {n for n, v in por_num.items() if len(v) > 1}
     excl = alcance_dirs(raiz, alcance)
     por_numero = collections.Counter()
+    no_citas = []
     por_dir = collections.Counter()
     total = 0
     leidos = omitidos = 0
@@ -552,6 +634,12 @@ def citas_por_numero(raiz: str, por_num, alcance="propio", limite_ficheros=None)
                     num = m.group(1)
                     if num not in dups:
                         continue
+                    # Las no-citas.  Se filtran AQUI y no en un segundo
+                    # recorrido: un recorrido doble contaria dos veces lo mismo
+                    # y las cifras dejarian de cuadrar.
+                    if rel in NO_CITA_FICHEROS:
+                        no_citas.append((rel, grupo, num))
+                        continue
                     total += 1
                     por_numero[(grupo, num)] += 1
                     por_dir[rel_dir] += 1
@@ -570,6 +658,10 @@ def citas_por_numero(raiz: str, por_num, alcance="propio", limite_ficheros=None)
              for g in ("NNN:LL", "`NNN`", "findings/NNN")})),
         "por_directorio": dict(por_dir.most_common(12)),
         "ficheros_leidos": leidos,
+        # Las no-citas se INFORMAN, no se callan: son la cifra que baja, y sin
+        # esta linea el total bajaria sin que se supiera por que.
+        "no_citas_descartadas": len(no_citas),
+        "no_citas_ficheros": sorted({x[0] for x in no_citas}),
         "ficheros_omitidos": omitidos,
         # ---- A4: el mismo hallazgo, partido por donde duele y por donde no.
         "A4_codigo": {
@@ -655,8 +747,61 @@ def medir(raiz: str, alcance="propio", limite_ficheros=None) -> dict:
     a4 = resumen["A4_codigo"]
     if a4["citas_en_codigo"] > 0:
         codigos.append(EXIT_CITA_AMBIGUA_EN_CODIGO)
-    if resumen["citas_por_numero_a_duplicado"] > 0:
-        codigos.append(EXIT_CITAS_AMBIGUAS)
+    # MEDIDO 2026-10-04 (nodo CITAS-PROSA-A3).  ESTA AFIRMACION SE RETIRA DE LA
+    # PUERTA, y no porque se cumpla: porque NO SE PUEDE CUMPLIR sin inventar.
+    #
+    # A3 decia "no queda ninguna cita por numero sobre un numero duplicado".  Para
+    # que fuese cierto habria que reescribir 2152 citas por nombre de fichero.
+    # MEDIDO en una muestra estratificada de 132 adjudicaciones manuales
+    # (artefactos en tools/citas_prosa_adjudicado.py; razon y cifras en
+    # 08-ARQUITECTURA/CITAS-POR-NUMERO-DECLARACION.md):
+    #   clase 3, la cita que ya no apunta a lo que dice:  0.  No hay nada malo.
+    #   clase 1, la cita correcta:                         45,7 %  (IC95 26-65 %)
+    #   clase 2, la ambigua:                              54,3 %
+    # En clase 2 la cita NO contiene nada que diga cual de los dos o tres ficheros
+    # es, y por eso reescribirla seria fabricar un destino.  La ambiguedad la
+    # causan los 74 numeros duplicados, y renumerarlos rompe las citas que los
+    # nombran: es decision de otro nodo.
+    #
+    # Lo que si se hace cumplir son las no-citas, porque se cierran en el detector
+    # y no en la prosa, y se han cerrado mas arriba.
+    #
+    # EXIT_CITAS_AMBIGUAS conserva su MISMO valor para no romper a quien lo
+    # compruebe y queda sin uso a proposito: se deja a la vista que el codigo
+    # existe y esta retirado.
+    # if resumen["citas_por_numero_a_duplicado"] > 0:
+    #     codigos.append(EXIT_CITAS_AMBIGUAS)
+    #
+    # ─────────────────────────────────────────────────────────────────────────────
+    # Y LO QUE SE SUSTITUYE:  UN CENSO CADUCA.  MEDIDO,  y anadido por el nodo
+    # principal al landing de este nodo.
+    #
+    # El "C3 = 0" de arriba es un RESULTADO,  y esta puerta no lo convierte en
+    # invariante  —porque no se puede comprobar—.
+    # MEDIDO:  con una cita de la clase 3 inyectada  —dos hallazgos duplicados  y la
+    # prosa atribuye a uno lo que solo sostiene el otro—  la puerta da rc = 0.  O sea
+    # que hoy NO DETECTA una cita equivocada.  Y eso es correcto que no lo haga:  la
+    # clase 3 requiere saber que deberia decir el destino,  y eso es un juicio  —que
+    # es exactamente lo que se hizo a mano en las 132 adjudicaciones—.
+    #
+    # LO QUE SI ES UN HECHO,  y por tanto comprobable:  el censo adjudico 2152  y la
+    # poblacion medida hoy es mayor.  Hay citas que nadie ha adjudicado nunca,  y para
+    # ellas el "no hay C3"  NO ESTA MEDIDO.  No se sabe si lo hay.
+    #
+    # ASI QUE ESTE CODIGO NO AFIRMA QUE LAS CITAS ESTEN BIEN.  Afirma que la MEDIDA
+    # que lo dijo ya no cubre lo que hay.  Y eso es la distincion que hacia falta:
+    # una puerta que sale con 0 porque "no hay problema" y una que sale con 0 porque
+    # "no lo he mirado"  —y nadie lo nota porque las dos se leen igual—  son el mismo
+    # defecto con dos motivos.
+    #
+    # Y CUANDO SE RESUELVA,  este codigo deja de disparar solo:  al bajar la poblacion
+    # de 2152,  o al adjudicarse de nuevo y actualizar CENSO_POBLACION con su fecha.
+    n_adv = resumen["citas_por_numero_a_duplicado"]
+    r["censo_poblacion"] = CENSO_POBLACION
+    r["censo_poblacion_actual"] = n_adv
+    r["censo_sin_adjudicar"] = max(0, n_adv - CENSO_POBLACION)
+    if n_adv > CENSO_POBLACION:
+        codigos.append(EXIT_CITAS_SIN_ADJUDICAR)
     r["codigos_que_se_disparan"] = codigos
     r["codigo"] = codigos[0] if codigos else EXIT_OK
     return r
@@ -771,9 +916,30 @@ def informe(r: dict, limite=20) -> None:
     print("  CODIGO DEVUELTO         : %d" % r["codigo"])
     if r.get("codigos_que_se_disparan"):
         nom = {2: "falta la base", 3: "colisiones sin fila en el indice",
-               4: "citas por numero a un duplicado",
+               4: "citas por numero a un duplicado  (RETIRADO: se cuenta, "
+                  "no falla)",
                5: "el indice de disco no regenera identico",
-               6: "cita por numero a un duplicado, en CODIGO, sin registrar"}
+               6: "cita por numero a un duplicado, en CODIGO, sin registrar",
+               # MEDIDO:  al anadir el codigo 7  la puerta REVENTO con KeyError: 7
+               # DESPUES de haber impreso "VEREDICTO: la afirmacion NO se sostiene".
+               # Es decir que el veredicto se emitia y luego el informe moria.
+               #
+               # Y eso es peor que un fallo limpio por dos razones:  el codigo de
+               # salida  de un traceback  es 1,  que en esta puerta significa "falta la
+               # base",  de modo que un defecto de la puerta se presenta como un
+               # defecto de la MEDIDA;  y el texto del veredicto ya se habia
+               # impreso,  asi que un lector que no mire el rc leeria un diagnostico
+               # correcto de un estado que no se llego a comprobar.
+               #
+               # La lesson:  un diccionario de nombres que se consulta para CADA
+               # codigo emitido  es una lista mas que hay que actualizar,  y no es
+               # opcional:  sin ella, anadir un codigo rompe la puerta que lo anade.
+               # Por eso el self-test tiene que recorrer TODOS los codigos que la
+               # puerta puede emitir,  y no solo los que se fabricaron a mano.
+               7: "hay citas por numero que el CENSO no ha adjudicado  "
+                  "(poblacion %d, censo %d)" % (
+                      r.get("censo_poblacion_actual", 0),
+                      r.get("censo_poblacion", 0))}
         print("\n  VEREDICTO: la afirmacion NO se sostiene.")
         for c_ in r["codigos_que_se_disparan"]:
             print("    %d  %s" % (c_, nom[c_]))
@@ -974,9 +1140,16 @@ def selftest() -> int:
                  [(2, ["002-b.md", "002-c.md"])], 3, 1,
                  extra=[("otro.md", "vease el hallazgo 002:12 y `002` y "
                                    "findings/002\n")])
-    res("4  tres formas de cita por numero sobre un duplicado -> 4 solo",
-        r["codigo"] == EXIT_CITAS_AMBIGUAS
-        and codigos(r) == [EXIT_CITAS_AMBIGUAS],
+    # MEDIDO 2026-10-04 (nodo CITAS-PROSA-A3).  ESTE TEST CAMBIO DE LO QUE
+    # AFIRMA, y el cambio esta aqui y no en el Threshold.  Antes afirmaba que
+    # tres citas por numero sobre un duplicado dan codigo 4.  Ahora afirma que se
+    # CUENTAN las tres y que el codigo de salida es 0, porque 4 paso a
+    # informativo: satisfacerlo exigiria inventar el destino de la mitad de las
+    # citas.  Las cifras y la razon en 08-ARQUITECTURA/CITAS-POR-NUMERO-DECLARACION.md
+    res("4  tres formas se cuentan y 4 ya no es codigo de salida",
+        r["codigo"] == EXIT_OK
+        and codigos(r) == []
+        and r["A3_citas"]["citas_por_numero_a_duplicado"] == 3,
         "codigo=%d todos=%s" % (r["codigo"], codigos(r)))
     res("4  ...y cuenta las tres, no una",
         r["A3_citas"]["citas_por_numero_a_duplicado"] == 3,
@@ -1063,10 +1236,10 @@ def selftest() -> int:
     d, r = arbol("vprec", [("001-a.md", 1), ("002-b.md", 2), ("002-c.md", 2)],
                  [(7, ["007-x.md"])], 99, 1,
                  extra=[("otro.md", "`002`\n")])
-    res("prec  sale el mas profundo (5) y se listan los tres",
+    res("prec  sale el mas profundo (5) y se listan los que disparan",
         r["codigo"] == EXIT_INDICE_VIEJO
-        and codigos(r) == [EXIT_INDICE_VIEJO, EXIT_COLISION_SIN_FILA,
-                           EXIT_CITAS_AMBIGUAS],
+        # el 4 ya no se dispara (medido 2026-10-04, ver la cabecera)
+        and codigos(r) == [EXIT_INDICE_VIEJO, EXIT_COLISION_SIN_FILA],
         "codigo=%d todos=%s" % (r["codigo"], codigos(r)))
 
     # ---- 6: LA PUERTA DE CODIGO TIENE QUE PODER FALLAR Y TIENE QUE PODER PASAR
