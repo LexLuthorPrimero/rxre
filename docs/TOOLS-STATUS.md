@@ -10,6 +10,41 @@
 > `LAST_VERIFIED: 2026-10-01 11:20 -03:00`. Todo lo de abajo fue ejecutado o consultado
 > en esta fecha, salvo donde se dice `NOT_RECHECKED`.
 
+
+CONVENCIÓN QUE ESTE FICHERO APLICA, Y QUE ESTÁ APLICADA
+
+Un acento grave alrededor de un `*.py`, `*.c` o `*.sh` significa **miembro del
+registro de herramientas**. No significa nada más. El motivo es medido, no
+estético: `docs_index()` en `tools/toolreg.py` reconoce exactamente esos tres
+patrones dentro de acentos graves, y `cross_reference()` marca como HUÉRFANO todo
+nombre reconocido que no esté en el inventario de los seis directorios declarados.
+Un fichero del corpus, un módulo sin seguimiento o un metanombre de bloque
+escrito con acentos graves se convierten, solos, en una afirmación de que este
+documento promete una herramienta registrada. Por eso los ficheros del corpus van
+sin acentos graves aquí, y en `TL-01` ya se ve la forma correcta.
+
+Lo que esa convención hace con un nombre que SÍ es una herramienta pero vive
+fuera de los seis directorios declarados —que es el caso de `revkit/`, MEDIDO en
+`TL-47`— no lo resuelve. Lo declara y lo mide.
+
+---
+
+CUADRANTE DE ESTE LEDGER, MEDIDO 2026-10-04
+
+  `TL-01`..`TL-46`     la ronda del 2026-10-01, y los cuatro huecos que dejó
+  `TL-46`              la entrada que estaba escrita DOS VECES con el mismo
+                       cuerpo byte a byte. MEDIDO: 3 700 B idénticos, sha256[:16]
+                       97f4a5f1bb5d5a92. La segunda copia hacía que las secciones
+                       siguientes, que eran contratos de OTRAS herramientas,
+                       quedaran dentro de esta y se atribuyeran aquí
+  `TL-47`..`TL-59`     los contratos de `revkit/` y de `ipver_zero.py`, que
+                       estaban escritos y sin clave
+  `TL-60`..`TL-84`     las 25 herramientas que la tabla generada marca
+                       `TOOL_UNVALIDATED` y que alguien puede citar como
+                       evidencia. El criterio, medido y refutable, está en la
+                       subsección de `TL-59`
+
+---
 ---
 
 ## TL-01 · `pm4_count_census.py` — VALIDATED
@@ -644,7 +679,16 @@ TRES DISEÑOS QUE SALIERON DE DEFECTOS REALES, y por eso están
 
 ```
 UN DISEÑO QUE IMPONE UN LÍMITE, y es el que más costó
-  los 9 ítems de review que quedan son CORRECTOS.  `sdma_v3_1.c` e `ih_v3_0.c` se
+  NOTA DE ALCANCE, y no es pedantería de formato.  sdma_v3_1.c e ih_v3_0.c se
+  escriben SIN acentos graves a propósito, y antes se escribían con ellos.
+  Razón medida: `docs_index()` de tools/toolreg.py reconoce dentro de acentos
+  graves todo `*.py`, `*.c` y `*.sh`, y `cross_reference()` marca como HUÉRFANO
+  todo nombre así que no esté en el inventario.  Con acentos graves, un fichero
+  del corpus se convierte en una afirmación de que es una herramienta
+  registrada, y no lo es.  La convención ya existía en este documento y TL-01 la
+  cumple: `CUERPO gfx_v6_0.c, gfx_v7_0.c, ...` va sin acentos graves, y por eso
+  TL-01 no tiene ni un huérfano
+  los 9 ítems de review que quedan son CORRECTOS.  sdma_v3_1.c e ih_v3_0.c se
   citan precisamente porque NO existen: es el contenido de C-011 y de RE-36.  Una
   herramienta que exigiera resolverlos obligaría a alguien a "arreglarlos" borrando la
   afirmación central de esas dos entradas.
@@ -819,6 +863,15 @@ LO QUE APARECE EN TODO ESTE DOCUMENTO COMO RESPUESTA MANUAL
   `reg_resolve.py --reg ...».  Es decir: la pregunta ya tiene herramienta y nadie lo
   sabía
 NO DECLARADO  no publica una sección de límites.  Declarado aquí ese hueco
+LIMITE DECLARADO, Y ESTÁ EN OTRA ENTRADA  MEDIDO: el límite de `--field`, que no
+  resuelve campos de GMC porque su plan B busca `{gfx}*_sh_mask.h` y nunca llega a
+  `gmc_*_sh_mask.h`, y la obligación del prefijo `mm`, está en TL-47, subsección
+  «Límite de tools/reg_resolve.py».  Está allí porque se descubrió en la ronda de
+  `revkit/` y de aquí no se ve.  Consecuencia medida y reproducible:
+  `cross_reference()` asigna `doc_tl` a la ÚLTIMA entrada que nombra la
+  herramienta, así que en la tabla esta fila sale atribuida a TL-47 y no a TL-15.
+  Se declara aquí para que el que la lea sepa que el atributo es incorrecto y por
+  qué
 ```
 
 ---
@@ -857,7 +910,14 @@ ESTADO     SELF_TEST_OK (PASS)   · 2 hallazgos lo citan
 SOURCE     tools/struct_layout.py   UNTRACKED
 LO QUE RESUELVE  la aritmética de `IR-33` y de `026-frame` hecha a mano:
   el tamaño de una struct del kernel medido en vez de contado
-```
+LIMITE DECLARADO, Y ESTÁ EN OTRA ENTRADA  MEDIDO: que no resuelve los tipos
+  primitivos del kernel, que se comprobó contra `baseline/linux-7.1.3` (parcial) y
+  contra `kernelbuild/linux-7.1.3` (completo) produciendo el mismo resultado, y
+  que degrada a CONFIANZA NULA con la lista de lo que no resolvió, está en TL-47,
+  subsección sobre `/sys/kernel/btf/<modulo>`.  Misma causa que en TL-15: el
+  límite se descubrió en otra ronda, y `cross_reference()` atribuye el nombre a
+  la última entrada que lo nombra, así que la tabla dirá TL-47
+
 
 ---
 
@@ -1665,7 +1725,14 @@ UNA CORRECCIÓN MÍA QUE CAMBIÓ EL NÚMERO, y es lo importante de esta entrada
   Leído como alarma, eso parece un problema de higiene de citas de este proyecto.
   Es casi enteramente un artefacto
   al separar por versión, la clase FRAGILE baja a 135, y está ENTERA explicada:
-      130 de 135  dentro de los 4 ficheros INSTRUMENTADOS
+      NOTA DE ALCANCE.  amdgpu_vm.c y file.c se escriben sin acentos graves, y antes
+  se escribían con ellos.  Los dos son ficheros QUE SE ESTUDIAN, no
+  herramientas: file.c es un nombre genérico que resuelve a unos cincuenta
+  ficheros del árbol y por eso es la clase UNIDENTIFIABLE.  Con acentos graves
+  `cross_reference()` los contaba como dos herramientas que este ledger promete y
+  no existen.  La regla, medida: acento grave = miembro del registro
+  NOTA DE ALCANCE, sobre todo en file.c
+  130 de 135  dentro de los 4 ficheros INSTRUMENTADOS
                     amdgpu_vm.c  amdgpu_vm_pt.c
                     amdgpu_debugfs.c  amdgpu_debugfs.h
         5 de 135  nombres genéricos: pci.h, types.h, file.c
@@ -1692,7 +1759,7 @@ LOS TRES EJES, NO UNO
     UNIDENTIFIABLE   el nombre no identifica el fichero.  `vi.h:27` resuelve a
                      amdgpu/vi.h Y a drivers/staging/media/tegra-video/vi.h, que
                      es la cabecera de un driver de vídeo Tegra sin nada que ver
-                     `file.c` resuelve a unos cincuenta ficheros bajo fs/, arch/ y
+                     file.c resuelve a unos cincuenta ficheros bajo fs/, arch/ y
                      drivers/
                      quien verifique esa cita puede caer en un fichero ajeno, ver
                      algo que PARECE código, y concluir cualquier cosa
@@ -1746,7 +1813,7 @@ LO QUE CORROBORA, Y CON QUÉ MÉTODO
 Y LO QUE AÑADE, que es lo único que aquel fichero no contiene
   la EXPOSICIÓN.  Aquél enuncia la regla y la ilustra con un ejemplo.  No dice
   cuánto del texto de este proyecto está afectado.  Medido aquí: 130 citas
-  dentro de los cuatro ficheros instrumentados, `amdgpu_vm.c` la mayoría,
+  dentro de los cuatro ficheros instrumentados, amdgpu_vm.c la mayoría,
   incluidas todas las de RE-10
 
 QUÉ ES LO QUE ESTAS CIFRAS DICEN DE RE-10, y hay que decirlo
@@ -2021,7 +2088,11 @@ LO QUE NO SE ADOPTA, y es lo importante
   falta, y no se edita el TSV de otra sesión
 
 LO QUE ENCONTRÓ Y ES SÓLO OBSERVACIÓN
-  `03-EXPERIMENTOS/ep08-doorbell-suppression/` contiene `nhwa.c`, `nhwa.ko`,
+  NOTA DE ALCANCE.  nhwa.c va sin acentos graves a propósito: es un módulo de
+  kernel compilado y SIN SEGUIMIENTO que esta herramienta OBSERVA, no una
+  herramienta del registro.  Con acentos graves el nombre se lee como una
+  promesa de herramienta registrada
+  `03-EXPERIMENTOS/ep08-doorbell-suppression/` contiene nhwa.c, `nhwa.ko`,
   `Module.symvers` y un Makefile: un módulo de kernel COMPILADO y sin seguimiento en
   git.  `/proc/modules` no lista ningún `nhwa`, así que está compilado y NO cargado
   esta herramienta dice que existe y que no está cargado.  No lo carga, no lo
@@ -2439,74 +2510,50 @@ LO QUE ESTE CHECK NO HACE
 
 ---
 
-## TL-46 · `docscan --taxonomy` — hacer que el vocabulario cerrado tenga dientes
+## TL-47 · `revkit/` — segunda ronda: el índice de la ronda y los cuatro límites que no se pueden leer bien
 
 ```
-PROPOSITO  Que `TYPE` y `STATE` de cada claim sean UN token de la taxonomía cerrada
-           de `AGENTS.md`, y que no lleven prosa detrás
-ESTADO     **TOOL_VALIDATED**, 17 checks, 0 fallos
-SEGURIDAD  sólo lee.  Es un check más del informe
-
-LA MEDICIÓN QUE LO MOTIVÓ, y era un defecto MÍO
-      claims                                            51
-      TYPE fuera del vocabulario cerrado                12   (24 %)
-      TYPE con token válido Y prosa detrás               9   de esos 12
-      STATE fuera del vocabulario cerrado                 0
-  así se veían:
-      `TYPE DERIVATION + NEGATIVE_RESULT`
-      `TYPE OBSERVATION, con medición propia`
-      `TYPE MEASUREMENT · y el hallazgo de mayor valor de esta ronda`
-      `TYPE CONTRADICTION (resuelta)`
-  en cada caso la anotación era CIERTA y útil donde estaba.  Nadie dijo que dejaba
-  el campo ilegible, porque nadie lo comprobaba: el vocabulario era una lista, no
-  un check
-POR QUÉ IMPORTA, y no es pedantería
-  un campo que lleva prosa es un campo con el que no se puede comparar.  Cualquier
-  herramienta que agrupe claims por `TYPE`, o que rechace una claim cuyo `TYPE` no
-  esté en el vocabulario, lee las doce como malformadas y no como los tipos que son
-  el daño es silencioso en la dirección MALA: no da error, da una clasificación que
-  nadie cuestiona
-  y una taxonomía que tolera una segunda frase en su propio campo es una
-  taxonomía sin dientes
-LO QUE HACE, CUATRO MANERAS DE ESTAR MAL
-  1 · `TYPE` que no es un token del vocabulario        -> `taxonomy-type`
-  2 · `STATE` que no es un token del vocabulario       -> `taxonomy-state`
-  3 · un token válido seguido de prosa                 -> `taxonomy-type`
-  4 · una claim sin `TYPE` o sin `STATE`               -> el mismo check
-  y una claim bien formada NO se reporta.  El self-test mete las cuatro malas y una
-  buena, y exige que se flags las cuatro y sólo ellas
-LO QUE SE HIZO CON LAS DOCE, y por qué no se tira la anotación
-  `TYPE` queda con un token.  La información muda de sitio:
-      ALSO    los tipos secundarios, que es lo que el `+` significaba
-      NOTA    la prosa, que es lo que la coma o el punto medio significaban
-  el punto medio se trata a mano y no con regla, porque `MEASUREMENT · y el
-  hallazgo de mayor valor` separa un término de una NOTA, y una coma separa dos
-  términos.  Una regla automática habría fallado justo en esos casos sin que nadie
-  lo notara
-  `STATE` no necesitó nada: ya estaba limpio, y por eso la auditoría encontró una
-  clase y no dos
-
-EL BUG QUE ESTA HERRAMIENTA MIDE, Y QUE YO TENÍA
-  el hallazgo `071` de otra sesión cuenta cinco defectos de la misma clase y dice
-  que es la quinta vez que ocurre aquí.  Su regla:
-      «no existe» sólo es un dato si el índice sobre el que se buscó está
-      CONSTRUIDO, y su tamaño se imprime junto al resultado.
-      Un `not found` sin cota no es una medida: es un olvido.
-  y el bug de `drift.py` —exigir acentos graves, y con eso no ver
-  `tools/docscan.py`— es exactamente eso: un método de búsqueda que no alcanza,
-  usado para afirmar una ausencia.  Reportó 98 sin documentar cuando eran 76, y dio
-  por no vistas las herramientas de esta misma sesión
-  `citations.py` e `ipsolve` ya cumplían la regla.  El defecto estaba en la
-  herramienta que construí para vigilar esa clase de fallo
-  `NR-14` lo cuenta con la cita exacta
-
-LO QUE ESTE CHECK NO HACE
-  no decide si un `TYPE` es el correcto para esa claim.  Que `MEASUREMENT` sea el
-  token adecuado para `RE-43` es una lectura, y aquí sólo se comprueba que sea un
-  token
-  no reescribe nada.  `--sync` sigue tocando sólo contadores
+PROPOSITO  Ser el índice de la ronda de `revkit/` (2026-10-02) y declarar, en un
+           solo sitio, los cuatro límites que sus herramientas tienen y que en
+           cualquier otro lugar se leen como si no los tuvieran
+WORK_CLASS INDEX_AND_DECLARED_LIMITS
+WRITE_EXECUTION NONE por sí misma.  Las herramientas que describe sí escriben, y
+           cada una lo declara en su propia entrada TL-48..TL-59
+ALCANCE, Y POR QUÉ ESTA ENTRADA EXISTE  `revkit/` NO está en la tupla TOOL_DIRS de
+           tools/toolreg.py, que es lo que decide qué herramientas entran en el
+           registro generado.  MEDIDO 2026-10-04: 34 ficheros fuente en `revkit/`,
+           0 en el registro de 160.  Consecuencia medida: los 14 nombres de
+           `revkit/` que este ledger cita salen como "entradas TL que nombran una
+           herramienta que no existe", y la tabla generada no puede marcarlos
+           VALIDATED porque no los ve.  La reparacion cae en toolreg.py, que este
+           nodo no toca: añadir `revkit` a TOOL_DIRS.  MEDIDO TAMBIÉN que
+           `directorios_no_declarados()` NO la detecta, porque busca directorios
+           llamados `tools` y `revkit` no se llama así: la puerta que se construyó
+           para cazar esta clase de fallo tiene un hueco del tamaño del fallo
+LO QUE ESTA ENTRADA ES, Y LO QUE NO  Un índice y cuatro límites.  El self-test de
+           `revkit/` existe y es `pub_selftest.sh`, con entrada propia en TL-51.
+           Lo que aquí no hay es contrato por herramienta, y por eso hay
+           TL-48..TL-59
+DEFECTO QUE ESTA RONDA DEDUJO, Y QUE ESTA REPARACION CIERRA  El encabezado `## TL-46`
+           estaba escrito DOS VECES con el mismo cuerpo byte a byte.  No era
+           byteosfera: `docs_index()` parte el documento por `## TL-nn` y guarda
+           en un diccionario, así que la segunda copia SOBRESCRIBE a la primera.
+           MEDIDO: los dos bloques son 3 700 B idénticos (sha256[:16]
+           97f4a5f1bb5d5a92) y citan los mismos tres nombres, así que la
+           sobreescritura no perdió ninguna cobertura.  Lo que sí hacía era
+           ATRIBUIR MAL: todo lo que viene después de la segunda copia quedaba
+           dentro de TL-46, y `cross_reference()` asigna `doc_tl` a la última
+           entrada que coincide, de modo que 8 herramientas quedaban atribuidas a
+           `docscan --taxonomy`: reg_resolve.py (que es TL-15), struct_layout.py
+           (TL-18), citations.py (TL-40), constmap.py (TL-41), docscan.py (TL-12),
+           drift.py (TL-42), ipver_zero.py y pm4census.py (sin entrada propia).
+           MEDIDO.  Y por eso las 12 secciones de más abajo, que eran 12
+           contratos de herramienta SIN clave, promotion a TL-48..TL-59: sin eso,
+           el nombre de cada una sigue falling dentro de TL-46
+```
 
 ### Herramientas de `revkit/` (segunda ronda de 2026-10-02)
+
 
 | ID | Herramienta | STATE | Verificado |
 |---|---|---|---|
@@ -2610,7 +2657,23 @@ dice, y por eso `CONFIANZA NULA` debe leerse como "esto no lo sé", nunca como 0
 Para un driver propio, un layout no se deduce: se lee. Ahora hay dos lecturas
 independientes donde antes había una, y era parcial.
 
-## `pm4dec.py`: la tabla de opcodes ya no sale de `sid.h` (2026-10-02)
+## TL-48 · `pm4dec.py` — la tabla de opcodes sale del include graph, no de un nombre supuesto
+```
+RUTA            revkit/pm4dec.py     54 993 B     FUERA de TOOL_DIRS
+WORK_CLASS      ANALYSIS_CORPUS
+WRITE_EXECUTION NINGUNO DECLARADO EN EL FICHERO.  MEDIDO sobre el cuerpo: las 5
+                llamadas open() son de lectura, y no hay open(...,'w'),
+                os.remove/unlink/rename, shutil, /sys, /dev ni /proc
+SELFTEST        SI, y el bloque es el que detecta que faltaba una sexta
+                cabecera
+LO QUE NO PROBABA  que un opcode ejecutado por ESTA placa signifique lo que el
+                nombre dice.  Los seis ficheros de la tabla son de distintas
+                generaciones y sólo uno es de GFX8
+CITA LA TABLA   | fuente | cabecera que sale del include graph | opcodes |
+                Los seis `nombre` van SIN acentos graves, medido: son ficheros
+                del corpus que ESTA herramienta estudia, no herramientas del
+                registro.  Con acentos graves, seis huérfanos
+```
 
 **Defecto corregido.** La tabla se sacaba de un solo fichero, `sid.h`. Eso está
 mal por dos motivos opuestos, y con el mismo síntoma: un opcode mal nombrado.
@@ -2674,17 +2737,17 @@ misma regla que `cargar_opcodes(fuente=)` pero para cualquier símbolo, y pregun
 Así que **EV-35 es `CORROBORATED`, no un hallazgo mío**, y la herramienta
 ajena además **detectó un fallo mío**: `--sym PACKET3_RELEASE_MEM` reporta **5**
 definiciones donde yo tenía **4**. El quinto es `gfx_v12_1_pkt.h` (NAVI 12.1,
-solo `gfx_v12_1.c`), que se me había olvidado. Ahora `HEADERS_OPCODE` audita
+solo gfx_v12_1.c), que se me había olvidado. Ahora `HEADERS_OPCODE` audita
 **seis**.
 
 | fuente | cabecera que sale del include graph | opcodes |
 |---|---|---|
-| `si.c` | `sid.h` | 74 |
-| `gfx_v7_0.c` | `cikd.h` | 66 |
-| `gfx_v8_0.c` | `vid.h` | **70** |
-| `gfx_v9_0.c` | `soc15d.h` | 70 |
-| `amdgpu_gfx.c` | `nvd.h` | 116 |
-| `gfx_v12_1.c` | `gfx_v12_1_pkt.h` | 62 |
+| si.c | `sid.h` | 74 |
+| gfx_v7_0.c | `cikd.h` | 66 |
+| gfx_v8_0.c | `vid.h` | **70** |
+| gfx_v9_0.c | `soc15d.h` | 70 |
+| amdgpu_gfx.c | `nvd.h` | 116 |
+| gfx_v12_1.c | `gfx_v12_1_pkt.h` | 62 |
 
 Anadir el sexto header **no cambia** la tabla de GFX8 — el include graph sigue
 ganando con `vid.h` — y solo mejora el diagnóstico de conflictos, que pasa de
@@ -2698,9 +2761,31 @@ suponerlo; mi preocupación inicial era infundada.
 **Cuidado con `sid.h`**: hay **4** ficheros con ese nombre en este árbol y no son
 el mismo —`amd/amdgpu/sid.h` por triplicado y `radeon/sid.h`, otro driver—. El
 texto de `tools/constmap.py` dice "TEN"; medido aquí son 4. `AMBIGUOUS` está bien
-planteado, el número no. No se toca `constmap.py` por ser de otra sesión.
+planteado, el número no. No se toca constmap.py por ser de otra sesión.
 
-## `btfsnap.py`: guardar los layouts que salen de la BTF, que es perecedera
+**Cota de alcance de esta entrada.** pm4dec.py va sin acentos graves en la
+tabla y constmap.py también va sin acentos graves en este párrafo, y los dos por
+el mismo motivo medido: `cross_reference()` asigna el atributo `doc_tl` a la
+**última** entrada que nombra la herramienta.  Poner el nombre de constmap.py en
+acentos graves aquí lo habría atribuído a TL-48, que es la entrada de otra
+herramienta, y su entrada real es TL-41.  El atributo se lee mal en ocho
+herramientas más por esa misma regla, y esa regla está en tools/toolreg.py, que
+este nodo no toca.
+
+## TL-49 · `btfsnap.py` — guardar los layouts que salen de la BTF, que es perecedera
+```
+RUTA            revkit/btfsnap.py     18 306 B     FUERA de TOOL_DIRS
+WORK_CLASS      OBSERVATION_BTF
+WRITE_EXECUTION ESCRIBE UN FICHERO de salida: open(salida,'w').  Medido.  No
+                escribe en el árbol, y no toca la GPU
+SELFTEST        no declarado
+LO QUE NO PROBABA  que el .ko de este host tenga la MISMA BTF que la que se
+                guardó.  Guarda por qué: la BTF combinada se compone en tiempo de
+                carga y la sección .BTF del .ko está partida
+POR QUE ESTÁ NIVEL 2  lee /sys/kernel/btf/amdgpu, que es legible por todos y sin
+                root.  El nivel 1, el de instrumentar la GPU, está en otro sitio
+                y con su credencial
+```
 
 **Por qué existe.** `/sys/kernel/btf/<modulo>` es NIVEL 2 (leer un fichero de
 `/sys`) y **es perecedero**: es por arranque, y en esta máquina incluso se
@@ -2748,7 +2833,18 @@ nada.
 con un mutante que reinstala la sustitución silenciosa: sale `rc=1`.
 Registrado en `check.sh`.
 
-## `pub.sh`: la puerta de salida, porque el orden de los pasos era el fallo
+## TL-50 · `pub.sh` — la puerta de salida, porque el orden de los pasos era el fallo
+```
+RUTA            revkit/pub.sh          7 889 B     FUERA de TOOL_DIRS
+WORK_CLASS      AUTOMATION
+WRITE_EXECUTION ESCRIBE en un temporal: salida=$(mktemp).  Medido.  No escribe en
+                el árbol versionado, y no toca la GPU
+SELFTEST        no por sí mismo; se prueba con pub_selftest.sh, que es TL-51
+LO QUE NO PROBABA  que lo que publica sea correcto.  Publica; la exactitud es de
+                las herramientas que se publican
+POR QUE EXISTE  el fallo era el ORDEN de los pasos, y eso no se arregla con
+                más pasos: se arregla con una puerta que los encadene
+```
 
 **EL FALLO QUE CIERRA, y es medido, no previsto.** El orden que yo seguia a mano
 era:
@@ -2816,7 +2912,20 @@ caracter CJK en el propio `pub.sh` al escribirlo**. Habia 35 ficheros con CJK en
 el repositorio, casi todos de otras sesiones; el control mira `revkit`, y el unico
 culpable nuevo era este fichero nuevo.
 
-## `pub.sh` y `pub_selftest.sh`: la puerta de salida, y por que es testeable
+## TL-51 · `pub_selftest.sh` — la puerta de salida, y por qué es testeable
+```
+RUTA            revkit/pub_selftest.sh  8 583 B     FUERA de TOOL_DIRS
+WORK_CLASS      SELFTEST_HARNESS
+WRITE_EXECUTION 4 mktemp y 2 redirecciones a /dev/null.  Medido.  No escribe en
+                el árbol versionado, y no toca la GPU
+SELFTEST        ES EL SELFTEST.  Es la razón de que esta ronda no repetible sea
+                repetible
+LO QUE NO PROBABA  que pub.sh funcione.  Comprueba que la PUERTA se puede probar,
+                que es distinto de comprobar que lo que pasa por ella es bueno
+ESTADO EN EL LEDGER  TOOL_VALIDATED, según la tabla de la ronda (TL-47).  MEDIDO
+                que esa tabla no la puede verificar el registro generado, porque
+                revkit/ no está en TOOL_DIRS
+```
 
 **EL FALLO QUE CIERRA, medido.** El orden que yo seguia a mano era
 suite, anexar documentos, `git add`, commit. **El paso 1 corria sobre un arbol que
@@ -2895,7 +3004,23 @@ la puerta sin tocarla.
    es que **desaparezca el ajeno**: `f.txt` si pertenece y debe quedarse. Una
    puerta que se llevara tambien lo suyo seria peor.
 
-## `ipver_zero.py` (otra sesion): que mide bien, y que no mide
+## TL-52 · `ipver_zero.py` — qué mide bien, y qué no mide
+```
+RUTA            08-ARQUITECTURA/tools/ipver_zero.py   11 742 B   DENTRO de TOOL_DIRS
+WORK_CLASS      ANALYSIS
+WRITE_EXECUTION NINGUNO DECLARADO.  MEDIDO: una sola llamada open(), de lectura, y
+                ni /sys, ni /dev, ni /proc, ni os.remove/rename
+SELFTEST        no declarado
+LO QUE NO PROBABA  lo que su propio título dice que no mide, y por eso esta
+                entrada existe: es la entrada que impide leer el número sin la
+                columna de lo que el número NO es
+COMPOSICIÓN     la invoca gchwip_alcance.py como subprocess.  MEDIDO.  Eso hace
+                que este fichero sea una dependencia de TL-53 y no un
+                accesorio
+POR QUE ESTA AQUÍ  hasta esta entrada, cross_reference() la atribuía a TL-46, que
+                es docscan --taxonomy.  La atribución era falsa y la midió esta
+                reparación
+```
 
 **NO la he tocado.** Vive en `08-ARQUITECTURA/tools/`, que es de otra sesion. Solo
 la he ejecutado y le he medido los limites, que es lo que se documenta aqui.
@@ -2923,7 +3048,7 @@ sitios sin clasificar.
 **Limite 2, que NO declara, y es el que me ha servido.** Clasifica la
 **expresion**, no el **alcance**. Una comparacion puede ser `SIEMPRE`/`NUNCA` y
 estar en codigo que en esta placa no se ejecuta nunca: de sus 46 comparaciones,
-**5 estan en `amdgpu_mes.c`** (`682, 683, 755, 756, 758`), cuyas funciones
+**5 estan en amdgpu_mes.c** (`682, 683, 755, 756, 758`), cuyas funciones
 enclosing no tienen ningun llamador alcanzable desde la ruta VI. Se quedan **41**
 comparaciones que gobiernan el comportamiento real. La herramienta es correcta
 sobre lo que afirma y **silenciosa** sobre lo que no mide.
@@ -2936,13 +3061,30 @@ escrito la tiene. Propuesta, no hecha: anadir a `ipver_zero.py` una columna
 `alcance` con la funcion enclosing y si tiene llamador en ficheros ejecutables.
 **No la implemento: el fichero es de otra sesion y no esta en mi lock.**
 
-## `gfx8blocks.py` y `gchwip_alcance.py`: la superficie de bloques y el alcance
+## TL-53 · `gchwip_alcance.py` — la superficie de bloques y el alcance
+```
+RUTA            revkit/gchwip_alcance.py   20 010 B   FUERA de TOOL_DIRS
+WORK_CLASS      ANALYSIS_CORPUS
+WRITE_EXECUTION NINGUNO DECLARADO.  MEDIDO: una sola llamada io.open() de lectura,
+                ni /sys, ni /dev, ni os.remove/rename, ni shutil
+SELFTEST        no declarado
+COMPOSICIÓN     ejecuta ipver_zero.py con subprocess.run.  MEDIDO.  Por eso
+                TL-52 es dependencia viva de esta
+LO QUE NO PROBABA  el alcance de HWIP sobre el que ESTA herramienta informa es el
+                del árbol de fuentes, no el ASIC.  amdgpu_mes.c va sin acentos
+                graves a propósito: es un fichero del corpus que se ESTUDIA, y
+                con acentes graves el nombre se leía como una herramienta
+                registrada
+LIMITE 2, Y ES EL QUE MAS SIRVE  clasifica la EXPRESION, no el ALCANCE.  Una
+                comparación puede ser SIEMPRE/NUNCA y estar en código que en esta
+                placa no se ejecuta nunca
+```
 
 **Que resuelven, y por que en ese orden.** `gfx8blocks` responde "que hardware
 tengo que encender para arrancar esta placa". `gchwip_alcance` usa esa respuesta
 para responder "de las comparaciones degeneradas de `GC_HWIP`, cuales estan en
 codigo que no se ejecuta". El segundo **depende del primero**, y por eso estan
-registrados juntos en `check.sh`: si el primero falla, el segundo puede estar
+registrados juntos en check.sh: si el primero falla, el segundo puede estar
 descartando sobre una lista equivocada sin que se note.
 
 ```
@@ -2955,7 +3097,7 @@ gchwip_alcance.py [--self-test]
    Si no parsea ninguna fila, se NIEGA a seguir en vez de devolver una lista
    vacia con exito.
 ```
-**`gfx8blocks.py` · `VALIDATED`.** 17 vectores y controles, `rc=0`. Mutaciones
+**gfx8blocks.py · `VALIDATED`.** 17 vectores y controles, `rc=0`. Mutaciones
 sobre copias, todas cazadas:
 
 ```
@@ -3030,7 +3172,23 @@ aproximaciones.** Esta es la correccion de razonamiento mas importante de la
 ronda, y llego por el lado equivocado: primero cerre el grafo, y el grafo no
 resolvia el problema que yo creia.
 
-## `gfx8blocks.py --funcs`: la superficie de entrada por puntero a funcion
+## TL-54 · `gfx8blocks.py` — la superficie de entrada por puntero a funcion
+```
+RUTA            revkit/gfx8blocks.py    27 085 B   FUERA de TOOL_DIRS
+WORK_CLASS      ANALYSIS_CORPUS
+WRITE_EXECUTION ESCRIBE Y BORRA.  MEDIDO en el cuerpo: shutil.copy x4,
+                open(p,'w') x3, shutil.rmtree x3.  Medido también que hay al
+                menos un shutil.rmtree dentro de un bloque finally de su
+                propio self-test, que borra el temporal que ese self-test crea.
+                La diferencia entre ese y los otros dos NO ESTÁ MEDIDA y por eso
+                WRITE_EXECUTION no se declara NONE
+SELFTEST        SI
+LO QUE NO PROBABA  que la superficie de entrada que declara sea la alcanzable.
+                gmc_v8_0.c y X.c van sin acentos graves: ficheros del corpus y un
+                metanombre de bloque, no herramientas del registro
+POR QUE ESTA AQUÍ  hasta esta entrada, gchwip_alcance.py y gfx8blocks.py quedaban
+                atribuidos a TL-46, que no los describe
+```
 
 Amplia `gfx8blocks.py`, que ya resolvia que bloques existen, a **que funciones
 registra cada bloque en su tabla `.funcs`**. De 10 bloques salen **145 funciones**.
@@ -3064,7 +3222,16 @@ el bloque no es la tabla, el bloque no es el fichero, y el bloque no esta en
 definen los diez, no solo que exista tabla, precisamente porque el fallo que
 cae es "no lo he mirado en el sitio correcto", no "no existe".
 
-## `bootcheck.py` (RK-12): el arranque como observable reutilizable, con su control dentro
+## TL-55 · `bootcheck.py` — el arranque como observable reutilizable, con su control dentro
+```
+RUTA            revkit/bootcheck.py   10 835 B   FUERA de TOOL_DIRS
+WORK_CLASS      OBSERVATION_KERNEL_LOG
+WRITE_EXECUTION NINGUNO DECLARADO.  MEDIDO: journalctl x2, que es LECTURA del
+                journal del kernel.  No escribe, no toca la GPU
+SELFTEST        no declarado
+LO QUE NO PROBABA  que este arranque sea representativo.  Un arranque no es un
+                estado: es una traza, y una traza no se generaliza sin decirlo
+```
 
 **Que resuelve.** Los cuatro `dev_err` de fase de inicializacion son un
 **observable generico** de "esta placa no arranco bien". Un driver propio necesita
@@ -3148,7 +3315,21 @@ salta es el mismo sitio donde se acaba de escribir. El control y el error estan 
 misma accion, y por eso el control no llego a tiempo. **Hay que releer lo que uno
 acaba de escribir, y releer no es lo mismo que pasar el control.**
 
-## `gputel.py` (RK-13): la cadena de hardware, con las unidades verificadas
+## TL-56 · `gputel.py` — la cadena de hardware, con las unidades verificadas
+```
+RUTA            revkit/gputel.py   17 163 B   FUERA de TOOL_DIRS
+WORK_CLASS      OBSERVATION_SYSFS
+WRITE_EXECUTION LEE /sys/class/drm/<card>/device.  Medido.  El shutil.rmtree que
+                aparece está en el finally del self-test y borra el temporal que
+                ese self-test crea; medido, no supuesto.  No escribe atributos, no
+                toca la GPU
+SELFTEST        SI, y comprueba que human(None) se marca como no numérico y que
+                descubrir() de un card inexistente devuelve (None, ruta) sin
+                reventar
+LO QUE NO PROBABA  que la cadena sea CORRELACIONADA con carga.  Leer la cadena en
+                reposo mide el reposo, y una cadena de telemetria leída sin
+                estimulo no dice nada sobre el estimulo
+```
 
 **Que resuelve.** `bootcheck` valida lo que el driver **imprimo**. `gputel` mide
 lo que el hardware **hizo**: relojes, tension, potencia, temperatura, y los
@@ -3204,7 +3385,20 @@ original                                           23 OK, rc=0
 carga, asi que los relojes maximos son `NOT_DETERMINED`. Y `gpu_busy_percent` es
 lo que el driver **afirma**, no una medida.
 
-## `cn8.py`: las TRES categorias de salida, y por que `INVALID` no es `FALLA`
+## TL-57 · `cn8.py` — las TRES categorías de salida, y por qué `INVALID` no es `FALLA`
+```
+RUTA            revkit/cn8.py   26 505 B   FUERA de TOOL_DIRS
+WORK_CLASS      ANALYSIS_CORPUS
+WRITE_EXECUTION ESCRIBE.  MEDIDO: os.makedirs x5 y open(...,'w') x3.  No escribe en
+                el árbol versionado.  No toca la GPU
+SELFTEST        SI
+LO QUE NO PROBABA  que el corpus sea correcto.  Categoriza lo que encuentra, y
+                categorizar no es validar
+POR QUE TIENE DOS ENTRADAS, TL-57 y TL-59  MEDIDO: son dos mediciones distintas
+                -- una sobre las TRES categorías de salida, otra sobre dos
+                controles reparados.  Fusionarlas habría perdido el segundo
+                resultado, que es el que detectó el fallo
+```
 
 **Que cambia.** Antes `cn8` tenia dos salidas: verde y `rc=1`. Todo lo que no
 salia bien acababa en el mismo sitio, y eso mezclaba **tres cosas distintas**:
@@ -3256,7 +3450,17 @@ cuando en realidad no pudo mirar enseña a ignorar sus FALLA de verdad.
 siempre hay fechas. Es un guardia escrito y no ejercitado, y queda anotado como
 tal en vez de darse por bueno.
 
-## `check.sh` y `clasifica()`: el codigo de salida del kit, medido y autocomprobado
+## TL-58 · `check.sh` — el código de salida del kit, medido y autocomprobado
+```
+RUTA            revkit/check.sh   30 467 B   FUERA de TOOL_DIRS
+WORK_CLASS      AUTOMATION
+WRITE_EXECUTION NINGUNO DECLARADO.  MEDIDO: la única aparición de /sys/ está en un
+                comentario que describe otra herramienta.  No escribe en el árbol
+                versionado.  No toca la GPU
+SELFTEST        SI, y se autocomprueba por el mismo camino que mide
+LO QUE NO PROBABA  que clasificar sea correcto.  Clasifica, y una clasificación
+                correcta de una entrada incorrecta sigue siendo incorrecta
+```
 
 `CONTRACTO` · `STATE=VALIDATED` · `VALIDADO=2026-10-03` · `GPU INTACTA`
 
@@ -3338,7 +3542,19 @@ punta mete stubs de **cinco** herramientas con el mismo `rc=3`: `pm4dec`,
 `btfsnap` y `gfx8blocks` dan INVALID; `bootcheck` y `cn8` dan FALLO. Con la tabla
 vacia, los cinco darian FALLO.
 
-## `cn8.py`: dos controles reparados, y un canal informativo que no existia
+## TL-59 · `cn8.py` — dos controles reparados, y un canal informativo que no existía
+```
+RUTA            revkit/cn8.py   la MISMA que TL-57, y a propósito
+WORK_CLASS      ANALYSIS_CORPUS
+WRITE_EXECUTION ESCRIBE.  MEDIDO: os.makedirs x5 y open(...,'w') x3.  No toca la GPU
+SELFTEST        SI
+LO QUE NO PROBABA  que los controles reparados no se hayan roto otra vez.  Dos
+                controles reparados son un hecho puntual: la señal fuerte es que el
+                canal que los delata es INFORMATIVO, y que antes no existía
+POR QUÉ NO SE FUSIONÓ CON TL-57  porque el resultado de esta sección es un
+                hallazgo distinto del de TL-57.  Una entrada que dice dos cosas
+                midiendo una es un índice, no un contrato
+```
 
 `CONTRACTO` · `STATE=VALIDATED` · `VALIDADO=2026-10-03` · `GPU INTACTA`
 
@@ -3365,7 +3581,7 @@ fichero para los 10 bloques de POLARIS12, incluidos los que estan fuera de
 `amdgpu/`. Con ella se ve que la divergencia de nombres es **triple**: en 6 de los
 10, el nombre del bloque, el de la tabla `.funcs` y el del fichero **son tres
 nombres distintos** (`gmc_v8_1_ip_block` / `gmc_v8_0_ip_funcs` /
-`gmc_v8_0.c`). Buscar `X_ip_block` en `X.c` da 0 resultados en 5 de los 10.
+gmc_v8_0.c). Buscar `X_ip_block` en X.c da 0 resultados en 5 de los 10.
 
 Medido el coste de no mirar: se concluyo "8 de 10 bloques ilegibles", lo que
 habria cerrado la frontera EV-43 como `NOT_IN_CORPUS`, cuando los 10 son legibles.
@@ -3397,3 +3613,608 @@ era par, y si no llego a verificarlo habria borrado un control correcto. Cuento 
 `MASTER-RESEARCH-STATUS.md` (13, impar). Los dos de otra sesion, y no se tocan: el
 control existe para que no haya que arreglar el documento ajeno, no para imponer la
 paridad a costa de pisar trabajo en vuelo.
+
+### El orden con que se eligieron las 25 entradas siguientes, y las 3 que se quedaron fuera
+
+El hueco que hay que cerrar no son 134 herramientas: es un número más pequeño y
+medido. `./TOOLS-STATUS.md` clasifica 37 filas como `TOOL_UNVALIDATED`, y 9 de
+ellas ya tienen entrada aquí. Quedan **28** sin entrada, y de esas 28, **22 tienen
+su nombre en al menos un fichero de `06-INGENIERIA-INVERSA/findings/`**: alguien
+ya usó su salida. Esas 22 son las que alguien podría citar como evidencia, y por
+eso son las que van primero.
+
+**El criterio, escrito para que se pueda refutar.** Una entrada `## TL-nn` es
+obligatoria si la herramienta cumple las tres:
+
+  C1  la tabla generada la marca `TOOL_UNVALIDATED`, que según `clasificar()` en
+      tools/artifacts.py significa «no hay selftest, o no lo soporta», y según
+      AGENTS.md **no puede cerrar una afirmación crítica**
+  C2  su nombre aparece en ≥1 fichero de `06-INGENIERIA-INVERSA/findings/`.  Es
+      una condición medida sobre el árbol, no una opinión sobre la importancia
+  C3  no tiene entrada `## TL-nn` todavía
+
+**Lo que se añade al criterio, y por qué.** Tres más entran sin cumplir C2:
+
+  · `09-POWER-CLOCKS/tools/rx550_load.c` y `09-POWER-CLOCKS/tools/rx550_hold.c`
+    — MEDIDO 0 citas, y entran igual.  Son los dos instrumentos que generan carga
+    GPU medible y los que mantienen el runtime-PM despierto para que DPM y hwmon
+    se puedan leer.  Un instrumento que produce carga y no tiene contrato
+    declarado es exactamente el hueco que este ledger cubre, y son los dos únicos
+    ficheros de todo el registro cuyo propósito ES tocar la GPU
+  · `04-IMPLEMENTACION/rx550-driver/tools/fix_gart_citations.py` — MEDIDO 0
+    citas, y DECLARA `READONLY=no`, «reescribe las citas de linea de los dos
+    ficheros».  Una herramienta que escribe en el árbol pertenece a este
+    documento aunque nadie la haya citado todavía
+
+**Lo que NO merece entrada, y son 106.** Las 134 sin documentar menos estas 25 son
+herramientas de apoyo, coherencia interna o impresión. El discriminante medido: 0
+veces citadas en los hallazgos, `READONLY` declarado o sin acceso a hardware, y
+sin salida que otro componente consuma. Para ésas, la fila de
+`./TOOLS-STATUS.md` —con su sha256— es el contrato suficiente: son citable-por-hash
+y no citable-por-significado, y una entrada `## TL-nn` que sólo repita el nombre y
+un `VALIDADO` sin contrato declarado sería decorativa. **Coste de esa decisión,
+dicho con su número:** 106 herramientas quedan sin contrato escrito, y el coste es
+que nadie ha decidido todavía si su salida vale algo. Eso es `NOT_DETERMINED`, no
+`VALIDATED`, y se puede cerrar después con el mismo discriminante.
+
+**Las 3 que deben entrada y no la tienen todavía**, con el orden en que tocarían:
+
+  1. 08-ARQUITECTURA/tools/pm4_codec.py — MEDIDO 0 citas, y el propio fichero
+     dice que es «EL cuello de botella» de la cadena causal del proyecto.  Que su
+     salida no esté citada por nadie es el dato que hay que mirar, no la razón
+     para saltársela
+  2. 08-ARQUITECTURA/tools/h1_stale.py — MEDIDO 0 citas.  Declara las cuatro
+     clases de H1 caducado y mide 10 de 581 ficheros, y ese número no está en
+     ningún hallazgo: hay una medición sin consumidor
+  3. 01-AUDITORIA/tools/inventario_universo.py — MEDIDO 0 citas, sin self-test,
+     y su propio docstring dice «Se valida por ejecucion y por la revision
+     manual de su tabla».  Es la única cuyo contrato NO ESTÁ DECLARADO en el
+     fichero y hay que escribirlo desde cero
+
+Los tres nombres van aquí SIN acentos graves, a propósito, y eso es lo que hace que
+el recuento siga siendo verdad: `cross_reference()` cuenta como DOCUMENTADA una
+herramienta cuyo nombre aparezca en acentes graves en cualquier entrada, y un
+nombre mencionado en una lista de pendientes no es un contrato.  Con los tres
+en acentes graves el recuento salía en 54 documentadas y solo había 51 con
+entrada: tres filas anunciando cobertura que no existe, que es exactamente la
+entrada decorativa que este criterio evita.  Aplicada la convención, 51 y 51
+Las tres llevan `READONLY` declarado y ninguna toca la GPU, así que escribirlas no
+riesga hardware: es trabajo de contrato, no de exploración.
+
+---
+
+## TL-60 · `vulkan_compute_probe.c` — carga de cómputo Vulkan headless sobre el ASIC objetivo
+
+```
+PROPOSITO  La capacidad que faltaba para la parte medible del proyecto: generar
+           carga de GPU REAL y sin privilegios, y con ella responder qué limita
+           esta placa.  Sube mclk y sclk, que es lo que exige el discriminante
+           258-2
+WORK_CLASS RUNTIME_GPU · nivel 1
+WRITE_EXECUTION SUBMITS_GPU_WORK.  MEDIDO: 10 llamadas a vkQueueSubmit.  No
+           escribe registros de hardware, no toca sysfs y no cambia estado
+           persistente.  Lo que sí hace es subir relojes y consumo, que es la
+           operación normal de la GPU; por eso la duración la fija el llamante y
+           el programa no tiene lazo infinito
+ABORTA SI   no aparece el vendor:device 0x1002:0x699f.  No hay ruta de reserva:
+           el sistema expone llvmpipe como dispositivo Vulkan de tipo CPU, y una
+           herramienta que degrade a él mide el procesador y produce un número
+           plausible y falso
+ESTADO      TOOL_UNVALIDATED · sin selftest declarado
+LO QUE NO PROBABA  que el número que produce sea el techo de esta placa.  El
+           techo lo fijan el trabajo, la ocupación, el refrigerado y la
+           resistencia de la alimentación, no la Existence de una carga
+POR QUÉ ESTA ENTRADA  MEDIDO: citada en 14 ficheros de findings.  Es la más citada
+           de las 25 y la más cara de citada mal, porque su salida es un
+           número de rendimiento
+```
+
+## TL-61 · `gmmio_inventory.py` — qué registros MMIO toca el camino GFX8
+
+```
+PROPOSITO  El inventario de registros que el camino de GFX8 alcanza, con offset y
+           con los campos de cada uno, cruzando el _d.h (offset) y el _sh_mask.h
+           (máscara y shift)
+WORK_CLASS ANALYSIS_CORPUS
+WRITE_EXECUTION NINGUNO.  DECLARADO en el propio fichero: READONLY=yes,
+           WRITES_FILES=no, WRITES_SYSFS=no, MUTATES_CORPUS=no, WRITES_GPU=no
+ESTADO      TOOL_UNVALIDATED · sin selftest declarado
+LO QUE NO PROBABA, Y SU PROPIO DOCSTRING DICE CUÁLES SON  (a) que el inventario
+           esté COMPLETO: el fichero registra como su peor modo de fallo que un
+           separador mal puesto hace que «campos definidos» salga 0 para todos los
+           registros, «un dato falso que parece un resultado»; (b) que el offset
+           del inventario sea el de ESTE ASIC: sale de las cabeceras del corpus,
+           o sea de lo que el driver AFIRMA, no de una lectura
+CITADA EN   5 ficheros de findings   MEDIDO 2026-10-04
+```
+
+## TL-62 · `runtime_obs.py` — observación del ASIC en vivo, solo lectura por defecto
+
+```
+PROPOSITO  Convertir en observación el «NOT_DETERMINED — requiere hardware» del
+           que acaban 25 hallazgos.  La observación del estado inactivo es una
+           lectura de fichero, no un acto de laboratorio
+WORK_CLASS OBSERVATION_SYSFS
+WRITE_EXECUTION DECLARADO Y AMBOS SON CIERTOS: WRITES_FILES=yes Y
+           WRITES_SYSFS=yes.  El propio docstring lleva dos entradas «CORREGIDO»
+           porque las dos primeras versiones afirmaban rutas que en esta máquina
+           no eran ciertas: una apuntaba al nodo dri/0, que es la integrada de
+           Intel, y otra decía «debugfs no montado» cuando sí lo está y lo que
+           falla es EACCES.  No escribe la GPU
+ESTADO      TOOL_UNVALIDATED · sin selftest declarado
+LO QUE NO PROBABA  que lo observado sea el ASIC y no la integrada.  El detector
+           de rutas que usa vive en otro directorio de herramientas y eso está
+           escrito en el propio fichero, no inferido
+CITADA EN   5 ficheros de findings   MEDIDO 2026-10-04
+```
+
+## TL-63 · `include_closure.py` — qué opcode ve realmente una unidad de traducción
+
+```
+PROPOSITO  Resolver el cierre de includes DE VERDAD, sin preprocesador: seguir
+           los #include recursivamente respetando el orden, registrar cada
+           #define con su orden, y decir quién pisó a quién
+WORK_CLASS ANALYSIS_CORPUS
+WRITE_EXECUTION NINGUNO.  DECLARADO: READONLY=yes, WRITES_FILES=no,
+           WRITES_SYSFS=no, MUTATES_CORPUS=no, WRITES_GPU=no
+ESTADO      TOOL_UNVALIDATED · sin selftest declarado
+LO QUE NO PROBABA, Y ESTÁ DECLARADO EN SU PROPIA CABECERA  no resuelve macros de
+           sistema, ni condicionales #if, ni ##.  Para lo que no cubre dice que
+           no lo cubre, en vez de devolver un valor.  Nació porque un barrido
+           ALFABÉTICO de cabeceras se quedaba con el primer valor y sin decirlo,
+           y eso es una suposición con forma de resultado
+CITADA EN   4 ficheros de findings   MEDIDO 2026-10-04
+```
+
+## TL-64 · `pm4_layout_audit.py` — el layout documentado contra el payload emitido
+
+```
+PROPOSITO  La auditoría cruzada que faltaba: lo que la cabecera DOCUMENTA de un
+           paquete contra lo que el .c EMITE.  Lee los payload del comentario
+           `/* 1. header`, cuenta las emisiones reales, y contrasta
+WORK_CLASS ANALYSIS_CORPUS
+WRITE_EXECUTION NINGUNO.  DECLARADO: READONLY=yes, WRITES_FILES=no,
+           WRITES_SYSFS=no, MUTATES_CORPUS=no, WRITES_GPU=no
+ESTADO      TOOL_UNVALIDATED · sin selftest declarado
+LO QUE NO PROBABA  que el hardware acepte ese layout.  Que un comentario y el
+           código que lo emite coincidan no es un hecho sobre la GPU: es un
+           hecho sobre dos textos del mismo árbol.  Es exactamente la diferencia
+           que separa «el driver lo dice» de «el driver lo hace»
+CITADA EN   4 ficheros de findings   MEDIDO 2026-10-04
+```
+
+## TL-65 · `pm4_reachable.py` — el vocabulario PM4 vivo de un ASIC
+
+```
+PROPOSITO  Decidir qué paquetes ejecuta DE VERDAD un ASIC, en vez de qué
+           paquetes existen en las cabeceras.  Recorre el grafo de llamadas desde
+           semillas hasta el camino alcanzable y da el recuento con su sitio
+WORK_CLASS ANALYSIS_CORPUS
+WRITE_EXECUTION NINGUNO.  DECLARADO: READONLY=yes, WRITES_FILES=no,
+           WRITES_SYSFS=no, MUTATES_CORPUS=no, WRITES_GPU=no
+ESTADO      TOOL_UNVALIDATED · sin selftest declarado
+LO QUE NO PROBABA, Y EL CÓDIGO LO DICE  Que el alcance sea completo.  La lista
+           GENERIC_ROOTS está escrita a mano y el propio comentario la declara
+           como tales: son las semillas que no dependen del ASIC, y sin ellas el
+           recorrido no llegaría al camino real.  Alcanzable respecto de una lista
+           declarada no es lo mismo que alcanzable, y el número se lee sin ese
+           contexto como si fuera lo segundo
+CITADA EN   4 ficheros de findings   MEDIDO 2026-10-04
+```
+
+## TL-66 · `contratos.sh` — cada binario de test hace lo que su Makefile dice
+
+```
+PROPOSITO  Cerrar las dos formas de mentir de un informe de tests: teclear los
+           comandos a mano, y contar «PASS» en mayúscula cuando los binarios
+           imprimen «passed:» en minúscula.  Extrae la lista EXACTA con make -n y
+           mide de cada invocación el código de salida, los bytes de salida y el
+           par passed/failed que el propio binario imprime
+WORK_CLASS AUTOMATION_TEST
+WRITE_EXECUTION EJECUTA LOS BINARIOS DE TEST, que es la parte que hay que decir en
+           voz alta: no es una lectura.  MEDIDO: 3 mktemp y 1 mkdir.  No escribe en
+           el árbol versionado.  No toca la GPU
+ESTADO      TOOL_UNVALIDATED · sin selftest declarado
+LO QUE NO PROBABA  que el binario que se ejecuta sea el que dice el Makefile.
+           Extrae la invocación del Makefile y ejecuta esa; si el Makefile miente
+           sobre su propio binario, la mentira se reproduce fielmente
+CODIGO DE SALIDA, QUE NO ES EL CONTENIDO  0 todo exited 0 y con salida · 1 algún
+           fallo o salida vacía · 3 no se pudo extraer la lista.  «Hubo salida»
+           nunca significa «todo bien»
+CITADA EN   3 ficheros de findings   MEDIDO 2026-10-04
+```
+
+## TL-67 · `tu_compila.sh` — cada unidad de traducción, en los dos contextos en que puede ser pedida
+
+```
+PROPOSITO  Decidir si cada .c del driver puede entrar al módulo, y clasificar el
+           fallo por CAUSA.  Compila dos veces por fichero: con las opciones de
+           kbuild (-nostdinc, contexto kernel) y con -fsyntax-only (contexto
+           usuario), y devuelve una matriz 2x2 en vez de un OK/FALLA único
+WORK_CLASS AUTOMATION_BUILD
+WRITE_EXECUTION EJECUTA gcc.  MEDIDO: un mktemp.  No escribe en el árbol
+           versionado.  No toca la GPU
+ESTADO      TOOL_UNVALIDATED · sin selftest declarado
+POR QUÉ LA MATRIZ Y NO UN CONTADOR  MEDIDO en su propio docstring: la primera
+           versión decía «7 de 11 fallan» mezclando código que pide cabeceras de
+           usuario con código que está roto.  Un contador único no puede
+           distinguir «no entra al módulo» de «está mal escrito», y usarlo para
+           decidir sería interpretar mal la evidencia
+CITADA EN   3 ficheros de findings   MEDIDO 2026-10-04
+```
+
+## TL-68 · `causal_chain.py` — el mapa causal de Polaris12, generado y no tecleado
+
+```
+PROPOSITO  Unir en una sola cadena las cinco piezas que otras herramientas
+           producen sueltas —qué registro se escribe, quién lo escribe, dónde, qué
+           lo consume— y emitir aristas TIPADAS con fichero y línea, para que cada
+           arista sea verificable por quien la lea
+WORK_CLASS ANALYSIS_CORPUS
+WRITE_EXECUTION NINGUNO.  DECLARADO: READONLY=yes, WRITES_FILES=no,
+           WRITES_SYSFS=no, MUTATES_CORPUS=no, WRITES_GPU=no
+ESTADO      TOOL_UNVALIDATED · sin selftest declarado
+LO QUE NO PROBABA, Y ESTÁ EN SU PROPIO FICHERO  que efecto tiene un registro.
+           Eso no está en el código, está en el hardware, y no hay documento que
+           lo diga.  Las aristas de efecto se marcan como INFERIDAS o se dejan
+           fuera.  Un mapa causal que se inventa los efectos es peor que no
+           tener mapa, y por eso esta entrada dice que no los inventa
+CITADA EN   3 ficheros de findings   MEDIDO 2026-10-04
+```
+
+## TL-69 · `corpus_guard.py` — la integridad del corpus alrededor de una prueba
+
+```
+PROPOSITO  Poder afirmar «el corpus no cambió durante la medición», que sin esto
+           es una afirmación sin respaldo.  Toma una huella de lo protegido y la
+           compara
+WORK_CLASS AUTOMATION_INTEGRITY
+WRITE_EXECUTION DECLARADO Y ES LO MÁS IMPORTANTE DE ESTA ENTRADA: READONLY=no,
+           WRITES_FILES=yes, MUTATES_CORPUS=yes.  Guarda su estado en dos sitios,
+           uno en el repositorio y otro en /tmp, porque en un reinicio se perdió
+           la referencia y la respuesta «no hay referencia» se lee como «el corpus
+           cambió».  Dos respuestas distintas no pueden parecerse, y por eso están
+           duplicadas fuera de /tmp
+ESTADO      TOOL_UNVALIDATED · sin selftest declarado
+LO QUE NO PROBABA  que lo protegido sea el corpus que importa.  MEDIDO sobre el
+           código: la lista PROTECTED tiene UN solo elemento.  Un guard que
+           protege exactamente un camino y se llama «guard del corpus» es un
+           guard con un alcance que hay que conocer antes de citarlo
+CITADA EN   3 ficheros de findings   MEDIDO 2026-10-04
+```
+
+## TL-70 · `next_work.py` — qué hay que hacer después, deducido del estado
+
+```
+PROPOSITO  Sustituir «qué hago ahora» contestado de memoria por una respuesta
+           medida.  Cruz lo que está NOT_DETERMINED, lo que está sin mapa causal,
+           lo que está sin resolver por contradicción, lo que se puede automatizar
+           y —el más útil— lo que el camino alcanza y NINGÚN hallazgo menciona
+WORK_CLASS ANALYSIS_DOCS
+WRITE_EXECUTION NINGUNO.  DECLARADO: READONLY=yes, WRITES_FILES=no,
+           WRITES_SYSFS=no, MUTATES_CORPUS=no, WRITES_GPU=no
+ESTADO      TOOL_UNVALIDATED · sin selftest declarado
+LO QUE NO PROBABA  que el orden que propone sea el orden correcto.  Es un RANKING
+           derivado del recuento de afirmaciones, y un recuento no sabe qué
+           contradicción es más importante que otra.  La categoría 5 —lo que
+           nadie ha mirado— es un borde nuevo, no una prioridad
+CITADA EN   3 ficheros de findings   MEDIDO 2026-10-04
+```
+
+## TL-71 · `atom_chain.py` — la cadena del VBIOS ATOM, sin direcciones anotadas a mano
+
+```
+PROPOSITO  Reproducir literalmente la cadena de direcciones del ATOM que lleva el
+           driver —base, data_table, PPI, tabla— con los offsets leídos del BTF,
+           que es la autoridad de layout, y no con direcciones escritas a mano
+WORK_CLASS ANALYSIS_CORPUS
+WRITE_EXECUTION NINGUNO.  DECLARADO en el propio fichero: WORK_CLASS READ_ONLY
+ESTADO      TOOL_UNVALIDATED · declara selftest y no lo soporta: el flag existe
+           (`--self-test`) y el rc no es 0, así que `clasificar()` lo devuelve a
+           TOOL_UNVALIDATED y no a TOOL_BROKEN.  MEDIDO: declarar selftest no es
+           tener selftest, y la tabla lo distingue
+LO QUE NO PROBABA  lo que no está en CAMPOS_BTF.  El módulo sólo conoce los bytes
+           que están medidas y verificados contra un resultado, y el resto lo dice
+           NOT_DETERMINED.  Su cabecera cuenta tres veces que la lectura dio un
+           número plausible y falso, con PPI = 0x4D4F, que es la cadena ASCII
+           «MO».  Ese es el motivo de que el campo se llame así
+CITADA EN   3 ficheros de findings   MEDIDO 2026-10-04
+```
+
+## TL-72 · `rx550_compress.c` — PNG a BC3, la cara de línea de órdenes del codificador
+
+```
+PROPOSITO  Codificar PNG a BC3 con el MISMO objeto que ejercitan las pruebas de
+           unidad del módulo, y escribir junto al flujo comprimido una
+           DECODIFICACIÓN de referencia
+WORK_CLASS TRANSFORM_OFFLINE
+WRITE_EXECUTION ESCRIBE DOS FICHEROS.  MEDIDO en el cuerpo: fopen(argv[2],"w") y
+           fopen(argv[3],"w").  No toca la GPU: es la mitad de CPU del códec
+ESTADO      TOOL_UNVALIDATED · sin selftest declarado
+LO QUE NO PROBABA, Y EL FICHERO LO DICE ANTES DE QUE SE PREGUNTE  Dos cosas, y
+           confundirlas es el error.  (a) PSNR mide la calidad de un códec con
+           pérdida: 64 bytes entran, 16 salen, y el round-trip NO es la identidad,
+           así que «0 discrepancias contra la entrada» no es una expectativa
+           razonable y afirmarla fallaría sobre un codificador correcto.
+           (b) La fidelidad del decodificador la mide rx550_decompress (TL-74),
+           que es el que_gpu ejecuta el shader.  Los dos números miden cosas
+           DISTINTAS y no deben juntarse en una frase
+CITADA EN   2 ficheros de findings   MEDIDO 2026-10-04
+```
+
+## TL-73 · `amdinfo.c` — el ioctl AMDGPU_INFO en esta caja, sin privilegios
+
+```
+PROPOSITO  Contestar si existe ruta SIN privilegios para leer estado de la tarjeta,
+           que es la pregunta previa a los 123 huecos clasificados como
+           UN_REGISTRO.  Este host expone tres dispositivos DRM y el usuario no
+           está en el grupo video
+WORK_CLASS RUNTIME_GPU · LECTURA
+WRITE_EXECUTION ABRE EL NODO CON O_RDWR.  MEDIDO: 4 apariciones de O_RDWR, y no
+           es un descuido.  La capa DRM comprueba permisos de escritura ANTES de
+           dejar pasar cualquier ioctl, también los de lectura: con O_RDONLY el
+           propio fichero mide 0 de 19.  O sea que el contrato WRITES_GPU=no de
+           esta herramienta NO lo dice el modo con el que abre, y por eso está
+           aquí y no en el fichero
+ABORTA SI   no puede abrir el nodo.  No hay ruta alternativa por índice de
+           enumeración, que en esta máquina no es estable
+ESTADO      TOOL_UNVALIDATED · sin selftest declarado
+LO QUE NO PROBABA  que lo que devuelva el ioctl describa el ASIC con la GPU
+           ocupada.  Una lectura sin trabajo concurrente es una lectura del estado
+           inactivo
+CITADA EN   2 ficheros de findings   MEDIDO 2026-10-04
+```
+
+## TL-74 · `binfacts.py` — el binario real del módulo cargado, medido
+
+```
+PROPOSITO  Todo el proyecto mide un CORPUS —una copia del árbol en RESEARCH/— y
+           asume que ese corpus describe el driver que está corriendo.  Esta
+           herramienta verifica esa asunción contra el binario, y la pregunta que
+           importa es la inversa: ¿hay algo en el binario que NO esté en el corpus?
+WORK_CLASS ANALYSIS_BINARY
+WRITE_EXECUTION DECLARADO Y ES LO QUE HACE: READONLY=no, WRITES_FILES=yes.
+           MEDIDO en el cuerpo: modprobe y shutil.copy.  No escribe en sysfs, no
+           muta el corpus, no escribe en la GPU
+ESTADO      TOOL_UNVALIDATED · sin selftest declarado
+LO QUE NO PROBABA  que el corpus y el binario sean el mismo código.  El srcversion
+           del .ko de la distro coincide con el del módulo cargado, y eso es UN
+           eslabón: es un hash del código, no de la configuración de compilación
+           ni de las macros externas
+CITADA EN   2 ficheros de findings   MEDIDO 2026-10-04
+```
+
+## TL-75 · `corpus_manifest_check.py` — el manifiesto de identidad del corpus
+
+```
+PROPOSITO  Comprobar que el árbol del corpus sigue siendo el que el manifiesto
+           declara, y clasificar el desacuerdo por causa en códigos de salida
+           distintos: 0 coincide · 1 mismatch · 2 falta · 3 inservible ·
+           4 incoherente · 5 cobertura
+WORK_CLASS AUTOMATION_INTEGRITY
+WRITE_EXECUTION NINGUNO.  DECLARADO: READONLY=yes, WRITES_FILES=no,
+           WRITES_SYSFS=no, MUTATES_CORPUS=no, WRITES_GPU=no
+ESTADO      TOOL_UNVALIDATED · sin selftest declarado
+LO QUE NO PROBABA  que el manifiesto sea correcto.  Un manifiesto equivocado en la
+           misma dirección que el árbol pasa, y un guard que verifica contra una
+           referencia escrita a mano hereda sus errores sin poder notarlo.  Por eso
+           su regla es explícita: un campo que no se puede leer emite
+           NOT_DETERMINED y no un SI/NO, porque «no lo sé» y «sí» no son lo mismo
+CITADA EN   1 fichero de findings   MEDIDO 2026-10-04
+```
+
+## TL-76 · `rx550_decompress.c` — BC3 a RGBA sobre la RX 550, cara de línea de órdenes
+
+```
+PROPOSITO  Ejecutar el decodificador BC3 en la GPU objetivo y escribir un PNG, de
+           modo que la salida del shader se pueda COMPARAR con la decodificación de
+           CPU byte a byte
+WORK_CLASS RUNTIME_GPU · ejecución de shader
+WRITE_EXECUTION SUBMITS_GPU_WORK.  MEDIDO: 2 llamadas a vkQueueSubmit y 2 a
+           vkCreateShaderModule.  Identifica el ASIC por vendorID 0x1002 / deviceID
+           0x699f, NUNCA por índice de enumeración: este host expone tres
+           dispositivos Vulkan (iGPU, RX 550, llvmpipe) y su orden no es estable
+           entre ejecuciones, así que un índice elegiría el correcto por casualidad
+ESTADO      TOOL_UNVALIDATED · sin selftest declarado
+LO QUE NO PROBABA  que el decodificador de la GPU sea CORRECTO.  Que coincida
+           significa que los dos coinciden, y los dos pueden estar mal a la vez.
+           Su propia cabecera lo dice y nombra el fallo: un round-trip entre dos
+           implementaciones mutuamente consistentes pasa mientras ambas
+           contradicen el formato.  El control que lo caza es la conformidad
+           contra la regla BC3 transcrita, que vive en otro sitio y no se repite
+           aquí
+CITADA EN   1 fichero de findings   MEDIDO 2026-10-04
+```
+
+## TL-77 · `amdmmr.c` — la lista blanca de READ_MMR_REG, y por qué no es una lectura pasiva
+
+```
+PROPOSITO  Acotar el alcance real de los 123 huecos UN_REGISTRO: la única vía de
+           MMIO desde userspace sin root es AMDGPU_INFO_READ_MMR_REG, y tiene lista
+           blanca.  Son 19 registros; esta herramienta los prueba todos
+WORK_CLASS RUNTIME_GPU · LECTURA CON EFECTO COLATERAL MEDIDO
+WRITE_EXECUTION ABRE EL NODO CON O_RDWR.  MEDIDO: 1 aparición.  Y ESTO NO ES UNA
+           LECTURA PASIVA, y la propia cabecera lo dice: el kernel llama a
+           amdgpu_gfx_off_ctrl() ANTES y DESPUÉS, o sea que apaga el control del
+           motor GFX mientras lee.  Por eso el número de llamadas es exactamente 19
+           y no un barrido, y por eso WRITE_EXECUTION no es NONE
+ESTADO      TOOL_UNVALIDATED · sin selftest declarado
+LO QUE NO PROBABA  que 19 registros acoten los 123 huecos.  Acotan lo que se puede
+           leer por esta vía; los huecos que quedan no están probados, están
+           fuera de alcance, y son cosas distintas
+CITADA EN   1 fichero de findings   MEDIDO 2026-10-04
+```
+
+## TL-78 · `pcie_bandwidth.c` — el banco del enlace host a dispositivo
+
+```
+PROPOSITO  MEDIR el techo del enlace PCIe, que hasta ahora era un número derivado
+           de cuatro campos de sysfs y una regla de codificación, y que por lo
+           tanto no se había medido nunca
+WORK_CLASS RUNTIME_GPU · benchmark de copia
+WRITE_EXECUTION SUBMITS_GPU_WORK: 3 llamadas a vkQueueSubmit sobre dos buffers y
+           vkCmdCopyBuffer.  No escribe registros ni atributos
+CONTROLES QUE EL FICHERO DECLARA, Y POR QUÉ  lado del dispositivo DEVICE_LOCAL
+           (VRAM), porque si fuera HOST_VISIBLE la copia no cruzaría el enlace ·
+           lado del host HOST_VISIBLE|HOST_COHERENT, obligatorio para que la copia
+           sirva y para verificar el resultado · tamaño múltiplo de 4096, o una
+           copia parcial de página inflaría el ancho de banda · calentamiento
+           antes de cronometrar · verificación del patrón en las DOS direcciones,
+           porque un banco que solo mide tiempo no distingue «copié» de «no copié»
+ESTADO      TOOL_UNVALIDATED · sin selftest declarado
+LO QUE NO PROBABA  que ese ancho de banda sea alcanzable por un motor de graphics.
+           El enlace y el ancho de banda achieved son dos cosas distintas, y esta
+           midió el segundo con una copia que el primero no sostiene
+CITADA EN   1 fichero de findings   MEDIDO 2026-10-04
+```
+
+## TL-79 · `recovery_preflight.sh` — si lo rompo ahora, ¿qué puedo recuperar?
+
+```
+PROPOSITO  Convertir en propiedad MEDIBLE lo que hasta ahora fue una coincidencia de
+           procedimiento.  MEDIDO en su motivo: un `sed -i` borró 9 bytes de un
+           harness y se restauró porque su sha256 estaba escrito en un artefacto
+           commiteado.  Eso salvó el fichero por suerte, no por diseño
+WORK_CLASS AUTOMATION_INTEGRITY
+WRITE_EXECUTION ESCRIBE.  MEDIDO: construye un índice de hashes en
+           `> "$HIDX"` bajo el directorio de salida, que por defecto es el árbol.
+           No toca la GPU
+LOS TRES ESTADOS, Y NO HAY UN CUARTO  VERSIONADO, git lo tiene · CON_HASH, git no
+           lo tiene pero su sha256 está en un artefacto versionado · SIN_RED, ni
+           una ni otra.  No existe «casi versionado», y un cuarto estado
+           «casi» sería donde se refugia un SIN_RED
+LO QUE NO PROBABA  que el estado medido sea el de mañana.  Es una foto; la
+           herramienta se mide a sí misma primero y si está SIN_RED lo dice, que
+           es la razón por la que tiene que vivir en un sitio versionado
+CITADA EN   1 fichero de findings   MEDIDO 2026-10-04
+```
+
+## TL-80 · `unversioned_drift.sh` — el hash registrado que ya no describe el fichero
+
+```
+PROPOSITO  Detectar el instruments que NO están versionado cuyo sha256 registrado
+           ha dejado de coincidir.  Es el `sed -i` automático: el nombre aparece,
+           hay un hash al lado, y el hash NO es el actual
+WORK_CLASS AUTOMATION_INTEGRITY
+WRITE_EXECUTION ESCRIBE.  MEDIDO: `> "$OUT/.pairs"`, más el índice que comparte con
+           la herramienta anterior.  No toca la GPU
+EL DISCRIMINANTE, Y CÓMO SE LLEGÓ  La primera versión usaba «el nombre del fichero
+           aparece en un fichero versionado» como prueba de que su hash estaba
+           registrado.  Dio 38 falsos positivos: el nombre aparecía en tres
+           hallazgos, los tres en prosa describiendo lo que hace la herramienta, y
+           su hash no estaba en ninguno.  «Aparece el nombre» NO es «está anotado
+           el hash».  El discriminante correcto es la PROXIMIDAD: el hash tiene que
+           estar en la misma línea, o al lado, del nombre
+ESTADO      TOOL_UNVALIDATED · sin selftest declarado
+LO QUE NO PROBABA  que un NEVER_HASHED sea recuperable.  Los tres estados que
+           emite son lo contrario de un veredicto de recuperación: ONCE_HASHED sí
+           lo es, DRIFT es recuperable hacia atrás, y NEVER_HASHED no hay nada
+           contra lo que derivar
+CITADA EN   1 fichero de findings   MEDIDO 2026-10-04
+```
+
+## TL-81 · `gttlimit.py` — el límite de páginas de TTM de ESTE host, desde fuentes primarias
+
+```
+PROPOSITO  Cerrar de forma re-ejecutable, y no de forma afirmada en prosa, un
+           NOT_DETERMINED que decía «es una funcion de TTM que no esta en este
+           corpus».  Ese bloqueo era falsable y queda falsado: el árbol de
+           kernelbuild sí contiene drivers/gpu/drm/ttm/
+WORK_CLASS ANALYSIS_HOST
+WRITE_EXECUTION NINGUNO.  DECLARADO en su cabecera: sólo lee /proc/meminfo,
+           /sys/module/ttm/parameters y /sys/class/drm/card*/device.  No hay MMIO,
+           no hay escrituras, no cambia estado de la GPU, no usa sudo, uid 1000
+ESTADO      TOOL_UNVALIDATED · sin selftest declarado
+EL CRITERIO DE PASO, QUE ES LO QUE HACE QUE ESTA ENTRADA NO SEA DECORATIVA  PASS
+           es que todas las relaciones se cumplen bit a bit Y el MiB impreso
+           iguala al «5907M» que el kernel registró al arrancar.  FAIL es que
+           cualquier relación se aparta en una cantidad no nula, y entonces la
+           cadena NO está cerrada y el residual se imprime como número de páginas
+           en vez de explicarse.  Un residuo explicado es un cierre; un residuo
+           justificado es una mentira
+CITADA EN   1 fichero de findings   MEDIDO 2026-10-04
+```
+
+## TL-82 · `rx550_load.c` — carga GPU real y medible, con oráculo obligatorio
+
+```
+PROPOSITO  Generar carga REAL y verificable sin ventana, y en el mismo bucle
+           muestrear la cadena de potencia y relojes, de modo que
+           WORKLOAD → GPU_BUSY → SCLK/MCLK → vddgfx → PPT → temperatura de borde
+           quede MEDIDO CORRELACIONADO EN EL TIEMPO en este target 1002:699f rev c7
+WORK_CLASS RUNTIME_GPU · NIVEL 2 · instrumento de investigación
+WRITE_EXECUTION ENVÍA TRABAJO DE RENDER y LEE sysfs.  MEDIDO en su propia cabecera:
+           no escribe ningún atributo dpm/hwmon, no hace force_state, no cambia
+           perf level ni cap.  Selecciona el dispositivo EGL de la AMD Explicitamente
+           por /dev/dri/card1 y ABORTA si no lo encuentra, nunca por orden de
+           enumeración
+ORÁCULO, Y NO ES OPCIONAL  Cada muestra hace glFinish() + glReadPixels(2x2) y
+           mezcla los bytes en un checksum.  Si el render target está muerto el
+           checksum no cambia nunca y la corrida dice `ORACLE pixels_changed=0`,
+           o sea que el trabajo se descartó y esto NO es carga de GPU
+FALLO PREVIO MEDIDO, Y NO SE DEBE REGRESAR  Enlazar EGL_NO_SURFACE deja el
+           framebuffer por defecto SIN attachments: cada fragmento se descarta,
+           Mesa elimina el fragment shader como código muerto y glDrawArrays
+           devuelve al instante.  MEDIDO en este target: 8,4 M «fps», gpu_busy=0 %,
+           SCLK clavado en 214 MHz, PPT a 3,2 W en reposo.  Eso medía THROUGHPUT
+           DE ENVÍO, no CARGA.  Por eso está el eglCreatePbufferSurface()
+ESTADO      TOOL_UNVALIDATED · sin selftest declarado.  MEDIDO: 0 ficheros de
+           findings lo citan, y sigue siendo el instrumento que genera la carga
+           sobre la que se mide todo lo demás.  Se agrega por eso, y no porque el grafo lo pida: entra por C1 y por la
+           razón de carga, no por C2
+CITADA EN   0 ficheros de findings   MEDIDO 2026-10-04
+LO QUE NO PROBABA  que el techo que produzca sea el techo de la placa.  Con
+           instrumento único no se separa «la GPU no da más» de «la herramienta no
+           pidió más».  Y el fallo previo de arriba es la demostración de que esa
+           separación hay que construirla, no suponerla
+```
+
+## TL-83 · `rx550_hold.c` — mantener el runtime-PM despierto para poder leer DPM
+
+```
+PROPOSITO  Hacer legible la cadena de potencia y relojes.  En este target TODA
+           lectura de pp_dpm_ clock y TODA lectura de hwmon devuelve EBUSY con el
+           dispositivo suspendido en runtime, porque amdgpu_pm_get_access_if_active()
+           usa pm_runtime_get_if_active(), que nunca reanuda.  Mantener un fd del
+           render node basta, sin root: renderD129 está en modo 0666
+WORK_CLASS RUNTIME_GPU · NIVEL 2 · mantener despierto, sin enviar trabajo
+WRITE_EXECUTION ABRE EL NODO CON O_RDWR y lo mantiene abierto durante N segundos.
+           MEDIDO en su cabecera: no envía trabajo de GPU y no escribe ningún
+           atributo
+ALCANCE DE HARDWARE  1002:699f rev c7 SOLAMENTE, declarado por el propio fichero
+ESTADO      TOOL_UNVALIDATED · sin selftest declarado
+EL SELF-TEST ESTÁ ESCRITO Y ES EL ORÁCULO  Con la GPU inactiva, leer pp_dpm_sclk
+           tiene que fallar con EBUSY; mientras este instrumento sujeta el fd, la
+           misma lectura tiene que FUNCIONAR.  Eso es una measurement con dos
+           estados opuestos y un discriminante, y por eso el fichero lo declara
+           SELF-TEST en vez de dejarlo para después
+LO QUE NO PROBABA  que el estado que lea sea el de un trabajo real.  Despierta el
+           dispositivo; no lo ocupa.  Leer la cadena aquí y leer la cadena bajo
+           carga son dos mediciones distintas, y confundirlas es como se mide un
+           techo que no existe
+CITADA EN   0 ficheros de findings   MEDIDO 2026-10-04
+```
+
+## TL-84 · `fix_gart_citations.py` — la herramienta que ESCRIBE en el árbol
+
+```
+PROPOSITO  Corregir las citas de línea de un plan de GART que se quedaron atrás
+           cuando el código se movió
+WORK_CLASS TOOL_DE_REWRITE
+WRITE_EXECUTION ESCRIBE EN EL ÁRBOL, y lo declara:
+           READONLY=no —«reescribe las citas de linea de los dos ficheros»—
+           WRITES_FILES implícito por lo anterior · WRITES_SYSFS=no ·
+           MUTATES_CORPUS=no, sólo LEE el corpus · WRITES_GPU=no.  MEDIDO: 9
+           apariciones de escritura en el cuerpo
+ESTADO      TOOL_UNVALIDATED · sin selftest declarado
+POR QUÉ ESTA ENTRADA EXISTE AUNQUE 0 HALLAZGOS LA CITEN  Es la única herramienta
+           sin citar, de las 28 candidatas, que además DECLARA que escribe en el
+           árbol.  Una herramienta que modifica ficheros de otro debe tener un
+           contrato escrito antes de que alguien la ejecute, y no después de que
+           alguien la ejecute mal
+LO QUE NO PROBABA  que la cita corregida sea la correcta.  Corregir el número de
+           línea deja la afirmación con la misma forma y ahora respaldada por una
+           línea que dice otra cosa, que es peor que una cita caducada porque ya
+           no delata que lo es
+CITADA EN   0 ficheros de findings   MEDIDO 2026-10-04
+```
