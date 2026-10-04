@@ -828,12 +828,53 @@ def gen_tools_status(root: str, ind: Indice) -> str:
     criterio burdo, porque un criterio burdo y declarado es mejor que ninguna
     columna.
     """
-    t = os.path.join(root, "tools")
+    # MEDIDO Y CORREGIDO 2026-10-04.  ESTA LISTA NO EXISTIA:  el recorrido era de
+    # UN solo directorio,  y decia  os.path.join(root, "tools").
+    #
+    # Y MEDIDO lo que eso hacia.  El proyecto tiene TRES directorios de
+    # herramientas:
+    #     tools/                                     75 ejecutables
+    #     08-ARQUITECTURA/tools/                      73
+    #     04-IMPLEMENTACION/rx550-driver/tools/        6
+    # y el registro  —que es GENERADO,  asi que no se nota a ojo—  clasificaba 72
+    # filas.  Es decir:  79 ejecutables,  mas de la mitad,  invisibles;  y entre
+    # ellos los que portan el renumerado,  las citas y la geometria.
+    #
+    # POR QUE NO BASTA CON ANADIRLOS AL RECORRIDO.  El generador EJECUTA el
+    # selftest de cada herramienta que lo declara,  y MEDIDO que con los nuevos
+    # son mas de 120 s por regeneracion.  Un generador que tarda dos minutos en un
+    # artefacto que se regenera a mano  no se usa  —que es como pasa cuando un
+    # generador se hace incomodo:  se deja de ejecutar—.
+    #
+    # ASI QUE LA SEPARACION ES EXPLICITA Y DECLARADA.  Todas las filas existen,  con
+    # su hash  —que es lo que las hace citables sin ambiguedad—  y solo se EJECUTA
+    # el selftest de las de "tools/",  que es lo que ya se hacia antes de este
+    # cambio.  Las de los otros dos llevan TOOL_PARTIAL con un motivo en la propia
+    # fila:  la tabla no afirma una validacion que nadie ha ejecutado.
+    #
+    # Y UNA HERRAMIENTA NO REGISTRADA NO SE EJECUTA,  no se cita con su hash  y no
+    # puede marcarse VALIDATED.  Eso es lo que hace que un registro incompleto sea
+    # PEOR que uno grande:  no es que este mal,  es que no existe.
+    # LA LISTA ES UNA SOLA, y es la de toolreg.py.  MEDIDO 2026-10-04:  este
+    # fichero tenia la suya  —un solo directorio—  y toolreg.py la suya  —dos—  y
+    # no coincidian.  Dos listas de "donde viven las herramientas" es una lista y
+    # un grupo de herramientas que nadie mira.  Se importa.
+    from toolreg import TOOL_DIRS as _DIRS
+    # SOLO se ejecuta el selftest de "tools/",  que es lo que este generador ya
+    # hacia antes del cambio.  Los demas se enumeran con su hash  —que es lo que
+    # las hace citables—  y llevan TOOL_PARTIAL con el motivo en la fila.
+    DIRS_HERRAMIENTAS = tuple((d, d == "tools") for d in _DIRS)
     filas: List[Dict[str, object]] = []
-    for f in sorted(os.listdir(t)):
+    POR_DIR: Dict[str, int] = {}
+    n_no_gateados = 0
+    for drel, ejecutar in DIRS_HERRAMIENTAS:
+      t = os.path.join(root, drel)
+      if not os.path.isdir(t):
+        continue
+      for f in sorted(os.listdir(t)):
         if not re.match(r"^[a-z0-9_]+\.(py|c|sh)$", f):
             continue
-        nombre = f.rsplit(".", 1)[0]
+        nombre = "%s/%s" % (drel, f.rsplit(".", 1)[0])
         p = os.path.join(t, f)
         try:
             with open(p, "r", errors="replace") as fh:
@@ -893,6 +934,14 @@ def gen_tools_status(root: str, ind: Indice) -> str:
             detalle = "script: sin convencion de selftest"
         elif not declara:
             detalle = "sin selftest"
+        elif not ejecutar:
+            # MEDIDO:  el directorio no es el prioritario,  asi que su selftest no
+            # lo ejecuta este generador.  El estado NO es "validada":  es
+            # TOOL_PARTIAL con un motivo,  que es lo que clasificar() ya sabe
+            # decir cuando algo expira o no se puede ejecutar.
+            estado, detalle = "TOOL_PARTIAL", (
+                "enumerado; su selftest NO lo ejecuta este generador, "
+                "por directorio declarado no prioritario")
         else:
             # SE LE PREGUNTA CON LA GRAFIA QUE DECLARA, no con la que este
             # fichero prefs. MEDIDO: 61 herramientas declaran `--selftest` y
@@ -923,6 +972,9 @@ def gen_tools_status(root: str, ind: Indice) -> str:
         filas.append({"n": nombre, "ext": f.rsplit(".", 1)[1], "l": lineas,
                       "st": st_declara, "d": detalle, "e": estado,
                       "h": h[:16]})
+        POR_DIR[drel] = POR_DIR.get(drel, 0) + 1
+        if not ejecutar:
+            n_no_gateados += 1
     out = ["# TOOLS-STATUS", "", SELLADO, "",
            "AGENTS.md §AUTOMATIZACIÓN DE VALIDACIÓN exige clasificar cada",
            "herramienta. Y la columna se calcula EJECUTANDO el selftest y mirand",
@@ -962,6 +1014,55 @@ def gen_tools_status(root: str, ind: Indice) -> str:
             "",
             "AGENTS.md: *`TOOL_UNVALIDATED` no puede cerrar una afirmación crítica*.",
             "Las que lo estan no pueden ser el unico sustento de un hallazgo.",
+            ""]
+    # El bloque de cobertura va SEPARADO y con su propio operador de formato.
+    # MEDIDO:  la primera version lo metio en la MISMA lista con un `%` al final,
+    # y eso aplico la tupla de argumentos a todos los `%` de la lista  —incluidos
+    # los de los bloques anteriores—  y fallo con "unsupported operand type(s)
+    # for %: 'list' and 'tuple'".  El generador se negateo a si mismo y no
+    # escribio nada,  que es lo correcto;  el defecto era mio.
+    out += ["", "## Cobertura, y por que esta seccion existe", ""]
+    out.append(
+        "MEDIDO 2026-10-04:  el recorrido era de UN solo directorio"
+        " (`os.path.join(root, \"tools\")`)  y el proyecto tiene %d.  Con eso el"
+        " registro clasificaba 72 filas mientras habia **%d** ejecutables,  y como"
+        " el registro es GENERADO nadie lo notaba:  el numero que salia era el de"
+        " lo que se veia,  que es exactamente el fallo de un control que no puede"
+        " fallar.  Los dos numeros los cuenta este generador en cada ejecucion,"
+        " no estan escritos:  un texto que afirma una cifra y la repite es una"
+        " copia mas,  y las copias envejecen."
+        % (len(DIRS_HERRAMIENTAS), len(filas)))
+    out += ["",
+            "| directorio | filas | selftest ejecutado por este generador |",
+            "|---|---|---|"]
+    for drel, ejecutar in DIRS_HERRAMIENTAS:
+        out.append("| `%s/` | %d | %s |"
+                   % (drel, POR_DIR.get(drel, 0),
+                      "si" if ejecutar else "**no** — limite declarado"))
+    out += ["",
+            "Las filas existen todas y llevan su `sha256`,  que es lo que las hace"
+            " citables sin ambiguedad.  Lo que NO se hace es ejecutar sus"
+            " selftests:  MEDIDO que son mas de 120 s por regeneracion,  y un"
+            " generador que tarda dos minutos en un artefacto que se regenera a"
+            " mano no se usa  —que es como muere un generador:  dejando de"
+            " ejecutarse—.",
+            "",
+            "El estado de esas %d filas es `TOOL_PARTIAL` con el motivo EN LA FILA,"
+            " no `TOOL_VALIDATED`:  la tabla no afirma una validacion que nadie ha"
+            " ejecutado.  Y el limite es un dato  y no una excusa:  un"
+            " `TOOL_PARTIAL` con su motivo se puede cerrar;  una herramienta"
+            " ausente no se cierra de ninguna manera.",
+            "",
+            "Y AHORA LA LISTA ES UNA SOLA.  MEDIDO que antes este fichero tenia la"
+            " suya  —un directorio—  y `toolreg.py` la suya  —dos—  y no"
+            " coincidaban.  Dos listas de \"donde viven las herramientas\" es una"
+            " lista y un grupo de herramientas que nadie mira.  Este fichero importa"
+            " `toolreg.TOOL_DIRS`,  y la puerta que hace que la lista no se quede"
+            " corta esta en `toolreg.py`:  `directorios_no_declarados()`,  que"
+            " recorre el arbol buscando cualquier directorio llamado `tools` y"
+            " falla si no esta declarado.  MEDIDO que esa puerta encontro tres"
+            " directorios mas en su primera pasada,  uno de los cuales contiene"
+            " los instrumentos que generan carga GPU medible.",
             ""]
     return "\n".join(out)
 
