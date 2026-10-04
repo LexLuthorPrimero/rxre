@@ -371,6 +371,128 @@ for o in $(sed -n "s/^[[:space:]]*${mod_nombre}-objs[[:space:]]*:*=[[:space:]]*/
 done
 chk $([ "$n_lic" -ge 1 ] && echo 0 || echo 1) COB-MODULOS \
     "ALGUN objeto enlazado lleva MODULE_LICENSE(): modpost no rechazara el modulo (measured $n_lic, declarado >=1)"
+# ── DUAL-CTX · LO QUE UNA .h QUE COMPILA DE LAS DOS FORMAS NO PUEDE HACER ────
+#
+# MEDIDO 2026-10-04.  La regla vivia SOLO en un comentario de
+# rx550_vram_pool.h,  y decia esto:
+#
+#   "El reset se escribe CAMPO A CAMPO y no con memset:  esta cabecera la
+#    incluye codigo de kernel,  y el equivalente de memset ahi es
+#    linux/string.h,  no <string.h>.  Meter la cabecera de libc en una linea que
+#    compila de las dos formas es el mismo error que ya se registro con
+#    target_mem_host.h haciendo `typedef int bool`."
+#
+# Y MEDIDO que la regla es MAS ESTRECHA de lo que se recuerda:
+#
+#   · NO es "nada de memset en el componente".  Los .c  SI pueden usar memset:  ahi
+#     el include se resuelve una vez  y el .ko compila.
+#   · NO es "nada de memset".  memset es lo que OBLIGA a la cabecera.  En un .c no
+#     obliga a nada.  En una cabecera compartida obliga.
+#   · ES:  una CABECERA que compila de las dos formas solo puede pedir libc en la
+#     RAMA #else de un #ifdef __KERNEL__.
+#
+# LA INVARIANTE SE CALCULA,  NO SE GREPEA.  Y eso es lo que la hizo discriminator:
+#
+# MEDIDO por mutacion.  La primera version de este check comprobaba que el
+# fichero TUVIERA un #else y un #ifdef __KERNEL__  en cualquier parte.  Al mover
+# la include FUERA del #else  —dejando el #else y el #ifdef intactos en el
+# fichero—  daba PASS.  Es decir:  media "el fichero tiene un patron",  no "la
+# include esta dentro del patron",  y eso no es lo que decia su mensaje.
+#
+# La segunda version regalo una variante mas:  contar como "guardada" una include
+# que en realidad cae en la rama #ifdef __KERNEL__.  Tambien es mala,  por el
+# motivo de mas abajo.
+#
+# ASI QUE awk lleva la pila de #if/#ifdef/#ifndef/#else/#endif  y clasifica cada
+# include de libc como bien  (rama #else de un __KERNEL__)  o mal  (rama
+# #ifdef __KERNEL__,  o sin guardarla).
+n_ctx_h=0
+n_guardadas=0
+n_libc_hoy=0
+n_examinados=0
+for o in $(sed -n 's/^[[:space:]]*rx550_drv-objs[[:space:]]*:*=[[:space:]]*//p' "$DRV/Makefile" | tr ' ' '\n' | grep '\.o$'); do
+  b="${o%.o}"
+  for ext in c h; do
+    src="$DRV/$b.$ext"
+    [ -f "$src" ] || continue
+    n_examinados=$((n_examinados+1))
+    r="$(awk '
+      /^[[:space:]]*#[ \t]*(if|ifdef|ifndef)/ {
+        d++; k[d] = ($0 ~ /__KERNEL__/) ? 1 : 0; e[d] = 0; next
+      }
+      /^[[:space:]]*#[ \t]*else/ {
+        if (d > 0 && k[d] == 1 && e[d] == 0) { e[d] = 1; next }
+        next
+      }
+      /^[[:space:]]*#[ \t]*endif/ { d--; next }
+      /^[[:space:]]*#[ \t]*include[ \t]*<(string|stdio|stdlib|stdint|stdbool)\.h>/ {
+        if (d > 0 && k[d] == 1 && e[d] == 1) { bien++; next }
+        mal++
+        printf "        include de libc SIN GUARDAR  %s:%d\n", FILENAME, FNR
+      }
+      END { printf "%d %d\n", bien+0, mal+0 }
+    ' "$src" 2>/dev/null)"
+    [ -n "$r" ] || continue
+    n_libc_hoy=$((n_libc_hoy + ${r%% *} + ${r##* }))
+    n_guardadas=$((n_guardadas + ${r%% *}))
+    case "$src" in
+      *.h) n_ctx_h=$((n_ctx_h + ${r##* })) ;;
+      *)   : ;;
+    esac
+  done
+done
+
+# ── EL BUG DE ESTA MISMA PUERTA,  QUE ES EL SEGUNDO DEL MISMO TIPO EN ESTE
+# FICHERO,  Y POR ESO SE ESCRIBE ───────────────────────────────────────────────
+# La primera version hacia
+#     for f in $(... -objs ... | grep '\.[co]$')
+# y la lista de -objs tiene nombres .o,  no .c:  el bucle no iteraba NADA,
+# contaba 0 cabeceras de libc  y daba PASS.  El recuento de ficheros EXAMINADOS va
+# en su propio check  porque un control que no revisa nada y dice que esta bien
+# es peor que uno ausente:  ocupa su sitio y engana.
+chk $([ "$n_examinados" -gt 0 ] && echo 0 || echo 1) DUAL-CTX \
+    "DUAL-CTX EXAMINA algo:  sin este check,  un bucle que no itere nada da el mismo veredicto que uno que encuentra 0 ($n_examinados ficheros de produccion)"
+
+chk $([ "$n_ctx_h" -eq 0 ] && echo 0 || echo 1) DUAL-CTX \
+    "toda include de libc en una .h dual-context esta en la rama #else de un #ifdef __KERNEL__  (unguarded measured $n_ctx_h, declarado 0;  sobre $n_examinados ficheros)"
+
+# Y el recuento de las BIEN contadas,  que es lo que separa a esta puerta de la
+# que daba verde con la include fuera del #else:  si el calculo del anidamiento
+# no mira el #else,  este numero no cuadra con el total.
+chk $([ "$n_guardadas" -eq "$n_libc_hoy" ] && echo 0 || echo 1) DUAL-CTX \
+    "las $n_libc_hoy includes de libc que hay  —en .c y en .h—  se clasifican todas:  el calculo cuenta las bien Y las mal (measured $n_guardadas bien de $n_libc_hoy, declarado igual)"
+
+# POR QUE UNA INCLUDE DE LIBC EN LA RAMA #ifdef __KERNEL__  TAMBIÉN ES MALA,  y
+# no es un detalle del enunciado:  MEDIDO que con los -I/-isystem del comando real
+# de kbuild  y -nostdinc,  <stdint.h> NO se encuentra.  O sea que si una cabecera
+# lo pidiera en la rama del kernel,  el .ko NO compilaria.  El build lo demuestra
+# entero  —por eso este check es una defensa mas y no la unica—.
+n_bool=0
+for h in $(sed -n 's/^[[:space:]]*rx550_drv-objs[[:space:]]*:*=[[:space:]]*//p' "$DRV/Makefile" | tr ' ' '\n' | grep '\.o$' | sed 's/\.o$/.h/'); do
+  src="$DRV/$h"
+  [ -f "$src" ] || continue
+  # MEDIDO, y por mutacion:  la primera version de este check solo miraba las
+  # lineas INMEDIATAMENTE posteriores a un #include.  Mover el typedef lejos de
+  # un #include  —que es donde lo pondria cualquiera  —  daba PASS.  Es el mismo
+  # defecto que el de las tres lineas de mas arriba:  la proximity no es la
+  # propiedad.  Ahora barre el fichero entero.
+  #
+  # Y el limite de palabra es lo que hace que "bool_rx550" NO cuente:  el
+  # identificador es uno solo  —la _ es caracter de palabra—  y typedefear eso no
+  # choca con stdbool.  MEDIDO,  y por eso la regexp lleva los dos lados.
+  #
+  # Y el comentario tampoco cuenta:  MEDIDO que un "typedef int bool;" escrito
+  # en un comentario  —este mismo fichero lo tiene  —  no dispara nada.  Para eso
+  # el awk va sobre el texto con comentarios sustituidos,  no sobre el fuente.
+  if "${CC:-cc}" -fpreprocessed -dD -E -P "$src" 2>/dev/null |
+     grep -Eq '^[[:space:]]*typedef[^;]*([^_[:alnum:]])bool([^_[:alnum:]]|$)'; then
+    n_bool=$((n_bool+1))
+    echo "        typedef de bool en $src"
+  fi
+done
+chk $([ "$n_bool" -eq 0 ] && echo 0 || echo 1) DUAL-CTX \
+    "ninguna cabecera typedefea bool:  en userspace choca con stdbool  y en kernel no existe (measured $n_bool, declarado 0)"
+
 # ── LIT-GEOM · EL 10 Y EL 9 NO PUEDEN VIVIR COMO LITERAL EN PRODUCCION ───────
 #
 # MEDIDO 2026-10-04.  block_size, fragment_size y max_pfn NO los rellenaba
