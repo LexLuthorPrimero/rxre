@@ -111,6 +111,100 @@ Y hay un orden que este proyecto ya tiene escrito y que aquí se cumple entero:
 vía de recuperación, después se toca lo que pueda dejarte sin escritorio**. Leer la ROM no
 puede dejarlo sin escritorio.
 
+## CORRECCION, y es de las mias
+
+Este hallazgo se commiteo con dos errores que el nodo GEOMETRIA-SEGUNDA-FUENTE
+localizo y yo he verificado. Los dos estan en lo que mas se apoya el titular.
+
+### 1. MI CENSO ERA 8,9 VECES DEMASIADO ESTRECHO
+
+El hallazgo dice, textual: *«MEDIDO sobre los **304 ficheros `.c`/`.h`/`.rs`** de
+`linux-7.1.3`: **0 ocurrencias**»*.
+
+MEDIDO sobre la población correcta:
+
+```
+.h   1721
+.c    984
+.rs      0
+      ----
+      2705        lo que dice el 1053: 304      factor 8,9
+```
+
+**La conclusión se sostiene**: 0 ocurrencias de `xxx-xxx-xxx` en los 2705, comprobado
+por mí. Pero el `NOT_FOUND` original tenía alcance insuficiente, que es exactamente lo
+que `AGENTS.md` §16 prohíbe: *«Si el scope no es suficiente: NO CONCLUIR AUSENCIA»*.
+
+Y es la **décima** vez que aplico un filtro que excluye a la población que dice medir.
+La novena fue en `claims.py`; ésta en mi propio hallazgo, y la escribí con un número
+redondeado que no verifiqué. Un número que no comprobé, viajando como medido.
+
+### 2. MI INFERENCIA SOBRE `xxx-xxx-xxx` ERA INVALIDA
+
+Escribí: *«esa cadena no la pone el driver. Si el driver no la pone y el atributo la
+devuelve, la está poniendo la ROM de la tarjeta»*.
+
+MEDIDO, `amdgpu_atombios.c:1807-1816`:
+
+```c
+static ssize_t amdgpu_atombios_get_vbios_version(struct device *dev, ...)
+{
+	struct amdgpu_device *adev = drm_to_adev(dev);
+	struct atom_context *ctx = adev->mode_info.atom_context;
+
+	return sysfs_emit(buf, "%s\n", ctx->vbios_pn);
+}
+```
+
+**Imprime `ctx->vbios_pn`, el número de parte, que es un campo de runtime** — no un
+literal del fuente. Y hay un `amdgpu_atombios_get_vbios_build` aparte, que imprime
+`ctx->build_num`.
+
+Mi inferencia era unaFalacia: **la ausencia de un literal en el código fuente no
+establece de dónde sale el valor en runtime, cuando la ruta de impresión es un campo.**
+Un campo puede se puede por bytes de la ROM, o por una plantilla, o por un valor por
+defecto del driver, o por concatenación, y en ninguno de esos casos el literal
+aparecería nunca en el `.c`. Mi «0 ocurrencias en el fuente, luego viene de la ROM» no
+teníapies.
+
+Y la rama que yo mismo enuméré como posible —«ATOMBIOS sin el campo de versión
+rellenado»— queda **REFUTADA** por el mismo nodo: los atributos existen, luego
+`atom_context != NULL` (`:1859`/`:1914`), y `vbios_build` visible luego `build_num` no
+vacío, luego el recorrido del ATOMBIOS funcionó con sus límites correctos
+(`atom.c:1510-1513`). O sea que **el ATOMBIOS está presente y parseado**, que era la
+tercera de mis hipótesis y la que yo daba por descartada.
+
+**Lo que sí sobrevive del hallazgo**, porque no dependía de esa inferencia:
+
+```
+/sys/bus/pci/devices/0000:01:00.0/rom   131072 B   0600 root   PermissionError medido
+runtime_active_time idéntico antes y después del intento de lectura
+```
+
+La ROM existe, es del tamaño que declara la BAR6, y leerla no reanuda la GPU.
+
+### 3. Y EL TITULAR SE ENCOGE
+
+El hallazgo pide root para leer la ROM porque dice que la geometría está en ella. Con
+`GEOMETRIA-SEGUNDA-FUENTE` la geometría de CU **ya está medida, sin root**:
+
+```
+simd_count 32 / simd_per_cu 4          = 8 CU activos
+cu_per_simd_array 5 x array_count 2    = 10 ranuras de id
+caches_count 16  ->  processor_id_low distintos: 8
+                     offsets presentes: 1,2,3,4,6,7,8,9      ausentes: 0 y 5
+cwsr_size 2789376                      cierra exacto con 8
+num_xcc 1
+```
+
+Los 16 cachés son **8 CU × 2 tipos** (`type 9` DATA y `type 10` INSTRUCTION), 8 de 16 KB
+y 8 de 32 KB. **No son 16 cachés que exijan 10 CU**, que era lo que afirmaba yo y lo que
+dice `CONSTANTES-GFX8-DRIVER.md:783`. Eso queda **REFUTADO**.
+
+Así que la petición de root ya **no es «la geometría»**: son tres campos sueltos, y el
+informe del nodo los nombra. Es una petición más pequeña de la que este hallazgo
+planteaba, y eso es una buena noticia, no una pérdida.
+
 ## Lo que NO se afirma
 
 - **No se afirma que la ROM contenga lo que se busca.** Es una ROM PCI de 128 KiB; si no
