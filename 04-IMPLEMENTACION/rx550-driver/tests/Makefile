@@ -183,7 +183,7 @@ run: $(KO) test_target_match test_resource test_regs test_vm test_fence test_sub
      test_mmio_access test_block_size test_gart_write test_ib_bridge \
      test_ib_composer test_pdb0 test_submission test_vmid0_gart test_mem \
      test_ctxpt test_update_field test_dummy_page test_gart_seq \
-     test_gart_apply test_gart_table test_vram test_gart_geom \
+     test_gart_apply test_gart_table test_vram test_vram_pool test_gart_geom \
      test_vmid1_pgt test_vmid1_pgt_backing
 	@./test_resource
 	@./test_regs $(CORPUS)/gfx_8_0_d.h $(CORPUS)/gfx_8_1_d.h
@@ -212,6 +212,7 @@ run: $(KO) test_target_match test_resource test_regs test_vm test_fence test_sub
 	@./test_gart_apply
 	@./test_gart_table
 	@./test_vram
+	@./test_vram_pool
 	@./test_gart_geom
 	@./test_vmid0_gart
 	@./test_vmid1_pgt
@@ -318,6 +319,14 @@ test_vram: test_vram.c ../rx550_vram.h
 # principal es el GART que el driver de referencia IMPRIMIO en esta tarjeta
 # (0xFF00000000 - 0xFF0FFFFFFF, 256 MiB), o sea un numero MEDIDO y no una
 # expectativa inventada.  Sin GPU, sin MMIO, sin root.
+# test_vram_pool comprueba el ALLOCATOR, que hasta hoy no existia.  Lo que
+# mas comprueba no es la aritmetica sino las DOS clausulas del contrato de
+# rx550_vram.h que decia cumplir y que ningun allocator habia implementado: el
+# "si falla, NO ESCRIBE out" del alloc, y el "deja RELEASED" del free.
+test_vram_pool: test_vram_pool.c ../rx550_vram_pool.c ../rx550_vram_pool.h \
+                ../rx550_vram.h
+	$(CC) $(CFLAGS) -o $@ test_vram_pool.c ../rx550_vram_pool.c
+
 test_gart_geom: test_gart_geom.c ../rx550_gart_geom.c ../rx550_gart_geom.h
 	$(CC) $(CFLAGS) -o $@ test_gart_geom.c ../rx550_gart_geom.c
 
@@ -340,4 +349,4 @@ clean:
 	      test_vmid0_gart test_vmid1_pgt test_vmid1_pgt_backing \
 	      test_mem test_ctxpt test_update_field test_dummy_page \
 	      test_gart_seq test_gart_apply test_gart_table test_vram \
-      test_gart_geom
+      test_gart_geom test_vram_pool
