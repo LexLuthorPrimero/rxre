@@ -267,7 +267,7 @@ static void fase_mutacion(void)
 	      "control: sin mutar, aceptado");
 }
 
-/* ── lo que el contrato sigue SIN保証, para que no se lea mas de lo que dice ─ */
+/* ── lo que el contrato sigue SIN GARANTIZAR, para que no se lea mas de lo que dice ─ */
 static void fase_no_garantizado(void)
 {
 	struct rx550_vram_resource r = buena(TABLA_ALIGN);
