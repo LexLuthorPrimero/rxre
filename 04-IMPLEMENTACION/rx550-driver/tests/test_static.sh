@@ -382,7 +382,7 @@ chk $([ "$n_lic" -ge 1 ] && echo 0 || echo 1) COB-MODULOS \
 # preprocesador de C los quita de forma exacta,  sin heuristicas de sed sobre
 # lineas que empiezan por asterisco.  Los tres numeros salen en los comentarios
 # de tres ficheros,  y con que uno se colara en codigo seria el defecto
-#回来了.
+# vuelve.
 #
 # POR QUE UNA PUERTA Y NO UN SCRIPT DE UN USO:  este componente lleva tres
 # commits corrigiendo un literal escrito a mano que parecia un dato.  Un grep
@@ -791,11 +791,73 @@ else
 				fi
 			}
 
-			# Las cinco familias que cambian semantica.  El orden es el del informe:
+			# Una familia EXENTA:  kbuild usa el flag, los tests no,  y hay un
+			# motivo con nombre.  La diferencia con familia()  es que exige que
+			# el token este en kbuild:  si kbuild lo perdiera,  esto no pasaria
+			# en silencio.
+			familia_exenta() {
+				local lab="$1" re="$2" esperados="$3" motivo="$4"
+				local k v faltan
+				k="$(grep -m1 -x -E -- "$re" "$KBTOK" 2>/dev/null)"
+				v="$(grep -m1 -x -E -- "$re" "$CFTOK" 2>/dev/null)"
+				if [ -z "$k" ]; then
+					degraded=$((degraded+1))
+					printf "  DEGRADED CFP  %s: kbuild ya no lo usa; la excepcion ha dejado de tener objeto\n" "$lab"
+					return
+				fi
+				faltan=""
+				for e in $esperados; do
+					grep -qxF -- "$e" "$KBTOK" || faltan="$faltan $e"
+				done
+				if [ -n "$faltan" ]; then
+					no CFP "$lab EXENCION ROTA: kbuild ya no usa$faltan,  y la excepcion lo daba por hecho"
+				elif [ -n "$v" ]; then
+					no CFP "$lab DIVERGE y no esta exento: kbuild=$k  tests=$v"
+				else
+					ok CFP "$lab EXENTO con nombre: kbuild usa $k,  los tests no,  motivo: $motivo"
+				fi
+			}
+
+			# Las familias que cambian semantica.  El orden es el del informe:
 			# -std primero, porque es la que rompia de forma DURA (bool en C23).
 			familia "-std (bool es palabra clave desde C23)"                        '^-std=.+$'
 			familia "-fno-strict-aliasing (kbuild castea entre tipos a proposito)" '^-fno-strict-aliasing$'
 			familia "-fstack-protector-* (cobertura del canario de pila)"         '^-fstack-protector.+'
+			# MEDIDO 2026-10-04.  El regex de la familia de arriba era
+			#   ^-fstack-protector.+
+			# y por eso ERA INVISIBLE un token que SI diverge:
+			#     -mstack-protector-guard-reg=gs
+			#     -mstack-protector-guard-symbol=__ref_stack_chk_guard
+			# MEDIDO que los dos estan en el savedcmd de este arbol.  El modulo usa
+			# el canario DEL KERNEL  (GS  y  __ref_stack_chk_guard)  y el binario de
+			# test usa el default  (%fs:0x28).  O sea que el token coincide  y el
+			# EFECTO no.  La familia comparaba el token  y el token no lo veia:
+			# un flag con prefijo -m  no es un flag con prefijo -f.
+			#
+			# ESTA FAMILIA VA A FALLAR,  y es lo que tiene que pasar:  el modulo no
+			# se puede construir con el canario del kernel en userspace  —el simbolo
+			# __ref_stack_chk_guard no existe ahi—.  Dejarlo como excepcion SIN
+			# NOMBRE seria volver a hacerlo invisible,  que es el defecto.  Con el
+			# nombre,  es una divergencia DECLARADA  y no un token que nadie mira.
+			# EXENCION CON NOMBRE Y MOTIVO,  que es lo unico que se
+			# permite.  MEDIDO:  el modulo NECESITA el canario del kernel
+			#   -mstack-protector-guard-reg=gs
+			#   -mstack-protector-guard-symbol=__ref_stack_chk_guard
+			# y el binario de test NO PUEDE tenerlo:  __ref_stack_chk_guard es
+			# un simbolo del kernel  y no existe en userspace.  No es una
+			# excepcion de conveniencia:  es que la excepcion es IMPOSIBLE de
+			# cerrar por el otro lado.
+			#
+			# POR QUE ESTA EXENCION NO ES "UN HUECO":  el defecto que se
+			# corrige aqui  —el regex que no la veia—  era que la divergencia
+			# era invisible.  Con la excepcion escrita,  es una divergencia
+			# DECLARADA con su motivo,  y el gate sigue exigiendo que el token
+			# este en kbuild:  si kbuild dejara de usarlo,  el check no lo
+			# aceptaria en silencio.  MEDIDO con mutacion.
+			familia_exenta "-mstack-protector-* (registro y simbolo del canario)" \
+				'^-mstack-protector.+' \
+				"-mstack-protector-guard-reg=gs -mstack-protector-guard-symbol=__ref_stack_chk_guard" \
+				"el simbolo __ref_stack_chk_guard no existe en userspace: el modulo lo necesita y el binario de test no puede"
 			familia "-funsigned-char (signo de char plano)"                        '^-funsigned-char$'
 			familia "-fno-jump-tables (tabla de switch en modulo)"                 '^-fno-jump-tables$'
 
@@ -905,10 +967,42 @@ fi
 #
 # El numero de fallos va en el codigo de salida, y no solo en la linea de
 # arriba.  Un consumidor que solo mira el rc tiene que poder distinguir.
-if [ "$fail" = 0 ]; then
-	echo "T1-T14 + auditorías: OK"
-	exit 0
+# MEDIDO 2026-10-04.  ESTA SECCION IGNORABA `degraded`.
+#
+# El propio script dice, en el bloque CFP:
+#     "DEGRADED CFP  NO se cuenta como PASS.  Queda SIN VERIFICAR, no verde"
+# y despues el codigo de salida miraba SOLO `fail`.  MEDIDO, con el
+# `.rx550_target.o.cmd` apartado:
+#
+#     rc = 0      51 PASS / 0 FAIL      7 lineas DEGRADED
+#
+# Es decir:  la puerta de integridad annonce "OK" con ONCE comprobaciones sin
+# ejecutar.  El resumen contaba 51 en vez de 64 y no habia ningun sitio donde se
+# notara.  Es el mismo defecto que este componente lleva cinco commits
+# corrigiendo en otro lugar:  un control que no puede fallar.
+#
+# Y hay una contradiccion interna:  el bloque de exits, unas lineas mas abajo,
+# SI hace lo correcto  —"Una puerta que dice HAY FALLOS y sale 0 no es una
+# puerta: es un informe"—.  O sea que el fichero ya sabia la regla y no la
+# aplicaba aqui.
+#
+# POR QUE UN CODIGO DISTINTO y no el mismo que fail:  un fallo dice "algo esta
+# mal"  y un degradado dice "algo NO SE PUDO COMPROBAR".  Un pipeline que reciba
+# el mismo numero para las dos cosas no puede distinguirlas,  y tratarlas igual
+# es la razon por la que la evidencia se vino abajo sin que nadie lo notara.
+if [ "$fail" != 0 ] && [ "$degraded" != 0 ]; then
+	echo "HAY FALLOS: $fail   y SIN VERIFICAR: $degraded"
+	exit 1
+fi
+if [ "$fail" != 0 ]; then
+	echo "HAY FALLOS: $fail"
+	exit 1
+fi
+if [ "$degraded" != 0 ]; then
+	echo "SIN VERIFICAR: $degraded comprobaciones no se pudieron ejecutar.  NO es verde."
+	echo "T1-T14 + auditorías: OK en lo que se pudo comprobar  —  y $degraded quedaron SIN VERIFICAR"
+	exit 2
 fi
 
-echo "HAY FALLOS: $fail"
-exit 1
+echo "T1-T14 + auditorías: OK"
+exit 0
