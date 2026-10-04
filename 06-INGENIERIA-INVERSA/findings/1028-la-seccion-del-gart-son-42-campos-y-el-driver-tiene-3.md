@@ -184,11 +184,38 @@ Medido sobre `gmc_v8_0_gart_enable()` y sobre los `*_sh_mask.h` de
 `include/asic_reg/`:
 
 ```
-campos distintos que escribe la secuencia : 42
-  con MASK y __SHIFT, ambos presentes     : 42
-  faltantes                                : ninguno
-  MASK y __SHIFT incoherentes              : ninguno
+pares (registro, campo) que escribe la secuencia : 42
+nombres de campo DISTINTOS                       : 39
+  con MASK y __SHIFT, ambos presentes             : 42
+  faltantes                                        : ninguno
+  MASK y __SHIFT incoherentes                      : ninguno
 ```
+
+> **CORRECCION 2026-10-04.** Esta tabla decía `campos distintos que escribe la
+> secuencia : 42` y el 42 son PARES, no nombres distintos. La diferencia son
+> `ENABLE_CONTEXT`, `PAGE_TABLE_DEPTH` y `RANGE_..._DEFAULT`, que salen en los
+> dos contextos. El propio fichero ya lo decía mas arriba (`«42 campos» es
+> cierto como pares y falso como nombres`), luego la corrección se aplicó al
+> texto de las citas y no al de este resumen. **Un resumen que contradice al
+> cuerpo del mismo documento es peor que no tener resumen.**
+
+Y lo que ese 42 NO es, medido el 2026-10-04 sobre `gmc_8_1_sh_mask.h` como
+fuente unica de mascaras:
+
+- Los 20 mnemonicos no-bucle de la secuencia **declaran 132 campos**, no 84.
+  El 84 **no es reproducible** bajo ningun universo que se haya podido
+  construir: `NOT_REPRODUCIBLE`.
+- De los 97 campos que la cabecera declara para los **siete** registros de RMW,
+  la referencia escribe **42** por `REG_SET_FIELD`. Los 42 estan todos en la
+  tabla propia del driver.
+- Los **55** de la tabla propia no son "55 de los que la referencia escribe":
+  son **42 escritos + 13 que la referencia no toca** (los doce
+  `PROTECTION_FAULT_ENABLE_{INTERRUPT,SAVE}` de `mmVM_CONTEXT1_CNTL` mas
+  `MC_VM_MX_L1_TLB_CNTL.ECO_BITS`), que van sin valor y el compositor salta.
+- El criterio vigente es de **conjunto**, no de recuento de cabecera: en cada
+  registro que la secuencia escribe por RMW se ponen los mismos campos que la
+  referencia. Un campo que no se escribe no se puede escribir mal, asi que
+ Carry 132, 97 o 84 a la tabla no cambia un bit que llegue al hardware.
 
 Los **8 pares (registro, campo)** de más de un bit — que son **7 nombres**, porque
 `PAGE_TABLE_DEPTH` sale en los dos contextos:
@@ -225,18 +252,42 @@ se regenera.
 
 ## Cuánto de esto tiene el driver propio
 
-3 de 42, y sólo dos define:
+> **ESTA SECCION ESTABA CADUCADA Y SE CORRIGE EL 2026-10-04.** Decía
+> `3 de 42, y sólo dos define`, y respaldaba el 3 con `target_vm.h`, que es
+> **otra tabla**, no `rx550_reg_fields[]`. Contra el árbol actual el 3 es
+> cierto **solo para `mmVM_CONTEXT0_CNTL`** y falso como afirmación general.
 
-```c
-target_vm.h:80   #define TVM_DEPTH_FIELD_MASK      0x6u        /* 2 bits, bits 1..2   */
-target_vm.h:81   #define TVM_BLOCKSIZE_FIELD_MASK  0xF000000u  /* 4 bits, 24..27     */
+MEDIDO sobre `rx550_reg_fields[]` (`rx550_mmio_access.c`):
+
+```
+entradas en la tabla                                    55
+  pares (registro, campo) distintos                     55
+  nombres de campo distintos                            52
+  registros distintos                                     7
+
+desglose por registro
+  mmVM_CONTEXT1_CNTL          22
+  mmVM_L2_CNTL4               12
+  mmVM_L2_CNTL                 7
+  mmMC_VM_MX_L1_TLB_CNTL       6
+  mmVM_CONTEXT0_CNTL           3   <-- el unico donde el 3_old era cierto
+  mmVM_L2_CNTL3                3
+  mmVM_L2_CNTL2                2
 ```
 
-Esos dos cubren `PAGE_TABLE_DEPTH` de ambos contextos y
-`PAGE_TABLE_BLOCK_SIZE`. **Los otros 39 no tienen equivalente**, y entre ellos
-está todo el bloque de control de caché (`mmVM_L2_CNTL` 7, `mmVM_L2_CNTL3` 3,
-`mmVM_L2_CNTL4` 12, `mmMC_VM_MX_L1_TLB_CNTL` 5) que precede a la programación
-del contexto.
+**Los 42 pares de la referencia estan TODOS en la tabla**, y el bloque de
+control de caché que esta seccion daba por ausente esta entero:
+`mmVM_L2_CNTL` 7, `mmVM_L2_CNTL3` 3, `mmVM_L2_CNTL4` 12,
+`mmMC_VM_MX_L1_TLB_CNTL` 6.
+
+Los dos macros de `target_vm.h` que cita la version caducada siguen existiendo
+y son de otra capa (`target_vm.h:80-81`), pero no son la tabla de campos.
+
+**Y EL TITULO DE ESTE HALLAZGO TAMBIEN ESTA CADUCADO**, por la misma razon:
+dice «el driver propio tiene máscara para 3», y eso solo es cierto para
+`mmVM_CONTEXT0_CNTL`. Es el unico de los seis hallazgos de esta sesion cuyo
+numero del H1 ya no describe el estado del arbol, y el unico que sufrio tres
+correcciones el mismo dia sin que ninguna tocara el titulo.
 
 ## La asimetría que `target_vm.h` ya tenía abierta, y que esto estrecha
 

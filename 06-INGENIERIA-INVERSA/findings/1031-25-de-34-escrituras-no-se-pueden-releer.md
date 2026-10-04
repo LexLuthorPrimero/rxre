@@ -1,6 +1,20 @@
 # 1031 · 25 de las 34 escrituras del GART van a registros que no se pueden leer, y eso decide cómo se aplica
 
-`CLASSIFICATION=MEASUREMENT` · `TRACK=STATIC`
+`CLASSIFICATION=DERIVATION_ON_UNVERIFIED_INPUT` · `TRACK=STATIC`
+`RECLASSIFIED_BY=1033` (R1) · `RECLASSIFIED_ON=2026-10-04`
+
+> **CORRECCION DE CABECERA, 2026-10-04.** Este fichero decía
+> `CLASSIFICATION=MEASUREMENT` desde que se escribió, y la reclasificación a
+> derivación sobre entrada no verificada solo llegó al mensaje del commit de
+> 1033 y a su sección R1. Una reclasificación que no llega a la cabecera del
+> hallazgo que reclasifica es una corrección a medias: la cabecera es lo primero
+> que leen las personas y lo primero que parsean las herramientas, y las dos
+> seguían viendo `MEASUREMENT`.
+> El valor anterior no era tampoco inválido por sí mismo —`MEASUREMENT` está en
+> el vocabulario de tipos de AGENTS.md §10—, sino **incorrecto para este
+> hallazgo**: el 25 sale de la columna `access` de `rx550_vmid1_regs[]`, que
+> 1033 R6 declara **anotación del proyecto y no dato del corpus**. Ver
+> `rx550_mmio_access.h` para la procedencia de esa columna.
 `CORPUS=RESEARCH/kernelbuild/linux-7.1.3` · `HARDWARE_SCOPE=HOST-C/RX550/0000:01:00.0`
 `WORK_CLASS=IMPLEMENTATION` · `WRITE_EXECUTION=NONE` · `MODIFICATIONS=3`
 `RUNTIME=NOT_RUN` · `GPU INTACTA`
