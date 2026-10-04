@@ -215,7 +215,7 @@ Uso:
   python3 check_num_unico.py --json       lo mismo, estructurado
   python3 check_num_unico.py --limite N   cuantas filas de detalle imprime
   python3 check_num_unico.py --alcance {propio|todo}
-  python3 check_num_unico.py --selftest   fabrica 0, 2, 3, 4 y 5 por separado
+  python3 check_num_unico.py --selftest   fabrica 0, 2, 3, 4, 5, 6 y 7 por separado
 """
 
 import argparse
@@ -226,7 +226,13 @@ import os
 import re
 import sys
 
-VERSION = "1.1.0"
+# MEDIDO 2026-10-04 (hallazgo 1044): esta cadena decía "1.1.0" con un codigo que ya
+# no corresponde.  El commit 85ca0c5 añadió EXIT_CITAS_SIN_ADJUDICAR = 7 y
+# CENSO_POBLACION = 2152, y ninguna de las dos cosas se reflejaba aqui.  Una
+# herramienta con procedencia declarada y una version que miente no se puede
+# citar: el numero de version es la unica cosa que dice que estado del codigo se
+# ejecuto.  Subida a 1.2.0 al anotar el cambio; NO es un cambio de COMPORTAMIENTO.
+VERSION = "1.2.0"
 WORK_CLASS = "READ_ONLY"
 WRITE_EXECUTION = "NONE"
 
@@ -1167,6 +1173,51 @@ def selftest() -> int:
         and r["A3_citas"]["citas_por_numero_a_duplicado"] == 0,
         "codigo=%d n=%s" % (r["codigo"],
                             r["A3_citas"]["citas_por_numero_a_duplicado"]))
+
+    # ---- 7: CENSO CADUCADO.  Este codigo dispara en el arbol real  --MEDIDO
+    # 2026-10-04:  poblacion 2222, censo 2152, 70 sin adjudicar;  y el rc que
+    # devuelve la puerta es 5, no 7, porque 5 es mas profundo,  y ningun lector
+    # que solo mire el rc ve que 7 tambien esta disponible--  y aun asi no tenia
+    # NINGUN vector que lo fabricase.  Eso es exactamente lo que avisa el
+    # comentario de mas arriba sobre el diccionario de nombres:  un codigo que la
+    # puerta puede emitir y que el selftest no recorre no esta probado.
+    #
+    # La comparacion es  n_adv > CENSO_POBLACION,  con n_adv el numero de citas
+    # por numero que apuntan a un duplicado.  MEDIDO que esa es la misma clase de
+    # poblacion que el censo adjudico:  A3 mide 2222 hoy contra 2152 declaradas.
+    # Una hipotesis previa afirmaba que la cuenta estaba mal porque el codigo 4
+    # se habia retirado;  la ejecucion la REFUTO  --7 dispara con la cuenta
+    # correcta--  asi que no se publica ninguna de las dos.
+    #
+    # Para ejercitar la RAMA se baja CENSO_POBLACION a 0 durante la medida y se
+    # restaura en un finally.  Lo que se prueba es el comportamiento del codigo,
+    # no se edita la politica:  el umbral de produccion no se toca.
+    _censo_real = CENSO_POBLACION
+    try:
+        globals()["CENSO_POBLACION"] = 0
+        _d7, r7 = arbol("v7", [("001-a.md", 1), ("002-b.md", 2), ("002-c.md", 2)],
+                        [(2, ["002-b.md", "002-c.md"])], 3, 1,
+                        extra=[("otro.md", "vease el hallazgo 002:12\n")])
+        res("7  censo caducado -> 7",
+            r7["codigo"] == EXIT_CITAS_SIN_ADJUDICAR
+            and codigos(r7) == [EXIT_CITAS_SIN_ADJUDICAR],
+            "codigo=%d todos=%s" % (r7["codigo"], codigos(r7)))
+        res("7  ...y las sin adjudicar son la diferencia, no un total",
+            r7["censo_sin_adjudicar"] == r7["censo_poblacion_actual"],
+            "sin=%s actual=%s censo=%s"
+            % (r7["censo_sin_adjudicar"], r7["censo_poblacion_actual"],
+               r7["censo_poblacion"]))
+    finally:
+        globals()["CENSO_POBLACION"] = _censo_real
+    # CONTROL NEGATIVO, y es la mitad del valor del test:  con el censo real, un
+    # arbol con tres citas NO dispara 7.  Sin esta linea el test de arriba pasaria
+    # igual si 7 disparase siempre, es decir si no comprobase nada.
+    _d7n, r7n = arbol("v7n", [("001-a.md", 1), ("002-b.md", 2), ("002-c.md", 2)],
+                      [(2, ["002-b.md", "002-c.md"])], 3, 1,
+                      extra=[("otro.md", "vease el hallazgo 002:12\n")])
+    res("7d ...y con el censo real NO dispara (control negativo)",
+        EXIT_CITAS_SIN_ADJUDICAR not in codigos(r7n),
+        "todos=%s" % (codigos(r7n),))
 
     # ---- EL ANCHO DE DIGITOS. `\d{3}` es un ancho EXACTO: en cuanto existe
     # `1000-algo.md` deja de casar y su colision se vuelve invisible. Es el
