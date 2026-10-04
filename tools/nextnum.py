@@ -192,6 +192,50 @@ LEDGER_SCHEMA = ("#SCHEMA\tnum\torden\tclase\tts_reserva\tts_fichero\tregistro"
                  "\tn_fich\tdetalle\tp2_vacio\n")
 
 
+def _linea_de(n):
+    """La linea del ledger cuyo primer campo es `n`, o None."""
+    try:
+        with open(LEDGER, encoding="utf-8", errors="replace") as fh:
+            for l in fh:
+                if l.startswith("#") or not l.strip():
+                    continue
+                if l.split("\t", 1)[0] == n:
+                    return l.rstrip("\n")
+    except OSError:
+        pass
+    return None
+
+
+def _reemplazar_linea(vieja, nueva):
+    """Sustituye UNA linea del ledger por otra, en un unico paso.
+
+    MEDIDO: se escribe a un temporal y se renombra, porque `reservas_gate.py
+    --congelar` lee y reescribe ESTE MISMO fichero.  Un reescritura in situ  —leer
+    todo, cambiar una linea, volcar—  deja una ventana en la que el fichero esta a
+    medias,  y ese instrumento leeria un ledger truncado.
+    """
+    d = os.path.dirname(LEDGER) or "."
+    tmp = LEDGER + ".sella.tmp"
+    with open(LEDGER, encoding="utf-8", errors="replace") as fh:
+        lineas = fh.read().split("\n")
+    salida = []
+    cambiada = 0
+    for l in lineas:
+        if cambiada == 0 and l.rstrip("\n") == vieja:
+            salida.append(nueva)
+            cambiada = 1
+        else:
+            salida.append(l)
+    if not cambiada:
+        return False
+    with open(tmp, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(salida))
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, os.path.join(d, os.path.basename(LEDGER)))
+    return True
+
+
 def _sella(n: str) -> None:
     r"""Anade la fila de `n` al ledger, con FECHA y PID. La fila queda
     R_PENDIENTE: en el momento de reservar todavia no hay hallazgo detras, asi
@@ -246,9 +290,45 @@ def _sella(n: str) -> None:
             # Sin cabecera no se anade: el ledger esta roto y anadir filas a un
             # fichero que nadie puede leer deja datos donde antes no los habia.
             return
-        if n in ya:
-            return
         ts = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        # MEDIDO 2026-10-04, y lo cambio por una perdida IRREVERSIBLE.
+        #
+        # La guarda era  `if n in ya: return`.  Y hay OTRO escritor de este ledger
+        # que no es este:  `reservas_gate.py --congelar`  —que deriva sus filas del
+        # disco y del mapa,  no de una reserva—.  De modo que este orden ocurre:
+        #
+        #     1  --congelar crea la fila de `n`  con ts_reserva = DESCONOCIDA
+        #     2  alguien reserva `n`  ->  _sella() ve que ya existe  ->  RETORNA
+        #     3  la fecha real de esa reserva queda perdida PARA SIEMPRE
+        #
+        # Y no es recuperable:  la fecha no esta en ningun otro sitio.  Eso convierte
+        # una clase `INDETERMINADO` —"49 de las 54 reservas no se pueden ordenar"—
+        # en algo peor:  una reserva cuya orden es incognoscible PARA SIEMPRE,  y
+        # que ademas no se distingue de una que se reservo antes del sellado.
+        #
+        # ASI QUE EN VEZ DE RETORNAR, MEJORA:  si la fila existe pero su
+        # `ts_reserva` no es una fecha  —esta vacia o es DESCONOCIDA—,  se escribe la
+        # fecha real y NO se toca ninguna otra columna.  Si ya tiene fecha,  se
+        # retorna:  el sellado sigue siendo idempotente.
+        #
+        # El por que del criterio:  `ts_reserva` es el unico campo cuyo valor NO se
+        # puede derivar del disco  —la mtime del `.res` es la de la escritura,  no la
+        # de la reserva—.  Es decir:  es el unico campo que solo este escritor puede
+        # saber,  y por eso es el unico que puede mejorar una fila existente.
+        if n in ya:
+            linea = _linea_de(n)
+            if linea is None:
+                return
+            q = linea.split("\t")
+            # el esquema es num|orden|clase|ts_reserva|… :  el cuarto campo
+            if len(q) < 4:
+                return
+            ts_actual = q[3].strip()
+            if ts_actual and ts_actual != "DESCONOCIDA":
+                return                      # ya sellada:  idempotente
+            q[3] = ts
+            _reemplazar_linea(linea, "\t".join(q))
+            return
         with open(LEDGER, "a", encoding="utf-8") as fh:
             fh.write("%s\tNA\tR_PENDIENTE\t%s\t-\town/-\t0\t"
                      "reservado, sin escritura detras\t0\n" % (n, ts))
