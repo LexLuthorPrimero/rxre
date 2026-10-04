@@ -609,12 +609,19 @@ degraded=0
 
 if [ ! -r "$KBUILD_CMD_FILE" ]; then
 	degraded=$((degraded+1))
+	# MEDIDO 2026-10-04: estas lineas van SIN comillas dobles con acentos graves.
+	# Entre comillas dobles, `...` es SUSTITUCION DE COMANDO en bash, y este texto
+	# era un `make -C .. modules` de verdad: al imprimir el aviso ejecutaba make en
+	# el directorio actual y metia la salida de make dentro del mensaje (MEDIDO:
+	# "Se regenera con: make: *** No hay ninguna regla para construir el objetivo
+	# 'modules'").  Un aviso que ejecuta lo que avisa, y ademas miente sobre lo que
+	# dijo, es peor que no tener aviso.  Por eso aqui no hay acentos graves.
 	echo "  DEGRADED CFP  $KBUILD_CMD_FILE no existe o no es legible."
 	echo "  DEGRADED CFP  NO se puede comparar CFLAGS con kbuild: no hay savedcmd."
 	echo "  DEGRADED CFP  NO se cuenta como PASS.  Queda SIN VERIFICAR, no verde:"
-	echo "  DEGRADED CFP  el binario sale del `make -C .. modules`, asi que el"
-	echo "  DEGRADED CFP  .ko que se audita arriba no implica que exista su .o.cmd."
-	echo "  DEGRADED CFP  Se regenera con: make -C .. modules"
+	echo "  DEGRADED CFP  el .ko que se audita arriba viene de 'make -C .. modules',"
+	echo "  DEGRADED CFP  y que ese .ko exista no implica que exista su .o.cmd."
+	echo "  DEGRADED CFP  Se regenera con make -C .. modules"
 else
 	# MEDIDO: este awk, con este regex, sobre este fichero, devuelve la linea
 	# real de kbuild (la de tu_compila.sh:41).  No se reimplementa el formato.

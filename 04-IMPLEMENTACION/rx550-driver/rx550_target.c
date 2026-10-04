@@ -38,6 +38,8 @@
 #include "target_match.h"
 #include "pci_resource.h"
 #include "rx550_mmio_access.h"
+#include "rx550_gart_geom.h"
+#include "rx550_vmid0_gart.h"
 
 /*
  * Estado software del dispositivo.
@@ -121,6 +123,9 @@ MODULE_PARM_DESC(rx550_probe_read,
 
 /* mmGRBM_STATUS2, índice en BAR5.  Offset = índice * RX550_REG_WIDTH. */
 #define RX550_PROBE_READ_INDEX	0x2002u
+
+static void rx550_probe_geometry(struct pci_dev *pdev,
+				 const struct target_device *tdev);
 
 static int rx550_target_probe(struct pci_dev *pdev,
 			       const struct pci_device_id *id)
@@ -271,10 +276,117 @@ static int rx550_target_probe(struct pci_dev *pdev,
 			 (v1 == v2 && v2 == v3));
 	}
 
+	rx550_probe_geometry(pdev, tdev);
+
 	pci_info(pdev,
 		"objetivo reconocido; BAR%d mapeada (%llu B) (sin IRQ)\n",
 		TARGET_REG_BAR_INDEX, len);
 	return 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * SONDA DE GEOMETRIA.  Lee los DOS registros de los que depende la colocacion
+ * del GART y calcula la geometria con el productor, en vez de quemarla como
+ * constante de test.
+ *
+ * POR QUE OTRO PARAMETRO Y NO EL MISMO
+ *   rx550_probe_read responde " ¿responde el mapa? ".  Esta responde "¿QUE
+ *   GEOMETRIA DICE EL HARDWARE? ".  Son preguntas distintas, con oraculos
+ *   distintos y con modos de fallo distintos: la primera se apoya en los rc y
+ *   en la repetibilidad, la segunda en el contraste entre dos registros
+ *   independientes.  Un parametro que hace las dos cosas no se puede
+ *   atribuir cuando falla.
+ *
+ * QUE LEE, Y DE DONDE SALE CADA COSA
+ *   mmMC_VM_FB_LOCATION (indice 0x809): FB_BASE es de 16 bits con shift 0 y el
+ *   corpus lo multiplica por 2^24 (gmc_v8_0.c:416-418).  El campo FB_TOP del
+ *   MISMO registro NO se lee nunca en esa ruta, y por eso aqui se lee como
+ *   CONTRASTE: si FB_TOP*2^24+16MiB == FB_BASE*2^24 + CONFIG_MEMSIZE<<20, los
+ *   dos registros se corroboran por dos vias independientes y fb_end deja de
+ *   ser una construccion.  Ese es el discriminante, y no hay otro oraculo
+ *   local para el valor.
+ *
+ *   mmCONFIG_MEMSIZE (indice 0x150a): en MiB (gmc_v8_0.c:560-565).  El corpus
+ *   avisa si los 16 bits altos traen basura; aqui se registra el valor crudo
+ *   para que un valor raro se pueda distinguir de un offset equivocado.
+ *
+ * QUE NO HACE
+ *   No escribe nada.  No cambia ningun estado del dispositivo.  No llama a
+ *   pci_enable_device, que sigue en DEFERRED.  Default 0: sin este parametro
+ *   probe() se comporta exactamente igual que sin el.
+ * ---------------------------------------------------------------------- */
+#define RX550_GEOM_FB_LOCATION_INDEX	0x809u	/* gmc_8_1_d.h:281 */
+#define RX550_GEOM_MEMSIZE_INDEX		0x150Au	/* bif_5_0_d.h:36  */
+#define RX550_GEOM_FB_BASE_SHIFT		24
+#define RX550_GEOM_FB_BASE_MASK		0xFFFFu
+#define RX550_GEOM_FB_TOP_SHIFT		16
+#define RX550_GEOM_MEMSIZE_TO_BYTES	20	/* MiB -> B */
+
+static int rx550_geometry_probe;
+module_param(rx550_geometry_probe, int, 0);
+MODULE_PARM_DESC(rx550_geometry_probe,
+		 "1 = probe lee mmMC_VM_FB_LOCATION y mmCONFIG_MEMSIZE y calcula la geometria del GART (instrumento, no funcion)");
+
+static void rx550_probe_geometry(struct pci_dev *pdev,
+				 const struct target_device *tdev)
+{
+	struct rx550_gart_geom_in in;
+	struct rx550_gart_geom g;
+	struct rx550_reg reg_fb, reg_mem;
+	uint32_t v_fb = 0, v_mem = 0;
+	uint64_t fb_base, vram_bytes, fb_top_bytes;
+	uint32_t n_vmid;
+	int r_fb, r_mem, rc;
+
+	if (!rx550_geometry_probe)
+		return;
+
+	reg_fb = rx550_reg_make(RX550_GEOM_FB_LOCATION_INDEX);
+	reg_mem = rx550_reg_make(RX550_GEOM_MEMSIZE_INDEX);
+
+	r_fb = rx550_mmio_read32(&tdev->mmio, reg_fb, &v_fb);
+	r_mem = rx550_mmio_read32(&tdev->mmio, reg_mem, &v_mem);
+
+	/*  G1 = los dos registros se pudieron leer.  R1 = se leyeron Y la
+	 *  geometria se calculo sin error.  El veredicto se sostiene sobre G1,
+	 *  nunca sobre el valor: no hay oraculo para el valor, y fingir que lo
+	 *  hay seria el defecto de空調 que el propio bloque anterior rechaza. */
+	if (r_fb != RX550_MMIO_OK || r_mem != RX550_MMIO_OK) {
+		pci_info(pdev,
+			"GEOM_READ FAIL fb_idx=0x%04x rc=%d mem_idx=0x%04x rc=%d "
+			"G1=0\n",
+			RX550_GEOM_FB_LOCATION_INDEX, r_fb,
+			RX550_GEOM_MEMSIZE_INDEX, r_mem);
+		return;
+	}
+
+	fb_base = (uint64_t)(v_fb & RX550_GEOM_FB_BASE_MASK) << RX550_GEOM_FB_BASE_SHIFT;
+	fb_top_bytes = (uint64_t)((v_fb >> RX550_GEOM_FB_TOP_SHIFT) &
+				  RX550_GEOM_FB_BASE_MASK) << RX550_GEOM_FB_BASE_SHIFT;
+	vram_bytes = (uint64_t)v_mem << RX550_GEOM_MEMSIZE_TO_BYTES;
+	n_vmid = 0;
+	(void)n_vmid;
+
+	memset(&in, 0, sizeof(in));
+	in.fb_base    = fb_base;
+	in.vram_bytes = vram_bytes;
+	in.gart_size  = RX550_GART_SIZE_MAX;
+	in.placement  = RX550_GART_PLACEMENT_DEF;
+
+	rc = rx550_gart_geometry(&in, &g);
+
+	pci_info(pdev,
+		"GEOM fb_raw=0x%08x mem_raw=0x%08x fb_base=0x%llx vram=%llu "
+		"fb_top_plus16MiB=0x%llx CONTRASTE=%d gart=0x%llx..0x%llx "
+		"size=%llu clamped=%d rc=%d G1=1 R1=%d\n",
+		v_fb, v_mem, (unsigned long long)fb_base,
+		(unsigned long long)vram_bytes,
+		(unsigned long long)(fb_top_bytes + (UINT64_C(1) << 20)),
+		(fb_top_bytes + (UINT64_C(1) << 20)) ==
+			(fb_base + vram_bytes) ? 1 : 0,
+		(unsigned long long)g.gart_start, (unsigned long long)g.gart_end,
+		(unsigned long long)g.gart_size_effective, g.clamped, rc,
+		rc == RX550_GART_GEOM_OK);
 }
 
 /*
