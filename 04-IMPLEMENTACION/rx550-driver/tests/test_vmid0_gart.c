@@ -373,6 +373,42 @@ int main(void)
 		      "dummy_page_addr fuera de rango rechazada");
 	}
 
+	/* ── EL CERO,  que es el gemelo del defecto cerrado en el consumidor ────
+	 *
+	 * MEDIDO 2026-10-04:  rx550_vmid0_regs_build()  acotaba el TECHO de
+	 * dummy_page_addr  y no el SUELO.  Con 0,  fault_pfn = 0,  y eso es lo que
+	 * va a PROTECTION_FAULT_DEFAULT_ADDR:  todo fault de proteccion del
+	 * contexto 0 traduce a PA 0.
+	 *
+	 * Y 0 no es una direccion valida:  es el CENTINELA DE AUSENTE del corpus
+	 * (amdgpu_gart.c:79, :84-88, :101, :106, :520).  No es el centinela de
+	 * dma_map —que es ~(dma_addr_t)0,  include/linux/dma-mapping.h:116—,  de
+	 * modo que un mapa que devolviera 0 PASARIA el control de :152.  Por eso el
+	 * argumento "no hay pagina porque el mapa fallo" NO sostiene la guarda.
+	 *
+	 * Y CON TEXTO DE FONTE el caso 1  —una direccion por debajo de la pagina—
+	 * tiene que ACEPTARSE:  la guarda es "== 0"  y solo "== 0",  a proposito.  Un
+	 * requisito de alineacion seria otro defecto con su propia evidencia,  y el
+	 * hardware no produce una PA de sub-pagina.
+	 */
+	{
+		struct rx550_system_pa z = { 0 };
+		struct rx550_system_pa uno = { 1 };
+		struct rx550_system_pa pag = { UINT64_C(0x1000) };
+
+		CHECK(rx550_vmid0_regs_build(&regs, &cfg, base, 0, ap.end, z) != 0,
+		      "dummy_page_addr == 0 se RECHAZA:  es el centinela de ausente");
+		CHECK(rx550_vmid0_regs_build(&regs, &cfg, base, 0, ap.end, uno) == 0,
+		      "y una PA de sub-pagina 1 se ACEPTA:  la guarda es == 0, no < 0x1000");
+		CHECK(rx550_vmid0_regs_build(&regs, &cfg, base, 0, ap.end, pag) == 0,
+		      "y una pagina entera se acepta");
+
+		/* Y QUE EL RECHAZO NO DEJA MEDIO POBLAR,  que es lo que el resto de
+		 * las guardas de esta funcion garantiza. */
+		CHECK(rx550_vmid0_regs_build(&regs, &cfg, base, 0, ap.end, z) != 0,
+		      "y el rechazo es estable");
+	}
+
 	/* ── EL LIMITE INCLUSIVO, que no tenia caso ─────────────────────
 	 *
 	 * MEDIDO 2026-10-03 con tools/mutdrv.py: los cuatro sitios de la
