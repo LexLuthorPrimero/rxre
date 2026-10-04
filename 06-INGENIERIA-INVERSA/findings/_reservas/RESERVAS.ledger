@@ -90,7 +90,39 @@
 #     (2 ficheros) porque el renumerado lo movio a 1020.
 
 #SCHEMA	num	orden	clase	ts_reserva	ts_fichero	registro	n_fich	detalle	p2_vacio
-001	NA	H2_DUPLICADO_SIN_RESERVA	DESCONOCIDA	2026-09-29T01:56:53	-/-	2	-	0
+# ALCANCE DEL sha256_cuerpo: el valor es el de SOLO las filas de
+#   datos --las que no empiezan por # y no estan vacias--, unidas con
+#   \n y con \n final.  MEDIDO que la normalizacion del ledger hermano
+#   sirve aqui tal cual: A (join + \n final) y B (bucle fila+\n) dan el
+#   mismo sha byte a byte, y el fichero entero con cabecera da otro
+#   (8a58fb63... frente a 056501b9...), que no sirve porque cualquier
+#   linea de prosa lo giraria sin haber cambiado un solo numero.
+#
+# QUE RE-DERIVA --congelar Y QUE CONSERVA.  Medido columna por columna
+#   contra el disco: RE-DERIVA orden, clase, ts_fichero, registro,
+#   n_fich, p2_vacio y el `detalle` que sea una flecha.  CONSERVA num
+#   (es la clave) y ts_reserva.  ts_reserva NO se puede re-derivar:
+#   MEDIDO que de las 7 filas con fecha real, 3 no tienen `.res` en
+#   disco -- su fecha la puso `nextnum.py _sella()` al reservar y no
+#   esta en ningun otro sitio -- y re-derivarlas escribiria
+#   DESCONOCIDA, que es una afirmacion FALSA y no una celda vacia.
+#   `--congelar` NUNCA borra una fila: la que `mide()` no ve se
+#   conserva entera y se cuenta en filas_sin_fuente.
+#   generado_por                 tools/reservas_gate.py --congelar
+#   generado_en                  2026-10-04T06:27:00
+#   filas_ledger                 451
+#   modo                         congelar
+#   filas_conservadas            451
+#   filas_anadidas               0
+#   filas_sin_fuente             0
+#   clases_rederivadas           0
+#   ts_reserva_preservadas       451
+#   ts_reserva_recuperadas       0
+#   detalle_prosa_conservada     2
+#   ts_reserva_sin_fecha         0
+#   mapa_pares                   56
+#   sha256_cuerpo                036e0fc61eb7444d99c62aa5daa4803b424f1a04401650159c62e40502be7f5a
+001	NA	H2_DUPLICADO_SIN_RESERVA	2026-10-04T06:22:47	2026-09-29T01:56:53	-/-	2	-	0
 002	NA	H1_SIN_RESERVA	DESCONOCIDA	2026-09-29T02:03:44	-/-	1	-	0
 003	NA	H1_SIN_RESERVA	DESCONOCIDA	2026-09-29T02:05:45	-/-	1	-	0
 005	NA	H1_SIN_RESERVA	DESCONOCIDA	2026-09-29T02:24:10	-/-	1	-	0
@@ -138,7 +170,7 @@
 047	NA	H2_DUPLICADO_SIN_RESERVA	DESCONOCIDA	2026-10-02T01:38:46	-/-	3	-	0
 048	NA	H2_DUPLICADO_SIN_RESERVA	DESCONOCIDA	2026-10-01T12:51:29	-/-	3	-	0
 049	NA	H2_DUPLICADO_SIN_RESERVA	DESCONOCIDA	2026-10-01T12:53:07	-/-	2	-	0
-050	NA	H2_DUPLICADO_SIN_RESERVA	DESCONOCIDA	2026-10-01T13:08:32	-/-	3	-	0
+050	NA	H2_DUPLICADO_SIN_RESERVA	2026-10-04T06:22:47	2026-10-01T13:08:32	-/-	3	-	0
 051	NA	H2_DUPLICADO_SIN_RESERVA	DESCONOCIDA	2026-10-02T01:38:46	-/-	3	-	0
 052	NA	H1_SIN_RESERVA	DESCONOCIDA	2026-10-02T01:04:34	-/-	1	-	0
 053	NA	H1_SIN_RESERVA	DESCONOCIDA	2026-10-01T13:16:05	-/-	1	-	0
@@ -148,7 +180,7 @@
 057	NA	H1_SIN_RESERVA	DESCONOCIDA	2026-10-03T17:04:15	-/-	1	-	0
 058	NA	H1_SIN_RESERVA	DESCONOCIDA	2026-10-03T17:04:15	-/-	1	-	0
 059	NA	H1_SIN_RESERVA	DESCONOCIDA	2026-10-03T17:04:15	-/-	1	-	0
-060	NA	H1_SIN_RESERVA	DESCONOCIDA	2026-10-03T17:04:15	-/-	1	-	0
+060	NA	H1_SIN_RESERVA	2026-10-04T06:22:48	2026-10-03T17:04:15	-/-	1	-	0
 061	NA	H1_SIN_RESERVA	DESCONOCIDA	2026-10-01T13:55:03	-/-	1	-	0
 062	NA	H1_SIN_RESERVA	DESCONOCIDA	2026-10-02T12:15:28	-/-	1	-	0
 063	NA	H1_SIN_RESERVA	DESCONOCIDA	2026-10-03T17:04:15	-/-	1	-	0
@@ -538,6 +570,6 @@
 1040	INDETERMINADO	R1_ESCRITO	DESCONOCIDA	2026-10-04T04:23:19	own/-	1	-	0
 1041	INDETERMINADO	R1_ESCRITO	DESCONOCIDA	2026-10-04T05:03:15	own/-	1	-	0
 1042	INDETERMINADO	R1_ESCRITO	DESCONOCIDA	2026-10-04T05:11:29	own/-	1	-	0
-1043	INDETERMINADO	R1_ESCRITO	2026-10-04T05:45:53	-	own/-	1	-	0
+1043	INDETERMINADO	R1_ESCRITO	2026-10-04T05:45:53	2026-10-04T05:47:18	own/-	1	-	0
 1044	NA	R4_SIN_ORIGEN	2026-10-04T05:45:53	-	own/-	0	reservado, sin escritura detras	0
 1045	NA	R4_SIN_ORIGEN	2026-10-04T05:47:54	-	own/-	0	reservado, sin escritura detras	0
