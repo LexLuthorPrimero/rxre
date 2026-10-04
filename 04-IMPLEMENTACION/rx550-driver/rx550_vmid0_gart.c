@@ -245,6 +245,39 @@ int rx550_vmid0_regs_build(struct rx550_vmid0_regs *regs,
 		return -1;
 	if (dummy_page_addr.bytes > UINT64_C(0xFFFFFFFF) * RX550_GART_PAGE_SIZE)
 		return -1;
+	/* MEDIDO 2026-10-04.  ESTE ES EL GEMELO EXACTO de la guarda que le faltaba
+	 * a rx550_gart_seq.c,  y que un nodo anterior cerro alli.  Aqui solo se
+	 * acotaba el TECHO  —fault_pfn = dummy_page_addr.bytes >> 12  con 0 da 0—  y
+	 * el suelo se pasaba.
+	 *
+	 * POR QUE 0 NO ES UNA DIRECCION VALIDA,  con la evidencia:
+	 *   · 0 es el CENTINELA DE AUSENTE en el corpus:  amdgpu_gart.c:79, :84-88
+	 *     (= 0; return -ENOMEM), :101, :106, :520.
+	 *   · NO es el centinela de dma_map:  include/linux/dma-mapping.h:116 es
+	 *     ~(dma_addr_t)0,  de modo que un mapa que devolviera 0 PASARIA el
+	 *     control de :152.  El argumento "dma_map falla luego no hay pagina" no
+	 *     sostiene la guarda.
+	 *   · MEDIDO que las 76 ocurrencias de dummy_page_addr en el amdgpu del
+	 *     corpus  se usan como >> 8 / >> 12 / >> 44  sin comprobar el cero.
+	 *
+	 * Y CON 0,  lo que sale es fault_pfn = 0  en PROTECTION_FAULT_DEFAULT_ADDR:
+	 * todo fault de proteccion del contexto 0 traduce a PA 0.
+	 *
+	 * LIMITACION QUE ESTA GUARDA NO CIERRA,  y que es lo unico que se puede
+	 * decir aqui:  ESTA FUNCION DEVUELVE -1 PARA TODO.  No hay espacio de
+	 * errores con nombre,  de modo que este -1  es INDISTINGUIBLE del de las
+	 * seis comprobaciones de arriba.  Un llamante no puede saber si lo que fallo
+	 * fue el techo,  la profundidad o que no hay pagina.
+	 *
+	 * rx550_gart_seq.c si tiene espacio  —RX550_GART_SEQ_ERR_NO_DUMMY_PAGE,
+	 *committed  en d0d56b3—  precisamente por esto:  el motivo importa,  porque
+	 * con un codigo generico el llamante culpa a la mascara DMA  prueba
+	 * dma_set_mask  y no arregla nada.  Abrir aqui un espacio de errores es un
+	 * cambio MAYOR que este defecto  —tocaria los seis retornos y sus
+	 * llamantes—  y no se hace a medias:  queda declarado,  no escondido.
+	 */
+	if (dummy_page_addr.bytes == 0)
+		return -1;
 
 	start_pfn = (uint32_t)(gart_start >> RX550_GART_PAGE_SHIFT);
 	end_pfn = (uint32_t)(gart_end >> RX550_GART_PAGE_SHIFT);
