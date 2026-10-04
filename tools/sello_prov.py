@@ -84,7 +84,7 @@ import os
 import re
 import sys
 
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 
 # ---------------------------------------------------------------------------
 # LA RECETA DE `reproducible`
@@ -186,6 +186,8 @@ CAMPOS = {
 }
 
 RE_HEX = re.compile(r"^[0-9a-f]{8,64}$")
+# Sufijo de linea de una cita:  :12   :12-34   (NO toca una unidad de disco)
+RE_LINEA = re.compile(r":\d+(-\d+)?$")
 RE_VERSION = re.compile(r"^\d+\.\d+(\.\d+)?$")
 
 
@@ -315,7 +317,12 @@ def parsea_bloque(lineas, raiz, ruta):
     for c in campos:
         if c["tipo"] == "portador":
             partes = c["valor"].split()
-            c["ruta"] = partes[0]
+            # LAS CITAS DE ESTE PROYECTO LLEVAN NUMERO DE LINEA: `fichero.c:5673`,
+            # y a veces `fichero.c:192-210`. No se quitaba, y eso daba ROTO sobre
+            # ficheros que SI existen. MEDIDO en el hallazgo 1110: 2 ROTO falsos
+            # sobre smu7_hwmgr.h:192 y smu7_hwmgr.c:5673, que existen los dos.
+            c["ruta"] = RE_LINEA.sub("", partes[0])
+            c["cita_linea"] = (partes[0][len(c["ruta"]):] or None)
             c["version"] = partes[1] if len(partes) > 1 else None
             portador = c
         elif c["tipo"] == "suma":
@@ -382,7 +389,8 @@ def audita_campo(c, raiz, ruta_rel):
 
     if clave in ("Regenerar", "selftest", "prosa"):
         # No son numeros. Se registran para que el censo los vea, pero no
-        #itzen veredicto: contarlos como "comprobado" seria falso.
+        # dan veredicto: contarlos como "comprobado" seria falso, que es un
+        # numero que no significa lo que parece.
         return None
 
     if c["tipo"] == "portador":
@@ -1150,6 +1158,16 @@ def selftest():
         i, e = audita(["falso.md"], raiz)
         chk("V21d_la_palabra_dentro_de_la_valla_no_marca",
             i["bloques"] == 1, "bloques=%d" % i["bloques"])
+
+        # 21-ter. CITA CON NUMERO DE LINEA. Este proyecto cita `fichero.c:5673`
+        #         y el parser no lo quitaba: daba ROTO sobre ficheros que SI
+        #         existen. MEDIDO en el hallazgo 1110.
+        escribe("linea.md", blk("fuente  her.py:1\nscript  art.json:10-20\n"))
+        i, e = audita(["linea.md"], raiz)
+        chk("V21e_la_cita_con_numero_de_linea_se_resuelve",
+            i["recuento"]["EXISTE"] == 2 and i["recuento"]["ROTO"] == 0,
+            "EXISTE=%d ROTO=%d" % (i["recuento"]["EXISTE"],
+                                   i["recuento"]["ROTO"]))
 
         # 22. VALLAS DE 4 BACKTICKS. MEDIDO: promp.md tiene 2, y el
         #     emparejador viejo las mezclaba con las de 3 y declaraba el
