@@ -222,50 +222,85 @@ host**. El diagnóstico es correcto; la rama es inalcanzable.
 > `pci_enable_device()`, que está en `DEFERRED` y prohibido por la auditoría
 > estática: sin él no hay `PCI_COMMAND_MEMORY` y el mapa no responde.
 
-## R9 · La función escribe 44 registros, no 34
+## R9 · La función escribe 36 ejecuciones sobre 35 registros — CORREGIDO
 
-`gmc_v8_0_gart_enable()` **no termina en la operación 33.** Termina en:
+> **ESTA SECCION ESTABA MAL Y SE CORRIGE EL 2026-10-04.** Decía «44
+> registros», atribuía 9 escrituras de PRT a las llamadas de
+> `gart_enable()`, y daba por supuesto un valor de reset. Las tres cosas son
+> falsas. Lo que sigue está medido con `tools/gart_seq_oracle.py`, que extrae
+> la verdad del corpus sin un solo número escrito.
+
+`gmc_v8_0_gart_enable()` no termina en la operación 33. Sus únicas llamadas
+salientes son:
 
 ```c
 gmc_v8_0.c:936-939   if (amdgpu_vm_fault_stop == AMDGPU_VM_FAULT_STOP_ALWAYS)
                           gmc_v8_0_set_fault_enable_default(adev, false);
                       else
                           gmc_v8_0_set_fault_enable_default(adev, true);
-gmc_v8_0.c:940       gmc_v8_0_flush_gpu_tlb(adev, 0, 0, 0);
+gmc_v8_0.c:941       gmc_v8_0_flush_gpu_tlb(adev, 0, 0, 0);
 ```
 
-Y esos dos-called escriben **10 registros más**:
+**`set_prt()` NO está entre ellas.** MEDIDO: `set_prt` aparece **0 veces** en
+`gmc_v8_0.c:829-946`. Se llama desde `amdgpu_vm.c:1450`, por el recuento de
+usuarios PRT (`amdgpu_vm_update_prt_state`). Las 9 escrituras de
+`mmVM_PRT_CNTL` + las 8 aperturas **no pertenecen al árbol de llamadas de esta
+función**: son una vía reactiva que dispara cuando un VM de userspace se mapea
+con el flag PRT. La versión anterior de esta sección las contaba, y de ahí
+salían el 44 y el `NOT_IMPLEMENTED` atribuido a un parámetro de módulo que no
+las gobierna.
 
-- `gmc_v8_0.c:789` `mmVM_PRT_CNTL`
-- `gmc_v8_0.c:797-806` ocho `mmVM_PRT_APERTURE*_ADDR`
-- `gmc_v8_0.c:665` `mmVM_INVALIDATE_REQUEST`, dentro del flush
+### El recuento correcto
 
-**El plan de 34 omite los diez**, y no puede incluirlos tal cual: la rama de
-`L936` depende de **`amdgpu_vm_fault_stop`**, un parámetro de módulo en runtime
-que elige entre dos conjuntos de valores PRT distintos.
+| | ejecuciones | registros nuevos |
+|---|---|---|
+| cuerpo de `gart_enable` | **34** (19 rectas + 15 del bucle `i = 1..15`) | 34 |
+| `set_fault_enable_default()` → `L757` | **1** (`mmVM_CONTEXT1_CNTL`, que ya está en el plan) | 0 |
+| `flush_gpu_tlb()` → `L665` | **1** (`mmVM_INVALIDATE_REQUEST`) | 1 |
+| **total** | **36** | **35** |
 
-Peor, y esto no lo había visto: **`gmc_v8_0_set_fault_enable_default()` hace un
-segundo RMW de `mmVM_CONTEXT1_CNTL`** en `L757`. **El corpus escribe ese registro
-dos veces y el plan una.** El valor resultante es idéntico bajo la hipótesis de
-que todo venga de cero, pero **esa hipótesis no estaba escrita en ninguna parte**.
+El bucle aporta 15, no 30: sus dos `WREG32` están en ramas **excluyentes**
+(`if (i < 8)` / `else`), luego cada iteración toma exactamente uno. El oráculo
+lo dice en su salida, porque la versión ingenua multiplica sitios por
+iteraciones y da 49.
 
-**Lo que sí se ha hecho con esto:** el **vaciado de TLB**, que era un `❌ NO
-EXISTE` y son seis líneas.
+### El segundo write de `mmVM_CONTEXT1_CNTL` es un no-op DEMOSTRABLE
 
-```c
-/* rx550_gart_seq.c */
-int rx550_gart_tlb_flush(const struct rx550_mmio_map *map, unsigned vmid)
-{
-	...
-	if (vmid >= 16u)
-		return RX550_GART_SEQ_ERR_GEOMETRY;
-	...
-	return rx550_mmio_write32(map, req, (uint32_t)1u << vmid);
-}
-```
+La versión anterior decía que el valor resultante era idéntico «bajo la
+hipótesis de que todo venga de cero» y que esa hipótesis no estaba escrita.
+**La hipótesis es innecesaria.** Medido con las máscaras de
+`gmc_8_1_sh_mask.h`:
 
-**Y no es un anillo de PM4.** Hay dos funciones con el mismo nombre y la
-confusión es fácil:
+| | campos | OR de máscaras |
+|---|---|---|
+| `L923-935` (la secuencia) | 10 | **`0x0F492497`** |
+| `L743-756` (`set_fault_enable_default`) | 7 | **`0x00492490`** |
+
+`0x00492490 & ~0x0F492497 == 0` → **subconjunto estricto**. Los 7 campos que
+escribe la segunda llamada son exactamente los siete
+`*_FAULT_ENABLE_DEFAULT` que la primera ya puso a 1. Por tanto
+`set_fault_enable_default(true)` reescribe **el mismo valor, bit a bit, para
+cualquier contenido previo del registro**. Verificado numéricamente sobre
+varios valores de partida.
+
+El valor efectivo de `amdgpu_vm_fault_stop` en esta máquina es **0**
+(`AMDGPU_VM_FAULT_STOP_NEVER`), leído de
+`/sys/module/amdgpu/parameters/vm_fault_stop` y de la ausencia de
+`amdgpu.vm_fault_stop` en `/proc/cmdline`. Dos fuentes independientes.
+
+El parámetro es `0444` (`amdgpu_drv.c:455`), o sea inmutable en runtime. Con
+valor `ALWAYS` la segunda escritura **no** sería no-op, pero ese camino
+deshabilita la IRQ de VM fault (`gmc_v8_0.c:1068`) y hace que el hardware
+reintente en silencio: es una facility de depuración, no de corrección.
+
+**Lo que sí se ha hecho con esto:** el **vaciado de TLB**, que era un
+`❌ NO EXISTE` y son seis líneas (`rx550_gart_tlb_flush()`,
+`rx550_gart_seq.c:750`). Es un `write32` y nada más: **no** relee
+`mmVM_INVALIDATE_RESPONSE`, porque la variante por VMID del corpus es
+fire-and-forget y la que sí relee es otra función,
+`gmc_v8_0_flush_gpu_tlb_pasid` (`L641`).
+
+**Y no es un anillo de PM4.** Hay dos funciones con el mismo nombre:
 
 | | | |
 |---|---|---|
@@ -273,12 +308,32 @@ confusión es fácil:
 | `gmc_v8_0_emit_flush_gpu_tlb()` | `L668-683` | la que usa el ring: `amdgpu_ring_emit_wreg()` |
 
 Se implementa la primera. **Sin `mb()` y sin `flush_hdp`**: la ruta de runtime
-(`amdgpu_gart.c:499-505`) sí los hace, pero `gmc_v8_0.c:940` no, y las 34
+(`amdgpu_gart.c:499-505`) sí los hace, pero `gmc_v8_0.c:941` no, y las 34
 escrituras anteriores son del mismo mapa y del mismo driver.
 
-**Las 10 escrituras de PRT siguen faltando** y quedan declaradas como
-`NOT_IMPLEMENTED` con la razón: dependen de un parámetro de módulo en runtime, y
-elegir una de las dos ramas sin evidencia sería inventar.
+### Tres citas de línea que también estaban mal
+
+| decía | real | por qué |
+|---|---|---|
+| `L789` `mmVM_PRT_CNTL` | **`L790`** | `L789` es la continuación de un `REG_SET_FIELD` |
+| `L797-806` las 8 aperturas | **`L798-805`** | `L797` está en blanco y `L806` es el `} else {` |
+| `L940` la llamada al flush | **`L941`** | `L940` está en blanco |
+
+### Lo que NO se implementa, y por qué
+
+- **`set_fault_enable_default`**: no, y la razón ya no es «no sé qué rama».
+  En la configuración real de esta máquina es un no-op demostrable. Se deja
+  escrito para que quien implemente `vm_fault_stop=ALWAYS` sepa que el punto
+  de inserción es **borrar `0x00492490` del write existente**, no añadir una
+  segunda escritura.
+- **`mmVM_PRT_CNTL` y las 8 aperturas**: no, y **no por la razón anterior**.
+  No son parte de esta función. Alcanzables solo con el ioctl GEM_VA y
+  `AMDGPU_VM_PAGE_PRT`, que este driver no expone. Además nadie los lee nunca
+  y no hay registro STATUS asociado: escribirlos a ciegas sería un
+  `WRITE_SEMANTICS_UNKNOWN` sin oráculo posible.
+- **`mmATC_VMID0_PASID_MAPPING`**: no. Solo la variante PASID lo necesita; el
+  flush por VMID usa la constante `1<<0` compilada y nunca toca ATC.
+  Implementarlo aquí sería código muerto.
 
 ## R10 · El oráculo de la 1030 no existe como artefacto
 
@@ -324,8 +379,11 @@ conflictivas** en el corpus: `PAGE_TABLE_BLOCK_SIZE_MASK` es `0xf000000` en
 
 - **No dice que el corpus sea incorrecto para nuestra ASIC.** Dice que no es
   limpio, y que tiene un contradictorio interno documentado.
-- **No dice que las 10 escrituras de PRT sean innecesarias.** Dice que son
-  replication-dependent y que elegirlas sería inventar.
+- **No dice que las escrituras de PRT sean innecesarias.** Dice que **no
+  pertenecen a `gart_enable()`** —cero llamadas a `set_prt` en `L829-946`— y
+  que alcanzarlas exigiría un ioctl GEM_VA que este driver no expone. La
+  versión anterior de R9 las contaba dentro de la función y les exigía elegir
+  entre ramas; ambas cosas eran falsas.
 - **No dice que `access` sea falso.** Dice que es una decisión del proyecto, y que
   2 de los 9 que marcados como legibles no tienen lectura en el corpus.
 - **No toca el hardware.** Cero escrituras, cero registros leídos.
