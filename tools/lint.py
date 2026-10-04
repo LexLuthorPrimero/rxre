@@ -862,6 +862,20 @@ def selftest():
     # contando letra por letra.
     #
     # Las banderas son una LISTA de listas, y se imprime con " ".join.
+    # Y el vector que faltaba, y que es el que habria visto el defecto 1050:  un
+    # nombre de clase que NO existe no puede devolver "ninguno" con rc=0.  Antes de
+    # este vector, `--solo cjk` salia con 0 y con un texto que afirmaba que el
+    # vacio era un resultado.
+    _pr = subprocess.run([sys.executable, _yo, "--solo", "cjk"],
+                         capture_output=True, text=True, timeout=600)
+    _sal = (_pr.stdout or "") + (_pr.stderr or "")
+    _v("un --solo con nombre inexistente NO sale con 0",
+       _pr.returncode == 2, "rc=%s" % _pr.returncode)
+    _v("  ...y lo dice, en vez de callar",
+       "no es ninguna clase" in _sal, _sal[:120])
+    _v("  ...y lista las clases que si existen",
+       "clases que SI existen" in _sal, _sal[:120])
+
     for _flag in (["--censo"], ["--solo", "ANGLICISMO"]):
         _pr = subprocess.run([sys.executable, _yo] + _flag,
                              capture_output=True, text=True, timeout=600)
@@ -922,7 +936,35 @@ def main():
         texto = open(ruta, encoding="utf-8", errors="replace").read()
         rows.extend(escanear_kbuild(rel, texto))
     rows.extend(escanear_modulos(RAIZ))
+    # MEDIDO 2026-10-04 (hallazgo 1050).  Este filtro comparaba con IGUALDAD EXACTA
+    # y no decia nada cuando no encontraba nada.  Consecuencia medida:
+    #
+    #     lint.py --solo cjk              ->  0 hallazgos, rc=0, y decia
+    #                                         "NINGUNO. Y esto es un resultado, no un silencio"
+    #     lint.py --solo CJK_INSERTADO    ->  12 hallazgos
+    #     lint.py --solo CJK_SUSTITUIDO   ->  40 hallazgos
+    #
+    # O sea: un nombre de clase equivocado --una erre, una letra-- convertia la puerta
+    # en un certificado de limpieza, y la herramienta AFIRMABA que ese vacio era
+    # significativo.  Es el mismo defecto que describe check_num_unico.py:799-801:
+    # una puerta que sale 0 porque "no hay problema" y otra que sale 0 porque
+    # "no lo he mirado" se leen igual.
+    #
+    # Y el selftest no lo podia ver porque solo probaba `--solo ANGLICISMO`, que es un
+    # nombre que existe (linea 865).  No habia vector para un nombre que no existe.
+    #
+    # El arreglo NO es "que no filtre": es "que diga lo que hizo".  Si el filtro deja
+    # la lista vacia Y el nombre pedido no estaba entre las clases que existen, eso no
+    # es un resultado, es una llamada mal formada, y sale con codigo 2.
+    clases_presentes = sorted({r["clase"] for r in rows})
     if a.solo:
+        if a.solo not in clases_presentes:
+            print("ERROR: --solo %s no es ninguna clase de este informe." % a.solo)
+            print("  clases que SI existen (%d): %s"
+                  % (len(clases_presentes), ", ".join(clases_presentes)))
+            print("  No se ha medido nada.  Un filtro que no casa y dice 'ninguno' es")
+            print("  una puerta verde construida sobre una llamada mal escrita.")
+            return 2
         rows = [r for r in rows if r["clase"] == a.solo]
 
     dist = {}
