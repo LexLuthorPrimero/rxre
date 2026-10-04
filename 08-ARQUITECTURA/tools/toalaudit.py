@@ -167,7 +167,31 @@ def inventariar():
                 p = os.path.join(dp, f)
                 if os.path.getsize(p) < 200:      # no es una herramienta
                     continue
-                clave = os.path.realpath(p)
+                # MEDIDO 2026-10-04:  la clave es (st_dev, st_ino), NO realpath.
+                #
+                # Este arbol tiene 6 `mount --bind` de la raiz del proyecto sobre
+                # RX550-INVESTIGACION-WORKSPACES/<alias>  (/proc/self/mountinfo lo
+                # dice literalmente).  Para el MISMO fichero:
+                #
+                #   realpath via MAIN -> /.../RX550-INVESTIGACION/08-.../toalaudit.py
+                #   realpath via WS   -> /.../RX550-INVESTIGACION-WORKSPACES/01-COORDINACION/08-.../toalaudit.py
+                #   iguales como CADENA: False
+                #   (st_dev, st_ino) MAIN: (2067, 7372948)
+                #   (st_dev, st_ino) WS  : (2067, 7372948)
+                #   iguales como INODO  : True
+                #
+                # O sea que realpath NO identifica un fichero en este arbol: la
+                # comparacion de la linea siguiente contaba dos veces el mismo
+                # fichero siempre que el recorrido cubriera las dos raices.  Y el
+                # comentario de al lado decia "# el mismo fichero, dos veces", o
+                # sea que el codigo no hacia lo que su comentario afirmaba.
+                #
+                # El inodo si lo identifica, y no depende de como se llame la ruta.
+                try:
+                    st = os.stat(p)
+                except OSError:
+                    continue
+                clave = (st.st_dev, st.st_ino)
                 if clave in vistos:              # el mismo fichero, dos veces
                     continue
                 vistos.add(clave)
@@ -541,8 +565,13 @@ def selftest():
 
     # 5. y ningun fichero se cuenta dos veces, que es lo que haria el solape de
     #    nombres entre los dos arboles
+    # MEDIDO 2026-10-04:  este check usaba realpath, la MISMA clave erronea que
+    # el codigo que queria probar.  Un test que comparte el defecto del codigo no
+    # puede detectarlo:  pasa siempre.  Se prueba la PROPIEDAD con la clave que si
+    # identifica un fichero en este arbol.
     chk("ningun fichero aparece dos veces en el censo",
-        len({os.path.realpath(i["path"]) for i in inv}), len(inv))
+        len({(os.stat(i["path"]).st_dev, os.stat(i["path"]).st_ino)
+             for i in inv}), len(inv))
 
     # --- la bandera se PREGUNTA, y el DEFECTO se DISTINGUE -------------------
     # Un texto que MENCIONA una bandera no la DECLARA. Se comprobo asi:
@@ -604,6 +633,15 @@ def selftest():
     hoy = _dt.datetime.now().astimezone().strftime("%Y-%m-%d")
     chk("el sello lleva la fecha de HOY, no una constante",
         hoy in s1, True)
+
+    # MEDIDO 2026-10-04:  este check vivia DESPUES del `return 0` de main(),
+    # o sea en codigo muerto, y por lo tanto no se ejecutaba NUNCA.  Un check que
+    # no se ejecuta no es un check:  es una linea que da la sensacion de estar
+    # probado.  Aqui dentro ya se ejecuta.
+    # LITERALES, y por eso no encuentra nada. Se comprueba con el mismo
+    # patron escrito de las dos formas: una casa y la otra no.
+    chk("y el MISMO patron con barras dobladas no casa",
+        bool(re.search("\\\\b%s\\\\b" % "toalaudit.py", "docs/x.md")), False)
 
     print(f"  {'todos pasan' if not fails else f'{fails} FALLAN'}")
     return 1 if fails else 0
@@ -721,8 +759,23 @@ def main():
     print("  herramienta puede haberse usado sin aparecer, o aparecer sin")
     print("  haberse ejecutado. Por eso el estado es SOSPECHOSO, no descartado.")
     return 0
-    # Un patron con barras dobladas `r"\\\\b"` busca una barra y una b
-    # LITERALES, y por eso no encuentra nada. Se comprueba con el mismo
-    # patron escrito de las dos formas: una casa y la otra no.
-    chk("y el MISMO patron con barras dobladas no casa",
-        bool(re.search("\\\\b%s\\\\b" % "toolaudit.py", "docs/x.md")), False)
+
+
+# MEDIDO 2026-10-04:  ESTE FICHERO NO TENIA PUNTO DE ENTRADA.  No hay
+# `if __name__ == "__main__"` ni `sys.exit` en ninguna parte, asi que
+# `python3 toalaudit.py --self` no imprimia NADA y salia con rc=0.
+#
+# Y eso no era un fallo de tecleo, era un fallo con consecuencia:  la funcion
+# corre_self_test() de mas arriba hace
+#
+#     r = subprocess.run([sys.executable, p, flag], ...)   # :452
+#     if r.returncode == 0:
+#         return "PASA"                                     # :455
+#
+# o sea que la herramienta se AUDITABA A SI MISMA, se lanzaba sin que su main()
+# llegara a ejecutarse, y se declaraba PASA.  rc=0 ahi no significaba "el
+# self-test paso":  significaba "no happened nada".  Es el mismo defecto que el
+# hallazgo 998 documento para oracle.sh --una puerta que pasa por no hacer
+# nada--, aqui con el added de que la puerta ES la que juzga a las demas.
+if __name__ == "__main__":
+    sys.exit(main())
