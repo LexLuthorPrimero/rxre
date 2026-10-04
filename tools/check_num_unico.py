@@ -28,8 +28,27 @@ CODIGOS DE SALIDA, Y POR QUE NO SON 0 Y 1
      con su valor para no romper a quien la compruebe
   5  el indice de disco no regenera identico               <- el indice esta viejo
   6  queda una cita por numero a un duplicado en CODIGO    <- el defecto de HOY
+  7  el CENSO de adjudicaciones ya no cubre la poblacion  <- la MEDIDA esta vieja
 
-  PRECEDENCIA, y no es arbitraria: 2 > 5 > 3 > 6.
+  MEDIDO 2026-10-04:  el 7 dispara, pero la puerta devuelve 5, porque 5 va antes.
+  Quien mire solo el rc no ve que el 7 tambien estaba disponible.  Por eso la tabla
+  de arriba lo lista y no lo esconde.
+
+  Y aqui NO hay cifra, y es deliberado.  La poblacion crece con cada hallazgo nuevo,
+  luego un numero escrito aqui seria una foto que envejece en la siguiente fila que
+  se anada --y el dia que se queda viejo, nadie sabra si se quedo viejo el numero o
+  el codigo.  Para saber cuanto falta hay que ejecutar esto, y el rc lo dice.
+
+  LO QUE EL 7 AFIRMA Y LO QUE NO, que es lo unico que lo distingue del 0:
+
+    NO afirma que las citas esten bien.  Afirma que la MEDIDA que lo dijo ya no
+    cubre lo que hay.  Una puerta que sale 0 porque "no hay problema" y otra que
+    sale 0 porque "no lo he mirado"  —y las dos se leen igual—  son el mismo
+    defecto con dos motivos.  Cuando se resuelva, el 7 deja de disparar solo:  al
+    bajar la poblacion, o al adjudicarse de nuevo y actualizar CENSO_POBLACION
+    con su fecha.
+
+  PRECEDENCIA, y no es arbitraria: 2 > 5 > 3 > 6 > 7.
 
     2 antes que nada: sin `findings/` o sin indice no hay nada que afirmar.
     5 antes que 3 y 4: A2 y A3 se miden CONTRA el indice. Si el indice no
@@ -46,6 +65,12 @@ CODIGOS DE SALIDA, Y POR QUE NO SON 0 Y 1
       es la pregunta que decide si el driver puede afirmar algo. El 6 se cuenta
       con el registro de excepciones, y el registro ausente se declara ausente:
       tratarlo como vacio dejaria la puerta muda en vez de gritando.
+    7 despues de todos:  el 7 no afirma un defecto del ARBOL, afirma que una
+      MEDIDA caducada.  El 5 dice lo mismo del indice y va primero porque sin
+      indice al dia las comparaciones se hacen contra una medida equivocada;  el
+      7 va ultimo porque su reparacion  —readjudicar—  no es un acto de
+      verificacion sino de trabajo, y conviene que se vea detras de todo lo que
+      si se puede comprobar aqui y ahora.
 
   La puerta imprime TODOS los hallazgos aunque devuelva uno solo. Un codigo de
   salida que oculta los otros tres convierte la puerta en un contador.
