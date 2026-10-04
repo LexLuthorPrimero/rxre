@@ -116,7 +116,48 @@ def lee_manifiesto(ruta):
     return entradas, malformadas
 
 
-def es_evidencia_candidata(ruta_rel):
+def es_generado_por_kbuild(raiz, ruta_rel):
+    """
+    ¿Este fichero lo GENERÓ una construcción, o lo escribió alguien?
+
+    LA REGLA, Y POR QUÉ ES UN PREFIJO
+    -------------------------------
+    kbuild deja un fichero de traza de órdenes llamado `.<salida>.cmd` junto a
+    cada cosa que produce. Y "salida" no siempre lleva la misma extensión que el
+    fichero, que es donde está la trampa:
+
+        rx550_drv.ko      <- .rx550_drv.ko.cmd     nombre IDENTICO
+        rx550_drv.mod.c   <- .rx550_drv.mod.cmd    el cmd es PREFIJO, sin el .c
+
+    MEDIDO como bug mio: la primera version de esta funcion buscaba el hermano
+    como `base + extension` y por eso NO veia los dos `.mod.c`, y un censo
+    intermedio dio "0 artefactos kbuild sellados" cuando son 2. Un detector que
+    se pasa de largo no es un detector que no ha encontrado nada: es un
+    detector roto que se parece a uno que no ha encontrado nada.
+
+    ASI QUE LA REGLA ES: existe un hermano `X.cmd` tal que X es un prefijo no
+    vacio del nombre del fichero (o es igual). Y se prueba con vectores, porque
+    esta clase de fallo --parecerse a un resultado correcto-- es
+    precisamente la que no se ve sin(mutacion.
+    """
+    d = os.path.dirname(ruta_rel)
+    base = os.path.basename(ruta_rel)
+    if not base:
+        return False
+    try:
+        hermanos = os.listdir(os.path.join(raiz, d))
+    except OSError:
+        return False
+    for h in hermanos:
+        if not h.startswith(".") or not h.endswith(".cmd"):
+            continue
+        nombre = h[1:-4]              # quita el punto inicial y el .cmd
+        if nombre and base.startswith(nombre):
+            return True
+    return False
+
+
+def es_evidencia_candidata(ruta_rel, raiz=None):
     r = ruta_rel.lower()
     for ruido in RUIDO_CONOCIDO:
         if r.startswith(ruido + "/") or r == ruido:
@@ -126,6 +167,20 @@ def es_evidencia_candidata(ruta_rel):
             return False
     ext = os.path.splitext(r)[1].lower()
     if ext in NO_EVIDENCIA_EXT:
+        return False
+    # LA EXCEPCION QUE FALTA, Y POR QUE NO PUEDE SER UNA EXTENSION MAS
+    #
+    # `NO_EVIDENCIA_EXT` decide mirando la extension, y hay ficheros GENERADOS
+    # con extension de fuente. MEDIDO: 76 artefactos de kbuild en este arbol,
+    # de los cuales 2 estan en el manifiesto de evidencia, y los dos son
+    # `.mod.c`. Los otros 74 -- `.o`, `.ko`, `Module.symvers`, `modules.order`
+    # -- los para la extension. Los dos que se colaron solo se ven mirando si
+    # tienen hermano `.cmd`.
+    #
+    # Por eso esta regla necesita `raiz` y por eso `raiz` es opcional: sin raiz
+    # no se puede mirar el directorio, y sin directorio esta excepcion no se
+    # puede aplicar. Se dice con `NOT_AVAILABLE` en vez de suponer que no hay.
+    if raiz is not None and es_generado_por_kbuild(raiz, ruta_rel):
         return False
     return True
 
@@ -681,6 +736,68 @@ def selftest_custodia_real():
     return fallos
 
 
+def selftest_generado():
+    """
+    Vectores de `es_generado_por_kbuild` y de la excepcion que la usa.
+
+    Montan un directorio temporal con los DOS casos que rompieron la version
+    anterior, porque un detector que se pasa de largo se parece mucho a un
+    detector que no ha encontrado nada.
+    """
+    import tempfile as _tf
+
+    fallos = 0
+    vectores = 0
+
+    def chk(nombre, cond, detalle=""):
+        nonlocal fallos, vectores
+        vectores += 1
+        if cond:
+            print("    OK   %-54s %s" % (nombre, detalle))
+        else:
+            fallos += 1
+            print("    FALLA %-54s %s" % (nombre, detalle))
+
+    with _tf.TemporaryDirectory() as td:
+        k = os.path.join(td, "kbuild")
+        os.makedirs(k)
+        for nm in (".rx550_drv.mod.cmd", ".rx550.mod.cmd",
+                   ".rx550_drv.ko.cmd", ".rx550_drv.o.cmd"):
+            open(os.path.join(k, nm), "w").close()
+        for nm in ("rx550_drv.mod.c", "rx550.mod.c", "rx550_drv.ko",
+                   "rx550_drv.o"):
+            open(os.path.join(k, nm), "w").close()
+        # escrito a mano, sin hermano
+        open(os.path.join(k, "tool.py"), "w").close()
+        open(os.path.join(k, "notas.md"), "w").close()
+        # trampa: un .cmd de OTRO fichero cuyo nombre es prefijo del nuestro
+        os.makedirs(os.path.join(k, "sub"))
+        open(os.path.join(k, "sub", ".rx.cmake"), "w").close()
+        open(os.path.join(k, "sub", "rx550_drv.c"), "w").close()
+
+        G = lambda rel: es_generado_por_kbuild(td, rel)          # noqa: E731
+        chk("G1_mod_c_se_detecta_por_prefijo", G("kbuild/rx550_drv.mod.c"))
+        chk("G2_mod_c_sin_c_se_detecta_tambien", G("kbuild/rx550.mod.c"))
+        chk("G3_ko_se_detecta_por_nombre_igual", G("kbuild/rx550_drv.ko"))
+        chk("G4_o_se_detecta", G("kbuild/rx550_drv.o"))
+        chk("G5_un_escrito_a_mano_no_se_detecta",
+            not G("kbuild/tool.py") and not G("kbuild/notas.md"))
+        chk("G6_una_extension_que_no_es_cmd_no_cuenta",
+            not G("kbuild/sub/rx550_drv.c"))
+
+        E = lambda rel, r=td: es_evidencia_candidata(rel, r)       # noqa: E731
+        chk("G7_un_mod_c_generado_NO_es_evidencia", not E("kbuild/rx550_drv.mod.c"))
+        chk("G8_un_py_escrito_si_sigue_siendo_evidencia", E("kbuild/tool.py"))
+        chk("G9_sin_raiz_la_excepcion_no_se_aplica_pero_no_se_exige_raiz",
+            E("kbuild/rx550_drv.mod.c", None),
+            "sin raiz no se puede mirar: es NOT_AVAILABLE, no 'no es generado'")
+        chk("G10_un_artefacto_normal_ya_se_excluia_por_extension",
+            not E("kbuild/rx550_drv.ko"))
+
+    print("  %d vectores, %d fallos" % (vectores, fallos))
+    return fallos
+
+
 def main():
     ap = argparse.ArgumentParser(
         description="verifica el sello de evidencia")
@@ -705,7 +822,10 @@ def main():
         print()
         print("SEGUNDA CAPA: custodia() e indice_sellados() sobre un repo falso")
         f2 = selftest_custodia_real()
-        return 0 if (f1 == 0 and f2 == 0) else 1
+        print()
+        print("TERCERA CAPA: es_generado_por_kbuild() y la excepcion de evidencia")
+        f3 = selftest_generado()
+        return 0 if (f1 == 0 and f2 == 0 and f3 == 0) else 1
 
     aqui = os.path.dirname(os.path.abspath(__file__))
     # SEMANTICA DE --raiz, que estuvo mal dos veces:
@@ -821,7 +941,7 @@ def main():
                 rel = os.path.relpath(p, raiz)
                 if rel in sellados:
                     continue
-                if not es_evidencia_candidata(rel):
+                if not es_evidencia_candidata(rel, raiz):
                     continue
                 if not fn.endswith((".md", ".py", ".sh", ".c", ".h")):
                     continue
