@@ -66,6 +66,7 @@
 
 #include "rx550_spaces.h"
 #include "rx550_mmio.h"
+#include "rx550_mmio_access.h"
 
 #ifdef __KERNEL__
 #include <linux/types.h>
@@ -113,6 +114,27 @@ enum rx550_gart_rmw {
 struct rx550_gart_op {
 	uint32_t	reg;
 	uint32_t	value;
+	/*  VERIFICABLE:  se puede comprobar releyendo el registro.  Y para
+	 *
+	 *  24 de las 34 escrituras van a registros que la propia tabla del driver
+	 *  declara "W",  o sea de solo escritura:
+	 *
+	 *      los 15 PAGE_TABLE_BASE del bucle de contextos
+	 *      PAGE_TABLE_START y _END de los dos contextos
+	 *      PROTECTION_FAULT_DEFAULT de los dos contextos
+	 *      los tres de la identity aperture
+	 *      y CNTL2 del contexto 1  ("W" segun la tabla)
+	 *
+	 *  Releerlos NO prueba que la escritura haya tenido efecto:  lo unico que
+	 *  devolveria es lo que hubiera,  que es lo mismo que devolveria si no se
+	 *  hubiera escrito nada.  Y peor:  si el apply exigiera la igualdad,  de las
+	 *  34 escrituras solo PODRIAN verificarse 9,  y las otras 25 darian fallo
+	 *  con toda la razon.  Un apply que reporta 25 fallos y 9 acertos sobre un
+	 *  GART bien programado no es util para diagnosticar nada.
+	 *
+	 *  El flag sale de la columna `access` de rx550_vmid1_regs[],  que ya
+	 *  existe y ya dice "W" para esos 24.  No se reimplementa aqui:  se lee. */
+	bool		verificable;
 };
 
 /* 34 escrituras: 19 explicitas y 15 del bucle de contextos 1..15. */
@@ -144,5 +166,66 @@ int rx550_gart_seq_build(struct rx550_gart_seq *out,
  * que el test lo compruebe sin tener que recorrer el plan entero, y para que un
  * futuro cambio que anada o quita una operacion no pase por un aviso. */
 unsigned rx550_gart_seq_len(const struct rx550_gart_seq *s);
+
+/* -- LA PARTE QUE TOCA EL MAPA ------------------------------------------------
+ *
+ *  Todo lo de arriba es puro.  Lo de abajo escribe, y son tres funciones
+ *  separadas a proposito, porque el ORDEN en que se llaman no es un detalle:
+ *
+ *      1.  rx550_gart_snapshot()   LEE  los 7 registros que la secuencia
+ *                                    cambia por RMW
+ *      2.  rx550_gart_build_from()  usa esa lectura y produce el plan
+ *      3.  rx550_gart_apply()       ESCRIBE  las 34 y las relee
+ *
+ *  El paso 1 tiene que ir antes del 2 porque los siete RMW se componen sobre lo
+ *  que hubiera, y lo que hubiera hay que leerlo del hardware.  Quien se salte el
+ *  snapshot y pase unos cur inventados esta escribiendo un plan coherente sobre
+ *  un registro cuyo resto de campos no ha mirado nadie, y no se va a enterar
+ *  hasta que una pagina se mapee mal.
+ *
+ *  build_from() existe para que ese orden no sea una instruccion en un
+ *  comentario:  hace los dos pasos juntos y no hay forma de hacer el segundo sin
+ *  el primero.
+ */
+
+/* Los SIETE registros, en el orden de enum rx550_gart_rmw. */
+int rx550_gart_snapshot(const struct rx550_mmio_map *map, uint32_t *cur_out);
+
+/* Snapshot + build.  Equivale a:
+ *      rx550_gart_snapshot(map, p->cur);  rx550_gart_seq_build(seq, p);
+ *  y no se puede usar al reves. */
+int rx550_gart_build_from(const struct rx550_mmio_map *map,
+			 struct rx550_gart_seq *seq,
+			 const struct rx550_gart_params *p);
+
+/* Que se ha escrito, que numero de operacion, y que se ha leido de vuelta.  Los
+ * tres, porque la lectura de vuelta es la UNICA forma de saber que el hardware
+ * ha usado el plan.  Sin ella, 34 escrituras a un mapa correcto son indistingu-
+ * bles de 34 escrituras a un mapa que no responde. */
+struct rx550_gart_apply_report {
+	uint32_t	cur[RX550_GART_RMW_NR];	/* lo que se leyo antes   */
+	unsigned	n_escritas;		/* las que se hicieron       */
+	unsigned	n_verificadas;		/* las releidas que cuadraron */
+	unsigned	n_no_verificables;	/* las de registro "W":  ni
+						 * se pueden comprobar ni se
+						 * deben declarar fallo */
+	unsigned	primer_fallo;		/* indice, o UINT32_MAX si
+						 * ninguna fallo  */
+	uint32_t	leido;		/* lo que devolvio el registro */
+	uint32_t	escrito;		/* lo que se pretendia       */
+};
+
+#define RX550_GART_NO_FALLO	UINT32_MAX
+
+/* Aplica el plan y VERIFICA cada escritura releyendo el registro.  Si una
+ * lectura no devuelve lo escrito,  se para ahi y lo dice con el indice:  seguir
+ * escribiendo encima de un mapa que ya no responde no arregla nada y esconde el
+ * primer sintoma,  que es el unico que vale.
+ *
+ * Un mapa de lectura y escritura es una precondicion, no un resultado:  aqui se
+ * escribe,  y el llamador tiene que haberlo reservado por su cuenta. */
+int rx550_gart_apply(const struct rx550_mmio_map *map,
+		     const struct rx550_gart_seq *seq,
+		     struct rx550_gart_apply_report *out);
 
 #endif /* RX550_GART_SEQ_H */

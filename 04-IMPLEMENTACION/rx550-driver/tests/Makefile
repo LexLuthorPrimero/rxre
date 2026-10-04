@@ -76,6 +76,7 @@ run: $(KO) test_target_match test_resource test_regs test_vm test_fence test_sub
      test_mmio_access test_block_size test_gart_write test_ib_bridge \
      test_ib_composer test_pdb0 test_submission test_vmid0_gart test_mem \
      test_ctxpt test_update_field test_dummy_page test_gart_seq \
+     test_gart_apply \
      test_vmid1_pgt test_vmid1_pgt_backing
 	@./test_resource
 	@./test_regs $(CORPUS)/gfx_8_0_d.h $(CORPUS)/gfx_8_1_d.h
@@ -101,6 +102,7 @@ run: $(KO) test_target_match test_resource test_regs test_vm test_fence test_sub
 	@./test_update_field
 	@./test_dummy_page
 	@./test_gart_seq
+	@./test_gart_apply
 	@./test_vmid0_gart
 	@./test_vmid1_pgt
 	@./test_vmid1_pgt_backing
@@ -139,6 +141,12 @@ test_dummy_page: test_dummy_page.c ../rx550_dummy_page.c ../rx550_dummy_page.h
 test_gart_seq: test_gart_seq.c ../rx550_gart_seq.c ../rx550_mmio_access.c \
               ../rx550_gart_seq.h ../rx550_mmio_access.h
 	$(CC) $(CFLAGS) -o $@ test_gart_seq.c ../rx550_gart_seq.c ../rx550_mmio_access.c
+
+# test_gart_apply comprueba la ESCRITURA del plan sobre un mapa, y el reparto
+# entre los 9 registros legibles y los 25 de solo escritura.  Ver finding 1031.
+test_gart_apply: test_gart_apply.c ../rx550_gart_seq.c ../rx550_mmio_access.c \
+                ../rx550_gart_seq.h ../rx550_mmio_access.h
+	$(CC) $(CFLAGS) -o $@ test_gart_apply.c ../rx550_gart_seq.c ../rx550_mmio_access.c
 
 test_target_match: test_target_match.c ../target_match.h
 	$(CC) $(CFLAGS) -o test_resource test_resource.c ../target_resource.h

@@ -613,6 +613,23 @@ static inline uint32_t rx550_block_size_decode(uint32_t reg_value)
  * no depende de ningun mapa. */
 int rx550_mmio_reg_of(enum rx550_vmid1_reg_id id, struct rx550_reg *out);
 
+/*  Resolver por INDICE de registro, y no por identificador del enum.
+ *
+ *  Hace falta porque hay registros que el enum no puede nombrar:  el corpus
+ *  escribe mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR + i,  y para i = 1..15  son quince
+ *  registros reales  (0x550..0x557 y 0x50f..0x515)  que no tienen entrada en
+ *  ninguna tabla.  Meterlos uno a uno en el enum para luego sumar el mismo
+ *  numero otra vez seria la tabla y el calculo Belt and braces:  uno de los dos
+ *  dejaria de usarse y el otro empezaria a mentir.
+ *
+ *  La validacion NO es la del enum.  El enum valida que el id exista en la
+ *  tabla;  aqui lo que se valida es que el indice quepa en la ventana,  que es
+ *  lo que evita que un 0xffffffff se convierta en una direccion.  Las dos cosas
+ *  se hacen:  rx550_mmio_resolve() sigue aplicando su comprobacion sobre el
+ *  offset resultante,  asi que un indice aqui fuera de rango tampoco llega a
+ *  escribir. */
+int rx550_mmio_reg_of_index(uint32_t index, struct rx550_reg *out);
+
 /* ── EL REGISTRO DE TABLA DE PAGINAS DE UN VMID ────────────────────────────
  *
  *  ESTA FUNCION EXISTE PORQUE LA REGLA NO ESTA EN LA TABLA, Y LA TABLA NO

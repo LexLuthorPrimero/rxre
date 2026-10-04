@@ -477,6 +477,20 @@ int rx550_mmio_reg_of(enum rx550_vmid1_reg_id id, struct rx550_reg *out)
 	return RX550_MMIO_OK;
 }
 
+int rx550_mmio_reg_of_index(uint32_t index, struct rx550_reg *out)
+{
+	if (!out)
+		return RX550_MMIO_ERR_INCONSISTENT;
+	/*  Se comprueba aqui y no solo en rx550_mmio_resolve() porque el error que
+	 *  devuelve el segundo es de ventana,  y quien llama a esta funcion con un
+	 *  indice de mas quiere saber que el INDICE era malo,  no que el mapa
+	 * _RESULTADO_ era malo. */
+	if ((uint64_t)index * (uint64_t)RX550_REG_WIDTH > RX550_MMIO_SIZE)
+		return RX550_MMIO_ERR_BAD_ID;
+	*out = rx550_reg_make(index);
+	return RX550_MMIO_OK;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
  * EL RESOLVER:  la frontera del modulo
  * ═══════════════════════════════════════════════════════════════════════════ */

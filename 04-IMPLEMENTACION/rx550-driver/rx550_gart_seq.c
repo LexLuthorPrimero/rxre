@@ -131,6 +131,27 @@ static const int rx550_gart_rmw_de[O_NR] = {
  *  contexto 0 y el 1. */
 
 
+/*  Se puede comprobar releyendo?
+ *
+ *  Se decide por la COLUMNA ACCESS de la tabla de registros,  y no por una
+ *  lista de registros:  la lista seria una segunda copia de un dato que ya
+ *  existe,  y por lo tanto desincronizable.  El indice se pasa porque el plan
+ *  lo lleva,  y no hay nombre para los quince del bucle. */
+static bool rx550_gart_es_legible(uint32_t index)
+{
+	for (uint32_t i = 0; i < rx550_vmid1_reg_count; i++) {
+		if (rx550_vmid1_regs[i].index != index)
+			continue;
+		/*  "R" y "RW" se leen.  "W" no,  y no por prudencia:  porque lo que
+		 *  devuelva no es lo escrito. */
+		return rx550_vmid1_regs[i].access[0] == 'R';
+	}
+	/*  Un registro que no esta en la tabla no se puede verificar,  y no se
+	 *  trata como error:  el plan lo ha construido y el apply lo va a
+	 *  escribir igual.  Lo que no puede es declarar que lo ha comprobado. */
+	return false;
+}
+
 /* El indice del registro, por mnemonico, en la tabla del accessor. */
 static bool rx550_gart_reg_index(const char *mnemo, uint32_t *out)
 {
@@ -436,6 +457,8 @@ int rx550_gart_seq_build(struct rx550_gart_seq *out,
 					return RX550_GART_SEQ_ERR_TABLE;
 				tmp.op[n].reg = rl;
 				tmp.op[n].value = table_pfn;
+				tmp.op[n].verificable =
+					rx550_gart_es_legible(rl);
 				n++;
 			}
 			continue;
@@ -529,6 +552,7 @@ int rx550_gart_seq_build(struct rx550_gart_seq *out,
 			return RX550_GART_SEQ_ERR_TABLE;
 		tmp.op[n].reg = reg;
 		tmp.op[n].value = val;
+		tmp.op[n].verificable = rx550_gart_es_legible(reg);
 		n++;
 	}
 
@@ -540,4 +564,147 @@ int rx550_gart_seq_build(struct rx550_gart_seq *out,
 unsigned rx550_gart_seq_len(const struct rx550_gart_seq *s)
 {
 	return s ? s->n : 0u;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * LA PARTE QUE TOCA EL MAPA
+ *
+ * Nada de esto se ha ejecutado.  Ver el finding 1030.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Los siete registros RMW, en el MISMO orden que enum rx550_gart_rmw.
+ *
+ *  Con designadores, y no en orden de escritura, porque el orden de escritura
+ *  de la secuencia no es el de lectura y confundirlos daria un snapshot de
+ *  otra cosa.  El orden de ESTE array es el que indices p->cur. */
+static const enum rx550_vmid1_reg_id rx550_gart_rmw_regs[RX550_GART_RMW_NR] = {
+	[RX550_GART_RMW_L1_TLB_CNTL] = RX550_REG_MX_L1_TLB_CNTL,
+	[RX550_GART_RMW_L2_CNTL]     = RX550_REG_L2_CNTL,
+	[RX550_GART_RMW_L2_CNTL2]    = RX550_REG_L2_CNTL2,
+	[RX550_GART_RMW_L2_CNTL3]    = RX550_REG_L2_CNTL3,
+	[RX550_GART_RMW_L2_CNTL4]    = RX550_REG_L2_CNTL4,
+	[RX550_GART_RMW_CTX0_CNTL]   = RX550_REG_CTX0_CNTL,
+	[RX550_GART_RMW_CTX1_CNTL]   = RX550_REG_CTX1_CNTL,
+};
+
+int rx550_gart_snapshot(const struct rx550_mmio_map *map, uint32_t *cur_out)
+{
+	uint32_t tmp[RX550_GART_RMW_NR];
+
+	if (cur_out == NULL)
+		return RX550_GART_SEQ_ERR_INCONSISTENT;
+
+	/*  Se leen los siete ANTES de tocar la salida.  Un snapshot a medias deja
+	 *  cur con unos valores del mapa y otros de antes,  y un plan construido
+	 *  sobre eso parece valido. */
+	for (unsigned k = 0; k < RX550_GART_RMW_NR; k++) {
+		struct rx550_reg r;
+		int rc;
+
+		if (rx550_mmio_reg_of(rx550_gart_rmw_regs[k], &r) != RX550_MMIO_OK)
+			return RX550_GART_SEQ_ERR_TABLE;
+		rc = rx550_mmio_read32(map, r, &tmp[k]);
+		if (rc != RX550_MMIO_OK)
+			return rc;
+	}
+	memcpy(cur_out, tmp, sizeof(tmp));
+	return 0;
+}
+
+int rx550_gart_build_from(const struct rx550_mmio_map *map,
+			 struct rx550_gart_seq *seq,
+			 const struct rx550_gart_params *p)
+{
+	uint32_t cur[RX550_GART_RMW_NR];
+	int rc;
+
+	if (map == NULL || seq == NULL || p == NULL)
+		return RX550_GART_SEQ_ERR_INCONSISTENT;
+	/* Se lee PRIMERO.  Un plan construido con unos cur que nadie ha leido del
+	 * hardware es coherente y no quiere decir nada. */
+	rc = rx550_gart_snapshot(map, cur);
+	if (rc != 0)
+		return rc;
+	memcpy((uint32_t *)p->cur, cur, sizeof(cur));
+	return rx550_gart_seq_build(seq, p);
+}
+
+int rx550_gart_apply(const struct rx550_mmio_map *map,
+		     const struct rx550_gart_seq *seq,
+		     struct rx550_gart_apply_report *out)
+{
+	struct rx550_gart_apply_report rep;
+
+	if (map == NULL || seq == NULL || out == NULL)
+		return RX550_GART_SEQ_ERR_INCONSISTENT;
+
+	/*  El plan tiene que estar entero.  Aplicar 19 de 34 cuando el constructor
+	 *  ha devuelto error,  o un plan con el numero de operaciones cambiado a
+	 *  mano,  escribe un GART a medias:  el contexto 0 habilitado con la tabla
+	 *  antigua,  o al reves.  No falla al hacerlo:  falla al mapear. */
+	if (seq->n != RX550_GART_OPS_NR)
+		return RX550_GART_SEQ_ERR_TABLE;
+
+	memset(&rep, 0, sizeof(rep));
+	/* Lo que habia, para que el informe lo diga aunque se pare en la
+	 * primera operacion. */
+	{
+		int rc = rx550_gart_snapshot(map, rep.cur);
+
+		if (rc != 0)
+			return rc;
+	}
+	rep.primer_fallo = RX550_GART_NO_FALLO;
+
+	for (unsigned i = 0; i < seq->n; i++) {
+		struct rx550_reg r;
+		uint32_t leido;
+		int rc;
+
+		rc = rx550_mmio_reg_of_index(seq->op[i].reg, &r);
+		if (rc != RX550_MMIO_OK)
+			return rc;
+
+		rc = rx550_mmio_write32(map, r, seq->op[i].value);
+		if (rc != RX550_MMIO_OK) {
+			rep.n_escritas = i;
+			*out = rep;
+			return rc;
+		}
+		rep.n_escritas = i + 1u;
+
+		/*  Registro de solo escritura:  se cuenta y se sigue.  Releerlo y
+		 *  exigir la igualdad daria un fallo que no significa nada,  porque lo
+		 *  que devolveria es lo que hubiera. */
+		if (!seq->op[i].verificable) {
+			rep.n_no_verificables++;
+			continue;
+		}
+
+		/*  LA LECTURA DE VUELTA, solo aqui.  Es lo que separa "escrito" de
+		 *  "aceptado" en los 9 registros que se pueden leer.  Contra la BAR5
+		 *  real esto es lo unico que dira el hardware,  y por eso el apply se
+		 *  para en el primer fallo en vez de seguir:  el primer fallo es el
+		 *  sintoma,  y los siguientes son consecuencia. */
+		rc = rx550_mmio_read32(map, r, &leido);
+		if (rc != RX550_MMIO_OK) {
+			rep.primer_fallo = i;
+			rep.leido = 0;
+			rep.escrito = seq->op[i].value;
+			*out = rep;
+			return rc;
+		}
+		if (leido == seq->op[i].value) {
+			rep.n_verificadas++;
+			continue;
+		}
+		rep.primer_fallo = i;
+		rep.leido = leido;
+		rep.escrito = seq->op[i].value;
+		*out = rep;
+		return RX550_GART_SEQ_ERR_TABLE;
+	}
+
+	*out = rep;
+	return 0;
 }
