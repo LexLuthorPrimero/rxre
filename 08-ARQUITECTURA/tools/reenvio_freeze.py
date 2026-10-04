@@ -60,6 +60,7 @@ CODIGOS DE SALIDA
 import argparse
 import hashlib
 import os
+import re
 import subprocess
 import sys
 import time
@@ -72,7 +73,40 @@ DEST = os.path.join(HERE, "REENVIO-FINDINGS.tsv")
 sys.path.insert(0, HERE)
 from findings_index import escanear, reenvios, _stem  # noqa: E402
 
-CAMPOS = ("viejo", "nuevo", "reasignado", "stem")
+# MEDIDO 2026-10-04: se anadio `procedencia`. Antes eran 4 campos y el mapa
+# tiene 49 filas; la quinta dice COMO se obtuvo cada una, y hay tres clases que
+# no son la misma cosa:
+#
+#   `diff`          la derivo reenvios() del arbol contra HEAD. 43 filas.
+#   `git:<hash>`    la prueba un RENAME de git. 2 filas.
+#   `prosa:<f>:<l>` la unica fuente es la prosa del fichero de destino. 4 filas.
+#
+# POR QUE LA QUINTA COLUMNA NO ES DECORACION, y por que tiene que ir en las 49:
+#
+#   1. Una fila sin procedencia es indistinguible de una fila que el instrumento
+#      puede volver a derivar. Las 4 `prosa:` NO se pueden derivar: el numero
+#      viejo ya lo tenia otro hallazgo, asi que el fichero viejo nunca existio
+#      en git. Si `--congelar` regenera el fichero, esas 6 filas desaparecen y
+#      no hay nada en el TSV que lo impida ni nada que avise de que se han ido.
+#   2. Un formato de 5 columnas en 6 filas y de 4 en 43 no es un formato: es dos
+#      formatos, y cualquiera que los lea tiene que adivinar cual le toca.
+#
+# MEDIDO 2026-10-04:  se anade la columna `relacion` entre `stem` y
+# `procedencia`.  No es cosmetica:  ver el hallazgo 1040.  La tabla contenia dos
+# relaciones distintas —renumerado de CONTENIDO,  y colision de ASIGNACION de
+# numero— con un solo nombre de columna,  y confundirlas rompe al reparar citas.
+#
+# Y EL DEFECTO QUE ESTO NO ARREGLA, dicho aqui para que no se lea como que si:
+# `--congelar` sigue siendo DESTRUCTIVO para esas 6 filas. Este fichero las
+# reescribe enteras desde reenvios(). Lo que se anade es la columna que DICE que
+# se van a ir, no un modo de conservarlas. Arreglar eso es otra cosa y no esta
+# hecha; ver la cabecera del TSV.
+CAMPOS = ("viejo", "nuevo", "reasignado", "stem", "relacion", "procedencia")
+
+# Lo que escribe una fila cuyo origen es el propio diff. Es el valor por defecto
+# y no una constante magica: `cuerpo()` solo la usa cuando la fila no trae
+# `procedencia`, y las que trae son las que un humano o un rename aportaron.
+PROCEDENCIA_DIFF = "diff"
 
 
 def _head_id():
@@ -104,12 +138,20 @@ def _stem_completo(rev, filas):
 
 
 def cuerpo(rev):
-    """Cuerpo TSV, orden estable, sin cabecera. Es lo que se hashea."""
+    """Cuerpo TSV, orden estable, sin cabecera. Es lo que se hashea.
+
+    MEDIDO 2026-10-04: escribe 5 campos. El quinto sale de `r["procedencia"]` y,
+    si la fila no lo trae, es `diff` -- que es la verdad para todo lo que produce
+    `reenvios()`. Las filas que traen su propia procedencia no la pisan: por eso
+    una fila leida del fichero congelado y reescrita conserva su `git:` o su
+    `prosa:`. Antes no habia quinto campo y esa informacion no existia.
+    """
     out = []
     for r in sorted(rev, key=lambda x: (x["viejo"], x["nuevo"])):
-        out.append("%d\t%d\t%s\t%s" % (
+        out.append("%d\t%d\t%s\t%s\t%s" % (
             r["viejo"], r["nuevo"],
-            "SI" if r["reasignado"] else "no", r["stem"]))
+            "SI" if r["reasignado"] else "no", r["stem"],
+            (r.get("procedencia") or PROCEDENCIA_DIFF)))
     return "\n".join(out) + "\n"
 
 
@@ -134,12 +176,16 @@ def escribir(rev, head):
         "#   findings_index.reenvios_estable()  -- lee el mapa congelado\n"
         "#   08-ARQUITECTURA/tools/refs_repair.py -- repara citas colgando\n"
         "#\n"
-        "# COLUMNAS\n"
-        "#   viejo       numero que se escribio antes del renumerado\n"
-        "#   nuevo       numero que tiene HOY ese mismo hallazgo\n"
-        "#   reasignado  SI = el numero viejo esta ocupado HOY por OTRO contenido\n"
-        "#               no = el numero viejo quedo libre; la cita no miente\n"
-        "#   stem        nombre de fichero SIN el numero, completo\n"
+        "# COLUMNAS  (5, y las 5 en todas las filas: un formato mixto seria\n"
+        "#   peor que ninguno)\n"
+        "#   viejo        numero que se escribio antes del renumerado\n"
+        "#   nuevo        numero que tiene HOY ese mismo hallazgo\n"
+        "#   reasignado   SI = el numero viejo esta ocupado HOY por OTRO contenido\n"
+        "#                no = el numero viejo quedo libre; la cita no miente\n"
+        "#   stem         nombre de fichero SIN el numero, completo\n"
+        "#   procedencia   COMO se obtuvo ESTA fila: `diff`, `git:<hash>` o\n"
+        "#                `prosa:<fichero>:<lineas>`. Hay filas que reenvios()\n"
+        "#                NO puede derivar, y esta columna es lo que lo dice.\n"
         "#\n"
         "# NOTA SOBRE `reasignado=no`: si vale `no`, una cita `` `viejo` `` no apunta a\n"
         "#   un hallazgo equivocado, sino a que ese numero ya no existe. Es un caso\n"
@@ -158,11 +204,24 @@ def escribir(rev, head):
         "#   el renumerado este commiteado, o usar\n"
         "#   reenvio_freeze.py --congelar --forzar --confirmar-obsoleto\n"
         "#\n"
+        "# MEDIDO 2026-10-04, Y ESTO ES LO QUE HACE INSUFICIENTE EL AVISO DE ARRIBA:\n"
+        "#   `--congelar` REGENERA este fichero entero desde reenvios(), y solo ve\n"
+        "#   las renumeraciones NO commiteadas. Por eso BORRA cualquier fila cuya\n"
+        "#   procedencia no sea `diff`. Y no avisa: sale con un 0.\n"
+        "#   MEDIDO que hoy hay %d filas que no son `diff`, y que ninguna se puede\n"
+        "#   recuperar por la via del diff: 2 se commitearon antes del sellado, y 4\n"
+        "#   tienen la unica fuente en la prosa de su fichero de destino porque el\n"
+        "#   numero viejo ya lo tenia otro hallazgo.\n"
+        "#   Antes de re-congelar, exportar esas filas. La puerta de integridad es\n"
+        "#   08-ARQUITECTURA/tools/reenvio_gate.py y 08-ARQUITECTURA/tools/reenvio_freeze.py --verificar\n"
+        "#\n"
     ) % (
         time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         head or "DESCONOCIDO",
         (head or "")[:12],
         len(rev),
+        sum(1 for r in rev if (r.get("procedencia") or PROCEDENCIA_DIFF)
+            != PROCEDENCIA_DIFF),
         sha_de(c),
     )
     with open(DEST, "w", encoding="utf-8") as fh:
@@ -187,15 +246,69 @@ def leer():
         cuesco.append(ln)
     cuerpo_txt = "\n".join(l for l in cuesco if l.strip()) + "\n"
     filas = []
-    for l in cuesco:
+    for n_lin, l in enumerate(cuesco, 1):
         if not l.strip() or l.startswith("#"):
             continue
         p = l.split("\t")
-        if len(p) != 4:
-            continue
+        # MEDIDO 2026-10-04: esto era `if len(p) != 4: continue`. Con 5 columnas
+        # se comia el mapa entero sin decir nada, y `leer()` devolvia (cab, txt,
+        # []) -- indistinguible de "no hay mapa". Un `continue` que descarta el
+        # dato y no deja rastro no es robustez: es la causa de que este mapa
+        # pareciera completo cuando no lo era.
+        if len(p) != len(CAMPOS):
+            raise ValueError(
+                "%s: fila de datos con %d campos, se esperaban %d: %r"
+                % (DEST, n_lin, len(p), len(CAMPOS), l[:70]))
+        if p[2] not in ("SI", "no"):
+            raise ValueError("%s: reasignado vale %r, no es SI ni no: %r"
+                             % (DEST, p[2], l[:70]))
+        if not p[4].strip():
+            raise ValueError("%s: procedencia vacia: %r" % (DEST, l[:70]))
         filas.append({"viejo": int(p[0]), "nuevo": int(p[1]),
-                      "reasignado": p[2] == "SI", "stem": p[3]})
+                      "reasignado": p[2] == "SI", "stem": p[3],
+                      "procedencia": p[4]})
     return "\n".join(cab), cuerpo_txt, filas
+
+
+RE_SHA_DECLARADO = re.compile(r"sha256_cuerpo\s+([0-9a-f]{64})\s*$")
+
+
+def _sha_declarado(cabecera_txt):
+    """El sha256 que la cabecera DECLARA, o None si no declara ninguno.
+
+    MEDIDO 2026-10-04, y looring al anadir una linea de prosa a la cabecera. La
+    version anterior hacia esto:
+
+        for ln in cabecera.splitlines():
+            if "sha256_cuerpo" in ln:
+                declarado = ln.split("sha256_cuerpo")[1].strip()
+
+    O sea: busca una SUBSTRING y se queda con la ULTIMA linea que la contenga.
+    Al escribir en la cabecera la linea de prosa
+
+        # NORMALIZACION DEL sha256_cuerpo, que es la que verifica:
+
+    esa linea gano, y el valor leido fue `que es la que verifica:`. MEDIDO: la
+    puerta imprimió
+
+        PROBLEMA sha256 declarado , que es la que  != real f5de7808a59a9e21
+
+    con un sha de 49 filas que SI cuadraba. O sea que el fallo no era un
+    descuadre del dato: era un descuadre del LECTOR, y se presenta como si
+    fuera del dato. Un verificador de integridad que se rompe al escribir un
+    comentario no puede usarse para afirmar que el dato esta intacto.
+
+    El criterio ahora es la FORMA, no la presencia: la linea que cuenta es la
+    que termina en 64 hexadecimales. Una linea de prosa que mencione la clave
+    no puede pasar por declaracion, y si no hay ninguna, se dice que no hay
+    ninguna en vez de comparar contra una cadena vacia.
+    """
+    m = None
+    for ln in cabecera_txt.splitlines():
+        mm = RE_SHA_DECLARADO.search(ln)
+        if mm:
+            m = mm.group(1)
+    return m
 
 
 def verificar(filas, cuerpo_txt=None, declarado_sha=None):
@@ -212,9 +325,7 @@ def verificar(filas, cuerpo_txt=None, declarado_sha=None):
     if declarado_sha is None:
         got = leer()
         if got is not None:
-            for ln in got[0].splitlines():
-                if "sha256_cuerpo" in ln:
-                    declarado_sha = ln.split("sha256_cuerpo")[1].strip()
+            declarado_sha = _sha_declarado(got[0])
     if declarado_sha is not None:
         real = sha_de(cuerpo_txt)
         if declarado_sha != real:
@@ -250,12 +361,27 @@ def self_test():
         if got != want:
             fails.append("%s: obtuve %r, quiero %r" % (etiqueta, got, want))
 
+    # MEDIDO 2026-10-04: los VALORES ESPERADOS de estas dos aserciones
+    # pasaron de 4 campos a 5. Se actualiza el valor esperado, no la
+    # asercion: el criterio --"una fila es exactamente su linea TSV, y
+    # reasignado se escribe SI/no y no True/False"-- no ha cambiado, lo que
+    # cambio es el esquema. Un self-test al que se le anaden campos al
+    #que hay que ajustar la expectativa y sigue midiendo lo mismo; uno al que se
+    # le quita una asercion para que pase ya no mide nada.
     eq(cuerpo([{"viejo": 1, "nuevo": 2, "reasignado": True, "stem": "a.md"}]),
-       "1\t2\tSI\ta.md\n",
+       "1\t2\tSI\ta.md\tdiff\n",
        "cuerpo: un par produce exactamente su linea TSV")
     eq(cuerpo([{"viejo": 1, "nuevo": 2, "reasignado": False, "stem": "a.md"}]),
-       "1\t2\tno\ta.md\n",
+       "1\t2\tno\ta.md\tdiff\n",
        "cuerpo: reasignado=no se escribe 'no', no 'False'")
+    # Y la quinta columna NO se pisa cuando la fila trae la suya: es lo que
+    # permite que una fila leida del congelado conserve `git:` o `prosa:` al
+    # reescribirse. Sin esta asercion, la columna podia decorarse de
+    # cualquier cosa y seguir dando verde.
+    eq(cuerpo([{"viejo": 1, "nuevo": 2, "reasignado": True, "stem": "a.md",
+                "procedencia": "git:0123456789ab"}]),
+       "1\t2\tSI\ta.md\tgit:0123456789ab\n",
+       "cuerpo: la procedencia propia de la fila gana a la del defecto")
     # orden estable: el mismo conjunto en otro orden da el MISMO sha
     a = [{"viejo": 300, "nuevo": 301, "reasignado": True, "stem": "x.md"},
          {"viejo": 9, "nuevo": 10, "reasignado": False, "stem": "y.md"}]
@@ -287,6 +413,42 @@ def self_test():
         fails.append("verificar: no detecta un sha256 declarado que no cuadra")
     if verificar(filas, c, declarado_sha=sha_de(c)):
         fails.append("verificar: da falso positivo con el sha256 correcto")
+
+    # EL LECTOR DEL sha DECLARADO. Este control existe porque el criterio viejo
+    # se rompió al escribir una linea de prosa en la cabecera, y se rompió
+    # PRESENTANDOSE COMO UN DESCUADRE DEL DATO: la puerta dijo que el sha no
+    # cuadraba cuando el sha cuadraba y lo que estaba roto era la busqueda. Sin
+    # este control, un rotulo en prosa en la cabecera puede volver a tumbar la
+    # garantia de integridad en cualquier momento y nadie lo distinguiria de un
+    # fichero manipulado.
+    #
+    # Se comprueba la REGLA sobre un caso construido, porque un caso real de este
+    # defecto ya no existe en la cabecera: la prosa se escribio UNA vez y el
+    # criterio viejo ya no esta.
+    bueno = "a" * 64
+    cab_con_prosa = (
+        "# REENVIO-FINDINGS.tsv\n"
+        "#\n"
+        "# NORMALIZACION DEL sha256_cuerpo, que es la que verifica:\n"
+        "#   solo las filas de datos\n"
+        "#   pares          2\n"
+        "#   sha256_cuerpo  %s\n" % bueno)
+    eq(_sha_declarado(cab_con_prosa), bueno,
+       "sha declarado: una linea de prosa que menciona la clave no es la "
+       "declaracion")
+    eq(_sha_declarado("# nada aqui\n"), None,
+       "sha declarado: sin declaracion devuelve None, no una cadena vacia")
+    # Y un valor que NO es un sha de 64 hex no es una declaracion: se trunca en
+    # el mismo criterio que antes, y por eso un sha pegado a medias no se lee
+    # como sha y se compara contra algo. Esto puede fallar si alguien relaja el
+    # criterio a "cualquier cosa al final de la linea".
+    eq(_sha_declarado("#   sha256_cuerpo  %s\n" % ("a" * 63)), None,
+       "sha declarado: 63 hex no son un sha256")
+    eq(_sha_declarado("#   sha256_cuerpo  %sPERO NO\n" % ("a" * 64)), None,
+       "sha declarado: 64 hex con texto detras no es una declaracion")
+    # Y el criterio NO es "la ultima linea que menciona la clave": si lo fuera,
+    # la primera asercion de este bloque fallaria. Se deja dicho, porque un
+    # control cuyo negativo no se nombra se lee como si no lo tuviera.
 
     for f in fails:
         print("  FALLA %s" % f)

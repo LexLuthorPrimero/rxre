@@ -605,16 +605,59 @@ def auditar(ind: Dict[str, List[str]]) -> int:
     return (1 if fugas else 0), perdidos, viejos
 
 
+# Anchura del mapa congelado de renumeraciones. MEDIDO 2026-10-04: son 6
+# columnas, no 4. La quinta es `relacion` y la sexta `procedencia`.
+#
+# Y por que esta constante esta aqui y no importada:  MEDIDO que las cuatro
+# copias de este numero se han desincronizado una por una  —4->5 y ahora 5->6—,
+# y cada vez el sintoma fue el mismo y el peor posible:  `_reenvios()` devolvia
+# {} SIN ERROR,  de modo que el instrumento que reparte numeros de hallazgo
+# —justo el que produce las colisiones que el mapa documenta—  era ciego a las
+# renumeraciones  y no lo decia.  Ver 1040.
+CAMPOS_REENVIO = 6
+
+# Cuantos campos tiene cada fila que se ha LEIDO, y cuantas filas se han
+# descartado por no parecerse a ninguna. MEDIDO que esto hace falta: el lector
+# era `if len(p) == 4`, y con 5 columnas devolvia {} SIN ERROR. Es decir, el
+# instrumento que reparte numeros se quedaba ciego a las 49 renumeraciones -- y
+# no ver un numero renumerado es exactamente el mecanismo que produce las
+# colisiones que este mismo fichero existe para evitar. Un `if` que descarta
+# la fila y no deja rastro no es una guarda: es una fuente de numeros que colisionan
+# y se presenta como fuente de numeros que no colisionan.
+# MEDIDO que el self-test de este fichero ya lo detectaba:
+#   FAIL no se pudo leer el registro (54) o el mapa (0)
+REENVIO_AMPOS = {}
+REENVIO_DESCARTADAS = 0
+
+
+def reenvio_anchos() -> dict:
+    """Lo que se ha leido del mapa, por anchura. Para el informe."""
+    return {"contrato": CAMPOS_REENVIO,
+            "anchuras_leidas": dict(sorted(REENVIO_AMPOS.items())),
+            "descartadas": REENVIO_DESCARTADAS}
+
+
 def _reenvios() -> dict:
     """{numero_viejo: numero_nuevo} del mapa CONGELADO de renumeraciones.
 
     Se lee el fichero congelado y no se deriva de git a proposito: el mapa
     autodestruido una vez ya, cuando se commiteo el renumerado sin congelar
     antes. Ver REENVIO-FINDINGS.tsv.
+
+    MEDIDO 2026-10-04: el criterio de ancho era `== 4` y devolvia {} con el
+    mapa de 5 columnas, sin error y sin aviso. Ahora se acepta `>= 4` -- porque
+    el par que importa son los dos PRIMEROS campos y anadir una columna no puede
+    volver ciego a quien reparte numeros -- y se CUENTA la anchura de cada fila,
+    para que un cambio de esquema futuro se vea en el recuento y no solo en el
+    silencio. Con `>= 4` un fichero de 4 y otro de 5 se leen los dos; el
+    fichero tiene un esquema, esto es una lectura tolerante, no dos formatos.
     """
+    global REENVIO_DESCARTADAS
     ruta = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                         "08-ARQUITECTURA", "tools", "REENVIO-FINDINGS.tsv")
     out = {}
+    REENVIO_AMPOS.clear()
+    REENVIO_DESCARTADAS = 0
     try:
         with open(ruta, encoding="utf-8") as fh:
             for l in fh:
@@ -622,8 +665,11 @@ def _reenvios() -> dict:
                 if not l.strip() or l.startswith("#"):
                     continue
                 p = l.split("\t")
-                if len(p) == 4:
+                if len(p) >= 4:
                     out[p[0]] = p[1]
+                    REENVIO_AMPOS[len(p)] = REENVIO_AMPOS.get(len(p), 0) + 1
+                else:
+                    REENVIO_DESCARTADAS += 1
     except OSError:
         pass
     return out
