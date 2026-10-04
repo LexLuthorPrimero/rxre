@@ -7,9 +7,9 @@
 ```text
 AGENTS.md   en la raiz del repositorio
             = MASTER PROMPT V6 + DIRECTIVA VIGENTE del 2026-10-04
-            = 53382 bytes
-            = sha256 ca1ad44368ade558a93ad36d0c3a505d09e6c2bbc758c5bbe1dc31a86dc72332
-            = 2026-10-04, seccion "DIRECTIVA VIGENTE" + el contador compartido
+            = 53521 bytes
+            = sha256 b5e2f678a5ab253b64fb26068726a32b7358a4d3ef94bd08017315fcec1ff73c
+            = 2026-10-04, proriga del hito 2000 -> 3106
 ```
 
 **MEDIDO 2026-10-04: este registro estaba DESVIADO ANTES de que nadie lo tocara.**
