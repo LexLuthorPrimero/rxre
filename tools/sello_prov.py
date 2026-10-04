@@ -198,24 +198,45 @@ def sha256_de(path):
 
 def lee_bloques(texto, ruta):
     """
-    Devuelve (bloques, error_de_parseo).
+    Devuelve (bloques, parcial).
 
-    Un bloque es la lista de lineas de una valla ``` ... ```. Se trackea el
-    estado de la viga a mano porque `markdown` no es una libreria que este
-    proyecto pueda dar por instalada, y porque la viga sin cerrar es
-    precisamente el caso que hay que distinguir de "no habia vallas".
+    `bloques` son las vallas CERRADAS encontradas. `parcial` es None si el
+    documento se cierra entero, o (linea, n_backticks) si queda una valla abierta.
+
+    DOS COSAS QUE LA PRIMERA VERSION HACIA MAL
+
+    1. CONTABA CUALQUIER VISTA DE 3 BACKTICKS COMO VALLA, Y NO ES CIERTO. Una
+       valla de N backticks se cierra con otra de N o mas. MEDIDO: promp.md tiene
+       2 vallas de 4 backticks, mi emparejador las mezclaba con las de 3 y
+       declaraba el documento entero ilegible. Un fichero que usa vallas de 4 es
+       legal y yo lo rechazaba por no saber contarlas.
+
+    2. TIRABA EL DOCUMENTO ENTERO SI UNA VALLA SE QUEDABA ABIERTA. MEDIDO: 6
+       documentos, uno con 403 vallas y la ultima sin cerrar en la 5180. Los
+       bloques de las 402 anteriores son validos y los estaba tirando. Eso
+       convierte un defecto de REDACCION de un documento en un hueco de
+       OBSERVABILIDAD sobre el documento entero.
+
+    Por eso aqui no se aborta: se devuelve lo que se ha cerrado y se marca el
+    documento como PARCIAL, para que quien lo lea sepa que su censo no es
+    completo. Es la misma politica que ya se aplicaba a los ficheros ilegibles:
+    no se tira lo que se puede leer, y se dice lo que falta.
     """
     bloques = []
     dentro = False
     actual = []
     abre = None
+    n_abre = 0
     for n, ln in enumerate(texto.split("\n"), 1):
-        if ln.lstrip().startswith("```"):
+        s = ln.lstrip()
+        if s.startswith("```"):
+            n_back = len(s) - len(s.lstrip("`"))
             if not dentro:
                 dentro = True
                 abre = n
+                n_abre = n_back
                 actual = []
-            else:
+            elif n_back >= n_abre:
                 dentro = False
                 bloques.append((abre, actual))
                 actual = []
@@ -223,7 +244,7 @@ def lee_bloques(texto, ruta):
         if dentro:
             actual.append((n, ln))
     if dentro:
-        return bloques, "viga sin cerrar abierta en la linea %d de %s" % (abre, ruta)
+        return bloques, (abre, n_abre)
     return bloques, None
 
 
@@ -547,7 +568,7 @@ def audita(rutas, raiz_scan, raiz_res=None):
         raiz_res = raiz_scan
     informe = {"version": VERSION, "raiz": raiz_res, "raiz_scan": raiz_scan,
                "ficheros": [], "recuento": dict((v, 0) for v in VEREDICTOS),
-               "bloques": 0, "campos_auditados": 0, "errores": []}
+               "bloques": 0, "campos_auditados": 0, "errores": [], "parciales": []}
     for ruta in rutas:
         # Una ruta relativa se resuelve contra `raiz_scan`, que es donde se
         # buscan los documentos. Sin esto, un censo entero sale como
@@ -561,10 +582,20 @@ def audita(rutas, raiz_scan, raiz_res=None):
             informe["errores"].append({"fichero": rel,
                                        "error": "ilegible: %s" % e})
             continue
-        bloques, err = lee_bloques(texto, rel)
-        if err:
-            informe["errores"].append({"fichero": rel, "error": err})
-            continue
+        bloques, parcial = lee_bloques(texto, rel)
+        # UNA VALLA ABIERTA NO ES UN ERROR DE PARSEO: ES UN DOCUMENTO PARCIAL.
+        #
+        # MEDIDO: antes, un documento con la ultima valla sin cerrar iba entero a
+        # `errores` y no aportaba NINGUN bloque al censo. Uno de ellos tiene 403
+        # vallas, con las 402 anteriores perfectamente validas, y las estaba
+        # tirando. Convertir un defecto de redaccion en un hueco de
+        # observabilidad sobre el documento entero sale mas caro que el defecto.
+        #
+        # Se countable lo countable y se declara el documento parcial, que es lo
+        # que el rc=2 ya significa: "este censo no es completo".
+        if parcial is not None:
+            informe["parciales"].append(
+                {"fichero": rel, "linea": parcial[0], "backticks": parcial[1]})
         ent = {"fichero": rel, "bloques": []}
         for abre, lineas in bloques:
             campos = parsea_bloque(lineas, raiz_res, rel)
@@ -598,7 +629,7 @@ def rc_de(informe):
     mirado todo".
     """
     r = informe["recuento"]
-    if informe.get("errores"):
+    if informe.get("errores") or informe.get("parciales"):
         return 2
     if r["DIFIERE"] or r["ROTO"] or r["MALFORMADO"]:
         return 4
@@ -631,6 +662,13 @@ def imprime(informe):
                 print("    %-12s %-11s %s" % (c["veredicto"], c["campo"],
                                              c["motivo"]))
             print()
+    if informe.get("parciales"):
+        print("DOCUMENTOS PARCIALES: valla sin cerrar, se audita lo que hay (%d)"
+              % len(informe["parciales"]))
+        for e in informe["parciales"]:
+            print("  %-58s valla de %d abierta en la linea %d"
+                  % (e["fichero"][:58], e["backticks"], e["linea"]))
+        print()
     if informe.get("errores"):
         print("DOCUMENTOS QUE NO SE HAN PODIDO AUDITAR: %d" %
               len(informe["errores"]))
@@ -850,24 +888,37 @@ def selftest():
         # 10. viga sin cerrar -> error de parseo, rc 2, no 0
         escribe("viga.md", "```\nsha256  %s\n" % h_art)
         i, e = audita(["viga.md"], raiz)
-        chk("V10_viga_sin_cerrar_es_error", rc_de(i) == 2
-            and len(i["errores"]) == 1, "rc=%d" % rc_de(i))
+        chk("V10_valla_sin_cerrar_es_PARCIAL_no_error", rc_de(i) == 2
+            and len(i["parciales"]) == 1 and len(i["errores"]) == 0,
+            "rc=%d parciales=%d errores=%d" % (rc_de(i), len(i["parciales"]),
+                                                len(i["errores"])))
 
         # 10-bis. un documento roto NO ABORTA el censo de los demas. Es la
         #      razon de ser de `errores` como lista: MEDIDO en el arbol real,
         #      una viga sin cerrar en 063 hacia que la primera version no
         #      censara NADA.
         i, e = audita(["viga.md", "ok.md"], raiz)
-        chk("V10b_el_censo_continua_pasado_un_roto",
+        chk("V10b_el_censo_continua_pasado_un_parcial",
             rc_de(i) == 2 and i["recuento"]["COINCIDE"] == 2
-            and len(i["errores"]) == 1,
-            "COINCIDE=%d errores=%d" % (i["recuento"]["COINCIDE"],
-                                        len(i["errores"])))
+            and len(i["parciales"]) == 1,
+            "COINCIDE=%d parciales=%d" % (i["recuento"]["COINCIDE"],
+                                          len(i["parciales"])))
 
         # 10-ter. los bloques del fichero roto NO se cuentan: estan desalineados
         i, e = audita(["viga.md"], raiz)
-        chk("V10c_el_fichero_roto_no_aporta_bloques",
+        chk("V10c_lo_que_no_se_cerro_no_se_cuenta_como_bloque",
             i["bloques"] == 0 and i["campos_auditados"] == 0)
+        # 10-c-bis. PERO LO QUE SI SE CERRO, SE CUENTA. Este es el cambio de
+        #   fondo: antes un documento con una valla al final no aportaba NADA.
+        escribe("mixto.md", blk("artefacto  art.json\nsha256   %s\n" % h_art)
+                + "```\nsha256  %s\n" % h_art)
+        i, e = audita(["mixto.md"], raiz)
+        chk("V10d_lo_que_se_cerro_antes_si_se_cuenta",
+            i["bloques"] == 1 and i["recuento"]["COINCIDE"] == 1
+            and len(i["parciales"]) == 1,
+            "bloques=%d COINCIDE=%d parciales=%d" % (i["bloques"],
+                                                     i["recuento"]["COINCIDE"],
+                                                     len(i["parciales"])))
 
         # 10-quater. un fichero ilegible tambien va a errores, no aborta
         i, e = audita(["no-existe.md", "ok.md"], raiz)
@@ -1022,6 +1073,25 @@ def selftest():
         with open(art, "w") as f:
             f.write('{"a": 1}\n')
 
+        # 22. VALLAS DE 4 BACKTICKS. MEDIDO: promp.md tiene 2, y el
+        #     emparejador viejo las mezclaba con las de 3 y declaraba el
+        #     documento entero ilegible. Una valla de N se cierra con otra
+        #     de N o mas.
+        escribe("cuatro.md", "````\nartefacto  art.json\nsha256   %s\n````\n" % h_art)
+        i, e = audita(["cuatro.md"], raiz)
+        chk("V22_valla_de_4_se_cierra_con_4",
+            i["bloques"] == 1 and i["recuento"]["COINCIDE"] == 1
+            and len(i["parciales"]) == 0 and len(i["errores"]) == 0,
+            "bloques=%d COINCIDE=%d parciales=%d" % (i["bloques"],
+                                                     i["recuento"]["COINCIDE"],
+                                                     len(i["parciales"])))
+        # y una valla de 3 NO cierra una de 4
+        escribe("cuatro2.md", "````\nartefacto  art.json\n```\n")
+        i, e = audita(["cuatro2.md"], raiz)
+        chk("V22b_una_valla_de_3_no_cierra_una_de_4",
+            i["bloques"] == 0 and len(i["parciales"]) == 1,
+            "parciales=%d" % len(i["parciales"]))
+
         # 18. hermeticidad: una raiz que no existe es un error de uso, no un
         #     veredicto sobre cero documentos
         chk("V18_raiz_inexistente_no_produce_veredicto",
@@ -1149,8 +1219,8 @@ def main():
               % informe["recuento"]["SIN_RECETA"])
         print("  Un hash sin receta no es una garantia de procedencia.")
     elif rc == 2:
-        print("  CENS0 INCOMPLETO: %d documento(s) no se pudieron auditar."
-              % len(informe["errores"]))
+        print("  CENSO INCOMPLETO: %d ilegible(s), %d parcial(es)."
+              % (len(informe["errores"]), len(informe["parciales"])))
         print("  Los recuentos de arriba no cubren todo el alcance pedido.")
     else:
         print("  hay campos que DIFIEREN del fichero que citan, o ROTOS.")
