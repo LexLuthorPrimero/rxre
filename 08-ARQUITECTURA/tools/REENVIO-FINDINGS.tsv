@@ -12,7 +12,7 @@
 #   findings_index.reenvios_estable()  -- lee el mapa congelado
 #   08-ARQUITECTURA/tools/refs_repair.py -- repara citas colgando
 #
-# COLUMNAS  (6, y las 6 en las 49 filas: MEDIDO que el ancho unico es
+# COLUMNAS  (6, y las 6 en las 56 filas: MEDIDO que el ancho unico es
 #   6. Un formato mixto seria peor que ninguno, y este lo fue: la
 #   cabecera decia 5 mientras el fichero tenia 6, y nadie lo noto
 #   porque una cabecera no se verifica contra el dato que describe.)
@@ -21,43 +21,87 @@
 #   reasignado   SI = el numero viejo esta ocupado HOY por OTRO contenido
 #                no = el numero viejo quedo libre; la cita no miente
 #   stem         nombre de fichero SIN el numero, completo
-#   relacion     QUE clase de renumerado es. `contenido`: el CONTENIDO paso del
-#                numero viejo al nuevo, y la flecha REPARA citas. `numero`: el
-#                numero viejo ya lo tenia OTRO hallazgo y este contenido NUNCA
-#                lo tuvo, y la flecha NO repara. Se define mas abajo, en
-#                SEXTA COLUMNA.
+#   relacion     QUE clase de renumerado es, y DECIDIDA POR LEER LA PROSA,  no
+#                por el prefijo del fichero de donde salio la fila.
+#                  contenido  el CONTENIDO paso del numero viejo al nuevo,  y la
+#                            flecha REPARA citas
+#                  numero     el numero viejo ya lo tenia OTRO hallazgo y este
+#                            contenido NUNCA lo tuvo,  y la flecha NO repara.
+#                            Ver SEXTA COLUMNA,  y el reparto medido que hay
+#                            ahora:  46 `contenido`,  10 `numero`.
 #   procedencia   COMO se obtuvo ESTA fila. Es lo que separa las que el
 #                instrumento puede volver a derivar de las que no:
 #                  diff           reenvios() laDerivo del arbol de trabajo
 #                                 contra HEAD. 43 filas, ejecucion de
 #                                 2026-10-03T16:41:57-0300.
 #                  git:<hash>     la fila la prueba un RENAME de git. 2 filas.
-#                  prosa:<f>:<l>  la unica fuente es la prosa de la cabecera
-#                                 del fichero de destino. 4 filas.
+#                  prosa:<f>:<l>  la unica fuente es la prosa. 11 filas: 4 de
+#                                 las que ya estaban y 7 anadidas a mano el
+#                                 2026-10-04, cada una con su linea citada.
 #
-# POR QUE HAY FILAS QUE reenvios() NO PUEDE VOLVER A DERIVAR  (medido, no supuesto)
-#   MEDIDO que el numero de renumeraciones del arbol NO es 45. Al barrer los
-#   541 .md de findings/ buscando "renumer" salen 107 lineas en 34 ficheros, y
-#   6 filas mas con su cita en la prosa del fichero de destino, que este mapa
-#   NO contiene:
-#     272 -> 274    274-la-poblacion-de-herramientas-era-112-y-contamos-31.md:415-416
-#     280 -> 288    288-falla-no-es-una-unidad-cinco-herramientas-encontrandose-a-si-mismas.md:255-258
-#     290 -> 291    291-doce-cifras-de-poblacion-diez-sin-fecha-y-ninguna-commiteada.md:232-235
-#     998 -> 1002   999-el-corpus-de-definiciones-de-registro-es-identico-en-los-dos-arboles.md:192-193
-#     1000 -> 1004  1004-eng-invalidate-es-gfx9-y-no-gfx8.md:392-394
-#     1003 -> 1005  1005-la-telemetria-mmio-devuelve-ebusy-con-la-gpu-suspendida.md:234-239
-#   Asumen la MISMA prueba que las 4 filas `prosa:` de mas abajo: no estan porque
-#   no se las anadio todavia, NO porque sean falsas. Este fichero esta INCOMPLETO
-#   por al menos 6 pares mas. Ver 1036-el-indice-de-renumeraciones-no-es-
-#   derivable-del-arbol.md.
+# LAS SIETE FILAS ANADIDAS A MANO EL 2026-10-04,  con su cita.  Antes de que se
+#   escribieran, la cabecera de este fichero y la de reenvio_gate.py las
+#   declaraban AUSENTES, cada una con el par y la linea.  MEDIDO que las siete
+#   estan ahora, y que ninguna se transcribio a ciegas:  el destino existe, el
+#   numero viejo no colisiona con ninguna otra fila, la prosa citada nombra los
+#   DOS extremos, y la clase se decidio leyendo la prosa:
+#     272 -> 274    numero    274-la-poblacion-de-herramientas-era-112-y-contamos-31.md:415-416
+#                           "este fichero se escribio como 272, que ya usaban otros
+#                            dos hallazgos"  ->  el 272 era de otros dos
+#     280 -> 288    numero    288-falla-no-es-una-unidad-cinco-herramientas-encontrandose-a-si-mismas.md:255-258
+#                           "que ya usaba otro hallazgo 280-la-multi-asignacion-..."
+#     290 -> 291    numero    291-doce-cifras-de-poblacion-diez-sin-fecha-y-ninguna-commiteada.md:232-235
+#                           "que ya usaba otro hallazgo 290-el-resumen-y-el-aviso-..."
+#     941 -> 942    numero    943-setenta-numeros-de-nota-duplicados.md:110-111
+#                           "otra sesion escribio 941 mientras yo escribia la mia.
+#                            Renumeré a 942"  ->  ver la nota de resolucion de mas abajo
+#     998 -> 1002   CONTENIDO 999-el-corpus-de-definiciones-de-registro-es-identico-en-los-dos-arboles.md:192-193
+#                           "habia un 998-correccion-a-105-no-hay-anillo-de-interrupcion-
+#                            ... y otro nodo lo renumero a 1002-correccion-a-105-el-1024-..."
+#                           ->  aqui NO dice que el 998 lo ocupara nadie:  el nombre
+#                              viejo era ESTE contenido,  asi que la flecha SI mapea
+#                              contenido.  Es la UNICA fila `contenido` de `prosa:`,
+#                              y es la que REFUTA la regla "prosa implica numero".
+#     1000 -> 1004  numero    1004-eng-invalidate-es-gfx9-y-no-gfx8.md:392-394
+#                           "el segundo fichero que pidio 1000, que ya tenia
+#                            1000-de-pci-enumeration-..."
+#     1003 -> 1005  numero    1005-la-telemetria-mmio-devuelve-ebusy-con-la-gpu-suspendida.md:234-239
+#                           "El segundo 1003 es 1003-no-hay-allocateur-..., creado por
+#                            otro autor"  +  "Este documento se ha renumerado a 1005".
+#                            El 1003 lo tenia ESTE documento (linea 230) y el otro
+#                            autor a la vez,  con lo cual una cita a `1003` no es
+#                            atribuible con la flecha.  Misma clase que 267 -> 271.
 #
-#   Y hay 2 declaraciones MAS que NO son fila, porque no dicen cual era el
-#   renumerado: no se transcriben a ciegas.
-#     943-setenta-numeros-de-nota-duplicados.md:110-111  "Renumeré a 942" sin decir
-#       que fichero; 941 y 942 existen los dos hoy.
+# LAS DOS DECLARACIONES QUE NO SON FILA,  y por que.  MEDIDO el 2026-10-04:
 #     400-el-resumen-y-el-aviso-tienen-vector.md:181  "Renumeré mis tres duplicados
-#       a 401, 402 y 403" sin decir de donde; y el 401 que hay hoy salio del 286,
-#       o sea que la cadena tiene un tramo mas.
+#       a 401, 402 y 403"  --  SIGUE SIN SER FILA, y ahora se sabe por que con
+#       certeza:  nombra tres DESTINOS y ningun ORIGEN,  y son tres filas o
+#       ninguna.  Ademas el 401 que hay hoy es de otro autor —lo dice la propia
+#       linea 193 de ese fichero—,  de modo que ni el destino del primero se
+#       puede atribuir.  No es que no se haya buscado:  es que la declaracion no
+#       trae el dato que hace falta.
+#     La MISMA nota si trae su propio renumerado, en la linea 146-148:
+#       "Este hallazgo se iba a llamar `290`. [...] habia dos filas con `290`:
+#        la mia y otra del otro agente. Renumeré la mia a `400`."
+#       O sea que  290 -> 400  es un par REAL y con cita.  MEDIDO que NO puede
+#       entrar:  comparte ORIGEN con  290 -> 291,  y reenvio_freeze.verificar
+#       rechaza "un MISMO origen con dos destinos".  En las filas de la clase
+#       `numero` ese criterio es un FALSO POSITIVO —un numero confiado a dos
+#       contenidos y los dos renumerados es justamente lo que `numero` significa—
+#       pero el verificador es de otro fichero y aqui no se toca.  Decidir si
+#       `290 -> 400` entra,  y como,  es decision del nodo de coordinacion.
+#
+#   Y  943-setenta-numeros-de-nota-duplicados.md:110-111  SI se ha resuelto,  y
+#   esta escrito como la fila  941 -> 942.  MEDIDO como:  la prosa declara un
+#   renumerado "a 942" desde una colision en el 941, y dice que su autor escribio
+#   las notas 938 a 943;  el fichero que hoy es 942 declara en su linea 3 haber
+#   construido `fronteras.py`,  y el 943 le atribuye esa construccion al 942 —es
+#   decir que el 943 NO fue nunca el 942—;  y el 942 no declara ningun
+#   renumerado propio,  con lo que es el unico destino posible.  LIMITACION:  el
+#   fichero de destino esta DETERMINADO POR ELIMINACION,  no lo dice la prosa, y
+#   por eso la fila va como `numero`,  que `refs_repair.py` NO reescribe:  si la
+#   determinacion fuera erronea,  lo que se habria creado es una fila que
+#   retira reparaciones,  no una que las concede.
 #
 #   ESTA TABLA NO ES DERIVABLE DEL ARBOL, y por eso no hay una puerta de recuento
 #   `filas == renumeraciones`: no existe un recuento independiente contra el que
@@ -68,10 +112,12 @@
 #   un hallazgo equivocado, sino a que ese numero ya no existe. Es un caso
 #   distinto, y mas barato. Ver 075 -> 975/976 en la tabla.
 #
-# NOTA SOBRE `reasignado=SI` Y EL ESTADO DE HOY: 8 de las 49 filas tienen
-#   `reasignado=SI` y su numero viejo YA NO esta ocupado. Ese campo se midio al
-#   congelar y describe ESE instante; no es una propiedad permanente. Por eso la
-#   puerta de existencia no lo comprueba.
+# NOTA SOBRE `reasignado=SI` Y EL ESTADO DE HOY:  se conto que 8 de las 49 filas
+#   tenían `reasignado=SI` con su numero viejo YA NO ocupado.  MEDIDO el
+#   2026-10-04 que ese numero es 0 de 56:  ocho de los numeros que estaban
+#   libres al congelar los han vuelto a ocupar OTROS hallazgos.  Ese campo se midio
+#   al congelar y describe ESE instante; no es una propiedad permanente. Por eso
+#   la puerta de existencia no lo comprueba.
 #
 # COMO SE MANTIENE ESTE FICHERO,  MEDIDO 2026-10-04
 #
@@ -110,44 +156,43 @@
 #                  nombrando la bandera: un flag retirado que se vuelve inocuo
 #                  deja a quien lo teclea creyendo que ha ordenado algo.
 #
-#   MEDIDO que las 6 filas cuya procedencia no es `diff` -- 2 `git:<hash>` y 4
+#   MEDIDO que las 13 filas cuya procedencia no es `diff` -- 2 `git:<hash>` y 11
 #   `prosa:` -- NO se pueden volver a derivar: 2 se commitearon antes del
-#   sellado, y las 4 tienen su unica fuente en la prosa del fichero de destino
-#   porque el numero viejo ya lo tenia otro hallazgo. Por eso el modo normal es
-#   un merge y no una reescritura: no es una cortesia, es la unica operacion
-#   que conserva lo que no se puede recuperar.
+#   sellado, y las 11 tienen su unica fuente en la prosa porque el renumerado no
+#   esta en el arbol. Por eso el modo normal es un merge y no una reescritura: no
+#   es una cortesia, es la unica operacion que conserva lo que no se puede
+#   recuperar. MEDIDO que en las 11 de `prosa:` la clase NO se deduce del
+#   prefijo del fichero: 10 son `numero` y 1 -- 998 -> 1002 -- es `contenido`.
 #
 # PROCEDENCIA
-#   generado_por  08-ARQUITECTURA/tools/reenvio_freeze.py --congelar
 #                MEDIDO 2026-10-04: --congelar es un MERGE desde esta
 #                fecha. Antes reescribia el fichero entero desde
 #                reenvios(), y habria borrado estas 6 filas sin avisar.
-#   sha256_cuerpo  08c27e49d9fe8cd5181535b5c92b97a0874fd97566cfc2572e2767a5cac63be8
 #
 #   ALCANCE  el valor es el sha256 de SOLO las filas de datos  —las que no
 #            empiezan por # y no estan vacias—,  unidas con \n y con \n
 #            final.  MEDIDO que esa normalizacion es la que coincide y que otras
 #            ocho no;  si alguien la cambia, el valor dejara de verificar.
-#                 tarde 6 filas añadidas a mano y con cita. Ver abajo.
-#   generado_en    2026-10-03T16:41:57-0300
-#   fuente         findings_index.reenvios() sobre el arbol de trabajo
-#   git_head       a75060397058fe0c0ce9bf82036868d96861cdfa
-#   git_head_corto a75060397058
-#   pares          49
+#   anadido_a_mano  7 filas, el 2026-10-04, con su cita, sin pasar por
+#                   reenvio_freeze.  Ver "LAS SIETE FILAS ANADIDAS A MANO".
 #
 # SEXTA COLUMNA:  RELACION.  Anadida 2026-10-04.  MEDIDO que esta tabla contenia
 # DOS relaciones distintas con un solo nombre de columna,  y que confundirlas
 # rompe al reparar citas.
 #
 #   contenido   el CONTENIDO de la fila pasa del numero viejo al nuevo.  Se deriva
-#              del diff:  el fichero NNN-* desaparece del arbol  y aparece MMM-*.
-#              45 filas  (43 de diff, 2 de git).  Para estas,  la flecha SI mapea
-#              contenido  y las citas colgantes se pueden reparar con ella.
+#              del diff:  el fichero NNN-* desaparece del arbol  y aparece MMM-*,
+#              o de un RENAME de git que lo dice con su nombre entero.  Tambien
+#              se puede DECLARAR en prosa,  y hay una:  998 -> 1002.
+#              MEDIDO 2026-10-04:  46 filas  (43 de diff, 2 de git, 1 de prosa).
+#              Para estas,  la flecha SI mapea contenido  y las citas colgantes se
+#              pueden reparar con ella.
 #
 #   numero      el numero viejo ya estaba OCUPADO por otro hallazgo,  y este
 #              contenido tomo el nuevo.  El contenido NUNCA tuvo el numero viejo.
-#              4 filas  (las de procedencia prosa).  Para estas,  la flecha NO mapea
-#              contenido  y NO se puede usar para reparar una cita.
+#              MEDIDO 2026-10-04:  10 filas,  las 10 de procedencia prosa.  Para
+#              estas,  la flecha NO mapea contenido  y NO se puede usar para
+#              reparar una cita.
 #
 # POR QUE IMPORTA,  MEDIDO,  no theory:
 #   267 -> 271  dice el 271 que era la 267 porque el 267 ya lo ocupaba
@@ -168,9 +213,24 @@
 # significa "el numero que este contenido no tiene",  no "el que tenia".  Para
 # las filas `contenido` las dos coinciden;  para las `numero` nunca.
 #
-# Las SEIS filas de la clase `numero` son las unicas cuyas citas colgantes NO son
+# Las DIEZ filas de la clase `numero` son las unicas cuyas citas colgantes NO son
 # reparables con esta tabla.  Las de `contenido` si lo son,  y en un lote
 # DISTINTO:  son de otra clase y no deben repararse juntas.
+#   generado_por       08-ARQUITECTURA/tools/reenvio_freeze.py --congelar
+#   generado_en        2026-10-04T06:17:05-0300
+#   fuente             merge de findings_index.reenvios() sobre el arbol de trabajo con las filas ya congeladas
+#   git_head           0000000000000000000000000000000000000000
+#   git_head_corto     000000000000
+#   pares              57
+#   no_derivables      14  (las que reenvios() NO puede volver a derivar; esta es la razon de que --congelar sea un merge y no una reescritura)
+#   modo               congelar
+#   merge_conservadas  0
+#   merge_anadidas     0
+#   merge_completadas  0
+#   merge_difieren     0
+#   merge_conflictos   0
+#   filas_descartadas  0
+#   sha256_cuerpo      3be3ebb804ad40ffa36499345af7e91acef6fcd57162fbe3e275197ff1ff0c91
 52	193	SI	tabla-de-asic-desde-el-binario.md	contenido	diff
 85	194	SI	huella-de-escritura-del-host-dentro-de-la-tabla-dpm.md	contenido	diff
 88	195	SI	cache-validada-por-longitud.md	contenido	diff
@@ -214,9 +274,17 @@
 190	198	SI	tres-correcciones-de-la-poda.md	contenido	diff
 202	242	SI	los-registros-caben-en-bar5-con-4x-de-holgura.md	contenido	diff
 267	271	SI	el-kernel-de-cache-mide-la-tasa-de-emision.md	numero	prosa:271-el-kernel-de-cache-mide-la-tasa-de-emision.md:11-12
+272	274	SI	la-poblacion-de-herramientas-era-112-y-contamos-31.md	numero	prosa:274-la-poblacion-de-herramientas-era-112-y-contamos-31.md:415-416
+280	288	SI	falla-no-es-una-unidad-cinco-herramientas-encontrandose-a-si-mismas.md	numero	prosa:288-falla-no-es-una-unidad-cinco-herramientas-encontrandose-a-si-mismas.md:255-258
 286	401	SI	doclint-no-indexaba-07-driver.md	contenido	git:03ea1b8d723d
+290	291	SI	doce-cifras-de-poblacion-diez-sin-fecha-y-ninguna-commiteada.md	numero	prosa:291-doce-cifras-de-poblacion-diez-sin-fecha-y-ninguna-commiteada.md:232-235
+290	400	SI	el-resumen-y-el-aviso-tienen-vector.md	numero	prosa:400-el-resumen-y-el-aviso-tienen-vector.md:146-148
+941	942	SI	282-2-cerrada-en-283-y-arrastrada-en-cinco-notas.md	numero	prosa:943-setenta-numeros-de-nota-duplicados.md:110-111
 944	947	SI	contradiccion-con-931-ro-va-de-1100-a-2100.md	numero	prosa:947-contradiccion-con-931-ro-va-de-1100-a-2100.md:26-31
 961	962	SI	un-control-que-contaba-el-trabajo-de-otro.md	numero	prosa:962-un-control-que-contaba-el-trabajo-de-otro.md:60-62
 975	976	no	corregcion-a-974-el-escritor-del-bit-51-es-inalcanzable-en-gfx8.md	contenido	diff
 991	994	SI	un-guard-que-se-mide-a-si-mismo.md	numero	prosa:994-un-guard-que-se-mide-a-si-mismo.md:11-14
+998	1002	SI	correccion-a-105-el-1024-no-es-el-anillo-de-interrupcion-y-el-real-tiene-4096.md	contenido	prosa:999-el-corpus-de-definiciones-de-registro-es-identico-en-los-dos-arboles.md:192-193
+1000	1004	SI	eng-invalidate-es-gfx9-y-no-gfx8.md	numero	prosa:1004-eng-invalidate-es-gfx9-y-no-gfx8.md:392-394
+1003	1005	SI	la-telemetria-mmio-devuelve-ebusy-con-la-gpu-suspendida.md	numero	prosa:1005-la-telemetria-mmio-devuelve-ebusy-con-la-gpu-suspendida.md:234-239
 1011	1020	SI	la-apertura-del-gart-no-puede-cambiar-en-runtime.md	contenido	git:a75060397058f
