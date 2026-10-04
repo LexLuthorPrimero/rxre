@@ -42,9 +42,9 @@ de ese tipo.
 
 
 - Numeros con **colision** (>1 fichero): **74**
-- Renumeraciones detectadas: **43**, de ellas **REASIGNADAS: 42**
-- Ficheros en `findings/`: **541**
-- **Referencias colgando** (`` `NNN` `` que ya no es ese hallazgo): **0**, en **0** numeros distintos
+- Renumeraciones detectadas: **49**, de ellas **REASIGNADAS: 48**
+- Ficheros en `findings/`: **546**
+- **Referencias colgando** (`` `NNN` `` que ya no es ese hallazgo): **52**, en **6** numeros distintos
 
 Las referencias colgando son el dano real. Un numero renumerado sigue
 escribiendose en el texto de otros hallazgos y **nada parece roto**,
@@ -53,6 +53,12 @@ esta tabla.
 
 | citado | deberia ser | veces |
 |---|---|---|
+| `267` | `271` | 34 |
+| `286` | `401` | 9 |
+| `944` | `947` | 3 |
+| `961` | `962` | 1 |
+| `991` | `994` | 2 |
+| `1011` | `1020` | 3 |
 
 El renumerado **no esta commiteado**: HEAD y el arbol de trabajo
 describen bases de datos distintas. Por eso la fuente es la
@@ -183,4 +189,10 @@ comparacion contra HEAD y no el historial.
 | 189 | 241 | **SI** | `el-eslabon-que-faltaba-era-un-literal.md` |
 | 190 | 198 | **SI** | `tres-correcciones-de-la-poda.md` |
 | 202 | 242 | **SI** | `los-registros-caben-en-bar5-con-4x-de-holgura.md` |
+| 267 | 271 | **SI** | `el-kernel-de-cache-mide-la-tasa-de-emision.md` |
+| 286 | 401 | **SI** | `doclint-no-indexaba-07-driver.md` |
+| 944 | 947 | **SI** | `contradiccion-con-931-ro-va-de-1100-a-2100.md` |
+| 961 | 962 | **SI** | `un-control-que-contaba-el-trabajo-de-otro.md` |
 | 975 | 976 | no | `corregcion-a-974-el-escritor-del-bit-51-es-inalcanzable-en-gfx8.md` |
+| 991 | 994 | **SI** | `un-guard-que-se-mide-a-si-mismo.md` |
+| 1011 | 1020 | **SI** | `la-apertura-del-gart-no-puede-cambiar-en-runtime.md` |
