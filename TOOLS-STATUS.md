@@ -111,7 +111,7 @@ sacaba de `detalle`, que nunca esta vacio, asi que ponia `si` en las
 | `08-ARQUITECTURA/tools/ambig_citas.py` | 395 | si | `TOOL_PARTIAL` | `0f53dd595acb241f` |
 | `08-ARQUITECTURA/tools/amdinfo.c` | 194 | NO | `TOOL_UNVALIDATED` | `90a06270c9502b31` |
 | `08-ARQUITECTURA/tools/amdioread.py` | 321 | si | `TOOL_PARTIAL` | `29ea6177a4e12dac` |
-| `08-ARQUITECTURA/tools/amdmmr.c` | 68 | NO | `TOOL_UNVALIDATED` | `4a7e0630e5e8deb6` |
+| `08-ARQUITECTURA/tools/amdmmr.c` | 96 | NO | `TOOL_UNVALIDATED` | `8c6abcefab6e4f40` |
 | `08-ARQUITECTURA/tools/aperture.py` | 325 | si | `TOOL_PARTIAL` | `e2b6f18d17b94299` |
 | `08-ARQUITECTURA/tools/asic_table.py` | 341 | si | `TOOL_PARTIAL` | `88d54ab439b91f73` |
 | `08-ARQUITECTURA/tools/bench.py` | 1622 | si | `TOOL_PARTIAL` | `4fb5b397f9eb9a39` |
