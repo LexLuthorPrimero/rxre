@@ -5,11 +5,12 @@ corroboration.py - audita las afirmaciones de MULTIPLICIDAD de evidencia.
 
 POR QUE EXISTE
 
-findings/122 encontró que una marca del driver propio afirmaba "PROVEN por
-DOS familias de headers independientes" y la afirmación era cierta para TRES de
-los cuatro campos: ENGINE no existe en la segunda familia. El estado no
-cambió, pero la dimensión de la prueba sí, y una corroboración inflada hace
-que todo lo demás parezca más sólido de lo que es.
+findings/122-para-que-el-encuadre-de-dos-fuentes-resulte-honesto.md:22
+encontró que una marca del driver propio afirmaba "PROVEN por DOS familias de
+headers independientes" y la afirmación era cierta para TRES de los cuatro
+campos: ENGINE no existe en la segunda familia. El estado no cambió, pero la
+dimensión de la prueba sí, y una corroboración inflada hace que todo lo demás
+parezca más sólido de lo que es.
 
 Es la forma por la que cayó findings/034: un contraste que se presenta con dos
 fuentes cuando leía una. La diferencia —y la razón de que vuelva— es que allí

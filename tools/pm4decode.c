@@ -84,7 +84,8 @@
 #define PM4_HDR_COMPUTE(d)	((((uint32_t)(d)) >> 1) & 1u)
 
 /* longitud total de un paquete: cabecera + count + 1 (el +1 es el propio
- * campo de longitud, que va dentro de count). findings/038 lo fija. */
+ * campo de longitud, que va dentro de count).
+ * 038-validador-flujo-y-regla-del-count.md:34 lo fija. */
 #define PM4_DWORDS(count)	((unsigned)(count) + 2u)
 
 /* enum pm4_defecto, struct pm4_pkt y struct pm4_resultado viven en

@@ -249,11 +249,12 @@ def cargar_opcodes(ruta=None, fuente=FUENTE_GFX8):
     nombraria mal a 0x5F, 0x60 y 0x61. Fijar la generacion por el grafo de
     includes resuelve las dos cosas a la vez y no es una preferencia.
 
-    Con el criterio de `findings/135` de otra sesion (valor <= 0xFF Y nombre sin
-    sufijo de campo: _ENA, _START, _END, _SHIFT, _MASK, _BASE_INDEX), esta tabla
-    no introduce NI UN SOLO falso positivo sobre los 119 nombres de sid.h. Se
-    comprobo. Los que quedan fuera son macros de campo de CP_DMA con otros
-    sufijos (_SEL, _ENGINE, _CMD_*), que 135 si cuenta como opcodes.
+    Con el criterio de `findings/135-packet3-clasificados-por-quien-los-usa.md:91`
+    de otra sesion (valor <= 0xFF Y nombre sin sufijo de campo: _ENA, _START,
+    _END, _SHIFT, _MASK, _BASE_INDEX), esta tabla no introduce NI UN SOLO falso
+    positivo sobre los 119 nombres de sid.h. Se comprobo. Los que quedan fuera
+    son macros de campo de CP_DMA con otros sufijos (_SEL, _ENGINE, _CMD_*),
+    que 135 si cuenta como opcodes.
     """
     global CONFLICTOS_OPCODE
     CONFLICTOS_OPCODE = auditar_conflictos()

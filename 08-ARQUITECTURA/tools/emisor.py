@@ -19,9 +19,11 @@ replicado en los dos sitios pasa las comprobaciones.
 
 Y no es hipotetico. El dword 9 estuvo mal dos veces y en la direccion peligrosa:
 
-    findings/023   leyo sdma_v3_0.c  y registro `count`        -- correcto
-    findings/036   leyo sdma_v4_0.c  y "corrigio" a `count-1`  -- incorrecto
-    038            lo revirtio a `count`
+    findings/023-pte-productor-sdma-gfx8.md:6   leyo sdma_v3_0.c  y registro
+      `count`                                  -- correcto
+    findings/036-correccion-023-implementada-ptepde.md:12  leyo sdma_v4_0.c  y
+      "corrigio" a `count-1`                   -- incorrecto
+    038                                        lo revirtio a `count`
 
 El "cross-check" que justificaba el cambio decia que "los otros dos productores de
 este ASIC coinciden", y estaba leyendo sdma_v4_0.c: una comprobacion hecha sobre una

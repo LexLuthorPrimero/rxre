@@ -36,6 +36,15 @@
 # docstring que se distribuye con la herramienta, y por eso tienen el mismo
 # peso que una afirmacion en el driver: 27 sitios, y la puerta sale 6.
 #
+# MEDIDO DESPUES, y por que esta cabecera se queda como estaba
+#
+# Los 27 sitios de codigo sin registrar se resolvieron por NOMBRE de fichero
+# completo, no por numero, y ahi el 6 deja de dispararse. Los que quedan aqui
+# son los 14 de este fichero mas `08-ARQUITECTURA/tools/reenvio_gate.py`, cuyo
+# `001` es el TEXTO que su fixture escribe, no una afirmacion suya. El numero
+# de arriba (27) era la medida de antes y se conserva como historia: cambiarlo
+#aria borrar el hecho de que hubo un 6.
+#
 # FORMATO
 #
 #   <ruta-relativa-al-proyecto>  #  <por que no es un defecto>
@@ -45,6 +54,7 @@
 #
 # ---------------------------------------------------------------------------
 
+08-ARQUITECTURA/tools/reenvio_gate.py   # su `fnd/002-destino.md` de prueba se ESCRIBE con el texto `Era el `001` y pasa a `002`.`; ese `001` es el DATO del fixture, no una afirmacion: la linea existe para que la puerta vea una cita por numero dentro de un renumerado, y citarla por nombre le quitaria al fixture el caso que tiene que probar
 08-ARQUITECTURA/tools/stale_gap.py   # linter de findings obsoletos: sus comentarios QUOTAN la linea del hallazgo que cita (001:213, 056:153), y la cita es parte del texto que se analiza
 08-ARQUITECTURA/tools/_selftest_stale_gap.py   # selftest del anterior; fabrica entradas con la cita dentro para probar el detector
 08-ARQUITECTURA/tools/num_collision.py   # la ambiguedad de `033:397` es su propio enunciado; sus regex usan el caso discutido como ejemplo

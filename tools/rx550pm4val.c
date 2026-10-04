@@ -6,8 +6,10 @@
  * test_pm4.c checks the encoder against values transcribed from amdgpu source.
  * The encoder was written from that same source. So a MISREADING that I made
  * once in the encoder and once in the test passes all 147 checks. That
- * circularity is stated in findings/036 and findings/037 and it is not
- * hypothetical: findings/035 is a correction of exactly that kind of error.
+ * circularity is stated in 036-correccion-023-implementada-ptepde.md:92
+ * and 037-ptba-dos-tramos-y-vm-flush.md:164, and it is not hypothetical:
+ * 035-correccion-ptepde-es-polaris12.md:5 is a correction of exactly that
+ * kind of error.
  *
  * This tool breaks the circle. It does not know what the driver *intends*. It
  * walks the dwords and asks only questions that are answerable from the stream
@@ -181,7 +183,7 @@ static const char *sdma_name(uint32_t op)
  *
  * The asymmetry is the whole reason this function exists: the runs are disjoint
  * AND out of VMID order, so address 0x552 is VMID 3 and 0x552+1 is not VMID 4
- * under a single-array model. See findings/037.
+ * under a single-array model. See 037-ptba-dos-tramos-y-vm-flush.md:14.
  */
 static int ptba_vmid(uint32_t reg, uint32_t *vmid)
 {
@@ -375,12 +377,13 @@ static void decode_wait_reg_mem(const uint32_t *d, size_t *at)
 	       mem_space ? "mem" : "reg", engine ? "pfp" : "me");
 	(void)at;	/* position tracked by the caller, not here */
 
-	/* findings/029: the vm-flush uses function 0 (always) with mask 0, so it
-	 * compares nothing. Not an error -- it is what the driver does -- but a
-	 * reader of the stream deserves to be told. */
+	/* The vm-flush uses function 0 (always) with mask 0, so it compares
+	 * nothing. Not an error -- it is what the driver does -- but a reader of
+	 * the stream deserves to be told.  017-vm-invalidate-gfx8-function-always.md:79 */
 	if (function == 0 && d[5] == 0)
 		note("this WAIT_REG_MEM compares nothing (function=always, mask=0); "
-		     "what it waits on is NOT_DETERMINED (findings/029)");
+		     "what it waits on is NOT_DETERMINED "
+		     "(017-vm-invalidate-gfx8-function-always.md:79)");
 }
 
 static void decode_ptepde(const uint32_t *d)
@@ -391,7 +394,8 @@ static void decode_ptepde(const uint32_t *d)
 	uint32_t incr = d[7];
 	uint32_t pad = d[8];
 	uint32_t nm1 = d[9];
-	/* Campo plano: el valor ES el numero de entradas. findings/043. */
+	/* Campo plano: el valor ES el numero de entradas.
+	 * 043-vuelta-atras-035-y-036-leian-el-asic-equivocado.md:65 */
 
 	printf("  [PTE  ] pe=0x%016llX flags=0x%016llX addr=0x%016llX incr=0x%X entries=%u\n",
 	       (unsigned long long)pe, (unsigned long long)flags,
@@ -400,11 +404,12 @@ static void decode_ptepde(const uint32_t *d)
 	if (pad != 0)
 		err("PTEPDE dword 8 is 0x%08X; sdma_v4_0.c:1657 writes 0 unconditionally", pad);
 	/* El campo de entradas es plano en el ASIC que corre (sdma_v3_0.c:996),
-	 * findings/043. Asi que no hay mas-uno que comprobar: lo que se comprueba
-	 * es que el dword 8 sea 0, que si lo es el driver, y que el recuento no
-	 * sea absurdo. Un valor 0xffffffff seria 4 G entradas si es plano, y
-	 * 4 G si es mas-uno tambien, asi que en ambos casos es un error y se
-	 * reporta como tal sin afirmar cual de las dos lecturas se aplica. */
+	 * 043-vuelta-atras-035-y-036-leian-el-asic-equivocado.md:65. Asi que no
+	 * hay mas-uno que comprobar: lo que se comprueba es que el dword 8 sea 0,
+	 * que si lo es el driver, y que el recuento no sea absurdo. Un valor
+	 * 0xffffffff seria 4 G entradas si es plano, y 4 G si es mas-uno tambien,
+	 * asi que en ambos casos es un error y se reporta como tal sin afirmar
+	 * cual de las dos lecturas se aplica. */
 	if (nm1 == 0xffffffffu)
 		err("PTEPDE entry count field is 0xFFFFFFFF, i.e. 2^32 entries under "
 		    "either encoding");
@@ -555,7 +560,8 @@ static int walk(const uint32_t *buf, size_t ndw)
 		 *
 		 * A stream that invalidates a VMID but writes no register in either
 		 * page-table-base run is inconsistent whatever the other write was.
-		 * And the usual cause is the findings/037 bug: a single stride-1
+		 * And the usual cause is the 037 bug
+		 * (037-ptba-dos-tramos-y-vm-flush.md:37): a single stride-1
 		 * array of 16 sends VMIDs 8-15 to PTBA_RUN0 + 8, which is
 		 * mmVM_CONTEXT0_PAGE_TABLE_START_ADDR. Flagging that as a warning
 		 * would have let the exact mistake the tool was built to catch
@@ -638,7 +644,7 @@ static int walk(const uint32_t *buf, size_t ndw)
 /* --------------------------------------------------------------- selftest */
 
 /* A known-good GFX8 stream: one PTEPDE then the 19-dword gfx vm-flush for VMID
- * 3. 29 dwords. This is the vector the cross-check in findings/038 uses. */
+ * 3. 29 dwords. Cross-checked in 038-validador-flujo-y-regla-del-count.md:150. */
 static const uint32_t g_good[] = {
 	/* PTEPDE, sdma_v4_0.c:1649-1658 */
 	0x0000000c, 0x00000000, 0x00000008, 0x00000003, 0x00000000,
@@ -734,8 +740,8 @@ static int selftest(void)
 		printf("    verdict: %s (exit %d)\n\n", n == 2 ? "PASS" : "FAIL", n);
 	}
 	/* 8. PTBA in the wrong run for the VMID being invalidated. This is the
-	 *    findings/037 error, and it must be caught by a relation, not by a
-	 *    transcribed constant. */
+	 *    037-ptba-dos-tramos-y-vm-flush.md:37 error, and it must be caught by
+	 *    a relation, not by a transcribed constant. */
 	printf("[8] PTBA run 0 vmid 3 (0x552) with invalidate mask for VMID 4\n");
 	{
 		uint32_t v[29];
