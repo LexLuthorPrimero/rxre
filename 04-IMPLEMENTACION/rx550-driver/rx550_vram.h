@@ -37,8 +37,46 @@ struct rx550_vram_resource {
 	enum rx550_vram_state		state;
 };
 
+/* ── espacio de errores ───────────────────────────────────────────────────
+ *
+ * MEDIDO 2026-10-04: la firma devolvia `int` SIN espacio de valores.  No habia
+ * RX550_VRAM_OK, ni ERR_*, ni nada que permitiera distinguir "no cabe" de "el
+ * backend fallo" de "el backend devolvio basura".  El unico consumidor
+ * (rx550_pdb0.c:92,96) colapsaba cualquier motivo a -1, de modo que la
+ * informacion se perdia en el punto de entrada y no se podia propagar.
+ *
+ * Se declara por lo mismo que los otros cuatro modulos del componente tienen el
+ * suyo: rx550_mmio_access.h, rx550_vmid1_pgt_backing.h, rx550_dummy_page.h y
+ * rx550_gart_table.h.  Cuatro de cinco ya lo tenian y esta frontera era la
+ * unica que no.
+ *
+ * RANGO: -100..-90, para no colisionar con los otros cuatro.
+ */
+#define RX550_VRAM_OK			0
+#define RX550_VRAM_ERR_NULO		(-90)	/* puntero nulo                   */
+#define RX550_VRAM_ERR_ALIGN		(-91)	/* align 0 o no potencia de dos   */
+#define RX550_VRAM_ERR_SIN_MEM		(-92)	/* la peticion no cabe            */
+#define RX550_VRAM_ERR_BACKEND		(-93)	/* el backend fallo               */
+#define RX550_VRAM_ERR_INVALIDO		(-94)	/* devolvio algo no conforme     */
+#define RX550_VRAM_ERR_DOBLE		(-95)	/* doble liberacion               */
+
 /* La firma que un allocator debe cumplir.  Deliberadamente minima: el PDB0
- * no necesita saber nada mas. */
+ * no necesita saber nada mas.
+ *
+ * CONTRATO DE LAS DOS, y el "o no escribe" es la parte que suele faltar:
+ *
+ *   alloc  Si devuelve RX550_VRAM_OK, escribe TODO `out` y lo deja en
+ *          RX550_VRAM_HELD.  Si devuelve cualquier otro valor, NO ESCRIBE
+ *          `out` en absoluto: lo deja intacto.  Un alloc que falla dejando
+ *          `out` a medias obliga a cada llamante a distinguir "no lo ha tocado"
+ *          de "lo ha tocado y ha fallado", y ese es un estado del que no se
+ *          puede salir.  rx550_vmid1_pgt_backing.h:173 escribe esa misma regla
+ *          para su backend, y es el precedente.
+ *
+ *   free   No devuelve nada, y por tanto no puede fallar: si necesita
+ *          informar, es que el contrato estaba mal.  Deja `res` en
+ *          RX550_VRAM_RELEASED, y es su deber no volver a usarlo.
+ */
 typedef int (*rx550_vram_alloc_fn)(void *ctx, uint64_t size, uint64_t alignment,
 				   struct rx550_vram_resource *out);
 typedef void (*rx550_vram_free_fn)(void *ctx, struct rx550_vram_resource *res);

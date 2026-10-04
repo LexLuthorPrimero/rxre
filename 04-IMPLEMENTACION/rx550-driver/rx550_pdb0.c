@@ -78,22 +78,30 @@ int rx550_pdb0_alloc(struct rx550_pdb0 *p, void *alloc_ctx,
 		     uint64_t alignment)
 {
 	struct rx550_vram_resource out;
+	int rc;
 
 	if (p->state != RX550_PDB0_EMPTY)
 		return -1;
 	if (alloc_ctx == NULL || allocfn == NULL)
 		return -1;
 	if (alignment == 0)
-		return -1;
+		return RX550_VRAM_ERR_ALIGN;
 
 	rx550_vram_resource_reset(&out);
 
-	if (allocfn(alloc_ctx, RX550_PDB0_BYTES, alignment, &out) != 0)
-		return -1;
+	/* El motivo se PROPAGA.  Antes todo se colapsaba a -1, que hacia
+	 * imposible distinguir "no cabe" de "el backend fallo" de "el backend
+	 * devolvio basura" en el punto de entrada.  Los tres siguen siendo
+	 * fallo, asi que las comprobaciones de los callers (que comparan != 0)
+	 * siguen valiendo; lo que cambia es que ahora se puede decidir. */
+	rc = allocfn(alloc_ctx, RX550_PDB0_BYTES, alignment, &out);
+	if (rc != RX550_VRAM_OK)
+		return rc;
 
-	/* El allocator puede devolver algo inservible.  Se rechaza aqui. */
+	/* El allocator puede devolver algo inservible.  Se rechaza aqui, y se
+	 * dice cual de las tres cosas fallo. */
 	if (rx550_vram_resource_valid(&out, RX550_PDB0_BYTES, alignment) != 0)
-		return -1;
+		return RX550_VRAM_ERR_INVALIDO;
 
 	p->res = out;
 	p->alloc_ctx = alloc_ctx;
