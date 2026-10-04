@@ -184,6 +184,83 @@ def reservados() -> set:
     return out | _reservas_del_registro_ajeno()
 
 
+LEDGER = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "06-INGENIERIA-INVERSA", "findings", "_reservas", "RESERVAS.ledger")
+
+LEDGER_SCHEMA = ("#SCHEMA\tnum\torden\tclase\tts_reserva\tts_fichero\tregistro"
+                 "\tn_fich\tdetalle\tp2_vacio\n")
+
+
+def _sella(n: str) -> None:
+    r"""Anade la fila de `n` al ledger, con FECHA y PID. La fila queda
+    R_PENDIENTE: en el momento de reservar todavia no hay hallazgo detras, asi
+    que la clase no se conoce. Se conoce cuando lo haya, y para entonces la
+    fecha ya esta.
+
+    POR QUE EXISTE, Y POR QUE NO VA EN `.nextnum.lock`
+    -------------------------------------------------
+    MEDIDO 2026-10-04: 49 de las 54 reservas de este registro tienen el orden
+    `INDETERMINADO`, y la razon es que no se puede hacer de otra manera:
+
+      1. `.nextnum.lock` NO esta versionado. `git ls-files --error-unmatch
+         .nextnum.lock` -> "no concordó con ningún archivo conocido por git".
+      2. `.gitignore:151` lo excluye a PROPOSITO: *"RESERVA DE NUMEROS DE
+         HALLAZGO. Cambia en cada hallazgo nuevo: es estado, no dato, y se
+         reconstruye con tools/nextnum.py sobre el disco."*
+      3. Su formato es un numero por linea. No hay donde poner una fecha.
+
+    Y lo que NO se puede hacer es anadirle una columna, porque los dos lectores
+    seleccionan la fila ENTERA:
+
+      nextnum.py:180   if re.match(r"^\d{3,}$", l): out.add(l)
+      findnum.py:114   if re.match(r"^\d{3,}$", l): out[int(l)] = ("", "")
+
+    Con una columna mas, ninguna de las dos lineas casa, y las reservas dejan
+    de existir para los DOS allocadores: se desenchufa el mecanismo que reparte
+    numeros, que es lo unico que evita las colisiones. Por eso `.nextnum.lock`
+    NO SE TOCA, y la procedencia vive en el ledger, al lado.
+
+    Y el ledger se llama `.ledger` y no `.tsv` por una razon medida tambien:
+    `check_num_unico.py:248` lee `.tsv`, asi que un ledger con una columna de
+    numeros sumaria ~57 "citas por numero" a las 2160 que ese instrumento mide.
+    La ocupacion de un numero no es una cita.
+
+    Idempotente: si la fila ya existe, no se duplica. Una reserva que se
+    reintenta no puede dejar dos filas del mismo numero, porque el ledger se
+    lee entero y se decide antes de escribir.
+    """
+    import datetime
+    try:
+        ya = set()
+        esquema = False
+        with open(LEDGER, encoding="utf-8", errors="replace") as fh:
+            for l in fh:
+                if l.startswith("#SCHEMA"):
+                    esquema = True
+                    continue
+                if l.startswith("#") or not l.strip():
+                    continue
+                ya.add(l.split("\t", 1)[0])
+        if not esquema:
+            # Sin cabecera no se anade: el ledger esta roto y anadir filas a un
+            # fichero que nadie puede leer deja datos donde antes no los habia.
+            return
+        if n in ya:
+            return
+        ts = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        with open(LEDGER, "a", encoding="utf-8") as fh:
+            fh.write("%s\tNA\tR_PENDIENTE\t%s\t-\town/-\t0\t"
+                     "reservado, sin escritura detras\t0\n" % (n, ts))
+            fh.flush()
+            os.fsync(fh.fileno())
+    except OSError:
+        pass
+    # Un ledger que no se puede selar NO puede hacer fallar la reserva: la
+    # reserva es el servicio, el ledger es el registro. Perder el registro es
+    # malo; no dar el numero es peor.
+
+
 def reservar(n: str, d: str) -> dict:
     """Toma el numero `n` de forma ATOMICA, o dice que ya no esta libre.
 
@@ -218,6 +295,10 @@ def reservar(n: str, d: str) -> dict:
         fh.write("".join("%s\n" % x for x in sorted(ya)))
         fh.flush()
         os.fsync(fh.fileno())
+        # DENTRO del flock y DESPUES de escribir el registro: si se sellara
+        # antes, un proceso que muera entre los dos dos deja un numero
+        # reservado sin fecha, que es exactamente el estado que hay que evitar.
+        _sella(n)
         return {"n": n, "estado": "RESERVADO", "ficheros": []}
     finally:
         fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
@@ -726,6 +807,9 @@ def main() -> int:
                 print("    queda reservado. Si el hallazgo no se escribe, el "
                       "numero se desperdicia, y eso es lo que se acepta para no "
                       "dar el mismo numero a dos autores.")
+                print("    Sellado en _reservas/RESERVAS.ledger con fecha y pid, "
+                      "para que el orden reserva->hallazgo sea decidible. "
+                      "tools/reservas_gate.py lo clasifica.")
             if r.get("motivo"):
                 print("    %s" % r["motivo"])
         return {"RESERVADO": 0, "OCUPADO": 1}.get(r["estado"], 2)
