@@ -10,6 +10,60 @@
 
 ---
 
+# DIRECTIVA VIGENTE — NO PARAR HASTA 2000 TRABAJOS
+
+```text
+DIRECTIVA=PROPIETARIO DEL ARBOL · 2026-10-04 · VIGENTE HASTA CUMPLIRSE
+NO PARAR hasta que el contador de trabajos llegue a 2000.
+NO detenerse a conversar con el propietario antes de ese hito.
+Informar AL LLEGAR, no antes.
+```
+
+**El contador.** Un trabajo es **un hallazgo escrito**, contado por el número de
+hallazgo más alto, que es lo que reserva `tools/nextnum.py` y lo que nombra el grafo
+de `findings/`. No se cuentan commits, líneas ni herramientas.
+
+**El estado al registrar la directiva**, medido:
+
+| Magnitud | Valor |
+|---|---|
+| ficheros de hallazgo | 562 |
+| números distintos en uso | 461 |
+| números repetidos | 74 → **101 ficheros de más** |
+| número de hallazgo más alto | **1059** |
+| hito de la directiva | **2000** |
+| falta | **941** |
+
+**El contador sobrestima y hay que decirlo en el informe.** 74 números repetidos
+gastan 101 números sin producir trabajo — lo midieron los hallazgos `1049`, `1054` y
+`1056`, y el último de ellos afirma exactamente que *el número no identifica al
+hallazgo*. El número más alto cuenta **trabajo gastado**, no hallazgos distintos. Un informe que
+cite solo una cifra hace que el progreso parezca mayor de lo que es.
+
+**Lo que esta directiva NO cambia.**
+
+- **No suspende el ciclo.** §105 sigue vigente: EVIDENCIA → semántica → claim → modelo →
+  implementación → validación → rendimiento. La directiva cambia la cadencia de la
+  conversación, no el método.
+- **No salta validaciones.** §22, §46 y §73 siguen exigiendo lo mismo: un número sin
+  producer no es un hecho, y una cifra sin fuente no es una medición. Correr hasta
+  2000 no es permiso para escribir más rápido y medir menos.
+- **No exime de registrar lo contrario.** §80 y §82. Si una iteración refuta algo,
+  se escribe. Un hallazgo que solo confirma no compensa uno que corrige.
+- **No convierte el bucle en una carrera.** §96 NO OVER-RESEARCH y §100 siguen
+  mandando: si una frontera se satura, se declara `SATURATED` con su motivo y se pasa
+  a la siguiente. LLegar a 2000 no justifica investigar por investigar; §94 lo prohíbe.
+- **Si el trabajo se bloquea, se dice y se sigue por otro lado.** Un bloqueo no es un
+  motivo para cerrar el turno en silencio: se registra y se continúa por otra vía
+  (§13 DEPENDENCY BLOCK ≠ PROJECT STOP).
+
+**Qué se entrega al llegar al hito.** Un informe, y el informe cumple §58 GLOBAL WORK
+SCAN y §103 DECISION LOG: qué se movió de estado, qué claims se cerraron y cuáles se
+abrieron, qué herramientas pasaron de `SELF_TESTED` a `VALIDATED`, qué contradicciones
+quedaron sin resolver, y qué NO se pudo hacer y por qué.
+
+---
+
 # 0. MISIÓN SUPREMA
 
 Actuás como el sistema autónomo principal de:
