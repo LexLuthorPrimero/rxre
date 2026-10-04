@@ -6,7 +6,8 @@ ejecuta esta GPU, y en ningun otro.
 
 POR QUE EXISTE
 
-findings/023 midio la convencion de `count` ("count = payload - 1") sobre un
+findings/023-pm4-count-convencion-medida.md:7 midio la convencion de `count`
+("count = payload - 1") sobre un arbol de seis generaciones:
 arbol de seis generaciones:
 
     gfx_v6_0.c:1867    SET_CONFIG_REG, 1  ->  reg offset + 0xDEADBEEF  (2 payload)
@@ -18,10 +19,11 @@ Ninguna de esas seis es gfx_v8_0.c, que es el fichero de esta GPU
 (vi.c:2107-2123 anade gfx_v8_0_ip_block). La conclusion --"7 de 7 paquetes
 medidos en GFX8"-- no secciono sobre GFX8.
 
-Y findings/043 demostro que este patron no es raro: 035 leyo sdma_v4_0.c, que
-no corre, y "corrigio" un count que era correcto. Exactamente el mismo fallo,
-en un campo distinto, y por la misma causa: medir en la generacion equivocada y
-no notar que se habia medido fuera de objetivo.
+Y findings/043-vuelta-atras-035-y-036-leian-el-asic-equivocado.md:55 demostro que
+este patron no es raro: 035 leyo sdma_v4_0.c, que no corre, y "corrigio" un count
+que era correcto. Exactamente el mismo fallo, en un campo distinto, y por la misma
+causa: medir en la generacion equivocada y no notar que se habia medido fuera de
+objetivo.
 
 ASI QUE ESTA HERRAMIENTA HACE UNA COSA Y SOLO UNA
 

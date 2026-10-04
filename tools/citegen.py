@@ -6,11 +6,12 @@ fichero citado es de un ASIC que esta GPU ejecuta.
 
 POR QUE EXISTE, Y POR QUE AHORA
 
-findings/043 demostro que 035 y 036Taken leyeron el ASIC equivocado: el
-productor de PTE que implementamos era sdma_v4_0.c, y Polaris12 ejecuta
-sdma_v3_0.c. La retraccion se hizo a mano, sobre dos findings. La pregunta
-general es "cuantas OTRAS citas del proyecto apuntan a un fichero de otro ASIC",
-y esa no se puede responder a mano: el proyecto tiene cientos de citas.
+findings/043-vuelta-atras-035-y-036-leian-el-asic-equivocado.md:54 demostro que
+035 y 036 leyeron el ASIC equivocado: el productor de PTE que
+implementamos era sdma_v4_0.c, y Polaris12 ejecuta sdma_v3_0.c. La retraccion
+se hizo a mano, sobre dos findings. La pregunta general es "cuantas OTRAS citas
+del proyecto apuntan a un fichero de otro ASIC", y esa no se puede responder a
+mano: el proyecto tiene cientos de citas.
 
 which_hw.py responde la pregunta para un bloque de IP. Esta la responde para
 todo el proyecto, y es la generalizacion.

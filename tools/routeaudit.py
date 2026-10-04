@@ -6,7 +6,8 @@ routeaudit.py - audita si los discriminantes PENDIENTES se apoyan en rutas
 
 POR QUE EXISTE
 
-findings/134 midio que en esta maquina, sin root (uid 1000):
+findings/134-que-se-puede-ver-sin-root-y-que-no.md:26 midio que en esta maquina,
+sin root (uid 1000):
 
     /sys/kernel/tracing    existe, NO se lee
     /sys/kernel/debug/*    no se lee
@@ -140,9 +141,12 @@ MENCION = {
 # Y al leer las 22 sale que no son una cosa sino CUATRO, y ninguna es un
 # discriminante abierto:
 #
-#   086:157  - `HOST_OBSERVATION` -- sysfs (`mem_info_*`, ...), `journalctl`.
-#   097:6     ALCANCE:     /proc/interrupts, journalctl -k, gmc_v8_0.c:760-775
-#   097:23    $ journalctl -k             FUNCIONA          <- legible sin root
+#   086-sf-vram-256m-visibles-y-la-bar.md:157  - `HOST_OBSERVATION` --
+#        sysfs (`mem_info_*`, ...), `journalctl`.
+#   097-los-faults-de-vm-estan-desactivados-en-esta-placa.md:6  ALCANCE:
+#        /proc/interrupts, journalctl -k, gmc_v8_0.c:760-775
+#   097-los-faults-de-vm-estan-desactivados-en-esta-placa.md:23
+#        $ journalctl -k             FUNCIONA      <- legible sin root
 #   163:234  - `OBSERVED` -- `journalctl -k -b` de la sesion en curso, sin root
 #
 # Eso NO es una lista de 22 tareas. Es un INVENTARIO de lo que el hallazgo usa,

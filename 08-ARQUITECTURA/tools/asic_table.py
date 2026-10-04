@@ -10,8 +10,8 @@ r"""ASIC TABLE -- el mapa (device_id, revision) -> chip_id, leido del binario.
 POR QUE EXISTE.
 
 La tabla que asigna `chip_id` a cada GPU esta en `hwmgr.c`, y `hwmgr.c` **no
-esta en el corpus** (`050`). Pero el `.ko` cargado SI esta, y la tabla esta en
-`.rodata` como datos, no como codigo.
+esta en el corpus** (`050-frontera-de-corpus-no-de-hardware.md:16`). Pero el
+`.ko` cargado SI esta, y la tabla esta en `.rodata` como datos, no como codigo.
 
 Eso significa que no hace falta desensamblar, ni traer el arbol, ni UMR: se
 busca el `device_id` de la placa en la seccion y se lee la entrada.

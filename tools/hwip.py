@@ -6,8 +6,9 @@ hace falta leer un registro".
 
 POR QUE EXISTE
 
-findings/043 demostro que la pregunta "que fichero ejecuta esta GPU" tiene dos
-respuestas distintas que se confunden:
+findings/043-vuelta-atras-035-y-036-leian-el-asic-equivocado.md:31 demostro que
+la pregunta "que fichero ejecuta esta GPU" tiene dos respuestas distintas que se
+confunden:
 
   - si el despacho es un `case CHIP_...` del switch, la respuesta esta en el
     corpus y se puede leer;
@@ -521,8 +522,10 @@ def bloques_de_este_proyecto() -> List[Dict[str, str]]:
     """
     return [
         {"hwip": "SDMA0_HWIP", "bloque": "el emisor de PTE/PTEPDE",
-         "evidencia": "findings/035 y 043; el case del chip dice "
-                      "sdma_v3_1_ip_block y discovery dice sdma_v4_0 para 4.x"},
+         "evidencia": "findings/035-correccion-ptepde-es-polaris12.md:57 y "
+                      "findings/043-vuelta-atras-035-y-036-leian-el-asic-equivocado.md:31"
+                      "; el case del chip dice sdma_v3_1_ip_block y "
+                      "discovery dice sdma_v4_0 para 4.x"},
         {"hwip": "GC_HWIP", "bloque": "gfx_v8_0_ip_block: ring, WAIT_REG_MEM, "
                                        "PFP_SYNC_ME, vm-flush",
          "evidencia": "vi.c:2107 lo anade el case del chip; decidible sin MMIO"},
