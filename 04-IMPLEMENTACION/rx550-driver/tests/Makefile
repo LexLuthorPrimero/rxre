@@ -24,7 +24,114 @@
 
 HERE := $(shell pwd)
 CC    ?= gcc
-CFLAGS ?= -O2 -Wall -Wextra -Werror -I..
+
+# ── CFLAGS: PARIDAD CON EL .ko EN LO QUE CAMBIA SEMANTICA ────────────────────
+#
+# MEDIDO 2026-10-04.  Este `CFLAGS` estaba en `-O2 -Wall -Wextra -Werror -I..`, y
+# el .ko que corre en esta maquina lo compila el kernel 7.1.3-200.nobara.fc44
+# con sus KBUILD_CFLAGS.  No es que "casi coincidieran": faltaban -std,
+# -fno-strict-aliasing, -funsigned-char, -fno-jump-tables y
+# -fstack-protector-strong, y de los 25 binarios de este directorio 16
+# ENLAZAN codigo del driver (reglas test_ctxpt:125, test_update_field:131,
+# test_dummy_page:137, test_gart_seq:144, test_gart_apply:150, test_gart_table:157,
+# test_mmio_access:167, test_block_size:174, test_gart_write:177,
+# test_ib_bridge:184, test_ib_composer:187, test_pdb0:190, test_submission:193,
+# test_vmid0_gart:196, test_gart_geom:214, test_vmid1_pgt:217,
+# test_vmid1_pgt_backing:220).  Esos 16 compilan las MISMAS lineas de C con
+# opciones distintas de las del modulo, o sea que un test puede pasar con codigo
+# que el .ko no tiene, o al reves.
+#
+# El caso que ya estaba Medido y documentado en el historial de esta cabecera
+# (lineas 49-53, antes de este cambio) era `typedef int bool` en
+# target_mem_host.h:30: es legal en C17, y `bool` es palabra clave desde C23,
+# que es el estandar por defecto de este gcc 16.2.1.  MEDIDO ahora:
+#     $ printf 'int main(void){return 0;}\n' | gcc -dM -E - | grep __STDC_VERSION__
+#     #define __STDC_VERSION__ 202311L
+# o sea C23 por defecto, sin pedirlo.  El -std=gnu11 de kbuild es lo que evita
+# que eso aparezca.
+#
+# LOS CINCO flags de la linea de abajo son los que el gate de
+# tests/test_static.sh (bloque "CFLAGS-PARITY") exige que coincidan con la
+# linea real de savedcmd que kbuild escribio en .rx550_target.o.cmd, la misma
+# que extrae tools/tu_compila.sh:41.  No son una preferencia de estilo: cada uno
+# cambia que significa el codigo, y por eso si uno falta, el gate falla en vez de
+# avisar.
+#
+#   -std=gnu11               fija el lenguaje.  Sin el, `bool` y otros cambios de
+#                            C23 entran solos.
+#   -fno-strict-aliasing     kbuild lo usa porque el kernel castea entre tipos
+#                            incompatibles a proposito.  En el .ko esta activo; sin
+#                            el en los tests, el compilador puede reordenar o
+#                            fusionar accesos que en el modulo no puede.
+#   -funsigned-char          `char` plano pasa a ser SIN signo.  Afecta a todo
+#                            `char`, y el .ko lo tiene.
+#   -fno-jump-tables         kbuild lo pasa porque una tabla de switch en un
+#                            modulo grande cuesta I-cache sin ganar nada medido.
+#   -fstack-protector-strong activa el canario de pila.  Ver la nota de -O de
+#                            abajo: es justo el flag cuyo efecto depende de -O.
+#
+# MEDIDO 2026-10-04, los 25 binarios de este Makefile compilan con los cinco y
+# con -Werror, y `make -s run` sigue en rc=0.  Si alguno dejara de compilar, el
+# fallo es REAL y lo que se arregla es el fuente, nunca -Werror.
+#
+# DELIBERADAMENTE en UNA sola linea fisica, y no con continuaciones `\`: el gate
+# la lee del Makefile para compararla con kbuild, y una linea logica partidas en
+# dos es un parser mas que puede fallar en silencio.  Que sea larga no es un
+# defecto; una puerta que no puede leer lo que dice es.
+CFLAGS ?= -O2 -Wall -Wextra -Werror -I.. -std=gnu11 -fno-strict-aliasing -funsigned-char -fno-jump-tables -fstack-protector-strong
+
+# ── POR QUE -O2 Y NO -O3, Y POR QUE NO SE "OPTIMIZA" ─────────────────────────
+#
+# kbuild usa -O3.  Estos tests usan -O2, y esa diferencia es INTENCIONAL y se
+# queda.  Este comentario es la defensa; el gate "CFLAGS-PARITY" de
+# tests/test_static.sh lo verifica y falla si desaparece.
+#
+# 1) -O3 es de MAS codigo, no de menos.  MEDIDO 2026-10-04 con los flags de
+#    paridad de arriba, sobre los 13 .c del driver que compilan en userspace
+#    (todos menos rx550_target.c y pci_resource.c, que piden cabeceras de
+#    kernel), comparando la suma de .text con size -A:
+#
+#        -O2 -> 13309 B      -O3 -> 13803 B      +494 B  =  +3.71 %
+#
+#    Y sobre el subconjunto de los 10 que si entran en obj-m (Makefile:24):
+#        -O2 ->  9773 B      -O3 -> 10267 B      +494 B  =  +5.05 %
+#
+#    "Optimizar" los tests con -O3 produciria un .text MAS grande.  Medido por
+#    fichero, el -O3 solo toca 4 de los 13, y uno solo explica el 78 % del
+#    aumento:
+#        rx550_gart_seq.o     2983 -> 3367   +384
+#        rx550_gart_table.o    269 ->  359    +90
+#        rx550_mmio_access.o  1788 -> 1804    +16
+#        rx550_gart_geom.o     398 ->  402     +4
+#
+# 2) -O3 cambia una MINORIA de funciones, pero las que cambia las cambia de
+#    verdad.  MEDIDO con nm --print-size: 105 funciones definidas, 8 con tamano
+#    distinto entre -O2 y -O3 (en el subconjunto de obj-m: 82 y 7).  No es una
+#    transformacion uniforme que se pueda razonar de un vistazo.
+#
+# 3) El caso que mas importa: -O3 CAMBIA EL COMPORTAMIENTO OBSERVABLE de
+#    -fstack-protector-strong, sin decir nada.  MEDIDO con nm -u sobre
+#    rx550_mmio_access.c con los flags REALES de kbuild:
+#        -O0 canario=si   -O1 canario=si   -O2 canario=si   -Os canario=si
+#        -O3 canario=NO
+#    El simbolo `__stack_chk_fail` esta en undefined a -O2 y desaparece a -O3:
+#    -O3 inlinea la llamada y con ella desaparece la condicion que dispara el
+#    canario.  Un binario de test que se deja de proteger sin que ningun warning
+#    lo diga es un test que mide otra cosa, en silencio.
+#
+# En resumen: estos tests existen para DECIR SI el driver se comporta bien, no
+# para ir rapidos.  -O2 es el nivel en el que el compilador no hace
+# transformaciones que cambien la semántica observable, que es exactamente lo
+# que un test tiene que dar por supuesto.
+#
+# NOTA DE TRAZABILIDAD (leela antes de "corregir" el dato de arriba).  El
+# informe que encargo este cambio daba "+2.52 %" y "5 de ~35 funciones".  NO se
+# reprodujo: en las dos bases aqui medidas sale +3.71 % y +5.05 %, con 8 de 105
+# y 7 de 82 funciones.  La diferencia tiene que ser la base de medicion (que
+# ficheros, y .text solo o tambien .rodata), no la direccion.  LO QUE SI
+# REPRODUCE, y es lo que sostiene el argumento, es que -O3 produce MAS .text y
+# que solo afecta a una minoria de funciones.  Se deja constancia en vez de
+# escribir la cifra que no se ha podido medir aqui.
 
 PM4DIR ?= ../../rx550-pm4
 

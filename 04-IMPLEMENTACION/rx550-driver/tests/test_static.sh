@@ -580,6 +580,149 @@ case "$(modinfo -F vermagic "$KO")" in
 esac
 
 echo
+echo "CFLAGS-PARITY · options de compilacion: tests frente a kbuild"
+# ── QUE MIDE ESTE BLOQUE, Y POR QUE ES UNA PUERTA Y NO UN INFORME ─────────────
+#
+# 16 de las 25 reglas de tests/Makefile ENLAZAN codigo del driver (las que
+# citan ../rx550_*.c como dependencia).  Esos 16 compilan las MISMAS lineas de
+# C que el .ko, y lo hacian con opciones distintas de las que kbuild uso de
+# verdad.  Un test que pasa sobre codigo compilado con otras opciones no dice
+# nada sobre el modulo: dice que el test y el modulo son dos programas
+# distintos que se parecen.
+#
+# ASI QUE este bloque compara las opciones de los tests contra la linea REAL de
+# savedcmd que kbuild escribio en .rx550_target.o.cmd.  No contra una constante
+# escrita a mano aqui, y no contra lo que este fichero recuerda del kernel: una
+# comparacion contra algo copiado a mano solo verifica que la copia no cambio.
+#
+# ── EL PARSER ES EL DE tools/tu_compila.sh, NO UN SEGUNDO ────────────────────
+#
+# La extraccion es la misma que hace tools/tu_compila.sh:41, sobre el mismo
+# fichero (.rx550_target.o.cmd, tools/tu_compila.sh:35).  No se reescribe el
+# parser: se copia el MISMO awk, y debajo hay dos aserciones que avisan si
+# tu_compila.sh deja de usar ese regex o ese fichero.  Dos parsers independientes
+# del mismo formato divergen sin que nada lo note; uno copiado mas dos guardas
+# de deriva, no.
+KBUILD_CMD_FILE="$DRV/.rx550_target.o.cmd"
+TU_COMPILA="$DRV/tools/tu_compila.sh"
+degraded=0
+
+if [ ! -r "$KBUILD_CMD_FILE" ]; then
+	degraded=$((degraded+1))
+	echo "  DEGRADED CFP  $KBUILD_CMD_FILE no existe o no es legible."
+	echo "  DEGRADED CFP  NO se puede comparar CFLAGS con kbuild: no hay savedcmd."
+	echo "  DEGRADED CFP  NO se cuenta como PASS.  Queda SIN VERIFICAR, no verde:"
+	echo "  DEGRADED CFP  el binario sale del `make -C .. modules`, asi que el"
+	echo "  DEGRADED CFP  .ko que se audita arriba no implica que exista su .o.cmd."
+	echo "  DEGRADED CFP  Se regenera con: make -C .. modules"
+else
+	# MEDIDO: este awk, con este regex, sobre este fichero, devuelve la linea
+	# real de kbuild (la de tu_compila.sh:41).  No se reimplementa el formato.
+	KBUILD="$(awk '/^savedcmd_rx550_target\.o := /{sub(/^savedcmd_rx550_target\.o := /,""); print; exit}' "$KBUILD_CMD_FILE")"
+	if [ -z "$KBUILD" ]; then
+		degraded=$((degraded+1))
+		echo "  DEGRADED CFP  no se pudo extraer savedcmd_rx550_target.o de $KBUILD_CMD_FILE"
+		echo "  DEGRADED CFP  el fichero existe pero no tiene la linea de savedcmd."
+	else
+		# --- el parser de tu_compila.sh sigue siendo este --------------------------
+		if grep -q '/\^savedcmd_rx550_target\\\.o := /' "$TU_COMPILA" 2>/dev/null; then
+			ok CFP "tu_compila.sh sigue usando el mismo regex de savedcmd (deriva vigilada)"
+		else
+			no CFP "tu_compila.sh ya NO usa el regex de savedcmd: este bloque usa una copia y divergiria"
+		fi
+		if grep -q 'CMD_FILE="\.rx550_target\.o\.cmd"' "$TU_COMPILA" 2>/dev/null; then
+			ok CFP "tu_compila.sh y este bloque leen el MISMO .o.cmd"
+		else
+			no CFP "tu_compila.sh ya no lee .rx550_target.o.cmd: se compararia contra otro savedcmd"
+		fi
+		# --- los CFLAGS efectivos, por dos vias independientes --------------------
+		# via 1: lo que declara el Makefile (lo lee este gate)
+		# via 2: lo que make expande de verdad (oráculo, no copia)
+		# Si difieren, alguien metio flags por linea de orden o por entorno, y la
+		# comparacion contra la declaracion seria comparar una cosa que no se uso.
+		CF_DECL="$(awk '/^CFLAGS[[:space:]]*[?:][[:space:]]*=/{sub(/^CFLAGS[[:space:]]*[?:][[:space:]]*=[[:space:]]*/,""); print; exit}' "$HERE/Makefile")"
+		# -C "$HERE" y no el directorio actual: este script se puede lanzar desde
+		# tests/ (regla `run`) o desde el padre (`bash tests/test_static.sh`), y un
+		# oraculo que depende del cwd mide una cosa distinta en cada caso.  MEDIDO:
+		# sin -C, lanzado desde el padre, make no encuentra Makefile, CF_EFF sale
+		# vacio y las cinco familias de flags dan FAIL por falta de informacion, no
+		# por divergencia real.
+		CF_EFF="$(make -C "$HERE" -s --no-print-directory \
+			--eval='rx550-cflags-parity-probe: ; @printf "%s\n" "$(CFLAGS)"' \
+			rx550-cflags-parity-probe 2>/dev/null)"
+		if [ -z "$CF_DECL" ]; then
+			no CFP "tests/Makefile no declara ninguna linea CFLAGS ?= / CFLAGS ="
+		else
+			ok CFP "tests/Makefile declara CFLAGS ($(printf '%s' "$CF_DECL" | wc -w) flags)"
+			# normalizar espacios para comparar solo el contenido
+			_cfd="$(printf '%s' "$CF_DECL" | tr -s '[:space:]' ' ')"
+			_cfe="$(printf '%s' "$CF_EFF"  | tr -s '[:space:]' ' ')"
+			if [ -n "$CF_EFF" ] && [ "$_cfd" = "$_cfe" ]; then
+				ok CFP "el CFLAGS que declara el Makefile es el que make expande"
+			else
+				no CFP "CFLAGS declarado != CFLAGS efectivo de make: [$_cfd] vs [$_cfe]"
+			fi
+			# --- comparar familia por familia contra kbuild -----------------------
+			KBTOK="$(mktemp)"; CFTOK="$(mktemp)"
+			printf '%s\n' "$KBUILD" | tr ' ' '\n' | sed '/^$/d' > "$KBTOK"
+			printf '%s\n' "$CF_EFF"  | tr ' ' '\n' | sed '/^$/d' > "$CFTOK"
+
+			# familia <etiqueta> <regex-anchado> : compara el VALOR completo del flag.
+			# No "si los dos lo tienen": si kbuild dice -fstack-protector-strong y
+			# los tests dicen -fstack-protector, los dos lo tienen y aun asi el
+			# canario cubre distinto.  El valor es lo que hay que igualar.
+			familia() {
+				local lab="$1" re="$2" k v
+				k="$(grep -m1 -x -E -- "$re" "$KBTOK" 2>/dev/null)"
+				v="$(grep -m1 -x -E -- "$re" "$CFTOK" 2>/dev/null)"
+				if [ -z "$k" ] && [ -z "$v" ]; then
+					degraded=$((degraded+1))
+					printf "  DEGRADED CFP  %s: kbuild NO lo usa y los tests tampoco; no hay nada que comparar\n" "$lab"
+				elif [ -z "$k" ]; then
+					no CFP "$lab: kbuild NO lo usa y los tests si ($(printf '%s' "$v"))"
+				elif [ -z "$v" ]; then
+					no CFP "$lab: kbuild lo usa ($(printf '%s' "$k")) y los tests NO"
+				elif [ "$k" = "$v" ]; then
+					ok CFP "$lab en paridad con kbuild: $k"
+				else
+					no CFP "$lab DIVERGE: kbuild=$k  tests=$v"
+				fi
+			}
+
+			# Las cinco familias que cambian semantica.  El orden es el del informe:
+			# -std primero, porque es la que rompia de forma DURA (bool en C23).
+			familia "-std (bool es palabra clave desde C23)"                        '^-std=.+$'
+			familia "-fno-strict-aliasing (kbuild castea entre tipos a proposito)" '^-fno-strict-aliasing$'
+			familia "-fstack-protector-* (cobertura del canario de pila)"         '^-fstack-protector.+'
+			familia "-funsigned-char (signo de char plano)"                        '^-funsigned-char$'
+			familia "-fno-jump-tables (tabla de switch en modulo)"                 '^-fno-jump-tables$'
+
+			# --- -O: divergencia DELIBERADA, y su justificacion tiene que existir ---
+			# kbuild usa -O3 y los tests -O2.  Eso NO es un fallo: es la decision
+			# defendida en el comentario de tests/Makefile.  Lo que si es un fallo es
+			# que ese comentario desaparezca, porque entonces la divergencia queda
+			# sin nadie que la defienda y el siguiente que la vea la "arregla".
+			kO="$(grep -m1 -x -E '^-O[0-9s]+$' "$KBTOK" 2>/dev/null)"
+			tO="$(grep -m1 -x -E '^-O[0-9s]+$' "$CFTOK" 2>/dev/null)"
+			if [ "$kO" = "-O3" ]; then
+				ok CFP "kbuild usa $kO y los tests usan ${tO:-<ninguno>}: divergencia registrada, no casual"
+			else
+				no CFP "kbuild ya NO usa -O3 (usa ${kO:-<ninguno>}); la nota de -O2 de tests/Makefile esta caducada"
+			fi
+			[ "$tO" = "-O2" ] && ok CFP "los tests se quedan en -O2 (nivel sin transformaciones que cambien la semantica)" \
+			                  || no CFP "los tests usan ${tO:-<ninguno>} y deberian usar -O2"
+			if grep -q 'POR QUE -O2 Y NO -O3' "$HERE/Makefile" 2>/dev/null; then
+				ok CFP "tests/Makefile conserva la justificacion de por que -O2 y no -O3"
+			else
+				no CFP "tests/Makefile ya NO justifica por que -O2 y no -O3: la divergencia qued indefensa"
+			fi
+
+			rm -f "$KBTOK" "$CFTOK"
+		fi
+	fi
+fi
+
+echo
 echo "SCOPE · no se ha ampliado el conjunto de hardware soportado"
 # La id_table no debe contener más de UNA entrada de dispositivo.
 n=$(awk '/rx550_target_id_table\[\] = \{/{f=1;next} f&&/^};/{exit} f&&/\.vendor/{c++} END{print c+0}' "$SRC")
@@ -630,6 +773,15 @@ grep -q "struct target_resources	res;" "$DRV/rx550_target.c" && \
 echo
 echo "────────────────────────────────────────────────"
 printf "resumen estático: %d PASS, %d FAIL\n" "$pass" "$fail"
+
+# MEDIDO 2026-10-04, al añadir el bloque CFLAGS-PARITY: una comprobacion que no
+# se pudo hacer no es un PASS.  Si el recuento no dice DEGRADED, un bloque
+# entero puede dejar de correr y el resumen sigue vriendose como "0 FAIL", que
+# es el apagado que el bloque DEGRADED de mas arriba describe con otras
+# palabras.  Por eso el numero va aqui, en la ultima linea que se lee.
+if [ "${degraded:-0}" -gt 0 ]; then
+	printf "ATENCION: %d comprobacion(es) DEGRADED: sin verificar, NO son PASS\n" "$degraded"
+fi
 
 # MEDIDO 2026-10-03: aquí había `exit 0` sin condiciones, y las 34 aserciones de
 # este script eran ADORNALES.  Demostrado de punta a punta, con el driver
