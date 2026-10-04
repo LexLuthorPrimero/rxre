@@ -6,10 +6,22 @@
 
 ```text
 AGENTS.md   en la raiz del repositorio
-            = MASTER PROMPT V6
-            = 45247 bytes
-            = sha256 aadc625a1646d1aae4d2434d9a9a390a3da5d542a47c99a115c7befa6094f371
+            = MASTER PROMPT V6 + DIRECTIVA VIGENTE del 2026-10-04
+            = 52305 bytes
+            = sha256 62b30fcdebd5347f3e24110c62e36d3eb5d1b148a3a5b4bcc21f575869fad74e
+            = 2026-10-04, al anadir la seccion "DIRECTIVA VIGENTE"
 ```
+
+**MEDIDO 2026-10-04: este registro estaba DESVIADO ANTES de que nadie lo tocara.**
+Decir `45247 bytes / aadc625a…` cuando el fichero llevaba tiempo en 49596 bytes con
+`sha256 3ca73133…`. Es decir: la comprobacion de §2 —*"si divergen, el de la raiz
+manda"* — llevaba tiempo sin poder aplicarse, porque las dos cifras registradas no
+correspondían a ningún fichero que existiera.
+
+Un registro de hash que no se re-deriva cuando el fichero cambia es peor que no
+tenerlo: se lee como una garantia y no es nada. Por eso la cifra de arriba lleva
+**fecha y motivo**, y no solo el hash. Si vuelve a cambiar `AGENTS.md`, esto hay que
+re-derivarlo en el mismo commit, no en otro.
 
 Ese fichero es la instruccion. Nada mas lo es.
 
