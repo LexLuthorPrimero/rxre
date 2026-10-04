@@ -5,22 +5,26 @@
 
 WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS=0 · GPU INTACTA
 
-QUE AFIRMA, Y SON TRES AFIRMACIONES, NO UNA
+QUE AFIRMA, Y SON CUATRO AFIRMACIONES, NO UNA
 
   A1  todo prefijo numerico de `findings/*.md` identifica UN SOLO fichero
   A2  todo numero duplicado tiene fila en el indice
   A3  no queda ninguna cita por numero colgando sobre un numero duplicado
+  A4  ninguna de esas citas esta en un fichero de CODIGO, salvo las que el
+      registro `tools/CITA-CODIGO-EXCEPTIONS.txt` declara, una a una y con
+      su razon escrita
 
 CODIGOS DE SALIDA, Y POR QUE NO SON 0 Y 1
 
-  0  las tres afirmaciones se sostienen
+  0  las cuatro afirmaciones se sostienen
   1  (no se usa) reservado: 1 es error generico y se confunde con un linter
   2  falta `findings/` o el indice
-  3  hay colisiones sin fila en el indice                  <- el defecto de HOY
-  4  quedan citas por numero a un numero duplicado         <- la ambiguedad de HOY
+  3  hay colisiones sin fila en el indice
+  4  quedan citas por numero a un numero duplicado
   5  el indice de disco no regenera identico               <- el indice esta viejo
+  6  queda una cita por numero a un duplicado en CODIGO    <- el defecto de HOY
 
-  PRECEDENCIA, y no es arbitraria: 2 > 5 > 3 > 4.
+  PRECEDENCIA, y no es arbitraria: 2 > 5 > 3 > 6 > 4.
 
     2 antes que nada: sin `findings/` o sin indice no hay nada que afirmar.
     5 antes que 3 y 4: A2 y A3 se miden CONTRA el indice. Si el indice no
@@ -31,6 +35,12 @@ CODIGOS DE SALIDA, Y POR QUE NO SON 0 Y 1
     3 antes que 4: una colision sin fila es un defecto del REGISTRO. Una cita
       ambigua es un defecto del USO. El primero se arregla generando el indice;
       el segundo, reescribiendo citas. Se pueden tener los dos.
+    6 antes que 4: las dos son el MISMO hallazgo con distinto grano, y el 6 es
+      el que nombra donde esta written. El 4 lo dominan la prosa y los propios
+      findings, de modo que un 4 sin el 6 no dice si el codigo esta limpio, y esa
+      es la pregunta que decide si el driver puede afirmar algo. El 6 se cuenta
+      con el registro de excepciones, y el registro ausente se declara ausente:
+      tratarlo como vacio dejaria la puerta muda en vez de gritando.
 
   La puerta imprime TODOS los hallazgos aunque devuelva uno solo. Un codigo de
   salida que oculta los otros tres convierte la puerta en un contador.
@@ -125,6 +135,34 @@ LO QUE NO HACE
   numero ambiguo. Una cita `033:397` que resuelve al fichero equivocado es un
   defecto que esta puerta NO ve, y eso lo dice su propio nombre.
 
+  NO ve tampoco que una cita por numero RESUELVA bien hoy. Los numeros
+  renumerados se reutilizan: `110` quedo libre y lo ocupo otro hallazgo, de modo
+  que `110:187` puede apuntar a un numero ambiguo y a la vez ser la cita
+  correcta. Que la puerta no lo distinga no es un fallo suyo: distinguirlo exige
+  leer el hallazgo, y una puerta que cuenta no lee. MEDIDO y registrado: la
+  tabla de renumeraciones dice `110 -> 215`, y `215` habla de `AllowMvddSwitch`
+  mientras el codigo que cita `110` habla de `WAIT_REG_MEM`. La tabla y el
+  codigo no se pueden corregir con el mismo criterio.
+
+A4, Y POR QUE CODIGO CONTRA PROSA
+
+  A3 cuenta en todo el arbol y por eso lo dominan la prosa y los propios
+  findings. MEDIDO tras reparar `07-DRIVER/kernel/rx550_pm4.c`: 2154 citas
+  ambiguas, de las que2068 en prosa, 61 en codigo registrado y 26 en codigo sin
+  registrar. El numero que decide el peso es el ultimo, y un 4 sin el 6 obliga
+  a leer la tabla por directorios para averiguarlo.
+
+  Que un fichero sea codigo se decide por extension (`.c .h .py .sh .s .cmd
+  .d`, mas `Makefile`), no por intuicion.
+
+  El registro `tools/CITA-CODIGO-EXCEPTIONS.txt` existe porque hay 14 ficheros
+  cuyo objeto ES la numeracion o la ambiguedad de las citas, y ahi la cita
+  ambigua es el dato: un selftest que fabrica `033:397` para comprobar que el
+  detector lo ve no puede citar `033` por nombre, porque entonces no probaria
+  nada. MEDIDO: de las 87 citas en codigo, 61 estan en esos 14 ficheros. Cada
+  entrada del registro lleva su razon, y `--selftest` prueba las dos mitades:
+  que la puerta salga 6 sin el registro y no salga con el.
+
 ALCANCE DE LA BUSQUEDA DE CITAS, Y POR QUE SE DECLARA
 
   Se recorre el arbol del proyecto y se excluyen los arboles vendorizados:
@@ -159,6 +197,14 @@ ALCANCE DE LA BUSQUEDA DE CITAS, Y POR QUE SE DECLARA
   NO se cuenta `findings/NNN-slug...`: es cita por NOMBRE, y el nombre es clave
   primaria unica.
 
+A4 Y EL REGISTRO
+
+  `--limite` acota solo lo que se IMPRIME; el total de A4 no depende de el.
+  El registro se lee de `tools/CITA-CODIGO-EXCEPTIONS.txt`, una ruta por linea,
+  coincidencia EXACTA: un prefijo de directorio no registra, porque la razon es
+  siempre de ese fichero. Un registro ausente se declara ausente y no cuenta
+  como vacio (comprobado en el selftest, caso 6e).
+
 Uso:
   python3 check_num_unico.py              resumen + veredicto
   python3 check_num_unico.py --json       lo mismo, estructurado
@@ -175,7 +221,7 @@ import os
 import re
 import sys
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 WORK_CLASS = "READ_ONLY"
 WRITE_EXECUTION = "NONE"
 
@@ -184,6 +230,7 @@ EXIT_FALTA = 2
 EXIT_COLISION_SIN_FILA = 3
 EXIT_CITAS_AMBIGUAS = 4
 EXIT_INDICE_VIEJO = 5
+EXIT_CITA_AMBIGUA_EN_CODIGO = 6
 
 # Numero de hallazgo: 3 o 4 digitos. `\d{3}` es un ancho EXACTO y en cuanto
 # existe `1000-algo.md` deja de casar: es el fallo ya medido y corregido en
@@ -203,6 +250,25 @@ EXCLUIDOS_PROPIO = ("RESEARCH", "rx550-upstream-7.2.8", "archive",
                     ".git", "__pycache__")
 NOMBRE_INDICE = "FINDINGS-RENUMERACIONES.md"
 SECCION_COLISION = "## Numeros con colision"
+
+# ---------------------------------------------------------------------------
+# A4: CODIGO CONTRA PROSA.  Por que hace falta una puerta aparte.
+#
+# A3 cuenta la cita por numero sobre duplicado en TODO el arbol, y por eso lo
+# dominan la prosa y los propios findings: de 2145, nueve estaban en el driver.
+# Un 4 que no distingue codigo de prosa obliga a leer la tabla POR DIRECTORIOS
+# para saber si el defecto esta en el codigo o en un documento, y en un informe
+# eso se lee como "el driver tiene 9" cuando lo que se ha medido es "el
+# directorio 07-DRIVER/kernel tiene 9". A4 es el mismo hallazgo con la
+# distincion que decide el peso: en un documento una cita ambigua es una
+# molestia; en el fuente del driver es una affirmation que puede ser falsa.
+#
+# Que un fichero sea CODIGO se decide por extension y por nombre, no por
+# intuicion: una extension que no esta en CODIGO_EXT es prosa, y una prosa mal
+# clasificada se ve en el recuento, que se imprime con el desglose.
+CODIGO_EXT = (".c", ".h", ".py", ".sh", ".s", ".cmd", ".d")
+CODIGO_SIN_EXT = ("Makefile",)
+REGISTRO_CODIGO = "tools/CITA-CODIGO-EXCEPTIONS.txt"
 
 RE_HDR_COLISION = re.compile(r"colision\*\*\s*\(>1 fichero\):\s*\*\*(\d+)\*\*")
 RE_HDR_FICHEROS = re.compile(r"Ficheros en `findings/`:\s*\*\*(\d+)\*\*")
@@ -412,6 +478,37 @@ def alcance_dirs(raiz: str, alcance: str):
     return set(EXCLUIDOS_PROPIO)
 
 
+def es_codigo(rel: str) -> bool:
+    """Un fichero es CODIGO por extension o por nombre. Decidido, no supuesto."""
+    base = os.path.basename(rel)
+    ext = os.path.splitext(base)[1].lower()
+    return ext in CODIGO_EXT or base in CODIGO_SIN_EXT
+
+
+def leer_registro_codigo(raiz: str):
+    """Lee el registro de ficheros donde la cita ambigua es el dato, no el fallo.
+
+    Devuelve (set_de_rutas, lista_de_(ruta, motivo), estado). `estado` es uno de
+    "leido", "inexistente": un registro ausente NO es un registro vacio, y la
+    puerta lo dice en vez de tratar la ausencia como permiso.
+    """
+    p = os.path.join(raiz, REGISTRO_CODIGO)
+    if not os.path.isfile(p):
+        return set(), [], "inexistente"
+    rutas, motivos = set(), []
+    with open(p, encoding="utf-8") as fh:
+        for linea in fh:
+            s = linea.strip()
+            if not s or s.startswith("#"):
+                continue
+            ruta, _, mot = s.partition("#")
+            ruta = ruta.strip()
+            if ruta:
+                rutas.add(ruta)
+                motivos.append((ruta, mot.strip()))
+    return rutas, motivos, "leido"
+
+
 def citas_por_numero(raiz: str, por_num, alcance="propio", limite_ficheros=None):
     """Recorre el arbol UNA vez y cuenta, por fichero y global, las citas por
     numero que caen sobre un numero duplicado.
@@ -426,6 +523,8 @@ def citas_por_numero(raiz: str, por_num, alcance="propio", limite_ficheros=None)
     por_dir = collections.Counter()
     total = 0
     leidos = omitidos = 0
+    registro, motivos_reg, estado_reg = leer_registro_codigo(raiz)
+    hits = []
     for dp, dn, fn in os.walk(raiz):
         if excl is not None:
             dn[:] = [d for d in dn if d not in excl]
@@ -444,6 +543,9 @@ def citas_por_numero(raiz: str, por_num, alcance="propio", limite_ficheros=None)
                 omitidos += 1
                 continue
             leidos += 1
+            rel = os.path.relpath(p, raiz).replace(os.sep, "/")
+            codigo = es_codigo(rel)
+            reg = rel in registro
             for rx, grupo in ((RE_CITA_LL, "NNN:LL"), (RE_CITA_BT, "`NNN`"),
                               (RE_CITA_RUTA, "findings/NNN")):
                 for m in rx.finditer(texto):
@@ -453,6 +555,12 @@ def citas_por_numero(raiz: str, por_num, alcance="propio", limite_ficheros=None)
                     total += 1
                     por_numero[(grupo, num)] += 1
                     por_dir[rel_dir] += 1
+                    if codigo:
+                        linea = texto.count("\n", 0, m.start()) + 1
+                        hits.append({"fichero": rel, "linea": linea,
+                                    "num": num, "forma": grupo,
+                                    "ficheros_del_num": len(por_num[num]),
+                                    "registrado": reg})
     resumen = {
         "citas_por_numero_a_duplicado": total,
         "numeros_duplicados_citados": len({n for (_g, n) in por_numero}),
@@ -463,6 +571,17 @@ def citas_por_numero(raiz: str, por_num, alcance="propio", limite_ficheros=None)
         "por_directorio": dict(por_dir.most_common(12)),
         "ficheros_leidos": leidos,
         "ficheros_omitidos": omitidos,
+        # ---- A4: el mismo hallazgo, partido por donde duele y por donde no.
+        "A4_codigo": {
+            "citas_en_codigo": sum(1 for h in hits if not h["registrado"]),
+            "citas_en_codigo_registradas": sum(1 for h in hits if h["registrado"]),
+            "citas_en_prosa": total - len(hits),
+            "ficheros_de_codigo_afectados": len({h["fichero"] for h in hits}),
+            "registro": REGISTRO_CODIGO,
+            "registro_estado": estado_reg,
+            "registro_ficheros": len(registro),
+            "hits": hits,
+        },
     }
     return resumen, por_numero, leidos, omitidos
 
@@ -533,6 +652,9 @@ def medir(raiz: str, alcance="propio", limite_ficheros=None) -> dict:
         codigos.append(EXIT_INDICE_VIEJO)
     if d3 or sin_fila:
         codigos.append(EXIT_COLISION_SIN_FILA)
+    a4 = resumen["A4_codigo"]
+    if a4["citas_en_codigo"] > 0:
+        codigos.append(EXIT_CITA_AMBIGUA_EN_CODIGO)
     if resumen["citas_por_numero_a_duplicado"] > 0:
         codigos.append(EXIT_CITAS_AMBIGUAS)
     r["codigos_que_se_disparan"] = codigos
@@ -609,18 +731,54 @@ def informe(r: dict, limite=20) -> None:
                            key=lambda kv: -kv[1])[:8]:
             print("        %-42s %d" % (d[:42], n))
 
+    # ---- A4: el desglose que decide el peso, y el fichero:LINEA que faltaba.
+    a4 = c["A4_codigo"]
+    print("\n  A4  ¿alguna de esas citas esta en CODIGO, y no registrada?")
+    print("      en CODIGO (sin registrar)       : %d   <- el defecto"
+          % a4["citas_en_codigo"])
+    print("      en CODIGO (registrado)          : %d   <- el dato de un"
+          % a4["citas_en_codigo_registradas"])
+    print("      en prosa                        : %d   <- una molestia"
+          % a4["citas_en_prosa"])
+    print("      ficheros de codigo afectados    : %d"
+          % a4["ficheros_de_codigo_afectados"])
+    print("      registro                        : %s (%s, %d ficheros)"
+          % (a4["registro"], a4["registro_estado"], a4["registro_ficheros"]))
+    if a4["registro_estado"] != "leido":
+        print("      AVISO: el registro no esta. Su ausencia NO es un registro"
+              " vacio: se cuenta todo.")
+    if a4["hits"]:
+        sin_reg = [h for h in a4["hits"] if not h["registrado"]]
+        con_reg = [h for h in a4["hits"] if h["registrado"]]
+        if sin_reg:
+            print("      CODIGO SIN REGISTRAR, fichero:linea (primeros %d):" % limite)
+            for h in sorted(sin_reg, key=lambda x: (x["fichero"], x["linea"]))[:limite]:
+                print("        %-46s %5d  %-13s %s -> %d ficheros"
+                      % (h["fichero"][:46], h["linea"], h["forma"],
+                         h["num"], h["ficheros_del_num"]))
+            if len(sin_reg) > limite:
+                print("        ...y %d mas (el total %d no depende de --limite)"
+                      % (len(sin_reg) - limite, len(sin_reg)))
+        if con_reg:
+            porf = collections.Counter(h["fichero"] for h in con_reg)
+            print("      CODIGO REGISTRADO, %d citas en %d ficheros:"
+                  % (len(con_reg), len(porf)))
+            for f_, n_ in sorted(porf.items(), key=lambda kv: -kv[1]):
+                print("        %-46s %3d" % (f_[:46], n_))
+
     print("\n  CODIGOS QUE SE DISPARAN: %s"
           % (r.get("codigos_que_se_disparan") or "ninguno"))
     print("  CODIGO DEVUELTO         : %d" % r["codigo"])
     if r.get("codigos_que_se_disparan"):
         nom = {2: "falta la base", 3: "colisiones sin fila en el indice",
                4: "citas por numero a un duplicado",
-               5: "el indice de disco no regenera identico"}
+               5: "el indice de disco no regenera identico",
+               6: "cita por numero a un duplicado, en CODIGO, sin registrar"}
         print("\n  VEREDICTO: la afirmacion NO se sostiene.")
         for c_ in r["codigos_que_se_disparan"]:
             print("    %d  %s" % (c_, nom[c_]))
     else:
-        print("\n  VEREDICTO: las tres afirmaciones se sostienen.")
+        print("\n  VEREDICTO: las cuatro afirmaciones se sostienen.")
 
 
 # --------------------------------------------------------------------------
@@ -910,6 +1068,89 @@ def selftest() -> int:
         and codigos(r) == [EXIT_INDICE_VIEJO, EXIT_COLISION_SIN_FILA,
                            EXIT_CITAS_AMBIGUAS],
         "codigo=%d todos=%s" % (r["codigo"], codigos(r)))
+
+    # ---- 6: LA PUERTA DE CODIGO TIENE QUE PODER FALLAR Y TIENE QUE PODER PASAR
+    #
+    # Una puerta que solo puede dar 6 no vale nada, y una que solo puede dar 0 no
+    # vigila nada. Se prueban las dos mitades por separado:
+    #
+    #   6a  cita por numero a duplicado DENTRO de un .c, sin registrar -> 6
+    #   6b  la MISMA cita en un .md                                 -> no 6
+    #       (si 6 saltase en prosa, el codigo no distinguiria nada y el 4
+    #        bastaria: seria una puerta que no aporta el criterio que la motivo)
+    #   6c  la MISMA cita en un .c pero REGISTRADA                  -> no 6
+    #       (si el registro no acostumbrara, la puerta no podria pasar nunca)
+    #   6d  el nombre del fichero y la linea del hit son los de verdad
+    d, r = arbol("v6", [("001-a.md", 1), ("002-b.md", 2), ("002-c.md", 2)],
+                 [(2, ["002-b.md", "002-c.md"])], 3, 1,
+                 extra=[("driver.c", "/* ver 002:12 y findings/002 */\n")])
+    res("6a  cita ambigua en un .c, sin registrar -> 6",
+        EXIT_CITA_AMBIGUA_EN_CODIGO in codigos(r)
+        and r["A3_citas"]["A4_codigo"]["citas_en_codigo"] == 2,
+        "todos=%s n=%s" % (codigos(r),
+                           r["A3_citas"]["A4_codigo"]["citas_en_codigo"]))
+    res("6a ...y el codigo devuelto es el 6 si no hay mas profundo",
+        r["codigo"] == EXIT_CITA_AMBIGUA_EN_CODIGO,
+        "codigo=%d todos=%s" % (r["codigo"], codigos(r)))
+    hits = r["A3_citas"]["A4_codigo"]["hits"]
+    res("6d ...y el hit trae fichero y linea, no un recuento",
+        len(hits) == 2
+        and {h["fichero"] for h in hits} == {"driver.c"}
+        and {h["linea"] for h in hits} == {1}
+        and {h["ficheros_del_num"] for h in hits} == {2},
+        "hits=%s" % (hits,))
+
+    d, r = arbol("v6b", [("001-a.md", 1), ("002-b.md", 2), ("002-c.md", 2)],
+                 [(2, ["002-b.md", "002-c.md"])], 3, 1,
+                 extra=[("doc.md", "vease 002:12 y findings/002\n")])
+    res("6b  la misma cita en un .md NO dispara 6",
+        EXIT_CITA_AMBIGUA_EN_CODIGO not in codigos(r)
+        and r["A3_citas"]["A4_codigo"]["citas_en_codigo"] == 0
+        and r["A3_citas"]["A4_codigo"]["citas_en_prosa"] == 2,
+        "todos=%s a4=%s" % (codigos(r), r["A3_citas"]["A4_codigo"]))
+
+    d = os.path.join(base, "v6c")
+    dirf = _arbol(d)
+    _pon(dirf, "002-b.md", 2)
+    _pon(dirf, "002-c.md", 2)
+    _indice(d, [(2, ["002-b.md", "002-c.md"])], 2, 1)
+    os.makedirs(os.path.join(d, "tools"), exist_ok=True)
+    with open(os.path.join(d, "driver.c"), "w", encoding="utf-8") as fh:
+        fh.write("/* ver 002:12 */\n")
+    with open(os.path.join(d, REGISTRO_CODIGO), "w", encoding="utf-8") as fh:
+        fh.write("# registro\ndriver.c  #  es un fixture\n")
+    r = medir(d, alcance="propio")
+    res("6c  la misma cita en un .c pero REGISTRADA -> no 6",
+        EXIT_CITA_AMBIGUA_EN_CODIGO not in codigos(r)
+        and r["A3_citas"]["A4_codigo"]["citas_en_codigo"] == 0
+        and r["A3_citas"]["A4_codigo"]["citas_en_codigo_registradas"] == 1
+        and r["A3_citas"]["A4_codigo"]["registro_estado"] == "leido",
+        "todos=%s a4=%s" % (codigos(r), r["A3_citas"]["A4_codigo"]))
+
+    # ---- 6e: el registro ausente NO es un registro vacio. Si se tratara como
+    # vacio, borrar el registro dejaria la puerta muda en vez de gritando.
+    d = os.path.join(base, "v6e")
+    dirf = _arbol(d)
+    _pon(dirf, "002-b.md", 2)
+    _pon(dirf, "002-c.md", 2)
+    _indice(d, [(2, ["002-b.md", "002-c.md"])], 2, 1)
+    with open(os.path.join(d, "driver.c"), "w", encoding="utf-8") as fh:
+        fh.write("/* ver 002:12 */\n")
+    r = medir(d, alcance="propio")
+    res("6e  sin registro: se cuenta todo y se declara que no esta",
+        EXIT_CITA_AMBIGUA_EN_CODIGO in codigos(r)
+        and r["A3_citas"]["A4_codigo"]["registro_estado"] == "inexistente"
+        and r["A3_citas"]["A4_codigo"]["registro_ficheros"] == 0,
+        "todos=%s a4=%s" % (codigos(r), r["A3_citas"]["A4_codigo"]))
+
+    # ---- 6f: la clasificacion CODIGO/PROSA es por extension, y se demuestra
+    # con las dos extensiones que mas se confunden: .h es codigo y .txt no.
+    res("6f  la clasificacion es decidible y esta escrita",
+        es_codigo("07-DRIVER/kernel/rx550_pm4.c")
+        and es_codigo("07-DRIVER/kernel/rx550_pm4.h")
+        and es_codigo("tools/x.py") and es_codigo("x/Makefile")
+        and not es_codigo("docs/x.md")
+        and not es_codigo("tools/REF-EXCEPTIONS.txt"))
 
     print("\n  RESULT: %s  (%d comprobaciones, %d fallos)\n"
           % ("PASS" if not fallos else "FAIL", total[0], len(fallos)))

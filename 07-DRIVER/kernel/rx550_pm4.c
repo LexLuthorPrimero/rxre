@@ -293,7 +293,8 @@ __u32 rx550_sdma_header(__u32 op)
  * together: the op NAME, GEN_PTEPDE against PTEPDE, and the count field,
  * plain `count` against `count - 1`. "Verbatim" was a claim of identity where
  * there is a measured one-field difference in the same direction as the
- * generation -- see findings/142, six emitters, six of six.
+ * generation -- see findings/188-el-nombre-del-op-12-y-la-cita-equivocada.md:15-29,
+ * six emitters, six of six.
  *
  * THE COUNT FIELD IS PLAIN. findings/034-corpus-autoconsistente-layouts-pm4.md said it was minus one, and that was
  * WRONG -- a second reversal of the same field, and the reason matters more
@@ -597,11 +598,12 @@ void rx550_pm4_mem_sync(struct rx550_pm4_ib *ib, bool gfx_ring)
  *   esta placa incluye tonga_sdma_pkt_open.h. Mismo valor, distinta procedencia:
  *   es la clase que findings/041-herramientas-de-procedencia-y-auditoria.md:12 ya nombra.
  * NOT_DETERMINED subordinados: si el NOP de alineacion a 8 dwords hace falta o
- *   es cosmetico (039-coherencia-ib-si-existe.md:176, 040:185); por que el
- *   productor gfx omite INDIRECT_BUFFER_VALID (040:183), que es la razon de que
+ *   es cosmetico (039-coherencia-ib-si-existe.md:176,
+ *   040-wptr-doorbell-y-tres-productores-de-ib.md:185); por que el
+ *   productor gfx omite INDIRECT_BUFFER_VALID (040-wptr-doorbell-y-tres-productores-de-ib.md:183), que es la razon de que
  *   esta funcion sea solo-sDMA; y si el camino sDMA/page se ejerce en runtime
  *   en este ASIC. Alineacion: PARTIAL, 4 B en gfx/compute y 32 B en sDMA
- *   (040:186), asi que el rechazo de gpu_addr & 0x1f es correcto SOLO para
+ *   (040-wptr-doorbell-y-tres-productores-de-ib.md:186), asi que el rechazo de gpu_addr & 0x1f es correcto SOLO para
  *   el camino sDMA.
  */
 
@@ -665,7 +667,9 @@ void rx550_pm4_indirect(struct rx550_pm4_ib *ib, __u64 gpu_addr, __u32 length_dw
  * NOT_DETERMINED subordinado: findings/039-coherencia-ib-si-existe.md:174, que
  *   caches cubre CP_COHER_CNTL = 0x28C40000 en GFX8. La emision esta probada;
  *   el alcance no. Y si el NOP de alineacion a 8 dwords hace falta o es
- *   cosmetico (039:176, 040:185) esta funcion no lo modela: no ve wptr.
+ *   cosmetico (039-coherencia-ib-si-existe.md:176,
+ *   040-wptr-doorbell-y-tres-productores-de-ib.md:185) esta funcion no lo
+ *   modela: no ve wptr.
  * AVISO DE CITA: 039 esta duplicado en el arbol y el otro 039 no menciona esta
  *   funcion. Por eso el nombre completo.
  */
@@ -877,19 +881,25 @@ void rx550_pm4_write_data(struct rx550_pm4_ib *ib, __u32 reg, __u32 val,
    *   gfx_v8_0.c, SI corre en Polaris12 --
    *   findings/043-vuelta-atras-035-y-036-leian-el-asic-equivocado.md:70.
    *   Encadre y medidas: findings/122-para-que-el-encuadre-de-dos-fuentes-resulte-honesto.md
- *   MASK=0 vacia la comparacion (110:187), que es lo que hace que un
+ *   MASK=0 vacia la comparacion (110-funcion-es-de-wait-reg-mem-no-del-invalidate.md:187), que es lo que hace que un
  *   FUNCTION=0 con mask=0 sea una espera y no una comprobacion.
  * NOT_DETERMINED subordinados, y son distintos entre si:
  *   - Que hace el hardware con FUNCTION=0, OPERATION=0, mask=0, poll=0x20
- *     sigue abierto (110:194, 068:111, 107:151). findings/108-sd-pfp-escribe-me-espera-punto-de-visibilidad.md:144
+ *     sigue abierto (110-funcion-es-de-wait-reg-mem-no-del-invalidate.md:194,
+ *     068-orden-emision-ptba-invalidate-wait-pfp.md:111,
+ *     107-sc-function-always-2-de-7-y-el-ring-usa-1.md:151).
+ *     findings/108-sd-pfp-escribe-me-espera-punto-de-visibilidad.md:144
  *     lo eleva a HYPOTHESIS (barrier de visibilidad, no comparacion) y
  *     findings/109-sd-un-anillo-dos-motores-tres-esperas.md:50-62 demuestra que el
  *     driver SI sabe escribir una espera real cuando quiere. El caso vacio es
  *     una eleccion, no una averia, y eso es lo que hace que duela no saberlo.
- *   - Por que count = payload - 1: la regla esta medida (7/7, 038:34) pero
- *     038:49-52 la declara observacion sobre el camino GFX8, no ley de arquitectura.
- *   - El parametro engine NO es universal: ME en el vm-flush (108:137), PFP en el
- *     hdp_flush del ring GFX (109:35). La emision lo resuelve; el alcance lo
+ *   - Por que count = payload - 1: la regla esta medida (7/7,
+ *     038-validador-flujo-y-regla-del-count.md:34) pero
+ *     038-validador-flujo-y-regla-del-count.md:49-52 la declara observacion sobre el camino GFX8, no ley de arquitectura.
+ *   - El parametro engine NO es universal: ME en el vm-flush
+ *     (108-sd-pfp-escribe-me-espera-punto-de-visibilidad.md:137), PFP en el
+ *     hdp_flush del ring GFX (109-sd-un-anillo-dos-motores-tres-esperas.md:36-37).
+ *     La emision lo resuelve; el alcance lo
  *     decide el llamante, y esta funcion no lo puede ver.
  */
 
@@ -926,8 +936,9 @@ void rx550_pm4_wait_reg_mem(struct rx550_pm4_ib *ib, __u32 reg, __u32 ref,
  *     amdgpu_ring_write(ring, 0x0);
  *
  * A count of 0 and a second dword of zero, which is the same shape as
- * EVENT_WRITE: a packet whose trailing dword is not payload. findings/020
- * settled that a KIQ ring does not emit this, and gfx_v8_0.c:6216 guards it with
+ * EVENT_WRITE: a packet whose trailing dword is not payload.
+ * findings/020-vmflush-dword-budget-gfx8.md:55 settled that a KIQ ring does not emit
+ * this, and gfx_v8_0.c:6216 guards it with
  * `if (usepfp)`, so this function's caller decides, not the function.
  */
 /*
