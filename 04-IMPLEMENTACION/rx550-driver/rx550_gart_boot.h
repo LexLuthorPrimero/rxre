@@ -64,6 +64,34 @@ enum rx550_gart_boot_step {
 	RX550_GART_BOOT_NR_PASOS
 };
 
+/* MEDIDO 2026-10-04.  ESTE ENUM NO ES EL ORDEN DE EJECUCION, y el comentario de
+ * arriba  ("ORDEN ASCENDENTE")  se refiere al indice, no a la secuencia.
+ *
+ * El orden real, medido por las asignaciones de ultimo_paso en el .c:
+ *
+ *     VM_GEOM = 1     <- se ejecuta el 1
+ *     RESERVA = 2     <- se ejecuta el 3
+ *     RELLENO = 3     <- se ejecuta el 4
+ *     GEOMETRIA = 4   <- se ejecuta el 2
+ *     PLAN = 5, APLICADO = 6, VACIO_TLB = 7
+ *
+ * O sea que ultimo_paso recorre 1 -> 4 -> 2 -> 3 -> 5 -> 6 -> 7, que NO es
+ * monótono.  La geometria va antes que la reserva porque  gart_end - gart_start + 1
+ * se usa para dimensionar la tabla  (rx550_gart_table.c)  y una ventana al reves
+ * daria un numero gigante:  eso fue un BUG DE ORDEN mio, corregido, y el
+ * comentario esta en el .c.
+ *
+ * POR QUE EL ENUM NO SIGUE AL ORDEN.  Porque el ORDEN cambia con las
+ * dependencias  —que es exactamente lo que/passó aqui—  y reenumerar el enum
+ * rompe todo consumidor que guarde el numero.  El enum nombra pasos  (que son
+ * estables)  y el .c los ordena.  Duplicarlos seria una lista mas que
+ * desincronizar.
+ *
+ * CONSECUENCIA, Y ES LA QUE IMPORTA:  ultimo_paso es una ETIQUETA de donde se
+ * paro,  NO un contador de progreso.  Un consumidor que quiera "cuantos pasos
+ * he hecho" tiene que contar Los pasos ella,  comparando con el ultimo_paso
+ * conocido y no restando. */
+
 enum rx550_gart_boot_err {
 	RX550_GART_BOOT_OK = 0,
 	RX550_GART_BOOT_ERR_NULO,		/* falta un argumento   */

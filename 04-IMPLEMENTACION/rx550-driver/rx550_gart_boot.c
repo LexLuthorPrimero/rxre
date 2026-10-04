@@ -92,31 +92,60 @@ int rx550_gart_boot(const struct rx550_gart_boot_req *req,
 
 	/* ── 0 · GEOMETRIA DE LA VENTANA DE VM, Y PRIMERO DE TODO ────────────────
 	 *
-	 * MEDIDO 2026-10-04: estos tres numeros (block_size, fragment_size,
-	 * max_pfn) NO LOS RELLENABA NINGUN CODIGO.  Entraban en el req como
-	 * MODELO y los ponia a mano el test.  Ahora los produce
-	 * rx550_vm_geometry(), que es puro como rx550_gart_geometry().
+	 * MEDIDO 2026-10-04:  estos tres numeros  (block_size, fragment_size,
+	 * max_pfn)  NO LOS RELLENABA NINGUN CODIGO.  Entraban en el req como MODELO
+	 * y los ponia a mano el test.  Ahora los produce rx550_vm_geometry(),  que
+	 * es puro como rx550_gart_geometry().
 	 *
-	 * Va PRIMERO, y por una razon concreta y no por simetria:
-	 * max_pfn acota la ventana del GART, y la comprobacion de abajo
-	 *     gart_end < max_pfn
-	 * es la que decide si la ventana cabe.  Si este paso fuera despues, la
-	 * ventana se validaria contra un max_pfn que todavia no existe,  que es
-	 * el mismo error de orden que ya se corrigio una vez en esta funcion.
+	 * VA PRIMERO,  Y POR UNA RAZON REAL Y CORTA:  el plan lo consume.  El paso 5
+	 * lee out->vm_geom.block_size  para el campo PAGE_TABLE_BLOCK_SIZE,  y
+	 * out->vm_geom.max_pfn  para el END de CTX1_PT.  Si este paso fuera
+	 * posterior,  el plan se construiria contra una geometria que todavia no
+	 * existe.  Esa es la unica dependencia,  y es de consumo de datos  —no de
+	 * validacion—.
+	 *
+	 * LO QUE ESTABA AQUI ANTES,  Y ERA FALSO.  Este mismo paso se justificaba
+	 * asi:
+	 *
+	 *     "max_pfn acota la ventana del GART,  y la comprobacion de abajo
+	 *      gart_end < max_pfn  es la que decide si la ventana cabe."
+	 *
+	 * MEDIDO que NO HAY ninguna comprobacion  gart_end < max_pfn  en este
+	 * fichero.  Y MEDIDO que la hubo  y se elimino:  rx550_gart_seq.c:478-504,
+	 * bajo el rotulo "CORREGIDO.  Aqui habia una comprobacion que el corpus NO
+	 * tiene".  El motivo de la eliminacion es el que invalida la
+	 * justificacion:
+	 *
+	 *     contexto 0   gmc_v8_0.c:886  START = gmc.gart_start >> 12
+	 *     contexto 0   gmc_v8_0.c:887  END   = gmc.gart_end   >> 12
+	 *     contexto 1   gmc_v8_0.c:908  END   = vm_manager.max_pfn - 1
+	 *
+	 * Son DOS contextos con DOS ventanas,  y el corpus no las anida.  En esta
+	 * tarjeta no PODRIAN anidarse:  la ventana del GART >> 12 es 267452415  y
+	 * la del VM es 16777216.  O sea que la comprobacion que yo citaba como
+	 * razon de orden:
+	 *
+	 *   1.  no existe
+	 *   2.  existio y se declaro FALSA  con medidas,  a un fichero de distancia
+	 *   3.  si existiera, rechazaria la geometria real de esta tarjeta
+	 *
+	 * Hecho:  citar una comprobacion eliminada como si existiera  —y como
+	 * rationale de un orden—  es exactamente el modo de fallo que este
+	 * componente lleva cuatro commits corrigiendo.  Y es el segundo caso de la
+	 * misma familia en este mismo fichero:  el primero fue un 9 escrito a mano,
+	 * y el tercero es un 0 acceptance que no se nota.
 	 *
 	 * Con los valores de esta maquina sale block_size = 10,  fragment_size = 9
 	 * y max_pfn = 64 << 18 = 16777216.
 	 *
-	 * CUARTO DEFECTO QUE SALIO AL HACER ESTO, y que no habia visto:
-	 * el campo max_pfn del req era uint32_t.  Con los 16777216 de esta
-	 * maquina no hay problema,  asi que el defecto era LATENTE.  Y el tipo
-	 * correcto es el de rx550_vm_geom.max_pfn,  uint64_t,  que es
-	 * UINT32_MAX veces mayor:  max_pfn = (uint64_t)vm_size << 18 con
-	 * vm_size = 8192 GB da 2^31,  y ahi un uint32_t habria guardado 0.  Es
-	 * la clase de fallo que este componente lleva tres commits corrigiendo
-	 * en otros sitios:  un numero plausible y falso.  Ahora el valor pasa
-	 * por un uint64_t de punta a punta,  porque lo produce un tipo que ya
-	 * es de 64 bits y no un cast. */
+	 * CUARTO DEFECTO QUE SALIO AL HACER ESTO,  y era LATENTE:  el campo max_pfn
+	 * del req era uint32_t.  Con los 16777216 de esta maquina no hay problema,
+	 * de modo que no se manifests.  Pero max_pfn = (uint64_t)vm_size << 18 con
+	 * vm_size = 8192 GB da 2^31,  y ahi un uint32_t guardaria 0:  un numero
+	 * plausible y falso.  Ahora el valor pasa por un uint64_t de punta a
+	 * punta  —rx550_vm_geom.max_pfn—  porque lo produce un tipo que ya es de
+	 * 64 bits y no un cast.
+	 */
 	out->ultimo_paso = RX550_GART_BOOT_VM_GEOM;
 	{
 		int rc_vm;

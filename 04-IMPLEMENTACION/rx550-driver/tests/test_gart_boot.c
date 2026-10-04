@@ -113,6 +113,105 @@ static void fase_completa(void)
 	      "y max_pfn = 64 << 18 = 16777216");
 	CHECK(rx550_vm_geom_block_field(rep.vm_geom.block_size) == 1,
 	      "el campo del plan seria 1: block_size - 9");
+
+	/* Y LA GEOMETRIA DEL GART,  QUE VA ANTES DEL RELLENO.  MEDIDO 2026-10-04:
+	 * el nodo de orden afirmaba "la geometria va despues del relleno",  y el
+	 * codigo hace lo contrario:  ultimo_paso se pone en GEOMETRIA antes que en
+	 * RESERVA,  que va antes que en RELLENO.  Aquella afirmacion era una
+	 * comparacion de enteros de enum en tiempo de compilacion,  de modo que
+	 * no podia observar NADA:  se cumplia porque 4 > 3,  no porque el codigo
+	 * hiciera algo.  Una comprobacion que no puede fallar.
+	 *
+	 * El motivo real de que vaya primero esta en rx550_gart_boot.c:  su tamano
+	 *  (gart_end - gart_start + 1)  es lo que dimensiona la tabla,  y una
+	 * ventana al reves daria un numero gigante.  Fue un bug de orden mio.
+	 *
+	 * LO QUE SE COMPRUEBA,  y que si puede fallar:  que el relleno documento
+	 * las PAGINAS de la ventana pedida.  Si la geometria de la secuencia se
+	 * invirtiera,  el numero seria distinto y esto lo diria. */
+	CHECK(rep.tabla_geom.entradas_max
+	      == (uint32_t)((req.gart_end - req.gart_start + 1u)
+			    >> RX550_PAGE_SHIFT),
+	      "el relleno documento las PAGINAS de la ventana pedida, que es lo "
+	      "que produjo la geometria");
+
+	/* Y LA DEPENDENCIA DEL PASO 0,  COMPROBADA SOBRE EL REGISTRO.
+	 *
+	 * El paso de la geometria de VM va primero porque el PLAN la consume,  y eso
+	 * se comprueba sobre lo que el plan trae escrito  —no con la etiqueta del
+	 * enum,  que solo compara dos enteros que el compilador ya conoce.
+	 *
+	 * MEDIDO que el indice del plan no es lo que yo suponia:  op[3] NO es
+	 * mmVM_L2_CNTL3.  Los indices salen de una sonda que imprime reg y value
+	 * del plan construido,  no de memoria. */
+	{
+		unsigned k;
+		unsigned i_l2c3 = 0xFFFFFFFFu, i_ctx1_end = 0xFFFFFFFFu;
+		unsigned i_ctx1_cntl = 0xFFFFFFFFu;
+
+		for (k = 0; k < rep.seq.n; k++) {
+			if (rep.seq.op[k].reg == 0x502u)
+				i_l2c3 = k;
+			if (rep.seq.op[k].reg == 0x560u)
+				i_ctx1_end = k;
+			if (rep.seq.op[k].reg == 0x505u)
+				i_ctx1_cntl = k;
+		}
+		/* Los dos registros tienen que ESTAR en el plan,  y no se busca su
+		 * posicion de memoria:  se localiza por el offset que se escribio. */
+		CHECK(i_l2c3 != 0xFFFFFFFFu,
+		      "el plan contiene mmVM_L2_CNTL3, que es donde va fragment_size");
+		CHECK(i_ctx1_end != 0xFFFFFFFFu,
+		      "el plan contiene mmVM_CONTEXT1_PAGE_TABLE_END_ADDR");
+		if (i_l2c3 != 0xFFFFFFFFu) {
+			CHECK((rep.seq.op[i_l2c3].value & 0x3Fu)
+			      == rep.vm_geom.fragment_size,
+			      "BANK_SELECT lleva el fragment_size que decidio la "
+			      "geometria de VM");
+			CHECK((rep.seq.op[i_l2c3].value & 0x000F8000u)
+			      == ((rep.vm_geom.fragment_size << 15) & 0x000F8000u),
+			      "y L2_CACHE_BIGK_FRAGMENT_SIZE, el segundo campo del "
+			      "mismo registro");
+		}
+		if (i_ctx1_end != 0xFFFFFFFFu)
+			CHECK(rep.seq.op[i_ctx1_end].value
+			      == (uint32_t)(rep.vm_geom.max_pfn - 1u),
+			      "el END de CTX1_PT es max_pfn - 1, que es gmc_v8_0.c:909");
+
+		/* Y EL CAMPO QUE FALTABA,  que es el que hace que esto sea una
+		 * prueba y no una decoracion.
+		 *
+		 * MEDIDO 2026-10-04 por mutacion:  cambiar en rx550_gart_boot.c
+		 *     p.block_size = out->vm_geom.block_size;
+		 * por
+		 *     p.block_size = 9;
+		 * NO PONIA EN ROJO NINGUN CHECK DE LA SUITE.  Y 9 codifica el
+		 * campo 0,  contra el 1 que produce la geometria:  el bit 24 de
+		 * mmVM_CONTEXT1_CNTL  es lo unico que se moveria.
+		 *
+		 * La causa:  las comprobaciones que existian eran de la VARIABLE
+		 *  (rep.vm_geom.block_size == 10)  y de la CONVERSION
+		 *  (rx550_vm_geom_block_field(...) == 1),  y las dos son puras:  con
+		 * block_size = 9 en el constructor,  rep.vm_geom.block_size sigue
+		 * valiendo 10 porque la geometria no se ha tocado.  Faltaba
+		 * mirar el REGISTRO,  y es lo unico que el hardware ve. */
+		CHECK(i_ctx1_cntl != 0xFFFFFFFFu,
+		      "el plan contiene mmVM_CONTEXT1_CNTL");
+		if (i_ctx1_cntl != 0xFFFFFFFFu)
+			CHECK(((rep.seq.op[i_ctx1_cntl].value & 0x0F000000u) >> 24)
+			      == rx550_vm_geom_block_field(rep.vm_geom.block_size),
+			      "y su campo PAGE_TABLE_BLOCK_SIZE vale block_size - 9, "
+			      "en el nibble 27:24");
+
+		/* Y LA NEGATIVA,  que es la que de verdad demuestra la dependencia:
+		 * los indices del enum NO van en orden de ejecucion,  de modo que
+		 * comparar RX550_GART_BOOT_VM_GEOM contra el indice del plan no
+		 * significa nada.  Lo unico que ata las dos cosas es que el VALOR
+		 * escrito sale de la geometria,  y eso es lo de arriba. */
+		CHECK(1, "el enum de pasos no es el orden de ejecucion: ultimo_paso "
+			 "recorre 1->4->2->3->5->6->7.  Es una etiqueta de donde se "
+			 "paro, no un contador de progreso");
+	}
 	CHECK(rep.aviso == 0, "sin aviso: el estado no es degenerado");
 	CHECK(rc == RX550_GART_BOOT_OK, "la secuencia completa devuelve OK");
 	CHECK(rep.err == RX550_GART_BOOT_OK, "y el informe no marca error");
@@ -272,14 +371,28 @@ static void fase_informe(void)
 	CHECK((int)RX550_GART_BOOT_PRESENTE == 0 && (int)RX550_GART_BOOT_LISTO == 8,
 	      "PRESENTO es 0 y LISTO es el ultimo, para que un consumidor pueda "
 	      "contar por donde llego sin conocer la lista");
-	/* Y el paso nuevo va PRIMERO,  y por un motivo que se comprueba:  max_pfn
-	 * acota la ventana del GART,  de modo que la geometria del GART no se
-	 * puede validar antes de que exista un max_pfn.  Si el orden se invirtiera,
-	 * la ventana se mediria contra un max_pfn que todavia no esta decidido. */
+	/* Y POR QUE VA PRIMERO,  que es lo que se puede comprobar.  MEDIDO:  esta
+	 * etiqueta decia "max_pfn acota la ventana que el GART luego valida",  y
+	 * esa comprobacion NO EXISTE.  Existio y se elimino como falsa:
+	 * rx550_gart_seq.c:478-504,  con la razon de que el contexto 0 y el
+	 * contexto 1 tienen ventanas distintas y el corpus no las anida  —y en
+	 * esta tarjeta no podrian:  la del GART >> 12 es 267452415  y la del VM
+	 * es 16777216—.  O sea que la etiqueta ratificaba como invariante
+	 * justamente la restriccion que el componente habia eliminado por falsa,  y
+	 * que ademas rechazaria la geometria real de esta tarjeta.
+	 *
+	 * LA RAZON REAL:  el PLAN la consume.  El paso del plan lee
+	 * out->vm_geom.block_size  y  out->vm_geom.max_pfn,  de modo que si la
+	 * geometria de VM fuera posterior,  el plan se construiria contra datos que
+	 * todavia no existen.
+	 *
+	 * Y ESO SI SE COMPRUEBA,  con el resultado y no con la etiqueta:  el plan
+	 * que sale de la secuencia tiene el campo PAGE_TABLE_BLOCK_SIZE y el END de
+	 * CTX1_PT coherentes con lo que la geometria de VM decidio.  Si el paso
+	 * estuviera despues,  ambos serian cero. */
 	CHECK((int)RX550_GART_BOOT_VM_GEOM < (int)RX550_GART_BOOT_RESERVA &&
 	      (int)RX550_GART_BOOT_VM_GEOM < (int)RX550_GART_BOOT_GEOMETRIA,
-	      "la geometria de VM va antes que la reserva y que la del GART: "
-	      "max_pfn acota la ventana que el GART luego valida");
+	      "la geometria de VM va antes que la reserva y que la del GART");
 	CHECK((int)RX550_GART_BOOT_VACIO_TLB > (int)RX550_GART_BOOT_APLICADO,
 	      "el vaciado de TLB va DESPUES de aplicar: no es orden de archivo, "
 	      "es que invalidar antes de escribir deja la TLB con la tabla vieja");
@@ -287,8 +400,6 @@ static void fase_informe(void)
 	      "aplicar va despues de construir el plan");
 	CHECK((int)RX550_GART_BOOT_PLAN > (int)RX550_GART_BOOT_GEOMETRIA,
 	      "el plan va despues de la geometria");
-	CHECK((int)RX550_GART_BOOT_GEOMETRIA > (int)RX550_GART_BOOT_RELLENO,
-	      "la geometria va despues del relleno");
 	CHECK((int)RX550_GART_BOOT_RELLENO > (int)RX550_GART_BOOT_RESERVA,
 	      "el relleno va despues de la reserva");
 }
