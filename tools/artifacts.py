@@ -233,7 +233,7 @@ def gen_evidence_matrix(root: str, ind: Indice) -> str:
     for f in sorted(os.listdir(d)):
         if not f.endswith(".md"):
             continue
-        m = re.match(r"^(\d{3})[-_](.+)\.md$", f)
+        m = re.match(r"^(\d{3,4})[-_](.+)\.md$", f)
         if not m:
             continue
         try:
@@ -249,8 +249,8 @@ def gen_evidence_matrix(root: str, ind: Indice) -> str:
             "%s x%d" % (k, v) for k, v in
             sorted(clases.items(), key=lambda kv: -kv[1])[:4])
         retr = ""
-        for rx in (r"RETRACTED_BY=(\d{3})", r"CORRECTS=(\d{3})",
-                   r"IMPLEMENTS=(\d{3})", r"GENERALIZAD[OA]_POR=(\d{3})"):
+        for rx in (r"RETRACTED_BY=(\d{3,4})", r"CORRECTS=(\d{3,4})",
+                   r"IMPLEMENTS=(\d{3,4})", r"GENERALIZAD[OA]_POR=(\d{3,4})"):
             retr += " " + ",".join(re.findall(rx, cab))
         gpu = "INTACTA" if "GPU INTACTA" in cab else (
             "?" if "GPU" not in cab else "modificada")
@@ -286,7 +286,7 @@ def gen_current_state(root: str, ind: Indice) -> str:
     for f in sorted(os.listdir(d)):
         if not f.endswith(".md"):
             continue
-        m = re.match(r"^(\d{3})[-_](.+)\.md$", f)
+        m = re.match(r"^(\d{3,4})[-_](.+)\.md$", f)
         if not m:
             continue
         n = int(m.group(1))
@@ -307,15 +307,15 @@ def gen_current_state(root: str, ind: Indice) -> str:
         # escaner lo contaba como retractado por si mismo. Un hallazgo no se
         # retracta a si mismo, y una fila que lo afirma es ruido que teaches a
         # no leer la tabla.
-        for rx in (r"CLAUSULA_RETRACTADA_POR=(\d{3})", r"RETRACTED_BY=(\d{3})"):
+        for rx in (r"CLAUSULA_RETRACTADA_POR=(\d{3,4})", r"RETRACTED_BY=(\d{3,4})"):
             for g in re.findall(rx, txt):
                 if g == m.group(1):
                     continue
                 item = "%s-%s -> retractada por %s" % (m.group(1), m.group(2)[:22], g)
                 if item not in retr:
                     retr.append(item)
-        for rx in (r"CORRECTED_BY=([\w-]+)", r"CORRIGE_LA_POLITICA=(\d{3})",
-                   r"CORRECTS=(\d{3})"):
+        for rx in (r"CORRECTED_BY=([\w-]+)", r"CORRIGE_LA_POLITICA=(\d{3,4})",
+                   r"CORRECTS=(\d{3,4})"):
             for g in re.findall(rx, txt):
                 corr.append("%s-%s -> corregida por %s" % (m.group(1), m.group(2)[:22], g))
         if re.search(r"correccion", m.group(2), re.I):
@@ -574,7 +574,7 @@ def gen_negative_results(root: str, ind: Indice) -> str:
     for f in sorted(os.listdir(d)):
         if not f.endswith(".md"):
             continue
-        m = re.match(r"^(\d{3})[-_](.+)\.md$", f)
+        m = re.match(r"^(\d{3,4})[-_](.+)\.md$", f)
         if not m:
             continue
         try:
@@ -1051,7 +1051,8 @@ def gen_tools_status(root: str, ind: Indice) -> str:
             " no `TOOL_VALIDATED`:  la tabla no afirma una validacion que nadie ha"
             " ejecutado.  Y el limite es un dato  y no una excusa:  un"
             " `TOOL_PARTIAL` con su motivo se puede cerrar;  una herramienta"
-            " ausente no se cierra de ninguna manera.",
+            " ausente no se cierra de ninguna manera."
+            % n_no_gateados,
             "",
             "Y AHORA LA LISTA ES UNA SOLA.  MEDIDO que antes este fichero tenia la"
             " suya  —un directorio—  y `toolreg.py` la suya  —dos—  y no"
@@ -1394,7 +1395,7 @@ def main(argv=None) -> int:
     for f in sorted(os.listdir(d)):
         if not f.endswith(".md"):
             continue
-        m = re.match(r"^(\d{3})[-_]", f)
+        m = re.match(r"^(\d{3,4})[-_]", f)
         if m:
             por_n.setdefault(m.group(1), []).append(f)
     dups = {n: v for n, v in por_n.items() if len(v) > 1}
