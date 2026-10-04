@@ -271,6 +271,84 @@ def gen_evidence_matrix(root: str, ind: Indice) -> str:
     return "\n".join(out)
 
 
+# MEDIDO 2026-10-04 (hallazgo 1054).  El corpus usa CUATRO formas distintas tras un
+# verbo de correccion, y las cuatro significan cosas distintas:
+#
+#   CORRECTS=040-smu-canal-mensajes-gfx8.md   nombre de fichero: resuelve EXACTO
+#   CORRECTS=040                               numero: puede ser ambiguo
+#   CORRECTED_BY=087-CORRECCION-POSTERIOR      auto-anotacion: NO es una referencia
+#   CORRECTED_BY=NNN                          plantilla de la prosa: NO es una referencia
+#
+# MEDIDO sobre las 42 referencias con verbo de correccion de findings/:
+#   14  nombre de fichero   15  numero   5  slug sin .md   5  auto-anotacion   3  plantilla
+#
+# El defecto era que `CORRECTS=(\d{3,4})` capturaba el PREFIJO NUMERICO de
+# `CORRECTS=040-smu-canal-mensajes-gfx8.md` y publicaba `-> corregida por 040`. O sea:
+# el proyecto YA escribe el nombre cuando quiere desambiguar, y la herramienta se lo
+# tiraba. Un nombre exacto convertido en un numero ambiguo es peor que no leer la
+# referencia, porque parece que se leyo.
+#
+# Y el caso contrario: `CORRECTED_BY=([\w-]+)` capturaba `087-CORRECCION-POSTERIOR` y
+# `NNN` enteros, y publicaba `-> corregida por 087-CORRECCION-POSTERIOR`.
+#
+# ASI QUE NO SE RESUELVE CON UNA REGLA MAS ESTRICTA, que solo cambia cual de los dos
+# errores se ve. Se resuelve con tres casos, y el tercero DECLARA la ambiguedad en vez
+# de escolher un destino en silencio.
+#
+# Que significa CORRECCION-POSTERIOR no lo decide este fichero: lo dice
+# tools/treescope.py:267-271 -- "La cita sigue en el cuerpo --los hallazgos no se
+# reescriben-- pero su CORRECCION POSTERIOR registra el numero bueno". O sea NO es una
+# referencia a otro hallazgo, es una auto-anotacion, y ya tiene clase propia
+# (CORREGIDO_Y_DOCUMENTADO en treescope.py). Por eso aqui se descarta y ahi se cuenta:
+# que se descarte NO es que se pierda.
+VERBO_CORR = r"(?:CORRECTED_BY|CORRECTS|CORRIGE_LA_POLITICA|CORRIGE_LA_POLITICA_DE)"
+RX_CORR = re.compile(VERBO_CORR + r"=([\w.-]+)")
+
+
+def resolver_destino(tok: str, bynum: Dict[int, List[str]]) -> Tuple[str, Any]:
+    """Que significa el token que sigue a un verbo de correccion.
+
+    Devuelve (estado, detalle).  Los estados son la informacion, no un adorno:
+      NO_REFERENCIA  el token no apunta a ningun hallazgo
+      INEXISTENTE    el token no casa con ningun fichero de findings/
+      AMBIGUA        casa con mas de uno y el token no lo desambigua
+      RESUELTA       casa con exactamente uno
+
+    MEDIDO: los cuatro estados existen en el corpus.  Ver la tabla de arriba.
+    """
+    if not tok or not tok[0].isdigit():
+        return "NO_REFERENCIA", "no empieza por digito: plantilla o literal"
+    if "CORRECCION-POSTERIOR" in tok:
+        return "NO_REFERENCIA", "auto-anotacion: la cita se corrigio en el sitio"
+
+    base = tok.split("-")[0]
+    try:
+        num = int(base)
+    except ValueError:
+        return "NO_REFERENCIA", "el prefijo no es un numero"
+
+    if tok.isdigit():
+        cands = list(bynum.get(num, []))
+    else:
+        # El token trae algo mas que el numero.  Hay dos formas en el corpus:
+        # con .md (`CORRECTS=040-smu-canal-mensajes-gfx8.md`) y sin el
+        # (`CORRECTS=105-se-ih-y-el-camino-real-de-los-faults.md`).  Las dos
+        # seeks a UN nombre exacto, y se buscan contra TODOS los ficheros, no
+        # solo contra los de ese numero: el nombre manda sobre el numero.
+        cands = []
+        for n, fs in bynum.items():
+            for c in fs:
+                if c == tok or c == tok + ".md" or c[:-3] == tok:
+                    cands.append(c)
+        if not cands:
+            return "INEXISTENTE", "ningun fichero se llama asi"
+    if not cands:
+        return "INEXISTENTE", "el numero %d no tiene fichero" % num
+    if len(cands) > 1:
+        return "AMBIGUA", cands
+    return "RESUELTA", cands[0]
+
+
 def gen_current_state(root: str, ind: Indice) -> str:
     """El estado que AGENTS.md §ESTADO ACTUAL YA CONOCIDO declara, confrontado
     con lo que el proyecto ha hecho despues.
@@ -281,16 +359,40 @@ def gen_current_state(root: str, ind: Indice) -> str:
     """
     d = os.path.join(root, "06-INGENIERIA-INVERSA", "findings")
     nums: List[int] = []
+    bynum: Dict[int, List[str]] = {}
     retr: List[str] = []
     corr: List[str] = []
+    corr_ambigua: List[str] = []
+    corr_rota: List[str] = []
+    corr_slug: List[str] = []
+
+    # MEDIDO 2026-10-04 (hallazgo 1054).  PRIMERA PASADA: indice completo, y SOLO eso.
+    #
+    # Antes de arreglar esto el `bynum.setdefault(...)` estaba DENTRO del mismo bucle que
+    # resuelve las referencias, y el resultado era que el resolutor consultaba un indice
+    # A MEDIDAS. Como los ficheros van en orden alfabetico, al llegar al fichero 019 el
+    # 030 todavia no se habia leido, `bynum.get(30, [])` devolvia [] y
+    # `019 -> corregida por 030` salia como ROTA cuando el numero SI existe y SI es
+    # ambiguo.  Lo medi antes de darme cuenta: 4 rotas, y dos de ellas son fictitious.
+    #
+    # Es la misma clase que el resto de esta sesion: una herramienta que mira un
+    # conjunto que todavia no esta entero y llama "no existe" a lo que no ha mirado.
     for f in sorted(os.listdir(d)):
         if not f.endswith(".md"):
             continue
         m = re.match(r"^(\d{3,4})[-_](.+)\.md$", f)
         if not m:
             continue
-        n = int(m.group(1))
-        nums.append(n)
+        nums.append(int(m.group(1)))
+        bynum.setdefault(int(m.group(1)), []).append(f)
+
+    # SEGUNDA PASADA: leer y resolver.  El indice ya esta completo.
+    for f in sorted(os.listdir(d)):
+        if not f.endswith(".md"):
+            continue
+        m = re.match(r"^(\d{3,4})[-_](.+)\.md$", f)
+        if not m:
+            continue
         # ANTES esto contaba mirando el SLUG del nombre, no el contenido:
         # `re.search(r"RETRACTED", m.group(2))`. Salia "Retracciones: 0" con
         # 5 ficheros del arbol marcados CLAUSULA_RETRACTADA_POR=091. Un
@@ -314,13 +416,81 @@ def gen_current_state(root: str, ind: Indice) -> str:
                 item = "%s-%s -> retractada por %s" % (m.group(1), m.group(2)[:22], g)
                 if item not in retr:
                     retr.append(item)
-        for rx in (r"CORRECTED_BY=([\w-]+)", r"CORRIGE_LA_POLITICA=(\d{3,4})",
-                   r"CORRECTS=(\d{3,4})"):
-            for g in re.findall(rx, txt):
-                corr.append("%s-%s -> corregida por %s" % (m.group(1), m.group(2)[:22], g))
+        # MEDIDO 2026-10-04 (hallazgo 1054).  Estas TRES lineas eran:
+        #
+        #     for rx in (r"CORRECTED_BY=([\w-]+)", ...):
+        #         for g in re.findall(rx, txt):
+        #             corr.append("%s-%s -> corregida por %s" % (...))
+        #
+        # y producian 35 aristas de las que SOLO 12 eran referencias a otro hallazgo.
+        #
+        # Tres defectos, y los tres tienen la MISMA forma que el defecto de la rama de
+        # arriba: la rama hermana tiene el guard y esta no.
+        #
+        # 1) SIN GUARD DE AUTO-REFERENCIA.  Arriba, linea 312, ya esta escrito por que:
+        #    "Un hallazgo no se retracta a si mismo".  El guard `if g == m.group(1)`
+        #    existe para retr y NO existia para corr.  Salia `030-page-walker ->
+        #    corregida por 030`, porque 030:117 DESCRIBE la convencion de marcar con
+        #    CORRECTED_BY al Describe el caso.
+        #
+        # 2) SIN DEDUP.  Arriba, linea 315, esta `if item not in retr`.  En corr no
+        #    habia ninguno, y `72 -> 041` y `73 -> 040` salian DOS VECES cada uno,
+        #    porque dos verbos distintos del mismo fichero disparan la misma arista.
+        #
+        # 3) LA REGLA ADMITE COSAS QUE NO SON NUMEROS.  `[\w-]+` captura
+        #    `087-CORRECCION-POSTERIOR` y `NNN`.  Lo que significa CORRECCION-POSTERIOR
+        #    lo dice tools/treescope.py:267-271: "La cita sigue en el cuerpo --los
+        #    hallazgos no se reescriben-- pero su CORRECCION POSTERIOR registra el
+        #    numero bueno".  O sea NO es una referencia a otro hallazgo: es una
+        #    auto-anotacion.  Y tiene casa propia, la clase CORREGIDO_Y_DOCUMENTADO de
+        #    treescope.py.  Publicarla aqui como "corregida por 087-CORRECCION-POSTERIOR"
+        #    es afirmar que 087 se corrige a si mismo con un nombre de fichero.
+        #
+        # Y `NNN` salia 3 veces, desde 1049-los-74-numeros-duplicados.md, que usa
+        # `CORRECTED_BY=NNN` como PLANTILLA al explicar la convencion.  Ese fichero es
+        # MIO.  Es la tercera vez esta sesion que mi prosa produce un dato fantasma en
+        # un artefacto generado, tras 1050 y 1051.  La prosa no es inerte.
+        #
+        # El lookahead `(?![-\w])` es lo MINIMO que arregla lo medido: excluye el
+        # sufijo y el literal, y no pierde NADA de lo que hay en el corpus, porque las
+        # nueve apariciones de CORRECTED_BY= en findings/ son o `\d+` a secas o
+        # `\d+-CORRECCION-POSTERIOR`.  No se inventa una gramática nueva.
+        # MEDIDO 2026-10-04 (hallazgo 1054).  Antes eran TRES regex sueltas y una
+        # fila por coincidencia, y el resultado era 35 aristas de las que 12 eran
+        # referencias.  Los tres defectos, en las mismas 20 lineas, y los tres con la
+        # misma forma que el de la rama de `retr` de arriba: la hermana tiene el guard
+        # y esta no.
+        #   1) sin guard de auto-referencia (arriba, linea ~312, ya lo dice: "un
+        #      hallazgo no se retracta a si mismo").  Salia 030 -> corregida por 030.
+        #   2) sin dedup (arriba esta `if item not in retr`).  72 -> 041 y 73 -> 040
+        #      salian DOS VECES cada uno, por dos verbos del mismo fichero.
+        #   3) la regla admitia cosas que no son hallazgos: `NNN`, y los cinco
+        #      `NNN-CORRECCION-POSTERIOR`.
+        # El guard de auto-referencia lo resuelve el RESOLUTOR: si el destino cae en
+        # el propio fichero, es una mencion en prosa, no una arista.
+        for mm in RX_CORR.finditer(txt):
+            tok = mm.group(1)
+            estado, det = resolver_destino(tok, bynum)
+            if estado == "NO_REFERENCIA":
+                continue
+            if m.group(1) in str(det):
+                # el token nombra este mismo fichero: es la convencion DESCRITA
+                continue
+            item = "%s-%s -> corregida por %s" % (
+                m.group(1), m.group(2)[:22], det if estado == "RESUELTA" else tok)
+            if item in corr or item in corr_ambigua or item in corr_rota:
+                continue
+            if estado == "AMBIGUA":
+                corr_ambigua.append("%s  [%d candidatos]" % (item, len(det)))
+            elif estado == "INEXISTENTE":
+                corr_rota.append(item)
+            else:
+                corr.append(item)
+        # Esto NO es una arista: es una coincidencia de nombre.  Antes iba a `corr` y
+        # por eso "Correcciones: 29" contaba 10 filas que no son correcciones.  Con el
+        # numero separado, "inequivocas" significa inequivocas.
         if re.search(r"correccion", m.group(2), re.I):
-            corr.append("%s-%s (slug)" % (m.group(1), m.group(2)[:30]))
-            corr.append("%s-%s" % (m.group(1), m.group(2)[:40]))
+            corr_slug.append("%s-%s" % (m.group(1), m.group(2)[:44]))
     return "\n".join([
         "# CURRENT-STATE", "", SELLADO, "",
         "Contraste entre lo que declara `AGENTS.md` §ESTADO ACTUAL YA CONOCIDO y",
@@ -329,14 +499,33 @@ def gen_current_state(root: str, ind: Indice) -> str:
         "",
         "- Findings totales: **%d**, numerados del %03d al %d."
         % (len(nums), min(nums), max(nums)),
-        "- Correcciones: **%d**" % len(corr),
+        "- Correcciones inequivocas: **%d**" % len(corr),
+        "- Correcciones AMBIGUAS (el numero tiene mas de un fichero): **%d**"
+        % len(corr_ambigua),
+        "- Correcciones rotas (el destino no existe): **%d**" % len(corr_rota),
+        "- Hallazgos cuyo NOMBRE contiene 'correccion' (no son aristas): **%d**"
+        % len(corr_slug),
         "- Retracciones: **%d**" % len(retr),
         "",
         "## Retracciones registradas", "",
         *([("- `%s`" % x) for x in retr] or ["- ninguna"]),
         "",
-        "## Correcciones registradas", "",
+        "## Correcciones registradas (inequivocas)", "",
         *([("- `%s`" % x) for x in corr] or ["- ninguna"]),
+        "",
+        "## Hallazgos cuyo nombre contiene 'correccion'", "",
+        "No son aristas: es el nombre del fichero. Se listan aparte para que el",
+        "recuento de correcciones signifique correcciones.", "",
+        *([("- `%s`" % x) for x in corr_slug] or ["- ninguno"]),
+        "",
+        "## Correcciones AMBIGUAS: el numero tiene mas de un fichero", "",
+        "El numero de hallazgo no es clave unica, asi que un destino numerico no",
+        "identifica un documento. Se listan, no se eligen: elegir en silencio es lo",
+        "que hace el generador cuando no sabe.", "",
+        *([("- `%s`" % x) for x in corr_ambigua] or ["- ninguna"]),
+        "",
+        "## Correcciones rotas: el destino no existe", "",
+        *([("- `%s`" % x) for x in corr_rota] or ["- ninguna"]),
         "",
         "## Lo que AGENTS.md no refleja", "",
         "Su §ESTADO ACTUAL YA CONOCIDO no recoge ninguno de los hallazgos",
