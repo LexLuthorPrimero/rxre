@@ -652,6 +652,73 @@ int rx550_mmio_resolve_reg(const struct rx550_mmio_map *map,
 			   enum rx550_vmid1_reg_id id,
 			   struct rx550_mmap_offset *out);
 
+/* ── ACTUALIZACION DE UN CAMPO:  la primitiva que faltaba ───────────────────
+ *
+ *  POR QUE EXISTE, Y NO COMO UN "SET_FIELD" MAS
+ *
+ *  El corpus programa los registros de control con
+ *      RREG32 -> REG_SET_FIELD -> WREG32            (amdgpu.h:1354-1356)
+ *  y las 21 escrituras de gmc_v8_0_gart_enable() son TODAS de esa forma.  No hay
+ *  ni una sola escritura ciega en la secuencia, y no es descuido:  en
+ *  mmVM_CONTEXT0_CNTL hay 22 campos y la referencia pone 3, de modo que una
+ *  escritura directa pondria a cero los otros 19 y el resultado no falla al
+ *  escribir:  falla mucho despues, cuando una pagina se mapea mal.
+ *
+ *  Y el accessor no tenia forma de hacerlo.  Solo read32 y write32.  Ver el
+ *  finding 1028.
+ *
+ *  EL SHIFT SE DERIVA DEL MASK, Y NO SE COPIA
+ *
+ *  amdgpu declara <REG>__<FIELD>_MASK y <REG>__<FIELD>__SHIFT.  El __SHIFT es
+ *  redundante:  MEDIDO sobre los 42 campos que escribe gmc_v8_0_gart_enable(),
+ *  en los 42 casos vale el numero de ceros finales del MASK, y el invariante
+ *
+ *      (mask >> shift) == 2^ancho - 1
+ *
+ *  se cumple sin una sola excepcion.
+ *
+ *  Por que importa no copiarlo:  una tabla de 42 constantes __SHIFT escritas a
+ *  mano es una tabla que se desincroniza en silencio el dia que el header se
+ *  regenere, y el fallo se manifesta como "la GPU no mapea bien", que es el
+ *  sintoma mas caro de buscar de todo este componente.  Con el mask solo, la
+ *  tabla se puede comprobar contra el corpus entero con un invariante, que es
+ *  lo que hace test_update_field.c.
+ *
+ *  POR QUE RECHAZA UN MASK MAL FORMADO, Y POR QUE
+ *
+ *  Un mask con dos grupos de unos separados ("0b101") no tiene una posicion
+ *  unica, y un mask de cero no tiene ninguna.  Derivarlos en silencio daria un
+ *  shift que el hardware no espera.  Se rechazan, con el motivo distinguido del
+ *  que ya existe para el acceso, porque quien llama trata los dos distinto.
+ */
+#define RX550_MMIO_ERR_BAD_MASK		(-205)	/* mask 0 o no contiguo      */
+#define RX550_MMIO_ERR_VALUE_RANGE	(-206)	/* el valor no cabe en el campo */
+
+/* Posicion y anchura de un campo, derivadas del MASK.  Puro, sin mapa ni HW.
+ *
+ *  EL NOMBRE, Y POR QUE NO ES "rx550_field_of"
+ *
+ *  Ya existe rx550_field_of(enum rx550_field_id) en este mismo fichero:  busca
+ *  POR NOMBRE en la tabla rx550_reg_fields[] y devuelve un puntero.  Esta
+ *  deriva POR MASMARA y devuelve dos numeros.  Son cosas distintas con nombres
+ *  que se diferencian en un prefijo, y la primera version de esta función se
+ *  llamaba igual:  un `rx550_field_of` nuevo con otro sentido, a tres lineas
+ *  del de verdad.  Dos funciones con el mismo nombre y distinta semantica son
+ *  la clase de trampa que este componente existe para no tener. */
+int rx550_mmio_field_from_mask(uint32_t mask, unsigned *out_shift, unsigned *out_width);
+
+/* Lee, cambia SOLO los bits del campo, y escribe.  Devuelve el valor que queda
+ * en el registro, para que el llamante pueda comprobarlo sin releer. */
+int rx550_mmio_update_field(const struct rx550_mmio_map *map,
+			    struct rx550_reg reg,
+			    uint32_t mask, uint32_t value,
+			    uint32_t *out_value);
+
+/* El valor de un campo ya leído, con la misma validacion que la escritura.
+ * Un mask invalido NO se aplica en silencio aqui tampoco:  leer un campo con
+ * mascara invalida daria un numero que no significa nada. */
+int rx550_mmio_get_field(uint32_t raw, uint32_t mask, uint32_t *out_value);
+
 /* Lectura y escritura de 32 bits.  Devuelven el codigo del resolver, y no
  * tocan hardware si el resolver no dijo que sí. */
 int rx550_mmio_read32(const struct rx550_mmio_map *map, struct rx550_reg reg,

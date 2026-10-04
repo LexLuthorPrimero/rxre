@@ -75,7 +75,7 @@ $(KO):
 run: $(KO) test_target_match test_resource test_regs test_vm test_fence test_submit \
      test_mmio_access test_block_size test_gart_write test_ib_bridge \
      test_ib_composer test_pdb0 test_submission test_vmid0_gart test_mem \
-     test_ctxpt \
+     test_ctxpt test_update_field \
      test_vmid1_pgt test_vmid1_pgt_backing
 	@./test_resource
 	@./test_regs $(CORPUS)/gfx_8_0_d.h $(CORPUS)/gfx_8_1_d.h
@@ -98,6 +98,7 @@ run: $(KO) test_target_match test_resource test_regs test_vm test_fence test_sub
 	@./test_submission
 	@./test_mem
 	@./test_ctxpt
+	@./test_update_field
 	@./test_vmid0_gart
 	@./test_vmid1_pgt
 	@./test_vmid1_pgt_backing
@@ -116,6 +117,12 @@ test_mem: test_mem.c ../target_mem.h ../target_mem_host.h
 # ninguna parte del componente.  Ver finding 1025.
 test_ctxpt: test_ctxpt.c ../rx550_mmio_access.c ../rx550_mmio_access.h
 	$(CC) $(CFLAGS) -o $@ test_ctxpt.c ../rx550_mmio_access.c
+
+# test_update_field comprueba la RMW por campo, que es como programa la
+# referencia los 7 registros de control de gmc_v8_0_gart_enable().  ElAccessor
+# no tenia forma de hacerlo: solo read32 y write32.  Ver finding 1028.
+test_update_field: test_update_field.c ../rx550_mmio_access.c ../rx550_mmio_access.h
+	$(CC) $(CFLAGS) -o $@ test_update_field.c ../rx550_mmio_access.c
 
 test_target_match: test_target_match.c ../target_match.h
 	$(CC) $(CFLAGS) -o test_resource test_resource.c ../target_resource.h
