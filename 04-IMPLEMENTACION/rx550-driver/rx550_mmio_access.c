@@ -463,6 +463,114 @@ static void rx550_slot_write(void *slot, uint32_t v)
 }
 #endif
 
+/* ── ACTUALIZACION DE UN CAMPO ─────────────────────────────────────────────
+ *
+ *  La justificacion, con la cuenta del corpus y el motivo de derivar el shift
+ *  en vez de copiarlo, estan en rx550_mmio_access.h.  Aqui la implementacion.
+ *
+ *  rx550_mmio_field_from_mask es donde vive la regla, y por eso es una funcion suelta
+ *  y no una linea dentro de update:  es lo que test_update_field.c comprueba
+ *  contra los 42 campos del corpus.  Si la regla estuviera incrustada en el
+ *  update, comprobarla obligaria a ejecutarlo contra un mapa, y el test
+ *  compararia un mapa con un mapa en vez de una regla con el corpus.
+ */
+
+/* Numero de ceros finales.  mask != 0 garantizado por el llamante. */
+static unsigned rx550_trailing_zeros(uint32_t v)
+{
+	unsigned n = 0;
+
+	while ((v & 1u) == 0u) {
+		v >>= 1;
+		n++;
+	}
+	return n;
+}
+
+int rx550_mmio_field_from_mask(uint32_t mask, unsigned *out_shift, unsigned *out_width)
+{
+	unsigned shift, width, w;
+
+	if (!out_shift || !out_width)
+		return RX550_MMIO_ERR_INCONSISTENT;
+	/* Un mask de cero no tiene posicion.  No se devuelve shift 0:  se
+	 * devolveria el primer bit del registro, que es el campo equivocado y
+	 * uno que el llamante no puede detectar. */
+	if (mask == 0u)
+		return RX550_MMIO_ERR_BAD_MASK;
+
+	shift = rx550_trailing_zeros(mask);
+	w = mask >> shift;
+	/* Contiguo: tras el desplazamiento tiene que quedar una racha de unos y
+	 * nada mas.  0b1, 0b11, 0b111...  0b101 no, porque tiene un hueco y dos
+	 * posiciones posibles. */
+	if ((w & (w + 1u)) != 0u)
+		return RX550_MMIO_ERR_BAD_MASK;
+
+	width = 0;
+	while (w & 1u) {
+		w >>= 1;
+		width++;
+	}
+
+	*out_shift = shift;
+	*out_width = width;
+	return RX550_MMIO_OK;
+}
+
+int rx550_mmio_get_field(uint32_t raw, uint32_t mask, uint32_t *out_value)
+{
+	unsigned shift, width;
+	int rc;
+
+	if (!out_value)
+		return RX550_MMIO_ERR_INCONSISTENT;
+	rc = rx550_mmio_field_from_mask(mask, &shift, &width);
+	if (rc != RX550_MMIO_OK)
+		return rc;
+	/* El ancho no hace falta para leer, pero se pide la validacion entera:
+	 *  un mask valido que no cabe en el registro no existe aqui, y pedir
+	 *  solo el shift seria una via por la que un mask raro pase sin quejar. */
+	*out_value = (raw >> shift) & mask;
+	return RX550_MMIO_OK;
+}
+
+int rx550_mmio_update_field(const struct rx550_mmio_map *map,
+			    struct rx550_reg reg,
+			    uint32_t mask, uint32_t value,
+			    uint32_t *out_value)
+{
+	struct rx550_mmap_offset off;
+	unsigned shift, width;
+	uint32_t raw, nuevo;
+	int rc;
+
+	if (!out_value)
+		return RX550_MMIO_ERR_INCONSISTENT;
+
+	/* El campo se valida ANTES de tocar el mapa.  Un mask invalido con un
+	 * mapa valido tiene que fallar por el mask, no por el mapa, o el
+	 * llamante recibe un motivo que no le sirve. */
+	rc = rx550_mmio_field_from_mask(mask, &shift, &width);
+	if (rc != RX550_MMIO_OK)
+		return rc;
+
+	/* El valor tiene que CABER.  Truncar un valor a la anchura del campo
+	 * escribiria en un registro un numero que el llamante cree que puso. */
+	if (width < 32u && (value >> width) != 0u)
+		return RX550_MMIO_ERR_VALUE_RANGE;
+
+	rc = rx550_mmio_resolve(map, reg, &off);
+	if (rc != RX550_MMIO_OK)
+		return rc;
+
+	raw = *(volatile uint32_t *)rx550_mmio_slot(map, off);
+	nuevo = (raw & ~mask) | ((value << shift) & mask);
+	*(volatile uint32_t *)rx550_mmio_slot(map, off) = nuevo;
+	*out_value = nuevo;
+	return RX550_MMIO_OK;
+}
+
 int rx550_mmio_read32(const struct rx550_mmio_map *map, struct rx550_reg reg,
 		      uint32_t *out_value)
 {
