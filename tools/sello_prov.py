@@ -84,11 +84,10 @@ import os
 import re
 import sys
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 # ---------------------------------------------------------------------------
 # LA RECETA DE `reproducible`
-#
 # MEDIDO 3 de 3 sobre R1-RIESGO, R2-PM4OPS y R3-DWARFX: el valor declarado es
 #
 #     sha256( json.dumps( json_del_artefacto_sin_claves_volatiles , sort_keys=True ) )
@@ -167,6 +166,15 @@ CAMPOS = {
     "artefacto": "portador",
     "fuente": "portador",
     "script": "portador",
+    # MEDIDO por adversarial-reviewer: el hallazgo 970 usa `TOOL=path digest` en
+    # la misma linea, con el path DENTRO del valor de `sha256`. Mi primera
+    # version reconocia la clave y luego fallaba al buscar un portador hacia
+    # atras, y el resultado era que de ese bloque no salia NADA: no un veredicto
+    # malo, sino silencio. El silencio es el peor de los tres resultados
+    # posibles, porque un campo que no se reporta parece un campo que no existe.
+    # El digest de 970 es CORRECTO; lo que estaba mal era el path en la prosa,
+    # que apunta a tools/ cuando el fichero esta en 08-ARQUITECTURA/tools/.
+    "TOOL": "portador",
     "sha256": "suma",
     "reproducible": "suma",
     "Regenerar": "receta",
@@ -269,6 +277,7 @@ def parsea_bloque(lineas, raiz, ruta):
             c["portador"] = portador["ruta"] if portador else None
             if c["portador"] is None:
                 c["portador"] = portador_de_continuacion(c, lineas)
+    marca_ambiguedad(campos)
     return campos
 
 
@@ -355,8 +364,19 @@ def audita_campo(c, raiz, ruta_rel):
 
     # --- sumas ---
     if not RE_HEX.match(valor):
-        return dict(out, veredicto="MALFORMADO",
-                    motivo="no es un hash en hexadecimal: %r" % valor)
+        # Layout `sha256  <path> <digest>` (hallazgo 970): el path viene DENTRO
+        # del valor. Se separa aqui y no en el parser de campos, porque es el
+        # VALOR el que lleva las dos cosas y es la unica linea donde se puede
+        # partir sin ambiguedad.
+        m = re.match(r"^(\S+)\s+([0-9a-f]{16,64})$", valor)
+        if m:
+            c["portador"] = m.group(1)
+            valor = m.group(2)
+            out["valor"] = valor
+            out["ruta_dentro_del_valor"] = c["portador"]
+        else:
+            return dict(out, veredicto="MALFORMADO",
+                        motivo="no es un hash en hexadecimal: %r" % valor)
 
     objetivo = c.get("portador")
     if not objetivo:
@@ -393,6 +413,12 @@ def audita_campo(c, raiz, ruta_rel):
             else:
                 v["motivo"] = ("prefijo de %d hex del sha256 de %s"
                                % (len(valor), objetivo))
+            amb = c.get("ambiguo_con")
+            if amb:
+                v["veredicto"] = "AMBIGUO"
+                v["motivo"] += ("; pero el MISMO digest se declara tambien "
+                                "para %s, y cumple en ambos: no distingue"
+                                % ", ".join(amb))
             return v
         return dict(out, veredicto="DIFIERE",
                     motivo="declarado %s, obtenido %s" % (valor, got[:len(valor)]))
@@ -444,30 +470,90 @@ def audita_campo(c, raiz, ruta_rel):
                        % (valor, got, RECETA_REPRODUCIBLE))
 
 
-VEREDICTOS = ("EXISTE", "COINCIDE", "DIFIERE", "SIN_RECETA", "ROTO", "MALFORMADO")
+VEREDICTOS = ("EXISTE", "COINCIDE", "DIFIERE", "AMBIGUO", "SIN_RECETA", "ROTO",
+              "MALFORMADO")
 
 
-def audita(rutas, raiz):
+def marca_ambiguedad(campos):
     """
-    Audita una lista de ficheros .md. Devuelve (informe, error_de_uso).
+    Un digest que se declara para VARIOS paths, y cumple en todos, no
+    identifica ninguno de ellos.
 
-    UN DOCUMENTO ILEGIBLE NO ABORTA EL CENSO. MEDIDO: al pasarlo por el arbol
-    entero, `063-memoria-sesion-smu-estado-persistente.md` tiene una viga sin
-    cerrar en la linea 5180, y la primera version de esta herramienta
-    devolvia rc=2 y NO Census NADA. Un instrumento que se para por un fichero
-    malo no puede cumplir la unica funcion para la que existe, que es medir
-    700 documentos para encontrar los que estan mal.
+    MEDIDO en el 977: el bloque declara `0280d616a3dd774c...` para
+    `gate-run-1.txt` y para `gate-run-2.txt`, y el valor es CORRECTO en los dos.
+    Por eso el veredicto COINCIDE, tal cual, no ve el problema: la pregunta que
+    importa no es "el hash corresponde a este fichero" --si-- sino "el hash
+    DISTINGUE este fichero de los demas". Si tres ficheros del arbol tienen la
+    misma suma, el hash que los acompaña a dos de ellos no es evidencia sobre
+    ninguno: es un hash de contenido, y esos dos ficheros tienen el mismo
+    contenido.
 
-    Pero el fichero con la viga rota tampoco se audita a medias: si la viga no
-    se cierra, todo lo que viene despues esta desalineado, y reportar sus
-    bloques como hechos seria peor que no reportarlos. Va a `errores`, y el
-    codigo de salida avisa de que el censo esta INCOMPLETO.
+    Que este caso sea el del 977 no es casualidad: las dos salidas de una puerta
+    que se ejecuta dos veces SON identicas, y por eso son el par de ficheros
+    donde tiene sentido comprobar que la afirmacion "estas dos salidas son
+    iguales" se apoya en algo mas que en(hash, hash).
+
+    Es una comprobacion LOCAL, sin recorrer el arbol: si el mismo digest se
+    declara para mas de un portador y todos cumplen, se marca. No catches el
+    caso general --un hash colisiona con un fichero que nadie declara--, y eso
+    esta escrito en LIMITACION para no vender mas de lo que mide.
     """
-    informe = {"version": VERSION, "raiz": raiz, "ficheros": [],
-               "recuento": dict((v, 0) for v in VEREDICTOS),
+    por_digest = {}
+    for c in campos:
+        if c["tipo"] != "suma" or not c.get("portador"):
+            continue
+        if not re.match(r"^[0-9a-f]{16,64}$", c["valor"]):
+            continue
+        por_digest.setdefault(c["valor"], []).append(c)
+    for valor, grupo in por_digest.items():
+        paths = set(c["portador"] for c in grupo)
+        # Dos declaraciones del MISMO path no son ambiguedad: es el mismo
+        # fichero dicho dos veces, que no es un error pero tampoco es una
+        # prueba de nada. Lo que degrada el digest a no-identificante es que
+        # seal para MAS DE UN path DISTINTO.
+        if len(paths) < 2:
+            continue
+        for c in grupo:
+            c["ambiguo_con"] = sorted(
+                o["portador"] for o in grupo if o["portador"] != c["portador"])
+
+
+def audita(rutas, raiz_scan, raiz_res=None):
+    """
+    Audita documentos .md. Devuelve (informe, error_de_uso).
+
+    DOS RAICES, Y POR QUE NO SE PUEDEN MEZCLAR
+    -------------------------------------------
+    MEDIDO como defecto mio, dos veces seguidas:
+
+      1. La raiz de resolucion se derivaba de `--arbol`. Con
+         `--arbol <docs> --raiz .` las rutas project-relative se resolvian
+         contra `<docs>` y salian **2 ROTO falsos** donde debia haber COINCIDE.
+
+      2. Al separarlas, los DOCUMENTOS se volvieron a abrir contra la raiz
+         equivocada: `recoge_md` devuelve rutas relativas al arbol donde busca,
+         y se abrian contra la raiz de resolucion. Con dos raices distintas eso
+         es `ilegible` para todos los ficheros, que es un censo vacio disfrazado
+         de censo.
+
+    Que el segundo defecto no lo cogiera el self-test es la parte que importa: no
+    habia NINGUN vector con dos raices distintas. Un self-test que solo ejercita
+    el caso trivial de "una raiz" no cubre el caso para el que existe la opcion.
+
+    `raiz_scan` -> donde se buscan los .md
+    `raiz_res`  -> contra que se resuelven los paths que los .md citan
+    """
+    if raiz_res is None:
+        raiz_res = raiz_scan
+    informe = {"version": VERSION, "raiz": raiz_res, "raiz_scan": raiz_scan,
+               "ficheros": [], "recuento": dict((v, 0) for v in VEREDICTOS),
                "bloques": 0, "campos_auditados": 0, "errores": []}
-    for rel in rutas:
-        p = os.path.join(raiz, rel)
+    for ruta in rutas:
+        # Una ruta relativa se resuelve contra `raiz_scan`, que es donde se
+        # buscan los documentos. Sin esto, un censo entero sale como
+        # "ilegible" y parece un censo sin hallazgos.
+        p = ruta if os.path.isabs(ruta) else os.path.join(raiz_scan, ruta)
+        rel = os.path.relpath(p, raiz_scan)
         try:
             with open(p, "r", errors="replace") as f:
                 texto = f.read()
@@ -481,13 +567,13 @@ def audita(rutas, raiz):
             continue
         ent = {"fichero": rel, "bloques": []}
         for abre, lineas in bloques:
-            campos = parsea_bloque(lineas, raiz, rel)
+            campos = parsea_bloque(lineas, raiz_res, rel)
             if campos is None:
                 continue
             informe["bloques"] += 1
             b = {"linea": abre, "campos": []}
             for c in campos:
-                v = audita_campo(c, raiz, rel)
+                v = audita_campo(c, raiz_res, rel)
                 if v is None:
                     continue
                 informe["campos_auditados"] += 1
@@ -516,7 +602,7 @@ def rc_de(informe):
         return 2
     if r["DIFIERE"] or r["ROTO"] or r["MALFORMADO"]:
         return 4
-    if r["SIN_RECETA"]:
+    if r["AMBIGUO"] or r["SIN_RECETA"]:
         return 3
     if not informe["bloques"]:
         return 1
@@ -528,7 +614,9 @@ def imprime(informe):
     print("=" * 78)
     print("SELLO DE PROCEDENCIA  %s" % informe["version"])
     print("=" * 78)
-    print("raiz     %s" % informe["raiz"])
+    print("raiz_scan  %s   (donde se buscan los .md)" % informe.get("raiz_scan", "-"))
+    print("raiz       %s   (contra que se resuelven los paths citados)"
+          % informe["raiz"])
     print("bloques  %d con campo de procedencia, en %d fichero(s)"
           % (informe["bloques"], len(informe["ficheros"])))
     print("campos   %d auditados" % informe["campos_auditados"])
@@ -555,13 +643,19 @@ def imprime(informe):
 
 
 def recoge_md(raiz):
+    """Rutas ABSOLUTAS de los .md de un arbol.
+
+    Absolutas, y no relativas a `raiz`, por el motivo escrito en `audita`: con
+    dos raices distintas, unir una ruta relativa a la raiz equivocada produce un
+    censo entero de ficheros ilegibles.
+    """
     out = []
     for dp, dns, fns in os.walk(raiz):
         dns[:] = [d for d in dns
                   if d not in (".git", "__pycache__", "node_modules", "archive")]
         for fn in fns:
             if fn.endswith(".md"):
-                out.append(os.path.relpath(os.path.join(dp, fn), raiz))
+                out.append(os.path.join(dp, fn))
     return sorted(out)
 
 
@@ -597,6 +691,11 @@ def selftest():
         os.makedirs(raiz)
         her = os.path.join(raiz, "her.py")
         with open(her, "w") as f:
+            # Un literal, NO VERSION. MEDIDO: al subir esta herramienta a
+            # 1.1.0, cuatro vectoresfallen porque el fixture heredaba la
+            # version del codigo. Un self-test cuyo significado depende del
+            # numero de version de la herramienta es un self-test que se rompe
+            # por una razon que no tiene que ver con lo que prueba.
             f.write('#!/usr/bin/env python3\nVERSION = "1.0.0"\n')
         art = os.path.join(raiz, "art.json")
         with open(art, "w") as f:
@@ -815,7 +914,48 @@ def selftest():
         chk("V14d_prefijo_de_8_hex_es_MALFORMADO",
             i["recuento"]["MALFORMADO"] == 1)
 
-        # 14-quinquies. la forma (b): hash primero, fichero en la continuacion.
+        # 19. el mismo digest para dos paths -> AMBIGUO. Es el caso del 977 con
+        #     gate-run-1.txt y gate-run-2.txt: el valor es CORRECTO en los dos, y
+        #     por eso un COINCIDE a secas no ve nada malo. La pregunta que
+        #     importa es si el hash DISTINGUE, no si acompaña.
+        escribe("amb.md", blk(
+            "artefacto  art.json\n"
+            "sha256   %s\n"
+            "artefacto  copia.json\n"
+            "sha256   %s\n" % (h_art, h_art)))
+        with open(os.path.join(raiz, "copia.json"), "w") as f:
+            f.write('{"a": 1}\n')
+        i, e = audita(["amb.md"], raiz)
+        chk("V19_digest_repetido_es_AMBIGUO",
+            i["recuento"]["AMBIGUO"] == 2 and i["recuento"]["COINCIDE"] == 0
+            and rc_de(i) == 3, "AMBIGUO=%d rc=%d"
+            % (i["recuento"]["AMBIGUO"], rc_de(i)))
+        chk("V19b_AMBIGUO_no_es_un_veredicto_de_cumplimiento",
+            i["recuento"]["AMBIGUO"] == 2
+            and all(c["veredicto"] != "COINCIDE"
+                    for b in i["ficheros"][0]["bloques"]
+                    for c in b["campos"] if c["campo"] == "sha256"))
+        # el mismo digest para el MISMO path dos veces no es ambiguedad
+        escribe("amb2.md", blk(
+            "artefacto  art.json\nsha256   %s\n"
+            "artefacto  art.json\nsha256   %s\n" % (h_art, h_art)))
+        i, e = audita(["amb2.md"], raiz)
+        chk("V19c_mismo_path_dos_veces_no_es_AMBIGUO",
+            i["recuento"]["COINCIDE"] == 2 and i["recuento"]["AMBIGUO"] == 0)
+
+        # 20. layout `sha256 <path> <digest>` (el del hallazgo 970). Antes se
+        #     reportaba NADA de ese bloque, que es peor que un veredicto malo.
+        escribe("dentro.md", blk("sha256  her.py %s\n" % h_her))
+        i, e = audita(["dentro.md"], raiz)
+        chk("V20_path_dentro_del_valor_se_resuelve",
+            i["recuento"]["COINCIDE"] == 1 and rc_de(i) == 0,
+            "COINCIDE=%d" % i["recuento"]["COINCIDE"])
+
+        # 20-bis. y si el path de dentro no existe, se dice ROTO, no silencio
+        escribe("dentro2.md", blk("sha256  no/existe.py %s\n" % h_her))
+        i, e = audita(["dentro2.md"], raiz)
+        chk("V20b_path_interno_inexistente_es_ROTO",
+            i["recuento"]["ROTO"] == 1 and i["campos_auditados"] == 1)
         #      Es la que usan los findings, y la que la primera version de esta
         #      herramienta no entendia: reportaba 15 SIN_RECETA falsos.
         escribe("cont.md", blk(
@@ -888,6 +1028,51 @@ def selftest():
             audita(["ok.md"], "/no/existe")[0]["recuento"]["COINCIDE"] == 0
             and rc_de(audita(["ok.md"], "/no/existe")[0]) == 2)
 
+        # 21. DOS RAICES DISTINTAS. Este vector no existia, y por eso no se
+        #     detectaron los dos bugs de raiz. El caso es el natural del
+        #     proyecto: los .md viven en 08-ARQUITECTURA/ y los paths que
+        #     citan son relativos a la raiz del proyecto entero.
+        sub = os.path.join(raiz, "08-ARQ")
+        os.makedirs(sub)
+        docs = os.path.join(sub, "docs")
+        os.makedirs(docs)
+        datos = os.path.join(raiz, "datos")
+        os.makedirs(datos)
+        with open(os.path.join(datos, "x.json"), "w") as f:
+            f.write('{"a": 1}\n')
+        h_x = hash_de(os.path.join(datos, "x.json"))
+        with open(os.path.join(docs, "f.md"), "w") as f:
+            f.write(blk("artefacto  datos/x.json\nsha256   %s\n" % h_x))
+        rutas_abs = recoge_md(docs)
+        i, e = audita(rutas_abs, docs, raiz)
+        chk("V21_documentos_se_abren_por_raiz_scan",
+            len(i["errores"]) == 0 and i["recuento"]["COINCIDE"] == 1,
+            "errores=%d COINCIDE=%d" % (len(i["errores"]),
+                                        i["recuento"]["COINCIDE"]))
+        chk("V21b_paths_se_resuelven_por_raiz_res",
+            i["recuento"]["ROTO"] == 0,
+            "ROTO=%d" % i["recuento"]["ROTO"])
+        # y con las dos raices iguales tambien, que es el caso trivial
+        i, e = audita(rutas_abs, docs, docs)
+        chk("V21c_con_una_sola_raiz_el_path_no_resuelve_y_se_dice",
+            i["recuento"]["ROTO"] == 2 and i["recuento"]["COINCIDE"] == 0,
+            "ROTO=%d (el portador y su sha256: los dos son ROTO, que es lo "
+            "que corresponde cuando la raiz no es la del proyecto)"
+            % i["recuento"]["ROTO"])
+
+        # 21-d. ruta RELATIVA con dos raices distintas. Sin este vector, una
+        #       mutacion que reabra los documentos contra la raiz de RESOLUCION
+        #       pasa los 49 vectores: la rama es codigo alcanzable solo por la
+        #       API, no por la CLI, y "no lo detecta la CLI" no es lo mismo que
+        #       "no lo detecta nadie".
+        os.chdir(raiz)                     # CWD = raiz, como el self-test real
+        i, e = audita(["f.md"], docs, raiz)
+        chk("V21d_ruta_relativa_se_resuelve_por_raiz_scan",
+            len(i["errores"]) == 0 and i["recuento"]["COINCIDE"] == 1,
+            "errores=%d COINCIDE=%d" % (len(i["errores"]),
+                                        i["recuento"]["COINCIDE"]))
+        os.chdir(td)
+
     print("  %d vectores, %d fallos" % (vectores, fallos))
     return 0 if fallos == 0 else 1
 
@@ -898,8 +1083,10 @@ def main():
     ap.add_argument("ficheros", nargs="*",
                     help="ficheros .md a auditar, relativos a --raiz")
     ap.add_argument("--raiz", default=".",
-                    help="raiz a la que son relativos los ficheros y los "
-                         "hashes citados; por defecto el directorio actual")
+                    help="raiz a la que son RELATIVOS LOS PATHS CITADOS en los "
+                         "bloques. Es independiente de --arbol: uno es donde se "
+                         "buscan los documentos y el otro es contra que se "
+                         "resuelven las rutas que citan")
     ap.add_argument("--arbol", default=None, metavar="DIR",
                     help="audita todos los .md de DIR")
     ap.add_argument("--json", action="store_true")
@@ -909,22 +1096,43 @@ def main():
     if a.selftest:
         return selftest()
 
-    raiz = os.path.abspath(a.arbol if a.arbol else a.raiz)
+    # DOS RAICES, Y POR QUE NO SE DERIVA UNA DE LA OTRA
+    #
+    # MEDIDO como defecto mio: la version anterior hacia
+    #     raiz = abspath(a.arbol if a.arbol else a.raiz)
+    # con lo que `--arbol 06-INGENIERIA-INVERSA/findings --raiz .` resolvia las
+    # rutas project-relative contra `findings/` y fabricaba **12 ROTO falsos de
+    # 14 campos**, con COINCIDE 0. Un comando plausible y un fallo silencioso.
+    #
+    # Son dos preguntas distintas y por eso son dos opciones distintas:
+    #   dondeLooking for ->   --arbol
+    #   what the paths are relative to -> --raiz
+    raiz_scan = os.path.abspath(a.arbol) if a.arbol else os.path.abspath(".")
+    raiz = os.path.abspath(a.raiz)
     if a.arbol:
-        if not os.path.isdir(raiz):
-            print("no existe el arbol: %s" % raiz)
+        if not os.path.isdir(raiz_scan):
+            print("no existe el arbol: %s" % raiz_scan)
             return 2
-        rutas = recoge_md(raiz)
+        rutas = recoge_md(raiz_scan)
     elif a.ficheros:
-        rutas = a.ficheros
+        rutas = [os.path.abspath(f) if not os.path.isabs(f)
+                 else f for f in a.ficheros]
     else:
         print("dime que auditar: ficheros, o --arbol DIR")
         return 2
 
-    informe, err = audita(rutas, raiz)
+    informe, err = audita(rutas, raiz_scan, raiz)
     if informe is None:
         print("error: %s" % err)
         return 2
+    if raiz != raiz_scan:
+        # Se dice siempre. Si los dos coinciden, el lector no tiene por que
+        # suponer nada; si no coinciden, el resultado depende de ello y callar
+        # seria esconder la unica variable que puede cambiar el veredicto.
+        print("ATENCION: dos raices distintas.")
+        print("  --arbol (donde se buscan los .md)  %s" % raiz_scan)
+        print("  --raiz  (contra que se resuelven los paths citados)  %s" % raiz)
+        print()
     rc = rc_de(informe)
     if a.json:
         print(json.dumps(informe, indent=2, sort_keys=True, ensure_ascii=False))
