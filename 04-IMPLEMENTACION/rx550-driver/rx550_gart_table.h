@@ -55,7 +55,31 @@
  *  este componente compila las mismas dos cosas en los dos contextos. */
 #include <linux/limits.h>
 #define UINT32_MAX U32_MAX
-#define SIZE_MAX  ULONG_MAX
+/*
+ * MEDIDO 2026-10-04:  aqui habia un `#define SIZE_MAX  ULONG_MAX`,  y el
+ * compilador avisaba  "se redefine SIZE_MAX"  dos veces  —una por cada objeto—.
+ *
+ * MEDIDO POR QUE:
+ *   · linux/limits.h:9  YA lo define:   #define SIZE_MAX (~(size_t)0)
+ *     y ese include esta DOS LINEAS mas arriba  (linea 56).  O sea que la
+ *     definicion propia era redundante.
+ *   · Y ademas equivocada:  el valor propio es el maximo de `unsigned long`,  y el
+ *     de la cabecera es el maximo de `size_t`.  En x86-64 ambos son de 64 bits y
+ *     coinciden,  y por eso el fallo no se ve  —lo que es peor:  una supresion que
+ *     solo es correcta por arquitectura.
+ *   · Y rx550_mmio_access.h  —que hace la MISMA conversion—  define UINT32_MAX y
+ *     UINT64_MAX  y NO SIZE_MAX.  El comentario de este mismo bloque dice que la
+ *     trampa se corrigio "justo porque este componente compila las dos cosas en los
+ *     dos contextos".  Aqui no se corrigio:  se copio el patron y seanto el
+ *     elemento que no debia copiarse.
+ *
+ * ASI QUE SE QUITA,  y no se sustituye por nada:  la rama del kernel lo tiene via
+ * limits.h  y la de userspace via <stdint.h>/<stddef.h>,  que es donde lo buscaria
+ * cualquiera que lea el usar 3 veces sin ver de donde salia.
+ *
+ * SE USA EN 3 SITIOS  —dos en rx550_gart_table.c  y uno aqui—  y MEDIDO que los tres
+ * compilan sin el.
+ */
 #else
 #include <stdint.h>
 #include <stdbool.h>
