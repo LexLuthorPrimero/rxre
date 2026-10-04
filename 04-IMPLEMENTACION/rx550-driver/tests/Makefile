@@ -75,7 +75,7 @@ $(KO):
 run: $(KO) test_target_match test_resource test_regs test_vm test_fence test_submit \
      test_mmio_access test_block_size test_gart_write test_ib_bridge \
      test_ib_composer test_pdb0 test_submission test_vmid0_gart test_mem \
-     test_ctxpt test_update_field test_dummy_page \
+     test_ctxpt test_update_field test_dummy_page test_gart_seq \
      test_vmid1_pgt test_vmid1_pgt_backing
 	@./test_resource
 	@./test_regs $(CORPUS)/gfx_8_0_d.h $(CORPUS)/gfx_8_1_d.h
@@ -100,6 +100,7 @@ run: $(KO) test_target_match test_resource test_regs test_vm test_fence test_sub
 	@./test_ctxpt
 	@./test_update_field
 	@./test_dummy_page
+	@./test_gart_seq
 	@./test_vmid0_gart
 	@./test_vmid1_pgt
 	@./test_vmid1_pgt_backing
@@ -130,6 +131,14 @@ test_update_field: test_update_field.c ../rx550_mmio_access.c ../rx550_mmio_acce
 # que la secuencia del contexto 0 no se podia completar.  Ver finding 1028.
 test_dummy_page: test_dummy_page.c ../rx550_dummy_page.c ../rx550_dummy_page.h
 	$(CC) $(CFLAGS) -o $@ test_dummy_page.c ../rx550_dummy_page.c
+
+# test_gart_seq comprueba el PLAN de las 34 escrituras del GART.  Es la
+# funcion mas critica del componente y la unica que produce un plan en vez de
+# escribir:  un plan se puede comparar con gmc_v8_0.c:829-947 sin GPU delante.
+# Ver findings 1028 y 1030.
+test_gart_seq: test_gart_seq.c ../rx550_gart_seq.c ../rx550_mmio_access.c \
+              ../rx550_gart_seq.h ../rx550_mmio_access.h
+	$(CC) $(CFLAGS) -o $@ test_gart_seq.c ../rx550_gart_seq.c ../rx550_mmio_access.c
 
 test_target_match: test_target_match.c ../target_match.h
 	$(CC) $(CFLAGS) -o test_resource test_resource.c ../target_resource.h
