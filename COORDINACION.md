@@ -194,6 +194,36 @@ cualquier sitio" y es el único que excluye a las otras sesiones de todo.
   revierte. Un test nunca observado fallando no prueba que detecte.
 - Nombra la fuente de cada cifra. "El informe dice" no es una fuente; `sha256`, commit y fecha sí.
 
+## Cadencia de informes al usuario
+
+Directiva del propietario del árbol, registrada aquí para que sobreviva al cambio de sesión:
+**un informe cada 1000 trabajos terminados.**
+
+**Qué es "un trabajo".** El contador propio del proyecto: el **número de hallazgo más
+alto escrito**, que es lo que `tools/nextnum.py` reserva y lo que el grafo de
+`findings/` nombra. No se cuenta commits, ni líneas, ni tools: se cuenta hallazgos,
+porque un hallazgo es la unidad de conocimiento que este proyecto produce y claims.
+
+**Estado medido al registrar la directiva** (`2026-10-04`):
+
+```text
+ficheros de hallazgo en findings/    562
+números distintos en uso             461
+números repetidos                     74   -> 101 ficheros de más
+número de hallazgo más alto         1059
+siguiente hito                     2000   (faltan 941)
+```
+
+**El contador sobrestima, y hay que decirlo cuando se reporte.** Hay 74 números
+repetidos que consumen 101 números sin producir trabajo: el hallazgo `1049` los midió,
+y `1054`/`1056` midieron además que el número no identifica al hallazgo. Por eso el
+número más alto es un contador **de trabajo gastado**, no de hallazgos distintos, y un
+informe que lo use tiene que decir las dos cifras o el progreso parece mayor de lo que
+es.
+
+**Lo que NO es una frontera de informe.** No se interrumpe el trabajo para dar un
+informe parcial: la directiva es la cadencia del informe, no un corte de la acción.
+
 ## Divergencias
 
 Si dos sesiones llegan a conclusiones opuestas sobre un dato, **no se promedian ni se elige la
