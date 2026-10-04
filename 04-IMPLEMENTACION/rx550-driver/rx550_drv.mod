@@ -9,3 +9,4 @@
 ./rx550_dummy_page.o
 ./rx550_gart_seq.o
 ./rx550_gart_table.o
+./rx550_gart_geom.o
