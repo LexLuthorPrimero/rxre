@@ -437,9 +437,43 @@ int rx550_gart_seq_build(struct rx550_gart_seq *out,
 	/* El campo de la ventana tiene 28 bits de numero de pagina. */
 	if ((p->gart_end >> RX550_PAGE_SHIFT) > 0x0FFFFFFFu)
 		return RX550_GART_SEQ_ERR_GEOMETRY;
-	/* block_size y fragment_size van a campos de 4 bits.  Un valor de mas no
-	 * cabe, y la escritura seria recortada sin avisar. */
-	if (p->block_size > 15u || p->fragment_size > 15u)
+	/* MEDIDO 2026-10-04: el comentario decia "campos de 4 bits" y el guard
+	 * usaba 15 para los TRES.  Y solo uno de los tres va a un campo de 4 bits.
+	 *
+	 *   block_size    -> PAGE_TABLE_BLOCK_SIZE,         4 bits -> max 15
+	 *   fragment_size -> BANK_SELECT,                   6 bits -> max 63
+	 *                  -> L2_CACHE_BIGK_FRAGMENT_SIZE,   5 bits -> max 31
+	 *
+	 * El limite que de verdad ata es el de 5 bits del BIGK,  de modo que 15
+	 * rechazaba un fragment_size de 16 a 31,  que SI cabe en los dos campos
+	 * donde va.  El unico campo de 4 bits es el del block_size.
+	 *
+	 * SEPARAR REPRESENTABLE DE LEGAL, que es lo que el guard mezclaba:
+	 *   - representable: el ANCHO del campo.  Es lo que se comprueba primero.
+	 *   - legal: lo que el CORPUS acepta.  amdgpu_device.c:1571-1572 exige
+	 *     fragment_size en [4, 9] y devuelve el parametro a -1 si se sale.
+	 *
+	 * El 15 unico de antes no era ninguna de las dos cosas:  era el ancho del
+	 * campo equivocado. */
+	/* MEDIDO 2026-10-04: esto comparaba `block_size` contra el ANCHO DEL
+	 * CAMPO, y lo que va al campo es `block_size - 9`.  O sea que el guard
+	 * rechazaba 16 a 24,  que son TODOS legales, y en cambio el rango
+	 * representable correcto es [9, 24] — que ya estaba declarado como
+	 * RX550_CNTL_BLOCK_SIZE_VALUE_MIN/MAX,  dos lineas mas abajo en la misma
+	 * cabecera, y que el guard no usaba.
+	 *
+	 * Lo que hay que comparar es el VALOR CODIFICADO contra el ancho, no el
+	 * valor crudo.  Con el guard viejo:  block_size 24 daba error siendo
+	 * legal,  y un block_size de 8 —que codifica -1, un numero negativo en un
+	 * campo de 4 bits— pasaba.  Los dos fallos del mismo error. */
+	if (p->block_size < RX550_CNTL_BLOCK_SIZE_VALUE_MIN ||
+	    p->block_size > RX550_CNTL_BLOCK_SIZE_VALUE_MAX)
+		return RX550_GART_SEQ_ERR_GEOMETRY;
+	if (p->fragment_size > RX550_L2_CNTL3_BIGK_FRAG_FIELD_MAX)
+		return RX550_GART_SEQ_ERR_GEOMETRY;
+	/* Y el rango LEGAL, del corpus, no del ancho. */
+	if (p->fragment_size < RX550_FRAGMENT_LEGAL_MIN ||
+	    p->fragment_size > RX550_FRAGMENT_LEGAL_MAX)
 		return RX550_GART_SEQ_ERR_GEOMETRY;
 	/*  CORREGIDO.  Aqui habia una comprobacion que el corpus NO tiene:
 	 *

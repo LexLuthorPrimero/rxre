@@ -356,10 +356,103 @@ int main(void)
 		CHECK_EQ((s2.op[33].value & 0xf000000u) >> 24, 0,
 			 "S2 BLOCK_SIZE = block_size - 9, y 9 - 9 = 0");
 
+		/* MEDIDO 2026-10-04: esto usaba fragment_size = 11,  y lo usaba para
+		 * comprobar que el valor SE PROPAGA a BANK_SELECT.  El 11 lo eligio
+		 * porque es distinto del 9 por defecto;  no porque fuera valido.  Con
+		 * el guard corregido el 11 se rechaza por ser ILEGAL,  y el fallo de
+		 * este test delata que la intencion era la propagacion y no la
+		 * legalidad.  Se cambia a 7,  que tambien es distinto del 9 y si es
+		 * legal. */
 		q = p;
-		q.fragment_size = 11;
-		CHECK(rx550_gart_seq_build(&s2, &q) == 0, "S2 build con fragment 11");
-		CHECK_EQ(s2.op[3].value & 0x3fu, 11, "S2 BANK_SELECT sigue al fragment");
+		q.fragment_size = 7;
+		CHECK(rx550_gart_seq_build(&s2, &q) == 0, "S2 build con fragment 7");
+		CHECK_EQ(s2.op[3].value & 0x3fu, 7, "S2 BANK_SELECT sigue al fragment");
+		/* Los DOS campos donde va el fragment_size estan en el MISMO
+		 * registro, mmVM_L2_CNTL3, que es op[3].  Yo habia mirar op[4], que es
+		 * mmVM_L2_CNTL4, y por eso salia otra cosa.  MEDIDO:  op[3].reg =
+		 * 0x502 = mmVM_L2_CNTL3.
+		 *
+		 * BANK_SELECT es de 6 bits (mascara 0x3F, shift 0)  y
+		 * L2_CACHE_BIGK_FRAGMENT_SIZE es de 5 (mascara 0xF8000, shift 15),  y
+		 * los dos van en la MISMA palabra. */
+		CHECK_EQ(s2.op[3].reg, 0x502u,
+			 "S2 op[3] es mmVM_L2_CNTL3, donde van los dos campos");
+		CHECK_EQ((s2.op[3].value & 0x000f8000u) >> 15, 7,
+			 "S2 el segundo campo del mismo registro sigue al fragment");
+	}
+
+	/* ── S2bis · REPRESENTABLE NO ES LO MISMO QUE LEGAL ─────────────────── */
+	/* El guard anterior ponia 15 para los tres valores,  y 15 es el ancho del
+	 * campo del block_size,  no el del fragment_size.  Eso rechazaba un
+	 * fragment_size de 16 a 31,  que SI cabe en los dos campos donde va,  y
+	 * aceptaba un fragment_size de 11,  que el corpus RECHAZA.  O sea:  no
+	 * comprobaba ninguna de las dos cosas que hay que comprobar.
+	 *
+	 *   REPRESENTABLE  el ancho del campo:  block_size 4 bits (max 15),
+	 *                  fragment_size 5 bits (max 31, el que ata)
+	 *   LEGAL          lo que el corpus acepta:  fragment_size en [4, 9]
+	 *                  (amdgpu_device.c:1571-1572)
+	 */
+	printf("\nS2bis · representable no es legal\n");
+	{
+		struct rx550_gart_seq s3;
+		struct rx550_gart_params q;
+
+		/* REPRESENTABLE pero ILEGAL: 15 cabe en los dos campos donde va y el
+		 * corpus lo rechaza.  Se rechaza. */
+		q = p;
+		q.fragment_size = 15;
+		CHECK(rx550_gart_seq_build(&s3, &q) != 0,
+		      "S2bis fragment 15: representable pero ilegal -> rechazado");
+
+		/* 31 es el maximo representable del campo de 5 bits.  Con el guard
+		 * viejo, que ponia 15, este valor tambien se rechazaba;  ahora se
+		 * rechaza POR ILEGAL,  no por estrecho.  El codigo de error es el
+		 * mismo,  asi que lo que distingue los dos casos es el motivo,  que
+		 * no se puede ver desde fuera.  Se documenta en vez de fingir que se
+		 * puede comprobar. */
+		q.fragment_size = 31;
+		CHECK(rx550_gart_seq_build(&s3, &q) != 0,
+		      "S2bis fragment 31: representable y tambien ilegal");
+
+		/* ILEGAL por bajo:  3 no cabe en el rango [4,9] que el corpus exige.
+		 * Y 0 es el valor de "sin override",  que si llegara aqui seria un
+		 * campo puesto a cero en silencio. */
+		q.fragment_size = 3;
+		CHECK(rx550_gart_seq_build(&s3, &q) != 0,
+		      "S2bis fragment 3: por debajo del minimo legal -> rechazado");
+		q.fragment_size = 0;
+		CHECK(rx550_gart_seq_build(&s3, &q) != 0,
+		      "S2bis fragment 0: el valor de 'sin override' -> rechazado");
+
+		/* Y los dos extremos LEGALES, que tienen que pasar. */
+		q.fragment_size = 4;
+		CHECK(rx550_gart_seq_build(&s3, &q) == 0,
+		      "S2bis fragment 4: el minimo legal, aceptado");
+		CHECK_EQ(s3.op[3].value & 0x000f8000u, 4u << 15,
+			 "S2bis y sale en el campo de 5 bits, dentro de L2_CNTL3");
+		q.fragment_size = 9;
+		CHECK(rx550_gart_seq_build(&s3, &q) == 0,
+		      "S2bis fragment 9: el maximo legal, aceptado");
+
+		/* Y el block_size, donde el guard viejo COMPARABA CONTRA EL ANCHO DEL
+		 * CAMPO lo que va al campo es block_size - 9.  Con el guard viejo,
+		 * 16 a 24 se rechazaban siendo legales.  El rango correcto es [9, 24]
+		 * y ya estaba declarado en RX550_CNTL_BLOCK_SIZE_VALUE_MIN/MAX. */
+		q = p;
+		q.block_size = 24;	/* campo 15, el tope REAL de 4 bits */
+		CHECK(rx550_gart_seq_build(&s3, &q) == 0,
+		      "S2bis block_size 24: codifica 15, el tope real, aceptado");
+		q.block_size = 25;	/* campo 16, no cabe en 4 bits */
+		CHECK(rx550_gart_seq_build(&s3, &q) != 0,
+		      "S2bis block_size 25: codifica 16 y no cabe");
+		q.block_size = 9;	/* campo 0, el minimo */
+		CHECK(rx550_gart_seq_build(&s3, &q) == 0,
+		      "S2bis block_size 9: codifica 0, el minimo, aceptado");
+		q.block_size = 8;	/* campo -1: un negativo en 4 bits */
+		CHECK(rx550_gart_seq_build(&s3, &q) != 0,
+		      "S2bis block_size 8: codificaria -1, y un negativo en un "
+		      "campo de 4 bits NO cabe: el guard viejo lo pasaba");
 	}
 
 	/* ── S3 · LOS NEGATIVOS, Y QUE NO DEVUELVAN UN PLAN A MEDIAS ───────── */
@@ -406,14 +499,27 @@ int main(void)
 		CHECK(rx550_gart_seq_build(&mala, &q) == RX550_GART_SEQ_ERR_GEOMETRY,
 		      "S3 table_addr exactamente 2^40, que el >>12 no delata");
 
-		q = p;
-		q.block_size = 16;				/* el campo es de 4 bits */
-		CHECK(rx550_gart_seq_build(&mala, &q) == RX550_GART_SEQ_ERR_GEOMETRY,
-		      "S3 block_size 16, y el campo es de 4");
+		/* MEDIDO 2026-10-04: esto ponia block_size = 16 y exigia que se
+		 * RECHAZARA,  y lo hacia porque el guard comparaba el valor CRUDO contra
+		 * el ancho del campo:  16 > 15.  Lo que va al campo es block_size - 9,
+		 * y 16 - 9 = 7,  que cabe en 4 bits de sobra.  O sea que el test
+		 * rechazaba un valor LEGAL,  y lo hacia por un motivo falso.
+		 *
+		 * El rejection correcto para block_size es 25,  que codifica 16 y no
+		 * cabe;  y el de por debajo es 8,  que codificaria -1.  Los dos estan
+		 * en S2bis. */
 		q = p;
 		q.fragment_size = 16;
 		CHECK(rx550_gart_seq_build(&mala, &q) == RX550_GART_SEQ_ERR_GEOMETRY,
-		      "S3 fragment_size 16");
+		      "S3 fragment_size 16: cabe en el campo de 5 bits pero es ILEGAL");
+		q = p;
+		q.block_size = 16;				/* codifica 7: cabe en 4 bits */
+		CHECK(rx550_gart_seq_build(&mala, &q) == 0,
+		      "S3 block_size 16 codifica 7 y CABE: era legal y el guard lo rechazaba");
+		/* Y el fragment_size 16 si se rechaza,  pero por ILEGAL y no por
+		 * estrecho:  el campo es de 5 bits y 16 cabe en el,  pero el rango
+		 * legal del corpus es [4, 9]. */
+
 
 		/*  CORREGIDO.  Este bloque comprobaba que "la ventana del GART no
 		 *  cabe en max_pfn",  que era una comprobacion INVENTADA:  no

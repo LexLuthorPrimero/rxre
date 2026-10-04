@@ -365,6 +365,27 @@ const struct rx550_vmid1_reg *rx550_vmid1_reg_get(enum rx550_vmid1_reg_id id);
 #define RX550_CNTL_BLOCK_SIZE_BASE	9u	/* campo 0  →  block_size 9  */
 #define RX550_CNTL_BLOCK_SIZE_FIELD_MIN	0u	/* el campo es de 4 bits   */
 #define RX550_CNTL_BLOCK_SIZE_FIELD_MAX	15u
+
+/* MEDIDO 2026-10-04.  El guard de rx550_gart_seq.c usaba 15 para los TRES
+ * valores que llegan a campos,  y solo uno de los tres va a un campo de 4 bits.
+ * Este es el ancho del otro, para que el guard pueda usar el de cada campo y no
+ * el de un tercero:
+ *
+ *   L2_CACHE_BIGK_FRAGMENT_SIZE   mask 0x000F8000  shift 15  ancho 5
+ *   gmc_8_1_sh_mask.h, y la tabla de campos lo confirma en rx550_mmio_access.c
+ *   con esos tres numeros.
+ *
+ * Con 5 bits el maximo representable es 31,  no 15:  un fragment_size de 16 a
+ * 31 cabe en este campo Y en BANK_SELECT, que es de 6 bits,  y el guard viejo
+ * los rechazaba sin motivo. */
+#define RX550_L2_CNTL3_BIGK_FRAG_FIELD_MAX	31u
+
+/* Y el rango LEGAL, que es otra cosa que el ancho.  amdgpu_device.c:1571-1572
+ * exige fragment_size en [4, 9] y devuelve el parametro de modulo a -1 si se
+ * sale;  9 es ademas el literal de gmc_v8_0.c:1127 y el maximo que la propia
+ * documentacion del modulo anuncia ("Max 9 = 2M"). */
+#define RX550_FRAGMENT_LEGAL_MIN		4u
+#define RX550_FRAGMENT_LEGAL_MAX		9u
 #define RX550_CNTL_BLOCK_SIZE_VALUE_MIN	(RX550_CNTL_BLOCK_SIZE_BASE + \
 					 RX550_CNTL_BLOCK_SIZE_FIELD_MIN)
 #define RX550_CNTL_BLOCK_SIZE_VALUE_MAX	(RX550_CNTL_BLOCK_SIZE_BASE + \
