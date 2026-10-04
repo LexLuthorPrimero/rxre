@@ -40,6 +40,11 @@
 #include "rx550_mmio_access.h"
 #include "rx550_gart_geom.h"
 #include "rx550_vmid0_gart.h"
+/* LAS DOS CONSTANTES DE CU, y con ellas los _Static_assert que son sus dos
+ * discriminantes medidos.  Se incluye aqui, y no en un .c de shader, porque no
+ * hay ninguno:  este modulo no ha llegado al shader.  Y se incluye para que
+ * los assert se compilen, que es lo que los hace una puerta y no un texto. */
+#include "rx550_asic_geom.h"
 
 /*
  * Estado software del dispositivo.

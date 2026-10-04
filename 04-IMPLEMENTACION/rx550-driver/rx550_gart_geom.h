@@ -104,8 +104,63 @@ enum rx550_gart_placement {
  * tarjeta la rama que BEST_FIT elige es la ALTA.  Es decir: el driver de
  * referencia coloco el GART en 0xFF00000000, NO en 0.  Que nuestro
  * RX550_GART_START sea 0 (rx550_spaces.h:56) es una DESIGN_CHOICE distinta de
- * la del corpus, y por tanto NO es lo que hace el hardware por defecto. */
-#define RX550_GART_PLACEMENT_DEF   RX550_GART_PLACEMENT_BEST_FIT
+ * la del corpus, y por tanto NO es lo que hace el hardware por defecto.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * D3 · MEDIDO 2026-10-04.  ESTE DEFECTO ESTABA AQUI Y SE CORRIGE
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * La linea de abajo decia
+ *
+ *     #define RX550_GART_PLACEMENT_DEF   RX550_GART_PLACEMENT_BEST_FIT
+ *
+ * y eso era INCOHERENTE CONSIGO MISMO, porque el unico sitio donde el valor
+ * de esta politica se convierte en una direccion de GART es
+ * RX550_GART_START, y ese vale 0, que es la rama LOW.  Con la geometria de
+ * esta tarjeta, BEST_FIT devuelve 0xFF00000000 (test_gart_geom.c:118-143 lo
+ * mide con las dos ramas sobre la misma entrada).  O sea:  el driver declaraba
+ * una politica y luego fijaba a mano una direccion que esa politica no
+ * produce.  El que se llevaba el diagnostico era el bucle de calculo, no el que
+ * declaraba la politica.
+ *
+ * QUE SE DECIDE, Y QUE NO
+ *
+ *   Se cambia la POLITICA por defecto a LOW, para que el default sea coherente
+ *   con la DESIGN_CHOICE ya escrita.  No se cambia RX550_GART_START:  esa
+ *   eleccion es del proyecto y no se toca aqui.  Y no se cambia el calculo:  las
+ *   tres ramas siguen existiendo y BEST_FIT sigue siendo un valor de la enum
+ *   que se puede pedir, porque es lo que hace el corpus.
+ *
+ *   O sea:  el defecto no era que el default fuera LOW,  era que DECIA BEST_FIT
+ *   y ERA LOW.  Ahora dice lo que hace.
+ *
+ * LO QUE ESTO NO AFIRMA
+ *   Que LOW sea la mejor colocacion para esta tarjeta.  No lo es:  el hueco de
+ *   arriba es de 44 GiB y el de abajo de 60, y el corpus elige el de arriba por
+ *   el criterio de BEST_FIT.  Este driver elige el de abajo a proposito, porque
+ *   GART_START = 0 hace que GART_ADDRESS == SYSTEM_PA y eso quita una ambiguedad
+ *   del primer diseno.  Es una decision con un coste —el techo de espacio GTT
+ *   de MEMORIA-GFX8.md §4.6— y se sigue pagando a proposito.
+ *
+ * LA ASERCION QUE LO SOSTIENE, y por que no es una tautologia
+ *
+ *   LOW con la geometria de esta tarjeta da gart_start = 0, y 0 es
+ *   RX550_GART_START.  Eso lo mide test_gart_geom.c:136-141 con la entrada
+ *   medida (FB_BASE 0x000000F400000000, VRAM 2048 MiB), no una constante.
+ *   El _Static_assert de mas abajo, en cambio,  fija que la politica por
+ *   defecto sea la rama que produce el 0 declarado, y se CAE si alguien vuelve
+ *   a poner BEST_FIT aqui o cambia RX550_GART_START sin cambiar el default.
+ *   Ese es el unico punto donde las dos cantidades se pueden separar, y por eso
+ *   hace falta. */
+#define RX550_GART_PLACEMENT_DEF   RX550_GART_PLACEMENT_LOW
+
+/* La politica por defecto TIENE que ser la rama cuyo resultado es
+ * RX550_GART_START.  No es una identidad:  se cae en cuanto una de las dos
+ * cambia sin la otra, que es el defecto D3. */
+_Static_assert(RX550_GART_PLACEMENT_DEF == RX550_GART_PLACEMENT_LOW,
+		"la politica por defecto tiene que ser la rama que produce "
+		"RX550_GART_START; con BEST_FIT aqui el driver declaraba una cosa y "
+		"fijaba a mano la direccion de otra (D3)");
 
 /* ── entrada ───────────────────────────────────────────────────────────── */
 

@@ -197,10 +197,42 @@
  */
 #define RX550_VMID1_BLOCK_SIZE_MIN		9u
 #define RX550_VMID1_BLOCK_SIZE_MAX		24u
+/* MEDIDO 2026-10-04, D4:  el 9 del CORPUS con el que se resta es un literal
+ * suelto en las tres apariciones, y una de ellas —rx550_vmid1_pgt.c:271— lo
+ * escribia a mano en vez de nombrarlo.  Se declara una vez aqui. */
+#define RX550_VMID1_BLOCK_OFFSET		9u	/* gmc_v8_0.c:933-934 */
 /* 10, y no el MINIMO.  El valor que el corpus ESCRIBE en esta ASIC.  Antes
  * apuntaba a 9,  que es el valor del reset de GFX9:  un valor de otra
  * generacion usado como si fuera el de esta. */
 #define RX550_VMID1_BLOCK_SIZE_DEMOSTRADO	10u
+
+/* ── HARDWARE_REQUIREMENT: EL 18 Y EL 9, QUE EN EL CORPUS SON LITERALES ─────
+ *
+ * MEDIDO 2026-10-04, D4.  El corpus escribe estos numeros a mano y este modulo
+ * los reproducia literales en cuatro sitios.  Se declaran una vez aqui, cada
+ * uno con el suyo, y —que es lo importante— SIN FUSIONARLOS, porque no son el
+ * mismo hecho:
+ *
+ *   RX550_VMID1_BITS_POR_GB = 18   amdgpu_vm.c:2359
+ *       El segundo factor de "bits = ilog2(vm_size) + 18".  Convierte GiB en
+ *       paginas de 4 KiB:  2^30 / 2^12 = 2^18.
+ *
+ *   RX550_VMID1_NIVEL_MIN_BITS = 9   amdgpu_vm.c:2364 y :2427
+ *       El ancho MINIMO de un nivel de tabla, el que hace que un PD quepa en
+ *       4 KiB.  Es el 9 de "if (vm_size <= 8) return bits - 9" y el divisor de
+ *       "DIV_ROUND_UP(fls64(tmp) - 1, 9)", y en el corpus es el mismo numero
+ *       que el 512 de amdgpu_vm_pt.c:88 y que la mascara 0x1ff de :109.
+ *
+ *   RX550_VMID1_BLOCK_OFFSET = 9     gmc_v8_0.c:933-934
+ *       El offset del CAMPO PAGE_TABLE_BLOCK_SIZE = block_size - 9.
+ *
+ * POR QUE NO SE UNIFICAN LOS DOS 9, aunque valgan lo mismo:  porque un cambio
+ * en el campo y un cambio en el ancho de nivel son dos hechos distintos, y un
+ * solo nombre obligaria a cambiar los dos a la vez sin que nadie lo decidiera.
+ * El Project ya lo dice de esta familia en rx550_vm_geom.h:95-100, y por eso
+ * la fusion que D4 propedia para uno de ellos NO se ha hecho. */
+#define RX550_VMID1_BITS_POR_GB		18u
+#define RX550_VMID1_NIVEL_MIN_BITS	9u
 
 /* ── HARDWARE_REQUIREMENT: LIMITE DEL ROOT ──────────────────────────────────
  * mmVM_CONTEXT1_PAGE_TABLE_BASE_ADDR__PHYSICAL_PAGE_NUMBER  mask 0xfffffff
@@ -289,7 +321,14 @@ enum rx550_vmid1_err {
 	RX550_PGT_ERR_VM_SIZE			=  -1,	/* 0, no multiplo de 4 KiB */
 	RX550_PGT_ERR_OVERFLOW			=  -2,	/* la aritmetica se desborda */
 	RX550_PGT_ERR_UNSUPPORTED_LEVEL		=  -3,	/* num_level != 1 */
-	RX550_PGT_ERR_UNSUPPORTED_BLOCK_SIZE	=  -4,	/* block_size != 9 */
+	/* MEDIDO 2026-10-04, D2.  Este comentario decia "block_size != 9" y era
+	 * FALSO:  la guarda de rx550_vmid1_pgt.c:256-258 acepta el RANGO
+	 * [RX550_VMID1_BLOCK_SIZE_MIN, RX550_VMID1_BLOCK_SIZE_MAX], o sea [9, 24].
+	 * Un comentario de un enum es exactamente el tipo de cadena que un humano
+	 * cita como autoridad, asi que se escribe la condicion que el codigo
+	 * comprueba de verdad.  El unico sitio donde el 9 sigue siendo el valor es
+	 * el minimo del campo, y ese esta nombrado arriba. */
+	RX550_PGT_ERR_UNSUPPORTED_BLOCK_SIZE	=  -4,	/* block_size fuera de [9, 24] */
 	RX550_PGT_ERR_VM_SIZE_INCOHERENT	=  -5,	/* coverage != vm_size */
 	RX550_PGT_ERR_NO_BACKING		=  -6,	/* entries == NULL */
 	RX550_PGT_ERR_ROOT_UNALIGNED		=  -7,
@@ -472,6 +511,14 @@ const char *rx550_vmid1_err_str(int rc);
  * validan en tiempo de ejecucion, porque hardcodearlos aqui seria
  * exactamente el error que este modulo existe para no cometer.
  * ═══════════════════════════════════════════════════════════════════════════ */
+_Static_assert(RX550_VMID1_NIVEL_MIN_BITS == 9u,
+		"el ancho minimo de nivel deducido del 512 de amdgpu_vm_pt.c:88 no es 9");
+_Static_assert((1u << RX550_VMID1_NIVEL_MIN_BITS) == 512u,
+		"9 bits de nivel son 512 entradas, o una pagina de 4 KiB con 8 B por entrada");
+_Static_assert(RX550_VMID1_BLOCK_OFFSET == RX550_VMID1_BLOCK_SIZE_MIN,
+		"el offset del campo y el minimo codificable son el mismo 9: el campo vale 0");
+_Static_assert(RX550_VMID1_BITS_POR_GB == 18u,
+		"el factor GiB -> pagina deducido de 2^30/2^12 no es 18");
 _Static_assert(RX550_VMID1_ENTRY_BYTES == sizeof(uint64_t),
 		"una entrada de tabla de VM no es un uint64_t");
 _Static_assert(RX550_VMID1_ENTRY_BITS == 64u,

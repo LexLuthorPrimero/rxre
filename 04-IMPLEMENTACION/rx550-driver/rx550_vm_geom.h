@@ -86,10 +86,16 @@
 #define RX550_VM_MAX_BITS	40u
 
 /* El margen contra el que salta una pagina:  es el segundo factor de
- * max_pfn << este, y el 18 es de amdgpu_gmc.h.  No es 12:  max_pfn cuenta PAGINAS
- * de 2 KiB,  no bytes.  Este es el error mas caro de esta aritmetica, porque un
- * 18 por 12 da 64 GB de espacio en vez de 128 TiB,  y el numero sigue siendo
- * plausible. */
+ * max_pfn << este.  No es 12:  max_pfn cuenta PAGINAS de 2 KiB,  no bytes.
+ * Este es el error mas caro de esta aritmetica, porque un 18 por 12 da 64 GB
+ * de espacio en vez de 128 TiB,  y el numero sigue siendo plausible.
+ *
+ * MEDIDO 2026-10-04, D4:  este comentario decia "el 18 es de amdgpu_gmc.h" y la
+ * cita era FALSA.  No existe ningun simbolo de PFN_SHIFT en amdgpu_gmc.h:  lo
+ * he buscado por nombre en el fichero entero.  El 18 es un literal del corpus
+ * en DOS sitios, amdgpu_vm.c:2421  ("max_pfn = (uint64_t)vm_size << 18")  y
+ * amdgpu_vm.c:2359  ("bits = ilog2(vm_size) + 18"),  y son dos literales
+ * distintos que este componente declara una vez para su cuenta. */
 #define RX550_VM_PFN_SHIFT	18u
 
 /* El 9 delPAGE_TABLE_BLOCK_SIZE = block_size - 9, y el 9 de
