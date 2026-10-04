@@ -170,6 +170,29 @@ int rx550_dummy_kernel_map(void *ctx, void **out_cpu_va, uint64_t *out_dma_pa)
 	if (dev == NULL || out_cpu_va == NULL || out_dma_pa == NULL)
 		return -EINVAL;
 
+	/* MEDIDO 2026-10-04 · PRECONDICION, Y POR QUE FALLA ANTES DE RESERVAR:
+	 * esta HAL hace alloc_page(GFP_KERNEL), y GFP_KERNEL sale de ZONE_NORMAL,
+	 * que en esta maquina empieza en 4 GiB (/proc/zoneinfo:  DMA32 acaba en el
+	 * pfn 0x100000, Normal cubre 2293248 paginas desde ahi).  Con la mascara
+	 * de 32 bits del default PCI (probe.c:2051) esa pagina cae FUERA del
+	 * techo de bus, y el mapa falla:
+	 *   dma_map_page_attrs()  mapping.c:191-204 -> dma_map_phys
+	 *   sin IOMMU              mapping.c:120-153 -> directo
+	 *   dma_capable()          dma-direct.h:138  end <= *dev->dma_mask  -> FALSE
+	 *   sin rebote posible     direct.h:112-119  is_swiotlb_active()==false aqui
+	 *   DMA_MAPPING_ERROR      direct.h:130-135
+	 * El mapa se deshace solo al final de la funcion, o sea que sin esta
+	 * guarda el fallo se cobraria una pagina del allocator para nada.  Con la
+	 * guarda el codigo de error DICE la causa:  -ERANGE es "la mascara no da",
+	 * -ENOMEM es "no hay memoria".  Antes las dos cosas salian igual de
+	 * -ENOMEM y no habia forma de distinguirlas desde remove().
+	 *
+	 * dma_addressing_limited() es el predicado del kernel para esta pregunta
+	 * exacta --"la mascara es demasiado pequena para toda la memoria del
+	 * sistema"-- (mapping.c:961-976), no una reimplementacion de el. */
+	if (dma_addressing_limited(dev))
+		return -ERANGE;
+
 	/* __GFP_ZERO, igual que la pagina global de TTM que usa la referencia:  si
 	 * el hardware llega a memcpy hacia ella, el destino tiene que existir. */
 	page = alloc_page(GFP_KERNEL | __GFP_ZERO);
@@ -212,5 +235,116 @@ void rx550_dummy_kernel_unmap(void *ctx, void *cpu_va, uint64_t dma_pa)
 	 * antes seria usar memoria ya devuelta. */
 	page = virt_to_page(cpu_va);
 	__free_page(page);
+}
+
+/* ── LA MASCARA DMA ──────────────────────────────────────────────────────────
+ *
+ * POR QUE DOS LLAMADAS Y NO dma_set_mask_and_coherent()
+ *   MEDIDO en el kernel EN EJECUCION, de tres maneras independientes que se
+ *   dicen lo mismo:
+ *
+ *   1) TEXTO.  include/linux/dma-mapping.h, byte a byte identico entre
+ *      /usr/src/kernels/7.1.3-200.nobara.fc44.x86_64 y el corpus
+ *      (sha256 4263b862df9eb2e77481520850996a14a2f5eaafe611544f32ada8dfde32e5ba):
+ *          :197  int  dma_set_mask(struct device *dev, u64 mask);
+ *          :198  int  dma_set_coherent_mask(struct device *dev, u64 mask);
+ *          :641  static inline int dma_set_mask_and_coherent(struct device *dev, u64 mask)
+ *
+ *   2) OBJETO.  Compilando contra esas cabeceras una sonda minima que llama a
+ *      las tres y leyendo `nm -u` del objeto (fichero de la sonda aparte, no
+ *      es codigo del driver):
+ *              U dma_set_mask
+ *              U dma_set_coherent_mask
+ *              U dma_map_page_attrs
+ *              U dma_addressing_limited
+ *              U dma_get_required_mask
+ *          dma_set_mask_and_coherent  NO APARECE:  se ha expandido dentro.
+ *
+ *   3) BINARIO.  System.map del kernel que corre:
+ *              ffffffff814cafa0 T dma_set_mask
+ *              ffffffff814cddb0 T dma_set_coherent_mask
+ *              dma_set_mask_and_coherent   NO ESTA
+ *
+ *   O sea:  la version de dos en una es INLINE, y las otras dos son simbolos
+ *   reales y exportados.  Eso NO es un capricho de estilo y no lo decide la
+ *   puerta estatica:  MEDIDO que ni `dma_set_mask` ni `dma_set_coherent_mask`
+ *   estan en la lista de simbolos prohibidos de tests/test_static.sh (la lista
+ *   es UNDEF_PROHIBIDOS, test_static.sh:538-542, y no menciona ningun dma_set_*).
+ *
+ *   La razon de fondo es que la version de dos en una DESCARTA el codigo de
+ *   error de la mascara coherente:
+ *          dma-mapping.h:635-647
+ *              static inline int dma_set_mask_and_coherent(struct device *dev, u64 mask)
+ *              {
+ *                      int rc = dma_set_mask(dev, mask);
+ *                      if (rc == 0)
+ *                              dma_set_coherent_mask(dev, mask);   <-- rc perdido
+ *                      return rc;
+ *              }
+ *   Es correcto ignorarlo (el comentario de :636-640 explica que la API
+ *   garantiza que la coherente puede ser igual o menor que la de streaming), y
+ *   aun asi asi no se puede COMPROBAR.  Llamando por separado el segundo rc
+ *   existe, y un kernel futuro que rompa esa garantia sale como un numero
+ *   distinto en lugar de tragarsela.
+ *
+ * POR QUE 40 Y NO EL ANCHO QUE HAGA FALTA
+ *   MEDIDO 2026-10-04 que dma_set_mask(40) es ACEPTABLE aqui:  el driver de
+ *   referencia, que esta cargada y es el driver ENLAZADO a 0000:01:00.0
+ *   (MEDIDO:  /sys/bus/pci/devices/0000:01:00.0/driver -> .../amdgpu), lo hizo
+ *   sin volverse atrás:  gmc_v8_0.c:1136 y :1137-1140 cortan el probe si falla.
+ *   MEDIDO en la maquina:  dma_mask_bits = 40 y consistent_dma_mask_bits = 40.
+ *   Y la garantia la da el kernel, no la suerte:
+ *       kernel/dma/direct.c:564-565   if (mask >= DMA_BIT_MASK(32)) return 1;
+ *   o sea que con mapping directo (MEDIDO:  /sys/kernel/iommu_groups tiene 0
+ *   grupos y /proc/cmdline no lleva iommu=, intel_iommu= ni amd_iommu=) 40 bits
+ *   siempre se pueden pedir.  Por que 40 y no mas, no es una cuestion de lo
+ *   que acepte el kernel:  es que mas alla de 40 el GART no puede representar
+ *   el PA, y una mascara mas ancha solo deja pasar entradas que el registro
+ *   de 28 bits no puede codificar (gmc_v8_0.c:1133-1134, :890-891, :920-921).
+ */
+int rx550_dummy_kernel_dma_mask(void *ctx, struct rx550_dma_mask_report *out)
+{
+	struct device *dev = (struct device *)ctx;
+	struct rx550_dma_mask_report r;
+	int rc;
+
+	if (dev == NULL)
+		return -EINVAL;
+	if (out == NULL) {
+		/* Un informe que se pide explicitamente y no se puede escribir no
+		 * puede seguir siendo opcional en silencio:  se avisa con el codigo
+		 * de un argumento malo, que es lo que es. */
+		return -EINVAL;
+	}
+
+	r.mask_before = dma_get_mask(dev);
+	r.required = dma_get_required_mask(dev);
+	r.limited_before = dma_addressing_limited(dev) ? 1 : 0;
+
+	rc = dma_set_mask(dev, RX550_DMA_MASK);
+	r.streaming_rc = rc;
+	r.coherent_rc = -EIO;
+	if (rc == 0) {
+		/* Solo si la de streaming fue aceptada:  poner la coherente con una
+		 * mascara mas ancha que la de streaming seria pedir algo que el
+		 * contrato no permite, y el kernel lo negaria sin decir por que. */
+		r.coherent_rc = dma_set_coherent_mask(dev, RX550_DMA_MASK);
+	}
+
+	r.mask_after = dma_get_mask(dev);
+	r.coherent_after = dev->coherent_dma_mask;
+	r.mask_bits = rx550_dma_mask_bits_of(r.mask_after);
+	r.required_bits = rx550_dma_mask_bits_of(r.required);
+	r.limited_after = dma_addressing_limited(dev) ? 1 : 0;
+
+	*out = r;
+
+	/* Un informe con la mascara puesta a medias y rc == 0 seria un informe
+	 * que dice que no paso nada mientras pasa algo. */
+	if (rc != 0)
+		return rc;
+	if (r.mask_after != RX550_DMA_MASK)
+		return -EIO;
+	return 0;
 }
 #endif /* __KERNEL__ */

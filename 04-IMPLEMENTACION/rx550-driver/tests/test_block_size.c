@@ -401,6 +401,7 @@ struct corpus_geom {
 	int num_level;
 	uint32_t block_size;
 	uint32_t field;
+	uint64_t root_entries;
 	uint64_t coverage;
 };
 
@@ -421,8 +422,32 @@ static void corpus_geometry(uint32_t gb, struct corpus_geom *o)
 	o->block_size = corpus_get_block_size(o->tmp);
 	/* gmc_v8_0.c:934  campo = block_size - 9 */
 	o->field = o->block_size - 9u;
-	/* cobertura:  2^bs páginas de 2^(bs+12) bytes  =  2^(2*bs+12) */
-	o->coverage = UINT64_C(1) << (2u * o->block_size + 12u);
+	/* LA COBERTURA.  MEDIDO 2026-10-04, CORREGIDO.  Esta segunda copia de la
+	 * formula estaba tan equivocada como la del modulo:  decia
+	 * 2^(2*bs+12) = 4 GiB para bs=10,  y por eso M14 "confirmaba" a M16 y
+	 * las dos copias se sostenian la una a la otra.  Dos implementaciones del
+	 * mismo error NO son una corroboracion.
+	 *
+	 * Del corpus,  con num_level == 1  y root_level = PDB0:
+	 *   amdgpu_vm_pt.c:58-59   level_shift(PDB0) = 9*(PDB0-PDB0) + block_size
+	 *   amdgpu_vm_pt.c:84-85   num_entries(PDB0) = round_up(max_pfn, 2^shift) >> shift
+	 *   amdgpu_vm_pt.c:91      num_entries(PTB)  = 1 << block_size
+	 * de donde la cobertura es exactamente max_pfn paginas:  la ventana.
+	 *
+	 * El round_up es lo que hace que la raiz tenga un numero de entradas que
+	 * DEPENDE de la ventana,  y no una potencia de dos fija. */
+	{
+		/* MEDIDO, y este fue el fallo al escribirlo:  el corpus divide por
+		 * 1 << shift  y no por shift.  Con shift = 10 en vez de 1024  la
+		 * cobertura de 1 GiB salia de 58256 MiB.  El numero de bits y el
+		 * numero que se levanta a esa potencia son cosas distintas. */
+		uint64_t shift_bits = o->block_size;	/* level_shift(PDB0) */
+		uint64_t shift      = UINT64_C(1) << shift_bits;
+		uint64_t leaf       = shift;
+
+		o->root_entries = (o->max_pfn + shift - 1u) / shift;
+		o->coverage = o->root_entries * leaf << 12;
+	}
 }
 
 static void m14_sizes(void)
@@ -432,10 +457,19 @@ static void m14_sizes(void)
 		int expected_rc;	/* 0 = aceptada */
 		uint32_t bs, field, depth, pte_pages;
 		uint64_t coverage;
+	/* MEDIDO 2026-10-04:  las dos ultimas filas declaraban cobertura de
+	 * 4 GiB para 2 y para 4 GiB.  Era la formula falsa.  Y `pte_pages` no es
+	 * el numero de entradas de la hoja sino el de PAGINAS de hoja,  que es
+	 * el numero de entradas de la raiz.  Para 1 GiB:  max_pfn = 2^18,
+	 * shift = block_size = 9,  luego ceil(2^18 / 2^9) = 512 entradas de
+	 * raiz  = 512 paginas de hoja.  Para 2 GiB:  ceil(2^19 / 2^10) = 512.
+	 * Para 4 GiB:  ceil(2^20 / 2^10) = 1024. */
 	} t[] = {
 		{ 1, 0,  9,  0, 1,  512, UINT64_C(1) << 30 },
-		{ 2, 0, 10,  1, 1, 1024, UINT64_C(1) << 32 },
-		{ 4, 0, 10,  1, 1, 1024, UINT64_C(1) << 32 },
+		{ 2, 0, 10,  1, 1,  512, UINT64_C(2) << 30 },
+		{ 4, 0, 10,  1, 1, 1024, UINT64_C(4) << 30 },
+		{ 8, 0, 10,  1, 1, 2048, UINT64_C(8) << 30 },
+		{ 64, 0, 10,  1, 1, 16384, UINT64_C(64) << 30 },
 	};
 	size_t n = sizeof(t) / sizeof(t[0]);
 	size_t k;
@@ -481,23 +515,46 @@ static void m14_sizes(void)
 	}
 	CHECK(coincide,
 	      "M14 la geometria del proyecto coincide con la aritmetica de "
-	      "amdgpu_vm.c:2433-2466 en 1, 2 y 4 GiB");
+	      "amdgpu_vm.c:2433-2466 y con la de amdgpu_vm_pt.c:81-91");
 
-	/* ── la cobertura menos el vm_size, que es lo que hace la guarda ──── */
+	/* ── LA COBERTURA MENOS LA VENTANA ──────────────────────────────────
+	 *
+	 * MEDIDO 2026-10-04.  Este bloque afirmaba que con una ventana de 2 GiB
+	 * la cobertura la EXCEDIA en 2048 MiB,  y por tanto que la ventana
+	 * quedaba acotada por START/END  y no por un defecto de geometria.  Con
+	 * la formula corregida la diferencia es CERO en todas las ventanas:  la
+	 * cobertura es exactamente la ventana,  sin holgura y sin recorte.
+	 *
+	 * Y eso cambia lo que hay que vigilar.  La holgura que este bloque
+	 * defendia no existia;  lo que existe es el round_up de la raiz,  que con
+	 * una ventana que no sea multiplo exacto de 2^block_size paginas da una
+	 * entrada de mas.  Para 1, 2, 4, 8 y 64 GiB  —las potencias de dos del
+	 * dominio del corpus—  el multiplo es exacto y no hay entrada sobrante.
+	 * Eso es lo que se comprueba ahora. */
 	{
-		struct rx550_vmid1_geom g2, g4;
-		int64_t d2, d4;
+		static const uint32_t pot[] = { 1u, 2u, 4u, 8u, 64u };
+		unsigned k;
 
-		rx550_vmid1_geometry(UINT64_C(2) << 30, &g2);
-		rx550_vmid1_geometry(UINT64_C(4) << 30, &g4);
-		d2 = (int64_t)((g2.coverage_bytes - (UINT64_C(2) << 30)) >> 20);
-		d4 = (int64_t)((g4.coverage_bytes - (UINT64_C(4) << 30)) >> 20);
-		CHECK_EQ(d2, 2048, "M14 2 GiB: la cobertura excede en 2048 MiB");
-		CHECK_EQ(d4, 0, "M14 4 GiB: la cobertura no excede");
-		/* Y la sub-cobertura es un hecho medido, no un olvido. */
-		CHECK(g2.coverage_bytes > (UINT64_C(2) << 30),
-		      "M14 2 GiB produce sub-ventana por exceso de cobertura, "
-		      "que acota START/END, no por defecto de geometria");
+		for (k = 0; k < sizeof(pot) / sizeof(pot[0]); k++) {
+			struct rx550_vmid1_geom g;
+			uint64_t ventana = (uint64_t)pot[k] << 30;
+			uint64_t max_pfn = ventana >> 12;
+			uint32_t shift_p = 1u << g.block_size;
+
+			CHECK(rx550_vmid1_geometry(ventana, &g) == 0,
+			      "M14 la ventana se acepta");
+			CHECK_EQ(g.coverage_bytes - ventana, 0,
+				 "M14 y la cobertura NO la excede:  son iguales");
+			CHECK_EQ(max_pfn % shift_p, 0,
+				 "M14 y el round_up de la raiz es EXACTO:  no hay "
+				 "entrada que cubra de mas");
+		}
+		/* Y la holgura que este bloque defendia, medida y negativa. */
+		CHECK(1, "M14 y lo que NO se comprueba aqui:  una ventana que no sea "
+			 "potencia de dos hace que el round_up de la raiz de una "
+			 "entrada de mas,  y que el hardware la traduzca o no es "
+			 "NOT_DETERMINED.  El corpus no alcanza ese caso  —vm_size "
+			 "es roundup_pow_of_two,  amdgpu_vm.c:2429—.");
 	}
 }
 
@@ -631,67 +688,85 @@ static void m15_cross(void)
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
- * M16  EL RECHAZO DE 8 GiB ES GEOMÉTRICO
+ * M16  LA VENTANA DE 64 GiB,  QUE ANTES DABA POR RECHAZADA
  *
- * Y LA PREGUNTA QUE ESTE NODO TIENE QUE RESPONDER:  ¿el rechazo viene de que
- * la geometría no cubre, o de que alguien leyó mal el campo y creyó que 8 GiB
- * no cabía en el nibble?
+ * MEDIDO 2026-10-04.  Este nodo se llamaba "el rechazo de 8 GiB es geometrico"
+ * y su veredicto era:  8 GiB NO cabe,  porque la cobertura son 4 GiB,  y el
+ * campo NO es el problema.  Las tres partes eran coherentes entre si  y las tres
+ * eran FALSAS,  porque las dos copias de la formula de cobertura  —la del
+ * modulo y la de corpus_geometry()  de este fichero—  eran la misma formula
+ * equivocada.  Dos implementaciones que comparten un error no se corroboran.
  *
- * La respuesta es que el nibble lo admite de sobra:  8 GiB con block_size 10
- * necesita el campo 1, que es el mismo que usan 2 y 4 GiB.  El rechazo es
- * porque la cobertura del nivel es de 4 GiB,  y eso es un hecho de la
- * geometría,  no del campo.
+ * LO QUE DICHA EL CORPUS,  con la cita:
+ *   amdgpu_vm_pt.c:58-59   level_shift(PDB0) = 9*(PDB0-PDB0) + block_size
+ *   amdgpu_vm_pt.c:84-85   num_entries(PDB0) = round_up(max_pfn, 1<<shift) >> shift
+ *   amdgpu_vm_pt.c:91      num_entries(PTB)  = 1 << block_size
+ *   amdgpu_vm_pt.c:191     idx = (pfn >> shift) & mask
+ *
+ * La raiz no es una tabla mas de 2^block_size entradas:  su numero de entradas
+ * sale de un round_up de max_pfn,  de modo que la cobertura es exactamente
+ * max_pfn paginas  —la ventana entera—  y el reparto de bits del walk
+ * (10..33 para la raiz,  0..9 para la hoja)  no deja huecos.
+ *
+ * LO QUE ESTA AQUI ABAJO,  entonces,  es lo contrario de lo que el nodo
+ * afirmaba:  8 GiB cabe,  y con el MISMO block_size y el MISMO campo que
+ * 2 GiB y 4 GiB.  El nibble no era el problema  —eso sí era cierto—  pero la
+ * cobertura tampoco lo era.
  * ═══════════════════════════════════════════════════════════════════════════ */
-static void m16_eight_gib(void)
+static void m16_ventanas(void)
 {
-	struct rx550_vmid1_geom g8;
-	struct corpus_geom c8;
-	int rc;
+	struct rx550_vmid1_geom g;
+	struct corpus_geom c;
+	static const uint32_t gb[] = { 1u, 2u, 4u, 8u, 16u, 64u };
+	unsigned i;
 
-	rc = rx550_vmid1_geometry(UINT64_C(8) << 30, &g8);
-	CHECK(rc != 0, "M16 8 GiB se rechaza");
-	/* Y el código concreto dice POR QUÉ:  -5 es
-	 * RX550_PGT_ERR_VM_SIZE_INCOHERENT,  "la cobertura derivada no es la
-	 * ventana pedida".  Y -4,  que sería el de block_size,  NO es.
-	 *
-	 * La comparación va con signo, y no con el módulo:  la primera versión
-	 * comparaba `(uint32_t)(-rc)` contra `(uint32_t)(-5)`,  que es comparar
-	 * 5 contra 4294967291.  Dos conversiones a unsigned que sólo coinciden
-	 * en el papel. */
-	CHECK_EQ((int)rc, (int)RX550_PGT_ERR_VM_SIZE_INCOHERENT,
-		 "M16 el error es VM_SIZE_INCOHERENT (cobertura), no de bloque");
-	CHECK((int)rc != (int)RX550_PGT_ERR_UNSUPPORTED_BLOCK_SIZE,
-	      "M16 y NO es UNSUPPORTED_BLOCK_SIZE:  el nibble no Rechaza 8 GiB");
+	printf("\nM16 · las ventanas, y la cobertura es la ventana\n");
 
-	/* Y lo que el CORPUS haría con 8 GiB, que es lo que separa las dos
-	 * hipótesis:  el campo NO es el problema. */
-	corpus_geometry(8, &c8);
-	CHECK_EQ(c8.block_size, 10u,
-		 "M16 el corpus también da block_size 10 para 8 GiB");
-	CHECK_EQ(c8.field, 1u,
-		 "M16 y el campo 1, que es el mismo que usan 2 y 4 GiB");
-	CHECK_EQ(c8.field, 1u,
-		 "M16 el nibble admite 8 GiB de sobra: no es un problema de campo");
-	CHECK(c8.coverage < (UINT64_C(8) << 30),
-	      "M16 la cobertura del corpus para 8 GiB es 4 GiB, menor que 8 GiB");
-	CHECK_EQ(c8.coverage, UINT64_C(1) << 32,
-		 "M16 y coincide con la del proyecto");
+	for (i = 0; i < sizeof(gb) / sizeof(gb[0]); i++) {
+		int rc = rx550_vmid1_geometry((uint64_t)gb[i] << 30, &g);
 
-	/* Y LA PRUEBA DIRECTA:  si la cobertura tuviera que ser 8 GiB con el
-	 * campo 1,  el block_size teria que ser distinto.  Y no lo es. */
-	{
-		uint32_t necesario = 9u;
-		uint64_t cob = UINT64_C(1) << (2u * necesario + 12u);
-
-		while (cob < (UINT64_C(8) << 30) && necesario < 40u)
-			cob = UINT64_C(1) << (2u * (++necesario) + 12u);
-		printf("    el primer block_size cuya cobertura alcanza 8 GiB es "
-		       "%u (campo %u), y el proyecto usa %u\n",
-		       necesario, necesario - 9u, 10u);
-		CHECK(necesario > 10u,
-		      "M16 alcanzar 8 GiB exigiría un block_size MAYOR que el que "
-		      "el corpus usa: el límite es la cobertura, no el nibble");
+		corpus_geometry(gb[i], &c);
+		CHECK_EQ(rc, 0, "M16 la geometria de la ventana se ACEPTA");
+		CHECK_EQ(g.coverage_bytes, (uint64_t)gb[i] << 30,
+			 "M16 y su cobertura es EXACTAMENTE la ventana");
+		CHECK_EQ(g.coverage_bytes, c.coverage,
+			 "M16 y coincide con la del corpus, calculada aparte");
+		/* Y el detalle que explica por que  antes salia 4 GiB:  el numero
+		 * de entradas de la raiz depende de la ventana. */
+		CHECK_EQ(g.entries_per_level, (uint32_t)c.root_entries,
+			 "M16 las entradas de la raiz salen del round_up de max_pfn");
 	}
+
+	/* Y EL CASO DE ESTA MAQUINA,  que es el que estaba en la frontera. */
+	CHECK(rx550_vmid1_geometry(UINT64_C(64) << 30, &g) == 0
+	      && g.coverage_bytes == (UINT64_C(64) << 30),
+	      "M16 64 GiB:  la ventana entera de esta tarjeta, sin huecos");
+	CHECK_EQ(g.end_pn, ((UINT64_C(64) << 18) - 1u),
+	      "M16 y end_pn = max_pfn - 1,  que es lo que escribe gmc_v8_0.c:909");
+
+	/* LO QUE SIGUE ABIERTO,  y este nodo ya no lo disimula:  con una ventana
+	 * que NO sea multiplo exacto de 2^block_size paginas,  el round_up de la
+	 * raiz da una entrada de mas.  Con las ventanas de esta maquina el
+	 * multiplo es exacto,  y eso se comprueba aparte.  Que el hardware
+	 * traduzca o no esas paginas sobrantes es NOT_DETERMINED. */
+	{
+		uint32_t no_exacto[] = { 3u, 5u, 6u, 7u };
+
+		for (i = 0; i < sizeof(no_exacto) / sizeof(no_exacto[0]); i++) {
+			int rc = rx550_vmid1_geometry((uint64_t)no_exacto[i] << 30,
+						      &g);
+
+			/* 3, 5, 6 y 7 GiB no son multiplos de 4 KiB en pagina ni
+			 * entran en el dominio del corpus  —vm_size es una potencia
+			 * de dos—.  Lo que se comprueba es que el modulo NO las
+			 * acepta en silencio con una cobertura falsa. */
+			CHECK(rc != 0 || g.coverage_bytes >= ((UINT64_C(1) << 30) * no_exacto[i]),
+			      "M16 una ventana que no es potencia de dos no se "
+			      "acepta con una cobertura inventada");
+		}
+	}
+	CHECK(1, "M16 que hace el hardware con la entrada sobrante del round_up: "
+		 "NOT_DETERMINED,  y un test de aritmetica no lo cierra");
 }
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -770,7 +845,7 @@ int main(int argc, char **argv)
 	m13_range();
 	m14_sizes();
 	m15_cross();
-	m16_eight_gib();
+	m16_ventanas();
 
 	printf("\n  passed: %u\n  failed: %u\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;

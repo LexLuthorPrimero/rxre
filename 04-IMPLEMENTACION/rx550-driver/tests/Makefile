@@ -353,8 +353,8 @@ test_gart_geom: test_gart_geom.c ../rx550_gart_geom.c ../rx550_gart_geom.h
 # barrido de TODO el dominio legal de vm_size da block_size = 10 siempre:  eso
 # prueba que el numero no depende de la RAM de la maquina,  aunque
 # si_meminfo() este en el camino de calculo.
-test_vm_geom: test_vm_geom.c ../rx550_vm_geom.c ../rx550_vm_geom.h
-	$(CC) $(CFLAGS) -o $@ test_vm_geom.c ../rx550_vm_geom.c
+test_vm_geom: test_vm_geom.c ../rx550_vm_geom.c ../rx550_vm_geom.h ../rx550_vmid1_pgt.c
+	$(CC) $(CFLAGS) -o $@ test_vm_geom.c ../rx550_vm_geom.c ../rx550_vmid1_pgt.c
 
 test_vmid1_pgt: test_vmid1_pgt.c ../rx550_vmid1_pgt.c
 	$(CC) $(CFLAGS) -o $@ test_vmid1_pgt.c ../rx550_vmid1_pgt.c

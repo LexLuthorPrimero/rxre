@@ -43,22 +43,54 @@
  *   con vm_size es block_size.
  *
  *   SI SE HARDCODEARA (1, 512, 512), EL CODIGO SERIA INCORRECTO EN EL MOMENTO
- *   EN QUE vm_size DEJASE DE SER 1 GiB, Y SERIA INCORRECTO EN SILENCIO:
+ *   vm_size | tmp | num_level | block | campo | raiz    | cobertura | cubre vm_size?
+ *   --------+-----+-----------+-------+-------+---------+-----------+---------------
+ *      1 GiB|   1 |         1 |     9 |     0 |   4 KiB |  1024 MiB | SI, exactamente
+ *      2 GiB|   2 |         1 |    10 |     1 |   4 KiB |  2048 MiB | SI, exactamente
+ *      4 GiB|   2 |         1 |    10 |     1 |   8 KiB |  4096 MiB | SI, exactamente
+ *      8 GiB|   2 |         1 |    10 |     1 |  16 KiB |  8192 MiB | SI, exactamente
+ *     64 GiB|   2 |         1 |    10 |     1 | 128 KiB | 65536 MiB | SI, exactamente
  *
- *     vm_size | tmp | num_level | block | campo | coverage    | cubre vm_size?
- *     --------+-----+-----------+-------+-------+-------------+----------------
- *        1 GiB|   1 |         1 |     9 |     0 |   1024 MiB  | SI, exactamente
- *        2 GiB|   2 |         1 |    10 |     1 |   4096 MiB  | SI, con holgura
- *        4 GiB|   2 |         1 |    10 |     1 |   4096 MiB  | SI, exactamente
- *        8 GiB|   2 |         1 |    10 |     1 |   4096 MiB  | NO  <-- se rechaza
+ *   MEDIDO 2026-10-04.  ESTA TABLA ESTABA MAL Y EN SUS DOS COLUMNES.
  *
- *   El caso de 8 GiB es el que importa:  la aritmetica del corpus SATURA en
- *   4 GiB, luego una ventana mayor quedaria SIN CUBRIR.  Y ese fallo es
- *   silencioso:  la mitad superior de la ventana no esta mapeada, y con
- *   PROTECTION_FAULT_DEFAULT la traduccion cae en la pagina dummy.  Ceros, sin
- *   error.  Por eso rx550_vmid1_geometry() RECHAZA en vez de aceptar.
+ *   Decia que la cobertura saturaba en 4 GiB y que por eso 8 GiB "NO <- se
+ *   rechaza".  Las dos cosas eran falsas:  la cobertura es EXACTAMENTE la
+ *   ventana en los cinco casos,  y 8 GiB se acepta.  Con la tabla anterior,
+ *   el driver rechazaba su propia ventana de 64 GiB.
  *
- * ─────────────────────────────────────────────────────────────────────────────
+ *   LA FORMULA ERRONEA, en las dos copias que habia  —el modulo y
+ *   corpus_geometry() en test_block_size.c—:
+ *
+ *       coverage = 2^block_size * 2^block_size << 12
+ *
+ *   trata la RAIZ como una tabla mas de 2^block_size entradas.  El corpus no lo
+ *   hace.  Con num_level == 1 el root_level es PDB0  (amdgpu_vm.c:2451-2452,
+ *   y enum amdgpu_vm_level {PDB3=0, PDB2=1, PDB1=2, PDB0=3, PTB=4}),  y de ahi:
+ *
+ *       amdgpu_vm_pt.c:58-59    level_shift(PDB0) = 9*(PDB0-PDB0) + block_size
+ *                                        = block_size
+ *       amdgpu_vm_pt.c:84-85    num_entries(PDB0) = round_up(max_pfn, 1<<shift) >> shift
+ *                               y max_pfn = vm_size >> 12,  de modo que el
+ *                               numero de entradas DEPENDE de la ventana
+ *       amdgpu_vm_pt.c:106-107  entries_mask(PDB0) = 0xffffffff
+ *       amdgpu_vm_pt.c:91       num_entries(PTB)  = 1 << block_size
+ *       amdgpu_vm_pt.c:191      idx = (pfn >> shift) & mask
+ *
+ *   Y con eso la cobertura es exactamente max_pfn paginas:  la ventana entera.
+ *   El reparto de bits se ve en la linea 191:  la raiz saca los bits 10..33 del
+ *   pfn  y la hoja los bits 0..9,  y entre los dos cubren los 24 bits del pfn sin
+ *   huecos.
+ *
+ *   LA COLUMNA "cubre vm_size?" NO PUEDE SER "NO"  con esta aritmetica,  y esa
+ *   es la forma que delata la formula:  la cobertura es una identidad de la
+ *   ventana,  luego la pregunta no tiene dos respuestas posibles.  Y la tabla
+ *   anterior la respondia "NO",  lo cual es logically incompatible con existir en
+ *   la misma tabla una cobertura derivada de block_size.
+ *
+ *   QUIEN REFUTO TODO ESTO:  un adversario independiente leyo amdgpu_vm_pt.c y
+ *   amdgpu_vm.h.  Y la evidencia que este componente daba de la cifra falsa eran
+ *   TRES IDENTIDADES DE TIEMPO DE COMPILACION  (1<<32 == 4<<30),  que se cumplen
+ *   para CUALQUIER estado del driver.  Un control que no puede fallar.
  * POR QUE ROOT Y PTE SON TIPOS DISTINTOS, Y NO UNA CONVENIENCIA
  * ─────────────────────────────────────────────────────────────────────────────
  *

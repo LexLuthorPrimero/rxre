@@ -269,16 +269,68 @@ int rx550_vmid1_geometry(uint64_t vm_size_bytes, struct rx550_vmid1_geom *out)
 	out->depth_field	= num_level;
 	/* gmc_v8_0.c:933-934  PAGE_TABLE_BLOCK_SIZE = block_size - 9 */
 	out->block_size_field	= block_size - 9u;
-	out->entries_per_level	= entries;
+	/* El nivel intermedio:  con num_level == 1 no hay ninguno entre la raiz y
+	 * la hoja,  asi que level_bytes es el de una hoja.  Se deja declarado
+	 * para que el consumidor tenga el campo con nombre y no una constante
+	 * repetida. */
 	out->level_bytes	= (uint64_t)entries * RX550_VMID1_ENTRY_BYTES;
-	out->pte_pages		= entries;
-	out->pte_entries	= entries;
-	out->root_bytes		= out->level_bytes;
-	out->pte_page_bytes	= out->level_bytes;
-	/* El rango que camina el hardware:  block_size bits de indice de PDE,
-	 * block_size de indice de PTE, y PAGE_SHIFT de pagina. */
-	coverage = ((uint64_t)entries * (uint64_t)entries)
-		   << RX550_VMID1_PAGE_SHIFT;
+	/*
+	 * LA COBERTURA.  MEDIDO 2026-10-04, CORREGIDO.  ESTA FORMULA ERA FALSA.
+	 *
+	 * Decia:  coverage = 2^block_size * 2^block_size << 12
+	 * es decir  2^10 * 2^10 * 2^12 = 2^32 = 4 GiB  para block_size 10,  y de
+	 * ahi salia el numero que este componente ha repetido durante dias:  que
+	 * la ventana de 64 GiB de esta tarjeta NO la cubria el page walker,  y que
+	 * 60 de sus 64 GiB quedaban fuera.  REFUTADO.  La cobertura real es de
+	 * 64 GiB,  la ventana entera,  y no falta nada.
+	 *
+	 * El error era tratar la RAIZ como una tabla mas de 2^block_size entradas.
+	 * El corpus no lo hace.  Con num_level == 1  el root_level es PDB0
+	 * (amdgpu_vm.c:2451-2452)  y enum amdgpu_vm_level {PDB3=0, PDB2=1, PDB1=2,
+	 * PDB0=3, PTB=4},  y de ahi:
+	 *
+	 *   amdgpu_vm_pt.c:58-59   level_shift(PDB0) = 9*(PDB0-PDB0) + block_size
+	 *                                      = block_size = 10
+	 *   amdgpu_vm_pt.c:81-85   num_entries(PDB0) = round_up(max_pfn, 2^shift) >> shift
+	 *                          y max_pfn = vm_size >> 12,  de modo que sale
+	 *                          un numero de entradas que DEPENDE de la ventana,
+	 *                          no una potencia de dos fija
+	 *   amdgpu_vm_pt.c:106-107 entries_mask(PDB0) = 0xffffffff  (el nivel raiz
+	 *                          no recorta el indice: es el maximo del walk)
+	 *   amdgpu_vm_pt.c:91      num_entries(PTB)  = 1 << block_size = 1024
+	 *   amdgpu_vm_pt.c:111     entries_mask(PTB)  = 1023
+	 *
+	 * Y con eso la cobertura es exactamente max_pfn paginas:  la ventana que
+	 * la geometria declara.  El ANDBITO se ve en el propio codigo:
+	 * amdgpu_vm_pt.c:191  idx = (pfn >> shift) & mask  — para la raiz saca los
+	 * bits 10..33 del pfn  y para la hoja los bits 0..9,  de modo que los 24
+	 * bits del pfn se reparten entre los dos niveles sin dejar huecos.
+	 *
+	 * QUE LO REFUTO,  y no es un argumento:  un adversario independiente leyo
+	 * amdgpu_vm_pt.c y amdgpu_vm.h,  y la cuenta le daba 64 GiB.  Repetida aqui
+	 * desde el corpus.  Y la "evidencia" que este componente daba de la cifra
+	 * falsa eran tres identidades de tiempo de compilacion  (test_vm_geom.c,
+	 * 1<<32 == 4<<30),  que se cumplen para CUALQUIER estado del driver:  un
+	 * control que no puede fallar.  La correccion de esa seccion esta en el
+	 * mismo commit.
+	 */
+	{
+		uint64_t root_shift = entries;	/* level_shift(PDB0) == block_size */
+		uint64_t root_entries;
+
+		/* amdgpu_vm_pt.c:84-85.  round_up,  no un techo de potencia. */
+		root_entries = ((max_pfn + root_shift - 1u) / root_shift);
+		out->entries_per_level = (uint32_t)(root_entries > 0xFFFFFFFFu
+						   ? 0xFFFFFFFFu : root_entries);
+		out->root_bytes = root_entries * RX550_VMID1_ENTRY_BYTES;
+		/* El ANDBITO del walk:  los bits 0..9 eligen hoja  (mask 1023,
+		 * shift 0)  y los bits 10.. eligen entrada de la raiz. */
+		out->pte_entries  = entries;
+		out->pte_pages    = root_entries;
+		out->pte_page_bytes = (uint64_t)entries * RX550_VMID1_ENTRY_BYTES;
+		coverage = root_entries * (uint64_t)entries
+			   << RX550_VMID1_PAGE_SHIFT;
+	}
 	out->coverage_bytes	= coverage;
 	out->start_pn		= 0;
 	out->end_pn		= (uint32_t)((coverage >> RX550_VMID1_PAGE_SHIFT) - 1u);
