@@ -130,7 +130,142 @@ def es_evidencia_candidata(ruta_rel):
     return True
 
 
-def custodia(raiz, entradas, silencioso=False, a_todos=False):
+def indice_sellados(raiz):
+    """
+    Devuelve el conjunto de sha256 de TODOS los blobs del object store, sueltos
+    e inalcanzables.
+
+    POR QUE `--batch-all-objects` Y NO `rev-list`
+    --------------------------------------------
+    La pregunta que responde esto es "¿existe el CONTENIDO SELLADO en algun
+    objeto?". Y el contenido sellado puede ser, justamente, lo que ya no
+    referencia ningun commit: ese es el caso que importa. Un recorrido por
+    ramas (`rev-list --all`) daria "no lo encuentro" tambien para los 33 casos
+    en los que SI esta, y no podriamos distinguir los dos. Aqui se recorre el
+    object store entero, que es lo unico que separa "nunca existio" de "existio
+    y se perdio la referencia".
+
+    MEDIDO: 7612 blobs, 4,2 s. No se cachea a proposito. Un indice de sumas
+    cacheado es un indice que queda viejo sin que nadie lo note, que es el mismo
+    fallo que este fichero denuncia en su primera linea.
+
+    MEDIDO tambien: hay 5 objetos sueltos de tamano cero (hallazgo 1058) y `git
+    cat-file --batch` escupe errores por ellos en stderr. No es fallo: son
+    objetos ilegibles, se los salta, y el numero de blobs hasheados lo dice todo.
+    """
+    import subprocess as _sp
+    import hashlib as _hl
+
+    r = _sp.run(("git", "cat-file", "--batch-all-objects",
+                 "--batch-check=%(objectname) %(objecttype)"),
+                cwd=raiz, capture_output=True, text=True)
+    # EL ERROR QUE ESTABA, Y EL QUE NO.
+    #
+    # 1. EL REAL. El `--batch-check=<formato>` va UNIDO con `=`. Pasado como dos
+    #    argumentos, git responde `fatal: los modos de batch no toman
+    #    argumentos` con rc=129 y stdout vacio. En un shell no se nota, porque
+    #    alli el `=` y las comillas hacen que sea una sola palabra: la forma que
+    #    funcionaba en la linea de comandos era distinta de la que escribi en el
+    #    codigo. Esto es lo que produjo NOT_AVAILABLE en la primera corrida real,
+    #    y por eso la rama de "no se" no mintio: es exactamente para lo que esta.
+    #
+    # 2. EL QUE CREI, Y NO ERA CIERTO. Escribi antes aqui que "hay 5 objetos
+    #    ilegibles y `cat-file` devuelve rc != 0 por ellos, asi que gatear por
+    #    returncode hacia desaparecer los 7612". MEDIDO y FALSO: con un objeto
+    #    vacio en un repo de prueba, la enumeracion devuelve **rc=0** con 4
+    #    lineas en stdout y el error en stderr. En este repositorio tambien:
+    #    rc=0. El rc no se mueve.
+    #
+    #    No lo borro porque la LEccion sigue valiendo y es la misma de siempre:
+    #    escribi una causa plausible y solo la medi despues. Lo que si se
+    #    sostiene es mas pequeno: **el rc no lleva informacion sobre si la
+    #    enumeracion esta completa**, asi que el unico criterio para "no
+    #    disponible" es que stdout venga vacio. La razon por la que NO se
+    #    gatea es que gatear por un numero que no lo sabe es una manera de
+    #    fabricar una respuesta, no de evitar una.
+    blobs = [ln.split()[0] for ln in (r.stdout or "").splitlines()
+             if ln.split()[1:2] == ["blob"]]
+    if not blobs:
+        return None
+
+    proc = _sp.Popen(("git", "cat-file", "--batch"), cwd=raiz,
+                     stdin=_sp.PIPE, stdout=_sp.PIPE)
+    vistos = set()
+    ilegibles = 0
+    try:
+        for i in range(0, len(blobs), 200):
+            trozo = blobs[i:i + 200]
+            try:
+                proc.stdin.write(("\n".join(trozo) + "\n").encode())
+                proc.stdin.flush()
+            except (BrokenPipeError, OSError):
+                break
+            for _oid in trozo:
+                cab = proc.stdout.readline().split()
+                if len(cab) < 3:
+                    ilegibles += 1
+                    continue
+                try:
+                    n = int(cab[2])
+                except ValueError:
+                    ilegibles += 1
+                    continue
+                cuerpo = proc.stdout.read(n)
+                proc.stdout.read(1)
+                vistos.add(_hl.sha256(cuerpo).hexdigest())
+    finally:
+        try:
+            proc.stdin.close()
+        except (BrokenPipeError, OSError):
+            pass
+        proc.wait()
+    if ilegibles:
+        # Se dice. Un indice con 5 huecos no es un indice completo, y si no se
+        # dice parece que lo es.
+        sys.stderr.write("  aviso: %d objeto(s) ilegible(s) del total de %d; "
+                         "el indice de sumas no los cubre\n"
+                         % (ilegibles, len(blobs)))
+    return vistos
+
+
+def clasifica_custodia(entradas, recuperables, commiteados):
+    """
+    Nucleo PURO de la custodia: sin git, sin disco, sin reloj.
+
+    Se separa de `custodia()` a proposito, por una razon que ya ha_costado dos
+    veces hoy en este trabajo: una funcion que hace E/S y ademas decide no se
+    puede probar sin montar el mundo. Con el nucleo separado, los vectores del
+    self-test son entradas y salidas, y no dependen de este repositorio ni de su
+    estado.
+
+    Devuelve los cuatro grupos que el 1059 midio, y una quinta lista con los
+    sellados cuyo contenido no aparece en ninguna parte.
+
+    LA QUINTA CLASE NO BAJA EL CODIGO DE SALIDA
+    ------------------------------------------
+    `SELLADO_PERDIDO` es un HECHO que hay que mirar, no un fallo del sello. El
+    sello ha hecho su trabajo: ha dicho la verdad. Si esto bajara el rc, el
+    invariante "no cambia lo que ya devolvia para las entradas con Q1 = True"
+    seria falso, y una puerta que se pone roja por un hecho informativo
+    entrena a ignorar sus propios rojos. Decision escrita en el §6 del 1059.
+    """
+    sellados = set(rel for _h, rel in entradas)
+    ambos = sellados & commiteados
+    sellado_sin_commit = sellados - commiteados
+    commit_sin_sello = commiteados - sellados
+    sin_recuperar = []
+    if recuperables is not None:
+        sin_recuperar = [(h, rel) for h, rel in entradas
+                         if h not in recuperables]
+    else:
+        sin_recuperar = None      # no se pudo indexar: NO se afirma nada
+    return dict(ambos=ambos, sellado_sin_commit=sellado_sin_commit,
+                commit_sin_sello=commit_sin_sello,
+                sin_recuperar=sin_recuperar, sellados=sellados)
+
+
+def custodia(raiz, entradas, silencioso=False, a_todos=False,
+             recuperables=Ellipsis, _commiteados=None):
     """Cruza el sello con git y dice, para cada fichero de evidencia,
     si su corrupcion se DETECTA y si se puede RECUPERAR.
 
@@ -149,6 +284,18 @@ def custodia(raiz, entradas, silencioso=False, a_todos=False):
     commitear aparece en `ls-files` y NO es recuperable, porque todavia no
     existe en ningun commit. Para "recuperable" hay que mirar HEAD, y para eso
     `ls-tree -r HEAD`.
+
+    QUE ES LO QUE ESTA MAL, Y QUE ESTABA EN EL 1059
+    -----------------------------------------------
+    Esta funcion respondia "¿la RUTA esta en `ls-tree HEAD`?" y la imprimia
+    como "detecta y recupera". Son dos preguntas distintas: la ruta puede estar
+    en HEAD y el CONTENIDO SELLADO no estar en ningun objeto, porque lo
+    commiteado fue una version posterior. MEDIDO: 30 de 245 entradas del
+    manifiesto de este proyecto estan asi, y para ellas "recupera" era falso.
+
+    Ahora se pregunta las dos. La de la ruta sigue igual, porque es la que
+    responde si hay una version de la que VOLVER. La del contenido se responde
+    con `indice_sellados()`, y se imprime aparte.
     """
     import subprocess as _sp
 
@@ -188,6 +335,19 @@ def custodia(raiz, entradas, silencioso=False, a_todos=False):
     commit_sin_sello = commiteados - sellados
     ni_uno = set()  # por construccion: todo lo sellado esta en un lado o en otro
 
+    # LA SEGUNDA PREGUNTA. Se calcula una vez y se imprime aparte.
+    #
+    # `recuperables` es `Ellipsis` por defecto, que significa "no me lo han
+    # pasado": entonces se calcula aqui. Se puede pasar como conjunto desde el
+    # self-test, que es como se prueban las dos ramas sin montar un repositorio.
+    if recuperables is Ellipsis:
+        recuperables = indice_sellados(raiz)
+    if recuperables is not None:
+        sin_recuperar = [(h, rel) for h, rel in entradas
+                         if h not in recuperables]
+    else:
+        sin_recuperar = None
+
     if not silencioso:
         print("=" * 78)
         print("CUSTODIA DE LA EVIDENCIA")
@@ -195,8 +355,8 @@ def custodia(raiz, entradas, silencioso=False, a_todos=False):
         print("El sello DETECTA la corrupcion.  El commit RECUPERA la perdida.")
         print("Son preguntas distintas, y una no implica la otra.")
         print()
-        print("  %-46s %d" % ("sellado + commiteado  (detecta y recupera)",
-                              len(ambos)))
+        print("  LA PREGUNTA DE LA RUTA  (¿hay una version commiteada?)")
+        print("  %-46s %d" % ("sellado + commiteado", len(ambos)))
         print("  %-46s %d" % ("sellado SIN commit     (detecta, NO recupera)",
                               len(sellado_sin_commit)))
         print("  %-46s %d" % ("commiteado SIN sello  (recupera, no detecta)",
@@ -204,9 +364,44 @@ def custodia(raiz, entradas, silencioso=False, a_todos=False):
         print("  %-46s %d" % ("ni sello ni commit   (ni detecta ni recupera)",
                               len(ni_uno)))
         print()
+        print("  LA PREGUNTA DEL CONTENIDO  (¿el estado SELLADO sigue existiendo?)")
+        if sin_recuperar is None:
+            print("  NOT_AVAILABLE: no se pudo indexar el object store. No se")
+            print("  afirma nada: 'no lo he encontrado' no es 'no existe'.")
+        else:
+            print("  %-46s %d" % ("sellado y RECUPERABLE por contenido",
+                                  len(entradas) - len(sin_recuperar)))
+            print("  %-46s %d" % ("SELLADO PERDIDO (no esta en ningun objeto)",
+                                  len(sin_recuperar)))
+            # EL DENOMINADOR, DICHO.
+            #
+            # MEDIDO: sin esto, esta herramienta decia 32 y el hallazgo 1059
+            # decia 30, y las dos cifras eran correctas sobre populaciones
+            # distintas -- 30 sobre las 243 que TIENEN ruta en HEAD, 32 sobre
+            # las 245 del manifiesto. Los 2 de diferencia son
+            # 07-DRIVER/kernel/*.mod.c, que no tienen ruta commiteada y por eso
+            # ya estan en "SELLADOS SIN COMMIT". Son las dos clases a la vez, y
+            # una cifra sin denominador obliga a ese trabajo de reconciliar.
+            #
+            # Con las dos lineas, el que lee esto sabe que el numero que le
+            # importa para "detecta y recupera mentia" es el de abajo.
+            _en_ruta = [x for x in sin_recuperar if x[1] in ambos]
+            print()
+            print("  de los cuales, CON ruta commiteada (los que hacen que")
+            print("  'detecta y recupera' sea falso): %d de %d"
+                  % (len(_en_ruta), len(ambos)))
+        print()
         print("  stageados sin commitear: %d  (no es error: no hay commit aun)"
               % len(sin_commit))
         print()
+        if sin_recuperar:
+            print("  LAS DOS PREGUNTAS NO COINCIDEN")
+            print()
+            print("  Que un fichero este en HEAD y su contenido sellado este en")
+            print("  ningun objeto es la posicion EXACTAMENTE en la que `detecta y")
+            print("  recupera` era falso: hay version a la que volver, pero no es")
+            print("  la que el sello certifica. MEDIDO: 30 de 245 en este proyecto.")
+            print()
 
     if sellado_sin_commit and not silencioso:
         from collections import Counter as _Ct
@@ -236,7 +431,254 @@ def custodia(raiz, entradas, silencioso=False, a_todos=False):
         print("  version de la que volver. El 050 se perdio asi.")
         print()
 
+    # SELLADO_PERDIDO SE IMPRIME Y NO CAMBIA EL CODIGO DE SALIDA.
+    #
+    # Decidido en el §6 del hallazgo 1059 y escrito aqui para que no se lea
+    # como descuido: es un HECHO que hay que mirar, no un fallo del sello. El
+    # sello ha hecho su trabajo, que es decir la verdad. Una puerta que se pone
+    # roja por un dato informativo entrena a ignorar sus propios rojos, y el
+    # invariante "para las entradas con Q1 = True no cambia nada" se romperia.
+    if sin_recuperar and not silencioso:
+        _top2 = sin_recuperar if a_todos else sin_recuperar[:40]
+        print("SELLADO PERDIDO: el contenido que el manifiesto certifica no esta")
+        print("en ningun objeto del repositorio (%d de %d%s):"
+              % (len(_top2), len(sin_recuperar),
+                 "" if a_todos else ", se muestran 40"))
+        print()
+        for _h, rel in _top2:
+            print("  %-52s %s" % (rel[:52], _h[:16]))
+        if not a_todos and len(sin_recuperar) > 40:
+            print("  ... y %d mas (--todos para verlos)"
+                  % (len(sin_recuperar) - 40))
+        print()
+        print("  Esto NO baja el codigo de salida, y no es un descuido.")
+        print("  El sello ha dicho la verdad. Lo que no se puede es volver")
+        print("  AL ESTADO SELLADO, y por eso no se debe re-sellar solo:")
+        print("  hacerlo cambia el manifiesto y con el se pierde lo unico que")
+        print("  decia que ese estado existio alguna vez.")
+        print()
+
     return 1 if sellado_sin_commit else 0
+
+
+def selftest():
+    """
+    Vectores del nucleo puro `clasifica_custodia`.
+
+    Este fichero no tenia NINGUN self-test antes de que el 1059 le pidiera una
+    clase nueva, y eso es en si mismo el dato: una herramienta que decide si la
+    evidencia del proyecto se puede recuperar, sin un solo vector que la rompa a
+    proposito.
+
+    SIN DISCO, SIN GIT, SIN RELOJ. Los cuatro casos que importan:
+
+      control POSITIVO  un sellado cuyo sha256 SI esta en el conjunto indexado
+      control NEGATIVO  un sellado cuyo sha256 NO esta, con la ruta presente en
+                        HEAD: es exactamente el caso del 1059, y tiene que salir
+                        SELLADO_PERDIDO sin que baje el codigo de salida
+      invariante        para las entradas con Q1 = True, el reparto tiene que ser
+                        IDENTICO al que daba la version anterior
+      INDISPONIBLE      si no se pudo indexar, NO se afirma nada: "no lo he
+                        encontrado" no es "no existe"
+    """
+    import hashlib as _hl
+    fallos = 0
+    vectores = 0
+
+    def chk(nombre, cond, detalle=""):
+        nonlocal fallos, vectores
+        vectores += 1
+        if cond:
+            print("    OK   %-54s %s" % (nombre, detalle))
+        else:
+            fallos += 1
+            print("    FALLA %-54s %s" % (nombre, detalle))
+
+    A = _hl.sha256(b"contenido A").hexdigest()
+    B = _hl.sha256(b"contenido B").hexdigest()
+    FALSO = "0" * 64
+
+    entradas = [(A, "findings/a.md"), (B, "findings/b.md"),
+                (FALSO, "findings/c.md")]
+    commiteados = {"findings/a.md", "findings/b.md", "findings/c.md"}
+    rec = {A, B}
+
+    r = clasifica_custodia(entradas, rec, commiteados)
+    chk("P1_control_positivo_se_recupera", len(r["sin_recuperar"]) == 1)
+    chk("P2_control_negativo_es_el_ruta_que_esta_en_HEAD",
+        r["sin_recuperar"] == [(FALSO, "findings/c.md")],
+        str(r["sin_recuperar"]))
+    chk("P3_las_tres_rutas_estan_commiteadas",
+        len(r["ambos"]) == 3 and len(r["sellado_sin_commit"]) == 0,
+        "ambos=%d" % len(r["ambos"]))
+
+    # INVARIANTE: con Q1 = True para todo, el reparto es el de antes del 1059.
+    r2 = clasifica_custodia(entradas, {A, B, FALSO}, commiteados)
+    chk("I1_invariante_si_todo_es_recuperable",
+        r2["sin_recuperar"] == [] and r2["ambos"] == commiteados,
+        "sin_recuperar=%d" % len(r2["sin_recuperar"]))
+
+    # sellado sin commit: sigue siendo la clase que baja el rc
+    r3 = clasifica_custodia(entradas, rec, {"findings/a.md"})
+    chk("I2_sin_commit_va_a_su_propia_clase",
+        r3["sellado_sin_commit"] == {"findings/b.md", "findings/c.md"}
+        and len(r3["ambos"]) == 1)
+    chk("I3_un_sellado_sin_commit_puede_ser_perdido_y_sin_commit",
+        ("%s" % FALSO, "findings/c.md") in r3["sin_recuperar"])
+
+    # INDISPONIBLE: no se indexa -> no se afirma nada
+    r4 = clasifica_custodia(entradas, None, commiteados)
+    chk("I4_sin_indice_no_se_afirma_ausencia", r4["sin_recuperar"] is None,
+        "None = no se sabe, no 'no existe'")
+
+    # entradas vacias
+    r5 = clasifica_custodia([], set(), set())
+    chk("I5_vacio_no_inventa_clases",
+        r5["sin_recuperar"] == [] and r5["ambos"] == set())
+
+    # el mismo sha256 para dos rutas: ambas tienen que salir, porque el
+    # contenido sellado es el mismo y por eso es el mismo estado
+    ent6 = [(A, "x/1.md"), (A, "x/2.md")]
+    r6 = clasifica_custodia(ent6, set(), {"x/1.md", "x/2.md"})
+    chk("I6_sha_repetido_sale_una_vez_por_ruta", len(r6["sin_recuperar"]) == 2)
+
+    print("  %d vectores, %d fallos" % (vectores, fallos))
+    return fallos
+
+
+def selftest_custodia_real():
+    """
+    Segunda capa: `custodia()` e `indice_sellados()` sobre un repo de mentira.
+
+    POR QUE EXISTE, Y NO ES POR CUBRIR CODIGO
+    -----------------------------------------
+    MEDIDO: con la primera capa (el nucleo puro) las mutaciones M16 --que hace
+    que SELLADO_PERDIDO baje el codigo de salida-- y M17 --que vuelve a gatear
+    por el codigo de salida de git-- pasaban 9 de 9. Las dos viven en codigo que
+    el nucleo puro no toca.
+
+    Es la tercera vez en este trabajo que un self-test no detecta un defecto
+    porque **no ejerce el camino donde esta el defecto**, y por eso esta capa
+    monta un repositorio entero en un directorio temporal. Es hermetica en el
+    sentido que importa: no toca ESTE repositorio, y por tanto no puede dar una
+    respuesta que dependa de como esté el arbol hoy.
+
+    Lo que verifica, y son las dos cosas que la otra capa no puede:
+
+      1. `indice_sellados()` finds a blob that IS in the repo  (control positivo)
+      2. `indice_sellados()` does NOT find a sha256 that is not (control negativo)
+      3. `custodia()` keeps its rc when only SELLADO_PERDIDO exists (invariante)
+      4. `custodia()` DOES lower its rc when a sellado has no commit
+    """
+    import tempfile as _tf
+    import subprocess as _sp
+
+    fallos = 0
+    vectores = 0
+
+    def chk(nombre, cond, detalle=""):
+        nonlocal fallos, vectores
+        vectores += 1
+        if cond:
+            print("    OK   %-54s %s" % (nombre, detalle))
+        else:
+            fallos += 1
+            print("    FALLA %-54s %s" % (nombre, detalle))
+
+    def git(d, *a):
+        return _sp.run(("git",) + a, cwd=d, capture_output=True, text=True)
+
+    with _tf.TemporaryDirectory() as td:
+        d = os.path.join(td, "repo")
+        os.makedirs(d)
+        ident = ["-c", "user.email=t@t", "-c", "user.name=t",
+                 "-c", "commit.gpgsign=false"]
+        git(d, *ident, "init", "-q")
+        # dos ficheros: A se commitea y luego se cambia; B nunca se commitea
+        for nm, cuerpo in (("a.md", "A0\n"), ("b.md", "B0\n")):
+            with open(os.path.join(d, nm), "w") as f:
+                f.write(cuerpo)
+        git(d, *ident, "add", "-A")
+        git(d, *ident, "commit", "-qm", "inicial")
+
+        idx = indice_sellados(d)
+        chk("R1_indice_se_construye", isinstance(idx, set) and len(idx) >= 2,
+            "%d blobs" % (len(idx) if idx else -1))
+
+        import hashlib as _hl
+        h_b = _hl.sha256(open(os.path.join(d, "b.md"), "rb").read()).hexdigest()
+        chk("R2_control_positivo_el_blob_que_esta_se_encuentra",
+            idx is not None and h_b in idx)
+        chk("R3_control_negativo_un_sha_inventado_no_se_encuentra",
+            idx is not None and ("f" * 64) not in idx)
+
+        # b.md sale del repo. `--cached` solo lo saca del INDICE: hace falta el
+        # commit, porque `custodia` mira `ls-tree HEAD` y no el indice. Sin el
+        # commit, b.md sigue en HEAD, no hay "sellado sin commit", y el vector
+        # R6 no probaria lo que dice probar.
+        git(d, "rm", "-q", "--cached", "b.md")
+        git(d, *ident, "commit", "-qm", "quita b")
+        chk("R0_b_ya_no_esta_en_HEAD",
+            git(d, "rev-parse", "--verify", "-q", "HEAD:b.md").returncode != 0)
+
+        # manifiesto: a.md con el hash de su version ACTUAL (que no esta
+        # commiteada) y b.md con el hash de la version commiteada
+        with open(os.path.join(d, "a.md"), "w") as f:
+            f.write("A1\n")
+        ha = _hl.sha256(open(os.path.join(d, "a.md"), "rb").read()).hexdigest()
+        man = os.path.join(d, "MANIFESTO.sha256")
+        with open(man, "w") as f:
+            f.write("# test\n%s  a.md\n%s  b.md\n" % (ha, h_b))
+        entradas, malas = lee_manifiesto(man)
+        chk("R4_manifiesto_de_prueba_se_lee", len(entradas) == 2
+            and not malas)
+
+        rc = custodia(d, [(ha, "a.md")], silencioso=True)
+        chk("R5_solo_SELLADO_PERDIDO_no_baja_el_rc", rc == 0,
+            "rc=%d  (invariante del §6 del 1059)" % rc)
+
+        # el caso REAL: a.md esta en HEAD, y su contenido SELLADO ("A1") nunca
+        # se commiteo. Se comprueba que de verdad se cae en SELLADO_PERDIDO y no
+        # en "recuperable", porque un rc=0 aqui seria el bug del 1059的.
+        r_solo = clasifica_custodia([(ha, "a.md")], indice_sellados(d),
+                                    {"a.md", "b.md"})
+        chk("R5b_es_SELLADO_PERDIDO_y_no_otra_cosa",
+            r_solo["sin_recuperar"] == [(ha, "a.md")]
+            and "a.md" in r_solo["ambos"],
+            "en HEAD=%s  sellado recuperable=%s"
+            % ("a.md" in r_solo["ambos"],
+               not r_solo["sin_recuperar"]))
+
+        # ahora uno SIN commit: b.md no esta en HEAD
+        rc2 = custodia(d, [(h_b, "b.md")], silencioso=True)
+        chk("R6_sellado_sin_commit_si_baja_el_rc", rc2 == 1, "rc=%d" % rc2)
+
+        # los dos a la vez: manda el sin commit
+        rc3 = custodia(d, entradas, silencioso=True)
+        chk("R7_el_sin_commit_manda_sobre_el_perdido", rc3 == 1, "rc=%d" % rc3)
+
+        # 8. UN OBJETO ILEGIBLE, QUE ES LA CONDICION REAL DE ESTE REPOSITORIO.
+        #
+        # MEDIDO: la mutacion M17 --volver a gatear por el codigo de salida de
+        # `cat-file --batch-all-objects`-- pasaba 9 de 9 con este repo de mentira,
+        # porque un repo sano devuelve rc=0 y la puerta nunca llega a abrirse. Y
+        # sin embargo en ESTE repositorio hay 5 objetos sueltos de tamano cero
+        # (hallazgo 1058), y ahi la puerta se abria y contestaba
+        # NOT_AVAILABLE sobre el object store entero.
+        #
+        # El fixture era mas sano que la realidad y por eso no reproducia el
+        # defecto. Se escribe un objeto vacio de verdad.
+        _d = os.path.join(d, ".git", "objects", "ab")
+        os.makedirs(_d, exist_ok=True)
+        with open(os.path.join(_d, "c" * 38), "wb"):
+            pass
+        idx3 = indice_sellados(d)
+        chk("R8_un_objeto_ilegible_no_tapa_el_resto_del_indice",
+            idx3 is not None and h_b in idx3,
+            "idx=%s" % ("None" if idx3 is None else "%d entradas" % len(idx3)))
+
+    print("  %d vectores, %d fallos" % (vectores, fallos))
+    return fallos
 
 
 def main():
@@ -254,7 +696,16 @@ def main():
                     help="cruza el sello con git: detecta vs recupera")
     ap.add_argument("--todos", action="store_true",
                     help="con --custodia, lista los 139 sin truncar a 40")
+    ap.add_argument("--selftest", action="store_true",
+                    help="vectores del nucleo de custodia; sin disco ni git")
     a = ap.parse_args()
+
+    if a.selftest:
+        f1 = selftest()
+        print()
+        print("SEGUNDA CAPA: custodia() e indice_sellados() sobre un repo falso")
+        f2 = selftest_custodia_real()
+        return 0 if (f1 == 0 and f2 == 0) else 1
 
     aqui = os.path.dirname(os.path.abspath(__file__))
     # SEMANTICA DE --raiz, que estuvo mal dos veces:

@@ -522,7 +522,14 @@ if [ -f capturas/amdgpu_vbios.txt ]; then
     cust_out=$(python3 sello.py --custodia 2>&1); cust_rc=$?
     printf '  %-46s %s\n' "custodia: sellado vs commiteado" \
         "rc=$cust_rc (0 todo con version, 1 sellado SIN commit)"
-    echo "$cust_out" | grep -E "^  (sellado|commiteado|ni sello|stageados)" \
+    # El patron necesita las TRES formas por la clase nueva. MEDIDO: `[Ss]ellado`
+    # NO casa con `SELLADO`, porque el patron es una palabra con la S variable y
+    # el resto en minuscula. Se comprobo ejecutando el grep contra la salida
+    # real, no leyendo el patron: la primera version de esta correccion dexo
+    # pasar cuatro lineas y se comio la quinta, que es justo la que esta
+    # reparacion viene a anadir. Un filtro que se come el hallazgo nuevo es un
+    # filtro que no se ha ejecutado despues de anadir el hallazgo.
+    echo "$cust_out" | grep -E "^  ([Ss]ellado|SELLADO|commiteado|ni sello|stageados)" \
         | sed 's/^/       /'
 else
     echo "  atomrom: VBIOS real ausente (no versionado)     OMITIDO, el"
