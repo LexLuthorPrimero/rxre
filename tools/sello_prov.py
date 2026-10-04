@@ -84,7 +84,7 @@ import os
 import re
 import sys
 
-VERSION = "1.1.0"
+VERSION = "1.3.0"
 
 # ---------------------------------------------------------------------------
 # LA RECETA DE `reproducible`
@@ -161,6 +161,10 @@ def receta_reproducible(path):
 # MALFORMADO, porque no tiene objetivo -- que es un fallo distinto de "no se
 # como recalcularlo" y no debereportarse como el mismo problema.
 # ---------------------------------------------------------------------------
+# Marcas que convierten un bloque en CITA y lo sacan del censo. Declaradas,
+# no deducidas: cada una es una decision y por eso esta en codigo.
+MARCAS_CITA = {"ejemplo", "cita", "citado", "no-sellar", "ilustrativo"}
+
 CAMPOS = {
     "herramienta": "portador",
     "artefacto": "portador",
@@ -227,6 +231,7 @@ def lee_bloques(texto, ruta):
     actual = []
     abre = None
     n_abre = 0
+    es_cita = False
     for n, ln in enumerate(texto.split("\n"), 1):
         s = ln.lstrip()
         if s.startswith("```"):
@@ -236,15 +241,34 @@ def lee_bloques(texto, ruta):
                 abre = n
                 n_abre = n_back
                 actual = []
+                # LA MARCA DE CITA. MEDIDO: un censo puramente sintetico NO
+                # puede distinguir una declaracion de una cita -- ve los mismos
+                # bytes en los dos sitios. Y no lo puede por la via barata: la
+                # sangria NO sirve, porque MEDIDO sobre 99 campos de procedencia
+                # del arbol, los 99 estan en vigas de sangria 0, y mi propio
+                # bloque de ejemplo tambien.
+                #
+                # Asi que el opt-out es EXPLICITO y va en el info string de la
+                # valla, que es donde markdown pone esta informacion:
+                #
+                #     ```ejemplo      o      ```cita      o      ```no-sellar
+                #
+                # Se declara por bloque y se ve leyendo el fichero. Una
+                # heuristica habria sido mas comoda y habria sido una
+                # suposicion vestida de regla.
+                es_cita = bool(MARCAS_CITA
+                               & set(s[n_back:].strip().lower().split()))
             elif n_back >= n_abre:
                 dentro = False
-                bloques.append((abre, actual))
+                if not es_cita:
+                    bloques.append((abre, actual))
                 actual = []
+                es_cita = False
             continue
         if dentro:
             actual.append((n, ln))
     if dentro:
-        return bloques, (abre, n_abre)
+        return (bloques, (abre, n_abre)) if not es_cita else (bloques, None)
     return bloques, None
 
 
@@ -376,9 +400,24 @@ def audita_campo(c, raiz, ruta_rel):
                                "VERSION: no se puede comprobar"
                                % c["version"])
             elif real != c["version"]:
-                v["veredicto"] = "DIFIERE"
-                v["motivo"] = ("el documento dice %s y el fichero dice %s"
-                               % (c["version"], real))
+                # DIVERGIO, NO DIFIERE. MEDIDO: sin esta distincion, el 1057
+                # salia DIFIERE por haber movido la herramienta, y eso se
+                # confundia con "alguien edito el fichero sin subir la version".
+                #
+                # Son dos eventos distintos y con gravedad distinta:
+                #   DIVERGIO  el fichero ha EVOLUCIONADO. El documento habla de
+                #             la version 1.0.0 y la herramienta ya es 1.1.0. La
+                #             afirmacion del documento sigue siendo sobre 1.0.0,
+                #             y no se puede comprobar contra 1.1.0 porque ya no
+                #             es la misma cosa.
+                #   DIFIERE   misma version, bytes distintos. Eso si es
+                #             sospechoso: alguien toco el artefacto sin mover la
+                #             version, y la suma declarada ya no describe nada.
+                v["veredicto"] = "DIVERGIO"
+                v["motivo"] = ("el fichero HA EVOLUCIONADO: el documento dice "
+                               "%s y el fichero dice %s. La afirmacion del "
+                               "documento sigue siendo sobre %s, que ya no esta"
+                               % (c["version"], real, c["version"]))
             else:
                 v["motivo"] += "; VERSION coincide (%s)" % real
         return v
@@ -491,8 +530,8 @@ def audita_campo(c, raiz, ruta_rel):
                        % (valor, got, RECETA_REPRODUCIBLE))
 
 
-VEREDICTOS = ("EXISTE", "COINCIDE", "DIFIERE", "AMBIGUO", "SIN_RECETA", "ROTO",
-              "MALFORMADO")
+VEREDICTOS = ("EXISTE", "COINCIDE", "DIVERGIO", "DIFIERE", "AMBIGUO", "SIN_RECETA",
+              "ROTO", "MALFORMADO")
 
 
 def marca_ambiguedad(campos):
@@ -858,7 +897,25 @@ def selftest():
         escribe("ver.md", blk(
             "herramienta   her.py 2.0.0\nsha256        %s\n" % h_her))
         i, e = audita(["ver.md"], raiz)
-        chk("V5_version_falsa_es_DIFIERE", i["recuento"]["DIFIERE"] == 1)
+        chk("V5_version_falsa_es_DIVERGIO_no_DIFIERE",
+            i["recuento"]["DIVERGIO"] == 1 and i["recuento"]["DIFIERE"] == 0
+            and i["recuento"]["COINCIDE"] == 1,
+            "DIVERGIO=%d DIFIERE=%d COINCIDE=%d (el sha256 del bloque es el "
+            "bueno: lo unico que diverge es la version)"
+            % (i["recuento"]["DIVERGIO"], i["recuento"]["DIFIERE"],
+               i["recuento"]["COINCIDE"]))
+
+        # 5-bis. LA DISTINCION QUE IMPORTA: misma version, bytes distintos.
+        #        Eso SI es sospechoso, y no puede parecerse a "el fichero ha
+        #        evolucionado". MEDIDO en mi propio 1057: el movi a 1.1.0 y el
+        #        bloque seguia diciendo 1.0.0 -- eso es DIVERGIO, no DIFIERE.
+        escribe("mismaver.md", blk(
+            "herramienta   her.py 1.0.0\nsha256        %s\n" % ("a" * 16)))
+        i, e = audita(["mismaver.md"], raiz)
+        chk("V5b_misma_version_con_otros_bytes_es_DIFIERE_no_DIVERGIO",
+            i["recuento"]["DIVERGIO"] == 0 and i["recuento"]["DIFIERE"] == 1,
+            "DIVERGIO=%d DIFIERE=%d" % (i["recuento"]["DIVERGIO"],
+                                        i["recuento"]["DIFIERE"]))
 
         # 6. version no comprobable (el fichero no declara VERSION)
         escribe("sinver.py", "x = 1\n")
@@ -1072,6 +1129,27 @@ def selftest():
                                        i["recuento"]["DIFIERE"]))
         with open(art, "w") as f:
             f.write('{"a": 1}\n')
+
+        # 21-bis. LA MARCA DE CITA. MEDIDO: mi propio 1071 se auditaba a si
+        #        mismo y salia DIVERGIO, porque su bloque de ejemplo es
+        #        sintacticamente identico al de su cabecera. Y la sangria no
+        #        sirve de discriminante: los 99 campos de procedencia del arbol
+        #        estan todos en vigas de sangria 0.
+        escribe("cita.md", "```ejemplo\nartefacto  art.json\nsha256   %s\n```\n" % h_art)
+        i, e = audita(["cita.md"], raiz)
+        chk("V21b_la_marca_de_cita_saca_el_bloque_del_censo",
+            i["bloques"] == 0 and i["campos_auditados"] == 0 and rc_de(i) == 1,
+            "bloques=%d rc=%d" % (i["bloques"], rc_de(i)))
+        # y la marca NO se cuela en una valla real
+        escribe("real.md", blk("artefacto  art.json\nsha256   %s\n" % h_art))
+        i, e = audita(["real.md"], raiz)
+        chk("V21c_una_valla_normal_no_se_saca_del_censo",
+            i["bloques"] == 1 and i["recuento"]["COINCIDE"] == 1)
+        # y `ejemplo` dentro de la valla, no en el info string, NO marca
+        escribe("falso.md", "```\nartefacto  art.json\nsha256   %s\n```\nejemplo\n" % h_art)
+        i, e = audita(["falso.md"], raiz)
+        chk("V21d_la_palabra_dentro_de_la_valla_no_marca",
+            i["bloques"] == 1, "bloques=%d" % i["bloques"])
 
         # 22. VALLAS DE 4 BACKTICKS. MEDIDO: promp.md tiene 2, y el
         #     emparejador viejo las mezclaba con las de 3 y declaraba el
