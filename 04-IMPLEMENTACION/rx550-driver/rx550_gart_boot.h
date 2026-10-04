@@ -3,11 +3,60 @@
  * rx550_gart_boot.h — LA SECUENCIA COMPLETA, encadenada.
  *
  * Que es
- *   La unica funcion del componente que hace las seis cosas del arranque del
- *   GART EN ORDEN, y que se puede ejecutar entera sin GPU contra un mapa de
- *   userspace.  Antes existian las seis piezas y ninguna las encadenaba:  cada
- *   una se probaba por separado y el orden entre ellas no estaba escrito en
- *   ninguna parte, con lo que un cambio de orden no rompia ningun test.
+ *   La unica funcion del componente que encadena los SIETE pasos que este
+ *   proyecto se ha comprometido a hacer, EN ORDEN, y que se puede ejecutar
+ *   entera sin GPU contra un mapa de userspace.  Antes existian las piezas y
+ *   ninguna las encadenaba:  cada una se probaba por separado y el orden entre
+ *   ellas no estaba escrito en ninguna parte, con lo que un cambio de orden no
+ *   rompia ningun test.
+ *
+ * LO QUE ESTA SECUENCIA NO CUBRE,  Y POR QUE.  MEDIDO 2026-10-04.
+ *
+ * El titulo de este fichero decia "LA SECUENCIA COMPLETA"  y no lo era.  En el
+ * camino de hardware ANTES de gmc_v8_0_gart_enable()  hay tres cosas mas que el
+ * corpus escribe y esta secuencia no:
+ *
+ *   1. gmc_v8_0_init_golden_registers()   gmc_v8_0.c:1208,  called antes que
+ *      gart_enable  (:1228).  Despacha golden_settings_polaris11_a11
+ *      (:92-97  via :141-146  para CHIP_POLARIS12)  y escribe 4 registros:
+ *      las mmVM_PRT_APERTURE{0..3}_LOW_ADDR  a 0x0fffffff.
+ *
+ *      POR QUE NO SE HACEN,  y no es "no nos ha dado tiempo":  son un
+ *      DESHABILITADOR.  LOGICAL_PAGE_NUMBER es de 28 bits,  y con LOW puesto a
+ *      0x0fffffff la ventana [LOW, HIGH) queda VACIA para cualquier HIGH
+ *      posible,  porque HIGH > 0x0fffffff es imposible.  Es decir:  garantizar
+ *      que PRT no cubre nada.  Y PRT es inalcanzable desde este driver  —exige
+ *      el ioctl GEM_VA con AMDGPU_VM_PAGE_PRT,  y este componente no expone
+ *      ioctls—,  asi que el estado del reset de esos cuatro registros es
+ *      NOT_DETERMINED  y por eso no se afirma ni que estan bien ni que estan mal.
+ *      Los 4 registros SI estan declarados en la tabla,  con la columna conf
+ *      diciendo que el corpus los escribe.  Finding 1034.
+ *
+ *   2. gmc_v8_0_mc_program()   la funcion esta en gmc_v8_0.c:433-499  y se
+ *      llama en :1210.  MEDIDO:  21 escrituras  WREG32,  3 REG_SET_FIELD  y
+ *      4 RREG32  en su cuerpo.  Incluye las tres
+ *      mmMC_VM_SYSTEM_APERTURE_*  (:468-473),  que SI estan declaradas en
+ *      nuestra tabla  —y con conf PROVEN,  porque el corpus las escribe—.  Esas
+ *      tres SI las produce el driver de referencia y este componente NO  por
+ *      decision de ambito:  son programacion de la MC,  no del GART.
+ *
+ *      MEDIDO que mi primera version de este parrafo decia "las tres
+ *      mmMC_VM_SYSTEM_APERTURE_*,  que SI estan declaradas en nuestra tabla
+ *      (:899-901)".  Las lineas 899-901  son las TRES de
+ *      mmVM_L2_CONTEXT1_IDENTITY_APERTURE_*  y del OFFSET,  que son registros
+ *      DISTINTOS y que el plan de 34 si incluye.  Las de SYSTEM_APERTURE estan
+ *      en 468-473.  Dos familias parecidas,  mismo prefijo de dominio,  y el
+ *      numero de linea equivocado en un comentario.  Se comprueba toda cita que
+ *      se escriba,  aunque sea en un comentario.
+ *
+ *   3. gmc_v8_0_polaris_mc_load_microcode()   :1221.  Carga de firmware,  y no
+ *      tiene nada que ver con el page table.
+ *
+ * O sea que el alcance REAL es "la secuencia del GART",  no "el arranque del
+ * chip".  Un lector que tomase el titulo al pie de la letra buscaria las 4
+ * escrituras golden y las 46 de mc_program,  y no las encontraria.
+ * Y este parrafo se puede contrastar:  las seis lineas de la lista son
+ * archivo:linea del corpus,  no una resumen.
  *
  * Que NO es
  *   No es un sustituto del takeover.  No pide el bus, no mapea la BAR, no llama

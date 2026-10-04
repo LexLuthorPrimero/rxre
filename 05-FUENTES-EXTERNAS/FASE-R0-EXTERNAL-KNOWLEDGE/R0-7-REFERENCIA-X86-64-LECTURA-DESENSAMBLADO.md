@@ -1360,12 +1360,49 @@ nuevo es `ese_parámetro_de_delay × UDELAY_CONST_MULT`. Ninguna de las seis hip
 alternativas satisface las dos a la vez. Ése es el argumento completo, y por eso la
 conclusión no se apoya en la coincidencia numérica por sí sola.
 
-#### Vía 3 — Las pasadas que podrían haberlo hecho están **DESACTIVADAS** (`HECHO`)
+#### ~~Vía 3 — Las pasadas que podrían haberlo hecho están DESACTIVADAS~~ — **PREMISA REFUTADA 2026-10-04**
 
-Este es el discriminador definitivo. El kernel compila con `-O2`
-(`Makefile` v6.16 línea 863, bajo `CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE`), y
-`KBUILD_CFLAGS` **no añade** `-funroll-loops`, `-fpeel-loops`, `-floop-interchange`,
-`-floop-unroll-and-jam` ni `-funswitch-loops`.
+> **CORRECCIÓN.** El título de esta subsección y su premisa de apoyo son
+> **falsos**, y la premisa es lo que le daba categoría de "discriminador
+> definitivo".
+>
+> **a) El kernel compila con `-O3`, no con `-O2`.** MEDIDO por tres artefactos
+> independientes del árbol real, no por un documento:
+>
+> - `/usr/src/kernels/7.1.3-200.nobara.fc44.x86_64/.config:293` →
+>   `# CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE is not set`. El símbolo que esta
+>   subsección cita como autoridad está **explícitamente sin activar**.
+> - `.config:294` → `CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE_O3=y`.
+> - `Makefile:927-928` del kernel → ese símbolo B, y no el A, produce
+>   `KBUILD_CFLAGS += -O3`. En kernel 7.1.x `-O2` y `-O3` son **símbolos de
+>   configuración distintos**; en versiones anteriores `-O2` era el default y
+>   `CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE` lo subía a `-O3`.
+> - `04-IMPLEMENTACION/rx550-driver/.rx550_target.o.cmd:1` → el `savedcmd` real
+>   de kbuild contiene `-O3` y **no contiene ningún otro flag de
+>   optimización**. Como en GCC gana el último `-O`, el nivel queda cerrado.
+>
+> **b) La cita "Makefile v6.16 línea 863" no se ha verificado**: no hay árbol
+> v6.16 en esta máquina. `NOT_DETERMINED`. Se retira como autoridad.
+>
+> **c) Consecuencia sobre esta Vía — baja de "discriminante definitivo" a
+> "argumento válido con una premisa refutada".** Su premisa era "`-O2` no
+> activa `-fpeel-loops`, `-floop-interchange`, `-floop-unroll-and-jam`,
+> `-funswitch-loops`". A `-O3` las cuatro están activas. **La conclusión, en
+> cambio, no depende de `-O`**: la afirmación siguiente —que ninguna
+> transformación de bucles **crea** un bucle donde el fuente no lo tiene,
+> porque fusions/fissions/interchanges/peelings/unrollings **redistribuyen**
+> iteraciones entre bucles existentes— sigue en pie sin cambio.
+>
+> Y está corroborada por una medida del propio componente, que va más allá:
+> compilando `rx550_mmio_access.c` con el comando real de kbuild a los dos
+> niveles, **1 de 19 funciones cambia de tamaño**, y es
+> `rx550_mmio_update_field` (317 → 333 bytes). Los primitivos de acceso,
+> `rx550_mmio_read32` y `rx550_mmio_write32`, salen **del mismo tamaño**. El
+> `.o` crece un 2.84 %, y el crecimiento está en una función, no repartido.
+>
+> **LO QUE QUEDA DE ESTA VÍA, entonces:** el status baja y la conclusión se
+> queda. Y el título, que afirmaba "DESACTIVADAS", era la afirmación más fuerte
+> del apartado y era falsa.
 
 Lista literal de `-O3` (**GCCOPT**, *Options That Control Optimization*):
 

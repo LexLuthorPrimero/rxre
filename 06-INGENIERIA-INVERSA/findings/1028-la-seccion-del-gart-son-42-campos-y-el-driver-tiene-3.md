@@ -1,4 +1,15 @@
-# 1028 · La secuencia que programa el GART en esta tarjeta son 42 campos, y el driver propio tiene máscara para 3
+# 1028 · La secuencia que programa el GART son 42 pares (registro, campo) y 39 nombres distintos, y los 55 del driver propio los cubren todos
+
+> **H1 CORREGIDO EL 2026-10-04.** El titulo anterior decia «La secuencia que programa el GART en esta tarjeta son 42 campos, y el driver propio tiene máscara para 3». Ese
+> enunciado ya no describe el estado del arbol. El veredicto vigente esta en este
+> mismo fichero:
+> - `:245` — 42 pares frente a 39 nombres: «42 pares (registro, campo) y 39 nombres distintos»
+> - `:284` — el 3 solo en mmVM_CONTEXT0_CNTL: «el unico donde el 3_old era cierto»
+> - `:289` — los 55 de la tabla los cubren: «Los 42 pares de la referencia estan TODOS en la tabla»
+>
+> Este parche toca **solo el H1** y esta marca. El cuerpo no se reescribe: la
+> correccion del titulo tiene que quedar rastreable, o el titulo parece haber
+> sido asi siempre.
 
 `CLASSIFICATION=MEASUREMENT` · `TRACK=STATIC + HOST_OBSERVATION`
 `CORPUS=RESEARCH/kernelbuild/linux-7.1.3` · `HARDWARE_SCOPE=HOST-C/RX550/0000:01:00.0`

@@ -1,4 +1,14 @@
-# 103 · El parche de UVD lee y reescribe BootVddc, el voltaje de arranque, por un desplazamiento mal calculado
+# 103 · El parche de UVD no cae en BootVddc ni esta desplazado: dpm_table_start es la base literal y escribe el byte 3 del DWORD 394
+
+> **H1 CORREGIDO EL 2026-10-04.** El titulo anterior decia «El parche de UVD lee y reescribe BootVddc, el voltaje de arranque, por un desplazamiento mal calculado». Ese
+> enunciado ya no describe el estado del arbol. El veredicto vigente esta en este
+> mismo fichero:
+> - `:15` — la premisa del desplazamiento: «La premisa `offsetof - 108` queda **REFUTADA**»
+> - `:24` — el destino real: «el parche **no** cae en `BootVddc`»
+>
+> Este parche toca **solo el H1** y esta marca. El cuerpo no se reescribe: la
+> correccion del titulo tiene que quedar rastreable, o el titulo parece haber
+> sido asi siempre.
 
 WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 

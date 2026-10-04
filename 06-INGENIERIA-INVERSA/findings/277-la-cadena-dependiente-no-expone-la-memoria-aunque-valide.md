@@ -1,4 +1,15 @@
-# 277 · La cadena dependiente valida contra su modelo y aun así no mide memoria: 7,0 ciclos por acceso
+# 277 · La cadena dependiente sí pagaba su latencia, 443 ciclos: el 7,0 por acceso de esta nota era una unidad equivocada y no debe citarse
+
+> **H1 CORREGIDO EL 2026-10-04.** El titulo anterior decia «La cadena dependiente valida contra su modelo y aun así no mide memoria: 7,0 ciclos por acceso». Ese
+> enunciado ya no describe el estado del arbol. El veredicto vigente esta en este
+> mismo fichero:
+> - `:42` — la latencia real: «La lectura **sí** costaba su latencia: **443 ciclos**»
+> - `:47` — el error de unidad: «La latencia que sufre un hilo es `t / iters`»
+> - `:53` — prohibido citar: «**Las cifras de esta nota no deben citarse.**»
+>
+> Este parche toca **solo el H1** y esta marca. El cuerpo no se reescribe: la
+> correccion del titulo tiene que quedar rastreable, o el titulo parece haber
+> sido asi siempre.
 
 ```text
 CLASSIFICATION=MEASUREMENT+NEGATIVE_RESULT+INSTRUMENT · TRACK=RUNTIME

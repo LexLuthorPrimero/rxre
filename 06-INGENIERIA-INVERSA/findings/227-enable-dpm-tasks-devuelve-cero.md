@@ -1,4 +1,15 @@
-# 227  `smu7_enable_dpm_tasks` ejecuta ~15 pasos que pueden fallar, registra cada fallo y devuelve 0
+# 227  smu7_enable_dpm_tasks tiene 23 asserts, no 15: los 7 primeros fallos se propagan, los 15 siguientes se tragan, y devuelve 0
+
+> **H1 CORREGIDO EL 2026-10-04.** El titulo anterior decia «`smu7_enable_dpm_tasks` ejecuta ~15 pasos que pueden fallar, registra cada fallo y devuelve 0». Ese
+> enunciado ya no describe el estado del arbol. El veredicto vigente esta en este
+> mismo fichero:
+> - `:19` — el conteo real: «tiene 23 asserts: 22 `REGISTRA_Y_SIGUE` y 1»
+> - `:32` — la propagacion: «los 7 fallos anteriores SI se propagan»
+> - `:39` — los 15 tragados: «Los 15 ultimos fallos se»
+>
+> Este parche toca **solo el H1** y esta marca. El cuerpo no se reescribe: la
+> correccion del titulo tiene que quedar rastreable, o el titulo parece haber
+> sido asi siempre.
 
 WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 

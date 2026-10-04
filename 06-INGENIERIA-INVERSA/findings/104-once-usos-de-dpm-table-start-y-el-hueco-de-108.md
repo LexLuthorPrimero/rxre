@@ -1,4 +1,14 @@
-# 104 · Once usos de dpm_table_start, y el hueco de 108 bytes no se compensa en ninguno
+# 104 · Once usos de dpm_table_start, y el hueco de 108 bytes no existe: dpm_table_start es la base literal y el -108 se retira
+
+> **H1 CORREGIDO EL 2026-10-04.** El titulo anterior decia «Once usos de dpm_table_start, y el hueco de 108 bytes no se compensa en ninguno». Ese
+> enunciado ya no describe el estado del arbol. El veredicto vigente esta en este
+> mismo fichero:
+> - `:17` — el hueco no existe: «la base literal**. En consecuencia **quedan `REFUTED`**»
+> - `:23` — la funcion con -offsetof se retira: «SE RETIRA**: introduciria un desplazamiento real de 108 B»
+>
+> Este parche toca **solo el H1** y esta marca. El cuerpo no se reescribe: la
+> correccion del titulo tiene que quedar rastreable, o el titulo parece haber
+> sido asi siempre.
 
 > **CORREGIDO POR `113-dpm-table-start-es-la-base-literal-y-los-once-usos-son-correctos.md`**
 >

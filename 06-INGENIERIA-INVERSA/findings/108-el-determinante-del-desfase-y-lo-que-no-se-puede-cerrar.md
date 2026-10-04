@@ -1,4 +1,14 @@
-# 108 · El discriminante del desfase de 108 bytes, aislado por via independiente
+# 108 · El discriminante del hueco, aislado por via independiente: la respuesta es 0, no 108
+
+> **H1 CORREGIDO EL 2026-10-04.** El titulo anterior decia «El discriminante del desfase de 108 bytes, aislado por via independiente». Ese
+> enunciado ya no describe el estado del arbol. El veredicto vigente esta en este
+> mismo fichero:
+> - `:16` — no hay hueco: «**no hay hueco**»
+> - `:23` — la respuesta es 0: «**tiene respuesta, y es»
+>
+> Este parche toca **solo el H1** y esta marca. El cuerpo no se reescribe: la
+> correccion del titulo tiene que quedar rastreable, o el titulo parece haber
+> sido asi siempre.
 
 WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 
