@@ -65,11 +65,14 @@ RESEARCH/
 # RE-03-E3: ejecutables sin extension del compresor de texturas.
 # *.o y *.bin ya estan cubiertos arriba; estos no tienen extension.
 # test_alpha_ramp.mut lo produce `make check-ramp-discriminates`.
+# mmr_probe lo produce el propio instrumento.  Binario de investigacion,
+# no contenido: lo que se versiona es el .c que lo genera.
 04-IMPLEMENTACION/compressor/test_compress
 04-IMPLEMENTACION/compressor/diag
 04-IMPLEMENTACION/decompressor/shader_vs_c
 04-IMPLEMENTACION/compressor/test_alpha_ramp
 04-IMPLEMENTACION/compressor/test_alpha_ramp.mut
+04-IMPLEMENTACION/mmr-probe/mmr_probe
 
 # Pipeline de integracion F1 -> F2: binarios y artefactos de corrida.
 # Los .bc3 y los .rgba caen por *.bin solo a medias; *.rgba no estaba cubierto

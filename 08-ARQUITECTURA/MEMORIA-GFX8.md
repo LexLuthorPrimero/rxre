@@ -56,7 +56,7 @@ gc/ contiene exactamente: gc_9_0_*  gc_9_1_*  gc_9_2_1_*  gc_9_4_1_*  gc_9_4_2_*
 
 Los registros de la familia VI (Tonga/Fiji/Carrizo/Polaris10/Polaris12/VegaM) viven en
 `asic_reg/**gca**/gfx_8_0_d.h`, `gfx_8_0_enum.h`, `gfx_8_0_sh_mask.h` — 2 801 + 20 789 + 1 448
-líneas. `gca` contiene también `gfx_7_0`, `gfx_7_2`, `gfx_8_1`, `gfx_6_0`.
+definiciones (2 829 + 20 836 + 6 858 líneas). `gca` contiene también `gfx_7_0`, `gfx_7_2`, `gfx_8_1`, `gfx_6_0`.
 
 **Consecuencia normativa, y es el punto más caro de este documento:** cualquier hecho de caché,
 L2, textura o DCC sacado de `gc/` es un hecho de **Vega10 / Vega20 / Navi10 / Navi14 /
@@ -78,7 +78,7 @@ ASIC**. Se conserva como dato de la vía `gc/`, no como inventario de GFX8. No l
 ## 2. Hechos de jerarquía de memoria recuperables del corpus
 
 Cada fila: qué lo prueba, y **hasta dónde**. Estados: `PROVEN` (el texto del corpus lo afirma y el
-ámbigo está completo), `DERIVED` (calculado aquí con aritmética que el corpus hace explícita),
+ámbito está completo), `DERIVED` (calculado aquí con aritmética que el corpus hace explícita),
 `NOT_DETERMINED` (el corpus no lo dice), `NOT_FOUND` (buscado en scope completo y no está).
 
 ### 2.1 Taxonomía de niveles — la da el propio kernel, con nombre propio
@@ -126,7 +126,7 @@ Los seis campos de la tabla anterior salen de `gc_info`, la **tabla de IP discov
 ```
 
 **El corpus tiene el lector y no tiene el valor.** Estado de cada uno de estos números para
-POLARIS12: `NOT_DETERMINED`. No se pueden derivar del fuente; vienen del blob de firmware que
+POLARIS12: `NOT_DETERMINED`. No se pueden derivar del código fuente; vienen del blob de firmware que
 este nodo no abre.
 
 **Y hay una segunda fuente, más fuerte, que además es un defecto del driver de referencia.**
@@ -169,13 +169,13 @@ defecto. Implementación, no autoridad (`IMPLEMENTATION_IS_NOT_AUTHORITY`).
 > (`DEPENDENCY_UNSATISFIED`) cuya única fuente es el firmware en runtime.
 
 **Falsificador.** Si existiera en el corpus una constante de L2 para POLARIS12 distinta de esta
-tabla, la conclusión caería. Scope comprobado: `kfd_crat.c` completo (tabla estática + relleno
+tabla, la conclusión caería. Scope comprobado: `kfd_crat.c` completo (2 472 líneas: tabla estática + relleno
 desde `gfx.config`); `kfd_crat.h:1-10` (struct, 5 campos, sin más). No la hay.
 Refutación adicional posible: que el firmware de esta tarjeta no rellene `v1_2`/`v1_3` — eso
 haría que los campos valieran 0 y la función de relleno no emitiera ninguna entrada; no se puede
 descartar sin runtime. Queda `NOT_DETERMINED` en esa sub-capa.
 
-### 2.3 Registros de caché de GFX8: qué existe, y qué code vale para esta ASIC
+### 2.3 Registros de caché de GFX8: qué existe, y qué valor se programa para esta ASIC
 
 Aquí sí hay valores, porque la **secuencia golden** que el kernel aplica a `CHIP_POLARIS12`
 programa algunos de ellos. `amdgpu/gfx_v8_0.c:783-791`:
@@ -220,7 +220,7 @@ Decodificados contra los campos de `gfx_8_0_sh_mask.h` (MASK+SHIFT, sin suposici
 | `TCP_ADDR_CONFIG` | `RB_SPLIT_COLHI` | `0x200` | 9 | 0 | `:15993-15994` |
 
 **Refutación de una inferencia que iba a ser tentadora.** `TCC_CTRL = 0xf31fff7f` es
-**idéntico, byte a byte, en las siete ASIC** de la tabla: Tonga (`gfx_v8_0.c:209`), VegaM
+**idéntico, byte a byte, en las ocho tablas golden** de `gfx_v8_0.c`: Tonga (`gfx_v8_0.c:209`), VegaM
 (`:322`), **Polaris11/12 (`:353`)**, Polaris10 (`:385`), Fiji (`:426`), Iceland (`:484`), Cz
 (`:581`), Stoney (`:686`). O sea: `TCC_CTRL.CACHE_SIZE = 3` **no discrimina a esta tarjeta**; es
 una constante de familia. **No se puede derivar "el tamaño de la L2 de la RX 550" de ahí.** Quien
@@ -240,7 +240,7 @@ lo intente está usando el nombre del campo como si fuera la semántica.
 | VegaM | `0x000000f7` | 7 | `:323` |
 
 **Hecho duro y con fuerza de arquitectura:** el campo `NUM_TCC_BANKS` vale **3 para Polaris 12 y 7
-para Polaris 10** — la mitad. Independencia deInterpretation: si el código fuera "número de bancos"
+para Polaris 10** — la mitad. Independencia de la interpretación: si el código fuera "número de bancos"
 literal, Polaris 12 tendría 3 bancos de textura y Polaris 10, 7; si fuera `log2(n)` por el nombre
 del campo y el comparador de `CB_ADDR_CONFIG` (`:6741-6759`, `NumBanks`/`BankWidth`/`BankHeight`
 /`BankWidthHeight`), serían 4 contra 8. **La codificación código→bancos no está en el corpus.**
@@ -322,10 +322,10 @@ Los registros que las consumen existen: `mmTC_CFG_L1_LOAD_POLICY0/1`,
 **Por qué esto importa para N-INT-18 (reuse distance).** `LRU` y `STREAM` son **políticas
 seleccionables en el hardware**, y `STREAM` existe como valor propio. Reuse distance como barrido de
 *workload* (cambiar el patrón) y como barrido de *política* (cambiar LRU↔STREAM) son **experimentos
-distintos con distinto mecanismo**: el primero varía la carga, el segundo vary el estado del
+distintos con distinto mecanismo**: el primero varía la carga, el segundo varía el estado del
 hardware. Eso es el criterio de la regla del usuario (§6): el segundo sí introduce mecanismo causal
 distinto, el primero no. Y programar `STREAM` es un **write de semántica no trivial** — no es un
- parámetro de workload, es un modo de caché.
+parámetro de workload, es un modo de caché.
 
 ### 2.7 Contadores de caché que existen como nombre
 
@@ -364,7 +364,7 @@ gfx_8_0_enum.h:5158   TCP_PERF_SEL_GATCL1_PERMISSION_MISS         = 0xae
 nombres existen; la ruta de software que los enumere no. Eso es lo que convierte toda esta tabla en
 **vocabulario, no instrumentación** (§5).
 
-### 2.8 Cosas que se searched y NO están — la parte útil de la tabla
+### 2.8 Cosas que se buscó y NO están — la parte útil de la tabla
 
 Estas ausencias son tan informativas como los números, porque separan `DERIVABLE` de
 `NECESITA_FUENTE_EXTERNA`:
@@ -375,11 +375,11 @@ Estas ausencias son tan informativas como los números, porque separan `DERIVABL
 | líneas de caché | ídem | `NOT_FOUND` (solo campos de 2 bits, sin valor) |
 | tabla de encodings código→bytes para tamaños de caché | ídem + `gfx_v8_0.c` (7 207) | `NOT_FOUND` |
 | número de bancos de L2 en unidades absolutas | ídem | `NOT_FOUND` (solo el código 3/7) |
-| caché de vértices con campo de tamaño | `gfx_8_0_d.h` (2 801) | `NOT_FOUND`. Hay `mmVGT_CACHE_INVALIDATION` (`:2606`), `mmVGT_VERTEX_REUSE_BLOCK_CNTL` (`:2579`) — control, **no capacidad** |
+| caché de vértices con campo de tamaño | `gfx_8_0_d.h` (2 829 líneas) | `NOT_FOUND`. Hay `mmVGT_CACHE_INVALIDATION` (`:2606`), `mmVGT_VERTEX_REUSE_BLOCK_CNTL` (`:2579`) — control, **no capacidad** |
 | `VGT_CACHE_SIZE` | ídem | `NOT_FOUND` |
 | L3 / MALL en GFX8 | `gmc_v8_0.c` (1 783) | `PROVEN_ABSENT`: `mall_size` no se asigna (§2.1) |
 | `CACHE_LINE_SIZE` de GFX8 en `asic_reg/gc/` | `gc/` (30 ficheros) | irrelevante por §1 |
-| registro de «pérdida de datos comprimidos» | `gfx_8_0_sh_mask.h` (20 789), token `LOSS\|LOST` | **38 coincidencias y ninguna es eso**: 32 son `CB_COLORn_DCC_CONTROL__LOSSY_{RGB,ALPHA}_PRECISION`, 4 son `SQ_IMG_RSRC_WORD6__LOST_{COLOR,ALPHA}_BITS`, 2 `TA_CNTL_AUX__SCOAL_DSWIZZLE_N` (falso positivo por subcadena). **Un contador de «compressed data lost» como tal: `NOT_FOUND`.** Lo que hay es el control de **precisión con la que se tira la información** (§3.2), que es la inversa: DCC aquí es **lossy por diseño** |
+| registro de «pérdida de datos comprimidos» | `gfx_8_0_sh_mask.h` (20 836 líneas), token `LOSS\|LOST` | **38 coincidencias y ninguna es eso**: 32 son `CB_COLORn_DCC_CONTROL__LOSSY_{RGB,ALPHA}_PRECISION`, 4 son `SQ_IMG_RSRC_WORD6__LOST_{COLOR,ALPHA}_BITS`, 2 `TA_CNTL_AUX__SCOAL_DSWIZZLE_N` (falso positivo por subcadena). **Un contador de «compressed data lost» como tal: `NOT_FOUND`.** Lo que hay es el control de **precisión con la que se tira la información** (§3.2), que es la inversa: DCC aquí es **lossy por diseño** |
 | control de *coalescing* de accesos | `gfx_8_0_d.h` (2 829), `gfx_8_0_sh_mask.h` (20 836), token `COALESCE\|COAL_` | `NOT_FOUND`. Los únicos aciertos son `TA_CNTL_AUX__SCOAL_DSWIZZLE_N` (`:15813-15814`), `DB_DEPTH_INFO__ADDR5_SWIZZLE_MASK` (`:4177-4178`) y `SH_STATIC_MEM_CONFIG__SWIZZLE_ENABLE` (`:15909-15910`), y los tres son **subcadena** (`SCOAL`, `SWIZZLE`), no un control de coalescing. **Un control de coalescing como tal: `NOT_FOUND`** en GFX8. Lo que sí hay es **swizzle de buffer** (`TCP_CNTL__FLAT_BUF_CACHE_SWIZZLE` `:15945-15946`, `TCP_CNTL__FLAT_BUF_HASH_ENABLE` `:15943-15944`, `SQ_BUF_RSRC_WORD1__CACHE_SWIZZLE` `:14093-14094`, `SQ_BUF_RSRC_WORD1__SWIZZLE_ENABLE` `:14095-14096`) y **tamaño de bloque** en DCC (`CB_COLORn_DCC_CONTROL__{MIN,MAX}_COMPRESSED_BLOCK_SIZE`) |
 | `MMH_VM_GTT` / tipos de dirección de PTE | `drivers/gpu/drm/amd/` completo | `NOT_FOUND`. No existe el símbolo en esta versión (§4.3) |
 
@@ -397,13 +397,13 @@ ocurrencias de `DCC` **mayúsculas** (para no contar `vddc` ni `EDCC`):
 | `asic_reg/gca/` | 834 | `gfx_8_0_d.h`(18), `gfx_8_0_sh_mask.h`(204), `gfx_8_0_enum.h`(160), `gfx_8_1_*` | **este es el sitio, y son campos de registro, no tabla** |
 | `asic_reg/gc/` | 4 580 | solo `gc_9_*`…`gc_12_*` | **otra generación** (§1) |
 | `asic_reg/dpcs/` | 27 400 | `dpcs_3_1_4`, `dpcs_4_2_0`, `dpcs_4_2_2`, `dpcs_4_2_3` | **colisión de nombre**: DCN Display Compression Controller, pipeline de display |
-| `asic_reg/dcn/` | (mismo familia) | `dcn_1_0`…`dcn_4_2_1` | ídem, display |
+| `asic_reg/dcn/` | (misma familia) | `dcn_1_0`…`dcn_4_2_1` | ídem, display |
 | `asic_reg/gmc/` | 58 | `gmc_6_0`, `gmc_7_0`, `gmc_7_1`, `gmc_8_1`, `gmc_8_2` | **todos `EDCCDR`** (ECC-DRAM) o el literal `0xdcc` (§3.4) |
 | `asic_reg/mmhub/` | **2** | `mmhub_4_1_0_sh_mask.h` | DCC de gfx9+, irrelevante para GFX8 (que no tiene MMHU) |
 | `asic_reg/athub/` | **0** | — | nada |
 | `asic_reg/{umc,pcie,mp,clk,rsmu,wafl}` | **0** | — | nada |
 | `amdgpu/` (driver, sin display) | `compressed_block` solo en `amdgpu_display.c` (3) | — | ver abajo |
-| `display/` | 191 000+ | — | pipeline de display, excluido por diseño |
+| `display/` | no agregado | — | pipeline de display: DCC de DCN y `dccg` (Display Core Clock Generator). **Excluido por diseño**, porque no es la ASIC memoria |
 
 **Conclusión de la búsqueda: no hay ninguna tabla de formatos comprimibles en el kernel, en ningún
 directorio.** Se comprobó además, sobre el `amdgpu/` no-display, que los únicos sitios con
@@ -414,8 +414,8 @@ y `process_pptables_v1_0.c:278` `pVddcCACTable`, que es **Vddc** (voltaje) y no 
 
 ### 3.2 Lo que GFX8 tiene: el **espacio de formatos** como producto de campos
 
-No hay tabla. Hay un **conjunto de campos** cuya combinación *es* el formato DCC. Register-level,
-en `gfx_8_0_d.h`:
+No hay tabla. Hay un **conjunto de campos** cuya combinación *es* el formato DCC. A nivel de
+registro, en `gfx_8_0_d.h`:
 
 ```
 :89-96    mmCB_COLOR0..7_DCC_CONTROL   0xa31e, 0xa32d, 0xa33c, 0xa34b, 0xa35a, 0xa369, 0xa378, 0xa387   (paso 0xf)
@@ -427,7 +427,7 @@ en `gfx_8_0_d.h`:
 
 Recuento medido: **18 registros con `DCC` en el nombre** en `gfx_8_0_d.h`; **72 campos
 `CB_COLORn_DCC_CONTROL__*` = 9 nombres distintos × 8 MRT**, exactamente iguales en los ocho
-(gfx_8_0_sh_mask.h:671-688 para MRT0; repetido idéntico por los otros siete). Los nueve:
+(gfx_8_0_sh_mask.h:671-688 para MRT0; **verificado campo a campo que los ocho bloques son idénticos**, y que los ocho ocupan `sh_mask:671-813` en bloques de 18 líneas = 9 campos × MASK+SHIFT). Los nueve:
 
 | Campo | Máscara | Shift | sh_mask (MRT0) | Lectura del nombre |
 |---|---|---|---|---|
@@ -451,7 +451,7 @@ ABGR_TO_A_BG_G_RB        = 0x2
 BGRA_TO_BG_G_RB_A        = 0x3
 ```
 
-Y el formato de superficie vive en `CB_COLORn_INFO__FORMAT`, **5 bits** (`sh_mask:289-290`), alimentado
+Y el formato de superficie vive en `CB_COLORn_INFO__FORMAT`, **5 bits** (`sh_mask:289-290`; el registro `CB_COLOR0_INFO` tiene **36 campos** en `sh_mask:287-322`), alimentado
 por el enum `SurfaceFormat` (64 valores, `enum.h:6513-6578`) y `ColorFormat` (24 valores, `enum.h:6487-6512`) — no por el `SurfaceFormat` de 5 bits
 que usa CB, sino por el código de 5 bits que selecciona dentro de él. Junto a él,
 `CB_COLORn_INFO__DCC_ENABLE` es **1 bit** (`sh_mask:319-320`) y `CB_COLORn_INFO__COMPRESSION` es
@@ -521,15 +521,15 @@ CB_PERF_SEL_CC_CACHE_READS_SAVED_DUE_TO_DCC = 0x6f
 `CC_DCC_COMPRESS_TIDS_IN/OUT`(0x108/0x109).
 
 **Y los contadores de tráfico hacia memoria que son la otra mitad de N-INT-19**:
-`TCC_PERF_SEL_MC_RDREQ`/`MC_WRREQ` y sus variantes `…_UNCACHED` (`enum.h:4549`, `:4558`) — el
-numerador y el denominador de «tráfico reducido».
+`TCC_PERF_SEL_MC_RDREQ`/`MC_WRREQ` y sus variantes `…_UNCACHED` (`enum.h:4549`, `:4558`): el
+**tráfico total hacia la MC**, que es el denominador frente al cual se lee el «ahorrado» de (b).
 
 **Advertencia de honestidad epistémica, y es importante:** todo lo anterior prueba que **los
 nombres existen**. No prueba que los contadores **cuenten** lo que su nombre dice, ni que se puedan
 leer. §5 lo separa. Lo que sí es `PROVEN` es que la taxonomía de ratios está en el enumerado del
 ASIC — que es una representación, no una medición.
 
-### 3.4 Colisiones de nombre — tres, medidas, y por qué hay que registrarlas
+### 3.4 Colisiones de nombre — siete, medidas, y por qué hay que registrarlas
 
 Un buscador de `dcc` sin distinguir mayúsculas produce **falsos positivos sin cualificar**:
 
@@ -556,7 +556,7 @@ deja DCC apagado y sin base.** Estado `PROVEN`.
 
 Observación con discriminante: `clearstate_vi.h` (945 líneas) **no contiene** `TCC_CTRL`,
 `TCP_CNTL`, `SQC_CONFIG`, `GB_ADDR_CONFIG` ni ningún otro campo de capacidad de caché. Comprobado
-con filtered scan de las 945 líneas. Es decir: **la geometría de caché de esta ASIC no se sabe por el
+con un barrido filtrado de las 945 líneas. Es decir: **la geometría de caché de esta ASIC no se sabe por el
 clear state**, solo por la golden sequence (§2.3) y por el firmware (§2.2).
 
 ---
@@ -671,7 +671,7 @@ bo->tbo.resource->mem_type == TTM_PL_TT
 ```
 
 **Falsificador.** Si el PTE de GFX8 tuviera un campo de tipo en otro bit no listado aquí, el
-razonamiento de §4.3 caería. Scope: `amdgpu_vm.h` completo (2 000+ líneas) más `gfx_8_0_sh_mask.h`.
+razonamiento de §4.3 caería. Scope: `amdgpu_vm.h` completo (**699 líneas**) más `gfx_8_0_sh_mask.h` (20 836).
 `AMDGPU_PTE_MTYPE_GFX8` no existe. Confirmado.
 
 ### 4.4 El **spill**: dónde hay discontinuidad y dónde no
@@ -680,7 +680,7 @@ Aquí es donde el nodo puede **refutar** la predicción del usuario, y lo hace c
 
 Hay **dos** mecanismos distintos, y se comportan de forma distinta:
 
-**(A) La escalera de working set (VRAM → GTT por presión).** Mecanismo: TTM ADM, no la GPU.
+**(A) La escalera de working set (VRAM → GTT por presión).** Mecanismo: TTM (eviction), no la GPU.
 `amdgpu_ttm.c:1467-1480` `amdgpu_ttm_bo_eviction_valuable()` decide qué desalojar; TTM desaloja y
 reintenta. Es **gradual por construcción**: la fracción de datos en GTT crece con el working set,
 y el tiempo crece con ella. El corpus **no contiene ninguna rama que falle** en esta ruta.
@@ -720,7 +720,7 @@ no «el working set supera la VRAM».
 > **existe**, pero la variable que lo dispara no es el working set: es **la ocupación de la ventana
 > GART de 256 MiB**. `R-NEW-46` debe reformularse a: *«discontinuidad por agotamiento de la ventana
 > GART (256 MiB), no por spill gradual de VRAM a GTT»*. Eso es `R-NEW-46` con el mecanismo
-> correcto, y la distinción es la diferencia entre un experimento que midió presión de VRAM y uno
+> correcto, y la distinción es la diferencia entre un experimento que mide presión de VRAM y uno
 > que habría medido una condición de fallo.
 
 **Las dos ideas quedan separadas por tener mecanismo causal distinto**, que es el criterio de la
@@ -739,7 +739,7 @@ supone, y es de nivel 1 (lectura de ioctl), no de nivel 4.**
 | `gtt_size` **menos** lo que la GART ya tiene pinneado | `amdgpu_kms.c:833-834`: `vram_gtt.gtt_size = ttm_manager_type(...,TTM_PL_TT)->size; vram_gtt.gtt_size -= atomic64_read(&adev->gart_pin_size);` | ioctl `AMDGPU_INFO_VRAM_GTT` |
 | `vram_size` menos pinneado | `amdgpu_kms.c:826-828` (idem ioctl) | idem |
 | `vram_cpu_accessible_size` | `amdgpu_kms.c:829-832` | idem |
-| **`gart_pin_size`** | `atomic64_add(amdgpu_bo_size(bo), &adev->gart_pin_size)` en `amdgpu_object.c:993`; `_sub` en `:1026` |derivado del ioctl anterior |
+| **`gart_pin_size`** | `atomic64_add(amdgpu_bo_size(bo), &adev->gart_pin_size)` en `amdgpu_object.c:993`; `_sub` en `:1026` | derivado del ioctl anterior |
 | `vram_pin_size`, `visible_pin_size` | `amdgpu_object.c:989-991`, `:1022-1024` | idem |
 | uso real de VRAM | `amdgpu_kms.c:802-805` `AMDGPU_INFO_VRAM_USAGE` | ioctl |
 | uso real de GTT | `amdgpu_kms.c:809-811` `AMDGPU_INFO_GTT_USAGE` | ioctl |
@@ -786,13 +786,13 @@ Recibido del nodo principal, registrado como `MEDIDO`, **no modificado**:
 
 ## 5. Qué es medible aquí y qué no, con números
 
-### 5.1 Contable estáticamente en el fuente — **sin GPU, sin riesgo**
+### 5.1 Contable estáticamente en el código fuente — **sin GPU, sin riesgo**
 
 | Cantidad | Valor medido |
 |---|---|
 | `#define` en `gfx_8_0_d.h` | **2 801** (de ellos `mm*` de offset: **2 633**) |
 | `#define` en `gfx_8_0_sh_mask.h` | **20 789** = **10 394** `_MASK` + **10 394** `__SHIFT` |
-| valores de enum en `gfx_8_0_enum.h` | **4 891** en 125 `typedef enum` |
+| valores de enum en `gfx_8_0_enum.h` | **4 891** repartidos en **246** `typedef enum` |
 | registros con `DCC` en el nombre (`gfx_8_0_d.h`) | **18** |
 | campos `CB_COLORn_DCC_CONTROL__*` | **72** = **9** nombres × **8** MRT, idénticos en los 8 |
 | valores del enum `CBPerfSel` | **396** (líneas 125-522) |
@@ -809,7 +809,7 @@ Recibido del nodo principal, registrado como `MEDIDO`, **no modificado**:
 
 ### 5.2 Necesita un contador de hardware que **no existe en esta vía**
 
-Los cuatro que harían falta para cerrar `M-01` y `F-02`/`N-INT-19`, y su estado exacto:
+Los seis que harían falta para cerrar `M-01` y `F-02`/`N-INT-19`, y su estado exacto:
 
 | Lo que se necesita | El nombre existe | La ruta de software existe |
 |---|---|---|
@@ -830,7 +830,7 @@ Comprobación del «NO», y su scope: sobre `amdgpu/` completo (excluyendo `gfx_
 > el usuario quiere —DCC como reducción de tráfico— **es exactamente la forma de los contadores que
 > el ASIC declara y que nadie puede leer**. Hay 17 cubos de ratio y un contador de lecturas
 > ahorradas, y **ninguno** tiene camino desde el kernel de esta máquina. Eso no hace la idea mala:
-> hace que su **observable named** esté bloqueado, y el bloqueo es de la vía de lectura, no del
+> hace que su **observable nombrado** esté bloqueado, y el bloqueo es de la vía de lectura, no del
 > experimento. Lo que SÍ es ejecutable sin contadores es el par `(formato, `DCC_ENABLE`)` →
 > **tiempo de frame medido**, que es un observable de nivel 1 y no necesita instrumentación — pero
 > mezcla «tráfico» con «capacidad» y no separa los dos. La separación necesita el contador.
@@ -845,9 +845,9 @@ Ninguna de estas se ha hecho ni se propone hacer aquí. Se listan para que la fr
 | cambiar la política de caché LRU↔STREAM | `TC_CFG_L2_*_POLICY` (`gfx_8_0_d.h:2340-2344`) | modo de caché, no parámetro de workload |
 | `FORCE_HIT` / `FORCE_MISS` de la L1 de textura | `TCP_CNTL__FORCE_HIT` (`:15937`), `__FORCE_MISS` (`:15939`) | nombres que describen sin ambigüedad lo peligroso que suenan |
 | `SQC_CONFIG__FORCE_ALWAYS_MISS` / `FORCE_IN_ORDER` | `:13459-13462` | el nombre literal del campo no deja margen de interpretación |
-| `GATCL1_TYPE_SHOOTDOWN` manual | `enum.h:6772` | invalidación global de TLB |
+| `GATCL1_TYPE_SHOOTDOWN` manual | `enum.h:6773` (`GATCL1RequestType` en `:6771-6775`) | invalidación de TLB por tipo de petición |
 | `CB_COLORn_DCC_CONTROL` / `_DCC_BASE` desde CPU | `d.h:89-96`, `:145-152` | superficie + metadatos; tocarlo sin driver de render es `WRITE_SEMANTICS_UNKNOWN` |
-| Anything en `mmTCC_*` con el motor activo | `d.h:2245-2265` | es la L2 |
+| cualquier `WREG32` en `mmTCC_*` con el motor activo | `d.h:2245-2265` | es la L2 |
 
 Ninguna se ha ejecutado. `GPU=INTACTA`.
 
@@ -860,7 +860,7 @@ introduzca mecanismo causal distinto»*.
 
 ### 6.1 Se funden: **cinco** IDs que sólo cambian el parámetro
 
-| ID | Own wording | Mecanismo | Por qué se funde |
+| ID | Redacción original | Mecanismo | Por qué se funde |
 |---|---|---|---|
 | `R-NEW-07` | barrido de patrón de acceso | L2/L1 hit-rate | padre |
 | `N-INT-09` | localidad temporal vs espacial | **idéntico**: el barrido de patrón ya barre temporal vs espacial, porque el patrón *es* la localidad | no introduce nada |
@@ -874,7 +874,7 @@ cambian el valor del eje de cantidad. Ninguno añade una variable física nueva.
 «curva de hit-rate L2 contra (working set × patrón)»**, con los dos ejes como parámetros. Eso es
 `REFACTORIZAR`, no descartar: el contenido no se pierde, se declara.
 
-**Y hay un cuarto miembro que el registro ya marked `NUEVA` sin razón:** `R-NEW-09` «umbral de
+**Y hay dos miembros más que el registro ya marcó `NUEVA` sin razón:** `R-NEW-09` «umbral de
 tamaño de textura» y `R-NEW-10` «umbral de cantidad de texturas» están ya marcados
 `DUPLICATE`/`REDUNDANTE` (`:81-82`) y `CTD-05` los declara duplicados de `H6`/`M-01`
 (`RESEARCH-LINES.md:335`). Correcto, y por el mismo argumento.
@@ -883,11 +883,11 @@ tamaño de textura» y `R-NEW-10` «umbral de cantidad de texturas» están ya m
 
 | ID | Mecanismo | Estado |
 |---|---|---|
-| `N-INT-16` cache-capacity sweep | barrido del hit-rate L2 al cruzar la capacidad | **el mismo** que §6.1: es `R-NEW-41` con el eje rename «capacidad de caché» en vez de «working set». La capacidad de caché **es** el working set, visto desde el otro lado |
+| `N-INT-16` cache-capacity sweep | barrido del hit-rate L2 al cruzar la capacidad | **el mismo** que §6.1: es `R-NEW-41` con el eje renombrado «capacidad de caché» en vez de «working set». La capacidad de caché **es** el working set, visto desde el otro lado |
 | `N-INT-17` cache-thrashing controlado | forzar el despliegue de la capacidad | **mismo mecanismo**, es el extremo del barrido de `N-INT-16` |
 | **`N-INT-18` cache reuse distance** | **otro** | **NO se funde.** El barrido de capacidad sólo produce un *punto* de codo. La reuse distance es un **segundo observable**: qué separación working-set↔LRU produce el miss. Y el ASIC **tiene el knob** (`TCC_CACHE_POLICY_LRU`/`STREAM`, `enum.h:6776-6779`), así que hay **dos** variables con dos mecanismos: la carga y la política. Eso es lo que la regla llama «mecanismo causal distinto» |
 
-**Pero `N-INT-18` tiene una dependencia que este nodo acaba de encontrar y que laidea no declaraba.**
+**Pero `N-INT-18` tiene una dependencia que este nodo acaba de encontrar y que la idea no declaraba.**
 Para barrer reuse distance hace falta conocer la **capacidad y la línea de la L2**, y §2.2
 demuestra que **ninguna de las dos está en el corpus**. Estado: `NOT_DETERMINED` → la idea es
 válida y **no ejecutable estáticamente**. Eso es una `DEPENDENCY_UNSATISFIED` con fuente única
@@ -914,7 +914,7 @@ corpus ya cerrado») y `IDEA-REGISTER.md:199` `R-NEW-72` `DUPLICATE` de `F-02`. 
   `R-NEW-41`, `N-INT-11`, `N-INT-16`, `N-INT-17` como **ejes**, no como ideas.
 - **`N-INT-12`** se transfiere a `MICROARCH-GFX8` (el segundo factor es ocupación).
 - **`N-INT-18`** sobrevive, con dependencia declarada de un dato de firmware.
-- **`N-INT-19`** sobrevige reformulada, con la reformulación corroborada por cita.
+- **`N-INT-19`** sobrevive reformulada, con la reformulación corroborada por cita.
 - **`N-INT-10`** (divergencia dentro de la wave) y **`N-INT-13`** (reutilización inter-wave) no se
   tocan: son microarquitectura, no jerarquía de memoria. Fuera del alcance declarado.
 
@@ -949,7 +949,7 @@ Cada clasificación importante de este documento, con la observación que la tum
 - **Valores de los contadores:** `NOT_DETERMINED`. Los nombres existen; la lectura no.
 - **Continuidad vs acantilado en el spill:** `DERIVED` de código, no medido. La única afirmación
   fuerte que hago es que **el sitio de la discontinuidad está identificado** (`gart_size >> PAGE_SHIFT`),
-  no que laladder lo vaya a mostrar.
+  no que la escalera lo vaya a mostrar.
 - **`MDC` / nivel L3:** `NOT_DETERMINED` para la existencia de estructura fuera de la L2; lo que
   es `PROVEN_ABSENT` es que la vía de discovery de GFX8 no reporta L3.
 
@@ -968,4 +968,4 @@ renumerado nada. No he descargado nada.**
 | los 4 PRT golden writes no implementados | nodo principal | fuera del alcance de este nodo |
 | el path de perfmon GFX8 no existe | nodo principal | **sí**, re-verificado (§0) |
 | el recuento de 30 ficheros en `gc/` | nodo principal | **reinterpretado**: son de `gc/`, no de esta ASIC (§1). No lo rederivé |
-| taxonomy `N-INT-*`, `R-NEW-*`, `M-0*`, `F-0*`, `H6` | `02-ARQUITECTURA/IDEA-REGISTER.md`, `00-INDICE/HYPOTHESIS-REGISTER.md` | citados por línea |
+| taxonomía `N-INT-*`, `R-NEW-*`, `M-0*`, `F-0*`, `H6` | `02-ARQUITECTURA/IDEA-REGISTER.md`, `00-INDICE/HYPOTHESIS-REGISTER.md` | citados por línea |
