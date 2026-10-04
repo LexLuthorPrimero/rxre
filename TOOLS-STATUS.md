@@ -56,6 +56,7 @@ sacaba de `detalle`, que nunca esta vacio, asi que ponia `si` en las
 | `tools/flags_inventory.py` | 802 | si | `TOOL_VALIDATED` | `ccd506c561852ba9` |
 | `tools/frontier.py` | 925 | si | `TOOL_VALIDATED` | `b69b540b521466e1` |
 | `tools/gccverify.py` | 352 | si | `TOOL_VALIDATED` | `fbdc1fa626333ac2` |
+| `tools/git_sano.py` | 319 | si | `TOOL_VALIDATED` | `9fb6868eb21c4daa` |
 | `tools/govcheck.py` | 883 | si | `TOOL_VALIDATED` | `959bf46be6125e98` |
 | `tools/gttlimit.py` | 183 | NO | `TOOL_UNVALIDATED` | `e4f23a671d9332be` |
 | `tools/hcconsist.py` | 460 | si | `TOOL_VALIDATED` | `61a45f959067e2e6` |
@@ -69,7 +70,7 @@ sacaba de `detalle`, que nunca esta vacio, asi que ponia `si` en las
 | `tools/msg_census.py` | 668 | si | `TOOL_VALIDATED` | `f00166daee637707` |
 | `tools/mutate.py` | 428 | si | `TOOL_VALIDATED` | `e013ee68e6d2ec3b` |
 | `tools/mutscore.py` | 905 | si | `TOOL_VALIDATED` | `884028f47d4684b4` |
-| `tools/nextnum.py` | 785 | si | `TOOL_VALIDATED` | `c4ecc3903eabef43` |
+| `tools/nextnum.py` | 792 | si | `TOOL_VALIDATED` | `095cc6e3749d3959` |
 | `tools/oracle.sh` | 414 | si | `TOOL_UNVALIDATED` | `7c84b8254e2a45fc` |
 | `tools/oracle_drift.py` | 536 | si | `TOOL_PARTIAL` | `ef36dbdd598fa220` |
 | `tools/pipeline.py` | 671 | si | `TOOL_VALIDATED` | `0ca8f4ab3686dab2` |
@@ -93,7 +94,7 @@ sacaba de `detalle`, que nunca esta vacio, asi que ponia `si` en las
 | `tools/struct_layout.py` | 1695 | si | `TOOL_VALIDATED` | `7a31e230d1136631` |
 | `tools/sysaccess.py` | 345 | si | `TOOL_VALIDATED` | `a2b022cfa26c19c0` |
 | `tools/toolcheck.py` | 351 | si | `TOOL_VALIDATED` | `05182e59afd8f486` |
-| `tools/toolreg.py` | 859 | si | `TOOL_VALIDATED` | `906859fafcc83813` |
+| `tools/toolreg.py` | 970 | si | `TOOL_VALIDATED` | `de205cc15e4c5a2d` |
 | `tools/trace_path.py` | 780 | si | `TOOL_VALIDATED` | `88da33bec82e7eb9` |
 | `tools/treescope.py` | 373 | si | `TOOL_VALIDATED` | `e62e0f366e79b142` |
 | `tools/uninit_copy.py` | 831 | si | `TOOL_VALIDATED` | `60ae8d7a5fe666bd` |
@@ -132,7 +133,7 @@ sacaba de `detalle`, que nunca esta vacio, asi que ponia `si` en las
 | `08-ARQUITECTURA/tools/driver_offsets.py` | 498 | si | `TOOL_PARTIAL` | `8ad9bd373b7c0d60` |
 | `08-ARQUITECTURA/tools/emisor.py` | 517 | si | `TOOL_PARTIAL` | `f16cf70d42925fd2` |
 | `08-ARQUITECTURA/tools/exit_contract.py` | 154 | si | `TOOL_PARTIAL` | `532477488d45c03d` |
-| `08-ARQUITECTURA/tools/findings_index.py` | 896 | si | `TOOL_PARTIAL` | `4433f7c7b50ce582` |
+| `08-ARQUITECTURA/tools/findings_index.py` | 918 | si | `TOOL_PARTIAL` | `cbe8f00d16000778` |
 | `08-ARQUITECTURA/tools/findnum.py` | 721 | si | `TOOL_PARTIAL` | `0c416caa689f0790` |
 | `08-ARQUITECTURA/tools/fingerprint.py` | 340 | si | `TOOL_PARTIAL` | `5057d6df1f2b4422` |
 | `08-ARQUITECTURA/tools/frame_budget.py` | 137 | NO | `TOOL_UNVALIDATED` | `7fcd489b70e877ee` |
@@ -159,9 +160,9 @@ sacaba de `detalle`, que nunca esta vacio, asi que ponia `si` en las
 | `08-ARQUITECTURA/tools/pm4_layout_audit.py` | 178 | NO | `TOOL_UNVALIDATED` | `c588440731a0d5ec` |
 | `08-ARQUITECTURA/tools/pm4_reachable.py` | 526 | NO | `TOOL_UNVALIDATED` | `4a154381331ea790` |
 | `08-ARQUITECTURA/tools/recovery_preflight.sh` | 105 | NO | `TOOL_UNVALIDATED` | `c155561f5441a0c9` |
-| `08-ARQUITECTURA/tools/reenvio_freeze.py` | 543 | si | `TOOL_PARTIAL` | `8ebbd1a4f879a88c` |
-| `08-ARQUITECTURA/tools/reenvio_gate.py` | 486 | si | `TOOL_PARTIAL` | `d41b7673f63c466b` |
-| `08-ARQUITECTURA/tools/refs_repair.py` | 444 | si | `TOOL_PARTIAL` | `6d0dffaeff41a313` |
+| `08-ARQUITECTURA/tools/reenvio_freeze.py` | 548 | si | `TOOL_PARTIAL` | `2944a13f3ea5a3f9` |
+| `08-ARQUITECTURA/tools/reenvio_gate.py` | 587 | si | `TOOL_PARTIAL` | `8cd93a661dec5f00` |
+| `08-ARQUITECTURA/tools/refs_repair.py` | 559 | si | `TOOL_PARTIAL` | `1d996978b2b935cb` |
 | `08-ARQUITECTURA/tools/regdb.py` | 443 | si | `TOOL_PARTIAL` | `93dd5c536a1ee141` |
 | `08-ARQUITECTURA/tools/run_all.py` | 691 | si | `TOOL_PARTIAL` | `68ae766c648d7674` |
 | `08-ARQUITECTURA/tools/runtime_obs.py` | 432 | NO | `TOOL_UNVALIDATED` | `c002e8024e67d996` |
@@ -188,8 +189,41 @@ sacaba de `detalle`, que nunca esta vacio, asi que ponia `si` en las
 | `09-POWER-CLOCKS/tools/rx550_hold.c` | 35 | NO | `TOOL_UNVALIDATED` | `5153ce6d0a34fa3a` |
 | `09-POWER-CLOCKS/tools/rx550_load.c` | 261 | NO | `TOOL_UNVALIDATED` | `ffeb131b726151b3` |
 | `01-AUDITORIA/tools/inventario_universo.py` | 185 | NO | `TOOL_UNVALIDATED` | `aa4764ffa1aa2402` |
+| `revkit/atomrom.py` | 2200 | NO | `TOOL_UNVALIDATED` | `97e718d5aa4624a8` |
+| `revkit/bootcheck.py` | 251 | si | `TOOL_PARTIAL` | `7e97b90ca7a0a5ed` |
+| `revkit/btfsnap.py` | 444 | si | `TOOL_PARTIAL` | `c740eeb2906bed96` |
+| `revkit/captura.py` | 313 | NO | `TOOL_UNVALIDATED` | `728db65b67ad9112` |
+| `revkit/causa.py` | 295 | NO | `TOOL_UNVALIDATED` | `673428deb9ebba75` |
+| `revkit/check.sh` | 615 | si | `TOOL_UNVALIDATED` | `2603535bbfb0eff9` |
+| `revkit/cidx.py` | 474 | NO | `TOOL_UNVALIDATED` | `4c8a050ab2321d1e` |
+| `revkit/cn7.py` | 1024 | NO | `TOOL_UNVALIDATED` | `e1ec5697173a3730` |
+| `revkit/cn8.py` | 557 | NO | `TOOL_UNVALIDATED` | `d371fb5082be6dbb` |
+| `revkit/correlate.py` | 185 | NO | `TOOL_UNVALIDATED` | `12d211edd56e1730` |
+| `revkit/dires.py` | 203 | NO | `TOOL_UNVALIDATED` | `63070f7997e92754` |
+| `revkit/emitref.py` | 722 | si | `TOOL_PARTIAL` | `906dd20a2ae0c8a1` |
+| `revkit/estado.py` | 195 | NO | `TOOL_UNVALIDATED` | `90fdc43fcd66288f` |
+| `revkit/gchwip_alcance.py` | 445 | si | `TOOL_PARTIAL` | `2530551ff03df8b6` |
+| `revkit/gfx8blocks.py` | 583 | si | `TOOL_PARTIAL` | `f10ba91ecc40f6ed` |
+| `revkit/gputel.py` | 389 | si | `TOOL_PARTIAL` | `0bfbbdc50d79e8fa` |
+| `revkit/huerfanos.py` | 237 | NO | `TOOL_UNVALIDATED` | `ef75f6b47b977ca5` |
+| `revkit/ibpools.py` | 281 | NO | `TOOL_UNVALIDATED` | `49413b6e5db7b275` |
+| `revkit/ibtrace.py` | 568 | si | `TOOL_PARTIAL` | `218a43cb90098326` |
+| `revkit/integro.py` | 548 | NO | `TOOL_UNVALIDATED` | `639f64a07d08ae12` |
+| `revkit/klog.py` | 185 | NO | `TOOL_UNVALIDATED` | `b5a21c5bd27592c2` |
+| `revkit/mmo.py` | 303 | NO | `TOOL_UNVALIDATED` | `c18560f289e93031` |
+| `revkit/obs.py` | 229 | NO | `TOOL_UNVALIDATED` | `348c668d92dda5fe` |
+| `revkit/pm4dec.py` | 1186 | NO | `TOOL_UNVALIDATED` | `02343b512ca31439` |
+| `revkit/pte.py` | 262 | NO | `TOOL_UNVALIDATED` | `563df59d52658b62` |
+| `revkit/pub.sh` | 212 | si | `TOOL_UNVALIDATED` | `b7ffb8b3b21e8c2b` |
+| `revkit/pub_selftest.sh` | 203 | si | `TOOL_UNVALIDATED` | `68fcebed3b5e30f5` |
+| `revkit/regs.py` | 480 | NO | `TOOL_UNVALIDATED` | `1903c3da3b154838` |
+| `revkit/scan.py` | 301 | NO | `TOOL_UNVALIDATED` | `2648716103f99e78` |
+| `revkit/selfcheck.py` | 683 | NO | `TOOL_UNVALIDATED` | `a049d2a57796e46d` |
+| `revkit/sello.py` | 421 | NO | `TOOL_UNVALIDATED` | `2460eb540d953352` |
+| `revkit/vclaims.py` | 298 | NO | `TOOL_UNVALIDATED` | `32edc96e8aeff849` |
+| `revkit/verdiff.py` | 329 | NO | `TOOL_UNVALIDATED` | `f41335ce3d57fb2c` |
 
-**Total**: 160 herramientas, 37 `TOOL_UNVALIDATED`, 1 `TOOL_BROKEN`, 35 sin selftest declarado.
+**Total**: 194 herramientas, 63 `TOOL_UNVALIDATED`, 1 `TOOL_BROKEN`, 58 sin selftest declarado.
 
 AGENTS.md: *`TOOL_UNVALIDATED` no puede cerrar una afirmación crítica*.
 Las que lo estan no pueden ser el unico sustento de un hallazgo.
@@ -197,19 +231,20 @@ Las que lo estan no pueden ser el unico sustento de un hallazgo.
 
 ## Cobertura, y por que esta seccion existe
 
-MEDIDO 2026-10-04:  el recorrido era de UN solo directorio (`os.path.join(root, "tools")`)  y el proyecto tiene 6.  Con eso el registro clasificaba 72 filas mientras habia **160** ejecutables,  y como el registro es GENERADO nadie lo notaba:  el numero que salia era el de lo que se veia,  que es exactamente el fallo de un control que no puede fallar.  Los dos numeros los cuenta este generador en cada ejecucion, no estan escritos:  un texto que afirma una cifra y la repite es una copia mas,  y las copias envejecen.
+MEDIDO 2026-10-04:  el recorrido era de UN solo directorio (`os.path.join(root, "tools")`)  y el proyecto tiene 7.  Con eso el registro clasificaba 72 filas mientras habia **194** ejecutables,  y como el registro es GENERADO nadie lo notaba:  el numero que salia era el de lo que se veia,  que es exactamente el fallo de un control que no puede fallar.  Los dos numeros los cuenta este generador en cada ejecucion, no estan escritos:  un texto que afirma una cifra y la repite es una copia mas,  y las copias envejecen.
 
 | directorio | filas | selftest ejecutado por este generador |
 |---|---|---|
-| `tools/` | 75 | si |
+| `tools/` | 76 | si |
 | `08-ARQUITECTURA/tools/` | 74 | **no** — limite declarado |
 | `04-IMPLEMENTACION/rx550-driver/tools/` | 6 | **no** — limite declarado |
 | `04-IMPLEMENTACION/tools/` | 2 | **no** — limite declarado |
 | `09-POWER-CLOCKS/tools/` | 2 | **no** — limite declarado |
 | `01-AUDITORIA/tools/` | 1 | **no** — limite declarado |
+| `revkit/` | 33 | **no** — limite declarado |
 
 Las filas existen todas y llevan su `sha256`,  que es lo que las hace citables sin ambiguedad.  Lo que NO se hace es ejecutar sus selftests:  MEDIDO que son mas de 120 s por regeneracion,  y un generador que tarda dos minutos en un artefacto que se regenera a mano no se usa  —que es como muere un generador:  dejando de ejecutarse—.
 
-El estado de esas 85 filas es `TOOL_PARTIAL` con el motivo EN LA FILA, no `TOOL_VALIDATED`:  la tabla no afirma una validacion que nadie ha ejecutado.  Y el limite es un dato  y no una excusa:  un `TOOL_PARTIAL` con su motivo se puede cerrar;  una herramienta ausente no se cierra de ninguna manera.
+El estado de esas 118 filas es `TOOL_PARTIAL` con el motivo EN LA FILA, no `TOOL_VALIDATED`:  la tabla no afirma una validacion que nadie ha ejecutado.  Y el limite es un dato  y no una excusa:  un `TOOL_PARTIAL` con su motivo se puede cerrar;  una herramienta ausente no se cierra de ninguna manera.
 
 Y AHORA LA LISTA ES UNA SOLA.  MEDIDO que antes este fichero tenia la suya  —un directorio—  y `toolreg.py` la suya  —dos—  y no coincidaban.  Dos listas de "donde viven las herramientas" es una lista y un grupo de herramientas que nadie mira.  Este fichero importa `toolreg.TOOL_DIRS`,  y la puerta que hace que la lista no se quede corta esta en `toolreg.py`:  `directorios_no_declarados()`,  que recorre el arbol buscando cualquier directorio llamado `tools` y falla si no esta declarado.  MEDIDO que esa puerta encontro tres directorios mas en su primera pasada,  uno de los cuales contiene los instrumentos que generan carga GPU medible.

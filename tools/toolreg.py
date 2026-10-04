@@ -308,11 +308,37 @@ def parse_tool(t, root):
 # Ninguno se puede dejar fuera "porque no es lo habitual":  la razon por la que un
 # directorio NO se declara tiene que ser una razon  —por ejemplo "aqui hay fuente
 # del kernel, no herramientas"—  y estos tres no la tienen.
+# MEDIDO 2026-10-04:  un SETIMO directorio,  y este con un nombre que la puerta
+# NO puede encontrar.
+#
+#     revkit/     33 ejecutables   (atomrom.py, bootcheck.py, btfsnap.py, check.sh,
+#                                  cn7.py, cn8.py, gfx8blocks.py, gputel.py, klog.py,
+#                                  pm4dec.py, pte.py, pub.sh, sello.py, …)
+#
+# Los CATORCE nombres que el ledger de docs/TOOLS-STATUS.md cita y que no
+# existian en ninguna de las seis rutas anteriores estan aqui.  Los catorce
+# existen hoy.  Eso son 19 pares de entrada-documento sin herramienta.
+#
+# Y EL HUECO DE LA PUERTA,  QUE ES DEL TAMANO DEL FALLO:
+# `directorios_no_declarados()` busca directorios LLAMADOS "tools".  revkit no se
+# llama tools,  de modo que anadirlo aqui no lo hacechequeable por esa via:  la
+# puerta sigue sin poder distinguir "todo declarado" de "todo declarado Y todo lo
+# que existe".  El fallo ya ha pasado cuatro veces por la misma causa  —nadie
+# comparo la declaracion con el arbol—  y esta vez la comparacion que falta es al
+# reves:  no que exista algo no declarado,  sino que ESTE declarado exista.
+#
+# Por eso la puerta tiene las dos mitades:
+#   · lo declarado que no EXISTE  (un nombre mal escrito pasa desapercibido)
+#   · lo que existe y no esta declarado,  entre los directorios llamados "tools"
+# Y las dos mitades tienen su control negativo.  La segunda sigue SIN cubrir los
+# directorios de herramientas que no se llaman "tools":  eso se declara aqui,  no
+# se disimula.
 TOOL_DIRS = ("tools", "08-ARQUITECTURA/tools",
              "04-IMPLEMENTACION/rx550-driver/tools",
              "04-IMPLEMENTACION/tools",
              "09-POWER-CLOCKS/tools",
-             "01-AUDITORIA/tools")
+             "01-AUDITORIA/tools",
+             "revkit")
 
 
 def directorios_no_declarados(repo, skip=(".git", "RESEARCH", "node_modules",
@@ -353,6 +379,30 @@ def directorios_no_declarados(repo, skip=(".git", "RESEARCH", "node_modules",
         if rel.replace(os.sep, "/") not in TOOL_DIRS:
             faltan.append(rel.replace(os.sep, "/"))
     return vistos, faltan
+
+
+def declarados_que_no_existen(repo):
+    """Los directorios DECLARADOS en TOOL_DIRS que no existen.
+
+    MEDIDO 2026-10-04.  Esta es la otra mitad de la puerta,  y falta por el mismo
+    motivo que la primera:  la tupla es una DECLARACION y el arbol es la MEDIDA.
+
+    Sin esta comprobacion,  escribir "08-ARQUITECTURA/tools" en vez de
+    "08-ARQUITECTURA/tools "  —con un espacio—  deja un directorio real fuera de la
+    cobertura  y la puerta se queda verde:  ella misma busca directorios por NOMBRE
+    y no mira su propia tupla.
+
+    Y el alcance de la cobertura queda escrito,  porque un alcance que no se dice
+    no se puede auditar:  esto NO encuentra directorios de herramientas que no se
+    llamen "tools".  `revkit` no se llama "tools",  y esta es la razon por la que
+    su inclusion en TOOL_DIRS es una DECLARACION responsable y no un
+    descubrimiento automatico.
+    """
+    faltan = []
+    for rel in TOOL_DIRS:
+        if not os.path.isdir(os.path.join(repo, rel)):
+            faltan.append(rel)
+    return TOOL_DIRS, faltan
 
 
 def inventory(repo):
@@ -693,7 +743,20 @@ def run_selftest():
         # decir que no.
         import tempfile as _tf
         with _tf.TemporaryDirectory() as td2:
+            # MEDIDO por este self-test:  la primera version de este temporal
+            # creaba SOLO `tools`  y `caja/tools`,  y el vector de la otra mitad
+            # de la puerta exigia que faltara un unico directorio declarado.  Pero
+            # con un temporal asi  los SEIS declared que no existen alli tambien
+            # faltan,  de modo que el vector afirmaba algo falso y no podia
+            # distinguish "no he mirado" de "no hay".  Un vector que espera un
+            # numero que no puede ocurrir no mide nada.
+            #
+            # Ahora el temporal contiene DOS rutas declaradas  —`tools` y
+            # `08-ARQUITECTURA/tools`—,  una que existe y no esta declarada
+            # (`caja/tools`),  y una excluida por la regla de `RESEARCH`.  Asi
+            # los tres casos se distinguen.
             os.makedirs(os.path.join(td2, "tools"))
+            os.makedirs(os.path.join(td2, "08-ARQUITECTURA", "tools"))
             os.makedirs(os.path.join(td2, "caja", "tools"))
             os.makedirs(os.path.join(td2, "RESEARCH", "linux", "tools"))
             with open(os.path.join(td2, "caja", "tools", "x.py"), "w") as fh:
@@ -723,13 +786,61 @@ def run_selftest():
                     print("  FAIL  falso positivo: %r" % (f3,))
                     fails += 1
 
+            # LA OTRA MITAD:  lo DECLARADO que no existe.
+            # El control negativo es el que importa:  sin un nombre mal escrito,
+            # "no falta nada" y "no he mirado" darian lo mismo.
+            checks += 1
+            decl, ausentes = declarados_que_no_existen(td2)
+            esperados = [d for d in TOOL_DIRS
+                         if not os.path.isdir(os.path.join(td2, d))]
+            if (set(ausentes) == set(esperados)
+                    and "tools" not in ausentes
+                    and "08-ARQUITECTURA/tools" not in ausentes
+                    and ausentes):
+                print("  OK    la mitad DECLARADO-que-no-existe:  %d de %d,  y"
+                      " las dos que si existen no aparecen" % (len(ausentes),
+                                                                len(decl)))
+            else:
+                print("  FAIL  declarados ausentes mal:  %r,  esperados %r"
+                      % (sorted(ausentes), sorted(esperados)))
+                fails += 1
+
+            checks += 1
+            with _tf.TemporaryDirectory() as td4:
+                os.makedirs(os.path.join(td4, "tools"))
+                # MEDIDO:  la primera version de esta linea traia un
+                # `declarados_que_no_exclarados(td4) if False else …`  —un
+                # `if False:` que se lee como si evaluara algo.  Es el mismo
+                # antipatron que se acaba de quitar de refs_repair.py:  codigo
+                # que parece hacer trabajo y no lo hace,  y que dentro de tres
+                # meses alguien activa sin saber por que estaba apagado.
+                _d, aus4 = declarados_que_no_existen(td4)
+                if len(aus4) == len(TOOL_DIRS) - 1:
+                    print("  OK    en un arbol vacio se declaran %d ausentes"
+                          % len(aus4))
+                else:
+                    print("  FAIL  ausentes=%d de %d declarados"
+                          % (len(aus4), len(TOOL_DIRS)))
+                    fails += 1
+
             # Y EL ALCANCE, que va en el valor de retorno:  "no he encontrado
             # nada" sin decir donde se ha mirado no es un resultado.
             checks += 1
-            if len(vistos) == 2:
-                print("  OK    la puerta declara su alcance: %d directorios mirados" % len(vistos))
+            # MEDIDO:  este vector comprobaba `len(vistos) == 2`  y al ampliar
+            # el temporal salia 3.  Contar el alcance no es DECLARARLO:  un
+            # numero no dice QUE se ha mirado,  y si el alcance cambia el vector
+            # falla sin que nadie sepa que ha cambiado.  Ahora se compara el
+            # CONJUNTO,  que es lo que el valor de retorno promete,  y se nombra.
+            # Y como CONJUNTO,  no como lista.  MEDIDO:  la primera version
+            # comparaba una lista y el vector fallo por el ORDEN  —os.walk no
+            # garantiza ninguno—  cuando lo que queria comprobar era la
+            # pertenencia.  Un vector que falla por el orden del recorrido del
+            # sistema de ficheros no mide el alcance:  mide el recorrido.
+            if set(vistos) == {"08-ARQUITECTURA/tools", "caja/tools", "tools"}:
+                print("  OK    la puerta declara su alcance:  %s  —  y RESEARCH"
+                      " no aparece" % ", ".join(sorted(vistos)))
             else:
-                print("  FAIL  alcance inesperado: %r" % (vistos,))
+                print("  FAIL  alcance inesperado: %r" % (sorted(vistos),))
                 fails += 1
 
     print("  " + "-" * 62)
