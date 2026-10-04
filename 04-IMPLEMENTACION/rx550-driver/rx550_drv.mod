@@ -8,3 +8,4 @@
 ./rx550_gart_write.o
 ./rx550_dummy_page.o
 ./rx550_gart_seq.o
+./rx550_gart_table.o
