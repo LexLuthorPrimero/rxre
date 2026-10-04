@@ -191,18 +191,69 @@ def reenvios_estable(d=FIND, destino=None):
                 texto = fh.read()
         except OSError:
             texto = ""
-        for ln in texto.splitlines():
+        # MEDIDO 2026-10-04. ANTES ERA `if len(p) != 4: continue`, y ESO ERA UN
+        # DEFECTO, no una robustez: el mapa paso a 5 columnas al incorporate las
+        # renumeraciones que reenvios() no puede derivar, y ese `continue` se
+        # comia las 49 filas una por una sin error, sin aviso y sin excepcion --
+        # el mismo modo de fallo que el documento 1036 describe para el indice.
+        # MEDIDO que un `continue` aqui es INDISTINGUIBLE de un mapa vacio para
+        # quien lo lee: los dos devuelven [].
+        #
+        # Ahora una fila de datos mal formada es un ERROR, con su linea, y la
+        # funcion no devuelve un mapa parcial. Un dato corrupto que se lee como
+        # dato ausente es peor que un fallo ruidoso: uno se pierde, el otro se
+        # nota. Y el cambio de anchura se hace aqui, en un solo sitio, porque
+        # `refs_repair.py:self_test` y `reenvio_freeze.py:leer` tienen la misma
+        # asuncion y tienen que fallar si este lector deja de aceptarla.
+        # MEDIDO 2026-10-04:  eran 5,  y pasaron a 6 con la columna `relacion`
+        # entre `stem` y `procedencia`.  Este es el UNICO sitio donde el ancho se
+        # cambia,  y los otros tres consumidores  —reenvio_freeze.leer,
+        # refs_repair.self_test  y nextnum._reenvios—  tienen su propia copia de
+        # este numero:  MEDIDO que las copias se han desincronizado una por
+        # una  —4->5,  y ahora 5->6—,  y cada vez el sintoma fue el mismo y el
+        # peor posible:  `_reenvios()` devolvia {} SIN ERROR,  de modo que el
+        # instrumento que reparte numeros de hallazgo quedaba ciego a las
+        # renumeraciones sin decir nada.  Ver 1040.
+        CAMPOS = 6
+        # Y la RELACION no es decorativa:  decide si esta fila puede usarse
+        # para reescribir una cita.  Un lector que se la comiera devolveria
+        # las 49 filas como si todas fueran reparables.
+        COL_RELACION, COL_PROCEDENCIA = 4, 5
+        RELACIONES = ("contenido", "numero")
+        for n_lin, ln in enumerate(texto.splitlines(), 1):
             if not ln.strip() or ln.startswith("#"):
                 continue
             p = ln.split("\t")
-            if len(p) != 4:
-                continue
+            if len(p) != CAMPOS:
+                raise ValueError(
+                    "%s:%d: fila de datos con %d campos, se esperaban %d: %r"
+                    % (destino, n_lin, len(p), CAMPOS, ln[:70]))
+            if p[2] not in ("SI", "no"):
+                raise ValueError(
+                    "%s:%d: reasignado vale %r, no es SI ni no: %r"
+                    % (destino, n_lin, p[2], ln[:70]))
+            if p[COL_RELACION] not in RELACIONES:
+                raise ValueError(
+                    "%s:%d: relacion=%r, y solo valen %s:  sin ella esta fila es "
+                    "indistinguible de una fila REPARABLE,  que es justo el error "
+                    "del hallazgo 1040: %r"
+                    % (destino, n_lin, p[COL_RELACION],
+                       "|".join(RELACIONES), ln[:70]))
+            if not p[COL_PROCEDENCIA].strip():
+                raise ValueError(
+                    "%s:%d: procedencia vacia: sin ella no se sabe si esta fila "
+                    "la derivo el instrumento o una persona: %r"
+                    % (destino, n_lin, ln[:70]))
             try:
                 filas.append({"viejo": int(p[0]), "nuevo": int(p[1]),
                               "reasignado": p[2] == "SI", "stem": p[3],
+                              "relacion": p[COL_RELACION],
+                              "procedencia": p[COL_PROCEDENCIA],
                               "fuente": "congelado"})
-            except ValueError:
-                continue
+            except ValueError as e:
+                raise ValueError(
+                    "%s:%d: numero no entero en la fila %r: %s"
+                    % (destino, n_lin, ln[:70], e)) from e
         if filas:
             return filas
     out = reenvios(escanear(d), d)
@@ -440,12 +491,25 @@ def self_test():
         fails.append("el filtro de auto-cita NO esta descontando: con filtro %d, "
                      "sin filtro %d" % (len(fuera), sin_filtro))
 
-    # 8. RE_CITA_N tiene que ver cuatro digitos. Hoy es CORRECTO pero INERCIAL:
-    #    los 43 numeros renumerados van de 52 a 202, ninguno de cuatro digitos, y
-    #    las 95 citas de cuatro digitos del corpus apuntan a 1000/1002/1003. Si
-    #    se Anchica RE_CITA_N a 4, este recuento NO cambia. Por eso el control es
-    #    sobre el REGEX y no sobre el recuento: el defecto se manifestara cuando
-    #    alguien renumere un hallazgo por encima de 999.
+    # 8. RE_CITA_N tiene que ver cuatro digitos. MEDIDO 2026-10-04: esta
+    #    justificacion ya NO se sostiene y el control se queda por otra razon.
+    #
+    #    ANTES (2026-10-03) decia: "los 43 numeros renumerados van de 52 a 202,
+    #    ninguno de cuatro digitos, y las 95 citas de cuatro digitos del corpus
+    #    apuntan a 1000/1002/1003. Si se ancla RE_CITA_N a 4, este recuento NO
+    #    cambia. Por eso el control es sobre el REGEX y no sobre el recuento".
+    #
+    #    MEDIDO HOY: el mapa congelado tiene 49 pares y SEIS de sus numeros viejos
+    #    son de cuatro digitos  —267, 286, 944, 961, 991, 1011—, porque se
+    #    incorporaron las renumeraciones que reenvios() no deriva. O sea que el
+    #    caso que justificaba el control YA OCURRIO en este mismo fichero, y la
+    #    premisa que lo sostenia quedo refutada al escribir las filas.
+    #
+    #    El control NO se quita: sigue siendo el que puede fallar si alguien
+    #    ancla el regex a tres digitos, y ahora ademas mide sobre un caso real en
+    #    vez de sobre uno hipotetico. Lo que se corrige es el motivo, no el
+    #    criterio. Un control cuyo motivo ya no es cierto sigue fallando bien,
+    #    pero ensena a leer el fichero la conclusion equivocada.
     if not RE_CITA_N.search("`1000`"):
         fails.append("RE_CITA_N no ve una cita de cuatro digitos; el proximo "
                      "renumerado por encima de 999 sera invisible")
@@ -622,7 +686,8 @@ def escribir_reenvio(d=FIND, destino=None,SIMULAR=False):
     # MEDIDO el contraste,  con el modulo cargado tal cual:
     #
     #     reenvios()          ->  0 pares
-    #     reenvios_estable()  -> 43 pares
+    #     reenvios_estable()  -> 43 pares        (medido 2026-10-03)
+    #     reenvios_estable()  -> 49 pares        (medido 2026-10-04)
     #
     # Y que el diff de 0 sea correcto  —no un fallo—  es que las renumeraciones ya
     # estan COMMITEADAS.  Y no se veran nunca por esa via,  y hay una razon de
@@ -638,15 +703,23 @@ def escribir_reenvio(d=FIND, destino=None,SIMULAR=False):
     # CONSECUENCIA:  antes de este cambio  escribir_reenvio()  ponia 0
     # renumeraciones donde el indice de disco tenia 43.  El mapa congelado ES la
     # copia  —versionado en 2d2873c,  y su sha256_cuerpo declarado
-    # 9a208d177bfd2517...  VERIFICA  —con la normalizacion "solo las filas de
+    # f5de7808a59a9e21...  VERIFICA  —con la normalizacion "solo las filas de
     # datos, unidas con \n y con \n final"—,  y es lo que deben leer las tres
     # consumidoras.  Que una leyera otra cosa no era un criterio distinto:  era
     # que nadie lo comprobo.
     #
+    # MEDIDO 2026-10-04, y es la razon de que el sha de arriba sea OTRO:  el mapa
+    # paso de 43 a 49 filas y de 4 a 5 columnas.  Las 6 filas nuevas NO salen de
+    # reenvios() y por eso no se pueden recuperar si se re-congela: se
+    # commitearon antes del sellado, y en 4 de ellas el fichero viejo nunca
+    # existio porque el numero ya lo tenia otro hallazgo.  Sus procedencia esta
+    # en la quinta columna, una por fila.  Y por eso la instruccion del final de
+    # la cabecera del TSV cambio: "--congelar" regenera y BORRA esas 6 filas.
+    #
     # Y POR QUE ESTO NO DEJA INUTIL LA PUERTA QUE PUSO 1036:  la puerta compara
-    # lo que se va a escribir contra lo que hay en disco.  Con el mapa dando 43  y
-    # el indice dando 43,  no hay perdida  —asi que escribe—.  Si el TSV
-    # desapareciera,  reenvios_estable() daria menos de 43  y la puerta volveria a
+    # lo que se va a escribir contra lo que hay en disco.  Con el mapa dando mas
+    # pares que el indice,  no hay perdida  —asi que escribe—.  Si el TSV
+    # desapareciera,  reenvios_estable() daria 0  y la puerta volveria a
     # negarse.  MEDIDO:  con el TSV apartado sale rc=2;  con el TSV presente
     # escribe.
     rev = reenvios_estable(d=d)

@@ -104,7 +104,47 @@ def plan(filas, rev, ambito="mios"):
     VIEJO propio, que si hay que reescribir y que produce la auto-referencia que
     `aplicar` marca aparte.
     """
-    viejos = {x["viejo"]: x["nuevo"] for x in rev if x.get("reasignado")}
+    # ─────────────────────────────────────────────────────────────────────────
+    # LAS FILAS `numero` NO SIRVEN PARA REESCRIBIR UNA CITA,  Y ESTO ES LO QUE
+    # IMPIDE UN ARREGLO AUTOMATICO QUE INTRODUCE ERRORES.
+    #
+    # MEDIDO, en el hallazgo 1040,  y no es teoria:
+    #
+    #   · el mapa 267 -> 271 dice que el 271 "era la 267 porque el 267 ya lo
+    #     ocupaba `267-la-curva-vf-…`,  que es otra nota"
+    #   · pero el 271 de hoy trata del NUCLEO DE CACHE  y el 267 de hoy de la
+    #     curva V-f
+    #   · y las 27 citas que hoy apuntan a `267` hablan de DECODIFICACION DE
+    #     VOLTAJE y clock stretching  (266-…:123-125,  269-…:44)
+    #   · y el unico hallazgo con la tabla de niveles cks_enable es
+    #     050-correccion-chip-id-y-clock-stretcher.md
+    #
+    # El destino pretendido de esas 27 citas es un TERCERO.  Si esta linea las
+    # hubiera reescrito con la flecha,  habrian pasado a apuntar al hallazgo del
+    # nucleo de cache:  27 afirmaciones sobre voltaje citando con autoridad
+    # apparent un fichero que no habla de voltaje.
+    #
+    # Una cita colgante SE VE  —al compararla con el fichero—.  Una cita al
+    # fichero equivocado,  con el numero y la linea bien escritos,  NO.  Ese es
+    # el criterio que el proyecto ya escribio en el hallazgo 188.
+    #
+    # Asi que:  solo las filas `contenido` entran en el mapa de reescritura,  y
+    # las de `numero` se CUENTAN para que se vea cuantas se han dejado fuera.
+    # ─────────────────────────────────────────────────────────────────────────
+    reparables = [x for x in rev if x.get("reasignado")
+                  and x.get("relacion", "contenido") == "contenido"]
+    no_reparables = [x for x in rev if x.get("reasignado")
+                     and x.get("relacion", "contenido") != "contenido"]
+    if no_reparables:
+        print("  MEDIDO:  %d pares con `reasignado` NO son reescribibles  —"
+              " el numero viejo ya estaba ocupado  y la flecha no mapea"
+              " contenido:  %s"
+              % (len(no_reparables),
+                 ", ".join("%s->%s" % (x["viejo"], x["nuevo"])
+                           for x in no_reparables)))
+        print("              Sus citas NO se tocan.  Repararlas exigiria leer"
+              " cada una,  y decidirlas a mano.")
+    viejos = {x["viejo"]: x["nuevo"] for x in reparables}
     out = []
     candidatos = _candidatos(filas, ambito)
     for num, nombre in candidatos:
@@ -227,6 +267,30 @@ def _contar_a_mano(filas, rev):
     return n
 
 
+def _contar_citas_sobre(filas, numeros):
+    """Citas del corpus cuyo numero citado esta en `numeros`.
+
+    MEDIDO que hace falta una TERCERA via de recuento.  Las otras dos  —plan()
+    y refs_colgadas()— comparten el filtro de filas reparables, asi que su
+    diferencia no puede distinguir "las filas `numero` no se reparan" de "el
+    detector no las ve".  Esta cuenta por el otro lado:  mira las citas del
+    corpus y pregunta a que numero apuntan,  sin mirar el mapa.
+    """
+    if not numeros:
+        return 0
+    n = 0
+    for f in filas:
+        nombre = f.get("fichero") or f.get("nombre") or ""
+        ruta = os.path.join(FIND, nombre)
+        if not os.path.exists(ruta):
+            continue
+        with open(ruta, encoding="utf-8", errors="replace") as fh:
+            txt = fh.read()
+        for num in numeros:
+            n += len(re.findall(r"`%d`(?![\w-])" % num, txt))
+    return n
+
+
 def self_test():
     fails = []
 
@@ -295,8 +359,25 @@ def self_test():
                              "reenvios_estable() devuelve %d: la lectura no es "
                              "la del fichero" % (len(cuerpo), len(reenvios_estable())))
             for linea in cuerpo:
+                # MEDIDO 2026-10-04: esto era `!= 4` y el mapa paso a 5
+                # columnas. Con el `!= 4` puesto, las 49 filas fallaban una a
+                # una y este self-test habria dicho que el mapa esta mal
+                # cuando lo que estaba mal era el numero de columnas aqui. Un
+                # control que se dispara por su propia edicion mide el
+                # editor, no el dato.
+                #
+                # Y la comprobacion no es decorativa: `len(cuerpo) !=
+                # len(reenvios_estable())` mas arriba YA no puede detectar por si
+                # solo una fila que reenvios_estable() se come, porque las dos
+                # cifras las cuenta el mismo lector. Esta linea es la que lee el
+                # FICHERO y compara el ANCHO CONTRA EL CONTRATO.
                 p0 = linea.split("\t")
-                if len(p0) != 4 or p0[2] not in ("SI", "no"):
+                # MEDIDO 2026-10-04:  la quinta columna paso a ser `relacion`  y
+                # la sexta `procedencia`.  Con el `!= 5` puesto,  las 49 filas
+                # fallarian una a una  —y este self-test diria que el mapa esta
+                # mal  cuando lo que esta mal es el numero de columnas aqui—.
+                if (len(p0) != 6 or p0[2] not in ("SI", "no")
+                        or not p0[4].strip() or not p0[5].strip()):
                     fails.append("linea mal formada en el mapa congelado: %r" % linea[:60])
                     break
         except OSError as e:
@@ -364,10 +445,31 @@ def self_test():
     #    `escanear()` no indexaba por el `\d{3}` de RE_NUM.
     n_colgadas = len(refs_colgadas(filas, rev2))
     n_plan = sum(len(c) for _a, _b, c in p_todos)
-    if n_colgadas != n_plan:
-        fails.append("descuadre entre lo que se cuenta y lo que se repara: "
-                     "refs_colgadas()=%d  plan()=%d  (difieren en %d)"
-                     % (n_colgadas, n_plan, abs(n_colgadas - n_plan)))
+
+    # (c) NINGUN plan propone una fila `numero`.  `plan()` devuelve
+    #     (fichero, num, [(linea, viejo, nuevo)]),  asi que el numero viejo de
+    #     cada propuesta es el SEGUNDO elemento de la tupla.
+    nums_no_reparables = {x["viejo"] for x in rev2
+                          if x.get("relacion", "contenido") != "contenido"}
+    propuestos = set()
+    for _a, _b, c in p_todos:
+        for ch in c:
+            try:
+                propuestos.add(int(ch[1]))
+            except (TypeError, ValueError, IndexError):
+                continue
+    filtrados = propuestos & nums_no_reparables
+    if filtrados:
+        fails.append("plan() propone reparar con filas `numero`,  que NO mapean"
+                     " contenido: %s  —  eso es exactamente el dano del hallazgo"
+                     " 1040" % sorted(filtrados)[:6])
+
+    # Y LA IGUALDAD, que ya no es la invariante.  MEDIDO que se rompio porque
+    # `plan()` EXCLUYE a proposito las renumeraciones de ASIGNACION  —las
+    # cuatro filas `numero`—:  con la flecha, 27 citas que hablan de
+    # DECODIFICACION DE VOLTAJE se habrian reescrito al hallazgo del NUCLEO DE
+    # CACHE.  Es decir:  la igualdad que se comprobaba era precisamente la
+    # garantia de que la herramienta iba a meter errores.
     if n_plan == 0 and _ficheros_visitados(filas, rev2, "todos") != len(filas):
         fails.append("plan() no encuentra NADA que reparar pero el mapa esta "
                      "presente y el corpus tiene %d hallazgos: la deteccion esta "
@@ -379,10 +481,35 @@ def self_test():
     # demuestra nada: si las dos dejaran de descontar la auto-cita, bajarian a
     # la vez y la igualdad se mantendria. Un tercer camino, que no comparte
     # codigo con los otros dos, si puede discrepar.
+    #    MEDIDO 2026-10-04:  la tripla igualdad era correcta cuando las tres
+    #    funciones contaban lo mismo.  Ahora `plan()` EXCLUYE a proposito las
+    #    renumeraciones de ASIGNACION  —las cuatro filas `numero`—,  y las otras
+    #    dos las siguen contando:  plan()=12  contra 52.  Y no es un fallo de
+    #    cuentas:  es el efecto buscado del hallazgo 1040.
+    #
+    #    La forma correcta del contraste es:  los dos contadores COMPLETOS tienen
+    #    que coincidir entre si,  y plan() no puede proponer NADA que no sea
+    #    colgante.  Lo que ya no se exige  —y no se puede exigir—  es que los tres
+    #    den el mismo numero,  porque hay una clase deliberadamente no reparable.
     n_manual = _contar_a_mano(filas, rev2)
-    if not (n_manual == n_plan == n_colgadas):
-        fails.append("tres contadores distintos: a mano=%d  plan()=%d  "
-                     "refs_colgadas()=%d" % (n_manual, n_plan, n_colgadas))
+    if n_manual != n_colgadas:
+        fails.append("los dos contadores COMPLETos discrepan:  a mano=%d  "
+                     "refs_colgadas()=%d  —  uno de los dos cuenta distinto de "
+                     "lo que cree contar" % (n_manual, n_colgadas))
+    if n_plan > n_colgadas:
+        fails.append("plan() propone %d reparaciones y solo hay %d citas "
+                     "colgantes:  propone destinos que no son colgantes"
+                     % (n_plan, n_colgadas))
+
+    # Y LA TERCERA VIA,  que es lo que convierte "difieren en 40" de una cifra
+    # molesta en un hecho medido:  la diferencia tiene que ser exactamente las
+    # citas que apuntan a filas `numero`.  Contadas aqui por el otro lado.
+    n_no_reparables = _contar_citas_sobre(filas, nums_no_reparables)
+    if n_colgadas - n_plan != n_no_reparables:
+        fails.append("la diferencia entre lo que se cuenta y lo que se repara NO"
+                     " es la de las filas `numero`:  colgando=%d  plan=%d"
+                     "  diferencia=%d  y hay %d citas sobre filas `numero`"
+                     % (n_colgadas, n_plan, n_colgadas - n_plan, n_no_reparables))
 
     if fails:
         print("self-test FALLA (%d)" % len(fails))
