@@ -1,4 +1,16 @@
-# 909 · El bus es de 64 bits y el multiplicador es 4: las dos notas tenían razón a medias
+# 909 · El techo de VRAM es 48,0 GB/s y el 64 de vram_bit_width sale de una tabla de IGP en una dGPU: 911 refuto el veredicto de esta nota
+
+> **H1 CORREGIDO EL 2026-10-04.** El titulo anterior decia «El bus es de 64 bits y el multiplicador es 4: las dos notas tenían razón a medias». Ese
+> enunciado ya no describe el estado del arbol. El veredicto vigente esta en este
+> mismo fichero:
+> - `:29` — el VBIOS dice 128bit: «GDDR5 128bit»
+> - `:30` — de donde sale el 64: «vram_bit_width = 64  <- amdgpu_atombios.c:786, tabla de IGP en una dGPU»
+> - `:31` — el techo vigente: «techo      128/8 x 2 x 1,5 GHz = 48,0 GB/s»
+>
+> Este parche toca **solo el H1** y esta marca. El cuerpo no se reescribe: la
+> correccion del titulo tiene que quedar rastreable, o el titulo parece haber
+> sido asi siempre.
+
 AUTORIA=AGENTE-SMU
 
 ```text

@@ -1,4 +1,15 @@
-# 258 · La primera medición de §H: 12 GB/s de VRAM contra 2 GB/s de PCIe, y la memoria clavada en 300 MHz
+# 258 · La primera medición de §H: techo de VRAM de 48,0 GB/s (esta nota dio 24,0) contra 2,00 GB/s de PCIe, y la memoria clavada en 300 MHz
+
+> **H1 CORREGIDO EL 2026-10-04.** El titulo anterior decia «La primera medición de §H: 12 GB/s de VRAM contra 2 GB/s de PCIe, y la memoria clavada en 300 MHz». Ese
+> enunciado ya no describe el estado del arbol. El veredicto vigente esta en este
+> mismo fichero:
+> - `:109` — el techo vigente: «El techo correcto de VRAM de este proyecto es 48,0 GB/s»
+> - `:125` — el 12 del titulo era la razon, no GB/s de VRAM: «de 12 a 1.** `PROVEN_DERIVED`»
+> - `:127` — mclk clavado: «`mclk` está clavado en 300,00 MHz»
+>
+> Este parche toca **solo el H1** y esta marca. El cuerpo no se reescribe: la
+> correccion del titulo tiene que quedar rastreable, o el titulo parece haber
+> sido asi siempre.
 
 ```text
 CLASSIFICATION=MEASUREMENT · TRACK=RUNTIME (NIVEL 2, solo lectura)

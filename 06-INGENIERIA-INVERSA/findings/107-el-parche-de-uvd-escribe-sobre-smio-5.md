@@ -1,4 +1,14 @@
-# 107 · El parche de UVD escribe sobre Smio[5], no sobre BootVddc: correccion de 103
+# 107 · El parche de UVD escribe el byte 3 del DWORD 394 (1579), no Smio[5]: esa localizacion queda REFUTADA
+
+> **H1 CORREGIDO EL 2026-10-04.** El titulo anterior decia «El parche de UVD escribe sobre Smio[5], no sobre BootVddc: correccion de 103». Ese
+> enunciado ya no describe el estado del arbol. El veredicto vigente esta en este
+> mismo fichero:
+> - `:15` — la localizacion Smio[5] se refuta: «La localizacion `Smio[5]` se obtiene restando 108 a»
+> - `:25` — el byte real: «es el **3** de esa palabra, o sea **1579**»
+>
+> Este parche toca **solo el H1** y esta marca. El cuerpo no se reescribe: la
+> correccion del titulo tiene que quedar rastreable, o el titulo parece haber
+> sido asi siempre.
 
 WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 

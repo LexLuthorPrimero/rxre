@@ -1,4 +1,14 @@
-# 601 · La tabla PCIe del VBIOS está empaquetada y el kernel la lee 2 bytes desplazada
+# 601 · La tabla PCIe del VBIOS no está empaquetada ni tiene desfase: 8 bytes alineados en ambos casos y el paso es 8
+
+> **H1 CORREGIDO EL 2026-10-04.** El titulo anterior decia «La tabla PCIe del VBIOS está empaquetada y el kernel la lee 2 bytes desplazada». Ese
+> enunciado ya no describe el estado del arbol. El veredicto vigente esta en este
+> mismo fichero:
+> - `:21` — sin relleno: «sizeof alineado 8 / empaquetado 8    SIN RELLENO»
+> - `:29` — no hay desfase: «**No existe el desfase de 2 bytes.**»
+>
+> Este parche toca **solo el H1** y esta marca. El cuerpo no se reescribe: la
+> correccion del titulo tiene que quedar rastreable, o el titulo parece haber
+> sido asi siempre.
 
 WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE · MODIFICATIONS 0
 
