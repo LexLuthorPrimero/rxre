@@ -9,7 +9,7 @@
  * QUE ES
  *   EL PLAN, no la ejecucion.  Toma los parametros que la geometria ya tiene
  *   decididos y devuelve, EN ORDEN, las 34 escrituras a registro que
- *   gmc_v8_0.c:829-947 (gmc_v8_0_gart_enable) hace.
+ *   gmc_v8_0.c:829-946 (gmc_v8_0_gart_enable) hace.
  *
  *   Devuelve un plan.  No toca hardware, no tiene mapa, no depende de nada.
  *   Quien lo ejecuta es rx550_target.c, con rx550_mmio_write32 y

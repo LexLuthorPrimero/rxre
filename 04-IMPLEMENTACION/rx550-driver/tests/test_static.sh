@@ -43,11 +43,72 @@ chk()  { if [ "$1" = "0" ]; then ok "$2" "$3"; else no "$2" "$3"; fi }
 # La comprobacion deja de ejecutarse en silencio y la suite sigue diciendo
 # "34 PASS, 0 FAIL". Un control que se apaga solo es peor que uno que falla.
 #
-# El arreglo tiene dos partes, y las dos hacen falta:
+# MEDIDO 2026-10-04 sobre ESTE .ko, que ya no es el binario de la nota de arriba:
+#     nm rx550_drv.ko                -> 10858 B de salida
+#     nm rx550_drv.ko | grep -q <match>
+#         PIPESTATUS = [141 0]  (141 = nm, 0 = grep)
+# El 141 lo recibe nm, no grep. El fallo sigue vivo hoy: el .ko crecio de los
+# 3945 B de la nota a 10858 B, y la forma `nm | grep -q` lo reproduce igual.
+#
+# El arreglo que funciona es UNO, y es el punto 1:
 #   1. nm se resuelve UNA vez a un fichero, y se busca en el fichero. El pipe
 #      desaparece del camino de decision.
-#   2. must() es el unico camino para comprobar algo. No existe `&& chk`, porque
-#      `&& chk` es exactamente lo queallows que una comprobacion no se ejecute.
+#
+# ── CORRECCION 2026-10-04: "NO EXISTE `&& chk`" ERA FALSO ────────────────────
+#
+# MEDIDO 2026-10-04 contando las lineas logicas (las de continuacion con `\`
+# contadas con la que las continua): hay 11 sitios `&& chk` SIN rama `|| no` de
+# recurso, y 8 CON ella. Sin recurso, un codigo de salida falso no cuenta nada:
+# ni pass ni fail, que es exactamente el apagado que la nota de arriba denuncia.
+#
+# De los 11, nueve leen FICHEROS o emparejan un test, y dos leen `modinfo`:
+#   · 69 72 78 82 83 87   grep/awk sobre FICHERO          (ningun productor)
+#   · 76                 awk FICHERO | grep -q OK         (<= 1 linea)
+#   · 215 217             printf BUILTIN | grep -qx       (builtin, no proceso)
+#   · 275 277             modinfo | grep -q               (productor externo)
+# y los 8 CON recurso, que cuentan siempre aunque el test falle, son los del
+# bloque IDT, SCOPE y RES.
+#
+# Los numeros de linea son una foto de la revision de este fichero el
+# 2026-10-04 y se desplazan con cada edicion —los desplazan los bloques que hay
+# debajo—. Lo que NO se desplaza, y es el invariante, es el CONTEO y la
+# CLASIFICACION: 11 sin recurso, 8 con recurso, y de los 11 solo dos tienen un
+# productor externo en el pipe.
+#
+# Una enumeracion anterior de esta nota decia 266, 270, 288 y 322, que son
+# justamente los que SI tienen `|| no`, y se dejaba fuera 215, 217, 275 y 277,
+# que son los que NO lo tienen. El numero 11 era correcto; el reparto no.
+#
+# `must()` NO es un mecanismo distinto de `chk`: es un alias puro,
+# `must() { chk "$1" "$2" "$3"; }` en la linea de abajo. Lo que evita el apagado
+# no es el NOMBRE de la funcion sino COMO SE LLAMA:
+#     cmd; must $? ...   -> se invoca siempre, pase lo que pase
+#     cmd && chk ...      -> solo se invoca si cmd sale con 0
+# must() se usa justamente en las aserciones que leen `nm -u` (T13, T14 y los
+# simbolos de RES), que son las que habrian suffered el 141.
+#
+# POR QUE LOS 11 SON INOCUOS HOY, MEDIDO UNO POR UNO:
+#   · 69 72 78 82 83 87 — `grep -q patron FICHERO`: no hay productor en el pipe.
+#     grep lee del fichero y sale con 0 o con 1. No hay a quien cortar.
+#   · 76 — `awk ... "$SRC" | grep -q OK`: awk lee un FICHERO y emite una sola
+#     linea. MEDIDO PIPESTATUS=[0 0].
+#   · 215 217 — `printf '%s\n' "$UNDEF" | grep -qx X`: printf es un BUILTIN de
+#     bash, no un proceso, asi que no hay nada que muera por EPIPE. MEDIDO: con
+#     20 kB y la coincidencia en la PRIMERA linea, el rc sigue siendo 0.
+#   · 275 277 — `modinfo "$KO" | grep -q ...`: aqui SI hay productor externo,
+#     pero su salida es 555 B, muy por debajo del buffer de stdio, asi que
+#     modinfo hace una sola escritura al salir y no hay SIGPIPE posible. MEDIDO
+#     PIPESTATUS=[0 0]. Es el mas fragile de los 11: si el .ko hiciera que
+#     modinfo imprimiera mas de un buffer y la coincidencia saliera pronto,
+#     pasaria a 141. Por eso la forma que hay que usar en estos dos, si algún
+#     dia importan, es la del punto 1: volcar a fichero y buscar en el fichero.
+#
+# EL INVARIANTE QUE ESTA DE VERDAD IMPUESTO no es "no hay && chk", es este:
+#   ninguna comprobacion decide sobre el codigo de salida de un PRODUCTOR
+#   EXTERNO en un pipe cuyo lector pueda salir antes de que el productor termine.
+# Los ficheros $SYMS, $SYMA, $UNDEF y $AUDIT_OBJ son el unico sitio donde nm y
+# awk escriben, y de ahi no sale ninguna decision por pipe: el unico `nm` que
+# queda (linea de UNDEF) tiene como lector un `sort -u` que lee hasta EOF.
 AUDIT_OBJ="$(mktemp)"
 SYMS="$(mktemp)"
 nm "$KO" > "$SYMS" 2>/dev/null || : > "$SYMS"
@@ -124,6 +185,24 @@ chk 0 HW "ninguna llamada de acceso a hardware en el cuerpo"
 # ningun objeto mas".  Por eso hay una lista de excepcion, y por eso la lista
 # tiene que seguir contendo lo que dice contener.
 MMIO_EXENTOS="rx550_mmio_access.c"
+# ── LAS EXENCIONES SE LEEN DE $MMIO_EXENTOS, NO DE UN LITERAL ───────────────
+#
+# MEDIDO 2026-10-04: la exencion estaba HARDCODEADA por nombre de fichero, en
+# los dos sitios donde se decide, y en ninguno de los dos se leia la variable:
+#   · el awk que comprueba que el accessor sigue teniendo MMIO, con
+#     `-v f="$DRV/rx550_mmio_access.c"`
+#   · el awk de HW-OBJ, con `if (f ~ /rx550_mmio_access\.c$/) next`
+# MEDIDO, consecuencia: anadir un segundo nombre a MMIO_EXENTOS NO concede
+# exencion a NADIE, y editar la linea de arriba da la sensacion de haber
+# abierto una exencion que no se ha abierto. Editar el literal si la abria, y
+# entonces las dos listas eran dos verdades que solo coincidian por suerte.
+#
+# El arreglo es que las dos comprobaciones lean $MMIO_EXENTOS. Y para que la
+# variable no vuelva a ser decoracion, se ASERTA: un exento que no sea un
+# fichero real de obj-m es un FALLO, no un nombre muerto. Asi un nombre
+# equivocado en la lista sale a la luz en vez de no hacer nada. Eso es lo que
+# hace que editar MMIO_EXENTOS abra de verdad la exencion, que es lo que el
+# nombre de la variable promete.
 OBJS_RAW=$(awk '/^rx550_drv-objs[ 	]*:=/{
                    for (i=1; i<=NF; i++) if ($i ~ /\.o$/) { gsub(/\\/,"",$i); print $i } }' "$DRV/Makefile")
 # El fichero se arma con printf, NO con "$cuerpo_obj$cuerpo". Dentro de comillas
@@ -141,38 +220,151 @@ for o in $OBJS_RAW; do
 done
 
 n_aud=0
+n_exent=0
 for f in $MMIO_EXENTOS; do
+  n_exent=$((n_exent + 1))
   grep -q "^__FILE__ $DRV/$f$" "$AUDIT_OBJ" && n_aud=$((n_aud + 1))
 done
+chk $([ "$n_exent" -ge 1 ] && [ "$n_aud" -eq "$n_exent" ] && echo 0 || echo 1) COB \
+    "$n_aud/$n_exent exenciones de MMIO son ficheros reales de obj-m"
 chk $([ "$n_obj" -gt 0 ] && echo 0 || echo 1) COB \
     "$n_obj objetos en obj-m, todos con fuente y ninguno sin auditar"
+
+# ── D5 · LA DIRECCION INVERSA DE LA COBERTURA: LOS .c QUE NO ESTAN EN obj-m ─
+#
+# MEDIDO 2026-10-04: la cobertura de arriba va en UNA direccion. Todo lo que
+# esta en obj-m tiene fuente y se audita (el bucle de $OBJS_RAW). La INVERSA no
+# la vigilaba nadie, y no es una simetria menor: un .c en disco que no esta en
+# obj-m no entra en el .ko, no lo ve HW-OBJ, no lo ve HW-L, y no lo compila el
+# modulo. tests/Makefile si lo compila y lo ejecuta, asi que el fichero tiene
+# trabajo dentro del componente y ninguna puerta lo mira.
+#
+# rx550_vmid1_pgt_backing.c es el caso medido: esta en disco, y tests/Makefile lo
+# enlaza en TRES reglas (test_vmid1_pgt_backing, test_mmio_access,
+# test_block_size) y lo ejecuta en `run`, y NO aparece en Makefile:24.
+#
+# NO se mete en obj-m. Eso es otra decision, y tomarla aqui seria cambiar el
+# .ko que estos mismos tests auditan. Lo que se hace es AFIRMAR que esta fuera
+# y por que, para que dentro de seis meses nadie lo lea como un olvido.
+#
+# El registro es de EXCLUSIONES DECLARADAS, no una foto del estado: cada nombre
+# de $FUERA_DECLARADOS es una Exclusion que alguien firmo, y la comprobacion
+# exige que el conjunto de .c fuera de obj-m sea EXACTAMENTE ese. Asi esta
+# comprobacion falla en las dos direcciones: si aparece un .c nuevo huerfano, y
+# tambien si alguien mete una Exclusion en obj-m sin(rename) lo que el resto del
+# componente da por supuesto.
+#
+# MEDIDO 2026-10-04, y por que esta lista es la que es: rx550_gart_geom.c
+# ESTUVO fuera de obj-m y dejo de estarlo dentro de esta misma sesion, por el
+# commit 8ab9c53 ("gart_geom: el PRODUCTOR de la geometria, que no existia",
+# 01:12:27, que anadio rx550_gart_geom.o a Makefile:24). Por eso la lista se
+# deriva del Makefile en cada corrida y no se congela: lo que se congela es el
+# REGISTRO de exclusiones, que es lo que hay que revisar a mano.
+#
+# rx550_drv.mod.c queda fuera de este barrido a proposito: lo genera modpost, no
+# es fuente del proyecto, y no debe estar en obj-m nunca.
+FUERA_DECLARADOS="rx550_ib_bridge.c rx550_ib_composer.c rx550_vmid1_pgt_backing.c"
+FUERA_REAL=""
+for f in "$DRV"/*.c; do
+  b="${f##*/}"
+  case "$b" in *.mod.c) continue ;; esac
+  if ! grep -q "\b${b%.c}\.o\b" "$DRV/Makefile"; then FUERA_REAL="$FUERA_REAL $b"; fi
+done
+ord() { printf '%s\n' $1 | grep . | sort | tr '\n' ' '; }
+chk $([ "$(ord "$FUERA_REAL")" = "$(ord "$FUERA_DECLARADOS")" ] && echo 0 || echo 1) COB \
+    "los .c del árbol fuera de obj-m son exactamente las exclusiones declaradas: $(ord "$FUERA_REAL")"
+
+# Y la invariante del fichero concreto, pieza por pieza.
+VFUERA="rx550_vmid1_pgt_backing.c"
+if [ ! -f "$DRV/$VFUERA" ]; then
+  no COB "$VFUERA no existe: el audit no puede afirmar nada sobre el"
+elif grep -q "\b${VFUERA%.c}\.o\b" "$DRV/Makefile"; then
+  no COB "$VFUERA ha entrado en obj-m: cambia el .ko que se audita, y es otra decision"
+else
+  chk 0 COB "$VFUERA existe y esta FUERA de obj-m por decision (Makefile:24 lo omite)"
+fi
+# Su clasificacion esta escrita en el propio .c, que es lo que impide leerlo
+# como un olvido. MEDIDO: cabecera :8-13 ("C PURO. Sin inline asm, sin MMIO,
+# sin ioremap, sin readl/writel, sin ring, sin acceso a GPU. Compilable en
+# userspace") y :22-25 ("LO QUE NO HACE / No programa ningun registro").
+n_clasif=0
+grep -q "C PURO" "$DRV/$VFUERA"                    && n_clasif=$((n_clasif + 1))
+grep -q "Compilable en userspace" "$DRV/$VFUERA"    && n_clasif=$((n_clasif + 1))
+grep -q "No programa ningun registro" "$DRV/$VFUERA" && n_clasif=$((n_clasif + 1))
+chk $([ "$n_clasif" -eq 3 ] && echo 0 || echo 1) COB \
+    "$VFUERA declara su clasificación en su propio fuente ($n_clasif/3 marcas)"
+# Y que tests/Makefile no lo deje de verdad huerfano: si nadie lo compila, el
+# fichero no es "fuera de obj-m por decision", es basura.
+grep -q "\.\./$VFUERA" "$HERE/Makefile" && \
+  chk 0 COB "$VFUERA lo compila y ejecuta tests/Makefile: no es un fuente muerto" \
+              || no COB "$VFUERA no lo compila nadie: no es una decision, es un olvido"
 # La excepcion tiene que seguir siendo excepcion de algo: si el accessor
 # declarado dejara de tener MMIO, la lista estaria admitting a un fichero que no
 # necesita excepcion, y la comprobacion habria perdido su motivo.
-hit_acc=0
-for sym in readl writel readq writeq; do
-  awk -v f="$DRV/rx550_mmio_access.c" -v sym="$sym" '
-      $0=="__FILE__ " f {dentro=1; next}
-      /^__FILE__ /  {dentro=0}
-      dentro && $0 ~ ("(^|[^A-Za-z0-9_])" sym "([^A-Za-z0-9_]|$)") {n++}
-      END {exit(n>0?0:1)}' "$AUDIT_OBJ" && hit_acc=1
+# Y TODOS los exentos, no solo el primero. Con un unico exento las dos lecturas
+# coinciden; en cuanto MMIO_EXENTOS tenga dos nombres, "alguno tiene MMIO" ya no
+# demuestra que el que se esta admitiendo lo tenga. Por eso se cuenta.
+n_acc=0
+for af in $MMIO_EXENTOS; do
+  hay=0
+  for sym in readl writel readq writeq; do
+    awk -v f="$DRV/$af" -v sym="$sym" '
+        $0=="__FILE__ " f {dentro=1; next}
+        /^__FILE__ /  {dentro=0}
+        dentro && $0 ~ ("(^|[^A-Za-z0-9_])" sym "([^A-Za-z0-9_]|$)") {n++}
+        END {exit(n>0?0:1)}' "$AUDIT_OBJ" && hay=1
+  done
+  [ "$hay" -eq 1 ] && n_acc=$((n_acc + 1))
 done
-# chk toma un CODIGO DE SALIDA, no un SI/NO: 0 es pasa.  hit_acc es 1 cuando
-# HA ENCONTRADO el MMIO, asi que hay que invertirlo.  La primera version pasaba
-# $hit_acc tal cual y por eso daba FAIL con el accessor teniendo readl delante.
-# Un check con el signo cambiado es peor que un check sin hacer: parece que
-# mide algo y mide lo contrario.
-chk $([ "$hit_acc" -eq 1 ] && echo 0 || echo 1) COB \
-    "el accessor declarado ($MMIO_EXENTOS) sigue siendo el que tiene MMIO"
+# chk toma un CODIGO DE SALIDA, no un SI/NO: 0 es pasa.  Por eso se compara el
+# contador con el numero de exentos y no se pasa una bandera.  La primera version
+# pasaba $hit_acc tal cual y por eso daba FAIL con el accessor teniendo readl
+# delante.  Un check con el signo cambiado es peor que un check sin hacer: parece
+# que mide algo y mide lo contrario.
+chk $([ "$n_acc" -eq "$n_exent" ] && echo 0 || echo 1) COB \
+    "cada exención de MMIO ($MMIO_EXENTOS) sigue siendo un fichero que hace MMIO ($n_acc/$n_exent)"
 
 # Ningun objeto fuera de la excepcion puede tocar el dispositivo.
+#
+# La lista de exentos ENTRA en el awk como VALOR (`-v exentos=...`), nunca como
+# literal en el texto del programa: un literal dentro del awk es exactamente el
+# defecto que esta comprobacion acaba de corregir, un nivel mas abajo.
+#
+# ── D3 · LA LISTA DE NOMBRES NO LLEVA LOS MISMOS NOMBRES EN LAS DOS MITADES ──
+#
+# Las dos listas no pueden coincidir, y no por descuido. La de arriba lee TEXTO
+# de fuente; la de abajo lee SIMBOLOS de `nm -u`. En x86-64 muchos accessors no
+# son simbolos: se expanden en linea y no dejan rastro en la tabla de simbolos.
+#
+#   SOLO EN HW-OBJ (texto), porque en `nm -u` NO PUEDEN aparecer:
+#     readb writeb readw writew   arch/x86/include/asm/io.h:57-66. Los genera
+#                                 build_mmio_read/build_mmio_write, que son
+#                                 `static inline`. MEDIDO con un objeto que los
+#                                 llama: no sale ninguno en `nm -u`.
+#     __iowrite32_copy            io.h:217, `static inline` bajo CONFIG_X86_64.
+#     readl writel readq writeq   ya estaban fuera de HW-L por el mismo motivo.
+#     ioread8 iowrite8            no existen en x86 en absoluto. Se quedan como
+#                                 estaban: no son de este arreglo.
+#
+#   EN LAS DOS MITADES, porque MEDIDO que si son simbolos reales y exportables:
+#     memset_io memcpy_toio memcpy_fromio
+#                                 io.h:204-205, declaraciones bajo __KERNEL__, y
+#                                 NO inline. MEDIDO: aparecen en `nm -u` al
+#                                 llamarlos.
+#     devm_ioremap                include/linux/io.h:65, declaracion real.
+#     devm_ioremap_resource       include/linux/device/devres.h:117, real.
+#                                 MEDIDO: ambos en `nm -u`.
 n_hits=0
 for sym in ioremap ioremap64 readl writel readq writeq ioread8 iowrite8 \
+           readb writeb readw writew \
+           memset_io memcpy_toio memcpy_fromio __iowrite32_copy \
+           devm_ioremap devm_ioremap_resource \
            request_irq request_threaded_irq dma_alloc_coherent dma_map_single; do
-  f=$(awk -v sym="$sym" '
-      $0 ~ /^__FILE__ / {f=$2; next}
+  f=$(awk -v sym="$sym" -v exentos="$MMIO_EXENTOS" '
+      BEGIN{ n=split(exentos, ex, " ") }
+      $0 ~ /^__FILE__ / {f=$2; b=$2; sub(/.*\//,"",b); next}
       $0 ~ ("(^|[^A-Za-z0-9_])" sym "([^A-Za-z0-9_]|$)") {
-         if (f ~ /rx550_mmio_access\.c$/) next
+         for (i=1; i<=n; i++) if (b == ex[i]) next
          print f; exit }' "$AUDIT_OBJ")
   if [ -n "$f" ]; then
     no "HW-OBJ" "'$sym' aparece fuera del accessor, en ${f#$DRV/}"
@@ -180,7 +372,7 @@ for sym in ioremap ioremap64 readl writel readq writeq ioread8 iowrite8 \
   fi
 done
 chk $([ "$n_hits" -eq 0 ] && echo 0 || echo 1) HW-OBJ \
-    "ningun objeto fuera del accessor toca el dispositivo ($n_obj objetos)"
+    "ningún objeto fuera de los exentos ($MMIO_EXENTOS) toca el dispositivo ($n_obj objetos)"
 
 # Prueba a NIVEL DE ENLACE, no de texto: los símbolos indefinidos del .ko son
 # lo que el módulo realmente pide al kernel. Un test que sólo lee el fuente no
@@ -204,14 +396,120 @@ UNDEF=$(nm -u "$KO" 2>/dev/null | awk '{print $NF}' | sort -u)
 #  Lo que vigila el MMIO de verdad es HW-OBJ, arriba: el cuerpo de cada objeto,
 #  no sus simbolos.  Ese si puede fallar, y se ha roto a proposito para
 #  comprobarlo.
-for sym in __ioremap pci_enable_device pci_request_regions \
-           pci_alloc_irq_vectors request_irq \
-           dma_alloc_coherent dma_map_single; do
+# ── D2 · LA MITAD DMA DE HW-L NO PODIA DISPARARSE, Y LA LISTA TIENE NOMBRES ──
+#     QUE NO PUEDEN APARECER EN `nm -u`
+#
+# MEDIDO 2026-10-04 en las cabeceras del kernel EN EJECUCION
+# (/lib/modules/$(uname -r)/build/include/linux/dma-mapping.h):
+#   :603  #define dma_map_single(d,a,s,r) dma_map_single_attrs(d,a,s,r,0)
+#   :614  static inline void *dma_alloc_coherent(...) { return dma_alloc_attrs(...); }
+#   :519  static inline dma_addr_t dma_map_single_attrs(...) { ... dma_map_page_attrs(...); }
+# Es decir: dma_alloc_coherent es INLINE, dma_map_single es MACRO, y
+# dma_map_single_attrs TAMBIÉN es INLINE. Los tres son incapaces de aparecer en
+# `nm -u`. MEDIDO con un objeto de kernel minimo que llama a dma_alloc_coherent
+# y a dma_map_single:
+#   $ nm -u p.o | grep dma
+#            U dma_alloc_attrs
+#            U dma_map_page_attrs
+# Era el mismo defecto que el ya corregido para readl/writeq, sin corregir en el
+# par DMA: nombres en la lista que no pueden fallar, que es decoracion que da la
+# sensacion de que el DMA esta vigilado.
+#
+# PERO el simbolo real, `dma_map_page_attrs`, YA ESTA EN ESTE .ko, y a proposito:
+#   $ nm -u rx550_drv.ko | grep dma
+#            U dma_map_page_attrs
+#            U dma_unmap_page_attrs
+#   origen: rx550_dummy_page.c:145 y :172, que llaman a dma_map_page_attrs POR SU
+#   NOMBRE (no por la macro dma_map_page), con la aridad de 5 argumentos de este
+#   kernel, y con la referencia amdgpu_gart.c:81/103 escrita en el propio fuente
+#   (rx550_dummy_page.c:143-146 y :164-173).
+#   MEDIDO ademas: rx550_dummy_kernel_map/unmap estan definidas y EXPORTADAS (T)
+#   en el .ko, y NINGUN objeto de obj-m las llama. El mapa DMA es codigo muerto
+#   hoy; el simbolo no lo es: el .ko lo pide y el enlace depende de el.
+#
+# Por eso el nombre va en la lista Y el unico objeto que lo pide va en
+# $DMA_EXENTOS. Sin la exencion, esta comprobacion daria FAIL sobre codigo
+# deliberado. Y con una exencion escrita a mano en el fuente seria el defecto
+# D1 repetido un nivel mas abajo, asi que la exencion tambien es una variable y
+# tambien se ASERTA que se usa de verdad: una exencion que ha dejado de
+# justificarse es una lista admitiendo a un fichero sin motivo.
+#
+# Nota sobre lo que NO se hace aqui, y es deliberado: la lista de HW-OBJ (la de
+# TEXTO) NO cambia en este par. Alli `dma_map_single` es el nombre correcto,
+# porque el audit lee el cuerpo del fuente y no los simbolos. Ese es justo el
+# motivo de que existan las dos mitades. LIMITACION REGISTRADA: HW-OBJ no ve
+# `dma_map_page_attrs`, que es lo que el fuente escribe, asi que una llamada a
+# esa variante pasaria por la mitad de texto. Queda cubierta por la de enlaces.
+UNDEF_PROHIBIDOS="ioremap pci_enable_device pci_request_regions \
+pci_alloc_irq_vectors request_irq \
+dma_alloc_attrs dma_map_page_attrs dma_unmap_page_attrs \
+memset_io memcpy_toio memcpy_fromio \
+devm_ioremap devm_ioremap_resource"
+# Los que se quedan FUERA de esta lista, y por que, todo MEDIDO:
+#   dma_alloc_coherent    INLINE (dma-mapping.h:614) -> no puede salir
+#   dma_map_single        MACRO  (dma-mapping.h:603) -> no puede salir
+#   dma_map_single_attrs  INLINE (dma-mapping.h:519) -> no puede salir
+#   readl writel readq writeq readb writeb readw writew __iowrite32_copy
+#                        INLINE en io.h (ver la nota de D3 mas arriba)
+#   memset_io memcpy_toio memcpy_fromio devm_ioremap devm_ioremap_resource
+#                        SI son simbolos reales: por eso estan dentro
+#   ioremap64             NO EXISTE en este kernel. MEDIDO: no esta declarado ni
+#                        en arch/x86/include/asm/io.h, ni en include/linux/io.h,
+#                        ni en asm-generic/io.h, y un modulo que lo llama NO
+#                        COMPILA ("declaracion implicita de la funcion"). Se
+#                        queda en la lista de TEXTO, y de nada mas.
+#
+# Y UNO MAS, MEDIDO, que no figuraba en ninguna de las notas: la lista de arriba
+# tenia `__ioremap`, con DOS guiones bajos, y en x86-64 el simbolo que sale de
+# llamar a `ioremap()` es `ioremap`, con UNO. MEDIDO con un objeto de kernel
+# minimo que llama a ioremap():
+#   $ nm -u p.o
+#            U ioremap
+# `__ioremap` es el nombre interno de la implementacion generica; en x86 el
+# simbolo exportado es `ioremap`. La entrada era tan inerte como `dma_map_single`,
+# y la mitad MMIO de esta lista llevaba el mismo defecto que la mitad DMA. La de
+# texto ya tenia `ioremap`, asi que aqui la correccion es de una palabra.
+DMA_EXENTOS="rx550_dummy_page.o"
+UNDEF_EXENTO=""
+n_dma_exent=0
+for o in $DMA_EXENTOS; do
+  if [ ! -f "$DRV/$o" ]; then
+    no "HW-L" "el exento DMA declarado $o no esta en el arbol"
+    continue
+  fi
+  n_dma_exent=$((n_dma_exent + 1))
+  UNDEF_EXENTO="$UNDEF_EXENTO
+$(nm -u "$DRV/$o" 2>/dev/null | awk '{print $NF}')"
+done
+
+n_hits_l=0
+for sym in $UNDEF_PROHIBIDOS; do
   if printf '%s\n' "$UNDEF" | grep -qx "$sym"; then
-    no "HW-L" "el .ko referencia el símbolo de hardware '$sym'"
+    if printf '%s\n' "$UNDEF_EXENTO" | grep -qx "$sym"; then
+      # No se oculta: la exencion se IMPRIME. Una exencion que se aplica en
+      # silencio es el mismo apagado que la nota de arriba denuncia.
+      ok  "HW-L" "exención DMA registrada: '$sym' solo lo pide $(echo $DMA_EXENTOS)"
+    else
+      no "HW-L" "el .ko referencia el símbolo de hardware '$sym'"
+      n_hits_l=$((n_hits_l + 1))
+    fi
   fi
 done
-chk 0 HW-L "el .ko no referencia ningún símbolo de acceso a hardware"
+chk $([ "$n_hits_l" -eq 0 ] && echo 0 || echo 1) HW-L \
+    "el .ko no referencia ningún símbolo de acceso a hardware"
+# Y la exencion no puede quedarse vieja: cada objeto exento tiene que seguir
+# pidiendo ALGO de la lista. Si dejara de pedirlo, estariamos admitiendo a un
+# fichero sin motivo, que es el defecto que la lista de MMIO tenia hardcodeado.
+n_exent_ok=0
+for o in $DMA_EXENTOS; do
+  [ -f "$DRV/$o" ] || continue
+  for sym in $UNDEF_PROHIBIDOS; do
+    nm -u "$DRV/$o" 2>/dev/null | awk '{print $NF}' | grep -qx "$sym" \
+      && { n_exent_ok=$((n_exent_ok + 1)); break; }
+  done
+done
+chk $([ "$n_exent_ok" -eq "$n_dma_exent" ] && echo 0 || echo 1) HW-L \
+    "$n_exent_ok/$n_dma_exent exenciones DMA están justificadas por un símbolo real"
 printf '%s\n' "$UNDEF" | grep -qx "__pci_register_driver" && \
   chk 0 LINK "el .ko referencia __pci_register_driver (module_init real)"
 printf '%s\n' "$UNDEF" | grep -qx "pci_unregister_driver" && \
