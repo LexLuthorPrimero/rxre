@@ -641,7 +641,11 @@ def main(argv):
         prog="constmap",
         description="check every RX550_* constant against the upstream line it "
                     "cites as its witness")
-    ap.add_argument("--repo", default=".")
+    ap.add_argument("--repo", default=REPO_ROOT,
+                    help="raiz del repositorio.  Por defecto REPO_ROOT, que se deriva de "
+                         "__file__ en :128 -- la misma regla que el comentario de :116. "
+                         "El camino de la CLI estaba en default='.' con abspath, "
+                         "o sea cwd: hallazgo 1051.")
     ap.add_argument("--header", default=None)
     ap.add_argument("--disagree", action="store_true",
                     help="only the constants whose value does not match")

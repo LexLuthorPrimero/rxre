@@ -1056,11 +1056,29 @@ def run_selftest():
 # main
 # --------------------------------------------------------------------------
 
+# MEDIDO 2026-10-04 (hallazgo 1051).  Esto era  default="."  y luego
+#     repo = os.path.abspath(args.repo)
+# o sea: la raiz del repositorio era EL DIRECTORIO DE TRABAJO.  Medido: la misma
+# invocacion desde la raiz y desde tools/ daba inventarios distintos.
+#
+# Y es el defecto en la puerta que CAZARIA los de otras herramientas: la linea 485
+# ejecuta cada self-test con cwd=os.path.dirname(t.path), que es exactamente el
+# contexto donde un default de cwd rompe.  Es decir: la puerta corre las
+# herramientas en el contexto que las delata y no puede delatarse a si misma.
+#
+# La regla ya estaba escrita en este arbol, en tools/constmap.py:116:
+#     "The repo root comes from __file__, NEVER from the current directory."
+# y aqui no se cumplia.  --repo sigue aceptando un valor explicito; lo que cambia es
+# que el valor por defecto ya no depende de donde se escriba el comando.
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 def main(argv):
     ap = argparse.ArgumentParser(
         prog="toolreg",
         description="registry for tools/, and the check that it stays true")
-    ap.add_argument("--repo", default=".")
+    ap.add_argument("--repo", default=REPO_ROOT,
+                    help="raiz del repositorio.  Por defecto es la de ESTE fichero, "
+                         "derivada de __file__, NUNCA el directorio de trabajo.")
     ap.add_argument("--undocumented", action="store_true",
                     help="only the tools that exist and are not in TOOLS-STATUS")
     ap.add_argument("--no-selftest", action="store_true",
