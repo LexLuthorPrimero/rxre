@@ -93,7 +93,7 @@
 /* amdgpu_gmc.h:217-221.  El corpus no expone esto como parametro de modulo:
  * cada ASIC elige en su propio .c.  Lo que hace ESTE driver es al reves, y a
  * proposito: la colocacion es la UNICA decision de este dominio que no es
- * aritmetica, y por tanto la unica que conviene poder名字ar en un test. */
+ * aritmetica, y por tanto la unica que conviene poder NOMBRAR en un test. */
 enum rx550_gart_placement {
 	RX550_GART_PLACEMENT_LOW = 0,		/* amdgpu_gmc.c:316-321      */
 	RX550_GART_PLACEMENT_HIGH,		/* amdgpu_gmc.c:313-315      */

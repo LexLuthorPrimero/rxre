@@ -108,7 +108,7 @@ int rx550_ib_make_ready(struct rx550_ib_desc *d);
 int rx550_ib_emit(struct rx550_ib_desc *d, struct rx550_pm4_buf *pm4);
 
 /* La direccion tal y como la tiene que ver el descriptor de PM4.  Se expone
- * para poder compararla con la que el encoder写入, sin recalcularla. */
+ * para poder compararla con la que el encoder ESCRIBE, sin recalcularla. */
 struct rx550_gpuva rx550_ib_pm4_address(const struct rx550_ib_desc *d);
 
 /* ── limite explicito ──────────────────────────────────────────────────── */

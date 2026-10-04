@@ -280,7 +280,7 @@ static void b2_2gib_root_from_geometry(void)
  * MEDIDO 2026-10-04:  este nodo usaba 8 GiB como "ventana imposible",  porque
  * con la formula falsa la cobertura eran 4 GiB y no llegaba.  MEDIDO que con la
  * formula corregida el corpus CUBRE 8 GiB —y 64 GiB,  que es la ventana de esta
- * maquina—,  de modo que el test llevaba dos commits多万元 检查endo algo que no
+ * maquina—,  de modo que el test llevaba dos commits COMPROBANDO algo que no
  * es un defecto.
  *
  * MEDIDO que 1 TiB NO es imposible:  rx550_vmid1_geometry() la acepta  (rc = 0),

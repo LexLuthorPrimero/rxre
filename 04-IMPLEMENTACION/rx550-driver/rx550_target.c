@@ -254,6 +254,29 @@ static int rx550_target_probe(struct pci_dev *pdev,
 	 * R3 (bits reservados del registro a 0) queda DEFERRED: es una hipótesis
 	 * sobre el valor, no un criterio.
 	 */
+	/*
+	 * PRECONDICION DE LA LECTURA, Y NO LA ESTABLECE ESTE DRIVER.  Ver 1042.
+	 *
+	 * pci_enable_device() esta en UNDEF_PROHIBIDOS y no se llama:  MEDIDO 0 llamadas
+	 * en todo el componente.  Ese es el bit MEMORY_SPACE del registro COMMAND,  y sin
+	 * el una BAR puede no decodificar.  MEDIDO que probe() YA MAPA  —pci_iomap en la
+	 * linea 84—,  de modo que la razon por la que se difirio  —"no se mapea nada
+	 * todavia", en pci_resource.c—  HA CADUCADO,  y su propia condicion  —"lo
+	 * requiere el componente MMIO, inmediatamente antes del primer pci_iomap"—  ya se
+	 * cumple.
+	 *
+	 * Y hay una dependencia circular con un solo sentido:  si este driver ganase el
+	 * dispositivo es porque amdgpu no lo posee,  y si amdgpu no lo posee es porque
+	 * amdgpu no llamo a pci_enable_device() sobre el.  La precondicion se cumple SI Y
+	 * SOLO SI otro driver hizo el trabajo que este tiene prohibido.
+	 *
+	 * POR ESO, y con esta redaccion:  los valores de abajo son NOT_DETERMINED,  no
+	 * datos.  R1 mide que el acceso se EJECUTO,  que es lo que su comentario dice;  no
+	 * dice que el valor sea el del registro.  Una BAR sin decodificar devuelve con
+	 * exito y con 0xffffffff las tres veces  —R1=1, R2=1—  y eso es INDISTINGUIBLE de
+	 * un registro que responde.  El oraculo no separa los dos casos,  y no se finge
+	 * que si.
+	 */
 	if (rx550_probe_read) {
 		struct rx550_reg reg = rx550_reg_make(RX550_PROBE_READ_INDEX);
 		uint32_t v1 = 0, v2 = 0, v3 = 0;
@@ -330,6 +353,17 @@ MODULE_PARM_DESC(rx550_geometry_probe,
 static void rx550_probe_geometry(struct pci_dev *pdev,
 				 const struct target_device *tdev)
 {
+	/*
+	 * ESTA SONDA NO ES OPCIONAL.  Corre en cada probe(),  sin modulo parametro que la
+	 * desactive,  y su salida es la entrada de rx550_vm_geom  —block_size,
+	 * fragment_size, num_level, max_pfn—,  es decir el bloque que produce
+	 * block_size = 10.
+	 *
+	 * Y aqui la precondicion de la lectura NO LA ESTABLECE ESTE DRIVER.  Ver el bloque
+	 * junto a rx550_probe_read mas arriba,  y el hallazgo 1042:  el entero llega sin
+	 * el estado de validez de la lectura que lo produjo,  y el primer consumidor que
+	 * lo trague va a ser la colocacion del GART.
+	 */
 	struct rx550_gart_geom_in in;
 	struct rx550_gart_geom g;
 	struct rx550_reg reg_fb, reg_mem;
@@ -349,8 +383,8 @@ static void rx550_probe_geometry(struct pci_dev *pdev,
 
 	/*  G1 = los dos registros se pudieron leer.  R1 = se leyeron Y la
 	 *  geometria se calculo sin error.  El veredicto se sostiene sobre G1,
-	 *  nunca sobre el valor: no hay oraculo para el valor, y fingir que lo
-	 *  hay seria el defecto de空調 que el propio bloque anterior rechaza. */
+	 *  nunca sobre el valor: no hay oraculo para el valor,  y FINGIR que lo hay
+	 *  seria el defecto que el propio bloque anterior rechaza. */
 	if (r_fb != RX550_MMIO_OK || r_mem != RX550_MMIO_OK) {
 		pci_info(pdev,
 			"GEOM_READ FAIL fb_idx=0x%04x rc=%d mem_idx=0x%04x rc=%d "
