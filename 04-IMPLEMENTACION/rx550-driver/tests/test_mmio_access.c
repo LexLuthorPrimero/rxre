@@ -1762,8 +1762,19 @@ static void m12_identity_aperture(void)
 				m12++;
 		CHECK_EQ(m12, 3u,
 			 "M12 hay exactamente tres entradas de identity aperture");
-		CHECK_EQ(total, 16u,
-			 "M12 la tabla tiene las 16 entradas del contrato vigente");
+		/*  El numero era 16 y ahora es 26.  No es un aflojo del contrato:
+		 *  se anadieron las DIEZ entradas que gmc_v8_0_gart_enable()
+		 *  programa y faltaban —el contexto 0 entero, el ancla del bloque
+		 *  8..15, y mmVM_L2_CNTL/_2/_3—, porque sin ellas la secuencia del
+		 *  GART no era expresable.  Ver el finding 1028.
+		 *
+		 *  Y el numero sigue escribiendo a mano en vez de leerse del enum,
+		 *  porque si lo leyera del enum el test pasaria siempre:  compararia
+		 *  la tabla consigo misma y una entrada de mas o de menos no la
+		 *  notaria.  Es el mismo motivo por el que la tabla de las mascaras
+		 *  del finding 1028 esta COPIADA y no leida. */
+		CHECK_EQ(total, 26u,
+			 "M12 la tabla tiene las 26 entradas del contrato vigente");
 		CHECK(rx550_vmid1_reg_get(RX550_REG_NR) == NULL,
 		      "M12 un id fuera de rango no resuelve");
 	}

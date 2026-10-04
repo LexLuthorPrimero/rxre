@@ -86,14 +86,44 @@ const char *rx550_mmio_err_str(int rc)
  * ═══════════════════════════════════════════════════════════════════════════ */
 const struct rx550_vmid1_reg rx550_vmid1_regs[] = {
 {
+	"mmVM_L2_CNTL",                             0x500, 0x1400, 32, "RW", "GLOBAL",
+	"habilita y dimensiona la cache L2 antes de tocar la tabla",
+	"gmc_8_1_d.h:597",                          RX550_REG_PROVEN
+},
+{
+	"mmVM_L2_CNTL2",                            0x501, 0x1404, 32, "RW", "GLOBAL",
+	"invalida L1 y L2; la referencia las activa y no las vuelve a desactivar",
+	"gmc_8_1_d.h:598",                          RX550_REG_PROVEN
+},
+{
+	"mmVM_L2_CNTL3",                            0x502, 0x1408, 32, "RW", "GLOBAL",
+	"reparto del fragment_size entre bancos y fragmentacion",
+	"gmc_8_1_d.h:599",                          RX550_REG_PROVEN
+},
+{
+	"mmVM_CONTEXT0_CNTL",                       0x504, 0x1410, 32, "RW", "CONTEXT0",
+	"habilita el contexto del GART con PAGE_TABLE_DEPTH 0",
+	"gmc_8_1_d.h:601",                          RX550_REG_PROVEN
+},
+{
 	"mmVM_CONTEXT1_CNTL",			0x505, 0x1414, 32, "RW", "CONTEXT1",
 	"profundidad, block_size y ENABLE_CONTEXT del contexto 1",
 	"gmc_8_1_d.h:602",			RX550_REG_PROVEN
 },
 {
+	"mmVM_CONTEXT0_CNTL2",                      0x50c, 0x1430, 32, "RW", "CONTEXT0",
+	"literal 0 en la referencia",
+	"gmc_8_1_d.h:605",                          RX550_REG_PROVEN
+},
+{
 	"mmVM_CONTEXT1_CNTL2",			0x50d, 0x1434, 32, "RW", "CONTEXT1",
 	"procesamiento de interrupciones de fault del contexto 1",
 	"gmc_8_1_d.h:606",			RX550_REG_PROVEN
+},
+{
+	"mmVM_CONTEXT8_PAGE_TABLE_BASE_ADDR",       0x50e, 0x1438, 32, "W", "CONTEXT8",
+	"nunca se nombra: se escribe CONTEXT0_BASE + i - 8",
+	"gmc_8_1_d.h:607",                          RX550_REG_DECLARED
 },
 {
 	"mmVM_INVALIDATE_REQUEST",		0x51e, 0x1478, 32, "W", "GLOBAL",
@@ -117,10 +147,20 @@ const struct rx550_vmid1_reg rx550_vmid1_regs[] = {
 	"gmc_8_1_d.h:616",			RX550_REG_PROVEN
 },
 {
+	"mmVM_CONTEXT0_PROTECTION_FAULT_DEFAULT_ADDR",0x546, 0x1518, 32, "W", "CONTEXT0",
+	"destino de los faults del contexto del GART: PFN de la pagina dummy",
+	"gmc_8_1_d.h:633",                          RX550_REG_PROVEN
+},
+{
 	"mmVM_CONTEXT1_PROTECTION_FAULT_DEFAULT_ADDR", 0x547, 0x151c, 32, "W",
 	"CONTEXT1",
 	"destino de un fault de proteccion; el VALOR sigue abierto como R2",
 	"gmc_8_1_d.h:634",			RX550_REG_PROVEN
+},
+{
+	"mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR",       0x54f, 0x153c, 32, "W", "CONTEXT0",
+	"raiz de la tabla del GART; de aqui sale CONTEXT(i) = este + i",
+	"gmc_8_1_d.h:636",                          RX550_REG_PROVEN
 },
 {
 	"mmVM_CONTEXT1_PAGE_TABLE_BASE_ADDR",	0x550, 0x1540, 32, "W", "CONTEXT1",
@@ -128,9 +168,19 @@ const struct rx550_vmid1_reg rx550_vmid1_regs[] = {
 	"gmc_8_1_d.h:637",			RX550_REG_PROVEN
 },
 {
+	"mmVM_CONTEXT0_PAGE_TABLE_START_ADDR",      0x557, 0x155c, 32, "W", "CONTEXT0",
+	"extremo bajo de la ventana del GART, en paginas",
+	"gmc_8_1_d.h:644",                          RX550_REG_PROVEN
+},
+{
 	"mmVM_CONTEXT1_PAGE_TABLE_START_ADDR",	0x558, 0x1560, 32, "W", "CONTEXT1",
 	"primer numero de pagina de la ventana, LOGICAL",
 	"gmc_8_1_d.h:645",			RX550_REG_PROVEN
+},
+{
+	"mmVM_CONTEXT0_PAGE_TABLE_END_ADDR",        0x55f, 0x157c, 32, "W", "CONTEXT0",
+	"extremo alto de la ventana del GART, en paginas",
+	"gmc_8_1_d.h:646",                          RX550_REG_PROVEN
 },
 {
 	"mmVM_CONTEXT1_PAGE_TABLE_END_ADDR",	0x560, 0x1580, 32, "W", "CONTEXT1",
