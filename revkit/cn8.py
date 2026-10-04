@@ -532,10 +532,32 @@ def main():
         _d2 = sorted(k for k, v in _seen.items() if v > 1)
         if _d2:
             dupes[_f] = _d2
+    # MEDIDO 2026-10-04.  Este control exigia `set(dupes) == DEUDA_DUPES`, y eso
+    # es el MISMO defecto que TL-59 ya reparo en el control hermano de la
+    # paridad de fences (linea 508, `impares <= DEUDA_FENCES`):  la igualdad
+    # exacta convierte en FALLA el hecho de HABER PAGADO la deuda.
+    #
+    # MEDIDO que aqui ya se pago.  `## TL-46` estaba escrito dos veces byte a byte
+    # en docs/TOOLS-STATUS.md; ya no esta, y con el `==` este control queda ROJO
+    # porque no encuentra el duplicado que la lista de deuda exige encontrar:
+    #     set(dupes)      = []            (ninguna cabecera repetida)
+    #     DEUDA_DUPES     = ['TOOLS-STATUS.md']
+    #     set(dupes) == DEUDA_DUPES  ->  False
+    # Es un falso veredicto: la puerta no ha encontrado un defecto, ha encontrado
+    # que el defecto que buscaba ya no esta.
+    #
+    # La direccion que importa se conserva:  un duplicado NUEVO en un fichero que
+    # no esta en la deuda hace `set(dupes) <= DEUDA_DUPES` falso, y sigue
+    # saltando.  Y la deuda pagada se informa por `info()`, igual que hace el
+    # control de fences con `_pagadas`, para que se pueda podar la lista.
     chk("docs/: las cabeceras duplicadas son solo las que ya se sabian",
-        set(dupes) == DEUDA_DUPES,
-        "(con duplicados ahora: %s; deuda acreditada: %s)"
-        % (sorted(dupes), sorted(DEUDA_DUPES)))
+        set(dupes) <= DEUDA_DUPES,
+        "(con duplicados ahora: %s; deuda acreditada: %s; sin acreditar: %s)"
+        % (sorted(dupes), sorted(DEUDA_DUPES), sorted(set(dupes) - DEUDA_DUPES)))
+    _dupes_pagadas = sorted(DEUDA_DUPES - set(dupes))
+    if _dupes_pagadas:
+        info("deudas de cabeceras duplicadas YA PAGADAS: se pueden podar la lista",
+             "(%s)" % (_dupes_pagadas,))
 
     print("-" * 66)
     if FALLOS:
