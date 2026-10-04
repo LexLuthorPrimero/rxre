@@ -76,7 +76,7 @@ run: $(KO) test_target_match test_resource test_regs test_vm test_fence test_sub
      test_mmio_access test_block_size test_gart_write test_ib_bridge \
      test_ib_composer test_pdb0 test_submission test_vmid0_gart test_mem \
      test_ctxpt test_update_field test_dummy_page test_gart_seq \
-     test_gart_apply test_gart_table \
+     test_gart_apply test_gart_table test_vram \
      test_vmid1_pgt test_vmid1_pgt_backing
 	@./test_resource
 	@./test_regs $(CORPUS)/gfx_8_0_d.h $(CORPUS)/gfx_8_1_d.h
@@ -104,6 +104,7 @@ run: $(KO) test_target_match test_resource test_regs test_vm test_fence test_sub
 	@./test_gart_seq
 	@./test_gart_apply
 	@./test_gart_table
+	@./test_vram
 	@./test_vmid0_gart
 	@./test_vmid1_pgt
 	@./test_vmid1_pgt_backing
@@ -194,14 +195,32 @@ test_submission: test_submission.c ../rx550_submission.c
 test_vmid0_gart: test_vmid0_gart.c ../rx550_vmid0_gart.c
 	$(CC) $(CFLAGS) -o $@ test_vmid0_gart.c ../rx550_vmid0_gart.c
 
+# test_vram comprueba el CONTRATO de la frontera de VRAM (rx550_vram.h) y solo
+# el contrato: no hay allocator todavia, rx550_vram.c no existe.  Existe porque
+# el filtrorx550_vram_resource_valid() comprobaba tres cosas de las cinco que el
+# contrato declara, y las tres que faltaban eran silenciosas: un allocator que
+# miente en `alignment`, o que devuelve state=ABSENT con owner puesto, pasaba
+# entero.  Se prueba el filtro DIRECTAMENTE y no a traves de rx550_pdb0.c:95,
+# que colapsa todos los motivos a -1 y no los distingue.
+test_vram: test_vram.c ../rx550_vram.h
+	$(CC) $(CFLAGS) -o $@ test_vram.c
+
 test_vmid1_pgt: test_vmid1_pgt.c ../rx550_vmid1_pgt.c
 	$(CC) $(CFLAGS) -o $@ test_vmid1_pgt.c ../rx550_vmid1_pgt.c
 
 test_vmid1_pgt_backing: test_vmid1_pgt_backing.c ../rx550_vmid1_pgt_backing.c ../rx550_vmid1_pgt.c
 	$(CC) $(CFLAGS) -o $@ test_vmid1_pgt_backing.c ../rx550_vmid1_pgt_backing.c ../rx550_vmid1_pgt.c
 
+# `clean` estaba incompleto: MEDIDO 2026-10-04, no borraba test_mem, test_ctxpt,
+# test_update_field, test_dummy_page, test_gart_seq, test_gart_apply,
+# test_gart_table ni test_vram.  Un binario viejo de un fuente borrado es
+# exactamente el fallo del hallazgo 1021, y la lista se mantiene ahora completa
+# respecto a la cola de `run`.  Si se añade una suite a `run` y no aqui, el
+# binario sobrevive al `make clean` y puede consumirse como evidencia.
 clean:
 	rm -f test_target_match test_resource test_regs test_vm test_fence \
 	      test_submit test_mmio_access test_block_size test_gart_write \
 	      test_ib_bridge test_ib_composer test_pdb0 test_submission \
-	      test_vmid0_gart test_vmid1_pgt test_vmid1_pgt_backing
+	      test_vmid0_gart test_vmid1_pgt test_vmid1_pgt_backing \
+	      test_mem test_ctxpt test_update_field test_dummy_page \
+	      test_gart_seq test_gart_apply test_gart_table test_vram
