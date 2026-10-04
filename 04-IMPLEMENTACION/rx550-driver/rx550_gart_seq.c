@@ -32,45 +32,63 @@
  *  Cada linea dice de donde sale el registro, y las lineas son MEDIDAS:  se
  *  busca la sentencia WREG32 en el corpus, no se cuentan posiciones.
  *
- *  ESTA TABLA TUVO UN DESPLAZAMIENTO DE UNA LINEA, y por eso el comentario
- *  anterior ahi es ahora este.  Las veinte citas estaban escritas a mano desde
- *  una lectura con sed,  y todas las que apuntaban al COMIENZO de una sentencia
- *  de dos lineas apuntaban a la segunda:
+ *  LAS CITAS DE ESTA TABLA LAS GENERA tools/fix_gart_citations.py, que las
+ *  lee del corpus con tools/gart_seq_oracle.py.  No estan escritas a mano, y
+ *  MEDIDO el 2026-10-04 eso no es una mejora de estilo: antes lo estaban, y de
+ *  los 19 numeros de la tabla ESPERADO de tests/test_gart_seq.c, 16 eran
+ *  FALSOS contra el corpus de disco.  El plan era correcto; la documentacion
+ *  que lo acompanaba ya no lo era, y nadie lo noto porque NADIE verificaba
+ *  esos numeros.  Editarlos a mano los arregla una vez y los vuelve a pudrir
+ *  en la siguiente.
  *
- *      decia  L843   real  L849   mmMC_VM_MX_L1_TLB_CNTL
- *      decia  L923   real  L922   mmVM_CONTEXT1_CNTL2 = 4
- *      decia  L921   real  L920   mmVM_CONTEXT1_PROTECTION_FAULT_DEFAULT_ADDR
+ *  Para comprobarlos:  python3 tools/fix_gart_citations.py --check
  *
- *  Las citas de los CAMPOS  (rx550_reg_fields[]) si son exactas, y la diferencia
- *  es el metodo:  esas las genero un script que recorría el fichero contando
- *  lineas,  y estas las escribi yo.  Es la misma leccion que las mascaras del
- *  finding 1028,  con la palabra "manualmente" debajo de la palabra "script".
+ *  LO QUE ESTA TABLA NO ES EL RECUENTO COMPLETO DE LA FUNCION
+ *  MEDIDO con el mismo oraculo, sobre el arbol de llamadas de
+ *  gmc_v8_0_gart_enable:  34 ejecuciones de escritura en el CUERPO (19
+ *  rectas + 15 del bucle i = 1..15), mas 1 en
+ *  gmc_v8_0_set_fault_enable_default() (L757, un segundo RMW de
+ *  mmVM_CONTEXT1_CNTL) y 1 en gmc_v8_0_flush_gpu_tlb() (L665,
+ *  mmVM_INVALIDATE_REQUEST).  Total 36 ejecuciones sobre 35 registros
+ *  distintos, porque el segundo write de CONTEXT1_CNTL no anade un registro
+ *  nuevo.  El flush YA ESTA IMPLEMENTADO, como rx550_gart_tlb_flush(), que no
+ *  es parte del plan y por eso no esta en esta tabla.
  *
- *  Ademas:  la funcion escribe 44 registros,  no 34.  Las 34 de esta tabla mas
- *  las que escriben sus doscalled  (mmVM_PRT_CNTL en L789 y las ocho
- *  mmVM_PRT_APERTURE* de L797-806,  mas mmVM_INVALIDATE_REQUEST en L664 dentro de
- *  gmc_v8_0_flush_gpu_tlb,  llamada en L940).  Ver el finding 1033. */
+ *  CORRECCION de una afirmacion previa de este fichero, que decia 44 y
+ *  atribuia las 9 escrituras de PRT a set_prt():
+ *    - gmc_v8_0_gart_enable() NO llama a set_prt().  Sus unicas llamadas
+ *      salientes son set_fault_enable_default() y flush_gpu_tlb().  set_prt()
+ *      se llama desde amdgpu_vm.c:1450, por el recuento de usuarios PRT.
+ *    - mmVM_PRT_CNTL se escribe en L790, no en L789 (L789 es la continuacion
+ *      de un REG_SET_FIELD).  Las ocho aperturas estan en L798-805 (L797 esta
+ *      en blanco y L806 es el "} else {").
+ *    - gmc_v8_0_flush_gpu_tlb() se llama en L941, no en L940 (L940 en blanco).
+ *    - y amdgpu_vm_fault_stop NO gobierna ningun registro PRT: gobierna UN
+ *      booleano replicado en 7 bit-fields de mmVM_CONTEXT1_CNTL, que es un
+ *      subconjunto estricto de los 10 que L923-935 ya pone a 1.  Con el valor
+ *      real de esta maquina (0 = NEVER) ese segundo write es un no-op
+ *      DEMOSTRABLE, sin hipotesis sobre el valor de reset. */
 enum {
-	O_L1_TLB_CNTL	= 0,		/* L849 */
-	O_L2_CNTL,		/* L859 */
-	O_L2_CNTL2,		/* L863 */
-	O_L2_CNTL3,		/* L870 */
-	O_L2_CNTL4,		/* L885 */
+	O_L1_TLB_CNTL	= 0,	/* L849 */
+	O_L2_CNTL,	/* L859 */
+	O_L2_CNTL2,	/* L863 */
+	O_L2_CNTL3,	/* L870 */
+	O_L2_CNTL4,	/* L885 */
 	O_CTX0_PT_START,	/* L887 */
-	O_CTX0_PT_END,		/* L888 */
+	O_CTX0_PT_END,	/* L888 */
 	O_CTX0_PT_BASE,	/* L889 */
 	O_CTX0_PROT_FAULT,	/* L890 */
-	O_CTX0_CNTL2,		/* L892 */
-	O_CTX0_CNTL,		/* L897 */
-	O_IDA_LOW,		/* L899 */
-	O_IDA_HIGH,		/* L900 */
-	O_IDA_OFFSET,		/* L901 */
+	O_CTX0_CNTL2,	/* L892 */
+	O_CTX0_CNTL,	/* L897 */
+	O_IDA_LOW,	/* L899 */
+	O_IDA_HIGH,	/* L900 */
+	O_IDA_OFFSET,	/* L901 */
 	O_CTX1_PT_START,	/* L908 */
-	O_CTX1_PT_END,		/* L909 */
-	O_CTX1_LOOP,		/* L911 y L914,  el bucle i = 1..15 */
+	O_CTX1_PT_END,	/* L909 */
+	O_CTX1_LOOP,	/* L912 y L915,  el bucle i = 1..15 */
 	O_CTX1_PROT_FAULT,	/* L920 */
-	O_CTX1_CNTL2,		/* L922 */
-	O_CTX1_CNTL,		/* L935 */
+	O_CTX1_CNTL2,	/* L922 */
+	O_CTX1_CNTL,	/* L935 */
 	O_NR
 };
 

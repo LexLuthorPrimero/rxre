@@ -13,7 +13,7 @@
  *
  * LOS TRES BLOQUES
  *   S1  el plan contra el corpus:  las 34 operaciones, EN ORDEN, con el valor
- *       que la referencia escribe.  Comparado con gmc_v8_0.c:829-947.
+ *       que la referencia escribe.  Comparado con gmc_v8_0.c:829-946.
  *   S2  la geometria entra bien:  los valores de ESTA tarjeta, y las
  *       relaciones entre ellos que tienen que cumplirse.
  *   S3  los negativos:  geometria incoherente, direcciones de mas de 40 bits,
@@ -155,29 +155,29 @@ int main(void)
 	}
 
 	/* ── S1 · LA SECUENCIA, UNA A UNA Y EN ORDEN ──────────────────────── */
-	printf("\nS1 · la secuencia contra gmc_v8_0.c:829-947\n");
+	printf("\nS1 · la secuencia contra gmc_v8_0.c:829-946\n");
 	{
 		static const struct { const char *reg; unsigned op; } ESPERADO[] = {
-			{ "mmMC_VM_MX_L1_TLB_CNTL",                   0  }, /* L843 */
-			{ "mmVM_L2_CNTL",                             1  }, /* L849 */
-			{ "mmVM_L2_CNTL2",                            2  }, /* L859 */
-			{ "mmVM_L2_CNTL3",                            3  }, /* L866 */
-			{ "mmVM_L2_CNTL4",                            4  }, /* L872 */
-			{ "mmVM_CONTEXT0_PAGE_TABLE_START_ADDR",      5  }, /* L886 */
-			{ "mmVM_CONTEXT0_PAGE_TABLE_END_ADDR",        6  }, /* L887 */
-			{ "mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR",       7  }, /* L888 */
-			{ "mmVM_CONTEXT0_PROTECTION_FAULT_DEFAULT_ADDR", 8 }, /* L889 */
-			{ "mmVM_CONTEXT0_CNTL2",                      9  }, /* L891 */
-			{ "mmVM_CONTEXT0_CNTL",                       10 }, /* L893 */
-			{ "mmVM_L2_CONTEXT1_IDENTITY_APERTURE_LOW_ADDR", 11 }, /* L899 */
-			{ "mmVM_L2_CONTEXT1_IDENTITY_APERTURE_HIGH_ADDR",12 }, /* L900 */
-			{ "mmVM_L2_CONTEXT_IDENTITY_PHYSICAL_OFFSET", 13 }, /* L901 */
-			{ "mmVM_CONTEXT1_PAGE_TABLE_START_ADDR",      14 }, /* L907 */
-			{ "mmVM_CONTEXT1_PAGE_TABLE_END_ADDR",        15 }, /* L908 */
+			{ "mmMC_VM_MX_L1_TLB_CNTL",                   0  }, /* L849 */
+			{ "mmVM_L2_CNTL",                             1  }, /* L859 */
+			{ "mmVM_L2_CNTL2",                            2  }, /* L863 */
+			{ "mmVM_L2_CNTL3",                            3  }, /* L870 */
+			{ "mmVM_L2_CNTL4",                            4  }, /* L885 */
+			{ "mmVM_CONTEXT0_PAGE_TABLE_START_ADDR",      5  }, /* L887 */
+			{ "mmVM_CONTEXT0_PAGE_TABLE_END_ADDR",        6  }, /* L888 */
+			{ "mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR",       7  }, /* L889 */
+			{ "mmVM_CONTEXT0_PROTECTION_FAULT_DEFAULT_ADDR", 8  }, /* L890 */
+			{ "mmVM_CONTEXT0_CNTL2",                      9  }, /* L892 */
+			{ "mmVM_CONTEXT0_CNTL",                       10  }, /* L897 */
+			{ "mmVM_L2_CONTEXT1_IDENTITY_APERTURE_LOW_ADDR", 11  }, /* L899 */
+			{ "mmVM_L2_CONTEXT1_IDENTITY_APERTURE_HIGH_ADDR", 12  }, /* L900 */
+			{ "mmVM_L2_CONTEXT_IDENTITY_PHYSICAL_OFFSET", 13  }, /* L901 */
+			{ "mmVM_CONTEXT1_PAGE_TABLE_START_ADDR",      14  }, /* L908 */
+			{ "mmVM_CONTEXT1_PAGE_TABLE_END_ADDR",        15  }, /* L909 */
 			/* L910: los 15 del bucle, del 16 al 30 */
-			{ "mmVM_CONTEXT1_PROTECTION_FAULT_DEFAULT_ADDR", 31 }, /* L921 */
-			{ "mmVM_CONTEXT1_CNTL2",                      32 }, /* L923 */
-			{ "mmVM_CONTEXT1_CNTL",                       33 }, /* L925 */
+			{ "mmVM_CONTEXT1_PROTECTION_FAULT_DEFAULT_ADDR", 31  }, /* L920 */
+			{ "mmVM_CONTEXT1_CNTL2",                      32  }, /* L922 */
+			{ "mmVM_CONTEXT1_CNTL",                       33  }, /* L935 */
 		};
 		bool bien = true;
 
