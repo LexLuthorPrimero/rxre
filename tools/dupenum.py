@@ -78,12 +78,47 @@ from typing import Dict, List, Tuple
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import nextnum  # composicion, no reimplementacion: indice() y siguiente()
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 WORK_CLASS = "READ_ONLY"
 WRITE_EXECUTION = "NONE"
 
-RE_SLUG = re.compile(r"^(\d{3})-(.+)\.md$")
-RE_TITULO = re.compile(r"^#\s*(\d{3})\s*[·\.\-:]")
+# CODIGOS DE SALIDA
+#
+#   El modo MEDIR devolvia 0 con las colisiones delante: `if not a.aplicar: ...;
+#   return 0`. Eso hacia que esta fuera la unica de las tres herramientas del
+#  tema que pasara en VERDE con el defecto presente, y por tanto la unica que
+#  dejaba el pipeline en verde mientras `findings/` tenia numeros que no
+#  identifican nada. Medido al escribir esto: 74 grupos duplicados, 175 ficheros
+#  implicados, 101 copias sobrantes, y `dupenum.py --json` salia 0.
+
+#  Ahora el codigo dice el estado, en los TRES modos, incluido `--aplicar`:
+#  aplicar y que queden colisiones AMBIGUAS no es exito.
+
+#    0  no hay ningun numero de hallazgo duplicado        la afirmacion se sostiene
+#    1  el self-test ha fallado                            (solo --selftest)
+#    2  no se pudo medir: no existe findings/
+#    3  hay duplicados y TODOS son SEGURO: `--aplicar` los dejaria en 0
+#    4  hay al menos un AMBIGUO: `--aplicar` NO lo arregla y la puerta debe fallar
+
+#  `stdout` sigue siendo el mismo: con `--json`, JSON valido aunque el codigo
+#  sea 4. Un consumidor tiene que mirar el codigo, no parsear el stdout para
+#  saber si el arbol estaba bien. `exit 0 != resultado valido` va en los dos
+#  sentidos: tambien `exit 4 != stdout invalido`.
+
+#  El significado de 3 y 4 es el MISMO que el de `tools/check_num_unico.py`, y a
+#  proposito: un pipeline que lea las dos herramientas tiene que obtener el mismo
+#  veredicto de las dos, y no puede si una llama "3" a lo que la otra llama "4".
+
+# `\d{3}` es un ancho EXACTO y en cuanto existe `1011-algo.md` deja de casar.
+# `medir()` no sufria de eso porque indexa con `nextnum.indice()`, que ya usa
+# `\d{3,}`, pero `slug_de()` si: caia al `fichero[:-3]` de emergencia. Hoy ese
+# camino devuelve la misma cadena, asi que el cambio NO altera ninguna medida --
+# verificado sobre los 23 ficheros de 4 digitos que hay en findings/ -- y lo que
+# hace es quitar la trampa para el proximo nombre que no case. Es el mismo fallo
+# que ya se corrigio dos veces en este arbol (`findings_index.py:RE_NUM` y
+# `findnum.py`), y una tercera correccion no se aplica a ciegas.
+RE_SLUG = re.compile(r"^(\d{3,})-(.+)\.md$")
+RE_TITULO = re.compile(r"^#\s*(\d{3,})\s*[·\.\-:]")
 
 
 def proyecto() -> str:
@@ -242,7 +277,16 @@ def renumerar(raiz: str, num: str, fichero: str, nuevo: str) -> List[str]:
 
 def selftest() -> int:
     print("=== dupenum selftest ===\n")
-    fallos = 0
+    fallos = [0]
+    CUENTAS = [0]
+
+    def chk(cond):
+        """Una comprobacion mas. Contar tambien, porque un selftest que dice
+        'PASS (0 comprobaciones)' no dice quantas cosas comprobo."""
+        CUENTAS[0] += 1
+        if not cond:
+            fallos[0] += 1
+
     d = "/tmp/opencode/dupenum-selftest"
     os.system("rm -rf %s" % d)
     raiz = d
@@ -259,7 +303,7 @@ def selftest() -> int:
     g = r["grupos"][0]
     print("  %-58s %s" % ("grupo de 2, ninguno citado -> SEGURO",
                           "OK" if g["clase"] == "SEGURO" else "FALLO " + str(g)))
-    fallos += 0 if g["clase"] == "SEGURO" else 1
+    chk(g["clase"] == "SEGURO")
 
     # ahora uno de los dos esta citado: se sigue pudiendo liberar EL OTRO
     with open(os.path.join(raiz, "otro.md"), "w", encoding="utf-8") as fh:
@@ -271,7 +315,7 @@ def selftest() -> int:
         lib["slug"] == "200-b-cosa"
     print("  %-58s %s" % ("con uno citado, se libera el que NO lo esta",
                           "OK" if ok else "FALLO %s" % lib))
-    fallos += 0 if ok else 1
+    chk(ok)
 
     # los DOS citados: no se toca ninguno
     with open(os.path.join(raiz, "otro2.md"), "w", encoding="utf-8") as fh:
@@ -281,7 +325,7 @@ def selftest() -> int:
     ok = g["clase"] == "AMBIGUO" and g["liberable"] is None
     print("  %-58s %s" % ("con los dos citados, AMBIGUO y no se toca",
                           "OK" if ok else "FALLO %s" % g["clase"]))
-    fallos += 0 if ok else 1
+    chk(ok)
 
     # Grupo de 3: AMBIGUO aunque DOS de ellos esten sin citas.
     #
@@ -301,7 +345,7 @@ def selftest() -> int:
     ok = g["clase"] == "AMBIGUO" and g["liberable"] is None
     print("  %-58s %s" % ("un grupo de 3 es AMBIGUO con 2 sin citar",
                           "OK" if ok else "FALLO %s" % g["clase"]))
-    fallos += 0 if ok else 1
+    chk(ok)
     os.remove(os.path.join(raiz, "otro3.md"))
 
     # y el renumerado de verdad: mueve el fichero y arregla su cabecera
@@ -313,36 +357,125 @@ def selftest() -> int:
         not os.path.exists(os.path.join(dirf, "200-b-cosa.md"))
     print("  %-58s %s" % ("renumerar mueve el fichero y su cabecera",
                           "OK" if ok else "FALLO %s %s" % (existe, cab)))
-    fallos += 0 if ok else 1
+    chk(ok)
 
     # y refuses renumerar una cabecera que no empieza por numero
     poner("210-sin-numero.md", "sin cabecera numerada\n")
     try:
         renumerar(raiz, "210", "210-sin-numero.md", "211")
         print("  %-58s %s" % ("una cabecera sin numero NO se renumera a ciegas",
-                              "FALLO: no protestó"))
-        fallos += 1
+                              "FALLO: no protesto"))
+        chk(False)
     except SystemExit:
         print("  %-58s %s" % ("una cabecera sin numero NO se renumera a ciegas",
                               "OK"))
+        chk(True)
 
     # y el destino ocupado tambien se rechaza
     # el destino se comprueba contra el slug ENTERO, porque renumerar conserva
     # el final del nombre. Por eso el fichero que bloquea tiene que llamarse
     # 212-otro.md y no 212-cualquiera.md: el primer test de esto uso un nombre
-    # distinto y "pasó" sin comprobar nada.
+    # distinto y "paso" sin comprobar nada.
     poner("212-otro.md", "# 212 · otro, ya ocupado\n")
     poner("213-otro.md", "# 213 · otro\n")
     try:
         renumerar(raiz, "213", "213-otro.md", "212")
         print("  %-58s %s" % ("un destino ocupado NO se pisa", "FALLO"))
-        fallos += 1
+        chk(False)
     except SystemExit:
         print("  %-58s %s" % ("un destino ocupado NO se pisa", "OK"))
+        chk(True)
 
-    print("\nRESULT: %s (%d comprobaciones)\n"
-          % ("PASS" if not fallos else "FAIL", fallos + 7 - fallos))
-    return 1 if fallos else 0
+    # ------------------------------------------------------------------
+    # EL CODIGO DE SALIDA. Este bloque es la reparacion del agujero y su
+    # propia prueba: mientras estas cuatro comprobaciones no existieran, el
+    # codigo podia ser el que quisiera y el self-test seguia en verde.
+    #
+    # El agujero concreto: el modo MEDIR hacia `return 0` con las colisiones
+    # delante. Es decir, la herramienta podia afirmar y no medir. Aqui se
+    # comprueba que los cuatro estados dan cuatro codigos DISTINTOS, y que el
+    # estado de "todo reparable" NO se confunde con "nada que reparar".
+    # ------------------------------------------------------------------
+    def estado(sin_colisiones, solo_seguros, ambiguos, ficheros=2):
+        return {"total_ficheros": ficheros, "numeros_distintos": ficheros,
+                "duplicados": 0 if sin_colisiones else 1,
+                "seguros": 1 if solo_seguros else 0,
+                "ambiguos": 1 if ambiguos else 0}
+
+    casos = [
+        ("sin duplicados -> 0",
+         estado(True, False, False), EXIT_OK),
+        ("duplicados todos SEGURO -> 3",
+         estado(False, True, False), EXIT_TODOS_REPARABLES),
+        ("al menos un AMBIGUO -> 4",
+         estado(False, False, True), EXIT_AMBIGUOS),
+        ("no se pudo medir -> 2",
+         {"total_ficheros": 0, "numeros_distintos": 0, "duplicados": 0,
+          "seguros": 0, "ambiguos": 0}, EXIT_SIN_MEDIR),
+    ]
+    for nombre, r_esperado, c_esperado in casos:
+        c = codigo_de(r_esperado)
+        ok = c == c_esperado
+        print("  %-58s %s" % (nombre, "OK" if ok else
+                              "FALLO dio %d, esperaba %d" % (c, c_esperado)))
+        chk(ok)
+
+    # y los cuatro codigos tienen que ser DISTINTOS entre si. Un mapa que
+    # devuelve 3 para dos estados distintos no discrimina, y entonces un
+    # pipeline que mire el codigo no puede distinguir "arreglable" de "atascado".
+    unicos = {c_esperado for _n, _r, c_esperado in casos}
+    ok = len(unicos) == len(casos)
+    print("  %-58s %s" % ("los cuatro codigos son distintos entre si",
+                          "OK" if ok else "FALLO: %d distintos de %d"
+                          % (len(unicos), len(casos))))
+    chk(ok)
+
+    # y el caso que de verdad abria el agujero: un grupo AMBIGUO medido sobre
+    # un arbol de verdad tiene que dar 4, no 0. Sin este caso, los cuatro de
+    # arriba prueban el mapa pero no la medida.
+    d2 = "/tmp/opencode/dupenum-selftest-codigo"
+    os.system("rm -rf %s" % d2)
+    dirf2 = dir_hallazgos(d2)
+    os.makedirs(dirf2, exist_ok=True)
+    for nom, txt in (("300-a.md", "# 300 · A\n\nuno\n"),
+                     ("300-b.md", "# 300 · B\n\ndos\n"),
+                     ("300-c.md", "# 300 · C\n\ntres\n")):
+        with open(os.path.join(dirf2, nom), "w", encoding="utf-8") as fh:
+            fh.write(txt)
+    c = codigo_de(medir(d2))
+    ok = c == EXIT_AMBIGUOS
+    print("  %-58s %s" % ("un grupo de 3 medido de verdad -> 4, no 0",
+                          "OK" if ok else "FALLO dio %d" % c))
+    chk(ok)
+
+    print("\nRESULT: %s (%d comprobaciones, %d fallos)\n"
+          % ("PASS" if not fallos[0] else "FAIL", CUENTAS[0], fallos[0]))
+    return 1 if fallos[0] else 0
+
+
+EXIT_OK = 0
+EXIT_SELFTEST = 1
+EXIT_SIN_MEDIR = 2
+EXIT_TODOS_REPARABLES = 3
+EXIT_AMBIGUOS = 4
+
+
+def codigo_de(r: Dict[str, object]) -> int:
+    """El codigo que corresponde al estado medido. Ver el bloque CODIGOS DE
+    SALIDA de la cabecera.
+
+    Se separa del `main` para que el selftest pueda comprobarla sin ejecutar el
+    programa entero: un codigo de salida que solo se puede ver lanzando el
+    programa no se puede falsificar cheaply, y una puerta que no se puede
+    falsificar no es una puerta.
+    """
+    if r.get("total_ficheros", 0) == 0:
+        return EXIT_SIN_MEDIR
+    if r["duplicados"] == 0:
+        return EXIT_OK
+    if r["ambiguos"] == 0:
+        return EXIT_TODOS_REPARABLES
+    return EXIT_AMBIGUOS
 
 
 def main() -> int:
@@ -361,8 +494,11 @@ def main() -> int:
     raiz = proyecto()
     r = medir(raiz)
     if a.json:
+        # stdout es JSON valido SIEMPRE. El codigo es el veredicto, y no al
+        # reves: un consumidor que solo mire el stdout no puede saber si el
+        # arbol estaba bien, que es exactamente lo que se quiere evitar.
         print(json.dumps(r, indent=2, ensure_ascii=False))
-        return 0
+        return codigo_de(r)
 
     print("=" * 78)
     print("dupenum %s · WORK_CLASS=%s · WRITE_EXECUTION=%s"
@@ -400,11 +536,20 @@ def main() -> int:
 
     if not a.aplicar:
         print("\n  NO se ha tocado nada. Con --aplicar se renumeran los SEGURO.")
-        return 0
+        # El codigo NO es 0 con colisiones delante. Ese era el agujero: esta
+        # herramienta era la unica de las tres del tema que pasaba en verde con
+        # el defecto presente, y por tanto la que podia dejar el pipeline en
+        # verde. Medir y salir en verde es una forma de no medir.
+        c = codigo_de(r)
+        print("  CODIGO DE SALIDA: %d  (%s)"
+              % (c, {0: "sin colisiones", 2: "no se pudo medir",
+                     3: "todas reparables con --aplicar",
+                     4: "hay AMBIGUOS que --aplicar no arregla"}.get(c, "?")))
+        return c
 
     if not seguros:
         print("\n  no hay grupo SEGURO: nada que aplicar.")
-        return 0
+        return codigo_de(r)
 
     print("\n  APLICANDO %d renumeraciones" % len(seguros))
     hechos = []
@@ -421,9 +566,20 @@ def main() -> int:
         except SystemExit as e:
             print("    %s" % e)
     print("\n  %d ficheros renumerados." % len(hechos))
-    print("  Cada uno vuelve a estar solo con su numero. Repite el análisis:")
-    print("      python3 tools/dupenum.py")
-    return 0
+    # Se vuelve a MEDIR, no se supone que quedo bien. Aplicar y que queden
+    # colisiones AMBIGUAS no es exito, y un codigo de salida aqui es la unica
+    # forma de que el que lo lanzo lo sepa sin tener que acordarse de releer.
+    post = medir(raiz)
+    c = codigo_de(post)
+    print("  Tras aplicar: %d grupos duplicados (%d SEGURO, %d AMBIGUO)."
+          % (post["duplicados"], post["seguros"], post["ambiguos"]))
+    print("  CODIGO DE SALIDA: %d  (%s)"
+          % (c, {0: "sin colisiones", 2: "no se pudo medir",
+                 3: "todas reparables con --aplicar",
+                 4: "quedan AMBIGUOS que --aplicar no arregla"}.get(c, "?")))
+    print("  Comprueba la puerta y el indice:")
+    print("      python3 tools/check_num_unico.py")
+    return c
 
 
 if __name__ == "__main__":
