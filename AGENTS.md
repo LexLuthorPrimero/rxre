@@ -40,6 +40,24 @@ gastan 101 números sin producir trabajo — lo midieron los hallazgos `1049`, `
 hallazgo*. El número más alto cuenta **trabajo gastado**, no hallazgos distintos. Un informe que
 cite solo una cifra hace que el progreso parezca mayor de lo que es.
 
+**El contador es COMPARTIDO, y el informe tiene que separar authorship de trabajo.**
+MEDIDO el 2026-10-04: hay otra sesión escribiendo en este árbol, y reserva números en
+lotes — el ledger de `_reservas/` llegó a mostrar `1063`–`1068` reservados en dos
+llamadas separadas por 18 segundos, con `R_PENDIENTE` y ficheros detrás apareciendo
+después. **El número más alto sube también por su trabajo**, y presentarlo como
+"trabajo mío" sería robarle la medida. El informe del hito dice, por separado:
+
+```text
+trabajo acumulado en el árbol   <número más alto>
+de los cuales, hallazgos de esta sesión   <contados por autor en el fichero>
+```
+
+**Y una consecuencia operativa:** con dos autores, `nextnum.py --reservar` es la
+única forma lícita de tomar número, y falla con `OCUPADO` cuando el otro autor se
+adelanta. MEDIDO: `--reservar 1062` falló porque en el intervalo entre `--check` y
+`--reservar` la otra sesión escribió el fichero. **Comprobar y luego reservar no es
+atómico; reservar sí lo es.** Nunca reserves basándote en un `--check` anterior.
+
 **Lo que esta directiva NO cambia.**
 
 - **No suspende el ciclo.** §105 sigue vigente: EVIDENCIA → semántica → claim → modelo →
