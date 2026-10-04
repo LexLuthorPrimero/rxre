@@ -156,29 +156,36 @@ extern const uint32_t rx550_vmid1_reg_count;
 /* Los mnemonicos como indices en esa tabla, para no repetir el indice GFX8 en
  * el codigo del siguiente nodo ni buscar por cadena. */
 enum rx550_vmid1_reg_id {
-	RX550_REG_CTX1_CNTL			= 0,
-	RX550_REG_CTX1_CNTL2			= 1,
-	RX550_REG_INVALIDATE_REQUEST		= 2,
-	RX550_REG_INVALIDATE_RESPONSE		= 3,
-	RX550_REG_CTX1_PROT_FAULT_DEFAULT	= 4,
-	RX550_REG_CTX1_PT_BASE			= 5,
-	RX550_REG_CTX1_PT_START			= 6,
-	RX550_REG_CTX1_PT_END			= 7,
-	/*  D3.  El resolutor es POSICIONAL, asi que el orden del enum es el
-	 *  orden de la tabla, y la tabla va en indice ascendente porque el test
-	 *  lo comprueba.  Los tres van entre PT_END (0x560) y L2_CNTL4 (0x578),
-	 *  que es donde caen por indice, y por eso renumeran los siguientes.
-	 *  Los APERTURE_* de abajo son los del SYSTEM aperture (0x80d..), un
-	 *  bloque DISTINTO:  no confundirlos con estos. */
-	RX550_REG_IDENTITY_APERTURE_LOW		= 8,
-	RX550_REG_IDENTITY_APERTURE_HIGH		= 9,
-	RX550_REG_IDENTITY_PHYSICAL_OFFSET	= 10,
-	RX550_REG_L2_CNTL4			= 11,
-	RX550_REG_APERTURE_LOW			= 12,
-	RX550_REG_APERTURE_HIGH			= 13,
-	RX550_REG_APERTURE_DEFAULT		= 14,
-	RX550_REG_MX_L1_TLB_CNTL		= 15,
-	RX550_REG_NR				= 16,
+	RX550_REG_L2_CNTL				= 0,
+	RX550_REG_L2_CNTL2				= 1,
+	RX550_REG_L2_CNTL3				= 2,
+	RX550_REG_CTX0_CNTL				= 3,
+	RX550_REG_CTX1_CNTL				= 4,
+	RX550_REG_CTX0_CNTL2				= 5,
+	RX550_REG_CTX1_CNTL2				= 6,
+	RX550_REG_CTX8_PT_BASE				= 7,
+	RX550_REG_INVALIDATE_REQUEST			= 8,
+	RX550_REG_INVALIDATE_RESPONSE			= 9,
+	RX550_REG_CTX0_PROT_FAULT_DEFAULT		= 10,
+	RX550_REG_CTX1_PROT_FAULT_DEFAULT		= 11,
+	RX550_REG_CTX0_PT_BASE				= 12,
+	RX550_REG_CTX1_PT_BASE				= 13,
+	RX550_REG_CTX0_PT_START				= 14,
+	RX550_REG_CTX1_PT_START				= 15,
+	RX550_REG_CTX0_PT_END				= 16,
+	RX550_REG_CTX1_PT_END				= 17,
+	/*  Los tres siguientes y el APERTURE_* de abajo son de bloques DISTINTOS:
+	 *  no confundirlos.  El comentario sobre la identity aperture sigue
+	 *  valiendo donde estaba. */
+	RX550_REG_IDENTITY_APERTURE_LOW			= 18,
+	RX550_REG_IDENTITY_APERTURE_HIGH		= 19,
+	RX550_REG_IDENTITY_PHYSICAL_OFFSET		= 20,
+	RX550_REG_L2_CNTL4				= 21,
+	RX550_REG_APERTURE_LOW				= 22,
+	RX550_REG_APERTURE_HIGH				= 23,
+	RX550_REG_APERTURE_DEFAULT			= 24,
+	RX550_REG_MX_L1_TLB_CNTL			= 25,
+	RX550_REG_NR					= 26,
 };
 
 /* El descriptor de un mnemonico, o NULL si el id no existe. */
@@ -754,7 +761,7 @@ _Static_assert(RX550_MMIO_SIZE == 0x40000u,
 		"el tamaño de la apertura de registros es un dato del host medido");
 _Static_assert(sizeof(struct rx550_mmap_offset) == sizeof(uint64_t),
 		"el offset tiene que caber en el tipo que lo representa");
-_Static_assert(RX550_REG_NR == 16u,
+_Static_assert(RX550_REG_NR == 26u,
 		"el numero de registros preparados tiene que ser el declarado");
 	/*  D3.  Los tres de la identity aperture son tres ids consecutivos, y
 	 *  los tres usan el ancla de 28 bits de numero de pagina con shift 0.
