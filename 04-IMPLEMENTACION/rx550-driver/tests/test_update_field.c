@@ -12,7 +12,7 @@
  * POR QUE EXISTE
  *   El corpus programa los registros de control con
  *       RREG32 -> REG_SET_FIELD -> WREG32
- *   y las 21 escrituras de gmc_v8_0_gart_enable() son todas de esa forma.  El
+ *   y las 7 escrituras de lectura-modificacion-escritura de gmc_v8_0_gart_enable() son de esa forma.  El
  *   accessor solo tenia read32 y write32, de modo que no podia reproducir
  *   ninguna.  Ver el finding 1028.
  *

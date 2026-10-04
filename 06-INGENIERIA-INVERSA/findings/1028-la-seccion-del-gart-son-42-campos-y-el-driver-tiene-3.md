@@ -18,19 +18,72 @@ orden, y qué de eso puede expresar hoy el driver propio?
 
 **34 escrituras a registro**, no 21.
 
-> **CORREGIDO el 2026-10-03, antes de que otro lo midiera.** Este documento
-> decía «21 escrituras» y eran **21 líneas con `WREG32`**. Una de esas líneas es
-> un bucle de 15 iteraciones, así que:
+> **CORREGIDO dos veces el 2026-10-03.** Este hallazgo se ha escrito mal en
+> tres ocasiones seguidas y las tres por el mismo motivo: **contar líneas donde
+> había que contar hechos**. Queda la traza, porque un hallazgo que se corrige
+> sin dejar por qué se equivocaba se vuelve a equivocar igual.
+>
+> **Primera corrección — de 21 a 34.** Decía «21 escrituras». Eran 21 **líneas**
+> con `WREG32`. De esas, dos son los dos brazos del bucle de contextos.
 >
 > ```
 >   21 líneas con WREG32
->     -  1  el bucle  for (i = 1; i < AMDGPU_NUM_VMID; i++)
->   = 20 escrituras explícitas
+>     -  2  los dos BRAZOS del bucle  (L912 y L915)
+>   = 19 escrituras explícitas
 >     + 15  iteraciones del bucle  (i = 1..15, AMDGPU_NUM_VMID = 16)
 >   = 34 escrituras reales
 > ```
 >
-> Contadas por registro, con el bucle expandido como 15:
+> La primera versión de esta corrección(restó **1** bucle en vez de 2 y escribió
+> «20 explícitas + 15 = 34». 20 + 15 son 35. Dos correcciones seguidas que no
+> cuadran: eso es lo que pasa cuando se corrige a mano en vez de medir.
+>
+> **Segunda corrección — `REG_SET_FIELD` y la unidad de cuenta.**
+>
+> ```
+>   REG_SET_FIELD                       42
+>   pares (registro, campo) distintos   42
+>   NOMBRES de campo distintos          39
+> ```
+>
+> Decía «41». Y sobre todo: **«42 campos» es cierto como pares y falso como
+> nombres**, porque `ENABLE_CONTEXT`, `PAGE_TABLE_DEPTH` y
+> `RANGE_PROTECTION_FAULT_ENABLE_DEFAULT` se escriben en los dos contextos. Este
+> documento usó las dos unidades en el mismo texto sin decirlo, y por eso su
+> «los otros 39 no tienen equivalente» parecía cuadrar con un 42 que no era del
+> mismo género.
+>
+> **Tercera corrección — la que no era un número sino un hecho.** Decía:
+> «las 34 son `RREG32 → REG_SET_FIELD → WREG32`, no hay ni una sola escritura
+> ciega en toda la función». **Falso.** Medido:
+>
+> ```
+>   RMW (RREG32 -> REG_SET_FIELD -> WREG32)      7
+>       L849 mmMC_VM_MX_L1_TLB_CNTL    L859 mmVM_L2_CNTL     L863 mmVM_L2_CNTL2
+>       L870 mmVM_L2_CNTL3            L885 mmVM_L2_CNTL4    L897 mmVM_CONTEXT0_CNTL
+>       L935 mmVM_CONTEXT1_CNTL
+>
+>   escritura DIRECTA, sin lectura previa       27 ejecuciones
+>       L892 mmVM_CONTEXT0_CNTL2 = 0
+>       L887 L888 L889 L890  START, END, BASE y PFN de la pagina dummy
+>       L899 L900 L901  los tres de la identity aperture
+>       L908 L909  START=0, END=max_pfn-1
+>       L912 L915  el bucle, x15
+>       L920 L922  PFN del contexto 1, CNTL2 = 4
+> ```
+>
+> **Dos de cada tres escrituras son ciegas.** Y el documento razonaba
+> correctamente, sobre por qué una escritura directa a `mmVM_CONTEXT0_CNTL`
+> pondría a cero 19 campos, mientras afirmaba en la misma página que ese patrón
+> no ocurría en la función que estaba transcribiendo.
+>
+> Lo que de verdad da valor a la tabla de campos es lo otro, y sigue siendo
+> cierto: **los siete registros de control se modifican por RMW
+> precisamente porque tienen campos que no se tocan.** Las 27 escrituras ciegas
+> caen todas en registros cuyo valor es un único número, y por eso no pierden
+> nada.
+
+Contadas por registro, con el bucle expandido como 15:
 >
 > ```
 >   mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR          2   (contexto 0, y el brazo i<8)
@@ -60,8 +113,10 @@ orden, y qué de eso puede expresar hoy el driver propio?
 > un recuento de líneas por un recuento de hechos.  El dato de 34 es el que
 > sirve; el de 21 era una línea de código, no una escritura al hardware.
 
-De esas 34, **7 son de registro completo** sobre campos que la referencia
-cambia con `REG_SET_FIELD`, y **41** son `REG_SET_FIELD` sobre 42 campos distintos.
+De esas 34, **7 son de lectura-modificación-escritura** —los siete registros
+que la referencia abre con `RREG32`— y las otras 27 son escrituras completas de
+un literal o de un PFN. Las 42 operaciones de `REG_SET_FIELD` caen dentro de
+esas siete.
 
 | registro | campos declarados | los pone la referencia | una escritura ciega pondría a cero |
 |---|---|---|---|
@@ -73,8 +128,35 @@ cambia con `REG_SET_FIELD`, y **41** son `REG_SET_FIELD` sobre 42 campos distint
 | `mmVM_CONTEXT0_CNTL` | **22** | **3** | **19** |
 | `mmVM_CONTEXT1_CNTL` | **22** | **10** | **12** |
 
-Las **34 son `RREG32 → REG_SET_FIELD → WREG32`**. No hay ni una sola escritura
-ciega en toda la función.
+> **CORREGIDO el 2026-10-03 por revisión adversarial. Lo que estaba aquí era
+> FALSO y no por un número.** Decía «las 34 son
+> `RREG32 → REG_SET_FIELD → WREG32`» y «no hay ni una sola escritura ciega en
+> toda la función». Medido:
+>
+> ```
+>   RMW (RREG32 -> REG_SET_FIELD -> WREG32)      7
+>       L849 mmMC_VM_MX_L1_TLB_CNTL    L859 mmVM_L2_CNTL     L863 mmVM_L2_CNTL2
+>       L870 mmVM_L2_CNTL3            L885 mmVM_L2_CNTL4    L897 mmVM_CONTEXT0_CNTL
+>       L935 mmVM_CONTEXT1_CNTL
+>
+>   escritura DIRECTA, sin lectura previa       27 ejecuciones
+>       L892 mmVM_CONTEXT0_CNTL2 = 0
+>       L887 L888 L889 L890  START, END, BASE, PFN de la pagina dummy
+>       L899 L900 L901  los tres de la identity aperture
+>       L908 L909  START=0, END=max_pfn-1
+>       L912 L915  el bucle, x15
+>       L920 L922  PFN del contexto 1, CNTL2 = 4
+> ```
+>
+> **La mitad de la secuencia, más un tercio, son escrituras ciegas.** Y el
+> documento razonaba correctamente, tres párrafos más abajo, sobre por qué una
+> escritura directa a `mmVM_CONTEXT0_CNTL` pondría a cero 19 campos — y a la vez
+> afirmaba que ese patrón no ocurría en la función que estaba transcribiendo.
+>
+> Lo que sí es cierto, y es lo que da valor a la tabla de campos: los **siete**
+> registros de control se modifican por RMW precisamente porque tienen campos
+> que no se tocan. Las 27 escrituras ciegas caen todas en registros que son un
+> valor único, y por eso no pierden nada.
 
 ## Lo que el driver propio puede y no puede hacer
 
@@ -108,7 +190,8 @@ campos distintos que escribe la secuencia : 42
   MASK y __SHIFT incoherentes              : ninguno
 ```
 
-Los 8 de más de un bit:
+Los **8 pares (registro, campo)** de más de un bit — que son **7 nombres**, porque
+`PAGE_TABLE_DEPTH` sale en los dos contextos:
 
 | campo | mask | shift | ancho |
 |---|---|---|---|
@@ -120,6 +203,12 @@ Los 8 de más de un bit:
 | `L2_CACHE_BIGK_FRAGMENT_SIZE` | 0xf8000 | 15 | 5 |
 | `CONTEXT1_IDENTITY_ACCESS_MODE` | 0x180000 | 19 | 2 |
 | `EFFECTIVE_L2_QUEUE_SIZE` | 0x38000 | 15 | 3 |
+
+Y lo mismo con los 42: **42 pares (registro, campo) y 39 nombres distintos**,
+porque `ENABLE_CONTEXT`, `PAGE_TABLE_DEPTH` y
+`RANGE_PROTECTION_FAULT_ENABLE_DEFAULT` se escriben en los dos contextos. Cada
+vez que este documento escriba una cantidad de campos hay que decir si cuenta
+pares o nombres; durante una temporada usó las dos unidades en el mismo texto.
 
 **El `__SHIFT` que declaran los headers es exactamente el número de ceros
 finales del `MASK`, en los 42 casos.** Se comprobó con el invariante
@@ -162,12 +251,15 @@ Con el corpus a la vista la pregunta no es única, son dos:
 
 | | contexto 0 | contexto 1 |
 |---|---|---|
-| `PAGE_TABLE_DEPTH` | **1**, `gmc_v8_0.c:895` | **1**, `gmc_v8_0.c:925` |
-| `PAGE_TABLE_BLOCK_SIZE` | **no lo escribe** | `block_size − 9`, `gmc_v8_0.c:933` |
+| `PAGE_TABLE_DEPTH` | **0**, `gmc_v8_0.c:895` | **1**, `gmc_v8_0.c:925` |
+| `PAGE_TABLE_BLOCK_SIZE` | **no lo escribe** | `block_size − 9`, `gmc_v8_0.c:933-934` |
 
 `PAGE_TABLE_DEPTH` está determinado en los dos contextos, y el valor de
 `PAGE_TABLE_DEPTH=0` para el contexto 0 es lo que hace que la tabla del GART sea
 una sola tabla y no dos niveles.
+
+> La tabla de arriba decía 1 en la fila del contexto 0 y la línea siguiente decía
+> 0. Dos filas más abajo, el código del corpus tenía razón. Corregido.
 
 `PAGE_TABLE_BLOCK_SIZE` sólo está determinado para el contexto 1, y su valor
 sale del log de esta máquina (`block size is 10-bit`) menos 9, o sea 1.
@@ -177,41 +269,88 @@ la razón de que la secuencia es RMW: lo que hubiera queda. El corpus no
 documenta el valor de reset de `mmVM_CONTEXT0_CNTL`, y `grep` sobre
 `*_sh_mask.h` no lo encuentra porque los `sh_mask` no llevan resets.
 
-Queda un `NOT_DETERMINED` real y bien delimitado, con tres salidas posibles:
-
-1. el valor de reset es 0 y da igual;
-2. a profundidad 0 el campo no se usa y da igual;
-3. el valor de reset es otro y la referencia funciona por casualidad de que
-   en esta máquina salió 0.
-
-El discriminante es una lectura de `mmVM_CONTEXT0_CNTL` antes y después de un
-reset, y eso sólo lo da el driver propio. **No se ha ejecutado.**
+> **CORREGIDO el 2026-10-03: esto ya NO es `NOT_DETERMINED`. Y se cierra por
+> dos caminos que el hallazgo no buscó.**
+>
+> **El valor de reset SÍ está en el corpus**, en una familia de ficheros que
+> este hallazgo nunca miró: los `*_default.h`.
+>
+> ```
+>   include/asic_reg/mmhub/mmhub_1_0_default.h:682
+>       #define mmVM_CONTEXT0_CNTL_DEFAULT  0x007ffe80
+> ```
+>
+> Decodificado con las máscaras de `gmc_8_1_sh_mask.h`, que son las de esta TU:
+>
+> ```
+>   PAGE_TABLE_BLOCK_SIZE      mask=0x0f000000  shift=24  ->  0
+>   PAGE_TABLE_DEPTH           mask=0x00000006  shift=1   ->  0
+>   ENABLE_CONTEXT             mask=0x00000001  shift=0   ->  0
+>   RANGE_PROTECTION_FAULT_ENABLE_DEFAULT   mask=0x10  shift=4 -> 0
+> ```
+>
+> Y con un matiz que hay que decir: **`mmhub_1_0_default.h` es de otro ASIC.**
+> MMHUB 1.0 es Vega10 / GFX9. Para GFX8 **no existe** `gmc_8_1_default.h`
+> (verificado: no hay ningún `gmc/*default*` en el árbol). Así que el valor es
+> evidencia de un ASIC hermano, y por tanto `CORROBORATED`, no `PROVEN`.
+>
+> **El segundo camino es más fuerte y no requiere hardware.** La función hermana
+> escribe el registro entero a cero:
+>
+> ```
+>   gmc_v8_0.c:972  static void gmc_v8_0_gart_disable(struct amdgpu_device *adev)
+>   gmc_v8_0.c:976          /* Disable all tables */
+>   gmc_v8_0.c:977          WREG32(mmVM_CONTEXT0_CNTL, 0);
+>   gmc_v8_0.c:978          WREG32(mmVM_CONTEXT1_CNTL, 0);
+> ```
+>
+> Y el ciclo real es `suspend → hw_fini → resume → sw_init`, con
+> `gmc_v8_0_gart_disable()` en la ida y `gmc_v8_0_gart_enable()` en la vuelta.
+> O sea: **el RMW de `L893` lee siempre un registro que el propio driver puso a
+> cero hace un momento.** El valor de `PAGE_TABLE_BLOCK_SIZE` del contexto 0 no
+> depende del valor de reset: depende de que la última escritura entera fuera un
+> cero, y siempre lo es.
+>
+> Mi pregunta original tenía un cuarto camino que no consideré —los tres que
+> enumeré eran «reset=0 da igual», «a profundidad 0 no se usa» y «reset=otro y
+> funciona por casualidad»— y el que vale es «nadie depende del reset».
+>
+> **Estado nuevo: `CORROBORATED`, valor 0.** La consecuencia para el driver es
+> que `PAGE_TABLE_BLOCK_SIZE` del contexto 0 puede quedar en 0 sin más análisis,
+> y que el discriminante que yo proponía (leer el registro antes y después de un
+> reset) era innecesario para el caso de suspend/resume: basta con leerlo
+> después de un resume, y eso tampoco hace falta porque el valor ya no importa.
 
 ## El orden importa, y hay un orden obligatorio
 
 ```
-  L843  mmMC_VM_MX_L1_TLB_CNTL      TLB L1
-  L849  mmVM_L2_CNTL                caché L2
-  L859  mmVM_L2_CNTL2               INVALIDATE_ALL_L1_TLBS, INVALIDATE_L2_CACHE
-  L866  mmVM_L2_CNTL3               BANK_SELECT, BIGK_FRAGMENT_SIZE
-  L872  mmVM_L2_CNTL4               12 campos de tapping
-  L886  mmVM_CONTEXT0_PAGE_TABLE_START_ADDR   gart_start >> 12
-  L887  mmVM_CONTEXT0_PAGE_TABLE_END_ADDR     gart_end   >> 12
-  L888  mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR    table_addr >> 12
-  L889  mmVM_CONTEXT0_PROTECTION_FAULT_DEFAULT_ADDR
-  L891  mmVM_CONTEXT0_CNTL2
-  L893  mmVM_CONTEXT0_CNTL           ENABLE_CONTEXT=1, DEPTH=0, RANGE_PF=1
+  L849  mmMC_VM_MX_L1_TLB_CNTL      TLB L1,  5 campos
+  L859  mmVM_L2_CNTL                caché L2,  7 campos
+  L863  mmVM_L2_CNTL2               INVALIDATE_ALL_L1_TLBS, INVALIDATE_L2_CACHE
+  L870  mmVM_L2_CNTL3               BANK_SELECT, BIGK_FRAGMENT_SIZE
+  L885  mmVM_L2_CNTL4               12 campos de tapping, todos a cero
+  L887  mmVM_CONTEXT0_PAGE_TABLE_START_ADDR   gart_start >> 12
+  L888  mmVM_CONTEXT0_PAGE_TABLE_END_ADDR     gart_end   >> 12
+  L889  mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR    table_addr >> 12
+  L890  mmVM_CONTEXT0_PROTECTION_FAULT_DEFAULT_ADDR   dummy >> 12
+  L892  mmVM_CONTEXT0_CNTL2 = 0
+  L897  mmVM_CONTEXT0_CNTL           ENABLE_CONTEXT=1, DEPTH=0, RANGE_PF=1
   L899  mmVM_L2_CONTEXT1_IDENTITY_APERTURE_LOW_ADDR  = 0
   L900  mmVM_L2_CONTEXT1_IDENTITY_APERTURE_HIGH_ADDR = 0
   L901  mmVM_L2_CONTEXT_IDENTITY_PHYSICAL_OFFSET     = 0
-  L907  mmVM_CONTEXT1_PAGE_TABLE_START_ADDR = 0
-  L908  mmVM_CONTEXT1_PAGE_TABLE_END_ADDR   = max_pfn - 1
-  L910  bucle i = 1..15:  BASE_ADDR(i) = table_addr >> 12   (corte en 8)
-  L921  mmVM_CONTEXT1_PROTECTION_FAULT_DEFAULT_ADDR
-  L923  mmVM_CONTEXT1_CNTL2 = 4
-  L925  mmVM_CONTEXT1_CNTL           10 campos, DEPTH=1, BLOCK_SIZE=block_size-9
-  L938  gmc_v8_0_flush_gpu_tlb(0, 0, 0)
-  L941  drm_info("PCIE GART of %uM enabled (table at 0x%016llX)")
+  L908  mmVM_CONTEXT1_PAGE_TABLE_START_ADDR = 0
+  L909  mmVM_CONTEXT1_PAGE_TABLE_END_ADDR   = max_pfn - 1
+  L911/L914  bucle i = 1..15:  BASE_ADDR(i) = table_addr >> 12  (corte en 8)
+  L920  mmVM_CONTEXT1_PROTECTION_FAULT_DEFAULT_ADDR   dummy >> 12
+  L922  mmVM_CONTEXT1_CNTL2 = 4
+  L935  mmVM_CONTEXT1_CNTL           10 campos, DEPTH=1, BLOCK_SIZE=block_size-9
+  L940  gmc_v8_0_flush_gpu_tlb(0, 0, 0)
+  L942  drm_info("PCIE GART of %uM enabled (table at 0x%016llX)")
+
+  Y las citas de arriba estaban DESPLAZADAS UNA LINEA:  decia L843 por L849, L923
+  por L922, L921 por L920.  Todas las que apuntaban al comienzo de una sentencia
+  de dos lineas.  Las de los CAMPOS si eran exactas,  y la diferencia es el
+  metodo:  esas las genero un script y estas las escribi a mano.
 ```
 
 La invalidación va **antes** de programar la base, y hay un `flush_gpu_tlb`

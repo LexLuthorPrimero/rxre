@@ -75,7 +75,7 @@ const char *rx550_mmio_err_str(int rc)
 /* ═══════════════════════════════════════════════════════════════════════════
  * LA TABLA DE REGISTROS DE VMID1 Y DE APERTURA
  *
- * Trece entradas, ordenadas por byte_offset ascendente, con su procedencia en
+ * Treinta y nueve entradas, ordenadas por byte_offset ascendente, con su procedencia en
  * gmc_8_2_d.h.  Y CONFIDENCE que dice, por registro, si el corpus lo ESCRIBE en
  * GFX8 o solo lo define.  Y esa columna no es decorativa:  es la que impide
  * programado nunca.
@@ -126,6 +126,41 @@ const struct rx550_vmid1_reg rx550_vmid1_regs[] = {
 	"gmc_8_1_d.h:607",                          RX550_REG_DECLARED
 },
 {
+	"mmVM_CONTEXT9_PAGE_TABLE_BASE_ADDR",       0x50f, 0x143c, 32, "W", "CONTEXT9",
+	"ancla del bloque 8..15:  la referencia lo escribe como mmVM_CONTEXT8_PAGE_TABLE_BASE_ADDR + i - 8",
+	"gmc_8_1_d.h:608",                          RX550_REG_DECLARED
+},
+{
+	"mmVM_CONTEXT10_PAGE_TABLE_BASE_ADDR",      0x510, 0x1440, 32, "W", "CONTEXT10",
+	"ancla del bloque 8..15:  la referencia lo escribe como mmVM_CONTEXT8_PAGE_TABLE_BASE_ADDR + i - 8",
+	"gmc_8_1_d.h:609",                          RX550_REG_DECLARED
+},
+{
+	"mmVM_CONTEXT11_PAGE_TABLE_BASE_ADDR",      0x511, 0x1444, 32, "W", "CONTEXT11",
+	"ancla del bloque 8..15:  la referencia lo escribe como mmVM_CONTEXT8_PAGE_TABLE_BASE_ADDR + i - 8",
+	"gmc_8_1_d.h:610",                          RX550_REG_DECLARED
+},
+{
+	"mmVM_CONTEXT12_PAGE_TABLE_BASE_ADDR",      0x512, 0x1448, 32, "W", "CONTEXT12",
+	"ancla del bloque 8..15:  la referencia lo escribe como mmVM_CONTEXT8_PAGE_TABLE_BASE_ADDR + i - 8",
+	"gmc_8_1_d.h:611",                          RX550_REG_DECLARED
+},
+{
+	"mmVM_CONTEXT13_PAGE_TABLE_BASE_ADDR",      0x513, 0x144c, 32, "W", "CONTEXT13",
+	"ancla del bloque 8..15:  la referencia lo escribe como mmVM_CONTEXT8_PAGE_TABLE_BASE_ADDR + i - 8",
+	"gmc_8_1_d.h:612",                          RX550_REG_DECLARED
+},
+{
+	"mmVM_CONTEXT14_PAGE_TABLE_BASE_ADDR",      0x514, 0x1450, 32, "W", "CONTEXT14",
+	"ancla del bloque 8..15:  la referencia lo escribe como mmVM_CONTEXT8_PAGE_TABLE_BASE_ADDR + i - 8",
+	"gmc_8_1_d.h:613",                          RX550_REG_DECLARED
+},
+{
+	"mmVM_CONTEXT15_PAGE_TABLE_BASE_ADDR",      0x515, 0x1454, 32, "W", "CONTEXT15",
+	"ancla del bloque 8..15:  la referencia lo escribe como mmVM_CONTEXT8_PAGE_TABLE_BASE_ADDR + i - 8",
+	"gmc_8_1_d.h:614",                          RX550_REG_DECLARED
+},
+{
 	"mmVM_INVALIDATE_REQUEST",		0x51e, 0x1478, 32, "W", "GLOBAL",
 	/*  D9 RESUELTO, Y LA ETIQUETA ES CORRECTA.  El header llama a estos bits
 	 *  INVALIDATE_DOMAIN_0..15, lo que por si solo NO demuestra que domain i
@@ -166,6 +201,36 @@ const struct rx550_vmid1_reg rx550_vmid1_regs[] = {
 	"mmVM_CONTEXT1_PAGE_TABLE_BASE_ADDR",	0x550, 0x1540, 32, "W", "CONTEXT1",
 	"numero de pagina del root PDB0, 28 bits; no es la tabla entera",
 	"gmc_8_1_d.h:637",			RX550_REG_PROVEN
+},
+{
+	"mmVM_CONTEXT2_PAGE_TABLE_BASE_ADDR",       0x551, 0x1544, 32, "W", "CONTEXT2",
+	"ancla del bloque 0..15:  la referencia lo escribe como mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR + i - 8",
+	"gmc_8_1_d.h:638",                          RX550_REG_DECLARED
+},
+{
+	"mmVM_CONTEXT3_PAGE_TABLE_BASE_ADDR",       0x552, 0x1548, 32, "W", "CONTEXT3",
+	"ancla del bloque 0..15:  la referencia lo escribe como mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR + i - 8",
+	"gmc_8_1_d.h:639",                          RX550_REG_DECLARED
+},
+{
+	"mmVM_CONTEXT4_PAGE_TABLE_BASE_ADDR",       0x553, 0x154c, 32, "W", "CONTEXT4",
+	"ancla del bloque 0..15:  la referencia lo escribe como mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR + i - 8",
+	"gmc_8_1_d.h:640",                          RX550_REG_DECLARED
+},
+{
+	"mmVM_CONTEXT5_PAGE_TABLE_BASE_ADDR",       0x554, 0x1550, 32, "W", "CONTEXT5",
+	"ancla del bloque 0..15:  la referencia lo escribe como mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR + i - 8",
+	"gmc_8_1_d.h:641",                          RX550_REG_DECLARED
+},
+{
+	"mmVM_CONTEXT6_PAGE_TABLE_BASE_ADDR",       0x555, 0x1554, 32, "W", "CONTEXT6",
+	"ancla del bloque 0..15:  la referencia lo escribe como mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR + i - 8",
+	"gmc_8_1_d.h:642",                          RX550_REG_DECLARED
+},
+{
+	"mmVM_CONTEXT7_PAGE_TABLE_BASE_ADDR",       0x556, 0x1558, 32, "W", "CONTEXT7",
+	"ancla del bloque 0..15:  la referencia lo escribe como mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR + i - 8",
+	"gmc_8_1_d.h:643",                          RX550_REG_DECLARED
 },
 {
 	"mmVM_CONTEXT0_PAGE_TABLE_START_ADDR",      0x557, 0x155c, 32, "W", "CONTEXT0",
@@ -255,7 +320,7 @@ const uint32_t rx550_vmid1_reg_count =
 /* ═══════════════════════════════════════════════════════════════════════════
  * LA TABLA DE CAMPOS
  *
- * Veintiocho entradas:  los 22 de MMVM_CONTEXT1_CNTL y los 6 de
+ * Cincuenta y cinco entradas:  los 22 de VM_CONTEXT1_CNTL,  los 7 de
  * MC_VM_MX_L1_TLB_CNTL, COMPLETOS, no los que el accessor ya conocía.
  *
  * POR QUÉ COMPLETOS Y POR QUÉ SOLO ESOS DOS REGISTROS
@@ -425,14 +490,36 @@ const struct rx550_vmid1_reg *rx550_vmid1_reg_get(enum rx550_vmid1_reg_id id)
  *      vmid < 8   ->  0x54f + vmid        (bloque de contextos 0..7)
  *      vmid < 16  ->  0x50e + (vmid - 8)  (bloque de contextos 8..15)
  *
- *  y el corte no es una preferencia:  gmc_v8_0.c:673 lo escribe con un `if`, y
- *  sin el corte el VMID 8 recibiria 0x516, que es el mnemonico de
- *  mmVM_CONTEXT8_PAGE_TABLE_BASE_ADDR SOLO por casualidad de la aritmetica, no
- *  por la regla.  Y el VMID 9 recibiria 0x517, que NO es ningun
- *  mmVM_CONTEXT9_PAGE_TABLE_BASE_ADDR:  ese esta en 0x50f.
+ *  Y EL CORTE NO ES UNA PREFERENCIA, porque sin el corte el daño es CONCRETO
+ *  y no una eventualidad.  gmc_v8_0.c:673-676 lo escribe con un `if`, y el
+ *  bloque de contextos 8..15 esta POR DEBAJO del de 0..7:
+ *
+ *      0x54f .. 0x556   mmVM_CONTEXT0..7_PAGE_TABLE_BASE_ADDR
+ *      0x557            mmVM_CONTEXT0_PAGE_TABLE_START_ADDR     <-- NO es un BASE
+ *      0x558            mmVM_CONTEXT1_PAGE_TABLE_START_ADDR     <-- NO es un BASE
+ *      0x50e .. 0x515   mmVM_CONTEXT8..15_PAGE_TABLE_BASE_ADDR
+ *
+ *  Asi que sin el corte:
+ *
+ *      vmid 8 -> 0x54f + 8 = 0x557 = mmVM_CONTEXT0_PAGE_TABLE_START_ADDR
+ *      vmid 9 -> 0x54f + 9 = 0x558 = mmVM_CONTEXT1_PAGE_TABLE_START_ADDR
+ *
+ *  O sea:  escribiria la BASE de la tabla del contexto 8 en el START de la
+ *  ventana del contexto 0,  y la del 9 en el START de la del 1.  Eso no es un
+ *  registro que no existe:  es un registro que existe,  tiene un nombre que
+ *  parece de la misma familia,  y tiene una SEMANTICA DISTINTA.  El contexto se
+ *  queda con la ventana mal y sin falla de por medio.
+ *
+ *  CORREGIDO 2026-10-03.  Este comentario decia antes "sin el corte el VMID 8
+ *  recibiria 0x516 y el VMID 9 recibiria 0x517".  Los dos numeros eran erroneos
+ *  y ademas IMPRIMIAN UN PELIGRO QUE NO ERA:  0x516 y 0x517 no estan en el
+ *  header,  asi que la frase leia como "un registroraro que no existe",  y lo
+ *  que de verdad pasa es que se escribe en el START de otro contexto.  Un
+ *  comentario de peligro que describe el peligro equivocado es peor que no
+ *  escribirlo:  el lector cree que el fallo es benigno.
  */
 #define RX550_GMC_CTX0_PT_BASE_IDX	0x54f	/* gmc_8_1_d.h:636 */
-#define RX550_GMC_CTX8_PT_BASE_IDX	0x50e	/* gmc_8_1_d.h:623 */
+#define RX550_GMC_CTX8_PT_BASE_IDX	0x50e	/* gmc_8_1_d.h:607, NO 623 */
 #define RX550_GMC_NR_VMIDS		16	/* dominios de INVALIDATE_REQUEST */
 
 uint32_t rx550_mmio_ctx_pt_base_index(unsigned vmid)
