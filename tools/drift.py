@@ -91,6 +91,14 @@ import sys
 VERSION = "1.0.0"
 TOOL = "drift"
 
+# MEDIDO 2026-10-04 (hallazgo 1051).  El default de --repo era "." y se resolvia con
+# os.path.abspath, o sea EL DIRECTORIO DE TRABAJO.  Medido: la misma invocacion
+# desde la raiz decia "765 ficheros de evidencia sellados" y desde tools/ decia
+# "0 ficheros de evidencia sellados", ambas con rc=0 y stderr vacio.  Es la
+# herramienta que SELLARA la evidencia, asi que un cero plausible y silencioso aqui
+# no es cosmetico: dice que el sello no existe.
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 MANIFEST = "docs/EVIDENCE-MANIFEST.sha256"
 
 # Directories that hold OTHER PEOPLE'S SOURCE, not tools.  They contain plenty of
@@ -885,7 +893,9 @@ def main(argv):
     ap = argparse.ArgumentParser(
         prog="drift", description="see what the other sessions are doing, and what "
                                   "moved under the record")
-    ap.add_argument("--repo", default=".")
+    ap.add_argument("--repo", default=REPO_ROOT,
+                    help="raiz del repositorio; por defecto la de ESTE fichero, "
+                         "nunca el directorio de trabajo (hallazgo 1051)")
     ap.add_argument("--toolkit", action="store_true",
                     help="every directory holding scripts, and which the registry "
                          "knows")
@@ -907,15 +917,48 @@ def main(argv):
         return run_selftest()
 
     repo = os.path.abspath(args.repo)
+    # MEDIDO 2026-10-04 (hallazgo 1052).  Esto era:
+    #     do = args.all or not (args.toolkit or args.activity or args.seal
+    #                           or args.drift or args.territory)
+    #     ...  if args.seal or do:  seal(repo)
+    # o sea: "no has dicho nada, hago todo"  --  y "todo" INCLUIA LA ESCRITURA.
+    #
+    # MEDIDO: ejecutar `python3 tools/drift.py` sin ninguna bandera resello
+    # docs/EVIDENCE-MANIFEST.sha256 entero, de 245 a 766 ficheros y con 66 hashes
+    # cambiados.  El committed estaba viejo, luego el resello era "correcto";  lo que
+    # no era correcto es que lo hiciera un comando con forma de informe.  Y el
+    # --help de ESTA MISMA herramienta dice, textual:
+    #     --seal  write the evidence manifest. THE ONLY WRITE
+    # Luego el default contradecía la documentacion de la herramienta, en la misma
+    # fichero y a 90 lineas de distancia.
+    #
+    # AHORA: sin banderas es un INFORME COMPLETO y no escribe nada.  Escribir exige
+    # --seal, que es lo que el --help promete.  `do` se queda con el informe y la
+    # escritura tiene su propia condicion, porque son dos cosas distintas y una de
+    # ellas tiene consecuencias en disco.
     do = args.all or not (args.toolkit or args.activity or args.seal
                           or args.drift or args.territory)
+    escribir = args.seal or args.all
     rc = 0
 
-    if args.seal or do:
+    if escribir:
         path, n = seal(repo)
         print("%s %s -- sello" % (TOOL, VERSION))
         print("  " + "-" * 72)
         print("  %d ficheros de evidencia sellados en %s" % (n, MANIFEST))
+        if n == 0:
+            # MEDIDO 2026-10-04 (hallazgo 1051).  Antes esto imprimia el 0 y salia
+            # con rc=0, con el mismo tono que un resultado bueno.  Un CONTADO solo no
+            # es una medicion: "he medido y hay 765" y "he medido y hay 0" son el
+            # mismo tipo de afirmacion y solo una de las dos es defendible.  Este
+            # fichero ya distingue "no hay manifiesto" de "no hay deriva" (:932), asi
+            # que la distincion no es nueva: faltaba en ESTA rama.
+            print()
+            print("  ATENCION: cero ficheros sellados, con la raiz %s" % repo)
+            print('  Esto NO es lo mismo que "no hay nada que sellar".  O el repo')
+            print("  esta equivocado, o el manifiesto esta vacio.  Las dos se leen")
+            print("  igual si no se dice cual de las dos es.")
+            rc = 1
         print("  docs/ NO se sella: la pregunta es si se movió la EVIDENCIA.")
         print("  El próximo `--drift` ya podrá decir algo.  Antes de eso no dice nada,")
         print("  porque no hay forma honesta de saber cuándo se escribió una claim.")
