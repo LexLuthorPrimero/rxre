@@ -170,6 +170,72 @@ guard que está tres líneas más abajo.
 `resolver_destino` de `artifacts.py` se puede reutilizar tal cual en `claims.py`, que es
 el segundo consumidor; no lo he hecho porque no lo he medido ejecutando `claims.py`.
 
+## `claims.py`, el segundo consumidor: medido con SU alcance
+
+`tools/claims.py:749` usa `CORRECTED_BY=(\d{3})` y `:735` `CORRECTS=(\d{3})`.
+**Tres digitos exactos.** Y `:712` define el alcance:
+
+```python
+texto = "\n".join(lineas[:24])
+```
+
+**Solo las 24 primeras lineas de cada hallazgo.** Lo que esta mas abajo no lo ve; no es
+que lo rechace, es que no lo mira.
+
+MEDIDO con ese alcance, no con el mio:
+
+```
+referencias con verbo DENTRO del alcance   31
+  capturadas intactas                        8
+  ALTERADAS por la regex                     16
+  sin captura (la regex no aplica)           7
+```
+
+Las 16 alteradas son **nombre perdido**, y ninguna es un numero recortado: no hay
+ningun token de 4 digitos detras de `CORRECTS=` o `CORRECTED_BY=` en el alcance, asi que
+el `\d{3}` no ha partido ningun numero por la mitad. El dano es solo el nombre.
+
+Y el dano real son **4 de 16**, las que apuntan a un numero con mas de un fichero:
+
+| token que el proyecto escribio | lo que queda | candidatos |
+|---|---|---|
+| `040-smu-canal-mensajes-gfx8.md` | `040` | **3** |
+| `131-c-prt-no-esta-bloqueado.md` | `131` | **2** |
+| `101-gfx8-decodifica-el-tipo-de-fault-y-nadie-lo-lee.md` | `101` | **3** |
+| (la misma, citada dos veces en `978`) | `101` | **3** |
+
+Las otras 12 apuntan a numeros con un solo fichero, luego el nombre se pierde pero no se
+pierde nada. Y las 7 sin captura son correctas: `AD-8`, `DECISIONS.md`,
+`04-IMPLEMENTACION`, `statement-in-session-2026-10-01`, `la`, `la`, y dos plantillas
+`NNN` de mi 1054. **`claims.py` es correcto en eso**, porque su regex exige digitos.
+
+Y fuera de su alcance hay **11 de las 42** referencias del corpus. Es `PARTIAL`, y no
+`REJECTED`: esa distincion es la del proyecto.
+
+**Lo que NO he hecho en `claims.py`:** reutilizar `resolver_destino`. Se puede, pero
+cambia el formato de las claves del grafo, de `"040"` a un nombre, y eso tiene
+consecuencias en ficheros que no he medido. Prefiero dejar la medicion y no hacer un
+medio refactor. Ademas sus tres vectores de self-test (`claims.py:1258`, `:1267`)
+construyen cabeceras sinteticas con numeros, asi que un resolutor que necesite indice
+los obligaria a cambiar, y eso es trabajo con puerta.
+
+## Tres mediciones mias mal antes de acertar esta
+
+La ultima vale la pena porque es la novena vez, y porque las tres fallaron igual:
+
+1. **Aplique las regex y no el codigo.** Dije «6 aristas reflexivas» para `claims.py`.
+   Falso: `:753` tiene el guard `num != este` tres lineas debajo del que lei.
+2. **Aplique la regex al fichero entero en vez de al token.** Devolvia la primera
+   coincidencia del fichero, no la de la referencia que estaba mirando. De ahi que
+   `073` apareciera como `la -> 040` y que mi propio 1054 saliera diez veces. Dije
+   «29 nombres perdidos»; con el alcance correcto son **16**.
+3. **Aplique la regex con un alcance mayor que el de la herramienta.** Busque en los
+   42 tokens del corpus cuando `claims.py` solo mira 31.
+
+Las tres son la misma cosa: **medí el patron y no la medición.** Y las tres habrían
+producido un numero confiado y falso en un documento, que es exactamente lo que este
+proyecto lleva toda la sesion documentando.
+
 ## Lo que NO se afirma
 
 - **No se afirma que las 11 ambiguas estén resueltas.** Están medidas y declaradas.
