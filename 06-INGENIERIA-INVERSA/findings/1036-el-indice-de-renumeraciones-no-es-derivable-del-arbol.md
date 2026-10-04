@@ -1,5 +1,49 @@
 # 1036 · El índice de renumeraciones NO es derivable del árbol, y regenerarlo lo destruye
 
+> ## ⚠ CORREGIDO 2026-10-04 · TRES AFIRMACIONES DE ESTE HALLAZGO ESTAN REFUTADAS
+>
+> Este hallazgo se escribió midiendo, pero se sostiene con una premisa que otro
+> nodo comprobó después y que era **falsa**. Se conserva entero (§102: un
+> hallazgo corregido no se borra, se le añade la transición), y aquí va lo que
+>|resulta, con la medida de quien refutó.
+>
+> | # | lo que este hallazgo afirmaba | estado MEDIDO |
+> |---|---|---|
+> | 1 | *"lo que se perdió"* — el índice ponía 0 renumeraciones y **1033 referencias colgando** | **PARCIALMENTE REFUTADO.** Las 0 renumeraciones son **CONFIRMADAS**. Las **1033 referencias ya no existen**: `refs_repair.py` las reparó en `0f6794d595` ("1038 referencias en 166 ficheros → 0 en 42 números"), **setenta minutos después** de escribirse este hallazgo. MEDIDO hoy con el módulo cargado: `refs_colgadas()` da **0** con el mapa congelado y **0** con el diff, sobre **541 ficheros**. La premisa de urgencia estaba obsoleta al escribirse. |
+> | 2 | *"hay que escribir las 43 a mano desde el índice viejo"* — el historial no tiene destino | **REFUTADO.** El destino ya existe y está escrito: **`08-ARQUITECTURA/tools/REENVIO-FINDINGS.tsv`**, 43 filas de datos, versionado en `2d2873c`, y su `sha256_cuerpo` declarado `9a208d177bfd2517…` **VERIFICA** —con la normalización "solo las filas de datos, unidas con `\n` y con `\n` final" (MEDIDO: 6 normalizaciones probadas, 1 coincide). Su cabecera dice literalmente *"La tabla Markdown FINDINGS-RENUMERACIONES.md es una VISTA de aqui. Este es el dato. Ante discrepancia, gana este."* |
+> | 3 | *"MEDIDO: el campo `RENUMERADO_DE=N` no existe en ninguno de los 540 ficheros"* | **REFUTADO.** Existe en **5 hallazgos**, con tres grafías distintas y sin esquema: `1020-…md:4` (`RENUMERADO: 1011 → 1020`), `271-…md:11` (`RENUMERADA`), `947-…md:26`, `962-…md:60`, `994-…md:11`. |
+>
+> ### Y el que se sostiene, y que es el que motivó el arreglo
+>
+> La medición central —**regenerar pone 0 donde hay 43**— es **CORRECTA**, y
+> quedaba abierta por una causa concreta que este hallazgo no encontró:
+>
+> ```
+> 08-ARQUITECTURA/tools/findings_index.py:611
+>     rev = reenvios(filas, d)          <-- el diff contra HEAD
+> ```
+>
+> Esa era **la única línea del fichero que usaba el diff**. Sus dos hermanos en el
+> mismo fichero (`:710`) y los dos de `refs_repair.py` (`:254`, `:411`) usaban
+> `reenvios_estable()`, que lee el mapa congelado. MEDIDO el contraste:
+>
+> ```
+> reenvios()          ->  0 pares
+> reenvios_estable()  -> 43 pares
+> ```
+>
+> No era un criterio distinto: era que nadie lo comprobó. **Corregido en
+> `f47f7f3`**, y la puerta que este hallazgo puso sigue armada — MEDIDO que con el
+> TSV apartado da `rc=2` y con el TSV presente escribe.
+>
+> ### Lo que este hallazgo acertó y no estaba en su propia lista
+>
+> *"el renumerado reutiliza el número viejo para otro hallazgo, y por eso git lo
+> registra como borrado + añadido, no como renombrado"*. Eso es lo que hace que
+> las commiteadas **no se vean nunca** por la vía del diff, y es la razón de
+> fondo de que el destino tenga que ser un fichero y no git. Correcto, y era el
+> dato más difícil de los cuatro.
+
 `CLASSIFICATION=MEASUREMENT` · `TRACK=STATIC`
 `CORPUS=N/A` · `HARDWARE_SCOPE=N/A` (ningún acceso a hardware)
 `WORK_CLASS=READ_WRITE` · `WRITE_EXECUTION=NONE` · `MODIFICATIONS=1`
@@ -132,7 +176,7 @@ destruir con un comando. Tres destinos posibles, ninguno bueno:
 |---|---|---|
 | **`findings/_reservas/*.res`** | ya es el sitio de "número reservado", y ya hay 5 stubs | MEDIDO hoy: los stubs tienen `numero`, `pid`, `agent` y timestamp, **pero no el renumerado**. Habría que cambiar su formato y no se puede recuperar lo que no está |
 | **un fichero de historial explícito** | un registro por renumeración, append-only, con su sha256 | hay que escribir las 43 a mano desde el índice viejo, y el día que se vuelva a renumerar hay que acordarse de escribir |
-| **la cabecera de cada hallazgo** (`RENUMERADO_DE=N` en el `.md`) | sobrevive al renumerado, porque viaja con el fichero | MEDIDO: no existe ese campo en ninguno de los 540 ficheros, y las 43 filas del índice viejo habría que volcarlas |
+| **la cabecera de cada hallazgo** (`RENUMERADO_DE=N` en el `.md`) | sobrevive al renumerado, porque viaja con el fichero | **← REFUTADO, YA ESTÁ EN USO**: 5 hallazgos, tres grafías, sin esquema. Y es el **único** destino que puede guardar 4 renumeraciones que no están en git ni en el TSV, porque de ellas solo se conserva el **número** viejo, nunca el nombre de fichero |
 
 La tercera es la que sobrevive a `tar`, a `cp` y a un `checkout`, y es la coherente
 con el resto del proyecto. Pero es una decisión de convención, no una medida, y

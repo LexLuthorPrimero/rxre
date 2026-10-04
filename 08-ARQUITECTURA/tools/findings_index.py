@@ -608,7 +608,48 @@ def escribir_reenvio(d=FIND, destino=None,SIMULAR=False):
     if filas is None:
         return None, "no existe %s" % d
     col = colisiones(filas)
-    rev = reenvios(filas, d)
+
+    # MEDIDO Y CORREGIDO 2026-10-04.  ESTA ERA LA UNICA LINEA DEL FICHERO QUE
+    # USA EL DIFF.
+    #
+    #     rev = reenvios(filas, d)          <-- ANTES, aqui
+    #
+    # Es decir:  el escritor de la vista Markdown derivaba las renumeraciones de
+    # la diferencia entre el ARBOL DE TRABAJO y HEAD,  mientras sus dos hermanos en
+    # el MISMO fichero  —main(), :710—  y los dos de refs_repair.py  (:254, :411)
+    # usan reenvios_estable(),  que lee el mapa congelado.
+    #
+    # MEDIDO el contraste,  con el modulo cargado tal cual:
+    #
+    #     reenvios()          ->  0 pares
+    #     reenvios_estable()  -> 43 pares
+    #
+    # Y que el diff de 0 sea correcto  —no un fallo—  es que las renumeraciones ya
+    # estan COMMITEADAS.  Y no se veran nunca por esa via,  y hay una razon de
+    # fondo:
+    #
+    #     el renumerado REUTILIZA el numero viejo para otro hallazgo.
+    #     $ git log --diff-filter=R --name-status -- 06-INGENIERIA-INVERSA/findings/
+    #     (0 lineas)
+    #
+    # El 52 se renumero a 193  y hoy findings/052-*.md  existe con OTRO contenido.
+    # Git ve BORRADO + ANADIDO,  no un renombrado,  porque el nombre se reutilizo.
+    #
+    # CONSECUENCIA:  antes de este cambio  escribir_reenvio()  ponia 0
+    # renumeraciones donde el indice de disco tenia 43.  El mapa congelado ES la
+    # copia  —versionado en 2d2873c,  y su sha256_cuerpo declarado
+    # 9a208d177bfd2517...  VERIFICA  —con la normalizacion "solo las filas de
+    # datos, unidas con \n y con \n final"—,  y es lo que deben leer las tres
+    # consumidoras.  Que una leyera otra cosa no era un criterio distinto:  era
+    # que nadie lo comprobo.
+    #
+    # Y POR QUE ESTO NO DEJA INUTIL LA PUERTA QUE PUSO 1036:  la puerta compara
+    # lo que se va a escribir contra lo que hay en disco.  Con el mapa dando 43  y
+    # el indice dando 43,  no hay perdida  —asi que escribe—.  Si el TSV
+    # desapareciera,  reenvios_estable() daria menos de 43  y la puerta volveria a
+    # negarse.  MEDIDO:  con el TSV apartado sale rc=2;  con el TSV presente
+    # escribe.
+    rev = reenvios_estable(d=d)
     fuera = refs_colgadas(filas, rev, d)
 
     # MEDIDO 2026-10-04:  la comprobacion de la puerta.  Va DESPUES de calcular
@@ -626,9 +667,24 @@ def escribir_reenvio(d=FIND, destino=None,SIMULAR=False):
                   "contra HEAD,  y las commiteadas no se ven  —porque el "
                   "numero viejo se reutiliza para otro hallazgo  y git lo "
                   "registra como borrado + anadido,  no como renombrado.", file=sys.stderr)
-            print("  Regenerar aqui pondria 0 donde hay %d,  y las %d "
-                  "referencias colgando dejarian de estar registradas."
-                  % (n_rev_antes, n_col_antes), file=sys.stderr)
+            if n_col_antes:
+                print("  Regenerar aqui pondria 0 donde hay %d,  y las %d "
+                      "referencias colgando dejarian de estar registradas."
+                      % (n_rev_antes, n_col_antes), file=sys.stderr)
+            else:
+                # MEDIDO 2026-10-04: la primera version de este mensaje
+                # imprimia SIEMPRE el numero de referencias colgando leido del
+                # indice.  Y MEDIDO que hoy es 0  —las 1038 que habia las
+                # reparo refs_repair.py en 0f6794d595—  de modo que el mensaje
+                # decia "y las 0 referencias colgando dejarian de estar
+                # registradas".  Un mensaje que anuncia una perdida de cero no
+                # es un mensaje:  es ruido que entrena a ignorar el resto.
+                print("  Regenerar aqui pondria 0 donde hay %d renumeraciones."
+                      % n_rev_antes, file=sys.stderr)
+                print("  MEDIDO:  las referencias colgando ya son 0  —las reparo "
+                      "refs_repair.py en 0f6794d595—,  asi que ese dato del "
+                      "indice de disco esta VIEJO y no se imprimen aqui para no "
+                      "anunciar una perdida de cero.", file=sys.stderr)
             print("  Para regenerar hay que decidir antes donde vive ese "
                   "historial:  el indice no es derivable del arbol.", file=sys.stderr)
             return None, ("perdio %d renumeraciones y %d referencias colgando"
