@@ -252,7 +252,107 @@ def parse_tool(t, root):
 # TL entries naming a tool that does not exist -- an "orphan" that was really a
 # move -- AND it missed every tool in the second directory.  A registry that
 # scans half the tools is not a registry.
-TOOL_DIRS = ("tools", "08-ARQUITECTURA/tools")
+# MEDIDO Y CORREGIDO 2026-10-04.  FALTA UN TERCER DIRECTORIO, y el motivo de que
+# falte es la misma razon por la que falta:  NADIE COMPROBO QUE SE.
+#
+# El comentario de arriba de esta constante ya es la historia de ESTE defecto una
+# vez:  "la primera version de este fichero escaneaba solo tools/,  de modo que
+# reporto tres herramientas movidas como SI ESTUVIERAN PERDIDAS  y no vio ninguna
+# del segundo directorio.  Un registro que escanea la mitad no es un registro."
+#
+# MEDIDO que se repitio,  y mas grave.  Hay un TERCER directorio:
+#
+#     tools/                                     75 ejecutables
+#     08-ARQUITECTURA/tools/                      73
+#     04-IMPLEMENTACION/rx550-driver/tools/        6     <-- invisible aqui
+#
+# Y MEDIDO que HAY TRES ALCANCES DISTINTOS Y NINGUNO DE ACUERDO:
+#     toolreg.py   dos directorios
+#     artifacts.py  UN directorio  —  os.path.join(root, "tools")  sin lista
+#
+# Con eso el registro de herramientas  —que es GENERADO,  asi que no se nota a
+# ojo—  clasificaba 72 filas mientras habia 154 ejecutables.  No es que este mal:
+# es que no existe,  y una herramienta que no existe no se ejecuta,  no se cita con
+# su hash  y no puede marcarse VALIDATED.
+#
+# Y AHORA HAY UNA PUERTA  —ver directorios_no_declarados()—  que hace que un
+# CUARTO directorio no pueda volverse invisible igual:  recorre el arbol buscando
+# cualquier directorio llamado "tools"  y falla si no esta en esta tupla.
+#
+# MEDIDO por la puerta recien anadida  —directorios_no_declarados()—,  que
+# encontro TRES mas en la misma pasada.  Y los tres contienen herramientas
+# REALES,  no directorios con nombre de tools:
+#
+#   04-IMPLEMENTACION/tools/   rx550_compress.c, rx550_decompress.c
+#       Un codificador PNG -> BC3  y su decodificador de referencia.  MEDIDO por
+#       su propio prologo:  "A thin driver over ../compressor/rx550_compress.c ...
+#       the SAME object the module's unit tests exercise".
+#
+#   09-POWER-CLOCKS/tools/      rx550_load.c, rx550_hold.c
+#       MEDIDO por su prologo:  "AGENT-22 research instrument ... generate REAL,
+#       verifiable GPU load headlessly on the RX550 and, in the same loop, sample
+#       the amdgpu power/clock chain, so that WORKLOAD -> GPU_BUSY -> SCLK/MCLK ->
+#       vddgfx -> PPT -> edge TEMP is measured time-correlated on this target".
+#
+#       Es decir:  LOS INSTRUMENTOS DE RENDIMIENTO DEL PROYECTO.  Y MEDIDO que
+#       NO estaban en el registrogenerated.  Para una tabla cuyo trabajo es
+#       "cada herramienta, su hash, si tiene selftest, y su clasificacion",  que
+#       lo que produce carga medible este invisible es el defecto mas grave de los
+#       que ha dado esta puerta.
+#
+#   01-AUDITORIA/tools/         inventario_universo.py
+#       Y este ultimo  —MEDIDO por su propio docstring—  explica por que esta
+#       donde esta:  "POR QUE ESTA EN 01-AUDITORIA Y NO EN tools/".  O sea que hay
+#       una razon escrita  y el coste de ignorarla era invisible.
+#
+# Ninguno se puede dejar fuera "porque no es lo habitual":  la razon por la que un
+# directorio NO se declara tiene que ser una razon  —por ejemplo "aqui hay fuente
+# del kernel, no herramientas"—  y estos tres no la tienen.
+TOOL_DIRS = ("tools", "08-ARQUITECTURA/tools",
+             "04-IMPLEMENTACION/rx550-driver/tools",
+             "04-IMPLEMENTACION/tools",
+             "09-POWER-CLOCKS/tools",
+             "01-AUDITORIA/tools")
+
+
+def directorios_no_declarados(repo, skip=(".git", "RESEARCH", "node_modules",
+                                          "__pycache__")):
+    """Todo directorio llamado `tools` del arbol que no este en TOOL_DIRS.
+
+    MEDIDO 2026-10-04.  ESTA ES LA PUERTA que faltaba,  y nace de un fallo que ya
+    ha pasado DOS VECES:
+
+      · la primera version de este fichero escaneaba solo  tools/
+      · despues se anadio  08-ARQUITECTURA/tools/  porque tres herramientas se
+        habian movido ahi  y el registro las reportaba como perdidas
+      · y un TERCER directorio aparecio  —rx550-driver/tools/,  con seis
+        ejecutables  entre ellos el verificador del manifiesto del corpus—  y
+        nadie lo anadio,  porque nada comparaba el arbol con la tupla.
+
+    La tupla es una DECLARACION  y el arbol es la MEDIDA.  Si divergen,  el
+    registro esta incompleto  y no hay forma de que eso se note mirando el
+    fichero:  el numero que sale es el de lo que se veia.
+
+    El alcance de la busqueda va en el valor de retorno  —una tupla con
+    `encontrados` y `faltan`—  porque  "no he encontrado nada"  sin decir donde se
+    ha mirado no es un resultado:  es un olvido.
+    """
+    vistos = []
+    faltan = []
+    for dirpath, dirnames, filenames in os.walk(repo):
+        rel = os.path.relpath(dirpath, repo)
+        dirnames[:] = [d for d in dirnames
+                       if d not in skip and not d.startswith(".")]
+        if os.path.basename(dirpath) != "tools":
+            continue
+        # `RESEARCH/` puede contener arboles de kernel con directorios tools:  no
+        # son herramientas de ESTE proyecto y no pueden registrarse.
+        if rel.split(os.sep)[0] in ("RESEARCH", "rx550-upstream-7.2.8"):
+            continue
+        vistos.append(rel.replace(os.sep, "/"))
+        if rel.replace(os.sep, "/") not in TOOL_DIRS:
+            faltan.append(rel.replace(os.sep, "/"))
+    return vistos, faltan
 
 
 def inventory(repo):
@@ -576,6 +676,61 @@ def run_selftest():
         else:
             print("  FAIL  attribution wrong: %r" % good.doc_tl)
             fails += 1
+
+        # ── LA PUERTA DE DIRECTORIOS, Y SUS CONTROLES NEGATIVOS ─────────────
+        #
+        # MEDIDO 2026-10-04.  Esta puerta nace de un fallo que ya ha pasado DOS
+        # VECES por la misma causa:  el alcance de "donde viven las herramientas"
+        # es una DECLARACION  —TOOL_DIRS—  y nadie la compara con el arbol.  La
+        # primera vez se escaneaba solo tools/;  la segunda se anadio
+        # 08-ARQUITECTURA/tools/ porque tres herramientas movidas se reportaban
+        # como perdidas;  y un TERCER  —y luego tres mas—  aparecieron sin que
+        # nadie los anadiera.
+        #
+        # El vector se construye con un arbol real en un temporal,  y se exige
+        # que la puerta LO DETECTE.  Una puerta que solo se ejecuta sobre el
+        # arbol del proyecto  —donde hoy esta verde—  no demuestra que sepa
+        # decir que no.
+        import tempfile as _tf
+        with _tf.TemporaryDirectory() as td2:
+            os.makedirs(os.path.join(td2, "tools"))
+            os.makedirs(os.path.join(td2, "caja", "tools"))
+            os.makedirs(os.path.join(td2, "RESEARCH", "linux", "tools"))
+            with open(os.path.join(td2, "caja", "tools", "x.py"), "w") as fh:
+                fh.write("#!/usr/bin/env python3\n")
+
+            checks += 1
+            vistos, faltan = directorios_no_declarados(td2)
+            if ("caja/tools" in vistos and "caja/tools" in faltan
+                    and "tools" not in faltan
+                    and not any(v.startswith("RESEARCH") for v in vistos)):
+                print("  OK    la puerta ve 3 directorios y senala el que no esta declarado")
+            else:
+                print("  FAIL  la puerta no senala caja/tools: vistos=%r faltan=%r"
+                      % (vistos, faltan))
+                fails += 1
+
+            # CONTROL NEGATIVO:  la misma llamada con un arbol sin directorios
+            # escondidos tiene que devolver una lista vacia de faltantes.  Si
+            # devolviera algo, la puerta estaria avisando de cualquier cosa.
+            with _tf.TemporaryDirectory() as td3:
+                os.makedirs(os.path.join(td3, "tools"))
+                checks += 1
+                v3, f3 = directorios_no_declarados(td3)
+                if f3 == [] and "tools" in v3:
+                    print("  OK    sin directorios escondidos, la puerta no reporta ninguno")
+                else:
+                    print("  FAIL  falso positivo: %r" % (f3,))
+                    fails += 1
+
+            # Y EL ALCANCE, que va en el valor de retorno:  "no he encontrado
+            # nada" sin decir donde se ha mirado no es un resultado.
+            checks += 1
+            if len(vistos) == 2:
+                print("  OK    la puerta declara su alcance: %d directorios mirados" % len(vistos))
+            else:
+                print("  FAIL  alcance inesperado: %r" % (vistos,))
+                fails += 1
 
     print("  " + "-" * 62)
     print("  %d checks, %d failures" % (checks, fails))
