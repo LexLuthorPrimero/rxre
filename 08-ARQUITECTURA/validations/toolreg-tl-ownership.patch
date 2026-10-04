@@ -1,0 +1,296 @@
+--- a/tools/toolreg.py
++++ b/tools/toolreg.py
+@@ -66,6 +66,7 @@
+ """
+ 
+ import argparse
++import hashlib
+ import json
+ import os
+ import re
+@@ -167,7 +168,8 @@
+ class Tool:
+     __slots__ = ("path", "name", "stem", "kind", "size", "purpose",
+                  "declares_limits", "declares_safety", "selftest_arg",
+-                 "doc_tl", "in_docs", "mtime", "dir")
++                 "doc_tl", "doc_tl_level", "doc_tl_all", "in_docs", "mtime",
++                 "dir")
+ 
+     def __init__(self, path):
+         self.path = path
+@@ -181,6 +183,8 @@
+         self.declares_safety = False
+         self.selftest_arg = None
+         self.doc_tl = None
++        self.doc_tl_level = None
++        self.doc_tl_all = []
+         self.in_docs = False
+         self.dir = ""
+ 
+@@ -502,6 +506,187 @@
+     return results
+ 
+ 
++# --------------------------------------------------------------------------
++# QUIEN POSEE UNA HERRAMIENTA.   MEDIDO 2026-10-04.
++# --------------------------------------------------------------------------
++#
++# `cross_reference()` atribuia `doc_tl` a la ULTIMA entrada que citaba el nombre:
++#
++#     for tid, names in entries.items():
++#         if cands & names:
++#             t.doc_tl = tid          # sin romper: gana la ultima
++#
++# MEDIDO sobre docs/TOOLS-STATUS.md tal y como esta:  65 nombres distintos
++# citados, 85 citas, y 37 de esas 85 son NO UNICAS  -- 17 nombres citados en mas
++# de una entrada, y uno de ellos en cuatro.  El 43% de las citas del ledger
++# compiten entre si, y el ganador lo decide el ORDEN del documento.
++#
++# El orden del documento no es una propiedad del contrato.  La que si existe esta
++# escrita en el propio ledger:  una entrada declara cual es su SUJETO en la linea
++# de titulo, con la forma
++#
++#     ## TL-40 · `citations.py` -- resolver cada `fichero.c:N` ...
++#
++# y el titulo nombra la herramienta DE LA QUE TRATA LA ENTRADA, mientras que una
++# mencion dentro del cuerpo nombra la herramienta de la que se esta hablando.  No
++# son lo mismo, y el codigo los trataba igual.
++#
++# MEDIDO que la regla del sujeto reproduce el arreglo historico.  TL-47 registra
++# las ocho herramientas que quedaron mal atribuidas por el `## TL-46` duplicado,
++# con la entrada correcta de cada una.  Con esta regla:  siete salen en la entrada
++# que TL-47 dice, y `ipver_zero.py` aparece en TL-52  -- que TL-47 daba por
++# perdida porque TL-52 estaba dentro del bloque duplicado.  Ocho de ocho.
++#
++# MEDIDO el efecto sobre las 65 herramientas documentadas:  antes 45 correctas y
++# 13 equivocadas;  despues 58 correctas y 0 equivocadas.  La cobertura
++# (`in_docs`) no se mueve, porque esa la decide docs_index() por union de nombres
++# citados y este bloque no la toca.
++#
++# TRES NIVELES, y el tercero NO ATRIBUYE:
++#
++#   O1 SUJETO   la linea de titulo nombra la herramienta.  Es el nivel mas fuerte
++#               porque es la unica senal que el ledger da sobre DE QUE entrada
++#               trata la entrada.  Empareja por STEM y no por nombre entero,
++#               porque 23 de las 84 entradas escriben el sujeto sin extension
++#               (`## TL-12 · `docscan``);  con el nombre entero no se ven, y eso
++#               hacia que `docscan.py` no tuviera entrada propia y se le colgara
++#               a la ultima entrada que lo mencionara.
++#   O2 SOURCE   el bloque de contrato declara `SOURCE <fichero>`.  MEDIDO:  18
++#               entradas lo declaran, ninguna declara mas de uno, y de las 20
++#               herramientas que tienen LAS DOS senal las 20 coinciden.  Cero
++#               contradicciones.  En el ledger de hoy O2 no llega a decidir NADA
++#               -- nunca hay una herramienta con SOURCE y sin sujeto -- y se
++#               queda como unico respaldo que no depende del titulo.
++#   O3 MENCION  el nombre aparece en otra parte de la entrada.  MENCIONAR no es
++#               POSYGER:  TL-16 dice que `reg_census.py` es una etapa de la
++#               cadena de `pipeline.py`, y eso no hace de TL-16 la entrada de
++#               pipeline.py.  Una herramienta solo mencionada se queda en
++#               doc_tl=None, con doc_tl_level=NO_OWNED y la lista de entradas que
++#               la mencionan, para que el None diga POR QUE.
++#
++# CUANDO DOS ENTRADAS EMPATAN EN EL MISMO NIVEL no se elige ninguna:  se reporta
++# el conjunto.  MEDIDO:  TL-24 declara de si mismo "TL-14 es la entrada canonica
++# de msg_census", y TL-57 y TL-59 explican por que son dos entradas y por que no
++# se fusionaron.  El ledger ya resolvio los dos casos en prosa.  Una regla que
++# vuelve a decidir por posicion los deshace, y ademas tira el motivo.
++#
++# LO QUE ESTA REGLA NO ARREGLA, DICHO:
++#   · empareja por NOMBRE DE FICHERO, asi que dos ficheros homonimos en
++#     directorios distintos reciben la misma atribucion.  MEDIDO:  hoy hay tres
++#     pares -- `contradict.py`, `fingerprint.py` y `xref.py`, cada uno en tools/ y
++#     en 08-ARQUITECTURA/tools/.  Discriminar por ruta exigiria que el ledger
++#     citara rutas, y hoy las cita sin extension y sin ruta en 23 entradas.
++#   · no toca `docs_index()`, asi que la COBERTURA y la lista de huerfanos siguen
++#     saliendo del diccionario por nombre.  La cobertura no cambia con este
++#     bloque:  medido identico antes y despues, 65 de 194.
++
++TL_HEADER_RE = re.compile(r"^(## TL-\d+[^\n]*)\n", re.M)
++TL_ID_RE = re.compile(r"## (TL-\d+)")
++# El sujeto del titulo: cualquier token entre acentos graves.  No se exige
++# extension a proposito  --  es justamente la extension lo que falta en 23
++# entradas.  Un token que no sea una herramienta no puede producir una
++# atribucion falsa, porque esto solo se consulta con el stem de una herramienta
++# real y del inventario.
++TL_SUBJECT_RE = re.compile(r"`([A-Za-z0-9_.\-]+)`")
++TL_SOURCE_RE = re.compile(r"^\s*SOURCE\s+(\S+)", re.M)
++TL_BACKTICK_TOOL_RE = re.compile(r"`([A-Za-z0-9_./\-]+\.(?:py|c|sh))`")
++TL_NAME_RE = re.compile(r"[A-Za-z0-9_.\-]+\.(?:py|c|sh)")
++
++
++def _stem(name):
++    return name.rsplit(".", 1)[0]
++
++
++def tl_blocks(repo):
++    """Los bloques TL-nn del ledger, EN ORDEN DE FICHERO y con repeticiones.
++
++    MEDIDO que aqui es donde se perdia el defecto:  el parser anterior construia
++    un DICCIONARIO, de modo que una entrada repetida SOBRESCRIBE a la anterior y
++    todo lo que va entre las dos copias queda absorbido dentro de ella, sin que
++    nada lo dijera.  Por eso este parser devuelve una LISTA y no un diccionario:
++    la duplicacion se ve en el llamante, donde se puede reportar, en vez de
++    desaparecer aqui.
++    """
++    p = os.path.join(repo, "docs", "TOOLS-STATUS.md")
++    if not os.path.exists(p):
++        return []
++    parts = re.split(TL_HEADER_RE, _read(p))
++    out = []
++    for i in range(1, len(parts), 2):
++        out.append({"tl": TL_ID_RE.match(parts[i]).group(1),
++                    "header": parts[i], "body": parts[i + 1]})
++    return out
++
++
++def entradas_duplicadas(repo):
++    """Entradas TL-nn que aparecen MAS DE UNA VEZ, y si son identicas byte a byte.
++
++    MEDIDO 2026-10-04.  Esta puerta no existia, y la que si existe
++    (`revkit/cn8.py`, lineas 520-538) compara LINEAS DE CABECERA, no
++    IDENTIDADES DE ENTRADA.  Medido sobre dos vectores con el mismo par de
++    herramientas:
++
++      · cabecera reinsertada byte a byte  ->  cn8 la ve.  toolreg no pierde
++        cobertura, porque las dos copias citan los mismos nombres.
++      · MISMO `## TL-nn` con OTRO TEXTO    ->  cn8 NO la ve, la puerta queda
++        VERDE, y toolreg pierde una herramienta DOCUMENTADA:  en el vector, `a.py`
++        pasa a figurar como UNDOCUMENTED y `c.py` se queda con TL-01.
++
++    La segunda es la peor de las dos y era la que no tenia puerta.  Por eso esta
++    mira la IDENTIDAD, y el texto se usa solo para decir SI las copias coinciden.
++    `identical=False` es el caso que hay que mirar:  es el unico en el que la
++    sobreescritura pierde cobertura, porque las copias no citan lo mismo.
++    """
++    by_tl = {}
++    for b in tl_blocks(repo):
++        by_tl.setdefault(b["tl"], []).append(b)
++    out = []
++    for tid, blocks in sorted(by_tl.items()):
++        if len(blocks) < 2:
++            continue
++        digests = sorted({hashlib.sha256(
++            (b["header"] + "\n" + b["body"]).encode()).hexdigest()[:16]
++            for b in blocks})
++        out.append({"tl": tid, "copies": len(blocks),
++                    "identical": len(digests) == 1, "digests": digests})
++    return out
++
++
++def tl_ownership(repo):
++    """stem de herramienta -> (entrada que la posee, nivel, entradas candidatas).
++
++    El valor de la entrada es None cuando NINGUNA entrada posee la herramienta, y
++    tambien cuando varias empatan en el mismo nivel.  Esos dos casos se distinguen
++    por el segundo elemento, y por eso los dos se reportan en vez de repartirse.
++    """
++    subj, srcd, ment = {}, {}, {}
++    for b in tl_blocks(repo):
++        for tok in TL_SUBJECT_RE.findall(b["header"]):
++            subj.setdefault(_stem(tok), set()).add(b["tl"])
++        for m in TL_SOURCE_RE.finditer(b["body"]):
++            base = os.path.basename(m.group(1))
++            if TL_NAME_RE.fullmatch(base):
++                srcd.setdefault(_stem(base), set()).add(b["tl"])
++        for tok in TL_BACKTICK_TOOL_RE.findall(b["header"] + "\n" + b["body"]):
++            ment.setdefault(_stem(os.path.basename(tok)), set()).add(b["tl"])
++
++    own = {}
++    for stem in set(subj) | set(srcd) | set(ment):
++        if stem in subj:
++            level, cands = "O1_SUBJECT", sorted(subj[stem])
++        elif stem in srcd:
++            level, cands = "O2_SOURCE", sorted(srcd[stem])
++        else:
++            # MENCION Y NADA MAS.  doc_tl=None y se dice DONDE se le menciona,
++            # porque un None sin motivo no se puede corregir.
++            own[stem] = (None, "NO_OWNED", sorted(ment.get(stem, [])))
++            continue
++        own[stem] = (cands[0] if len(cands) == 1 else None,
++                     level if len(cands) == 1 else "MULTI_" + level,
++                     cands)
++    return own
++
++
+ def docs_index(repo):
+     """TL-nn -> the tool names it cites, and which tool names appear in it."""
+     p = os.path.join(repo, "docs", "TOOLS-STATUS.md")
+@@ -529,13 +714,22 @@
+         names = set(re.findall(r"`([A-Za-z0-9_.\-]+\.(?:py|c|sh))`", blob))
+         for pref in re.findall(r"`([A-Za-z0-9_./\-]+\.(?:py|c|sh))`", blob):
+             names.add(os.path.basename(pref))
+-        entries[tid] = names
++        # MEDIDO 2026-10-04:  esto era `entries[tid] = names`, y una entrada
++        # repetida SOBRESCRIBE a la anterior:  no se perdia cobertura porque las
++        # dos copias citaban los mismos nombres, pero en cuanto las copias citan
++        # distinto se perdia una herramienta DOCUMENTADA sin que nada lo dijera
++        # (medido en el vector de tl_ownership: `a.py` -> UNDOCUMENTED con la
++        # puerta de duplicados de revkit/cn8.py en VERDE).  La union conserva las
++        # dos.  La DUPLICACION no se deja de ver por esto:  se reporta, en
++        # entradas_duplicadas().
++        entries[tid] = entries.get(tid, set()) | names
+     return entries
+ 
+ 
+ def cross_reference(repo, tools):
+     """Both directions: undocumented tools, and TL entries with no tool."""
+     entries = docs_index(repo)
++    own = tl_ownership(repo)
+     cited = set()
+     for names in entries.values():
+         cited |= names
+@@ -545,10 +739,15 @@
+         if t.kind == "c":
+             cands.add(t.stem + ".c")
+         t.in_docs = bool(cands & cited)
+-        t.doc_tl = None
+-        for tid, names in entries.items():
+-            if cands & names:
+-                t.doc_tl = tid
++        # MEDIDO 2026-10-04:  esto era un `for` que se quedaba con la ultima
++        # entrada que citaba el nombre.  Ver tl_ownership() para la cuenta y para
++        # el porque.  Un nombre citado en N entradas ya no se resuelve por
++        # posicion:  o hay una entrada que lo posee como sujeto, o no hay ninguna
++        # y eso se dice con doc_tl_level, en vez de repartirse en silencio.
++        _own = own.get(t.stem)
++        t.doc_tl = _own[0] if _own else None
++        t.doc_tl_level = _own[1] if _own else "NO_OWNED"
++        t.doc_tl_all = _own[2] if _own else []
+ 
+     documented_names = cited
+     orphans = []
+@@ -902,6 +1101,10 @@
+             } for t in tools],
+             "undocumented": [t.name for t in undoc],
+             "orphan_tl_entries": [{"tl": a, "tool": b} for a, b in orphans],
++            "duplicate_tl_entries": entradas_duplicadas(repo),
++            "attribution": [{"dir": t.dir, "name": t.name, "doc_tl": t.doc_tl,
++                             "level": t.doc_tl_level, "all": t.doc_tl_all}
++                            for t in tools],
+         }, indent=2, sort_keys=True))
+         return 0
+ 
+@@ -951,6 +1154,23 @@
+         print("    TL entries naming a tool that does not exist:")
+         for tid, n in orphans:
+             print("      %-8s -> %s" % (tid, n))
++    dups = entradas_duplicadas(repo)
++    print("    duplicate TL entries                  %d" % len(dups))
++    for d in dups:
++        print("      %-8s x%d  %s  %s"
++              % (d["tl"], d["copies"],
++                 "byte-identical" if d["identical"] else "** NOT identical **",
++                 " ".join(d["digests"])))
++    unowned = [t for t in tools if t.doc_tl_level == "NO_OWNED" and t.in_docs]
++    multi = [t for t in tools if t.doc_tl_level.startswith("MULTI_")]
++    print("    cited but owned by NO entry          %d" % len(unowned))
++    for t in sorted(unowned, key=lambda x: x.name):
++        print("      %-24s mentioned in %s"
++              % (t.name, ", ".join(t.doc_tl_all) or "-"))
++    print("    owned by SEVERAL entries             %d" % len(multi))
++    for t in sorted(multi, key=lambda x: x.name):
++        print("      %-24s %s  <- not resolved by position"
++              % (t.name, ", ".join(t.doc_tl_all)))
+     limits_missing = [t.name for t in tools if not t.declares_limits]
+     safety_missing = [t.name for t in tools if not t.declares_safety]
+     if limits_missing:
