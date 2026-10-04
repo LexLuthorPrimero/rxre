@@ -1,0 +1,69 @@
+# corpus-amdgpu-instrumented-linux-7.1.3.txt
+# Hermano de corpus-amdgpu-sha256-linux-7.1.3.txt. Mismos 61 ficheros, mismo orden.
+# Campos separados por TAB:
+#   1 sha256 tal y como esta en RESEARCH/kernelbuild/linux-7.1.3
+#   2 ruta relativa al arbol
+#   3 instrumented: yes | no | NOT_DETERMINED
+#   4 delta en BYTES respecto al tarball oficial (negativo = mas pequeno).
+# Generado 2026-10-04 01:43:20. Criterio de la columna 3 en la cabecera del manifiesto.
+0c898aaf5272a92d441b3f26eb1f48a96ba25da012851cc2bdc2063657982228	arch/x86/include/asm/io.h	no	0
+1f48181de6d808a86af2c4d702ed9d25fafec44e1a405ca02c8e70bd4d9887f8	arch/x86/lib/iomem.c	no	0
+e115aaf1f416293e61f974fec0058e2838a9ef23e54463e037c3db16e8a01bf2	drivers/gpu/drm/amd/amdgpu/amdgpu.h	no	0
+660f40f1af97f39a0ad19e4d2742930ec198129d6795b007d2f58d6e02342abc	drivers/gpu/drm/amd/amdgpu/amdgpu_device.c	no	0
+94c9cfdca83d336c8fae56dac7549eaa63479a115f918eb66e9006214af4d7fc	drivers/gpu/drm/amd/amdgpu/amdgpu_doorbell_mgr.c	no	0
+07a1fff4f6cee85d7df6d196dd65dd75400d29d49394abe8f860204a3d237d97	drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c	no	0
+46471329ed522132a732e6fa2c809a66e92947b793cafe4171bdb61ccae07741	drivers/gpu/drm/amd/amdgpu/amdgpu_gart.c	no	0
+a85ed422b1cc0eabde14ef930a41e7c4970fc520e7a0f9f0ee2e7f5990442919	drivers/gpu/drm/amd/amdgpu/amdgpu_gart.h	no	0
+d66d01232a38df8af0a2b9d119d0e54ffdeb0626ba74451b04df6c8cc15602a7	drivers/gpu/drm/amd/amdgpu/amdgpu_gmc.c	no	0
+cacdf1bac1bd7346cb49b9839d505c7853cebe33eeda2c58355fabb674e6efeb	drivers/gpu/drm/amd/amdgpu/amdgpu_gmc.h	no	0
+6a4229e3b48f55ce4186c3f70b3f0db752b3f02dadc9374af4106a8a5c94649d	drivers/gpu/drm/amd/amdgpu/amdgpu_ids.h	no	0
+44711fe2d08ebc8647d1ce41bd1ab48eb62fabfd71f45063b90358461b18d178	drivers/gpu/drm/amd/amdgpu/amdgpu_reg_access.c	no	0
+de4f485cb8ec0aa50fe7c73d582b038a982211ce01e2bf093fd240b6b69da79e	drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c	yes	518
+10498bcb5987702da33bac86c9991696f4215439a9bdeebc862f15b8fd77d365	drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h	no	0
+98dde50a9c66cf6f80238d1119708c5268a2a4306dcc7a4bb5d2a6dc0b2f97e9	drivers/gpu/drm/amd/amdgpu/amdgpu_vm_pt.c	yes	917
+2427f5b5fcb44778a76d65a81bebe278476d34c0efb04fb96154cc2800a404d0	drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c	no	0
+4cd268c4f5a4e8952355e785816bf6db9739ad052c51f329ad449132824fff01	drivers/gpu/drm/amd/amdgpu/gfxhub_v11_5_0.c	no	0
+a12ff9af891e1de8ed8eda783aa9f8175db3f82a877ef0e99aada52ded7aebf4	drivers/gpu/drm/amd/amdgpu/gfxhub_v12_0.c	no	0
+a04d17771f745969618ff23e7ebce3e3c9b9bfa2cdc94589299f08703ec05651	drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.c	no	0
+bf032415958358b04ffb63f699c37bb0457032dcd89d54ad2e1d974526a9e472	drivers/gpu/drm/amd/amdgpu/gfxhub_v2_0.c	no	0
+94b1a294f030020ba2e71849a0762430e6d66839e3ddeee1129bb9862369fe86	drivers/gpu/drm/amd/amdgpu/gfxhub_v2_1.c	no	0
+4fc5fded8220d04bfb17d4288aeab3e6f9e083dde91246a713b2ff9a5df01fc4	drivers/gpu/drm/amd/amdgpu/gfxhub_v3_0.c	no	0
+5559d3e1b8a41fd6ddef974ad8d8fbeb68e6fd46ed1e9c74cdcf591957bb9cad	drivers/gpu/drm/amd/amdgpu/gfxhub_v3_0_3.c	no	0
+6d4896ff3c8f93f36a967515ef4e96ffd832c6725f32477195c57965e152415c	drivers/gpu/drm/amd/amdgpu/gmc_v6_0.c	no	0
+c524c12ad421eede44cdfefd3df0629f940d78181b1276330ffa518bdb7ab7da	drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c	no	0
+d76f4144138297eea412e77f25fd20ea6ac65732b480bd33fefcc5c1315a0721	drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c	no	0
+4af68b618ac72a03e315ec27a0bc2ddff8be3018cdcaeb1b44e81afa5716469f	drivers/gpu/drm/amd/amdgpu/mmhub_v1_8.c	no	0
+7de8ec66eb7ef33fade89921bac7d39ae95c7182b868b0c6e46526964fe24003	drivers/gpu/drm/amd/amdgpu/mmhub_v2_0.c	no	0
+4cdbf3e30f2a31bb36066244d966c34fa0a4148370a74b881451848db95be9bc	drivers/gpu/drm/amd/amdgpu/mmhub_v3_0.c	no	0
+76ccfbd0cb7c025755339f6a8505595663b8f7ddacad7a8e7406c22ad397df93	drivers/gpu/drm/amd/amdgpu/mmhub_v3_3.c	no	0
+fd7f219d004c944d4aa09ed5c7eae042112acb967af0dbbf6011d5afc923f6fc	drivers/gpu/drm/amd/amdgpu/mmhub_v4_1_0.c	no	0
+dd03da7ad3a67f92a6a4e28b8236f6706b39c33c0f1fdaec5951b17e1b8f25a5	drivers/gpu/drm/amd/amdgpu/sid.h	no	0
+4b42454a90a714c4c0176cfdb8ace4bd379880f98f95577acd708741d90d672d	drivers/gpu/drm/amd/amdgpu/vid.h	no	0
+2e8e70894de1edae1b7316570432c81a9e878d376f153d95311ecd808b238ca1	drivers/gpu/drm/amd/include/asic_reg/bif/bif_5_0_d.h	no	0
+5ba77de30c7c0d749b84b79a59866fb067fa02271fb931926d073fffaa681c6c	drivers/gpu/drm/amd/include/asic_reg/gc/gc_9_0_offset.h	no	0
+299228e0bbd75d0f5879efbaea0234793fa77dece92646efe6adb6f5f9832a4a	drivers/gpu/drm/amd/include/asic_reg/gca/gfx_8_0_d.h	no	0
+720506abd087412e54706bd9a98d325f8f14873a1031905572726e27e105b5d2	drivers/gpu/drm/amd/include/asic_reg/gca/gfx_8_1_d.h	no	0
+aa9fb82a5fcc372b8ecd3d9a5edadf0aa974318554997754187f68b4311da2bf	drivers/gpu/drm/amd/include/asic_reg/gmc/gmc_8_1_d.h	no	0
+19b550a86634bc3bdaff0dd92738fe5a453048a1b29995fc6b8fca42f5238e2f	drivers/gpu/drm/amd/include/asic_reg/gmc/gmc_8_1_sh_mask.h	no	0
+0b1b9eadd7a46e89b45d2d887dcf1e86c7a8ba2b4b84b20e86da4a6d1568f22d	drivers/gpu/drm/amd/include/asic_reg/gmc/gmc_8_2_d.h	no	0
+8883aeef6532d6e4dc8c91c26b7d4ae4c1384bd8e1c86ad755da1a7e222da5b9	drivers/gpu/drm/amd/include/asic_reg/gmc/gmc_8_2_sh_mask.h	no	0
+4826c68e3e7699f1ac7f0e7b07a67b14e54387630f0a37174798bdd11da53fe4	drivers/gpu/drm/amd/include/asic_reg/mmhub/mmhub_1_0_sh_mask.h	no	0
+f5e25fd18ed9f16ce0347ab888274ac10938390bcd0f470ee3280cba5c7cfa4b	drivers/pci/pci-driver.c	no	0
+ff1adc3872f643ee66fca2fdb5a47ff60e2ff79864079fcd31741d72a4afbc9b	drivers/pci/pci.c	no	0
+4bb3e8bde06fdc110ff09eefba714cc9ba14cf867872fc9ca13a5149acd370af	drivers/pci/pci.h	no	0
+7eeaa0a6fcc1839428b69ffb78b87d9580a5d2b2c81f0ee6b0797054b2ca72b7	include/linux/compiler.h	no	0
+68ad17f3670b7fcedbfa70e8cab1b2044dff1e7525697efc953527fec2825fbe	include/linux/device.h	no	0
+4263b862df9eb2e77481520850996a14a2f5eaafe611544f32ada8dfde32e5ba	include/linux/dma-mapping.h	no	0
+75e23805fff190b038f26d29754bd12dd88c6a1b284f9da2c9dea6f4ffa43ee3	include/linux/export-internal.h	no	0
+3c102bc71ce5782eab9ded0d070b225a4853265e163f4722b4e32192c9af94aa	include/linux/init.h	no	0
+f29a80797eefafbac9a9a63365d1fe1df01b78be1e23ef908f27425dda93dae5	include/linux/io.h	no	0
+0ed7dfdba324e0ce1fc732cd580338a2535727cc6a2103af9fbe027601092e33	include/linux/limits.h	no	0
+44841a17b91c244d40d0b34a26669313f0fb438fee3adefadfb22f2e0bc1de42	include/linux/mm.h	no	0
+09abc0c5cb0f6f4ba2bf73250da87e4865fdbe3ab292086058bd4b231eda0e11	include/linux/mod_devicetable.h	no	0
+5fc2b60606c87968c5f4c2b1a5a690834206879f40a74d2ac12b59256e3a3ab3	include/linux/module.h	no	0
+2f4afd51d3da5d10a721c0d198acff6f30b7ba44d554d479ba4022b5863e912e	include/linux/pci.h	no	0
+b44ef1570fc1bedbbc9561e3ec6351a97720c184cf49a3717ccf9be0658ef0cd	include/linux/slab.h	no	0
+f362d7eb69bbb57a8815fb54d6c2bfdd5e2e781e5ca587b0e0fef69f1ab4ce7c	include/linux/string.h	no	0
+9d61d2c171b2715484a3f360b386cf93da495091b143c80c79bcad219fe284b2	include/linux/types.h	no	0
+806c87c44e0a1a267b996c669ef36faeec94fee46bc4513f0d332d2169718855	include/uapi/linux/const.h	no	0
+99f352857009064137f51283090ec024b91484f057350bb1b7dbaa10c2071a4f	tools/include/nolibc/sys/stat.h	no	0

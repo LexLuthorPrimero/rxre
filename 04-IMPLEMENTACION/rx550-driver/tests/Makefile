@@ -183,7 +183,7 @@ run: $(KO) test_target_match test_resource test_regs test_vm test_fence test_sub
      test_mmio_access test_block_size test_gart_write test_ib_bridge \
      test_ib_composer test_pdb0 test_submission test_vmid0_gart test_mem \
      test_ctxpt test_update_field test_dummy_page test_gart_seq \
-     test_gart_apply test_gart_table test_vram test_vram_pool test_gart_geom \
+     test_gart_apply test_gart_table test_vram test_vram_pool test_gart_boot test_gart_geom \
      test_vmid1_pgt test_vmid1_pgt_backing
 	@./test_resource
 	@./test_regs $(CORPUS)/gfx_8_0_d.h $(CORPUS)/gfx_8_1_d.h
@@ -213,6 +213,7 @@ run: $(KO) test_target_match test_resource test_regs test_vm test_fence test_sub
 	@./test_gart_table
 	@./test_vram
 	@./test_vram_pool
+	@./test_gart_boot
 	@./test_gart_geom
 	@./test_vmid0_gart
 	@./test_vmid1_pgt
@@ -327,6 +328,20 @@ test_vram_pool: test_vram_pool.c ../rx550_vram_pool.c ../rx550_vram_pool.h \
                 ../rx550_vram.h
 	$(CC) $(CFLAGS) -o $@ test_vram_pool.c ../rx550_vram_pool.c
 
+# test_gart_boot comprueba LA SECUENCIA COMPLETA:  reserva, rellenado,
+# geometria, plan, apply y vaciado de TLB, EN ORDEN.  Hasta ahora cada pieza se
+# probaba por separado y NINGUN test comprobaba que encadenaran bien, porque el
+# orden no estaba escrito en ninguna parte:  un cambio de orden no rompia nada.
+# Este test mira ademas lo que un test de piezas no puede mirar:  que el flush va
+# DESPUES del apply, que la direccion GPU de la tabla es la que dio el pool, y que
+# un fallo a mitad dice EN QUE paso se paro.
+test_gart_boot: test_gart_boot.c ../rx550_gart_boot.c ../rx550_gart_boot.h \
+                ../rx550_gart_seq.c ../rx550_mmio_access.c \
+                ../rx550_gart_table.c ../rx550_vram_pool.c
+	$(CC) $(CFLAGS) -o $@ test_gart_boot.c ../rx550_gart_boot.c \
+		../rx550_gart_seq.c ../rx550_mmio_access.c \
+		../rx550_gart_table.c ../rx550_vram_pool.c
+
 test_gart_geom: test_gart_geom.c ../rx550_gart_geom.c ../rx550_gart_geom.h
 	$(CC) $(CFLAGS) -o $@ test_gart_geom.c ../rx550_gart_geom.c
 
@@ -349,4 +364,4 @@ clean:
 	      test_vmid0_gart test_vmid1_pgt test_vmid1_pgt_backing \
 	      test_mem test_ctxpt test_update_field test_dummy_page \
 	      test_gart_seq test_gart_apply test_gart_table test_vram \
-      test_gart_geom test_vram_pool
+      test_gart_geom test_vram_pool test_gart_boot
