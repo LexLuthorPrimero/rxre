@@ -107,10 +107,46 @@ int rx550_dummy_page_pfn(const struct rx550_dummy_page *p, uint32_t *out)
 		return RX550_DUMMY_ERR_INCONSISTENT;
 	if (p->state != RX550_DUMMY_HELD)
 		return RX550_DUMMY_ERR_STATE;
+
 	/* El registro lleva un PHYSICAL_PAGE_NUMBER de 28 bits, no una direccion.
 	 * Si esto devolviera la direccion, quien lo use escribiria un numero
-	 * plausible en un registro de paginas. */
-	*out = (uint32_t)(p->dma_pa >> RX550_PAGE_SHIFT);
+	 * plausible en un registro de paginas.
+	 *
+	 * Y MEDIDO 2026-10-04: el comentario decia el peligro y el codigo NO lo
+	 * comprobaba.  Este `>> 12` trunca en silencio cualquier PA con bits por
+	 * encima de 40, y el numero truncado es un PHYSICAL_PAGE_NUMBER valido:
+	 *  plausible, y equivocado.  Es exactamente lo contrario de lo que hace
+	 * rx550_pdb0_encode() (rx550_pdb0.c:18-21), que rechaza en vez de
+	 * truncar, y de lo que hace rx550_pdb0_map_va() con
+	 * rx550_pa_representable() (rx550_pdb0.c:161).  El predicado EXISTIA y
+	 * este camino no lo usaba:  una guarda presente en un lado y ausente en
+	 * su gemelo.
+	 *
+	 * Que se note cuando:  solo si la mascara DMA del device se queda en el
+	 * techo por defecto de 32 bits, que es lo que pasa mientras el driver no
+	 * llame a dma_set_mask_and_coherent(40).  MEDIDO en esta maquina:  la
+	 * RAM acaba en 34 bits,  luego una PA por encima de 40 NO existe y el
+	 * truncamiento es teorico aqui.  Es teorico, no inexistente:  el defecto
+	 * es que la funcion aceptaria en silencio una PA que no puede representar.
+	 *
+	 * LA COMPROBACION ES SOBRE EL NUMERO DE PAGINA, no sobre la mascara de
+	 * la PA.  MEDIDO:  la primera version usaba `(dma_pa & ~RX550_PA_MASK)`,
+	 * y eso rechazaba las PAs NORMALES, porque ~RX550_PA_MASK tambien señala
+	 * los 12 bits bajos, que son el offset DENTRO de la pagina y se
+	 * descartan con el >> 12.  Una PA como 0x123456789, que es de 37 bits y
+	 * perfectamente valida, tiene los bits bajos a 0x789 y quedaba
+	 * rechazada:  el guard era mas estricto que el hardware y rompia el caso
+	 * de todos los dias.  Lo que hay que comparar es el numero de pagina
+	 * contra su ancho, que es lo que va al registro. */
+	{
+		uint64_t pag = p->dma_pa >> RX550_PAGE_SHIFT;
+		uint64_t max_pag = (UINT64_C(1) <<
+				   (RX550_PA_BITS - RX550_PAGE_SHIFT)) - 1;
+
+		if (pag > max_pag)
+			return RX550_DUMMY_ERR_NO_PA;
+		*out = (uint32_t)pag;
+	}
 	return 0;
 }
 

@@ -100,6 +100,19 @@ struct rx550_dummy_page {
 #define RX550_DUMMY_ERR_INCONSISTENT	(-1)
 #define RX550_DUMMY_ERR_NO_MAP		(-2)	/* la HAL fallo               */
 #define RX550_DUMMY_ERR_STATE		(-3)	/* transicion ilegal          */
+/*  MEDIDO 2026-10-04:  este codigo es NUEVO.  rx550_dummy_page_pfn() hacia
+ *  `dma_pa >> 12` sin comprobar nada, y el resultado truncado es un
+ *  PHYSICAL_PAGE_NUMBER PLAUSIBLE Y EQUIVOCADO.  Su gemelo
+ *  rx550_pdb0_encode() ya rechazaba en vez de truncar (rx550_pdb0.c:18-21), y
+ *  el predicado rx550_pa_representable() ya existia (rx550_spaces.h:88) sin que
+ *  este camino lo usara.  Una guarda presente en un lado y ausente en el otro.
+ *
+ *  En esta maquina el defecto es TEORICO:  la RAM acaba en 34 bits
+ *  (0x330000000), luego una PA por encima de 40 no existe.  Se corrige igual,
+ *  porque una funcion que acepta en silencio un valor que no puede representar
+ *  es un defecto con o sin hardware que lo alcance.
+ */
+#define RX550_DUMMY_ERR_NO_PA		(-4)	/* la PA no cabe en 40 bits   */
 
 /* ABSENT -> HELD.  Devuelve el PA por `out_pa` para que el llamante no tenga
  * que leer el struct y poder comprobar el estado sin acoplar al struct. */

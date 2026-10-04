@@ -92,6 +92,88 @@ static struct rx550_dummy_ops ops_de(struct fake_hal *h)
 	return o;
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * D-NUEVO · LA GUARDA QUE FALTABA:  una PA por encima de 40 bits
+ *
+ * MEDIDO 2026-10-04: rx550_dummy_page_pfn() hacia `dma_pa >> 12` sin comprobar
+ * nada, y el resultado truncado es un PHYSICAL_PAGE_NUMBER PLAUSIBLE Y
+ * EQUIVOCADO:  no da error, no avisa, y quien lo escriba en un registro de
+ * paginas no tiene forma de saber que el numero no es el que cree.  Su gemelo
+ * rx550_pdb0_encode() ya rechazaba en vez de truncar (rx550_pdb0.c:18-21), y
+ * el predicado rx550_pa_representable() ya existia (rx550_spaces.h:88) sin que
+ * este camino lo usara.  Una guarda presente en un lado y ausente en su gemelo.
+ *
+ * En esta maquina el defecto es TEORICO:  la RAM acaba en 34 bits
+ * (0x330000000), luego una PA por encima de 40 no existe.  Se corrige igual,
+ * porque una funcion que acepta en silencio un valor que no puede representar
+ * es un defecto con o sin hardware que lo alcance.
+ */
+static void d_pa_no_representable(void)
+{
+	struct rx550_dummy_page p;
+	struct rx550_dummy_ops o;
+	struct fake_hal h;
+	struct rx550_system_pa pa;
+	uint32_t pfn = UINT32_C(0xDEADBEEF);
+
+	printf("\nD9 · PA por encima de 40 bits: se rechaza, no se trunca\n");
+	memset(&p, 0, sizeof(p));
+	memset(&h, 0, sizeof(h));
+	o = ops_de(&h);
+
+	/* 41 bits:  no representable. */
+	h.next_pa = (UINT64_C(1) << 40) + UINT64_C(0x1000);
+	memset(&pa, 0, sizeof(pa));
+	CHECK(rx550_dummy_page_init(&p, &o, &pa) == 0, "D9 init con PA de 41 bits");
+	CHECK(rx550_dummy_page_pfn(&p, &pfn) == RX550_DUMMY_ERR_NO_PA,
+	      "D9 una PA por encima de 40 bits se RECHAZA");
+	CHECK(pfn == UINT32_C(0xDEADBEEF),
+	      "D9 y el destino queda intacto: no se escribe un numero plausible");
+	CHECK(rx550_dummy_page_fault_reg(&p, &pfn) == RX550_DUMMY_ERR_NO_PA,
+	      "D9 y fault_reg, que la envuelve, rechaza igual");
+
+	/* El BORDE:  exactamente 2^40 NO cabe en 40 bits.  Una guarda que
+	 * aceptase ese valor Would dejar fuera el final del espacio. */
+	rx550_dummy_page_fini(&p);
+	h.next_pa = UINT64_C(1) << 40;
+	memset(&p, 0, sizeof(p));
+	memset(&pa, 0, sizeof(pa));
+	CHECK(rx550_dummy_page_init(&p, &o, &pa) == 0, "D9 init con PA = 2^40");
+	CHECK(rx550_dummy_page_pfn(&p, &pfn) == RX550_DUMMY_ERR_NO_PA,
+	      "D9 2^40 exacto TAMPOCO cabe en 40 bits");
+
+	/* Y el ultimo valor que SI cabe, que es el que no hay que romper. */
+	rx550_dummy_page_fini(&p);
+	h.next_pa = (UINT64_C(1) << 40) - UINT64_C(1);
+	memset(&p, 0, sizeof(p));
+	memset(&pa, 0, sizeof(pa));
+	CHECK(rx550_dummy_page_init(&p, &o, &pa) == 0, "D9 init con PA = 2^40-1");
+	CHECK(rx550_dummy_page_pfn(&p, &pfn) == 0,
+	      "D9 el ultimo valor representable SI vale");
+	/*  (2^40 - 1) >> 12 == 2^28 - 1:  el numero de pagina es de 28 bits,
+	 *  que es el ancho del PHYSICAL_PAGE_NUMBER.  Mi primera expectativa
+	 *  decia 20, y por eso fallaba. */
+	CHECK(pfn == ((UINT32_C(1) << 28) - 1),
+	      "D9 y su pfn es exactamente >> 12");
+
+	/* El caso normal, que es el de todos los dias. */
+	rx550_dummy_page_fini(&p);
+	h.next_pa = UINT64_C(0x12340000);
+	memset(&p, 0, sizeof(p));
+	memset(&pa, 0, sizeof(pa));
+	CHECK(rx550_dummy_page_init(&p, &o, &pa) == 0, "D9 init con PA normal");
+	CHECK(rx550_dummy_page_pfn(&p, &pfn) == 0, "D9 una PA normal vale");
+	CHECK(pfn == UINT32_C(0x12340), "D9 y su pfn es >> 12");
+
+	/* El codigo nuevo es DISTINTO de los otros tres.  Un espacio de errores
+	 * donde dos codigos valen lo mismo no es un espacio de errores. */
+	CHECK(RX550_DUMMY_ERR_NO_PA != RX550_DUMMY_ERR_NO_MAP, "D9 NO_PA != NO_MAP");
+	CHECK(RX550_DUMMY_ERR_NO_PA != RX550_DUMMY_ERR_STATE, "D9 NO_PA != STATE");
+	CHECK(RX550_DUMMY_ERR_NO_PA != RX550_DUMMY_ERR_INCONSISTENT,
+	      "D9 NO_PA != INCONSISTENT");
+	rx550_dummy_page_fini(&p);
+}
+
 int main(void)
 {
 	struct rx550_dummy_page p;
@@ -264,6 +346,8 @@ int main(void)
 	CHECK(rx550_dummy_page_pfn(&p, &v) == RX550_DUMMY_ERR_STATE,
 	      "D5 page_pfn sin pagina otra vez");
 	CHECK_EQ(v, 0xdeadbeef, "D5 y la salida no se toca");
+
+	d_pa_no_representable();
 
 	printf("\n  %d pass, %d fail\n", pass, fail);
 	if (fail) {
