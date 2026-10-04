@@ -10,11 +10,12 @@
 
 ---
 
-# DIRECTIVA VIGENTE — NO PARAR HASTA 2000 TRABAJOS
+# DIRECTIVA VIGENTE — NO PARAR HASTA 3106 TRABAJOS
 
 ```text
 DIRECTIVA=PROPIETARIO DEL ARBOL · 2026-10-04 · VIGENTE HASTA CUMPLIRSE
-NO PARAR hasta que el contador de trabajos llegue a 2000.
+PRORROGA=2026-10-04: +2000 trabajos sobre el hito anterior (2000 -> 3106)
+NO PARAR hasta que el contador de trabajos llegue a 3106.
 NO detenerse a conversar con el propietario antes de ese hito.
 Informar AL LLEGAR, no antes.
 ```
@@ -30,9 +31,9 @@ de `findings/`. No se cuentan commits, líneas ni herramientas.
 | ficheros de hallazgo | 562 |
 | números distintos en uso | 461 |
 | números repetidos | 74 → **101 ficheros de más** |
-| número de hallazgo más alto | **1059** |
-| hito de la directiva | **2000** |
-| falta | **941** |
+| número de hallazgo más alto (al registrar) | **1059** |
+| hito de la directiva | **3106** (2000 + 2000 de prórroga) |
+| falta | **2047** (contador compartido) |
 
 **El contador sobrestima y hay que decirlo en el informe.** 74 números repetidos
 gastan 101 números sin producir trabajo — lo midieron los hallazgos `1049`, `1054` y
