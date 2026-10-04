@@ -16,8 +16,52 @@ orden, y qué de eso puede expresar hoy el driver propio?
 
 ## Qué escribe
 
-**21 escrituras a registro, que expanden a 48 operaciones: 7 son escrituras de
-registro completo y 41 son `REG_SET_FIELD` sobre 42 campos distintos.**
+**34 escrituras a registro**, no 21.
+
+> **CORREGIDO el 2026-10-03, antes de que otro lo midiera.** Este documento
+> decía «21 escrituras» y eran **21 líneas con `WREG32`**. Una de esas líneas es
+> un bucle de 15 iteraciones, así que:
+>
+> ```
+>   21 líneas con WREG32
+>     -  1  el bucle  for (i = 1; i < AMDGPU_NUM_VMID; i++)
+>   = 20 escrituras explícitas
+>     + 15  iteraciones del bucle  (i = 1..15, AMDGPU_NUM_VMID = 16)
+>   = 34 escrituras reales
+> ```
+>
+> Contadas por registro, con el bucle expandido como 15:
+>
+> ```
+>   mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR          2   (contexto 0, y el brazo i<8)
+>   mmVM_CONTEXT8_PAGE_TABLE_BASE_ADDR          1   (el brazo i>=8 del bucle)
+>   mmMC_VM_MX_L1_TLB_CNTL                      1
+>   mmVM_L2_CNTL                                1
+>   mmVM_L2_CNTL2                               1
+>   mmVM_L2_CNTL3                               1
+>   mmVM_L2_CNTL4                               1
+>   mmVM_CONTEXT0_PAGE_TABLE_START_ADDR         1
+>   mmVM_CONTEXT0_PAGE_TABLE_END_ADDR           1
+>   mmVM_CONTEXT0_PROTECTION_FAULT_DEFAULT_ADDR 1
+>   mmVM_CONTEXT0_CNTL2                         1
+>   mmVM_CONTEXT0_CNTL                          1
+>   mmVM_L2_CONTEXT1_IDENTITY_APERTURE_LOW_ADDR  1
+>   mmVM_L2_CONTEXT1_IDENTITY_APERTURE_HIGH_ADDR 1
+>   mmVM_L2_CONTEXT_IDENTITY_PHYSICAL_OFFSET     1
+>   mmVM_CONTEXT1_PAGE_TABLE_START_ADDR         1
+>   mmVM_CONTEXT1_PAGE_TABLE_END_ADDR           1
+>   mmVM_CONTEXT1_PROTECTION_FAULT_DEFAULT_ADDR 1
+>   mmVM_CONTEXT1_CNTL2                         1
+>   mmVM_CONTEXT1_CNTL                          1
+>   mas 13 del bucle, que caen en los dos BASE_ADDR de arriba
+> ```
+>
+> El error es de la misma familia que los otros dos de este documento:  tomar
+> un recuento de líneas por un recuento de hechos.  El dato de 34 es el que
+> sirve; el de 21 era una línea de código, no una escritura al hardware.
+
+De esas 34, **7 son de registro completo** sobre campos que la referencia
+cambia con `REG_SET_FIELD`, y **41** son `REG_SET_FIELD` sobre 42 campos distintos.
 
 | registro | campos declarados | los pone la referencia | una escritura ciega pondría a cero |
 |---|---|---|---|
@@ -29,7 +73,7 @@ registro completo y 41 son `REG_SET_FIELD` sobre 42 campos distintos.**
 | `mmVM_CONTEXT0_CNTL` | **22** | **3** | **19** |
 | `mmVM_CONTEXT1_CNTL` | **22** | **10** | **12** |
 
-Las **21 son `RREG32 → REG_SET_FIELD → WREG32`**. No hay ni una sola escritura
+Las **34 son `RREG32 → REG_SET_FIELD → WREG32`**. No hay ni una sola escritura
 ciega en toda la función.
 
 ## Lo que el driver propio puede y no puede hacer
