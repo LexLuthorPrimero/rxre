@@ -557,16 +557,82 @@ de ese tipo.
 """
 
 
-def escribir_reenvio(d=FIND, destino=None):
+def escribir_reenvio(d=FIND, destino=None,SIMULAR=False):
+    """Regenera FINDINGS-RENUMERACIONES.md.
+
+    MEDIDO 2026-10-04.  ANTES DE ESCRIBIR NADA,  comprueba que no va a
+    BORRAR informacion que existe.
+
+    El motivo,  medido y no supuesto:  este generador deriva las renumeraciones
+    comparando el ARBOL DE TRABAJO contra HEAD  (reenvios_estable).  Eso solo ve
+    las renumeraciones que NO estan commiteadas.  Y hay una razon de fondo por la
+    que las commiteadas no se ven nunca:
+
+        el renumerado REUTILIZA el numero viejo para otro hallazgo.
+
+    MEDIDO:  hoy existen 052-srcid-de-fault-gfx8-y-tabla-de-iv-no-catalogada.md  y
+    tambien 193-*.  O sea que el 52 fue renumerado a 193  y OTRO hallazgo ocupa
+    hoy el 52.  Git ve BORRADO + AÑADIDO,  no un renombrado,  porque el nombre se
+    reutilizo.  MEDIDO:  `git log --diff-filter=R`  sobre findings/  devuelve 0
+    lineas,  con -M1 tambien.
+
+    CONSECUENCIA,  y es la grave:  regenerar el indice hoy pone 0 renumeraciones y
+    0 referencias colgando,  cuando el indice de disco dice 43  y 1033.  O sea
+    que las 1033 referencias  —que son REALES  y que el renumerado anterior
+    dejo apuntando al hallazgo equivocado—  se vuelven invisibles,  y el
+    documento que las registra es el unico sitio donde estaban.
+
+    Por eso esta funcion se NIEGA a escribir si va a perder algo.  Un generador
+    que regenera y sale con un 0 no es un generador:  es un destructor con un
+    boton.  Y no se arregla migrando las renumeraciones a git  —que es donde
+    estaban y donde GI-T no las puede ver—  sino dejando de destruirlas.
+    """
+    raiz_pre = os.path.dirname(os.path.dirname(d))
+    destino = destino or os.path.join(raiz_pre, REENVIO_MD)
+
+    # Que hay ahora en disco, LEIDO, antes de calcular nada.
+    antes = {}
+    try:
+        with open(destino, "r", encoding="utf-8") as fh:
+            txt_pre = fh.read()
+        m = re.search(r"- Renumeraciones detectadas: \*\*(\d+)\*\*", txt_pre)
+        if m:
+            antes["renumeraciones"] = int(m.group(1))
+        m = re.search(r"Referencias colgando[^:]*: \*\*(\d+)\*\*", txt_pre)
+        if m:
+            antes["colgando"] = int(m.group(1))
+    except OSError:
+        antes = {}
+
     filas = escanear(d)
     if filas is None:
         return None, "no existe %s" % d
     col = colisiones(filas)
     rev = reenvios(filas, d)
-    raiz = os.path.dirname(os.path.dirname(d))
-    destino = destino or os.path.join(raiz, REENVIO_MD)
-
     fuera = refs_colgadas(filas, rev, d)
+
+    # MEDIDO 2026-10-04:  la comprobacion de la puerta.  Va DESPUES de calcular
+    # rev  y fuera,  porque lo que se compara es lo que se va a escribir contra
+    # lo que hay.  Y va antes de abrir el fichero en modo "w",  porque un 0
+    # escrito sobre un 43 es irreversible en cuanto se cierra.
+    if antes and not SIMULAR:
+        n_rev_antes = antes.get("renumeraciones", 0)
+        n_col_antes = antes.get("colgando", 0)
+        if n_rev_antes and len(rev) < n_rev_antes:
+            print("escribir_reenvio: NO SE ESCRIBE", file=sys.stderr)
+            print("  el indice de disco tiene %d renumeraciones y esta "
+                  "ejecucion mide %d." % (n_rev_antes, len(rev)), file=sys.stderr)
+            print("  Motivo medido:  el generador las ve comparando el arbol "
+                  "contra HEAD,  y las commiteadas no se ven  —porque el "
+                  "numero viejo se reutiliza para otro hallazgo  y git lo "
+                  "registra como borrado + anadido,  no como renombrado.", file=sys.stderr)
+            print("  Regenerar aqui pondria 0 donde hay %d,  y las %d "
+                  "referencias colgando dejarian de estar registradas."
+                  % (n_rev_antes, n_col_antes), file=sys.stderr)
+            print("  Para regenerar hay que decidir antes donde vive ese "
+                  "historial:  el indice no es derivable del arbol.", file=sys.stderr)
+            return None, ("perdio %d renumeraciones y %d referencias colgando"
+                          % (n_rev_antes, n_col_antes))
     n_reas = sum(1 for x in rev if x.get("reasignado"))
     out = [CABECERA]
     out.append("- Numeros con **colision** (>1 fichero): **%d**" % len(col))
