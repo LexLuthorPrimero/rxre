@@ -20,7 +20,21 @@ resultado sigue pareciendo una medicion**.
 
 ## Las cuatro instancias
 
-### 1. `check_num_unico.py:635` — las 225 citas que la puerta no puede ver
+### 1. `check_num_unico.py:662` — las 225 citas que la puerta no puede ver
+
+> **CORRECCION 2026-10-04, y es mia.** Este hallazgo citaba la linea **635**, y
+> **la 635 no es el filtro en ninguna revision**: la linea correcta es la **662** en
+> el arbol de trabajo y la **641** en HEAD, medidas con `grep -n` sobre el fichero y
+> sobre `git show HEAD:tools/check_num_unico.py`. La cifra 635 salio de un encargo
+> mio que decia «linea ~635» — con la tilde, como estimates que no habia medido— y
+> dos subagentes la reproduciron como si fuera medida. Uno lo registro como
+> discrepancia D1 en su propio informe (`PUERTA-635-DISENO.md:940`), lo cual es
+> exactamente lo que debiamos hacer los tres.
+>
+> El defecto de fondo no cambia: el filtro sigue excluyendo las 225 por construccion.
+> Lo que cambia es que **una cita sin medir,-heredada de mi propia consigna,viajo como
+> medida a dos ficheros que quedaron versionados.** Es el mismo patron del 1048 una
+> generacion antes de existir: una afirmacion que parece observada y no lo esta.
 
 ```python
 if num not in dups:
