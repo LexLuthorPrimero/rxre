@@ -55,6 +55,9 @@ int rx550_gart_boot(const struct rx550_gart_boot_req *req,
 		out->geom.gart_start          = cero64;
 		out->geom.gart_end            = cero64;
 		out->geom.clamped             = false;
+		/* MEDIDO:  los cuatro campos derivados se dejan a cero y SIN
+		 * bandera era indistinguible de "medido cero".  La mascara lo dice. */
+		out->geom_campos              = 0;
 
 		out->tabla_geom.paginas       = cero64;
 		out->tabla_geom.bytes         = cero64;
@@ -195,6 +198,9 @@ int rx550_gart_boot(const struct rx550_gart_boot_req *req,
 	out->geom.gart_start          = req->gart_start;
 	out->geom.gart_end            = req->gart_end;
 	out->geom.gart_size_effective = req->gart_end - req->gart_start + 1;
+	out->geom_campos |= RX550_BOOT_GEOM_GART_START |
+			    RX550_BOOT_GEOM_GART_END |
+			    RX550_BOOT_GEOM_TAMANO;
 
 	/* ── 1 · RESERVAR.  La tabla son 512 KiB alineados a 4096.  El tamanoy
 	 * la alineacion NO se escriben aqui:  los calcula
