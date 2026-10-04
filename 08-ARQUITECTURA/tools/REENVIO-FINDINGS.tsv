@@ -12,12 +12,20 @@
 #   findings_index.reenvios_estable()  -- lee el mapa congelado
 #   08-ARQUITECTURA/tools/refs_repair.py -- repara citas colgando
 #
-# COLUMNAS  (5, y las 5 en las 49 filas: un formatomixto seria peor que ninguno)
+# COLUMNAS  (6, y las 6 en las 49 filas: MEDIDO que el ancho unico es
+#   6. Un formato mixto seria peor que ninguno, y este lo fue: la
+#   cabecera decia 5 mientras el fichero tenia 6, y nadie lo noto
+#   porque una cabecera no se verifica contra el dato que describe.)
 #   viejo        numero que se escribio antes del renumerado
 #   nuevo        numero que tiene HOY ese mismo hallazgo
 #   reasignado   SI = el numero viejo esta ocupado HOY por OTRO contenido
 #                no = el numero viejo quedo libre; la cita no miente
 #   stem         nombre de fichero SIN el numero, completo
+#   relacion     QUE clase de renumerado es. `contenido`: el CONTENIDO paso del
+#                numero viejo al nuevo, y la flecha REPARA citas. `numero`: el
+#                numero viejo ya lo tenia OTRO hallazgo y este contenido NUNCA
+#                lo tuvo, y la flecha NO repara. Se define mas abajo, en
+#                SEXTA COLUMNA.
 #   procedencia   COMO se obtuvo ESTA fila. Es lo que separa las que el
 #                instrumento puede volver a derivar de las que no:
 #                  diff           reenvios() laDerivo del arbol de trabajo
@@ -65,8 +73,55 @@
 #   congelar y describe ESE instante; no es una propiedad permanente. Por eso la
 #   puerta de existencia no lo comprueba.
 #
+# COMO SE MANTIENE ESTE FICHERO,  MEDIDO 2026-10-04
+#
+#   `--congelar` es un MERGE: conserva lo congelado y anade lo que falta. No
+#   borra ninguna fila, y no hay combinacion de banderas que lo haga. Con
+#   reenvios() vacio y sin cambios, no escribe nada y su sha no gira.
+#
+#   COMO ERA, y por que se cambio. MEDIDO que antes `--congelar` REGENERABA
+#   este fichero entero desde reenvios(), y por tanto solo podia conservar lo
+#   que reenvios() sabe derivar. MEDIDO que hoy reenvios() devuelve 0 pares: las
+#   renumeraciones ya estan commiteadas. O sea que el congelado habria
+#   sustituido 49 filas por 0, y habria salido con un 0.
+#   MEDIDO que el aviso de eso vivia en el DOCSTRING y el comentario de
+#   reenvio_freeze.py, NO en este fichero, y que el `--congelar --forzar
+#   --confirmar-obsoleto` de entonces LLEGABA a esa reescritura en cuanto
+#   reenvios() devolvia un solo par, que es su uso previsto: congelar un
+#   renumerado sin commitear.
+#   MEDIDO que hoy ese atajo no borra nada, pero por el ORDEN de tres
+#   comprobaciones y no por diseno, y que la tercera era un `TypeError` en la
+#   plantilla de la cabecera de la herramienta, o sea que el escritor no podia
+#   escribir. La garantia era un accidente, no una puerta.
+#
+#   AHORA:
+#     --congelar   MERGE. Conserva lo congelado, anade lo que falta. Si el par
+#                  ya esta con OTRA `relacion` o con otro fichero, PREGUNTA:
+#                  nombra las dos filas y sale con codigo 1. No elige.
+#     --sustituir  REEMPLAZA el mapa entero. Exige --confirmar-obsoleto y
+#                  --perder N. N es el numero de filas que la herramienta
+#                  calcula que se pierden, y las imprime una a una si falta
+#                  --perder; si el N no coincide, se niega con codigo 6. NO
+#                  puede vaciar el fichero: si reenvios() devuelve 0 pares,
+#                  se niega con codigo 5. Lo que descarta queda escrito por su
+#                  numero en REENVIO-FINDINGS.descartadas.tsv, y la copia
+#                  entera en REENVIO-FINDINGS.tsv.bak.
+#     --forzar     NO EXISTE. MEDIDO que el codigo 2 de argparse lo rechaza
+#                  nombrando la bandera: un flag retirado que se vuelve inocuo
+#                  deja a quien lo teclea creyendo que ha ordenado algo.
+#
+#   MEDIDO que las 6 filas cuya procedencia no es `diff` -- 2 `git:<hash>` y 4
+#   `prosa:` -- NO se pueden volver a derivar: 2 se commitearon antes del
+#   sellado, y las 4 tienen su unica fuente en la prosa del fichero de destino
+#   porque el numero viejo ya lo tenia otro hallazgo. Por eso el modo normal es
+#   un merge y no una reescritura: no es una cortesia, es la unica operacion
+#   que conserva lo que no se puede recuperar.
+#
 # PROCEDENCIA
-#   generado_por  08-ARQUITECTURA/tools/reenvio_freeze.py --congelar, y mas
+#   generado_por  08-ARQUITECTURA/tools/reenvio_freeze.py --congelar
+#                MEDIDO 2026-10-04: --congelar es un MERGE desde esta
+#                fecha. Antes reescribia el fichero entero desde
+#                reenvios(), y habria borrado estas 6 filas sin avisar.
 #   sha256_cuerpo  08c27e49d9fe8cd5181535b5c92b97a0874fd97566cfc2572e2767a5cac63be8
 #
 #   ALCANCE  el valor es el sha256 de SOLO las filas de datos  —las que no
