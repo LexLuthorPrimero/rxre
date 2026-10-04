@@ -217,6 +217,32 @@ struct rx550_gart_apply_report {
 
 #define RX550_GART_NO_FALLO	UINT32_MAX
 
+/* -- EL VACIADO DE TLB, que es lo ULTIMO que hace la referencia ------------
+ *
+ *  gmc_v8_0_gart_enable() no termina con la escritura del CNTL.  Termina con:
+ *
+ *      gmc_v8_0.c:940    gmc_v8_0_flush_gpu_tlb(adev, 0, 0, 0);
+ *
+ *  y esa funcion tiene UN cuerpo de una linea:
+ *
+ *      gmc_v8_0.c:661    static void gmc_v8_0_flush_gpu_tlb(adev, vmid, vmhub, type)
+ *      gmc_v8_0.c:665            WREG32(mmVM_INVALIDATE_REQUEST, 1 << vmid);
+ *
+ *  ASI QUE ES UN MMIO DIRECTO Y NO UN ANILLO DE PM4.  Y hay dos funciones
+ *  distintas con el mismo nombre,  y la confusion es facil:
+ *
+ *      gmc_v8_0_flush_gpu_tlb()        L661-666   la que usa gart_enable:  1 WREG32
+ *      gmc_v8_0_emit_flush_gpu_tlb()   L668-683   la que usa el ring:     2 emit_wreg
+ *
+ *  La que se necesita para terminar la secuencia es la PRIMERA.  Ninguna de las
+ *  dos es nuestra:  no hay funcion de vaciado en el componente.
+ *
+ *  Y EL VALOR QUE TOCA ES 0, no 1..15.  Con vmid = 0,  1 << 0 = 1,  y el bit 0
+ *  es el dominio del contexto del GART.  El corpus invalida el resto del
+ *  hardware de TLB con un solo bit.
+ */
+int rx550_gart_tlb_flush(const struct rx550_mmio_map *map, unsigned vmid);
+
 /* Aplica el plan y VERIFICA cada escritura releyendo el registro.  Si una
  * lectura no devuelve lo escrito,  se para ahi y lo dice con el indice:  seguir
  * escribiendo encima de un mapa que ya no responde no arregla nada y esconde el

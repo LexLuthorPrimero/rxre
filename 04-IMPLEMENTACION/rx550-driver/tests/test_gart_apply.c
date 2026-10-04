@@ -429,6 +429,57 @@ int main(void)
 		rx550_mmio_attach(&map_real, bar_real, RX550_MMIO_SIZE);
 	}
 
+	/* ── A4 · EL VACIADO DE TLB ──────────────────────────────────────── */
+	printf("\nA4 · el vaciado de TLB, que es lo ultimo que hace la referencia\n");
+	{
+		struct rx550_reg req, rsp;
+		struct rx550_mmap_offset oo;
+
+		CHECK(rx550_mmio_reg_of(RX550_REG_INVALIDATE_REQUEST, &req)
+		      == RX550_MMIO_OK, "A4 resolver INVALIDATE_REQUEST");
+		CHECK(rx550_mmio_reg_of(RX550_REG_INVALIDATE_RESPONSE, &rsp)
+		      == RX550_MMIO_OK, "A4 resolver INVALIDATE_RESPONSE");
+		CHECK(rx550_mmio_resolve_reg(&map_real, RX550_REG_INVALIDATE_REQUEST,
+					      &oo) == RX550_MMIO_OK, "A4 offset");
+		CHECK(req.index == 0x51eu, "A4 INVALIDATE_REQUEST es 0x51e");
+		CHECK(rsp.index == 0x51fu, "A4 INVALIDATE_RESPONSE es 0x51f");
+
+		/*  El corpus escribe  1 << vmid  con vmid = 0,  que es 1.  Y el bit
+		 *  0 es el dominio del contexto del GART. */
+		CHECK(rx550_gart_tlb_flush(&map_real, 0u) == 0, "A4 flush de vmid 0");
+		CHECK_EQ(*(volatile uint32_t *)((uintptr_t)bar_real + oo.bytes), 1u,
+			 "A4 y escribe exactamente 1");
+
+		/*  Y que no es un uno magico:  cada vmid da su bit. */
+		CHECK(rx550_gart_tlb_flush(&map_real, 5u) == 0, "A4 flush de vmid 5");
+		CHECK_EQ(*(volatile uint32_t *)((uintptr_t)bar_real + oo.bytes),
+			 1u << 5, "A4 y vmid 5 escribe 0x20");
+		CHECK(rx550_gart_tlb_flush(&map_real, 15u) == 0, "A4 flush de vmid 15");
+		CHECK_EQ(*(volatile uint32_t *)((uintptr_t)bar_real + oo.bytes),
+			 1u << 15, "A4 y vmid 15 escribe 0x8000");
+
+		/*  El campo es de 16 dominios.  vmid 16 no tiene donde poner su bit.
+		 *  Se rechaza,  y el rechazo no escribe. */
+		CHECK(rx550_gart_tlb_flush(&map_real, 16u)
+		      == RX550_GART_SEQ_ERR_GEOMETRY,
+		      "A4 vmid 16 rechazado: el campo es de 16 dominios");
+		CHECK_EQ(*(volatile uint32_t *)((uintptr_t)bar_real + oo.bytes),
+			 1u << 15, "A4 y el rechazo no escribio nada");
+		CHECK(rx550_gart_tlb_flush(NULL, 0u) == RX550_GART_SEQ_ERR_INCONSISTENT,
+		      "A4 flush sin mapa");
+
+		rx550_mmio_detach(&map_real);
+		CHECK(rx550_gart_tlb_flush(&map_real, 0u) == RX550_MMIO_ERR_NO_MAP,
+		      "A4 flush con el mapa desvinculado");
+		rx550_mmio_attach(&map_real, bar_real, RX550_MMIO_SIZE);
+	}
+
+	/*  El mapa se libera aqui y no antes:  tres bloques de test lo usan,  y
+	 *  un free al final de cada uno habria dejado punteros colgando en los
+	 *  siguientes.  Un test que fuga memoria en su propia salida ensucia la
+	 *  medicion delexit code de las herramientas que lo invocan. */
+	free(bar_real);
+
 	printf("\n  %d pass, %d fail\n", pass, fail);
 	if (fail) {
 		printf("  CONTRATO: INCUMPLIDO\n");

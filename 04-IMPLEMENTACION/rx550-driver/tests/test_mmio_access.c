@@ -1856,8 +1856,20 @@ static void m12_identity_aperture(void)
 		 *  la tabla consigo misma y una entrada de mas o de menos no la
 		 *  notaria.  Es el mismo motivo por el que la tabla de las mascaras
 		 *  del finding 1028 esta COPIADA y no leida. */
-		CHECK_EQ(total, 26u,
-			 "M12 la tabla tiene las 26 entradas del contrato vigente");
+		/*  ERA 26.  Ahora 39:  se anadieron las TRECE entradas que faltaban
+		 *  del bloque de contextos 2..7 y 9..15  (mmVM_CONTEXTn_PAGE_TABLE_
+		 *  BASE_ADDR),  que la referencia escribe POSICIONALMENTE en L912 y
+		 *  L915  y que tienen nombre en gmc_8_1_d.h:607-614 y :638-643.
+		 *
+		 *  Con solo las dos anclas (0x550 y 0x50e) el bucle escribia trece
+		 *  registros que la tabla no conocia.  Ver el finding 1031, que
+		 *  declara esa limitacion,  y el 1033.
+		 *
+		 *  El numero va escrito a mano y no leido del enum a proposito:  si
+		 *  se leyera del enum,  compararia la tabla consigo misma y una
+		 *  entrada de mas o de menos no la notaria. */
+		CHECK_EQ(total, 39u,
+			 "M12 la tabla tiene las 39 entradas del contrato vigente");
 		CHECK(rx550_vmid1_reg_get(RX550_REG_NR) == NULL,
 		      "M12 un id fuera de rango no resuelve");
 	}

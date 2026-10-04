@@ -27,27 +27,50 @@
  *  gmc_v8_0.c, no las del enum del driver:  a proposito, porque el enum se
  *  renumera cada vez que se anade un registro y estas lineas no deben moverse
  *  con el. */
+/* ── EL ORDEN, que es de gmc_v8_0.c y no de ninguna tabla ─────────────────
+ *
+ *  Cada linea dice de donde sale el registro, y las lineas son MEDIDAS:  se
+ *  busca la sentencia WREG32 en el corpus, no se cuentan posiciones.
+ *
+ *  ESTA TABLA TUVO UN DESPLAZAMIENTO DE UNA LINEA, y por eso el comentario
+ *  anterior ahi es ahora este.  Las veinte citas estaban escritas a mano desde
+ *  una lectura con sed,  y todas las que apuntaban al COMIENZO de una sentencia
+ *  de dos lineas apuntaban a la segunda:
+ *
+ *      decia  L843   real  L849   mmMC_VM_MX_L1_TLB_CNTL
+ *      decia  L923   real  L922   mmVM_CONTEXT1_CNTL2 = 4
+ *      decia  L921   real  L920   mmVM_CONTEXT1_PROTECTION_FAULT_DEFAULT_ADDR
+ *
+ *  Las citas de los CAMPOS  (rx550_reg_fields[]) si son exactas, y la diferencia
+ *  es el metodo:  esas las genero un script que recorría el fichero contando
+ *  lineas,  y estas las escribi yo.  Es la misma leccion que las mascaras del
+ *  finding 1028,  con la palabra "manualmente" debajo de la palabra "script".
+ *
+ *  Ademas:  la funcion escribe 44 registros,  no 34.  Las 34 de esta tabla mas
+ *  las que escriben sus doscalled  (mmVM_PRT_CNTL en L789 y las ocho
+ *  mmVM_PRT_APERTURE* de L797-806,  mas mmVM_INVALIDATE_REQUEST en L664 dentro de
+ *  gmc_v8_0_flush_gpu_tlb,  llamada en L940).  Ver el finding 1033. */
 enum {
-	O_L1_TLB_CNTL = 0,	/* L843 */
-	O_L2_CNTL,		/* L849 */
-	O_L2_CNTL2,		/* L859 */
-	O_L2_CNTL3,		/* L866 */
-	O_L2_CNTL4,		/* L872 */
-	O_CTX0_PT_START,	/* L886 */
-	O_CTX0_PT_END,		/* L887 */
-	O_CTX0_PT_BASE,		/* L888 */
-	O_CTX0_PROT_FAULT,	/* L889 */
-	O_CTX0_CNTL2,		/* L891 */
-	O_CTX0_CNTL,		/* L893 */
+	O_L1_TLB_CNTL	= 0,		/* L849 */
+	O_L2_CNTL,		/* L859 */
+	O_L2_CNTL2,		/* L863 */
+	O_L2_CNTL3,		/* L870 */
+	O_L2_CNTL4,		/* L885 */
+	O_CTX0_PT_START,	/* L887 */
+	O_CTX0_PT_END,		/* L888 */
+	O_CTX0_PT_BASE,	/* L889 */
+	O_CTX0_PROT_FAULT,	/* L890 */
+	O_CTX0_CNTL2,		/* L892 */
+	O_CTX0_CNTL,		/* L897 */
 	O_IDA_LOW,		/* L899 */
 	O_IDA_HIGH,		/* L900 */
 	O_IDA_OFFSET,		/* L901 */
-	O_CTX1_PT_START,	/* L907 */
-	O_CTX1_PT_END,		/* L908 */
-	O_CTX1_LOOP,		/* L910, el bucle i = 1..15 */
-	O_CTX1_PROT_FAULT,	/* L921 */
-	O_CTX1_CNTL2,		/* L923 */
-	O_CTX1_CNTL,		/* L925 */
+	O_CTX1_PT_START,	/* L908 */
+	O_CTX1_PT_END,		/* L909 */
+	O_CTX1_LOOP,		/* L911 y L914,  el bucle i = 1..15 */
+	O_CTX1_PROT_FAULT,	/* L920 */
+	O_CTX1_CNTL2,		/* L922 */
+	O_CTX1_CNTL,		/* L935 */
 	O_NR
 };
 
@@ -310,9 +333,23 @@ static int rx550_gart_rmw_componer(const char *mnemo, uint32_t cur,
 		 *
 		 *   b) DECLARED_NOT_WRITTEN               ->  el corpus NO lo toca.
 		 *      Y aqui no hay que inventarle nada:  hay que DEJARLO COMO
-		 *      ESTA,  que es justo lo que hace el RMW.  Los doce
-		 *      VMC_TAP, los _INTERRUPT, los _SAVE y ECO_BITS son de este
-		 *      segundo tipo.
+		 *      ESTA,  que es justo lo que hace el RMW.  Los siete
+		 *      _INTERRUPT, los cinco _SAVE y ECO_BITS son de este tipo.
+		 *
+		 *   Y CORREGIDO:  este mismo comentario decia antes que los doce
+		 *   VMC_TAP eran del segundo tipo.  NO.  El corpus los ESCRIBE,  a
+		 *   cero:
+		 *      gmc_v8_0.c:873-884   doce REG_SET_FIELD(..., 0)
+		 *   asi que son PROVEN_CORPUS_WRITES con valor 0,  que es lo que
+		 *   tiene la tabla,  y por eso se aplican.
+		 *
+		 *   Lo que hace la confusion es que el comentario del corpus en
+		 *   L871 dice  "XXX: set to enable PTE/PDE in system memory"  y las
+		 *   doce lineas siguientes ponen CERO.  Comentario y codigo se
+		 *   contradicen dentro de la misma funcion,  y no hay ningun sitio en
+		 *   el arbol que diga cual de los dos es el pretendido.  aqui se
+		 *   sigue al CODIGO,  que es lo unico ejecutable,  y queda
+		 *   NOT_DETERMINED cual es la intencion.  Ver el finding 1033.
 		 *
 		 *  La primera version trataba los dos como (a) y devolvia error, y
 		 *  el error se leia como "le faltan campos a este registro" cuando
@@ -707,4 +744,35 @@ int rx550_gart_apply(const struct rx550_mmio_map *map,
 
 	*out = rep;
 	return 0;
+}
+
+
+int rx550_gart_tlb_flush(const struct rx550_mmio_map *map, unsigned vmid)
+{
+	struct rx550_reg req;
+	int rc;
+
+	if (map == NULL)
+		return RX550_GART_SEQ_ERR_INCONSISTENT;
+	/*  El campo es de 16 dominios  (gmc_8_1_sh_mask.h,  mask 0xffff),  y el
+	 *  corpus escribe  1 << vmid  con vmid < 16.  Aceptar 16 haria que
+	 *  1 << 16  se truncara a 0  en un uint32_t,  que es el identificador de
+	 *  "ningun dominio":  escribir 0  invalida lo que sea que haya. */
+	if (vmid >= 16u)
+		return RX550_GART_SEQ_ERR_GEOMETRY;
+
+	rc = rx550_mmio_reg_of(RX550_REG_INVALIDATE_REQUEST, &req);
+	if (rc != RX550_MMIO_OK)
+		return RX550_GART_SEQ_ERR_TABLE;
+
+	/*  UNA escritura, sin mb() y sin flush de HDP.
+	 *
+	 *  La ruta de runtime del corpus SI lo hace:
+	 *      amdgpu_gart.c:499-505   mb()  ->  amdgpu_device_flush_hdp()  ->  WREG32
+	 *  pero la ruta que estamos reproduciendo,  gmc_v8_0.c:940,  NO lo hace,  y
+	 *  no hay motivo para anadirlo:  las 34 escrituras anteriores son del mismo
+	 *  mapa y del mismo driver,  asi que el orden ya lo dan los writel.  Se anade
+	 *  solo si se replica la ruta de runtime,  que no es la que se esta
+	 *  reproduciendo.  Y esa decision esta anotada en rx550_vmid0_gart.h. */
+	return rx550_mmio_write32(map, req, (uint32_t)1u << vmid);
 }

@@ -125,7 +125,7 @@
 /* ═══════════════════════════════════════════════════════════════════════════
  * LOS REGISTROS DE VMID1 Y DE APERTURA
  *
- * Trece entradas, ORDENADAS POR BYTE_OFFSET ASCENDENTE, con la procedencia de
+ * Treinta y nueve entradas, ORDENADAS POR BYTE_OFFSET ASCENDENTE, con la procedencia de
  * cada una en gmc_8_2_d.h.  El orden no es estetico:  el test lo comprueba, y
  * una tabla desordenada es la que hace imposible ver un solape.
  *
@@ -149,7 +149,37 @@ struct rx550_vmid1_reg {
 	uint32_t		index;		/* indice en la BAR5         */
 	uint32_t		byte_offset;	/* index * 4                 */
 	uint32_t		width;		/* bits, siempre 32          */
-	const char		*access;	/* "R" | "W" | "RW"           */
+	/*  PERMISOS:  ANOTACION DEL PROYECTO,  NO DEL CORPUS.
+	 *
+	 *  Medido:  gmc_8_1_d.h  y  gmc_8_1_sh_mask.h  no contienen  NI UNA  cadena
+	 *  "RW",  "W" ni la palabra  access  en 597-655 y 27-60 respectivamente.
+	 *  Son listas planas de #define de indice y de __MASK/__SHIFT,  y un
+	 *  #define de indice no puede expresar un permiso.
+	 *
+	 *  O sea que esta columna no tiene de donde venir,  y su unica
+	 *  procedencia es que este proyecto la escribio.  Se conserva porque
+	 *  decide si una escritura se puede comprobar releyendo  (ver
+	 *  rx550_gart_seq.c),  y conservarla como dato DECLARADO con su regla a
+	 *  la vista es mejor que mantener una lista de 25 nombres al lado:  al
+	 *  menos esta esta en el mismo sitio que el mnemonico y el indice.
+	 *
+	 *  Y lo que SI tiene evidencia de lectura,  medido sobre todo el arbol
+	 *  de amdgpu entero,  contando RREG32 del mnemonico:
+	 *
+	 *      mmMC_VM_MX_L1_TLB_CNTL   RREG32=4    mmVM_L2_CNTL        RREG32=4
+	 *      mmVM_L2_CNTL2             RREG32=1    mmVM_L2_CNTL3       RREG32=2
+	 *      mmVM_L2_CNTL4             RREG32=1    mmVM_CONTEXT0_CNTL  RREG32=8
+	 *      mmVM_CONTEXT1_CNTL        RREG32=11
+	 *      mmVM_CONTEXT0_CNTL2       RREG32=0    <-- el corpus NO lo lee
+	 *      mmVM_CONTEXT1_CNTL2       RREG32=0    <-- el corpus NO lo lee
+	 *
+	 *  Los dos CNTL2 estan marcados "RW" y no tienen ni una lectura en todo el
+	 *  driver de referencia:  se escriben a ciegas  (L892 y L922).  Su
+	 *  verificabilidad por lectura es  NOT_DETERMINED.
+	 *
+	 *  Y el valor por defecto, para un registro que no esta en la tabla, es
+	 *  false  (no verificable):  la ausencia no se presume legible. */
+	const char		*access;	/* "R" | "W" | "RW"  PROYECTO */
 	const char		*scope;		/* "CONTEXT1" | "GLOBAL"     */
 	const char		*consumer;	/* para que lo usa el proximo */
 	const char		*source;	/* fichero del corpus        */
@@ -163,6 +193,28 @@ extern const uint32_t rx550_vmid1_reg_count;
 /* Los mnemonicos como indices en esa tabla, para no repetir el indice GFX8 en
  * el codigo del siguiente nodo ni buscar por cadena. */
 enum rx550_vmid1_reg_id {
+	/*  ORDEN ASCENDENTE POR INDICE, y el resolutor es POSICIONAL, asi que el
+	 *  orden del enum ES el orden de la tabla.
+	 *
+	 *  RENUMERADO 2026-10-03 por segunda vez.  Se anadieron las TRECE entradas
+	 *  que faltaban del bloque de contextos 2..7 y 9..15
+	 *  (mmVM_CONTEXTn_PAGE_TABLE_BASE_ADDR),  que la referencia escribe
+	 *  POSICIONALMENTE:
+	 *
+	 *      gmc_v8_0.c:912   WREG32(mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR + i,   ...)
+	 *      gmc_v8_0.c:915   WREG32(mmVM_CONTEXT8_PAGE_TABLE_BASE_ADDR + i - 8, ...)
+	 *
+	 *  y que tienen NOMBRE en gmc_8_1_d.h:607-614 y :637-643.  Con solo las dos
+	 *  anclas (0x550 y 0x50e) el bucle escribia trece registros que la tabla no
+	 *  conocia,  y eso hacia que rx550_gart_es_legible() devolviera "no legible"
+	 *  por AUSENCIA  en vez de por la columna access.  El resultado era el mismo
+	 *  y el motivo no:  ver el finding 1031,  que decia la limitation y la deja
+	 *  resuelta aqui.
+	 *
+	 *  Se ponen las trece y no solo las dos anclas porque el header las nombra
+	 *  todas,  y una tabla que declara dos de quince deja al lector creyendo que
+	 *  las otras trece no existen.  Es el mismo motivo por el que el accessor
+	 *  documento el numero de pagina que se escribe en cada una. */
 	RX550_REG_L2_CNTL				= 0,
 	RX550_REG_L2_CNTL2				= 1,
 	RX550_REG_L2_CNTL3				= 2,
@@ -171,28 +223,41 @@ enum rx550_vmid1_reg_id {
 	RX550_REG_CTX0_CNTL2				= 5,
 	RX550_REG_CTX1_CNTL2				= 6,
 	RX550_REG_CTX8_PT_BASE				= 7,
-	RX550_REG_INVALIDATE_REQUEST			= 8,
-	RX550_REG_INVALIDATE_RESPONSE			= 9,
-	RX550_REG_CTX0_PROT_FAULT_DEFAULT		= 10,
-	RX550_REG_CTX1_PROT_FAULT_DEFAULT		= 11,
-	RX550_REG_CTX0_PT_BASE				= 12,
-	RX550_REG_CTX1_PT_BASE				= 13,
-	RX550_REG_CTX0_PT_START				= 14,
-	RX550_REG_CTX1_PT_START				= 15,
-	RX550_REG_CTX0_PT_END				= 16,
-	RX550_REG_CTX1_PT_END				= 17,
+	RX550_REG_CTX9_PT_BASE				= 8,
+	RX550_REG_CTX10_PT_BASE				= 9,
+	RX550_REG_CTX11_PT_BASE				= 10,
+	RX550_REG_CTX12_PT_BASE				= 11,
+	RX550_REG_CTX13_PT_BASE				= 12,
+	RX550_REG_CTX14_PT_BASE				= 13,
+	RX550_REG_CTX15_PT_BASE				= 14,
+	RX550_REG_INVALIDATE_REQUEST			= 15,
+	RX550_REG_INVALIDATE_RESPONSE			= 16,
+	RX550_REG_CTX0_PROT_FAULT_DEFAULT		= 17,
+	RX550_REG_CTX1_PROT_FAULT_DEFAULT		= 18,
+	RX550_REG_CTX0_PT_BASE				= 19,
+	RX550_REG_CTX1_PT_BASE				= 20,
+	RX550_REG_CTX2_PT_BASE				= 21,
+	RX550_REG_CTX3_PT_BASE				= 22,
+	RX550_REG_CTX4_PT_BASE				= 23,
+	RX550_REG_CTX5_PT_BASE				= 24,
+	RX550_REG_CTX6_PT_BASE				= 25,
+	RX550_REG_CTX7_PT_BASE				= 26,
+	RX550_REG_CTX0_PT_START				= 27,
+	RX550_REG_CTX1_PT_START				= 28,
+	RX550_REG_CTX0_PT_END				= 29,
+	RX550_REG_CTX1_PT_END				= 30,
 	/*  Los tres siguientes y el APERTURE_* de abajo son de bloques DISTINTOS:
 	 *  no confundirlos.  El comentario sobre la identity aperture sigue
 	 *  valiendo donde estaba. */
-	RX550_REG_IDENTITY_APERTURE_LOW			= 18,
-	RX550_REG_IDENTITY_APERTURE_HIGH		= 19,
-	RX550_REG_IDENTITY_PHYSICAL_OFFSET		= 20,
-	RX550_REG_L2_CNTL4				= 21,
-	RX550_REG_APERTURE_LOW				= 22,
-	RX550_REG_APERTURE_HIGH				= 23,
-	RX550_REG_APERTURE_DEFAULT			= 24,
-	RX550_REG_MX_L1_TLB_CNTL			= 25,
-	RX550_REG_NR					= 26,
+	RX550_REG_IDENTITY_APERTURE_LOW			= 31,
+	RX550_REG_IDENTITY_APERTURE_HIGH		= 32,
+	RX550_REG_IDENTITY_PHYSICAL_OFFSET		= 33,
+	RX550_REG_L2_CNTL4				= 34,
+	RX550_REG_APERTURE_LOW				= 35,
+	RX550_REG_APERTURE_HIGH				= 36,
+	RX550_REG_APERTURE_DEFAULT			= 37,
+	RX550_REG_MX_L1_TLB_CNTL				= 38,
+	RX550_REG_NR					= 39,
 };
 
 /* El descriptor de un mnemonico, o NULL si el id no existe. */
@@ -711,11 +776,30 @@ int rx550_mmio_resolve_reg(const struct rx550_mmio_map *map,
  *
  *  El corpus programa los registros de control con
  *      RREG32 -> REG_SET_FIELD -> WREG32            (amdgpu.h:1354-1356)
- *  y las 21 escrituras de gmc_v8_0_gart_enable() son TODAS de esa forma.  No hay
- *  ni una sola escritura ciega en la secuencia, y no es descuido:  en
- *  mmVM_CONTEXT0_CNTL hay 22 campos y la referencia pone 3, de modo que una
- *  escritura directa pondria a cero los otros 19 y el resultado no falla al
- *  escribir:  falla mucho despues, cuando una pagina se mapea mal.
+ *  y de las 34 escrituras de gmc_v8_0_gart_enable(), SIETE son de esa forma.
+ *
+ *  CORREGIDO el 2026-10-03, dos veces.  Aqui decia "las 21 escrituras son TODAS
+ *  de esa forma" y no hay ni una escritura ciega en la secuencia".  Las dos
+ *  partes eran falsas:
+ *
+ *      son 34, no 21
+ *      y de esas 34,  SIETE son RMW  y  27 son escrituras directas de un
+ *                     literal o de un PFN
+ *
+ *  Las siete RMW, con su linea real:
+ *      L849 mmMC_VM_MX_L1_TLB_CNTL   L859 mmVM_L2_CNTL     L863 mmVM_L2_CNTL2
+ *      L870 mmVM_L2_CNTL3             L885 mmVM_L2_CNTL4    L897 mmVM_CONTEXT0_CNTL
+ *      L935 mmVM_CONTEXT1_CNTL
+ *
+ *  y las 27 directas caen todas en registros cuyo valor es un unico numero,
+ *  asi que no pierden nada al escribirlas a pelo.
+ *
+ *  Lo que si es cierto, y es lo que hace falta esta primitiva, es lo de los
+ *  registros de control:  en mmVM_CONTEXT0_CNTL hay 22 campos y la referencia
+ *  pone 3, de modo que una escritura directa pondria a cero los otros 19 y el
+ *  resultado no falla al escribir:  falla mucho despues, cuando una pagina se
+ *  mapea mal.  Ese es el motivo de que la RMW por campo exista, y no el hecho
+ *  de que toda la secuencia sea una RMW.
  *
  *  Y el accessor no tenia forma de hacerlo.  Solo read32 y write32.  Ver el
  *  finding 1028.
@@ -821,8 +905,8 @@ _Static_assert(RX550_MMIO_SIZE == 0x40000u,
 		"el tamaño de la apertura de registros es un dato del host medido");
 _Static_assert(sizeof(struct rx550_mmap_offset) == sizeof(uint64_t),
 		"el offset tiene que caber en el tipo que lo representa");
-_Static_assert(RX550_REG_NR == 26u,
-		"el numero de registros preparados tiene que ser el declarado");
+_Static_assert(RX550_REG_NR == 39u,
+		"la tabla de registros tiene 39 entradas: 20 de la secuencia + 13 del bloque de contextos 2..7 y 9..15");
 	/*  D3.  Los tres de la identity aperture son tres ids consecutivos, y
 	 *  los tres usan el ancla de 28 bits de numero de pagina con shift 0.
 	 *  Que el CORPUS los siga escribiendo a cero lo comprueba el test, no
