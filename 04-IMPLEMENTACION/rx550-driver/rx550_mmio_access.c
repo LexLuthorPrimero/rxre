@@ -801,14 +801,33 @@ int rx550_mmio_update_field(const struct rx550_mmio_map *map,
 	if (rc != RX550_MMIO_OK)
 		return rc;
 
-	raw = *(volatile uint32_t *)rx550_mmio_slot(map, off);
+	/* La lectura y la escritura van por rx550_slot_read/slot_write, que en
+	 * build __KERNEL__ son readl/writel.  MEDIDO 2026-10-04: esto estaba
+	 * como `*(volatile uint32_t *)slot` a pelo, y eso no es lo mismo.
+	 *
+	 * En x86, readl/writel se expanden con un "memory" clobber, es decir una
+	 * BARRAJA DE COMPILADOR frente a memoria no-volatile.  Un volatile puro
+	 * solo impide que el COMPILADOR se lleve EL PROPIO acceso; no dice nada
+	 * sobre la reordenacion de los accesos AJENOS alrededor.  El propio
+	 * comentario de mas arriba lo dice: "lo unico que se sustituye es la
+	 * primitiva de barrera".
+	 *
+	 * Esta es la UNICA funcion del componente que hace RMW sobre el mapa, y
+	 * era la unica que no tenia la barrera.  Y no es solo teoria: compilada
+	 * con los flags reales del kernel, rx550_mmio_update_field TIENE canario
+	 * de pila a -O2 y NO lo tiene a -O3, porque -O3 inlinea la llamada a
+	 * apply_field, desaparece el `lea` de una direccion local, y con ella la
+	 * condicion de -fstack-protector-strong.  Pasando por las primitivas, el
+	 * canario es innecesario por un motivo distinto y la barrera vuelve a
+	 * existir. */
+	raw = rx550_slot_read(rx550_mmio_slot(map, off));
 	/* La composicion la hace el NUCLEO, no una segunda copia de la regla.
 	 * Dos copias de "clearing" y "shifting" en el mismo fichero divergen, y
 	 * divergen en silencio. */
 	rc = rx550_mmio_apply_field(raw, mask, value, &nuevo);
 	if (rc != RX550_MMIO_OK)
 		return rc;
-	*(volatile uint32_t *)rx550_mmio_slot(map, off) = nuevo;
+	rx550_slot_write(rx550_mmio_slot(map, off), nuevo);
 	*out_value = nuevo;
 	return RX550_MMIO_OK;
 }

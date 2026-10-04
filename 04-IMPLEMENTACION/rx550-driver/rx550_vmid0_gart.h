@@ -25,6 +25,10 @@
  *   FACT  gmc_v8_0.c:691-702  layout de la PTE en VI  (ver abajo)
  *   FACT  gmc_v8_0.c:728  GFX8 limpia PRT
  *   FACT  gmc_v8_0.c:961  la GART arranca con EXECUTABLE
+ *         MEDIDO 2026-10-04: el bit EXECUTABLE (bit 4) si sobrevive, pero el
+ *         VALOR DE LA ENTRADA no es 0x10.  El corpus pasa esa mascara a
+ *         memset_io, que rellena por BYTE, luego la entrada queda
+ *         0x1010101010101010.  Ver la nota larga de rx550_gart_table.h.
  *   FACT  amdgpu_gart.c:324  t = offset / 4096
  *   FACT  amdgpu_gmc.c:175   writeq en (gpu_page_idx * 8)
  *
