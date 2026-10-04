@@ -429,6 +429,60 @@ int rx550_gart_seq_build(struct rx550_gart_seq *out,
 	 * >> 12, y truncar en silencio seria escribir una pagina que existe. */
 	if (p->table_addr > RX550_PT_MAX_PD_ADDR)
 		return RX550_GART_SEQ_ERR_GEOMETRY;
+	/*  MEDIDO 2026-10-04 · EL SUELO DE dummy_page_addr, QUE NO ESTABA
+	 *
+	 *  Los dos guards de arriba acotan el TECHO y no el SUELO,  y para este
+	 *  parametro el suelo es el que falta.  Lo que se programa si se acepta un
+	 *  cero,  con las lineas exactas del corpus:
+	 *
+	 *      gmc_v8_0.c:890-891   mmVM_CONTEXT0_PROTECTION_FAULT_DEFAULT_ADDR
+	 *                           = (u32)(adev->dummy_page_addr >> 12)
+	 *      gmc_v8_0.c:920-921   mmVM_CONTEXT1_PROTECTION_FAULT_DEFAULT_ADDR
+	 *                           = (u32)(adev->dummy_page_addr >> 12)
+	 *
+	 *  Los dos registros se quedan a 0 y TODO fault de proteccion de los quince
+	 *  contextos traduce a PA 0.  No es un numero raro en un sitio raro:  el
+	 *  plano de fallos entero se queda apuntando a la pagina 0.
+	 *
+	 *  POR QUE 0 ES ILEGAL AQUI.  NO es porque "una pagina nunca se mapea en
+	 *  PA 0",  que es verdad pero no esta medido en el corpus;  es porque el
+	 *  propio corpus USA el cero como centinela de AUSENTE,  en cinco sitios,
+	 *  y ninguno de los cinco escribe jamas una PA valida a proposito:
+	 *
+	 *      amdgpu_gart.c:79    if (adev->dummy_page_addr) return 0;    [iniciada]
+	 *      amdgpu_gart.c:84-88 if (dma_mapping_error(..)) { .. = 0;
+	 *                                                   return -ENOMEM; }
+	 *      amdgpu_gart.c:101   if (!adev->dummy_page_addr) return;      [mapeada]
+	 *      amdgpu_gart.c:106   adev->dummy_page_addr = 0;                [fini]
+	 *      amdgpu_gart.c:520   if (adev->dummy_page_addr) return 0;    [iniciada]
+	 *
+	 *  MEDIDO que ademas las 76 apariciones de `dummy_page_addr` en el amdgpu del
+	 *  corpus la usan TODAS como >> 8, >> 12 o >> 44,  y ninguna comprueba el
+	 *  cero antes:  o sea que ningun consumidor suyo contempla que valga 0.
+	 *
+	 *  CORRECCION DE UN RAZONAMIENTO QUE SONABA A PRUEBA Y NO LO ERA.
+	 *  "amdgpu_gart.c:81-87 trata el resultado de dma_map_page_attrs como error
+	 *  si falla" es CIERTO,  pero no demuestra que 0 sea inalcanzable,  porque
+	 *  el centinela de error NO es el cero:
+	 *
+	 *      include/linux/dma-mapping.h:116
+	 *          #define DMA_MAPPING_ERROR   (~(dma_addr_t)0)
+	 *      include/linux/dma-mapping.h:152-159
+	 *          if (unlikely(dma_addr == DMA_MAPPING_ERROR)) return -ENOMEM;
+	 *
+	 *  O sea que un mapa que devolviera 0 PASARIA el control de error de la
+	 *  referencia y se guardaria como una PA valida.  El argumento que sostiene
+	 *  esta guarda no es ese:  es que 0 esta reservado como "no hay pagina",  y
+	 *  un valor reservado no se escribe en un registro.
+	 *
+	 *  CODIGO PROPIO, y no ERR_GEOMETRY.  MEDIDO en la cabecera:  un cero es un
+	 *  parametro AUSENTE,  no incoherente,  y el arreglo es otro:  con
+	 *  ERR_GEOMETRY el llamante culpa a la mascara DMA y prueba a
+	 *  dma_set_mask_and_coherent(40),  que arregla `> 2^40-1`  y no arregla
+	 *  nada aqui,  donde lo que falta es que corra rx550_dummy_page_init().
+	 */
+	if (p->dummy_page_addr == 0)
+		return RX550_GART_SEQ_ERR_NO_DUMMY_PAGE;
 	if (p->dummy_page_addr > RX550_PT_MAX_PD_ADDR)
 		return RX550_GART_SEQ_ERR_GEOMETRY;
 	if (p->gart_start > RX550_PT_MAX_PD_ADDR ||

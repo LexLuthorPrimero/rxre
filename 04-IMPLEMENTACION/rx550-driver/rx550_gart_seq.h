@@ -169,6 +169,32 @@ struct rx550_gart_seq {
 #define RX550_GART_SEQ_ERR_GEOMETRY	(-2)	/* parametro incoherente   */
 #define RX550_GART_SEQ_ERR_TABLE	(-3)	/* la tabla no cubre algo    */
 
+/*  MEDIDO 2026-10-04 · CODIGO NUEVO, Y POR QUE NO ES EL DE GEOMETRY
+ *
+ *  `dummy_page_addr == 0` no es un parametro incoherente:  es un parametro
+ *  AUSENTE,  y el corpus lo dice usando ese mismo cero como centinela en cinco
+ *  sitios,  ninguno de los cuales escribe jamas una PA valida a proposito:
+ *
+ *      amdgpu_gart.c:79    if (adev->dummy_page_addr) return 0;   [ya iniciada]
+ *      amdgpu_gart.c:81-83 adev->dummy_page_addr = dma_map_page_attrs(...)
+ *      amdgpu_gart.c:84-88 if (dma_mapping_error(...)) { ... = 0; return -ENOMEM; }
+ *      amdgpu_gart.c:101   if (!adev->dummy_page_addr) return;     [no mapeada]
+ *      amdgpu_gart.c:106   adev->dummy_page_addr = 0;               [fini]
+ *      amdgpu_gart.c:520   if (adev->dummy_page_addr) return 0;     [ya iniciada]
+ *
+ *  Un GEOMETRY aqui seria un numero que no dice quien tiene que arreglar que:
+ *  el llamante lo leeria como "la mascara DMA es pequena" y probaria a
+ *  dma_set_mask_and_coherent(40),  que es lo correcto para `> 2^40-1`  y
+ *  absolutamente inútil para `== 0`.  Con este codigo el PRODUCTOR es el que
+ *  sabe que no ha producido nada:  rx550_dummy_page_init() tiene que correr.
+ *  Son dos arreglos distintos y por eso son dos codigos.
+ *
+ *  Y NO SE PUEDE REAPROVECHAR ERR_TABLE (-3) porque ese codigo significa
+ *  "la tabla de rx550_reg_fields[] no declara un campo",  que es un fallo de
+ *  este componente y no del parametro.
+ */
+#define RX550_GART_SEQ_ERR_NO_DUMMY_PAGE	(-4)	/* nobody produced the page */
+
 /* Construye el plan.  VALIDA TODO antes de devolver nada:  un plan a medio
  * poblar es peor que un error, porque el llamante no tiene forma de saber
  * cuantas operaciones son validas.
@@ -177,8 +203,25 @@ struct rx550_gart_seq {
  *   - gart_start > gart_end
  *   - una direccion de mas de 40 bits (no cabe en PHYSICAL_PAGE_NUMBER tras
  *     el >> 12, y truncar en silencio seria escribir una pagina equivocada)
+ *   - dummy_page_addr == 0, con su propio codigo:  el corpus usa ese cero como
+ *     "no hay pagina" en amdgpu_gart.c:79, :86, :101, :106 y :520, y el valor
+ *     acabaria en los dos PROTECTION_FAULT_DEFAULT_ADDR
  *   - block_size o fragment_size fuera del rango del campo de 4 bits
- *   - un max_pfn que no cubre la ventana del GART */
+ *   - un max_pfn que no cubre la ventana del GART
+ *
+ *  LO QUE NO SE RECHAZA, Y POR QUE:  table_addr == 0 SI se acepta, y no es una
+ *  omision.  En el corpus los dos parametros tienen centinelas DISTINTOS,  y
+ *  Measured:
+ *      amdgpu_gart.c:79,86,101,106,520   el centinela de la pagina es  0
+ *      amdgpu_object.h:39                #define AMDGPU_BO_INVALID_OFFSET LONG_MAX
+ *      amdgpu_object.c:1513-1526         el offset sale de
+ *                                        (resource->start << 12) + domain_start
+ *  O sea que 0 es un offset de VRAM LEGAL,  y el propio corpus marca lo
+ *  invalido con LONG_MAX.  Poner un guard `table_addr == 0`  seria inventar una
+ *  regla que el corpus no tiene,  y rechazaria una geometria valida.  Un cero
+ *  de mas no se arregla con un patron:  se comprueba contra el centinela que
+ *  el corpus usa de verdad,  que es distinto en cada caso.
+ */
 int rx550_gart_seq_build(struct rx550_gart_seq *out,
 			 const struct rx550_gart_params *p);
 
