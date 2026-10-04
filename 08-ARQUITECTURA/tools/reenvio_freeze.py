@@ -536,13 +536,35 @@ def verificar(filas, cuerpo_txt=None, declarado_sha=SIN_DECLARACION):
             p.append("CADENA: %d -> %d, y %d es a su vez destino de otra"
                      % (r["viejo"], r["nuevo"], r["viejo"]))
     # 4. dos pares distintos con el mismo destino y distinto origen no es error,
-    #    pero un MISMO origen con dos destinos si lo es
+    #    pero un MISMO origen con dos destinos SI lo es  —salvo que el origen sea
+    #    deliberadamente ambiguo,  que es lo que significa la clase `numero`.
+    #
+    # MEDIDO 2026-10-04.  Este veto rechazaba el par real `290 -> 400`:  comparte
+    # origen con `290 -> 291`,  porque el numero 290 se le confio a DOS contenidos  y
+    # los dos se renumeraron.  Eso es la definicion de la clase `numero` del
+    # hallazgo 1040,  no un error.  Y el veto no podia simplemente admitirse:  las 10
+    # filas `numero` del mapa dependen hoy de que el veto NO se aplique a ellas.
+    #
+    # ASI QUE LA REGLA ES:  un origen con varios destinos es un error cuando todas
+    # las filas del grupo son `contenido`  —porque ahi el origen es inequivoco y la
+    # colision no esta explicada—.  En cuanto UNA fila del grupo es `numero`,  la
+    # comparticion es el hecho documentado,  y el veto dejaria depio
+    # "rechazar una fila" por "rechazar el registro de una colision real".
+    #
+    # Y NO es un veto mas flojo:  una fila `numero` con dos destinos sigue siendo
+    # una fila,  y si sus dos destinos NO son los que la prosa sostiene,  eso lo
+    # comprueba G2c de reenvio_gate.py  y no este criterio.
     por_viejo = {}
     for r in filas:
-        por_viejo.setdefault(r["viejo"], set()).add(r["nuevo"])
-    for v, ns in por_viejo.items():
-        if len(ns) > 1:
-            p.append("origen %d con destinos %s" % (v, sorted(ns)))
+        g = por_viejo.setdefault(r["viejo"], {"destinos": set(),
+                                               "clases": set()})
+        g["destinos"].add(r["nuevo"])
+        g["clases"].add(r.get("relacion", "contenido"))
+    for v, g in por_viejo.items():
+        if len(g["destinos"]) > 1 and g["clases"] == {"contenido"}:
+            p.append("origen %d con destinos %s, y ninguno es `numero`:  la"
+                     " colision no esta explicada por ninguna fila"
+                     % (v, sorted(g["destinos"])))
     return p
 
 
@@ -876,15 +898,47 @@ def self_test(destino=None):
             # Y con un par nuevo: crece, y lo que no era derivable sigue ahi.
             _congelar_en(p, [{"viejo": 3000, "nuevo": 3001, "reasignado": False,
                               "stem": "hallazgo-nuevo.md"}], "0" * 40)
+            # MEDIDO 2026-10-04.  Estas tres aserciones tenían las cifras del mapa
+            # ESCRITAS A MANO  —49 filas, 43 diff, 4 prosa, 45 contenido—  y el
+            # nodo que añadió 7 filas las dejó en rojo.  Es el mismo defecto que
+            # la cabecera del TSV tenía con "8 de las 49 filas tienen su numero
+            # viejo libre":  una cifra escrita que envejece.
+            #
+            # Y EL ARREGLO NO ES PONER 56.  Poner 56 es el mismo defecto con otro
+            # número:  en la siguiente fila añadida vuelve a estar viejo,  y esta vez
+            # el que lo rompa no será un nodo que lo mire sino el próximo.
+            #
+            # LA PROPIEDAD QUE SE COMPRUEBA,  y que no caduca:
+            #
+            #   · el merge NO borra ninguna fila que existia
+            #   · el merge añade EXACTAMENTE la fila que se le dio
+            #
+            # Eso se deriva del FICHERO REAL  —cifras medidas en el momento—  mas la
+            # fila nueva,  y por eso no hay ningun numero escrito aqui.  Y no es
+            # tautológico:  si `plan_merge` perdiera una fila,  el recuento de
+            # clases no cuadraria;  si añadiera de mas,  tampoco.
+            _, _, antes = leer(DEST)
             cab, ct, leidas = leer(p)
-            eq(len(leidas), 49 + 1,
-               "P2: el mapa real crece de 49 a 50 filas con un par nuevo")
-            eq(sorted(x["procedencia"].split(":")[0] for x in leidas),
-               sorted(["diff"] * 43 + ["git"] * 2 + ["prosa"] * 4 + ["diff"]),
-               "P2: las 43 diff, 2 git: y 4 prosa: del mapa real siguen ahi")
-            eq(sorted(x["relacion"] for x in leidas),
-               sorted(["contenido"] * 45 + ["numero"] * 4 + ["contenido"]),
-               "P2: las 45 de relacion `contenido` y 4 de `numero` siguen ahi")
+            eq(len(leidas), len(antes) + 1,
+               "P2: el merge anade EXACTAMENTE la fila que se le dio, y ni una "
+               "mas  (antes %d, despues %d)" % (len(antes), len(leidas)))
+            # ninguna clase de las que existian ha cambiado de recuento
+            from collections import Counter as _C
+            eq(_C(x["procedencia"].split(":")[0] for x in leidas) -
+               _C(x["procedencia"].split(":")[0] for x in antes),
+               _C(["diff"]),
+               "P2: el merge no cambia la clase de ninguna fila previa: solo "
+               "anade una `diff`")
+            eq(_C(x["relacion"] for x in leidas) -
+               _C(x["relacion"] for x in antes),
+               _C(["contenido"]),
+               "P2: el merge no cambia la RELACION de ninguna fila previa: solo "
+               "anade una `contenido`")
+            # y el par nuevo esta, con su contenido
+            eq([1 for x in leidas if x["viejo"] == 3000 and x["nuevo"] == 3001
+                and x["stem"] == "hallazgo-nuevo.md"],
+               [1],
+               "P2: el par nuevo esta en el resultado con su stem")
         finally:
             if os.path.exists(p):
                 os.remove(p)

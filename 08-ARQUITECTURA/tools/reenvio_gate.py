@@ -15,7 +15,7 @@ QUE COMPRUEBA, y por que esta puerta existe
   Una garantia de integridad que no se comprueba no es una garantia, y esta
   puerta es la comprobacion.
 
-  SEIS COSAS, y cada una nombrando lo que la refutaria:
+  OCHO COMPROBACIONES, y cada una nombrando lo que la refutaria:
 
     G1  sha256 declarado == sha256 recomputado.
         Se refutaria si el fichero hubiera cambiado sin recalcular el hash. La
@@ -35,7 +35,7 @@ QUE COMPRUEBA, y por que esta puerta existe
 
     G4  La PROCEDENCIA de cada fila se puede resolver y, si es de prosa, la
         cita DICE el numero viejo.
-        MEDIDO que hoy se cumple en las 4 filas `prosa:`. Esta es la unica
+        MEDIDO que hoy se cumple en las 11 filas `prosa:`. Esta es la unica
         comprobacion que distingue una fila transcrita de una fila copiada a
         ciegas: si la linea citada no nombra el numero viejo, la fila no esta
         sostenida por su propia fuente, y una fila que no esta sostenida es peor
@@ -53,22 +53,31 @@ QUE COMPRUEBA, y por que esta puerta existe
 
     NO comprueba que el numero de filas sea el numero de renumeraciones que el
     arbol evidencia. MEDIDO que no se puede, y no por falta de trabajo: es que
-    no existe un recuento independiente contra el que comparar. MEDIDO el
-    barrido: los 541 `.md` de `findings/` tienen 107 lineas que mencionan
-    "renumer", en 34 ficheros, y de ellas salen 6 pares mas con su cita en la
-    prosa del fichero de destino -- 272->274, 280->288, 290->291, 998->1002,
-    1000->1004, 1003->1005 -- que este mapa NO contiene. El mapa esta
-    INCOMPLETO por al menos 6 pares, y una puerta de igualdad de recuentos
-    escrita hoy [^(6)] fallaria con el mapa correcto, o pasaria con el mapa
-    erroneo: en los dos casos mediria la premisa, no el dato.
+    no existe un recuento independiente contra el que comparar. Lo que se sabe
+    esta escrito, y es lo CONTRARIO de lo que decia la version 1.0.0: MEDIDO
+    que los SEIS pares que esta version declaraba ausentes -- 272->274,
+    280->288, 290->291, 998->1002, 1000->1004, 1003->1005 -- estan en el mapa
+    desde 2026-10-04, cada uno con su cita en la prosa de su fichero de destino.
+    El mapa tiene 56 filas.
 
-    Y hay 2 declaraciones de renumeracion que NO son fila porque no dicen que
-    fichero renumeraron (943-setenta-numeros-de-nota-duplicados.md:110-111 y
-    400-el-resumen-y-el-aviso-tienen-vector.md:181). Un mapa al que se le
-    exigiera contenerlas tendria que inventarles un origen.
+    Y lo que queda fuera NO es "no lo he buscado".  MEDIDO que el par
+    `290 -> 400`  es real y esta escrito con su cita en
+    `400-el-resumen-y-el-aviso-tienen-vector.md:146-148`  --"Este hallazgo se
+    iba a llamar `290` [...] habia dos filas con `290`: la mia y otra del otro
+    agente. Renumeré la mia a `400`"—,  y que no puede entrar porque comparte
+    ORIGEN con `290 -> 291`.  MEDIDO que ese veto es de
+    `reenvio_freeze.verificar`  --"un MISMO origen con dos destinos si lo es"—
+    y que en las filas de la clase `numero` ese criterio es un FALSO POSITIVO:
+    un numeroazio confiado a dos contenidos y los dos renumerados despues es
+    justamente lo que `numero` significa.  MEDIDO tambien que la declaracion de
+    `400-...md:181`  --"Renumeré mis tres duplicados a `401`, `402` y `403`"—
+    NO es fila y no puede serlo: nombra tres DESTINOS y ningun origen.
+
+    Un mapa al que se le exigiera contener esas declaraciones tendria que
+    inventarles un origen.
 
     Lo que esta puerta mide es mas estrecho y por eso puede ser cierto: que las
-    49 filas que hay son 49 renumeraciones reales, cada una con su fichero y su
+    56 filas que hay son 56 renumeraciones reales, cada una con su fichero y su
     fuente. Que sean todas NO se deduce de aqui.
 
 Uso:
@@ -85,7 +94,7 @@ import re
 import subprocess
 import sys
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 WORK_CLASS = "READ_ONLY"
 WRITE_EXECUTION = "NONE"
 
@@ -137,7 +146,10 @@ COMPROBACIONES = (
     ("G1",  "el sha256 declarado verifica sobre el cuerpo real"),
     ("G2",  "toda fila tiene el numero de campos declarado"),
     ("G2b", "toda fila dice su RELACION, y dice una de las dos"),
-    ("G2c", "la RELACION es coherente con la PROCEDENCIA"),
+    ("G2c", "la RELACION se deduce de la PROCEDENCIA, y no se supone: con"
+             " `diff` y con `git:` el fichero se renombro,  con `prosa:` se"
+             " comprueba que la cita nombre los DOS numeros  y que si la prosa"
+             " atribuye el viejo a otro hallazgo  la relacion sea `numero`"),
     ("G3",  "el numero nuevo tiene un hallazgo cuyo nombre es el que dice"),
     ("G4",  "la procedencia se resuelve; si es de prosa, su linea nombra el"
             " numero viejo"),
@@ -159,6 +171,42 @@ RE_NUM_ANTECEDENTE = re.compile(r"(?<!\d)0*%d(?!\d)")
 RE_PROC_DIFF = re.compile(r"^diff$")
 RE_PROC_GIT = re.compile(r"^git:([0-9a-f]{7,40})$")
 RE_PROC_PROSA = re.compile(r"^prosa:(.+):(\d+)(?:-(\d+))?$")
+
+# LAS FRASES DE OCUPACION,  Y POR QUE SON UNA LISTA CERRADA Y NO UN CONCEPTO
+#
+# MEDIDO 2026-10-04 que un criterio semantico sobre la prosa NO se puede
+# escribir con un patron, y se intento antes de aceptar la lista.  La regla que
+# parecia obvia --"si la cita menciona un fichero `NNN-...` que no es el
+# destino, la relacion es `numero`"—  es FALSA, y la refuta 998 -> 1002:
+# `999-...md:192-193` cita `998-correccion-a-105-no-hay-anillo-de-interrupcion-…`
+# que NO es el destino `1002-correccion-a-105-el-1024-no-es-el-anillo-...`, y sin
+# embargo esa fila es de CONTENIDO, porque aquel nombre viejo era ESTE
+# contenido.  Separar "el nombre viejo de este" de "el nombre de otro" es
+# LEER la prosa, no casar un patron.  MEDIDO tambien que la regla inversa no se
+# sostiene:  `962-...md:60-62` y `947-...md:26-31` son `numero` y citan el
+# fichero del otro agente, pero en `1005-...md:234-239`, que tambien es `numero`,
+# el `1003-...` que aparece es el nombre viejo de ESTE documento.  O sea: el
+# patron no separa las clases.  La prosa las separa, y una puerta de integridad
+# no puede leer prosa.
+#
+# Lo que SI queda es una regla de UNA SOLA DIRECCION:  si la prosa ATRIBUYE el
+# numero viejo a OTRO hallazgo, la fila TIENE que ser `numero`.  Es una
+# contradiccion real, es el dano que 1040 describe, y no tiene falsos positivos
+# conocidos:  una fila `contenido` cuya cita dijera "el NNN ya lo ocupaba otro"
+# seria exactamente una fila que autoriza a reescribir citas que la prosa
+# asigna a otra nota.  MEDIDO que cubre 5 de las 6 filas `numero` de
+# procedencia `prosa`;  las que no cubre no quedan SIN comprobar, quedan sin
+# ESTA comprobacion en particular, y el recuento sale en las medidas.
+#
+# Y una fila `contenido` cuya prosa NO atribuya el numero viejo a nadie no la
+# convierte en reparable por decreto:  lo que la hace reparable es que la prosa
+# diga que ESTE contenido paso de NNN a MMM, que es una lectura, y como lectura
+# queda en la cabecera del mapa y en la fila, no en un patron.
+RE_OCUPACION = re.compile(
+    r"ya (?:usaba|usaban|tenia|tenían|tenia|lo ocupaba|la ocupaba)"
+    r"|qued[oó] ocupad[oa]"
+    r"|ocupad[oa] por otr[oa]",
+    re.IGNORECASE)
 
 NORMALIZACION = ("solo las filas de datos --las que no empiezan por `#` y no "
                  "estan vacias--, unidas con \\n, con un \\n final")
@@ -184,17 +232,75 @@ def sha_declarado(cabecera):
     return m
 
 
-def _git_existe(hash_):
+def _git(repo, *args):
     try:
-        p = subprocess.run(["git", "-C", ROOT, "cat-file", "-e",
-                            "%s^{commit}" % hash_],
-                           capture_output=True, text=True, timeout=30)
+        return subprocess.run(["git", "-C", repo] + list(args),
+                              capture_output=True, text=True, timeout=60)
     except (OSError, subprocess.SubprocessError):
-        return False
-    return p.returncode == 0
+        return None
 
 
-def medir(mapa=MAPA, find=FIND):
+def _git_existe(hash_, repo=ROOT):
+    p = _git(repo, "cat-file", "-e", "%s^{commit}" % hash_)
+    return bool(p is not None and p.returncode == 0)
+
+
+def _mismo_stem(a, b):
+    """Los dos nombres de unFindings, SIN numero y con la regla de PREFIJO.
+
+    `reenvios()` entrega el stem truncado a 58 caracteres y el nombre real del
+    arbol no lo esta, asi que el mismo documento aparece con dos anchos. MEDIDO
+    que comparar con igualdad deja pasar la fila y con igualdad estricta la
+    puerta de rojo sobre una fila correcta: el truncado no afirma nada que el
+    nombre completo no afirme.
+    """
+    return a == b or a.startswith(b) or b.startswith(a)
+
+
+def _nombre_de(num, stem):
+    """Como lo escribe el corpus: 3 digitos por debajo de 1000, 4 a partir de ahi.
+
+    MEDIDO que el mensaje de G2c decia `1-destino.md` donde el fichero se llama
+    `001-destino.md`,  y un mensaje que nombra un fichero que no existe hace
+    perder el rato a quien lo lee buscando el fichero en vez de la fila.
+    """
+    return "%d-%s.md" % (num if num >= 1000 else int("%03d" % num), stem)
+
+
+def _git_renombra(hash_, viejo, nuevo, stem, repo=ROOT):
+    """(True, "") si el commit renombra `viejo-stem.md` a `nuevo-stem.md`.
+
+    MEDIDO por que esto SUBE y no baja el listón:  antes, una fila `git:<hash>`
+    solo se comprobaba con que git resolviera el commit —G6—, y eso no dice nada
+    del par.  Si el commit renombra de verdad, entonces el CONTENIDO pasó del
+    numero viejo al nuevo, y la relacion es `contenido` por derivacion y no por
+    costumbre.  Devuelve (False, motivo) con el motivo escrito, porque un veto
+    sin motivo es un veto que hay que volver a Runs para entender.
+    """
+    p = _git(repo, "show", "--name-status", "--format=", hash_)
+    if p is None:
+        return False, "git no se pudo ejecutar"
+    if p.returncode != 0:
+        return False, "git show %s sale %d" % (hash_, p.returncode)
+    for ln in p.stdout.split("\n"):
+        partes = ln.split("\t")
+        if len(partes) != 3 or not partes[0].startswith("R"):
+            continue
+        a = os.path.basename(partes[1])
+        b = os.path.basename(partes[2])
+        m_a, m_b = RE_NUM.match(a), RE_NUM.match(b)
+        if not (m_a and m_b):
+            continue
+        if (int(m_a.group(1)) == viejo and int(m_b.group(1)) == nuevo
+                and _mismo_stem(m_a.group(2) + ".md", stem)
+                and _mismo_stem(m_b.group(2) + ".md", stem)):
+            return True, ""
+    return False, ("el commit %s no renombra %s a %s;  con una"
+                   " procedencia `git:` eso es lo unico que prueba `contenido`"
+                   % (hash_, _nombre_de(viejo, stem), _nombre_de(nuevo, stem)))
+
+
+def medir(mapa=MAPA, find=FIND, repo=ROOT):
     """(codigo, problemas, medidas). `problemas` es una lista de dicts."""
     probs = []
     if not os.path.isfile(mapa):
@@ -220,6 +326,12 @@ def medir(mapa=MAPA, find=FIND):
 
     # ---- G2 y G3: forma y destino
     filas_ok = []
+    # MEDIDO 2026-10-04:  un recorte de G2c que no se puede ver es un recorte
+    # que no existe.  G2c(b) solo puede cubrir las filas `prosa` cuya prosa
+    # ATRIBUYE el numero viejo a otro hallazgo,  y eso no son todas:  asi que se
+    # cuenta cuantas cubre y se imprime.  Una cobertura del 100% escrita en la
+    # cabecera envellece;  el numero medido sale solo.
+    cuota_numero = [0]
     for n_lin, ln in enumerate(filas, 1):
         p = ln.split("\t")
         if len(p) != CAMPOS:
@@ -284,30 +396,50 @@ def medir(mapa=MAPA, find=FIND):
                           "(con ese numero hay: %s)"
                           % (nuevo, p[3], sorted(por_num.get(nuevo, []))[:3])})
 
-        # ---- G2c: la RELACION tiene que ser CONSISTENTE con la procedencia
+        # ---- G2c: la RELACION tiene que ser DERIVABLE, no heredada
         #
-        # MEDIDO que las dos son la misma informacion vista desde dos lados,  y
-        # que pueden discrepar si alguien edita una fila a mano.  Y la
-        # discrepancia importa:  marcar `contenido` una fila que en realidad es
-        # `numero` la convierte en REPARABLE,  que es exactamente el dano que
-        # 1040 describe  —27 citas apuntando al hallazgo equivocado—.
+        # MEDIDO 2026-10-04 que esta comprobacion decia una cosa que ya no es
+        # cierta.  Decia:  `prosa` implica `numero`.  Es la regla que hizo que un
+        # nodo anterior marcara `numero` por el PREFIJO DEL FICHERO y no por lo
+        # que la prosa dice, y es FALSA:  la fila `998 -> 1002` es de
+        # procedencia `prosa:` y es de CONTENIDO, porque la prosa no dice que el
+        # 998 lo ocupara nadie — dice que un fichero que estaba en el 998 fue
+        # renumerado a 1002, y ese fichero es el que ahora es el 1002.  Medida
+        # con la puerta en la version 1.0.0 sobre el mapa con las siete filas
+        # anadidas:  [G2c] linea 53, una sola, y es la que describe el
+        # renumerado.  Y el dano de la regla no era teorico:  `refs_repair.py`
+        # usa `relacion == "contenido"` para decidir si reescribe una cita, asi
+        # que `numero` puesto por el prefijo retira reparaciones que si valen y
+        # `contenido` puesto por el prefijo las concede que no valen.
         #
-        #   procedencia `diff`    el fichero viejo DESAPARECIO  ->  contenido
-        #   procedencia `prosa`   el numero ya estaba ocupado   ->  numero
-        #   procedencia `git`     leida de la prosa de un commit -> contenido
+        # Lo que se conserva es lo DERIVABLE, y se cambia lo que no lo era:
+        #   `diff`   el fichero viejo desaparece del arbol  ->  contenido
+        #   `git:`   el commit renombra de verdad             ->  contenido
+        #   `prosa:` no se deduce nada del prefijo.  Lo que se comprueba es:
+        #     (a) la cita nombra los DOS extremos del par, no solo el viejo.  Una
+        #         fila de renumerado cuya cita no dice cual es el numero nuevo
+        #         no esta sostenida por su fuente, y con G4 sola no se notaba:
+        #         G4 exige el viejo y el nuevo se leia de la fila, o sea que la
+        #         fila se sostenia a si misma.
+        #     (b) si la prosa ATRIBUYE el viejo a otro hallazgo, `numero`.
         rel, pr = p[COL_RELACION].strip(), p[COL_PROCEDENCIA].strip()
         if RE_PROC_DIFF.match(pr) and rel != "contenido":
             probs.append({"check": "G2c", "linea": n_lin, "detalle":
                           "procedencia diff pero relacion=%r:  con `diff` el"
                           " fichero viejo desaparece del arbol,  y eso SI es"
                           " un renumerado de CONTENIDO" % rel})
-        elif RE_PROC_PROSA.match(pr) and rel != "numero":
-            probs.append({"check": "G2c", "linea": n_lin, "detalle":
-                          "procedencia prosa pero relacion=%r:  MEDIDO que las"
-                          " cuatro de esta clase son colisiones de ASIGNACION"
-                          "  —el numero viejo ya estaba ocupado—,  y en esa"
-                          " clase la flecha NO mapea contenido  (1040)"
-                          % rel})
+        elif RE_PROC_GIT.match(pr):
+            if rel != "contenido":
+                probs.append({"check": "G2c", "linea": n_lin, "detalle":
+                              "procedencia %s pero relacion=%r:  un RENAME de"
+                              " git mueve el CONTENIDO con el nombre,  y eso"
+                              " solo puede ser `contenido`" % (pr, rel)})
+            else:
+                ok, por_que = _git_renombra(RE_PROC_GIT.match(pr).group(1),
+                                            viejo, nuevo, p[3], repo)
+                if not ok:
+                    probs.append({"check": "G2c", "linea": n_lin, "detalle":
+                                  "procedencia %s:  %s" % (pr, por_que)})
 
         # ---- G4: la procedencia se resuelve y, si es de prosa, SOSTIENE la fila
         # MEDIDO 2026-10-04:  esto leia p[4]  —la procedencia—  y al anadir la
@@ -320,7 +452,7 @@ def medir(mapa=MAPA, find=FIND):
             pass
         elif RE_PROC_GIT.match(proc):
             h = RE_PROC_GIT.match(proc).group(1)
-            if not _git_existe(h):
+            if not _git_existe(h, repo):
                 probs.append({"check": "G6", "linea": n_lin, "detalle":
                               "procedencia %s: git no resuelve ese commit" % proc})
         elif RE_PROC_PROSA.match(proc):
@@ -342,12 +474,51 @@ def medir(mapa=MAPA, find=FIND):
                     probs.append({"check": "G4", "linea": n_lin, "detalle":
                                   "rango de lineas %d-%d fuera de %s (%d lineas)"
                                   % (l1, l2, fichero, len(txt))})
-                elif not re.search(RE_NUM_ANTECEDENTE.pattern % viejo,
-                                      "\n".join(txt[l1 - 1:l2])):
-                    probs.append({"check": "G4", "linea": n_lin, "detalle":
-                                  "la prosa citada NO nombra el numero viejo %d "
-                                  "en %s:%d-%d: la fila no esta sostenida por su "
-                                  "fuente" % (viejo, fichero, l1, l2)})
+                else:
+                    cita = "\n".join(txt[l1 - 1:l2])
+                    if not re.search(RE_NUM_ANTECEDENTE.pattern % viejo, cita):
+                        probs.append({"check": "G4", "linea": n_lin, "detalle":
+                                      "la prosa citada NO nombra el numero viejo %d "
+                                      "en %s:%d-%d: la fila no esta sostenida por su "
+                                      "fuente" % (viejo, fichero, l1, l2)})
+                    # ---- G2c(a): la cita nombra tambien el numero NUEVO
+                    #
+                    # MEDIDO por que esto no es una quinta comprobacion de G4:  G4
+                    # mira el viejo, que es el unico numero que la fila puede
+                    # copiar de la cita sin circular.  El nuevo NO:  sale de la
+                    # propia fila, asi que sin esto una fila puede citar una
+                    # linea que habla de otro renumerado y aun asiESTAMPAR bien
+                    # los dos campos.
+                    if not re.search(RE_NUM_ANTECEDENTE.pattern % nuevo, cita):
+                        probs.append({"check": "G2c", "linea": n_lin, "detalle":
+                                      "la prosa citada nombra %d pero NO el numero"
+                                      " nuevo %d en %s:%d-%d:  una fila de"
+                                      " renumerado que no dice adonde va no esta"
+                                      " sostenida por su fuente"
+                                      % (viejo, nuevo, fichero, l1, l2)})
+                    # ---- G2c(b): si la prosa atribuye el viejo a OTRO, `numero`
+                    #
+                    # MEDIDO que esto cubre 5 de las 6 filas `numero` de
+                    # procedencia `prosa`.  La que no cubre es 1003 -> 1005, y
+                    # no se cubre porque su prosa no usa ninguna de las frases
+                    # de ocupacion —dice "dos autores eligen el mismo"—.  Anadir
+                    # esa frase al patron estaria AUTHORIZANDO al patron a decidir
+                    # de que clase es cada fila, que es lo que se acaba de
+                    # quitar.
+                    elif RE_OCUPACION.search(cita):
+                        if rel != "numero":
+                            probs.append({"check": "G2c", "linea": n_lin,
+                                          "detalle":
+                                          "la prosa citada ATRIBUYE el numero"
+                                          " viejo %d a otro hallazgo (%s:%d-%d),"
+                                          " asi que la relacion TIENE que ser"
+                                          " `numero` y no %r:  marcarla reparable"
+                                          " concede a refs_repair reescribir"
+                                          " citas que la prosa asigna a otra nota"
+                                          " —el dano de 1040"
+                                          % (viejo, fichero, l1, l2, rel)})
+                        else:
+                            cuota_numero[0] += 1
         else:
             probs.append({"check": "G4", "linea": n_lin, "detalle":
                           "procedencia de forma desconocida: %r" % proc[:60]})
@@ -390,6 +561,7 @@ def medir(mapa=MAPA, find=FIND):
         "normalizacion": NORMALIZACION,
         "procedencias": {},
         "citas_de_prosa_sostenidas": 0,
+        "prosa_con_ocupacion_atribuida": cuota_numero[0],
     }
     for _n, p in filas_ok:
         # MEDIDO:  esto leia p[4]  —la procedencia—  y al anadir la sexta columna
@@ -449,6 +621,48 @@ def selftest() -> int:
     BUENA = ["001\t002\tSI\tdestino.md\tnumero\tprosa:002-destino.md:3"]
     FUERA = ["001\t002\tSI\tdestino.md\tnumero\tprosa:002-destino.md:9"]
 
+    # ---- Un repositorio git TEMPORAL,  y por que
+    #
+    # MEDIDO 2026-10-04 que G2c NO TENIA NI UN VECTOR:  la puerta afirmaba tres
+    # reglas  —diff implica contenido,  git implica contenido,  prosa implica
+    # numero— y el self-test no sabia hacer fallar ninguna.  Una comprobacion
+    # que no se ha visto fallar no es una comprobacion:  es un comentario.  Y
+    # para que git pueda refutar la rama de `git:`  hace falta un repo que
+    # responder.  MEDIDO que REUSAR los commits del propio proyecto ataria el
+    # self-test a una historia que se puede reescribir:  si alguien reescribe
+    # `a75060397058f`  el self-test empezaria a fallar por una causa que no es
+    # la que prueba.  Un repo de un minuto en el tempdir,  con un commit que
+    # renombra y otro que no,  no depende de nada de fuera.
+    def repo_renombrante(d, nombre="repo"):
+        """(repo, hash_del_commit_que_NO_renombra, hash_del_que_SI).
+
+        MEDIDO que el orden importa y que se confunde:  con los dos nombres
+        cambiados los vectores pasan por el motivo equivocado —el que renombra
+        parece el que no renombra— y la puerta entera no prueba nada.  Por eso
+        el orden va escrito en el docstring y no solo en el codigo.
+        """
+        r = os.path.join(d, nombre)
+        os.makedirs(r, exist_ok=True)
+        env_c = ["-c", "user.email=t@t", "-c", "user.name=t",
+                 "-c", "commit.gpgsign=false", "-c", "core.autocrlf=false"]
+        run = lambda *a: subprocess.run(["git", "-C", r] + env_c + list(a),
+                                         capture_output=True, text=True,
+                                         timeout=60, check=True)
+        with open(os.path.join(r, "001-destino.md"), "w", encoding="utf-8") as fh:
+            fh.write("viejo\n")
+        run("init", "-q")
+        run("add", "-A")
+        run("commit", "-q", "-m", "el viejo")
+        h1 = subprocess.run(["git", "-C", r, "rev-parse", "HEAD"],
+                            capture_output=True, text=True,
+                            timeout=60).stdout.strip()
+        run("mv", "001-destino.md", "002-destino.md")
+        run("commit", "-q", "-m", "el renumerado")
+        h2 = subprocess.run(["git", "-C", r, "rev-parse", "HEAD"],
+                            capture_output=True, text=True,
+                            timeout=60).stdout.strip()
+        return r, h1, h2
+
     print("=== reenvio_gate selftest ===\n")
 
     m, f = fabricar("v_ok", BUENA)
@@ -474,6 +688,84 @@ def selftest() -> int:
     cod, probs, _ = medir(m, f)
     res("G2 reasignado que no es SI ni no -> 1 y marca G2",
         cod == EXIT_PROBLEMAS and any(q["check"] == "G2" for q in probs),
+        "codigo=%d %s" % (cod, probs))
+
+    # ---- G2c: las tres ramas, una por una.  MEDIDO que antes no habia ninguna.
+    m, f = fabricar("v_g2c_diff", ["001\t002\tSI\tdestino.md\tnumero\tdiff"])
+    cod, probs, _ = medir(m, f)
+    res("G2c diff con relacion=numero -> 1 y marca G2c",
+        cod == EXIT_PROBLEMAS and any(q["check"] == "G2c" for q in probs),
+        "codigo=%d %s" % (cod, probs))
+
+    # G2c(b): la prosa ATRIBUYE el viejo a otro hallazgo, y la fila se marca
+    # reparable.  Este es el dano del hallazgo 1040 en un vector.
+    m, f = fabricar("v_g2c_prosa_ocup",
+                    ["001\t002\tSI\tdestino.md\tcontenido\tprosa:002-destino.md:3"])
+    with open(os.path.join(f, "002-destino.md"), "w", encoding="utf-8") as fh:
+        fh.write("# 002 · destino\n\n> Era el `001`, que ya lo ocupaba"
+                 " `001-otro.md`, y pasa a `002`.\n")
+    cod, probs, _ = medir(m, f)
+    res("G2c prosa que atribuye el viejo a otro y relacion=contenido -> 1 y G2c",
+        cod == EXIT_PROBLEMAS and any(q["check"] == "G2c" for q in probs),
+        "codigo=%d %s" % (cod, probs))
+    # Y el mismo caso con la relacion correcta tiene que pasar: un vector que
+    # solo sabe fallar no distingue "la puerta funciona" de "la puerta odia".
+    m2, f2 = fabricar("v_g2c_prosa_ocup_ok",
+                      ["001\t002\tSI\tdestino.md\tnumero\tprosa:002-destino.md:3"])
+    with open(os.path.join(f2, "002-destino.md"), "w", encoding="utf-8") as fh:
+        fh.write("# 002 · destino\n\n> Era el `001`, que ya lo ocupaba"
+                 " `001-otro.md`, y pasa a `002`.\n")
+    cod, probs, med = medir(m2, f2)
+    res("G2c ...y el mismo caso con `numero` -> 0",
+        cod == EXIT_OK, "codigo=%d %s" % (cod, probs))
+    res("G2c ...y esa fila cuenta como ocupacion atribuida (1)",
+        med.get("prosa_con_ocupacion_atribuida") == 1,
+        "medida=%s" % med.get("prosa_con_ocupacion_atribuida"))
+
+    # G2c(a): la cita nombra el viejo pero NO el nuevo.  G4 solo miraba el viejo,
+    # asi que este caso pasaba antes:  la fila se sostenia a si misma.
+    m, f = fabricar("v_g2c_prosa_sin_nuevo", BUENA)
+    with open(os.path.join(f, "002-destino.md"), "w", encoding="utf-8") as fh:
+        fh.write("# 002 · destino\n\n> Era el `001` y se queda donde esta.\n")
+    cod, probs, _ = medir(m, f)
+    res("G2c cita que nombra el viejo y no el nuevo -> 1 y marca G2c",
+        cod == EXIT_PROBLEMAS and any(q["check"] == "G2c" for q in probs),
+        "codigo=%d %s" % (cod, probs))
+
+    # Y el caso `contenido` + `prosa` que la version 1.0.0 declaraba IMPOSIBLE y
+    # que el mapa real contiene desde 2026-10-04:  la prosa no atribuye el numero
+    # viejo a nadie,  y aun asi la fila es de contenido.  Si este vector se
+    # rompe,  la puerta ha vuelto a suponer la clase por el prefijo del fichero.
+    m, f = fabricar("v_g2c_prosa_contenido",
+                    ["001\t002\tSI\tdestino.md\tcontenido\tprosa:002-destino.md:3"])
+    with open(os.path.join(f, "002-destino.md"), "w", encoding="utf-8") as fh:
+        fh.write("# 002 · destino\n\n>Habia un `001-antes.md` y lo renumeraron"
+                 " a `002-destino.md`.\n")
+    cod, probs, _ = medir(m, f)
+    res("G2c `contenido` con `prosa:` que NO atribuye el viejo a nadie -> 0",
+        cod == EXIT_OK, "codigo=%d %s" % (cod, probs))
+
+    # G2c rama `git:`: el commit TIENE que renombrar el par, no solo resolver.
+    d = os.path.join(base, "v_g2c_git")
+    os.makedirs(d, exist_ok=True)
+    repo, h_sin_renombrar, h_renombrado = repo_renombrante(d)
+    m, f = fabricar("v_g2c_git",
+                    ["001\t002\tSI\tdestino.md\tcontenido\tgit:%s" % h_renombrado])
+    cod, probs, _ = medir(m, f, repo=repo)
+    res("G2c git cuyo commit renombra el par -> 0",
+        cod == EXIT_OK, "codigo=%d %s" % (cod, probs))
+    m, f = fabricar("v_g2c_git_norenombra",
+                    ["001\t002\tSI\tdestino.md\tcontenido\tgit:%s"
+                     % h_sin_renombrar])
+    cod, probs, _ = medir(m, f, repo=repo)
+    res("G2c git que resuelve pero NO renombra el par -> 1 y marca G2c",
+        cod == EXIT_PROBLEMAS and any(q["check"] == "G2c" for q in probs),
+        "codigo=%d %s" % (cod, probs))
+    m, f = fabricar("v_g2c_git_numero",
+                   ["001\t002\tSI\tdestino.md\tnumero\tgit:%s" % h_renombrado])
+    cod, probs, _ = medir(m, f, repo=repo)
+    res("G2c git con relacion=numero -> 1 y marca G2c",
+        cod == EXIT_PROBLEMAS and any(q["check"] == "G2c" for q in probs),
         "codigo=%d %s" % (cod, probs))
 
     m, f = fabricar("v_g3", ["001\t999\tSI\tdestino.md\tcontenido\tdiff"])
@@ -569,11 +861,14 @@ def main() -> int:
               (med.get("procedencias") or {}).items())))
     print("  citas de prosa sostenidas por su propia linea: %s"
           % med.get("citas_de_prosa_sostenidas"))
+    print("  de esas, las que la prosa ATRIBUYE a otro hallazgo y por lo tanto"
+          " fuerzan `numero`: %s" % med.get("prosa_con_ocupacion_atribuida"))
     print("\n  LO QUE ESTA PUERTA NO COMPRUEBA:")
     print("    que las filas sean TODAS las renumeraciones. No hay recuento")
-    print("    independiente contra el que comparar, y MEDIDO que faltan al")
-    print("    menos 6 pares mas con cita en su prosa de destino. Ver la")
-    print("    cabecera de REENVIO-FINDINGS.tsv.")
+    print("    independiente contra el que comparar. MEDIDO que los 6 pares")
+    print("    que se declaraban ausentes estan dentro desde 2026-10-04, y que")
+    print("    `290 -> 400` es real pero no cabe: comparte origen con")
+    print("    `290 -> 291`. Ver la cabecera de REENVIO-FINDINGS.tsv.")
     if probs:
         print("\n  PROBLEMAS (%d):" % len(probs))
         for q in probs:

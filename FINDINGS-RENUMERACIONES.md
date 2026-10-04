@@ -42,9 +42,9 @@ de ese tipo.
 
 
 - Numeros con **colision** (>1 fichero): **74**
-- Renumeraciones detectadas: **49**, de ellas **REASIGNADAS: 48**
+- Renumeraciones detectadas: **57**, de ellas **REASIGNADAS: 56**
 - Ficheros en `findings/`: **546**
-- **Referencias colgando** (`` `NNN` `` que ya no es ese hallazgo): **52**, en **6** numeros distintos
+- **Referencias colgando** (`` `NNN` `` que ya no es ese hallazgo): **98**, en **12** numeros distintos
 
 Las referencias colgando son el dano real. Un numero renumerado sigue
 escribiendose en el texto de otros hallazgos y **nada parece roto**,
@@ -54,10 +54,16 @@ esta tabla.
 | citado | deberia ser | veces |
 |---|---|---|
 | `267` | `271` | 34 |
+| `272` | `274` | 16 |
+| `280` | `288` | 9 |
 | `286` | `401` | 9 |
+| `290` | `291` | 3 |
+| `941` | `942` | 7 |
 | `944` | `947` | 3 |
 | `961` | `962` | 1 |
 | `991` | `994` | 2 |
+| `1000` | `1004` | 7 |
+| `1003` | `1005` | 4 |
 | `1011` | `1020` | 3 |
 
 El renumerado **no esta commiteado**: HEAD y el arbol de trabajo
@@ -190,9 +196,17 @@ comparacion contra HEAD y no el historial.
 | 190 | 198 | **SI** | `tres-correcciones-de-la-poda.md` |
 | 202 | 242 | **SI** | `los-registros-caben-en-bar5-con-4x-de-holgura.md` |
 | 267 | 271 | **SI** | `el-kernel-de-cache-mide-la-tasa-de-emision.md` |
+| 272 | 274 | **SI** | `la-poblacion-de-herramientas-era-112-y-contamos-31.md` |
+| 280 | 288 | **SI** | `falla-no-es-una-unidad-cinco-herramientas-encontrandose-a-si-mismas.md` |
 | 286 | 401 | **SI** | `doclint-no-indexaba-07-driver.md` |
+| 290 | 291 | **SI** | `doce-cifras-de-poblacion-diez-sin-fecha-y-ninguna-commiteada.md` |
+| 290 | 400 | **SI** | `el-resumen-y-el-aviso-tienen-vector.md` |
+| 941 | 942 | **SI** | `282-2-cerrada-en-283-y-arrastrada-en-cinco-notas.md` |
 | 944 | 947 | **SI** | `contradiccion-con-931-ro-va-de-1100-a-2100.md` |
 | 961 | 962 | **SI** | `un-control-que-contaba-el-trabajo-de-otro.md` |
 | 975 | 976 | no | `corregcion-a-974-el-escritor-del-bit-51-es-inalcanzable-en-gfx8.md` |
 | 991 | 994 | **SI** | `un-guard-que-se-mide-a-si-mismo.md` |
+| 998 | 1002 | **SI** | `correccion-a-105-el-1024-no-es-el-anillo-de-interrupcion-y-el-real-tiene-4096.md` |
+| 1000 | 1004 | **SI** | `eng-invalidate-es-gfx9-y-no-gfx8.md` |
+| 1003 | 1005 | **SI** | `la-telemetria-mmio-devuelve-ebusy-con-la-gpu-suspendida.md` |
 | 1011 | 1020 | **SI** | `la-apertura-del-gart-no-puede-cambiar-en-runtime.md` |
