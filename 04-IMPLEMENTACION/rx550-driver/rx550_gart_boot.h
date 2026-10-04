@@ -161,6 +161,31 @@ struct rx550_gart_boot_req {
 
 /* Lo que paso.  Escribirse entero ANTES de empezar,  para que un informe de
  * un fallo tenga tambien lo que si funciono. */
+/* Los bits de `geom_campos`.  UN BIT POR CAMPO,  y el nombre lleva el MISMO
+ * nombre que el campo  —para que un hueco en la mascara se vea mirando el
+ * campo,  y no leyendo un numero—. */
+#define RX550_BOOT_GEOM_GART_START	(1u << 0)
+#define RX550_BOOT_GEOM_GART_END	(1u << 1)
+#define RX550_BOOT_GEOM_TAMANO		(1u << 2)
+#define RX550_BOOT_GEOM_CLAMPED		(1u << 3)
+/* Los cuatro que esta secuencia NO rellena.  Se declaran para poder escribir su
+ * nombre en el informe,  de modo que la lista de lo que falta sea legible y no
+ * un 7. */
+#define RX550_BOOT_GEOM_MAX_MC_ADDRESS	(1u << 4)
+#define RX550_BOOT_GEOM_FB_END		(1u << 5)
+#define RX550_BOOT_GEOM_SIZE_BELOW	(1u << 6)
+#define RX550_BOOT_GEOM_SIZE_ABOVE	(1u << 7)
+/* Los TRES que esta secuencia produce.  MEDIDO:  el bit de CLAMPED NO va aqui,
+ * porque clamped lo decide rx550_gart_geometry()  —el PRODUCTOR—  y esta
+ * funcion es su CONSUMIDORA:  recibe la ventana ya decidida.  O sea que la
+ * secuencia produce tres  y recibe uno,  y el nombre de la mascara lo dice. */
+#define RX550_BOOT_GEOM_PRODUCIDOS	(RX550_BOOT_GEOM_GART_START | \
+					 RX550_BOOT_GEOM_GART_END | \
+					 RX550_BOOT_GEOM_TAMANO)
+/* Y el bit que recibe del productor,  declarado para que un consumidor pueda
+ * decir "clamped lo puso el de al lado"  y no suponerlo. */
+#define RX550_BOOT_GEOM_DEL_PRODUCTOR	RX550_BOOT_GEOM_CLAMPED
+
 struct rx550_gart_boot_report {
 	enum rx550_gart_boot_step	ultimo_paso;
 	enum rx550_gart_boot_err	err;
@@ -174,6 +199,38 @@ struct rx550_gart_boot_report {
 	struct rx550_vm_geom		vm_geom;
 	struct rx550_gart_tabla_geom	tabla_geom;
 	struct rx550_gart_geom		geom;
+
+	/* QUE CAMPOS DE `geom` ESTAN REALMENTE RELLENOS.
+	 *
+	 * MEDIDO 2026-10-04.  Esta secuencia rellena TRES de los ocho campos de
+	 * rx550_gart_geom  —gart_start, gart_end y gart_size_effective,  mas
+	 * clamped—  y deja a CERO los cuatro derivados:
+	 *
+	 *     max_mc_address   fb_end   size_below   size_above
+	 *
+	 * Y no habia ninguna bandera que lo dijera.  Un consumidor que lea
+	 * out->geom.size_below  ve un 0,  y no puede distinguir
+	 *
+	 *     "el hueco de ABAJO de la VRAM es de 0 bytes"      —imposible,  y por
+	 *                                                          tanto un dato
+	 *     "este campo no lo relleno esta secuencia"            corrupto
+	 *
+	 * Y en el corpus los cuatro son MEDICIONES REALES,  no ceros:
+	 *     gmc_v8_0.c:1133  mc_mask       0xffffffffff
+	 *     amdgpu_gmc.c      fb_end        fb_base + vram_bytes - 1
+	 *     amdgpu_gmc.c      size_below    el hueco bajo la VRAM
+	 *     amdgpu_gmc.c      size_above    el hueco alto,  alineado
+	 *
+	 * Los cuatro salen de rx550_gart_geometry(),  que es el PRODUCTOR y es
+	 * puro.  Esta funcion es su CONSUMIDORA  —la ventana entra ya decidida,  que
+	 * es el contrato de rx550_gart_boot.h—  y no puede rellenar lo que no ha
+	 * calculado.
+	 *
+	 * QUE HAY QUE HACER CON ESTA MASCARA:  un consumidor que necesite los cuatro
+	 * tiene que llamar al productor y usar SU salida.  Esta estructura no es el
+	 * sitio.  Y la mascara lo dice,  en vez de dejar que un 0 parezca un dato.
+	 */
+	uint32_t			geom_campos;
 	struct rx550_gart_seq		seq;
 	struct rx550_gart_apply_report	apply;
 	uint32_t			 plan_len;

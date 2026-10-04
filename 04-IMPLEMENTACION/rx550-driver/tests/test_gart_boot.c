@@ -36,7 +36,20 @@ static void ko(const char *t) { printf("  FAIL  %s\n", t); fail++; }
  * rx550_gart_geometry() desde los dos registros. */
 #define GART_START   UINT64_C(0x000000FF00000000)
 #define GART_END     UINT64_C(0x000000FF0FFFFFFF)
-#define VRAM_BYTES   (UINT64_C(2048) << 20)
+/* MEDIDO 2026-10-04.  Estas dos lineas declaraban una ventana de VRAM de 2 GiB
+ * sobre un buffer de 512 KiB:  un desajuste de 4096x entre lo DECLARADO y lo
+ * EXISTENTE.  No lo detectaba nadie porque el pool es la unica cota,  y el pool
+ * se le dice 2 GiB:  el pool no sabe que el buffer son 512 KiB.
+ *
+ * Y no es cosmetico:  una ventana del GART mayor que 512 KiB haria que la
+ * tabla se escribiera FUERA del buffer,  y en userspace eso es una escritura
+ * fuera de limites con la tabla entera detras.  El modo de fallo es el mas caro
+ * de depurar de todo este componente.
+ *
+ * Aqui el buffer es el limite real  y la ventana se lo dice.  La ventana de 2
+ * GiB que da la tarjeta de verdad la mete el llamante real,  que en userspace
+ * no existe. */
+#define VRAM_BYTES   (UINT64_C(512) * 1024)
 #define GART_BYTES   (GART_END - GART_START + 1)
 
 #define TABLA_BYTES  UINT64_C(524288)
@@ -129,6 +142,56 @@ static void fase_completa(void)
 	 * LO QUE SE COMPRUEBA,  y que si puede fallar:  que el relleno documento
 	 * las PAGINAS de la ventana pedida.  Si la geometria de la secuencia se
 	 * invirtiera,  el numero seria distinto y esto lo diria. */
+	/* LA MASCARA DE CAMPOS,  que es lo que impide leer un 0 como un dato.
+	 *
+	 * MEDIDO 2026-10-04:  la secuencia rellena 3 de los 8 campos de
+	 * rx550_gart_geom y dejaba los cuatro derivados a cero  —max_mc_address,
+	 * fb_end, size_below, size_above—  SIN ninguna bandera.  Un consumidor que
+	 * leia rep.geom.size_below  ve un 0  y no puede distinguir "el hueco es de 0
+	 * bytes"  (imposible)  de "este campo no lo relleno esta secuencia".
+	 *
+	 * Y en el corpus los cuatro son mediciones reales:  mc_mask 0xffffffffff
+	 * (gmc_v8_0.c:1133),  y los tres del hueco los calcula amdgpu_gmc.c. */
+	CHECK(rep.geom_campos == RX550_BOOT_GEOM_PRODUCIDOS,
+	      "la mascara dice EXACTAMENTE los TRES campos que esta secuencia "
+	      "produce,  y no uno mas");
+	CHECK((rep.geom_campos & RX550_BOOT_GEOM_MAX_MC_ADDRESS) == 0,
+	      "y max_mc_address NO esta:  lo produce rx550_gart_geometry(),  que es "
+	      "otro modulo y otro consumidor");
+	CHECK((rep.geom_campos & RX550_BOOT_GEOM_FB_END) == 0,
+	      "ni fb_end");
+	CHECK((rep.geom_campos & RX550_BOOT_GEOM_SIZE_BELOW) == 0,
+	      "ni size_below");
+	CHECK((rep.geom_campos & RX550_BOOT_GEOM_SIZE_ABOVE) == 0,
+	      "ni size_above");
+	CHECK((rep.geom_campos & RX550_BOOT_GEOM_GART_START) != 0
+	      && (rep.geom_campos & RX550_BOOT_GEOM_GART_END) != 0
+	      && (rep.geom_campos & RX550_BOOT_GEOM_TAMANO) != 0,
+	      "y los tres que si se rellenan estan marcados");
+	CHECK(rep.geom.gart_start != 0 && rep.geom.gart_end != 0
+	      && rep.geom.gart_size_effective != 0,
+	      "y esos tres tienen valor:  un 0 con el bit puesto seria un dato,  y "
+	      "eso es justo lo que la mascara evita que se confunda con un hueco");
+	CHECK(rep.geom.size_below == 0,
+	      "size_below sigue a cero,  y ahora se sabe que es por no rellenarse y "
+	      "no por medir cero:  es NOT_FILLED y no MEDIDO");
+
+	/* Y LA PUERTA QUE IMPIDE QUE EL DESAJUSTE VUELVA.
+	 *
+	 * No basta con haberlo arreglado:  si el buffer y la ventana se separan otra
+	 * vez,  el pool no lo nota  —el pool se lo cree—  y la tabla se escribe
+	 * fuera.  La comprobacion es aritmetica sobre el propio test,  de modo que
+	 * depende de lo que el test DECLARA y no de lo que el codigo hace.
+	 *
+	 * Y el test no puede Affordar un buffer de 2 GiB,  asi que la ventana se
+	 * ajusta al buffer.  La consequence  —que aqui solo se prueban ventanas
+	 * pequeñas—  esta escrita arriba. */
+	CHECK(sizeof(g_vram) == VRAM_BYTES,
+	      "la ventana del pool es EXACTAMENTE el tamano del buffer:  "
+	      "un desajuste aqui seria una escritura fuera de limites en userspace");
+	CHECK(VRAM_BYTES <= (UINT64_C(512) * 1024),
+	      "y la ventana no excede lo que este buffer puede sostener");
+
 	CHECK(rep.tabla_geom.entradas_max
 	      == (uint32_t)((req.gart_end - req.gart_start + 1u)
 			    >> RX550_PAGE_SHIFT),
