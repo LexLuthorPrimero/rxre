@@ -54,6 +54,8 @@
 #
 # ---------------------------------------------------------------------------
 
+tools/citas_prosa_etiquetas.py	# las 12 etiquetas A MANO de citas por numero. Su objeto ES la ambiguedad: cada entrada QUOTA la prosa adjudicada con su numero entre acentos graves, porque una etiqueta sin la cita literal no se puede revisar ni refutar. Instrumento de medicion de 08-ARQUITECTURA/CITAS-POR-NUMERO-DECLARACION.md.
+tools/citas_prosa_adjudicado.py	# los 132 veredictos de la muestra estratificada. Mismo argumento: el fichero contiene la prosa citada para que el veredicto sea auditable. Reescribir sus numeros por nombre destruiria la evidencia que los sustenta.
 08-ARQUITECTURA/tools/reenvio_gate.py   # su `fnd/002-destino.md` de prueba se ESCRIBE con el texto `Era el `001` y pasa a `002`.`; ese `001` es el DATO del fixture, no una afirmacion: la linea existe para que la puerta vea una cita por numero dentro de un renumerado, y citarla por nombre le quitaria al fixture el caso que tiene que probar
 08-ARQUITECTURA/tools/stale_gap.py   # linter de findings obsoletos: sus comentarios QUOTAN la linea del hallazgo que cita (001:213, 056:153), y la cita es parte del texto que se analiza
 08-ARQUITECTURA/tools/_selftest_stale_gap.py   # selftest del anterior; fabrica entradas con la cita dentro para probar el detector
