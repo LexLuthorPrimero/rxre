@@ -93,6 +93,72 @@ CHIP = "CHIP_POLARIS12"
 HWIP_RE = re.compile(r"\b([A-Z][A-Z0-9]*)_HWIP\b")
 
 
+# MEDIDO 2026-10-04 (hallazgo 1055).  La validacion de --chip.
+#
+# PRIMERA INTENCION, Y POR QUE NO: delegar en tools/trace_path.py, que ya tiene
+# parse_chip_enum() y el rc=2 para un chip que no esta.  Correcto en principio y
+# imposible en la practica: parse_chip_enum() lee include/drm/amd_asic_type.h, y ese
+# fichero NO esta en el arbol que hwip.py usa.  MEDIDO:
+#
+#   find_kernel(None) -> rx550-upstream-7.2.8/linux-7.2.8
+#   amd_asic_type.h   -> solo existe en RESEARCH/kernelref/ y RESEARCH/kernelbuild/,
+#                        NO en RESEARCH/baseline/ ni en el upstream
+#
+# Asi que con el enum no habia nada contra que validar, TODOS los chips salian
+#Unknown y mi propio arreglo dejo rc=2 hasta para CHIP_POLARIS12.  MEDIDO, porque lo
+# probe: un arreglo de un filtro que no distingue "filtro mal" de "sin datos" es el
+# mismo defecto que repara, con signo cambiado.
+#
+# La poblacion correcta es la que la propia herramienta razona: los nombres CHIP_ que
+# aparecen EN SU CORPUS.  MEDIDO: 39 distintos, y CHIP_POLARIS12 aparece 74 veces.  Un
+# ASIC que no esta ahi no puede tener un `case` que escribir, asi que la respuesta
+# honesta es "no conozco este ASIC", que es distinta de "no hay ningun hardcodeo".
+CHIP_RE_CORPUS = re.compile(r"\b(CHIP_[A-Z0-9_]+)\b")
+
+
+def chips_del_corpus(root: str) -> Set[str]:
+    nombres: Set[str] = set()
+    for dp, _ds, fs in os.walk(root):
+        for f in fs:
+            if not f.endswith((".c", ".h")):
+                continue
+            try:
+                with open(os.path.join(dp, f), "r", encoding="utf-8",
+                          errors="replace") as fh:
+                    t = fh.read()
+            except OSError:
+                continue
+            nombres.update(CHIP_RE_CORPUS.findall(t))
+    return nombres
+
+
+def _resolver_chip(dado: str, conocidos: Set[str]) -> Tuple[Optional[str], str]:
+    """(chip, como) o (None, "") si no se puede resolver sin adivinar.
+
+    Tres pasos, y el tercero es el que hace que esto no sea un filtro mas:
+
+      1. coincidencia EXACTA: es el nombre, se usa.
+      2. coincidencia UNICA por sufijo, sin distinguir mayusculas: `--chip Polaris12`
+         resuelve a `CHIP_POLARIS12`.  Es el error que cualquiera cometeria, y
+         convertirlo en un error de uso seria una barrera falsa.
+      3. si no es unico o no existe, NO se elige.  Se devuelve None y quien llama sale
+         con rc=2.
+
+    El paso 3 es el importante. Aceptar el primero de varios seria volver a hacer lo
+    mismo que hacia el filtro: elegir en silencio un destino que el usuario no dijo.
+    """
+    if dado in conocidos:
+        return dado, ""
+    may = dado.upper()
+    sufijo = sorted(k for k in conocidos if k.upper().endswith(may))
+    if len(sufijo) == 1:
+        return sufijo[0], "sufijo unico"
+    sinprefijo = sorted(k for k in conocidos if k.upper().split("_", 1)[-1] == may)
+    if len(sinprefijo) == 1:
+        return sinprefijo[0], "sin el prefijo CHIP_"
+    return None, ""
+
+
 def find_kernel(explicit: Optional[str]) -> Tuple[Optional[str], str]:
     here = os.path.dirname(os.path.abspath(__file__))
     root = os.path.abspath(os.path.join(here, ".."))
@@ -815,8 +881,53 @@ def main() -> int:
         return 3
     c = Corpus(root)
 
+    # MEDIDO 2026-10-04 (hallazgo 1055, informe FILTROS-MAL-FORMADOS).  Esto no
+    # existia, y es la clase VACIO_SILENCIOSO mas peligrosa del proyecto: un filtro
+    # mal formado convertirse en una CONCLUSION DE HARDWARE.
+    #
+    # MEDIDO, antes del arreglo:
+    #
+    #   $ python3 tools/hwip.py --chip CHIP_POLARIS12   -> NINGUNO, rc=0
+    #   $ python3 tools/hwip.py --chip Polaris12         -> NINGUNO, rc=0
+    #   $ python3 tools/hwip.py --chip CHIP_GA10        -> NINGUNO, rc=0
+    #
+    # Y las tres imprimen, textual:
+    #
+    #   "Consecuencia directa: para esta GPU, TODAS las versiones de IP
+    #    se leen de la tarjeta."
+    #
+    # La frase "para esta GPU" esta FIJA en el codigo. Preguntar por CHIP_GA10, que
+    # no es esta GPU, seguia afirmando una conclusion sobre esta. Un nombre de chip
+    # equivocado no daba un error: daba una afirmacion de hardware, con salida limpia
+    # y codigo cero. El filtro es lo que decidia, y no decia nada.
+    #
+    # El patron ya existe en el proyecto: tools/trace_path.py:508-512 parsea el enum
+    # con parse_chip_enum() y devuelve 2 si el chip no esta. Se reutiliza esa funcion
+    # en vez de escribir otra: dos parsers del mismo enum divergen.
+    conocidos = chips_del_corpus(root)
+    if not conocidos:
+        print("ERROR  no encuentro ningun nombre CHIP_ en %s, y sin esa lista" % root,
+              file=sys.stderr)
+        print("        no puedo ni validar ni negar. No se afirma nada.", file=sys.stderr)
+        return 3
+    chip, como = _resolver_chip(args.chip, conocidos)
+    if chip is None:
+        cerca = sorted(k for k in conocidos if args.chip.upper() in k.upper()
+                       or k.upper().split("_", 1)[-1] in args.chip.upper())
+        print("ERROR  %s no es un ASIC que aparezca en el corpus (%d conocidos)"
+              % (args.chip, len(conocidos)), file=sys.stderr)
+        if cerca:
+            print("        quiza: %s" % ", ".join(cerca[:8]), file=sys.stderr)
+        print("        ejemplos: %s" % ", ".join(sorted(conocidos)[:6]), file=sys.stderr)
+        print("        No se afirma nada sobre ningun ASIC: un filtro que no casa",
+              file=sys.stderr)
+        print("        no puede producir una conclusion de hardware.", file=sys.stderr)
+        return 2
+    if como:
+        print("AVISO  --chip %s resuelto a %s" % (args.chip, como), file=sys.stderr)
+
     print("=" * 78)
-    print("hwip %s · %s · WORK_CLASS=READ_ONLY" % (VERSION, args.chip))
+    print("hwip %s · %s · WORK_CLASS=READ_ONLY" % (VERSION, chip))
     print("=" * 78)
     print("corpus      %s" % root)
     print()
@@ -896,8 +1007,8 @@ def main() -> int:
         print("  NINGUNO. Ningun `case %s:` del corpus escribe" % args.chip)
         print("  adev->ip_versions[] con un valor constante.")
         print()
-        print("  Consecuencia directa: para esta GPU, TODAS las versiones de IP")
-        print("  se leen de la tarjeta. No hay ningun atajo estatico.")
+        print("  Consecuencia directa: para %s, TODAS las versiones de IP se leen" % chip)
+        print("  de la tarjeta. No hay ningun atajo estatico.")
         print()
         print("  Esto NO significa que no exista una tabla de hardcodeos para")
         print("  otra GPU: significa que para ESTA no la hay. Y es una ausencia")
