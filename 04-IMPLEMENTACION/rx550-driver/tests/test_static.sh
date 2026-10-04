@@ -1045,6 +1045,85 @@ printf '%s' "$PCODE" | grep -qw 'pci_request_regions' && \
 printf '%s' "$PCODE" | grep -qw 'pci_enable_device' && \
   no RES "pci_enable_device presente: deberia estar DEFERRED" || \
   chk 0 RES "pci_enable_device DEFERRED (no llamado)"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# EL ORDEN,  QUE ES LO QUE AFIRMA ESTE CHECK Y NO EL ESTADO
+#
+# MEDIDO 2026-10-04,  y el hallazgo 1042.  El check de arriba afirma que
+# pci_enable_device NO se llama.  Eso es el ESTADO,  y el estado cambia sin que
+# nadie haya decidido nada.  Lo que no se puede comprobar aqui es la RAZON,  y la
+# razon tiene una condicion comprobable:
+#
+#   pci_resource.c:  "Lo requiere el componente MMIO,  inmediatamente antes del
+#                    primer pci_iomap."
+#
+# MEDIDO que esa condicion YA SE CUMPLE por el otro lado:  probe() llama a
+# pci_iomap en la linea 84.  De modo que "no hay consumidor todavia"  —la razon
+# del DEFERRED—  HA CADUCADO,  y lo unico que sigue en pie es la prohibicion.
+#
+# ASI QUE ESTE CHECK AFIRMA EL ORDEN,  no el estado:
+#
+#   · si la llamada aparece,  tiene que aparecer ANTES del primer pci_iomap
+#   · si no aparece,  este check no dice nada  —el de arriba dice que no aparece
+#
+# Y por que el orden y no la presencia:  la presencia es una decision de
+# AUTORIZACION,  que no es de este componente,  y el orden es una consecuencia
+# TECNICA que se puede equivocar uno sin querer.  Este check no pide permiso para
+# escribir en el hardware:  comprueba que cuando se escriba,  se escriba bien.
+#
+# CON CONTROL NEGATIVO,  que es lo que lo hace puerta y no nota:  si el orden no se
+# mirase,  anadir la llamada DESPUES del iomap daria verde.
+# MEDIDO, y es un error mio del primer intento:  la variable se llamaba
+# n_orden_ok  con 1 = "todo bien",  pero `chk` toma 0 como PASA  —`chk() { if [ "$1" =
+# "0" ]; then ok …`—.  Con la convencion al reves  la puerta daba FAIL con el
+# estado correcto,  que es la peor forma de estar:  verde imposible y verde
+# inventado indistinguibles.
+n_orden_ok=0
+n_orden_n=0
+# MEDIDO:  la primera version de este bloque usaba strip_comments(),  que es
+# `gcc -fpreprocessed -dD -E -P`:  la -P elimina los marcadores de linea,  de modo
+# que los numeros que salian NO eran los del fuente  y la comparacion de orden
+# era sobre posiciones inventadas.  Un numero de linea que no corresponde al
+# fichero es peor que no tener numero:  parece que se ha medido.
+#
+# Y aqui,  ademas,  -fpreprocessed NO evalua los #ifdef,  que es el tercer falso
+# positivo de esta misma puerta en este fichero.  Para esto no hace falta que los
+# evalue:  lo que hay que evitar es contar una MENCION EN UN COMENTARIO,  y para
+# eso basta con llevar la pila de comentarios.
+for c in "$DRV"/*.c "$DRV"/*.h; do
+  [ -f "$c" ] || continue
+  leido=$(awk '
+    { l = $0
+      # cierra un comentario de bloque que venía abierto
+      while (inb) {
+        k = index(l, "*/")
+        if (k == 0) { l = ""; break }
+        l = substr(l, k + 2); inb = 0
+      }
+      # quita el resto de la línea que sigue en comentario
+      k = index(l, "/*")
+      if (k > 0) { l = substr(l, 1, k - 1); inb = 1 }
+      gsub(/^[ \t]+/, "", l)
+      if (match(l, /pci_enable_device[ \t]*\(/)) { if (!en) { en = FNR } }
+      if (match(l, /pci_iomap[ \t]*\(/))         { if (!io) { io = FNR } }
+    }
+    END { printf "%d %d\n", en+0, io+0 }' "$c")
+  en=${leido%% *}; io=${leido##* }
+  [ "$en" = "0" ] && continue
+  n_orden_n=$((n_orden_n+1))
+  if [ "$io" != "0" ] && [ "$en" -gt "$io" ]; then
+    # chk() toma 0 como PASA,  de modo que la VIOLACION es 1.  Y MEDIDO que la
+    # primera version de este bloque ponia 0 tambien aqui,  con lo cual imprimia
+    # el diagnostico  —que es lo que se ve en el registro—  y aun asi daba PASS.
+    # Un mensaje de fallo que no cambia el veredicto es PEOR que ninguno:  quien
+    # lo lee se queda con que ha avisado,  y no ha avisado.
+    n_orden_ok=1
+    echo "        pci_enable_device en $(basename "$c"):$en  DESPUES del"
+    echo "        primer pci_iomap ($io):  la lectura se haria sin decodificar"
+  fi
+done
+chk $n_orden_ok RES \
+    "si pci_enable_device se llama, va ANTES del primer pci_iomap:  de ahi depende la precondicion de la lectura  (measured $n_orden_n fichero(s) con la llamada; orden correcto)"
 # la tabla de unwind debe estar documentada
 grep -q "STATE 2" "$DRV/rx550_target.c" && chk 0 RES "tabla de unwind (STATE 0..4) documentada" \
                                      || no RES "falta la tabla de unwind"
