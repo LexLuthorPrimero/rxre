@@ -478,14 +478,32 @@ def gen_current_state(root: str, ind: Indice) -> str:
                 continue
             item = "%s-%s -> corregida por %s" % (
                 m.group(1), m.group(2)[:22], det if estado == "RESUELTA" else tok)
-            if item in corr or item in corr_ambigua or item in corr_rota:
+            # MEDIDO 2026-10-04 (hallazgo 1056).  Esto estaba mal y lo introduje yo:
+            #
+            #     if item in corr or item in corr_ambigua or item in corr_rota:
+            #         continue
+            #     if estado == "AMBIGUA":
+            #         corr_ambigua.append("%s  [%d candidatos]" % (item, len(det)))
+            #
+            # El guard busca `item` y lo que se guarda es `item` CON SUFIJO, luego el
+            # `item` sin sufijo nunca esta en la lista y el continue nunca salta.
+            # MEDIDO: `072 -> corregida por 041  [3 candidatos]` salia DOS VECES y
+            # `073 -> corregida por 040  [3 candidatos]` salia DOS VECES.  Mi hallazgo
+            # 1054 afirmaba "aristas duplicadas: 0, antes 4".  Es FALSO: son 2, no 0.
+            #
+            # O sea que el defecto que dije reparar seguia vivo en la misma rama, y
+            # por el mismo patron de siempre: la rama hermana (retr, :315) compara lo
+            # que guarda, y esta comparaba otra cosa.  CUARTA vez de la misma forma en
+            # la sesion, y las dos primeras son mias.
+            fila = "%s  [%d candidatos]" % (item, len(det)) if estado == "AMBIGUA" else item
+            if fila in corr or fila in corr_ambigua or fila in corr_rota:
                 continue
             if estado == "AMBIGUA":
-                corr_ambigua.append("%s  [%d candidatos]" % (item, len(det)))
+                corr_ambigua.append(fila)
             elif estado == "INEXISTENTE":
-                corr_rota.append(item)
+                corr_rota.append(fila)
             else:
-                corr.append(item)
+                corr.append(fila)
         # Esto NO es una arista: es una coincidencia de nombre.  Antes iba a `corr` y
         # por eso "Correcciones: 29" contaba 10 filas que no son correcciones.  Con el
         # numero separado, "inequivocas" significa inequivocas.

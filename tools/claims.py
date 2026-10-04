@@ -125,7 +125,30 @@ CLASE_RX = re.compile(r"`([A-Z][A-Z0-9_]{2,})`")
 # audit_citations.sh, que ya lo comprueba. Aqui basta con reconocer la forma.
 CITA_RX = re.compile(r"([a-z][a-z0-9_]*)\.([ch]):(\d+)(?:-(\d+))?")
 
-FINDING_RX = re.compile(r"^(\d{3})[-_]")
+# MEDIDO 2026-10-04 (hallazgo 1056).  Era `^(\d{3})[-_]`: TRES digitos exactos.
+#
+# El numero de hallazgo tiene 3 O 4 digitos, y hay 42 ficheros con 4.  El regex no
+# casaba con ellos y la linea siguiente hacia lo peor que se puede hacer con un numero:
+#
+#     num = m.group(1) if m else f[:3]        # claims.py:805, ANTES
+#
+# f[:3] de "1002-correccion-a-105-...md" es "100".  Luego el hallazgo 1002 se atribuia
+# al hallazgo 100, que es OTRO hallazgo, y `docs[num] = {...}` (claims.py:829) ASIGNA en
+# vez de acumular, con lo que de los N documentos con la misma clave sobrevivia el
+# ultimo procesado.
+#
+# MEDIDO sobre el estado real de findings/ con el codigo de antes:
+#
+#     ficheros .md                    558
+#     claves que salen en docs        416
+#     DOCUMENTOS QUE DESAPARECEN     142     el 25 %
+#
+# y los nodos mas cargados: 104 <- 11 documentos, 102 <- 11, 103 <- 9, 100 <- 8.
+# Cinco de esos seis son documentos de 4 digitos fundidos en un nodo de 3.
+#
+# No es ambiguedad: es una respuesta equivocada, y silenciosa, porque el nodo 102
+# EXISTE como hallazgo de 3 digitos y recibe las afirmaciones del 1020 al 1029.
+FINDING_RX = re.compile(r"^(\d{3,4})[-_]")
 
 
 def proyecto() -> str:
@@ -767,6 +790,10 @@ def main() -> int:
         return selftest()
 
     root = proyecto()
+    # MEDIDO 2026-10-04 (hallazgo 1056).  Los ficheros cuyo nombre no tiene forma de
+    # numero de hallazgo.  Antes no existia la lista porque no habia forma de que
+    # faltara: f[:3] SIEMPRE daba algo, y ese algo era el nodo de otro hallazgo.
+    sin_numero: List[str] = []
     hallazgos = listar_findings(root)
     if not hallazgos:
         print("claims: no encuentro findings en %s" % root, file=sys.stderr)
@@ -802,7 +829,16 @@ def main() -> int:
         fs, ff = extraer(lineas)
         fuera |= ff
         m = FINDING_RX.match(f)
-        num = m.group(1) if m else f[:3]
+        # MEDIDO 2026-10-04 (hallazgo 1056).  Antes: `num = m.group(1) if m else f[:3]`.
+        # f[:3] NO es un numero de hallazgo: es un prefijo, y coincidia con otro
+        # hallazgo.  Ahora, si el nombre no tiene forma de numero, se cuenta y se dice
+        # en vez de elegir un nodo: un hallazgo sin numero NO es un hallazgo sin
+    # hallazgo cuyo nombre no se entiende, y declararlo es la unica forma
+    # de que el recuento no este mintiendo.
+        if m is None:
+            sin_numero.append(f)
+            continue
+        num = m.group(1)
         hace, recibe = retracciones(lineas)
         clases: Dict[str, int] = {}
         sin_respaldo: List[Dict[str, object]] = []
@@ -840,7 +876,11 @@ def main() -> int:
     if args.json:
         print(json.dumps({"filas": filas, "docs": docs,
                           "tokens_no_clase": sorted(fuera),
-            "simbolos_en_respaldo": simbolos_vistos},
+            "simbolos_en_respaldo": simbolos_vistos,
+            # MEDIDO 2026-10-04 (hallazgo 1056).  Sin esto, los hallazgos sin numero
+            # desaparecen sin dejar rastro, que es exactamente el defecto que se
+            # arregla: un dato que no se cuenta parece un dato que no existe.
+            "hallazgos_sin_numero": sorted(sin_numero)},
                          indent=2, sort_keys=True, default=str))
         n_exigen = sum(1 for f in filas
                        if f["clase"] in EXIGEN_RESPALDO)
@@ -853,6 +893,12 @@ def main() -> int:
     print("proyecto   %s" % root)
     print("findings   %d" % len(hallazgos))
     print("afirmaciones tipificadas extraidas: %d" % len(filas))
+    # MEDIDO 2026-10-04 (hallazgo 1056).  Con f[:3] esto no podia ser distinto de 0.
+    print("hallazgos con numero: %d" % (len(hallazgos) - len(sin_numero)))
+    if sin_numero:
+        print("hallazgos SIN NUMERO (no se atribuyen a ninguno): %d" % len(sin_numero))
+        for f in sorted(sin_numero)[:10]:
+            print("    %s" % f)
     print()
 
     print("=" * 78)
