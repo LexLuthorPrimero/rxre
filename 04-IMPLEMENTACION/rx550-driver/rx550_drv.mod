@@ -6,3 +6,4 @@
 ./rx550_vmid1_pgt.o
 ./rx550_submission.o
 ./rx550_gart_write.o
+./rx550_dummy_page.o
