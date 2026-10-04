@@ -47,24 +47,27 @@
 #include "rx550_vram.h"
 #include "rx550_vram_pool.h"
 #include "rx550_dummy_page.h"
+#include "rx550_vm_geom.h"
 
 /* NUMERO DE PASOS.  El informe lo declara, para que un consumidor pueda
  * contar por donde llego sin conocer la lista. */
 enum rx550_gart_boot_step {
 	RX550_GART_BOOT_PRESENTE = 0,	/* nada hecho todavia  */
-	RX550_GART_BOOT_RESERVA,	/* 1  la tabla tiene sitio  */
-	RX550_GART_BOOT_RELLENO,	/* 2  la tabla tiene valor  */
-	RX550_GART_BOOT_GEOMETRIA,	/* 3  ventana decideda     */
-	RX550_GART_BOOT_PLAN,		/* 4  plan construido      */
-	RX550_GART_BOOT_APLICADO,	/* 5  plan escrito         */
-	RX550_GART_BOOT_VACIO_TLB,	/* 6  TLB invalidada       */
-	RX550_GART_BOOT_LISTO,		/* los seis completos     */
+	RX550_GART_BOOT_VM_GEOM,	/* 1  ventana de VM decidida */
+	RX550_GART_BOOT_RESERVA,	/* 2  la tabla tiene sitio  */
+	RX550_GART_BOOT_RELLENO,	/* 3  la tabla tiene valor  */
+	RX550_GART_BOOT_GEOMETRIA,	/* 4  ventana del GART      */
+	RX550_GART_BOOT_PLAN,		/* 5  plan construido      */
+	RX550_GART_BOOT_APLICADO,	/* 6  plan escrito         */
+	RX550_GART_BOOT_VACIO_TLB,	/* 7  TLB invalidada       */
+	RX550_GART_BOOT_LISTO,		/* los siete completos    */
 	RX550_GART_BOOT_NR_PASOS
 };
 
 enum rx550_gart_boot_err {
 	RX550_GART_BOOT_OK = 0,
 	RX550_GART_BOOT_ERR_NULO,		/* falta un argumento   */
+	RX550_GART_BOOT_ERR_VM_GEOM,	/* la ventana de VM no sale */
 	RX550_GART_BOOT_ERR_VRAM,	/* el pool no dio sitio  */
 	RX550_GART_BOOT_ERR_RELLENO,	/* no se pudo rellenar   */
 	RX550_GART_BOOT_ERR_GEOMETRIA,	/* geometria no valida   */
@@ -74,7 +77,13 @@ enum rx550_gart_boot_err {
 };
 
 /* Lo que hay que brings.  Todo por valor explicito:  esta funcion no lee
- * registros, no consulta parametros de modulo y no tiene estado global. */
+ * registros, no consulta parametros de modulo y no tiene estado global.
+ *
+ * Ni siquiera la RAM:  eso entra como un numero en `req->vm.ram_gb`,  y quien
+ * lo lee de /proc/meminfo es el llamante.  La frontera es la misma que en
+ * rx550_gart_geom.h:  la aritmetica es pura y aqui;  la lectura del mundo es
+ * alla.  Una secuencia que leyera /proc/meminfo no seria testeable en
+ * userspace,  y esta si lo es. */
 struct rx550_gart_boot_req {
 	const struct rx550_mmio_map	*map;
 
@@ -96,13 +105,23 @@ struct rx550_gart_boot_req {
 	uint64_t			 gart_start;
 	uint64_t			 gart_end;
 
-	/* Los dos parametros sin PRODUCTOR todavia.  MEDIDO: ningun codigo del
-	 * componente los rellena desde una medicion,  y son de los que salen
-	 * PAGE_TABLE_BLOCK_SIZE, BANK_SELECT y L2_CACHE_BIGK_FRAGMENT_SIZE.
-	 * Van declarados MODELO y no MEDIDO,  no como dato. */
-	uint32_t			 block_size;		/* MODELO */
-	uint32_t			 fragment_size;		/* MODELO */
-	uint32_t			 max_pfn;		/* MODELO */
+	/* MEDIDO 2026-10-04, CORREGIDO.  Este struct llevaba block_size,
+	 * fragment_size y max_pfn marcados MODELO,  y no habia NINGUN codigo de
+	 * produccion que los rellenara:  estaban escritos a mano en tres fixtures
+	 * de test.  Era el unico sitio del componente donde se podia estar
+	 * inventando un valor,  y no estaba en la tabla de campos:  estaba en el
+	 * BORDE entre la tabla y el constructor del plan.
+	 *
+	 * Ahora NO SE PUEDEN PASAR.  Entra lo que rx550_vm_geom_in necesita —la
+	 * RAM y los tres overrides—  y la secuencia llama a rx550_vm_geometry(),
+	 * que es puro,  igual que hace con rx550_gart_geometry().  Un numero sin
+	 * productor deja de ser representable en la frontera,  y eso es mas fuerte
+	 * que escribir en el comentario que no hay que inventarlo:  una comentario
+	 * se puede saltarse sin que nada se entere.
+	 *
+	 * El porque de que block_size = 10 no dependa de esta maquina,  y del
+	 * barrido que lo demuestra,  esta en rx550_vm_geom.c.  Aqui no se repite. */
+	struct rx550_vm_geom_in		 vm;
 
 	/* La direccion GPU de la tabla.  La calcula el pool, no el llamante:
 	 * tabla_gpu_offset = vram_base_gpu + res.offset.  Aqui solo hace
@@ -124,11 +143,19 @@ struct rx550_gart_boot_report {
 
 	struct rx550_vram_resource	res;
 	uint64_t			 tabla_gpu_offset;
+	struct rx550_vm_geom		vm_geom;
 	struct rx550_gart_tabla_geom	tabla_geom;
 	struct rx550_gart_geom		geom;
 	struct rx550_gart_seq		seq;
 	struct rx550_gart_apply_report	apply;
 	uint32_t			 plan_len;
+
+	/* Un aviso, no un fallo.  MEDIDO: rx550_vm_geometry() puede devolver
+	 * `degenerado` con el corpus avisando y continuando
+	 * (amdgpu_vm.c:2454-2455).  Los numeros los deja tal cual para que no
+	 * difieran de lo que veria el hardware,  y esto dice que el estado es
+	 * raro.  Un informe que no lo dijera estaria callando un dato. */
+	unsigned			 aviso;
 };
 
 /* La secuencia entera.  Devuelve RX550_GART_BOOT_OK solo si los SEIS pasos
