@@ -320,16 +320,24 @@ const uint32_t rx550_vmid1_reg_count =
 /* ═══════════════════════════════════════════════════════════════════════════
  * LA TABLA DE CAMPOS
  *
- * Cincuenta y cinco entradas:  los 22 de VM_CONTEXT1_CNTL,  los 7 de
+ * Cincuenta y cinco entradas:  los 22 de VM_CONTEXT1_CNTL,  los 6 de
  * MC_VM_MX_L1_TLB_CNTL, COMPLETOS, no los que el accessor ya conocía.
+ *
+ * MEDIDO 2026-10-04: este párrafo decía "los 7 de MC_VM_MX_L1_TLB_CNTL".
+ * `gmc_8_1_sh_mask.h` declara SEIS para ese registro, y nuestra tabla lleva
+ * los seis.  "COMPLETOS" era cierto; el número no.  Los siete campos que
+ * existen en `mmhub_1_0_sh_mask.h` (MTYPE, ATC_EN) no existen en el header de
+ * GFX8, de donde viene el siete.
  *
  * POR QUÉ COMPLETOS Y POR QUÉ SOLO ESOS DOS REGISTROS
  *
  * El criterio de completitud que se adoptó es "todo campo que el header
  * declara para un registro cubierto".  Aplicado a los trece registros, ese
- * criterio PULLA de más:  VM_L2_CNTL4 aporta 13 campos, CNTL2 cinco, y los
- * registros de una sola palabra aportan uno cada uno.  Y D4 —que es
- * precisamente L2_CNTL4— está explícitamente diferido en este nodo.
+ * criterio PULLA de más:  VM_L2_CNTL4 DECLARA 14 campos (y la referencia
+ * escribe 12 por REG_SET_FIELD), CNTL2 declara cinco, y los registros de una
+ * sola palabra aportan uno cada uno.  Y D4 —que es precisamente L2_CNTL4—
+ * está explícitamente diferido en este nodo.  Este párrafo decía 13; son 14
+ * declarados.
  *
  * Eso es una contradicción entre el criterio y el alcance, y se reporta en
  * lugar de resolverla por dentro.  La solución adoptada es:
@@ -345,17 +353,81 @@ const uint32_t rx550_vmid1_reg_count =
  *
  * Y LA ESTRUCTURA QUE REVELA EL INVENTARIO, QUE NO ERA VISIBLE ANTES
  *
- * Cada tipo de fallo tiene TRES campos:  _DEFAULT, _INTERRUPT y _SAVE.
- * No son tres copias de lo mismo:
+ * MEDIDO 2026-10-04: este bloque decía "Cada tipo de fallo tiene TRES campos".
+ * ES FALSO, y el error no era de redacción:  la familia `_SAVE` tiene CINCO
+ * miembros, no siete.  No hay `_SAVE` para RANGE ni para DUMMY_PAGE en
+ * NINGUNA generación GFX del corpus (medido sobre gmc_6_0, 7_0, 7_1, 8_1, 8_2:
+ * `_SAVE` = 5 y `_INTERRUPT` = 7 en las cinco).  Lo que hay en el sitio de la
+ * sexta ranura, en GFX6/7, es `PRIVILEGED_PROTECTION_FAULT_ENABLE_SAVE`, que en
+ * GFX8 pasó a llamarse `EXECUTE_PROTECTION_FAULT_ENABLE_SAVE` en el MISMO bit:
+ * un renombrado, no una adición.  De ahí el error de aritmética.
  *
- *   _DEFAULT    el fallo se reporta por la vía por defecto
- *   _INTERRUPT  el fallo genera una interrupción
- *   _SAVE       el estado del fallo se guarda
+ *   _DEFAULT    el fallo se reporta por la vía por defecto      7 campos
+ *   _INTERRUPT  el fallo genera una interrupción               7 campos
+ *   _SAVE       el estado del fallo se guarda                  5 campos
  *
- * El corpus pone a 1 los siete _DEFAULT y NO TOCA los trece _INTERRUPT y
- * _SAVE.  Un escritor que no sepa que existen los trece los pone a 0 al
- * escribir el registro de cero, y cambia tres comportamientos que el corpus
- * nunca cambia.  Por eso están en la tabla sin valor de corpus.
+ * Lo que el corpus pone a 1 y lo que NO toca, CON SU ALCANCE EXACTO.  Este
+ * bloque decía "los trece _INTERRUPT y _SAVE" y "cambia tres comportamientos
+ * que el corpus nunca cambia".  Ambas frases eran incorrectas:
+ *
+ *   1. Son DOCE, no trece:  7 _INTERRUPT + 5 _SAVE.
+ *   2. "el corpus nunca cambia" es FALSO para los _INTERRUPT.  El corpus los
+ *      escribe, en otra función y en otro momento:
+ *      gmc_v8_0_vm_fault_interrupt_state() (gmc_v8_0.c:1385) hace RMW de los
+ *      siete _INTERRUPT de AMBOS contextos, con WREG32 en L1404, L1408, L1414
+ *      y L1418.  Está registrada como fuente de IRQ (gmc_v8_0.c:1745) y es
+ *      alcanzable:  la llama amdgpu_irq_disable_all() en device_fini_hw y en
+ *      device_halt, y amdgpu_irq_gpu_reset_resume_helper() en el reset-resume.
+ *      Lo que NO hace es escribirlos en gmc_v8_0_gart_enable().
+ *   3. Para los cinco `_SAVE` la afirmación sí es cierta y es fuerte:
+ *      MEDIDO, la cadena PROTECTION_FAULT_ENABLE_SAVE no aparece en NINGÚN
+ *      .c de drivers/gpu/drm/amd/.  `PROVEN_ABSENT` para fuentes C, no
+ *      "no está en gart_enable".
+ *
+ * El motivo de que estén en la tabla sin valor de corpus sigue siendo válido,
+ * pero con el alcance corregido:  un escritor que no sepa que existen los
+ * doce los pone a 0 al escribir el registro entero, y eso cambia
+ * comportamientos que gart_enable no toca.
+ *
+ * POR QUÉ SOLO VM_CONTEXT1_CNTL Y NO EL CONTEX0, que declara lo MISMO
+ *
+ * MEDIDO 2026-10-04: esta asimetría no estaba escrita en ninguna parte, y es un
+ * defecto de MANTENIBILIDAD, no de comportamiento.
+ *
+ * Los dos registros declaran EXACTAMENTE los mismos 22 campos, con las mismas
+ * máscaras (`sorted(c0) == sorted(c1)` sobre gmc_8_1_sh_mask.h).  Nuestra tabla
+ * lleva los 22 del contexto 1 y 3 del contexto 0.  Los 19 que faltan son los
+ * mismos doce más seis _DEFAULT más PAGE_TABLE_BLOCK_SIZE.
+ *
+ * POR QUÉ NO ES UN DEFECTO DE COMPORTAMIENTO, con el mecanismo:
+ * la preservación la da `rx550_mmio_apply_field()`, que conserva todo lo que
+ * queda fuera de la máscara, y NO la tabla.  El compositor parte de `cur`, que
+ * es el SNAPSHOT LEÍDO DEL HARDWARE (rx550_gart_seq.c:328).  Un campo ausente
+ * de la tabla se conserva igual que uno `DECLARED_NOT_WRITTEN`, porque en los
+ * dos casos `apply_field` no toca sus bits.  Los dos contextos están protegidos
+ * IGUAL.
+ *
+ * Y el corpus tampoco escribe ninguno de los dos registros entero fuera de
+ * gart_disable:  gmc_v8_0.c:977-978 los pone a cero a los dos, y el resto son
+ * RREG32→SET_FIELD→WREG32 (L757, L897, L935, L1404, L1408, L1414, L1418).
+ *
+ * POR QUÉ EXISTE LA ASIMETRÍA, que es la pregunta que faltaba:
+ * las doce filas de CONTEXT1_CNTL existen para que M11 pueda calcular
+ * `cov_cntl`, la unión de campos nombrados, y DEMOSTRAR que los bits 5 y 8 de
+ * los registros CNTL no tienen campo con nombre
+ * (tests/test_mmio_access.c:1364-1401).  M11 nombra `VM_CONTEXT1_CNTL` y solo
+ * ese.  El criterio de completitud se aplicó al registro que el test nombra, no
+ * a los registros que la secuencia escribe.  Eso tampoco estaba escrito.
+ *
+ * REPARO PENDIENTE, y su orden, porque es alcance y no correccion:
+ *   (b) escribir el motivo de la diferencia — ESTE bloque.  Hecho.
+ *   (a) anadir los 19 de CONTEXT0 como DECLARED_NOT_WRITTEN.  Sin efecto en el
+ *       valor que llega al hardware (el compositor los saltaría), y obliga a
+ *       mover M10/M11 a cubrir los dos CNTL e implementar la direccion
+ *       header→tabla que el propio M10 promete y no hace.
+ *   (c) quitar los doce de CONTEXT1_CNTL.  DESCARTADA:  destruiría la única
+ *       evidencia en el componente de que los bits 5 y 8 no tienen nombre, que
+ *       es la razón de que exista la disciplina de RMW.
  * ═══════════════════════════════════════════════════════════════════════════ */
 const struct rx550_reg_field rx550_reg_fields[] = {
 /* ── MMVM_CONTEXT1_CNTL  (0x505, offset 0x1414) ── los que el corpus escribe */

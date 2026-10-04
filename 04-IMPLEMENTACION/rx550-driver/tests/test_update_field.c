@@ -179,7 +179,7 @@ int main(void)
 				todos = false;
 			}
 		}
-		CHECK(todos, "U0 los 25 campos de la tabla coherentes con su mask");
+		CHECK(todos, "U0 los 55 campos de la tabla coherentes con su mask");
 		CHECK(n > 0, "U0 la tabla no esta vacia");
 		CHECK_EQ(n, rx550_reg_field_count, "U0 se han recorrido todos");
 	}
