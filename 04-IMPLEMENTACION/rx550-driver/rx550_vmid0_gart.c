@@ -226,25 +226,34 @@ int rx550_vmid0_regs_build(struct rx550_vmid0_regs *regs,
 	uint32_t cntl;
 
 	if (regs == NULL || cfg == NULL)
-		return -1;
+		return RX550_VMID0_ERR_INCONSISTENT;
 	memset(regs, 0, sizeof(*regs));
 
 	/* Se valida TODO antes de devolver nada.  Un caller que recibe
-	 * error no tiene un struct a medio poblar. */
+	 * error no tiene un struct a medio poblar.
+	 *
+	 * MEDIDO 2026-10-04:  los nueve guards de a continuacion devolvian
+	 * `-1`,  los nueve.  Este es el cambio:  cada uno devuelve su codigo de
+	 * enum rx550_vmid0_regs_err  y ninguno comparte numero con otro.  El
+	 * criterio y la justificacion estan en rx550_vmid0_gart.h,  junto al
+	 * enum,  que es donde el gemelo rx550_gart_seq.h:196 lo escribio tambien.
+	 * MEDIDO tambien que el cambio no rompe a nadie:  sobre los 78
+	 * .c/.h/.sh del arbol no hay un solo llamante que compare contra el
+	 * literal -1. */
 	if (cfg->enable_context != RX550_VMID0_ENABLE_CONTEXT)
-		return -1;
+		return RX550_VMID0_ERR_ENABLE_CONTEXT;
 	if (cfg->page_table_depth != RX550_VMID0_DEPTH)
-		return -1;
+		return RX550_VMID0_ERR_DEPTH;
 	if (cfg->range_pf_default != RX550_VMID0_RANGE_PF_DEFAULT)
-		return -1;
+		return RX550_VMID0_ERR_RANGE_PF;
 	if (base.value > UINT64_C(0xFFFFFFFF))
-		return -1;
+		return RX550_VMID0_ERR_BASE_TOO_WIDE;
 	if (gart_start > UINT64_C(0xFFFFFFFF) * RX550_GART_PAGE_SIZE)
-		return -1;
+		return RX550_VMID0_ERR_START_TOO_WIDE;
 	if (gart_end > UINT64_C(0xFFFFFFFF) * RX550_GART_PAGE_SIZE)
-		return -1;
+		return RX550_VMID0_ERR_END_TOO_WIDE;
 	if (dummy_page_addr.bytes > UINT64_C(0xFFFFFFFF) * RX550_GART_PAGE_SIZE)
-		return -1;
+		return RX550_VMID0_ERR_PA_TOO_WIDE;
 	/* MEDIDO 2026-10-04.  ESTE ES EL GEMELO EXACTO de la guarda que le faltaba
 	 * a rx550_gart_seq.c,  y que un nodo anterior cerro alli.  Aqui solo se
 	 * acotaba el TECHO  —fault_pfn = dummy_page_addr.bytes >> 12  con 0 da 0—  y
@@ -263,21 +272,36 @@ int rx550_vmid0_regs_build(struct rx550_vmid0_regs *regs,
 	 * Y CON 0,  lo que sale es fault_pfn = 0  en PROTECTION_FAULT_DEFAULT_ADDR:
 	 * todo fault de proteccion del contexto 0 traduce a PA 0.
 	 *
-	 * LIMITACION QUE ESTA GUARDA NO CIERRA,  y que es lo unico que se puede
-	 * decir aqui:  ESTA FUNCION DEVUELVE -1 PARA TODO.  No hay espacio de
-	 * errores con nombre,  de modo que este -1  es INDISTINGUIBLE del de las
-	 * seis comprobaciones de arriba.  Un llamante no puede saber si lo que fallo
+	 * LA LIMITACION QUE ESTA GUARDA NO CERRABA,  Y QUE ESTE COMMIT CIERRA:
+	 * hasta a0bedd7  esta funcion DEVOLVIA -1 PARA TODO.  El -1 de esta guarda
+	 * era INDISTINGUIBLE del techo de la linea de arriba  -y de las otras seis
+	 * comprobaciones-,  de modo que un llamante no podia saber si lo que fallo
 	 * fue el techo,  la profundidad o que no hay pagina.
 	 *
-	 * rx550_gart_seq.c si tiene espacio  —RX550_GART_SEQ_ERR_NO_DUMMY_PAGE,
-	 *committed  en d0d56b3—  precisamente por esto:  el motivo importa,  porque
-	 * con un codigo generico el llamante culpa a la mascara DMA  prueba
-	 * dma_set_mask  y no arregla nada.  Abrir aqui un espacio de errores es un
-	 * cambio MAYOR que este defecto  —tocaria los seis retornos y sus
-	 * llamantes—  y no se hace a medias:  queda declarado,  no escondido.
+	 * RESUELTO AQUI,  con el codigo que faltaba:
+	 *   esta guarda devuelve RX550_VMID0_ERR_NO_DUMMY_PAGE (-9)
+	 *   y la de una linea mas arriba devuelve RX550_VMID0_ERR_PA_TOO_WIDE (-8)
+	 *
+	 * Y NO SE CONFUNDEN POR CASUALIDAD:  los DOS son limites del MISMO
+	 * parametro,  dummy_page_addr,  y los DOS arreglos son distintos.
+	 *   PA_TOO_WIDE    (> 2^40-1)  el arreglo es la mascara DMA,
+	 *                                dma_set_mask_and_coherent(40)
+	 *   NO_DUMMY_PAGE  (== 0)       el arreglo es que corra
+	 *                                rx550_dummy_page_init()
+	 * Un codigo generico aqui hace que el llamante pruebe dma_set_mask:  lo
+	 * correcto para el techo,  y absolutamente inútil para el suelo.  El gemelo
+	 * rx550_gart_seq.c:484-487  ya devolvia DOS codigos distintos sobre el MISMO
+	 * parametro  (== 0 -> ERR_NO_DUMMY_PAGE -4,  > MAX -> ERR_GEOMETRY -2),  y
+	 * por el mismo motivo.  La justificacion entera esta en
+	 * rx550_vmid0_gart.h,  junto al enum,  que es donde el gemelo escribio la
+	 * suya tambien.
+	 *
+	 * AMBITO,  que conviene no ver mas grande de lo que es:  este espacio de
+	 * errores es de ESTA funcion.  Las otras ocho de este .c devuelven -1 sin
+	 * nombre y siguen asi;  abrirlas es otro trabajo y no se ha hecho de paso.
 	 */
 	if (dummy_page_addr.bytes == 0)
-		return -1;
+		return RX550_VMID0_ERR_NO_DUMMY_PAGE;
 
 	start_pfn = (uint32_t)(gart_start >> RX550_GART_PAGE_SHIFT);
 	end_pfn = (uint32_t)(gart_end >> RX550_GART_PAGE_SHIFT);

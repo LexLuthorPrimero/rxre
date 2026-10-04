@@ -280,8 +280,87 @@ int rx550_vmid0_base_from_vram(struct rx550_vram_offset off,
 int rx550_vmid0_fault_from_pa(struct rx550_system_pa pa,
 			      struct rx550_pfn *out);
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ * ERRORES DE rx550_vmid0_regs_build()
+ *
+ * Uno por causa, y NINGUNA causa comparte codigo con otra.  No es estilo: es
+ * el criterio que el propio modulo ya escribio en rx550_vmid1_pgt.h:286 —
+ * "ninguno compartido entre causas que el llamante tenga que tratar de forma
+ * distinta" — y el que el gemelo aplico en rx550_gart_seq.h:196.
+ *
+ * MEDIDO 2026-10-04 · POR QUE ESTE ESPACIO, Y QUE ANTES HABIA
+ *
+ * ANTES:  nueve `return -1`  (MEDIDO sobre el fuente, no estimado)  y nueve
+ * guards distintos.  Un solo numero para nueve causas.
+ *
+ * LA RAZON OPERATIVA, Y ES LA MISMA DEL GEMELO,  con la cita que la sostiene:
+ * los DOS ultimos guards son limites del MISMO parametro, dummy_page_addr,  y
+ * los dos admiten arreglos distintos:
+ *
+ *     PA_TOO_WIDE     (> 2^40-1)   el arreglo es la mascara DMA:
+ *                                   dma_set_mask_and_coherent(40)
+ *     NO_DUMMY_PAGE   (== 0)        el arreglo es que corra
+ *                                   rx550_dummy_page_init()
+ *
+ * El gemelo ya lo separo, sobre el mismo parametro y por el mismo motivo:
+ *     rx550_gart_seq.c:484-485   == 0  ->  RX550_GART_SEQ_ERR_NO_DUMMY_PAGE  (-4)
+ *     rx550_gart_seq.c:486-487   > MAX ->  RX550_GART_SEQ_ERR_GEOMETRY      (-2)
+ * Un codigo generico aqui hace que el llamante pruebe dma_set_mask,  que es lo
+ * correcto para el techo y ABSOLUTAMENTE INUTIL para el suelo:  no arregla
+ * nada y parece que si.  Ese es el fallo operativo,  y por eso los dos son
+ * codigos distintos y no el mismo numero.
+ *
+ * LO QUE ABRE,  con el coste MEDIDO y no estimado:
+ *   · MEDIDO sobre los 78 ficheros .c/.h/.sh del arbol:  ningun llamante
+ *     compara contra el literal -1.  Los 6 que lo hacen son de pm4,
+ *     mmio_access y comentarios.  Cambiar el contrato no rompe a nadie.
+ *   · MEDIDO:  los unicos call sites de esta funcion estan en
+ *     tests/test_vmid0_gart.c.  rx550_gart_write.c ENLAZA este .c pero no la
+ *     llama.
+ *   · MEDIDO:  de esos call sites,  20 en total,  5 comparan `== 0`,  8
+ *     comparan `!= 0`,  7 son llamadas partidas.  NINGUNO mira el valor.
+ *     Con `!= 0` la suite no puede decir QUE fallo,  que es el defecto que
+ *     este espacio cierra:  por eso el test pasa a exigir el codigo exacto.
+ *
+ * LO QUE NO ABRE,  y conviene no prometer:
+ *   · SOLO esta funcion.  Las otras ocho de este .c devuelven -1 sin nombre y
+ *     siguen devolviendolo:  abrirlas es otro trabajo, con otro coste, y no se
+ *     hace de paso.
+ *   · No hay ningun logging.  Este componente no depende de kernel API y no
+ *     escribe a ningun lado:  el codigo lo lee el llamante,  y el unico
+ *     llamante de hoy es el test.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+enum rx550_vmid0_regs_err {
+	RX550_VMID0_REGS_OK			=   0,
+	RX550_VMID0_ERR_INCONSISTENT		=  -1,	/* regs o cfg == NULL: bug del
+							   llamante, no un valor malo */
+	RX550_VMID0_ERR_ENABLE_CONTEXT		=  -2,	/* enable_context != 1: no se
+							   llamo a config_build() */
+	RX550_VMID0_ERR_DEPTH			=  -3,	/* PAGE_TABLE_DEPTH=1 pertenece
+							   a VMID1: otro componente */
+	RX550_VMID0_ERR_RANGE_PF		=  -4,	/* range_pf_default != 1 */
+	RX550_VMID0_ERR_BASE_TOO_WIDE		=  -5,	/* base.value no cabe en el
+							   registro de 32 bits */
+	RX550_VMID0_ERR_START_TOO_WIDE		=  -6,	/* gart_start no cabe tras >>12 */
+	RX550_VMID0_ERR_END_TOO_WIDE		=  -7,	/* gart_end no cabe tras >>12 */
+	RX550_VMID0_ERR_PA_TOO_WIDE		=  -8,	/* dummy > 2^40-1: el arreglo
+							   es la MASCARA DMA */
+	RX550_VMID0_ERR_NO_DUMMY_PAGE		=  -9,	/* dummy == 0: NADIE PRODUJO la
+							   pagina; el arreglo es que
+							   corra rx550_dummy_page_init() */
+};
+
+/* Los nueve codigos de error son distintos entre si por construccion del enum.
+ * Que el USO los distinga lo comprueba tests/test_vmid0_gart.c, que exige el
+ * codigo exacto de cada causa y no un `!= 0`. */
+
 /* Construye los seis valores de registro.  Valida TODO antes de devolver
- * nada: si un valor no es representable, no hay GAME OVER parcial. */
+ * nada: si un valor no es representable, no hay GAME OVER parcial.
+ *
+ * CONTRATO DE ERROR:  0 = RX550_VMID0_REGS_OK,  y si no  uno de los nueve
+ * valores de enum rx550_vmid0_regs_err,  uno por cada guard y sin repetir.
+ * Cualquier otro valor negativo es un fallo de este .c, no un caso de entrada:
+ * no hay codigo reservado para "otro",  y no se debe anadir uno. */
 int rx550_vmid0_regs_build(struct rx550_vmid0_regs *regs,
 			   const struct rx550_vmid0_config *cfg,
 			   struct rx550_gart_gpu_pfn base,

@@ -409,6 +409,132 @@ int main(void)
 		      "y el rechazo es estable");
 	}
 
+	/* ── EL ESPACIO DE ERRORES:  una causa, un codigo ──────────────────
+	 *
+	 * MEDIDO 2026-10-04, ANTES de este bloque:  nueve `return -1` en
+	 * rx550_vmid0_regs_build(),  nueve guards distintos,  un solo numero.
+	 * Y los CHECK de arriba comparan con `!= 0`,  que es EL DEFECTO REPETIDO:
+	 * con nueve causas detras,  `!= 0` no dice cual fallo.  Este bloque dice
+	 * cual,  y por eso exige el codigo EXACTO y no un "distinto de cero".
+	 *
+	 * Y el ultimo bucle no es decorativo:  es el que mata al mutante que
+	 * devuelve -1,  y el que mata al que intercambia dos codigos.
+	 */
+	{
+		struct rx550_vmid0_config	cfg;
+		struct rx550_vmid0_regs	regs;
+		struct rx550_gart_gpu_pfn	base;
+		struct rx550_gart_aperture	ap;
+		struct rx550_system_pa	pa;
+		struct rx550_vmid0_config	bad;
+		int	r_null, r_ctx, r_depth, r_pf;
+		int	r_base, r_start, r_end;
+		int	r_wide, r_absent;
+		unsigned	i, j;
+		int	colision = 0;
+
+		/* Los nueve codigos, en el MISMO orden que los guards de la
+		 * funcion.  El bucle de abajo no puede detectar una colision que
+		 * este array no liste,  asi que la lista es parte del contrato. */
+		const int	codes[9] = {
+			RX550_VMID0_ERR_INCONSISTENT,
+			RX550_VMID0_ERR_ENABLE_CONTEXT,
+			RX550_VMID0_ERR_DEPTH,
+			RX550_VMID0_ERR_RANGE_PF,
+			RX550_VMID0_ERR_BASE_TOO_WIDE,
+			RX550_VMID0_ERR_START_TOO_WIDE,
+			RX550_VMID0_ERR_END_TOO_WIDE,
+			RX550_VMID0_ERR_PA_TOO_WIDE,
+			RX550_VMID0_ERR_NO_DUMMY_PAGE,
+		};
+
+		CHECK(rx550_vmid0_config_build(&cfg) == RX550_VMID0_REGS_OK,
+		      "ESPACIO: config de partida");
+		CHECK(rx550_vmid0_base_from_vram((struct rx550_vram_offset){ 0 },
+						 &base) == 0,
+		      "ESPACIO: base de partida");
+		CHECK(rx550_gart_aperture_init(&ap, 0, UINT64_C(0x10000)) == 0,
+		      "ESPACIO: apertura de partida");
+		pa.bytes = UINT64_C(0x1000);
+
+		/* 1. puntero nulo:  un fallo del llamante,  no un valor malo.
+		 * Comparte el numero -1 con la causa 2 si el espacio no esta. */
+		r_null = rx550_vmid0_regs_build(NULL, &cfg, base, 0, ap.end, pa);
+		CHECK(r_null == RX550_VMID0_ERR_INCONSISTENT,
+		      "ESPACIO: regs NULL -> INCONSISTENT");
+
+		/* 2..4.  los tres campos de cfg.  Cada uno es una manera distinta
+		 * de equivocarse al construir el cfg. */
+		bad = cfg;
+		bad.enable_context = 0;
+		r_ctx = rx550_vmid0_regs_build(&regs, &bad, base, 0, ap.end, pa);
+		CHECK(r_ctx == RX550_VMID0_ERR_ENABLE_CONTEXT,
+		      "ESPACIO: enable_context=0 -> ENABLE_CONTEXT");
+		bad = cfg;
+		bad.page_table_depth = 1;
+		r_depth = rx550_vmid0_regs_build(&regs, &bad, base, 0, ap.end, pa);
+		CHECK(r_depth == RX550_VMID0_ERR_DEPTH,
+		      "ESPACIO: depth=1 -> DEPTH (esa profundidad es de VMID1)");
+		bad = cfg;
+		bad.range_pf_default = 0;
+		r_pf = rx550_vmid0_regs_build(&regs, &bad, base, 0, ap.end, pa);
+		CHECK(r_pf == RX550_VMID0_ERR_RANGE_PF,
+		      "ESPACIO: range_pf_default=0 -> RANGE_PF");
+
+		/* 5..7.  los tres techos.  Los tres son "no cabe tras el >>12",
+		 * pero van a TRES registros distintos y los produce el llamante
+		 * desde tres sitios distintos. */
+		{
+			struct rx550_gart_gpu_pfn	wide;
+
+			wide.value = UINT64_C(0x100000000);
+			r_base = rx550_vmid0_regs_build(&regs, &cfg, wide, 0,
+							ap.end, pa);
+		}
+		CHECK(r_base == RX550_VMID0_ERR_BASE_TOO_WIDE,
+		      "ESPACIO: base = 2^32 -> BASE_TOO_WIDE");
+		r_start = rx550_vmid0_regs_build(&regs, &cfg, base, TOPE + 4096,
+						 ap.end, pa);
+		CHECK(r_start == RX550_VMID0_ERR_START_TOO_WIDE,
+		      "ESPACIO: gart_start una pagina mas -> START_TOO_WIDE");
+		r_end = rx550_vmid0_regs_build(&regs, &cfg, base, 0,
+					       TOPE + 4096, pa);
+		CHECK(r_end == RX550_VMID0_ERR_END_TOO_WIDE,
+		      "ESPACIO: gart_end una pagina mas -> END_TOO_WIDE");
+
+		/* 8 y 9.  LAS DOS CAUSAS DEL MISMO PARAMETRO.  Este es el par por
+		 * el que se abrio el espacio,  y el que lo justifica:  el gemelo
+		 * rx550_gart_seq.c:484-487 ya devolvia DOS codigos distintos
+		 * sobre el MISMO dummy_page_addr porque los DOS arreglos son
+		 * distintos.  Un codigo comun hacia que el llamante probara
+		 * dma_set_mask,  que arregla el techo y no arregla el suelo. */
+		r_wide = rx550_vmid0_regs_build(&regs, &cfg, base, 0, ap.end,
+					(struct rx550_system_pa){ TOPE + 4096 });
+		CHECK(r_wide == RX550_VMID0_ERR_PA_TOO_WIDE,
+		      "ESPACIO: dummy > 2^40-1 -> PA_TOO_WIDE (arreglo: la mascara DMA)");
+		r_absent = rx550_vmid0_regs_build(&regs, &cfg, base, 0, ap.end,
+					(struct rx550_system_pa){ 0 });
+		CHECK(r_absent == RX550_VMID0_ERR_NO_DUMMY_PAGE,
+		      "ESPACIO: dummy == 0 -> NO_DUMMY_PAGE (arreglo: rx550_dummy_page_init)");
+		CHECK(r_wide != r_absent,
+		      "ESPACIO: y las DOS causas del mismo parametro NO se confunden");
+
+		/* Y QUE NO HAYA NINGUNA COLISION:  nueve causas,  nueve codigos.
+		 * Este bucle es la asercion que distingue un espacio de errores de
+		 * un -1 con mejores nombres. */
+		for (i = 0; i < 9u; i++)
+			for (j = i + 1u; j < 9u; j++)
+				if (codes[i] == codes[j])
+					colision++;
+		CHECK(colision == 0,
+		      "ESPACIO: nueve causas, nueve codigos, cero colisiones");
+
+		/* Y que el exito no se confunda con ninguno de los errores. */
+		CHECK(RX550_VMID0_REGS_OK == 0 && RX550_VMID0_REGS_OK != r_absent
+		      && RX550_VMID0_REGS_OK != r_wide,
+		      "ESPACIO: OK es 0 y no es ninguno de los errores");
+	}
+
 	/* ── EL LIMITE INCLUSIVO, que no tenia caso ─────────────────────
 	 *
 	 * MEDIDO 2026-10-03 con tools/mutdrv.py: los cuatro sitios de la
