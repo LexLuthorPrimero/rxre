@@ -709,12 +709,17 @@ def escribir_reenvio(d=FIND, destino=None,SIMULAR=False):
     # que nadie lo comprobo.
     #
     # MEDIDO 2026-10-04, y es la razon de que el sha de arriba sea OTRO:  el mapa
-    # paso de 43 a 49 filas y de 4 a 5 columnas.  Las 6 filas nuevas NO salen de
-    # reenvios() y por eso no se pueden recuperar si se re-congela: se
-    # commitearon antes del sellado, y en 4 de ellas el fichero viejo nunca
-    # existio porque el numero ya lo tenia otro hallazgo.  Sus procedencia esta
-    # en la quinta columna, una por fila.  Y por eso la instruccion del final de
-    # la cabecera del TSV cambio: "--congelar" regenera y BORRA esas 6 filas.
+    # paso de 43 a 49 filas y de 5 a 6 columnas.  Las 6 filas nuevas NO salen de
+    # reenvios(),  y en 4 de ellas el fichero viejo nunca existio porque el
+    # numero ya lo tenia otro hallazgo  —las de clase `numero` del hallazgo 1040—.
+    # Su procedencia esta en la sexta columna,  una por fila.
+    #
+    # MEDIDO que la frase que ponia aqui  —"la instruccion del final de la cabecera del TSV cambio:
+    # --congelar regenera y BORRA esas 6 filas"—  ha DEJADO de ser cierta:  --congelar es ahora un
+    # merge aditivo y no borra nada.  Un aviso que describe un defecto ya arreglado es peor que
+    # ninguno:  quien lo lea creera que el congelador es peligroso cuando ya no lo es,  y dejara
+    # de comprobar lo que si lo es.  La version que BORRA  —--sustituir—  exige su propia
+    # confirmacion  (--confirmar-obsoleto  y  --perder N)  y no puede vaciar el fichero  —rc=5—.
     #
     # Y POR QUE ESTO NO DEJA INUTIL LA PUERTA QUE PUSO 1036:  la puerta compara
     # lo que se va a escribir contra lo que hay en disco.  Con el mapa dando mas
