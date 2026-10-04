@@ -9,9 +9,37 @@
  * Los offsets salen de reg_offset[hwip][inst][seg] + reg, y para GC todos los
  * BASE_IDX son 0, asi que el offset es el del registro. Se prueban los 19.
  *
- * OJO: el kernel hace amdgpu_gfx_off_ctrl() antes y despues. No es una lectura
- * pasiva: apaga el control del motor GFX mientras lee. Por eso el numero de
- * llamadas es exactamente 19 y no un barrido.
+ * OJO: el kernel hace amdgpu_gfx_off_ctrl(adev,false) antes y (adev,true) despues,
+ * alrededor del bucle de lectura. Y aqui hay que decir lo que hace, porque el
+ * nombreInvite a error y esta version anterior de este comentario lo decia mal:
+ *
+ *   - off_ctrl(adev,false) NO apaga el motor.  Desactiva la FUNCION gfx-off,  es
+ *     decir: cancela el apagado pendiente del bloque GFX  (cancel_delayed_work_sync)
+ *     y, si el bloque ya estaba apagado,  lo vuelve a alimentar
+ *     (amdgpu_dpm_set_powergating_by_smu, false) y RE-INICIALIZA los golden
+ *     settings del SPM  (amdgpu_gfx_init_spm_golden).
+ *   - off_ctrl(adev,true) suelta la peticion  (gfx_off_req_count--),  y si el
+ *     recuento llega a cero programa el apagado diferido.
+ *
+ * MEDIDO que la funcion devuelve VOID:  no hay retorno que comprobar.  Y MEDIDO que
+ * si el ASIC no anuncia PP_GFXOFF  las DOS llamadas son no-op
+ * (if (!(adev->pm.pp_feature & PP_GFXOFF_MASK)) return;),  de modo que en una
+ * tarjeta sin esa feature la lectura es pasiva de verdad.
+ *
+ * ASI QUE LA CLASE CORRECTA de esta herramienta es CONTROLLED_WRITE sobre el estado
+ * de ALIMENTACION del bloque GFX  —transitorio, refcontado, reversible por
+ * construccion porque la rama enable=true va DESPUES del bucle y se ejecuta
+ * aunque el bucle salga por break con -EFAULT—,  y no READ_ONLY.  Que no escriba
+ * no significa que no cambie el hardware.
+ *
+ * Y por eso el numero de llamadas es exactamente 19 y no un barrido:  la lista
+ * blanca de soc21.c:287-307  (soc21_allowed_read_registers[])  tiene 19 entradas,
+ * todas SOC15_REG_ENTRY(GC,0,…),  y soc21_read_register devuelve -EINVAL para
+ * cualquier otro offset.  Ese 19 esta CONTADO en la tabla del corpus,  no dicho
+ * aqui antes de contar.  Y es el de soc21:  soc15, soc24, soc_v1_0, cik, nv, si y
+ * vi tienen la suya,  y el numero NO es transferible.
+ *
+ * Ver el hallazgo 1041.
  */
 #define _GNU_SOURCE
 #include <stdio.h>
