@@ -728,7 +728,9 @@ static const char *const m10_no_fields[] = {
 	"VM_CONTEXT1_PAGE_TABLE_BASE_ADDR",
 	"VM_CONTEXT1_PAGE_TABLE_START_ADDR",
 	"VM_CONTEXT1_PAGE_TABLE_END_ADDR",
-	"VM_L2_CNTL4",			/* D4: diferido explicitamente */
+	/*  VM_L2_CNTL4 salio de esta lista:  sus doce campos VMC_TAP estan,  con sus
+	 *  mascaras y sus shifts del sh_mask,  y el corpus los pone a cero
+	 *  (gmc_v8_0.c:874-885).  D4 quedo resuelto. */
 	"MC_VM_SYSTEM_APERTURE_LOW_ADDR",
 	"MC_VM_SYSTEM_APERTURE_HIGH_ADDR",
 	"MC_VM_SYSTEM_APERTURE_DEFAULT_ADDR",
@@ -1044,16 +1046,58 @@ static void m10_field_completeness(const char *shmask, const char *gmc_c)
 	}
 	CHECK(no_solape, "M10 ningun par de campos comparte un bit");
 
-	/* ── los 22 de CNTL y los 6 de MX están, y son todos ─────────────── */
+	/* -- los SIETE registros del nodo, y el reparto exacto de cada uno
+	 *
+	 *  ERAN DOS:  mmVM_CONTEXT1_CNTL (22) y mmMC_VM_MX_L1_TLB_CNTL (6).  Ahora
+	 *  son SIETE,  con los cinco que gmc_v8_0_gart_enable() programa y que no
+	 *  tenian ni un campo:
+	 *
+	 *      mmVM_CONTEXT1_CNTL      22
+	 *      mmVM_L2_CNTL             7
+	 *      mmVM_L2_CNTL2            2
+	 *      mmVM_L2_CNTL3            3
+	 *      mmVM_L2_CNTL4           12
+	 *      mmVM_CONTEXT0_CNTL       3
+	 *      mmMC_VM_MX_L1_TLB_CNTL   6
+	 *
+	 *  Y el reparto se cuenta REGISTRO A REGISTRO,  no con un total.  Un total
+	 *  mas una comprobacion por registro sale bien si un registro gana un campo
+	 *  y otro lo pierde,  y ese intercambio es justo lo que un constructor de
+	 *  secuencia no detecta:  los dos registros siguen con el total correcto y
+	 *  los valores van a registros equivocados. */
 	{
-		uint32_t n_cntl = 0, n_mx = 0;
+		static const struct {
+			const char	*reg;
+			uint32_t	n;
+		} esperado[] = {
+			{ "VM_CONTEXT1_CNTL",    22 },
+			{ "VM_L2_CNTL",           7 },
+			{ "VM_L2_CNTL2",          2 },
+			{ "VM_L2_CNTL3",          3 },
+			{ "VM_L2_CNTL4",         12 },
+			{ "VM_CONTEXT0_CNTL",     3 },
+			{ "MC_VM_MX_L1_TLB_CNTL", 6 },
+		};
+		const unsigned n_esp = (unsigned)(sizeof(esperado) /
+						 sizeof(esperado[0]));
+		uint32_t visto[sizeof(esperado) / sizeof(esperado[0])];
+
+		for (i = 0; i < n_esp; i++)
+			visto[i] = 0;
 
 		for (i = 0; i < rx550_reg_field_count; i++) {
-			if (strcmp(rx550_reg_fields[i].reg, M10_CNTL_REG) == 0)
-				n_cntl++;
-			else if (strcmp(rx550_reg_fields[i].reg, M10_MX_REG) == 0)
-				n_mx++;
-			else {
+			unsigned k;
+			bool encontrado = false;
+
+			for (k = 0; k < n_esp; k++) {
+				if (strcmp(rx550_reg_fields[i].reg,
+					   esperado[k].reg) != 0)
+					continue;
+				visto[k]++;
+				encontrado = true;
+				break;
+			}
+			if (!encontrado) {
 				solo_de_la_tabla = false;
 				printf("  FALLO  M10 %s no es un registro de "
 				       "este nodo: %s\n",
@@ -1062,13 +1106,22 @@ static void m10_field_completeness(const char *shmask, const char *gmc_c)
 				g_fail++;
 			}
 		}
-		CHECK_EQ(n_cntl, 22u, "M10 los 22 campos de VM_CONTEXT1_CNTL");
-		CHECK_EQ(n_mx, 6u, "M10 los 6 campos de MC_VM_MX_L1_TLB_CNTL");
-		CHECK(solo_de_la_tabla,
-		      "M10 la tabla no contiene campos de otros registros");
-		h_in_header = (int)(n_cntl + n_mx);
+		for (i = 0; i < n_esp; i++) {
+			if (visto[i] == esperado[i].n)
+				continue;
+			solo_de_la_tabla = false;
+			printf("  FALLO  M10 %s tiene %u campos y el contrato dice "
+			       "%u\n", esperado[i].reg, visto[i], esperado[i].n);
+			g_fail++;
+		}
+		h_in_header = (int)rx550_reg_field_count;
 	}
-	CHECK_EQ((uint32_t)h_in_header, 28u, "M10 el total de la tabla");
+	CHECK(solo_de_la_tabla,
+	      "M10 los siete registros del nodo, con su reparto exacto");
+	CHECK_EQ((uint32_t)h_in_header, 55u, "M10 el total de la tabla");
+	CHECK_EQ(rx550_reg_field_count,
+		 22u + 7u + 2u + 3u + 12u + 3u + 6u,
+		 "M10 el total es la suma del reparto de los siete");
 
 	/* ── CONTRA EL CORPUS: lo que gmc_v8_0.c programa tiene que estar ──
 	 * Este es el lado que detecta D2 y D3. */
@@ -1149,8 +1202,8 @@ static void m10_field_completeness(const char *shmask, const char *gmc_c)
 			}
 		}
 		CHECK(ninguno,
-		      "M10 los 11 registros diferidos siguen SIN campos: "
-		      "D4/D6 no se han resuelto por dentro");
+		      "M10 los 10 registros diferidos siguen SIN campos: "
+		      "D6 no se ha resuelto por dentro");
 	}
 }
 
@@ -1479,31 +1532,61 @@ static void m11_field_ops(void)
 		 *  duplica la tabla hay que contrastarla,  no deducir su tamaño de
 		 *  la tabla. */
 		static const char *const nombres[] = {
-			"ENABLE_CONTEXT", "PAGE_TABLE_DEPTH",
-			"RANGE_PROTECTION_FAULT_ENABLE_DEFAULT",
-			"DUMMY_PAGE_PROTECTION_FAULT_ENABLE_DEFAULT",
-			"PDE0_PROTECTION_FAULT_ENABLE_DEFAULT",
-			"VALID_PROTECTION_FAULT_ENABLE_DEFAULT",
-			"READ_PROTECTION_FAULT_ENABLE_DEFAULT",
-			"WRITE_PROTECTION_FAULT_ENABLE_DEFAULT",
-			"EXECUTE_PROTECTION_FAULT_ENABLE_DEFAULT",
-			"PAGE_TABLE_BLOCK_SIZE",
-			"RANGE_PROTECTION_FAULT_ENABLE_INTERRUPT",
-			"DUMMY_PAGE_PROTECTION_FAULT_ENABLE_INTERRUPT",
-			"PDE0_PROTECTION_FAULT_ENABLE_INTERRUPT",
-			"VALID_PROTECTION_FAULT_ENABLE_INTERRUPT",
-			"READ_PROTECTION_FAULT_ENABLE_INTERRUPT",
-			"WRITE_PROTECTION_FAULT_ENABLE_INTERRUPT",
-			"EXECUTE_PROTECTION_FAULT_ENABLE_INTERRUPT",
-			"PDE0_PROTECTION_FAULT_ENABLE_SAVE",
-			"VALID_PROTECTION_FAULT_ENABLE_SAVE",
-			"READ_PROTECTION_FAULT_ENABLE_SAVE",
-			"WRITE_PROTECTION_FAULT_ENABLE_SAVE",
-			"EXECUTE_PROTECTION_FAULT_ENABLE_SAVE",
-			"ENABLE_L1_TLB", "ENABLE_L1_FRAGMENT_PROCESSING",
-			"SYSTEM_ACCESS_MODE",
-			"SYSTEM_APERTURE_UNMAPPED_ACCESS",
-			"ENABLE_ADVANCED_DRIVER_MODEL", "ECO_BITS",
+			"ENABLE_CONTEXT",                                
+			"PAGE_TABLE_DEPTH",                              
+			"RANGE_PROTECTION_FAULT_ENABLE_DEFAULT",         
+			"DUMMY_PAGE_PROTECTION_FAULT_ENABLE_DEFAULT",    
+			"PDE0_PROTECTION_FAULT_ENABLE_DEFAULT",          
+			"VALID_PROTECTION_FAULT_ENABLE_DEFAULT",         
+			"READ_PROTECTION_FAULT_ENABLE_DEFAULT",          
+			"WRITE_PROTECTION_FAULT_ENABLE_DEFAULT",         
+			"EXECUTE_PROTECTION_FAULT_ENABLE_DEFAULT",       
+			"PAGE_TABLE_BLOCK_SIZE",                         
+			"RANGE_PROTECTION_FAULT_ENABLE_INTERRUPT",       
+			"DUMMY_PAGE_PROTECTION_FAULT_ENABLE_INTERRUPT",  
+			"PDE0_PROTECTION_FAULT_ENABLE_INTERRUPT",        
+			"VALID_PROTECTION_FAULT_ENABLE_INTERRUPT",       
+			"READ_PROTECTION_FAULT_ENABLE_INTERRUPT",        
+			"WRITE_PROTECTION_FAULT_ENABLE_INTERRUPT",       
+			"EXECUTE_PROTECTION_FAULT_ENABLE_INTERRUPT",     
+			"PDE0_PROTECTION_FAULT_ENABLE_SAVE",             
+			"VALID_PROTECTION_FAULT_ENABLE_SAVE",            
+			"READ_PROTECTION_FAULT_ENABLE_SAVE",             
+			"WRITE_PROTECTION_FAULT_ENABLE_SAVE",            
+			"EXECUTE_PROTECTION_FAULT_ENABLE_SAVE",          
+			"ENABLE_L2_CACHE",                               
+			"ENABLE_L2_FRAGMENT_PROCESSING",                 
+			"ENABLE_L2_PTE_CACHE_LRU_UPDATE_BY_WRITE",       
+			"ENABLE_L2_PDE0_CACHE_LRU_UPDATE_BY_WRITE",      
+			"EFFECTIVE_L2_QUEUE_SIZE",                       
+			"CONTEXT1_IDENTITY_ACCESS_MODE",                 
+			"ENABLE_DEFAULT_PAGE_OUT_TO_SYSTEM_MEMORY",      
+			"INVALIDATE_ALL_L1_TLBS",                        
+			"INVALIDATE_L2_CACHE",                           
+			"L2_CACHE_BIGK_ASSOCIATIVITY",                   
+			"BANK_SELECT",                                   
+			"L2_CACHE_BIGK_FRAGMENT_SIZE",                   
+			"VMC_TAP_CONTEXT0_PDE_REQUEST_PHYSICAL",         
+			"VMC_TAP_CONTEXT0_PDE_REQUEST_SHARED",           
+			"VMC_TAP_CONTEXT0_PDE_REQUEST_SNOOP",            
+			"VMC_TAP_CONTEXT0_PTE_REQUEST_PHYSICAL",         
+			"VMC_TAP_CONTEXT0_PTE_REQUEST_SHARED",           
+			"VMC_TAP_CONTEXT0_PTE_REQUEST_SNOOP",            
+			"VMC_TAP_CONTEXT1_PDE_REQUEST_PHYSICAL",         
+			"VMC_TAP_CONTEXT1_PDE_REQUEST_SHARED",           
+			"VMC_TAP_CONTEXT1_PDE_REQUEST_SNOOP",            
+			"VMC_TAP_CONTEXT1_PTE_REQUEST_PHYSICAL",         
+			"VMC_TAP_CONTEXT1_PTE_REQUEST_SHARED",           
+			"VMC_TAP_CONTEXT1_PTE_REQUEST_SNOOP",            
+			"ENABLE_CONTEXT",                                
+			"PAGE_TABLE_DEPTH",                              
+			"RANGE_PROTECTION_FAULT_ENABLE_DEFAULT",         
+			"ENABLE_L1_TLB",                                 
+			"ENABLE_L1_FRAGMENT_PROCESSING",                 
+			"SYSTEM_ACCESS_MODE",                            
+			"SYSTEM_APERTURE_UNMAPPED_ACCESS",               
+			"ENABLE_ADVANCED_DRIVER_MODEL",                  
+			"ECO_BITS",                                      
 		};
 		static const uint32_t n_nombres =
 			(uint32_t)(sizeof(nombres) / sizeof(nombres[0]));

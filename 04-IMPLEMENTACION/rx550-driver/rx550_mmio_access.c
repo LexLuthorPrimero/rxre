@@ -318,6 +318,79 @@ const struct rx550_reg_field rx550_reg_fields[] = {
 { "VM_CONTEXT1_CNTL",   "READ_PROTECTION_FAULT_ENABLE_SAVE",		0x00020000u, 17, 1, RX550_FIELD_NO_CORPUS, "gmc_8_1_sh_mask.h:6653", RX550_FIELD_DECLARED_NOT_WRITTEN },
 { "VM_CONTEXT1_CNTL",   "WRITE_PROTECTION_FAULT_ENABLE_SAVE",	0x00100000u, 20, 1, RX550_FIELD_NO_CORPUS, "gmc_8_1_sh_mask.h:6659", RX550_FIELD_DECLARED_NOT_WRITTEN },
 { "VM_CONTEXT1_CNTL",   "EXECUTE_PROTECTION_FAULT_ENABLE_SAVE",	0x00800000u, 23, 1, RX550_FIELD_NO_CORPUS, "gmc_8_1_sh_mask.h:6665", RX550_FIELD_DECLARED_NOT_WRITTEN },
+/* -- VM_L2_CNTL  (0x500, offset 0x1400) -- */
+{ "VM_L2_CNTL",   "ENABLE_L2_CACHE",                           0x00000001u,  0, 1, 1u,
+				"gmc_v8_0.c:852",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+{ "VM_L2_CNTL",   "ENABLE_L2_FRAGMENT_PROCESSING",             0x00000002u,  1, 1, 1u,
+				"gmc_v8_0.c:853",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+{ "VM_L2_CNTL",   "ENABLE_L2_PTE_CACHE_LRU_UPDATE_BY_WRITE",   0x00000200u,  9, 1, 1u,
+				"gmc_v8_0.c:854",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+{ "VM_L2_CNTL",   "ENABLE_L2_PDE0_CACHE_LRU_UPDATE_BY_WRITE",  0x00000400u, 10, 1, 1u,
+				"gmc_v8_0.c:855",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+{ "VM_L2_CNTL",   "EFFECTIVE_L2_QUEUE_SIZE",                   0x00038000u, 15, 3, 7u,
+				"gmc_v8_0.c:856",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+{ "VM_L2_CNTL",   "CONTEXT1_IDENTITY_ACCESS_MODE",             0x00180000u, 19, 2, 1u,
+				"gmc_v8_0.c:857",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+{ "VM_L2_CNTL",   "ENABLE_DEFAULT_PAGE_OUT_TO_SYSTEM_MEMORY",  0x00000800u, 11, 1, 1u,
+				"gmc_v8_0.c:858",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+/* -- VM_L2_CNTL2  (0x501, offset 0x1404) -- */
+{ "VM_L2_CNTL2",  "INVALIDATE_ALL_L1_TLBS",  0x00000001u,  0, 1, 1u,
+				"gmc_v8_0.c:861",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+{ "VM_L2_CNTL2",  "INVALIDATE_L2_CACHE",     0x00000002u,  1, 1, 1u,
+				"gmc_v8_0.c:862",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+/* -- VM_L2_CNTL3  (0x502, offset 0x1408) -- */
+/*  VM_L2_CNTL3
+ *
+ *  El valor del corpus es una VARIABLE, no un literal:
+ *      gmc_v8_0.c:866   field = adev->vm_manager.fragment_size;
+ *      gmc_v8_0.c:868   REG_SET_FIELD(tmp, VM_L2_CNTL3, BANK_SELECT, field)
+ *      gmc_v8_0.c:869   REG_SET_FIELD(tmp, VM_L2_CNTL3, L2_CACHE_BIGK_FRAGMENT_SIZE, field)
+ *
+ *  Una tabla de valores enteros no puede escribirlo sin inventar un
+ *  numero, asi que queda sin valor.  Lo pone el constructor de la
+ *  secuencia desde sus propios parametros, y SOLO para los dos campos
+ *  que estan en esa lista:  uno simbolico que no este en ella corta
+ *  la construccion con error, en vez de escribir un cero en un
+ *  registro de fragmentacion.
+ */
+{ "VM_L2_CNTL3",  "L2_CACHE_BIGK_ASSOCIATIVITY",  0x00100000u, 20, 1, 1u,
+				"gmc_v8_0.c:867",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+{ "VM_L2_CNTL3",  "BANK_SELECT",                  0x0000003Fu,  0, 6, RX550_FIELD_NO_CORPUS,
+				"gmc_v8_0.c:868",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+{ "VM_L2_CNTL3",  "L2_CACHE_BIGK_FRAGMENT_SIZE",  0x000F8000u, 15, 5, RX550_FIELD_NO_CORPUS,
+				"gmc_v8_0.c:869",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+/* -- VM_L2_CNTL4  (0x578, offset 0x15e0) -- */
+{ "VM_L2_CNTL4",  "VMC_TAP_CONTEXT0_PDE_REQUEST_PHYSICAL",  0x00000040u,  6, 1, 0u,
+				"gmc_v8_0.c:873",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+{ "VM_L2_CNTL4",  "VMC_TAP_CONTEXT0_PDE_REQUEST_SHARED",    0x00000080u,  7, 1, 0u,
+				"gmc_v8_0.c:874",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+{ "VM_L2_CNTL4",  "VMC_TAP_CONTEXT0_PDE_REQUEST_SNOOP",     0x00000100u,  8, 1, 0u,
+				"gmc_v8_0.c:875",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+{ "VM_L2_CNTL4",  "VMC_TAP_CONTEXT0_PTE_REQUEST_PHYSICAL",  0x00000200u,  9, 1, 0u,
+				"gmc_v8_0.c:876",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+{ "VM_L2_CNTL4",  "VMC_TAP_CONTEXT0_PTE_REQUEST_SHARED",    0x00000400u, 10, 1, 0u,
+				"gmc_v8_0.c:877",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+{ "VM_L2_CNTL4",  "VMC_TAP_CONTEXT0_PTE_REQUEST_SNOOP",     0x00000800u, 11, 1, 0u,
+				"gmc_v8_0.c:878",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+{ "VM_L2_CNTL4",  "VMC_TAP_CONTEXT1_PDE_REQUEST_PHYSICAL",  0x00001000u, 12, 1, 0u,
+				"gmc_v8_0.c:879",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+{ "VM_L2_CNTL4",  "VMC_TAP_CONTEXT1_PDE_REQUEST_SHARED",    0x00002000u, 13, 1, 0u,
+				"gmc_v8_0.c:880",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+{ "VM_L2_CNTL4",  "VMC_TAP_CONTEXT1_PDE_REQUEST_SNOOP",     0x00004000u, 14, 1, 0u,
+				"gmc_v8_0.c:881",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+{ "VM_L2_CNTL4",  "VMC_TAP_CONTEXT1_PTE_REQUEST_PHYSICAL",  0x00008000u, 15, 1, 0u,
+				"gmc_v8_0.c:882",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+{ "VM_L2_CNTL4",  "VMC_TAP_CONTEXT1_PTE_REQUEST_SHARED",    0x00010000u, 16, 1, 0u,
+				"gmc_v8_0.c:883",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+{ "VM_L2_CNTL4",  "VMC_TAP_CONTEXT1_PTE_REQUEST_SNOOP",     0x00020000u, 17, 1, 0u,
+				"gmc_v8_0.c:884",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+/* -- VM_CONTEXT0_CNTL  (0x504, offset 0x1410) -- */
+{ "VM_CONTEXT0_CNTL", "ENABLE_CONTEXT",                         0x00000001u,  0, 1, 1u,
+				"gmc_v8_0.c:894",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+{ "VM_CONTEXT0_CNTL", "PAGE_TABLE_DEPTH",                       0x00000006u,  1, 2, 0u,
+				"gmc_v8_0.c:895",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
+{ "VM_CONTEXT0_CNTL", "RANGE_PROTECTION_FAULT_ENABLE_DEFAULT",  0x00000010u,  4, 1, 1u,
+				"gmc_v8_0.c:896",                   RX550_FIELD_PROVEN_CORPUS_WRITES },
 /* ── MC_VM_MX_L1_TLB_CNTL  (0x819, offset 0x2064) ── */
 { "MC_VM_MX_L1_TLB_CNTL", "ENABLE_L1_TLB",			0x00000001u, 0, 1, 1u, "gmc_v8_0.c:844", RX550_FIELD_PROVEN_CORPUS_WRITES },
 { "MC_VM_MX_L1_TLB_CNTL", "ENABLE_L1_FRAGMENT_PROCESSING",	0x00000002u, 1, 1, 1u, "gmc_v8_0.c:845", RX550_FIELD_PROVEN_CORPUS_WRITES },
@@ -585,6 +658,23 @@ int rx550_mmio_get_field(uint32_t raw, uint32_t mask, uint32_t *out_value)
 	return RX550_MMIO_OK;
 }
 
+int rx550_mmio_apply_field(uint32_t raw, uint32_t mask, uint32_t value,
+			   uint32_t *out)
+{
+	unsigned shift, width;
+	int rc;
+
+	if (!out)
+		return RX550_MMIO_ERR_INCONSISTENT;
+	rc = rx550_mmio_field_from_mask(mask, &shift, &width);
+	if (rc != RX550_MMIO_OK)
+		return rc;
+	if (width < 32u && (value >> width) != 0u)
+		return RX550_MMIO_ERR_VALUE_RANGE;
+	*out = (raw & ~mask) | ((value << shift) & mask);
+	return RX550_MMIO_OK;
+}
+
 int rx550_mmio_update_field(const struct rx550_mmio_map *map,
 			    struct rx550_reg reg,
 			    uint32_t mask, uint32_t value,
@@ -604,18 +694,19 @@ int rx550_mmio_update_field(const struct rx550_mmio_map *map,
 	rc = rx550_mmio_field_from_mask(mask, &shift, &width);
 	if (rc != RX550_MMIO_OK)
 		return rc;
-
-	/* El valor tiene que CABER.  Truncar un valor a la anchura del campo
-	 * escribiria en un registro un numero que el llamante cree que puso. */
-	if (width < 32u && (value >> width) != 0u)
-		return RX550_MMIO_ERR_VALUE_RANGE;
+	(void)shift; (void)width;
 
 	rc = rx550_mmio_resolve(map, reg, &off);
 	if (rc != RX550_MMIO_OK)
 		return rc;
 
 	raw = *(volatile uint32_t *)rx550_mmio_slot(map, off);
-	nuevo = (raw & ~mask) | ((value << shift) & mask);
+	/* La composicion la hace el NUCLEO, no una segunda copia de la regla.
+	 * Dos copias de "clearing" y "shifting" en el mismo fichero divergen, y
+	 * divergen en silencio. */
+	rc = rx550_mmio_apply_field(raw, mask, value, &nuevo);
+	if (rc != RX550_MMIO_OK)
+		return rc;
 	*(volatile uint32_t *)rx550_mmio_slot(map, off) = nuevo;
 	*out_value = nuevo;
 	return RX550_MMIO_OK;

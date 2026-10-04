@@ -106,6 +106,13 @@
  */
 #ifdef __KERNEL__
 #include <linux/types.h>
+/*  limits.h, y no types.h:  U32_MAX / U64_MAX estan en linux/limits.h.
+ *  Compilaba por elocate de los includes, no porque el header los trajera, y
+ *  se rompio en cuanto otra unidad de traduccion llego antes por otro camino:
+ *  rx550_gart_seq.c incluye rx550_mmio.h antes, y entonces U32_MAX no estaba
+ *  declarado.  Es la misma clase de error que la del finding 1028, con el
+ *  nombre del macro en vez de la convencion de separadores. */
+#include <linux/limits.h>
 #define UINT32_MAX U32_MAX
 #define UINT64_MAX U64_MAX
 #else
@@ -351,42 +358,64 @@ extern const uint32_t rx550_reg_field_count;
  *
  * El test que lo ve compara el NOMBRE,  y por eso hay uno. */
 enum rx550_field_id {
-	RX550_FLD_CNTL_ENABLE_CONTEXT			= 0,
-	RX550_FLD_CNTL_PAGE_TABLE_DEPTH		= 1,
-	RX550_FLD_CNTL_RANGE_PROT_FAULT_DEFAULT	= 2,
-	RX550_FLD_CNTL_DUMMY_PAGE_PROT_FAULT_DEFAULT	= 3,
-	RX550_FLD_CNTL_PDE0_PROT_FAULT_DEFAULT		= 4,
-	RX550_FLD_CNTL_VALID_PROT_FAULT_DEFAULT	= 5,
-	RX550_FLD_CNTL_READ_PROT_FAULT_DEFAULT		= 6,
-	RX550_FLD_CNTL_WRITE_PROT_FAULT_DEFAULT	= 7,
-	RX550_FLD_CNTL_EXECUTE_PROT_FAULT_DEFAULT	= 8,
-	RX550_FLD_CNTL_BLOCK_SIZE			= 9,
-	RX550_FLD_CNTL_RANGE_PROT_FAULT_INTERRUPT	= 10,
-	RX550_FLD_CNTL_DUMMY_PAGE_PROT_FAULT_INTERRUPT	= 11,
-	RX550_FLD_CNTL_PDE0_PROT_FAULT_INTERRUPT		= 12,
-	RX550_FLD_CNTL_VALID_PROT_FAULT_INTERRUPT	= 13,
-	RX550_FLD_CNTL_READ_PROT_FAULT_INTERRUPT		= 14,
-	RX550_FLD_CNTL_WRITE_PROT_FAULT_INTERRUPT	= 15,
-	RX550_FLD_CNTL_EXECUTE_PROT_FAULT_INTERRUPT	= 16,
-	RX550_FLD_CNTL_PDE0_PROT_FAULT_SAVE		= 17,
-	RX550_FLD_CNTL_VALID_PROT_FAULT_SAVE		= 18,
-	RX550_FLD_CNTL_READ_PROT_FAULT_SAVE		= 19,
-	RX550_FLD_CNTL_WRITE_PROT_FAULT_SAVE		= 20,
-	RX550_FLD_CNTL_EXECUTE_PROT_FAULT_SAVE		= 21,
-	RX550_FLD_MX_ENABLE_L1_TLB			= 22,
-	RX550_FLD_MX_ENABLE_L1_FRAGMENT_PROCESSING	= 23,
-	RX550_FLD_MX_SYSTEM_ACCESS_MODE		= 24,
-	RX550_FLD_MX_SYSTEM_APERTURE_UNMAPPED_ACCESS	= 25,
-	RX550_FLD_MX_ENABLE_ADVANCED_DRIVER_MODEL	= 26,
-	RX550_FLD_MX_ECO_BITS				= 27,
-	/*  La tabla de campos NO crece en este nodo.  M10 la acota a dos
-	 *  registros — VM_CONTEXT1_CNTL y MC_VM_MX_L1_TLB_CNTL — y afirma
-	 *  22+6.  Anadir campos de la identity aperture seria ampliar el
-	 *  alcance del test, y eso es ACCESSOR_REGISTER_COVERAGE, que es otro
-	 *  nodo.  Los tres registros nuevos llevan su unidad y su valor en la
-	 *  tabla de REGISTROS, que es donde este nodo los mete. */
-	RX550_FLD_NR					= 28,
+	RX550_FLD_CNTL_ENABLE_CONTEXT                         = 0,
+	RX550_FLD_CNTL_PAGE_TABLE_DEPTH                       = 1,
+	RX550_FLD_CNTL_RANGE_PROT_FAULT_DEFAULT               = 2,
+	RX550_FLD_CNTL_DUMMY_PAGE_PROT_FAULT_DEFAULT          = 3,
+	RX550_FLD_CNTL_PDE0_PROT_FAULT_DEFAULT                = 4,
+	RX550_FLD_CNTL_VALID_PROT_FAULT_DEFAULT               = 5,
+	RX550_FLD_CNTL_READ_PROT_FAULT_DEFAULT                = 6,
+	RX550_FLD_CNTL_WRITE_PROT_FAULT_DEFAULT               = 7,
+	RX550_FLD_CNTL_EXECUTE_PROT_FAULT_DEFAULT             = 8,
+	RX550_FLD_CNTL_BLOCK_SIZE                             = 9,
+	RX550_FLD_CNTL_RANGE_PROT_FAULT_INTERRUPT             = 10,
+	RX550_FLD_CNTL_DUMMY_PAGE_PROT_FAULT_INTERRUPT        = 11,
+	RX550_FLD_CNTL_PDE0_PROT_FAULT_INTERRUPT              = 12,
+	RX550_FLD_CNTL_VALID_PROT_FAULT_INTERRUPT             = 13,
+	RX550_FLD_CNTL_READ_PROT_FAULT_INTERRUPT              = 14,
+	RX550_FLD_CNTL_WRITE_PROT_FAULT_INTERRUPT             = 15,
+	RX550_FLD_CNTL_EXECUTE_PROT_FAULT_INTERRUPT           = 16,
+	RX550_FLD_CNTL_PDE0_PROT_FAULT_SAVE                   = 17,
+	RX550_FLD_CNTL_VALID_PROT_FAULT_SAVE                  = 18,
+	RX550_FLD_CNTL_READ_PROT_FAULT_SAVE                   = 19,
+	RX550_FLD_CNTL_WRITE_PROT_FAULT_SAVE                  = 20,
+	RX550_FLD_CNTL_EXECUTE_PROT_FAULT_SAVE                = 21,
+	RX550_FLD_L2_ENABLE_L2_CACHE                          = 22,
+	RX550_FLD_L2_ENABLE_L2_FRAGMENT_PROCESSING            = 23,
+	RX550_FLD_L2_ENABLE_L2_PTE_CACHE_LRU_UPDATE_BY_WRITE  = 24,
+	RX550_FLD_L2_ENABLE_L2_PDE0_CACHE_LRU_UPDATE_BY_WRITE = 25,
+	RX550_FLD_L2_EFFECTIVE_L2_QUEUE_SIZE                  = 26,
+	RX550_FLD_L2_CONTEXT1_IDENTITY_ACCESS_MODE            = 27,
+	RX550_FLD_L2_ENABLE_DEFAULT_PAGE_OUT_TO_SYSTEM_MEMORY = 28,
+	RX550_FLD_L2C2_INVALIDATE_ALL_L1_TLBS                 = 29,
+	RX550_FLD_L2C2_INVALIDATE_L2_CACHE                    = 30,
+	RX550_FLD_L2C3_L2_CACHE_BIGK_ASSOCIATIVITY            = 31,
+	RX550_FLD_L2C3_BANK_SELECT                            = 32,
+	RX550_FLD_L2C3_L2_CACHE_BIGK_FRAGMENT_SIZE            = 33,
+	RX550_FLD_L2C4_VMC_TAP_CONTEXT0_PDE_REQUEST_PHYSICAL  = 34,
+	RX550_FLD_L2C4_VMC_TAP_CONTEXT0_PDE_REQUEST_SHARED    = 35,
+	RX550_FLD_L2C4_VMC_TAP_CONTEXT0_PDE_REQUEST_SNOOP     = 36,
+	RX550_FLD_L2C4_VMC_TAP_CONTEXT0_PTE_REQUEST_PHYSICAL  = 37,
+	RX550_FLD_L2C4_VMC_TAP_CONTEXT0_PTE_REQUEST_SHARED    = 38,
+	RX550_FLD_L2C4_VMC_TAP_CONTEXT0_PTE_REQUEST_SNOOP     = 39,
+	RX550_FLD_L2C4_VMC_TAP_CONTEXT1_PDE_REQUEST_PHYSICAL  = 40,
+	RX550_FLD_L2C4_VMC_TAP_CONTEXT1_PDE_REQUEST_SHARED    = 41,
+	RX550_FLD_L2C4_VMC_TAP_CONTEXT1_PDE_REQUEST_SNOOP     = 42,
+	RX550_FLD_L2C4_VMC_TAP_CONTEXT1_PTE_REQUEST_PHYSICAL  = 43,
+	RX550_FLD_L2C4_VMC_TAP_CONTEXT1_PTE_REQUEST_SHARED    = 44,
+	RX550_FLD_L2C4_VMC_TAP_CONTEXT1_PTE_REQUEST_SNOOP     = 45,
+	RX550_FLD_CNTL0_ENABLE_CONTEXT                        = 46,
+	RX550_FLD_CNTL0_PAGE_TABLE_DEPTH                      = 47,
+	RX550_FLD_CNTL0_RANGE_PROTECTION_FAULT_ENABLE_DEFAULT = 48,
+	RX550_FLD_MX_ENABLE_L1_TLB                            = 49,
+	RX550_FLD_MX_ENABLE_L1_FRAGMENT_PROCESSING            = 50,
+	RX550_FLD_MX_SYSTEM_ACCESS_MODE                       = 51,
+	RX550_FLD_MX_SYSTEM_APERTURE_UNMAPPED_ACCESS          = 52,
+	RX550_FLD_MX_ENABLE_ADVANCED_DRIVER_MODEL             = 53,
+	RX550_FLD_MX_ECO_BITS                                 = 54,
+	RX550_FLD_NR                                          = 55,
 };
+
 
 const struct rx550_reg_field *rx550_field_of(enum rx550_field_id id);
 
@@ -714,6 +743,20 @@ int rx550_mmio_resolve_reg(const struct rx550_mmio_map *map,
  *  la clase de trampa que este componente existe para no tener. */
 int rx550_mmio_field_from_mask(uint32_t mask, unsigned *out_shift, unsigned *out_width);
 
+/* El NUCLEO PURO:  aplica un campo a un VALOR, sin tocar memoria.
+ *
+ *  update_field() es esto mas el acceso.  Separate, por dos razones:
+ *
+ *   1.  Se puede probar y usar en userspace sin mapa, y es lo que necesita el
+ *       constructor de la secuencia del GART:  esa secuencia se CALCULA antes
+ *       de escribirse, y calcularla necesita composing sobre un valor entero.
+ *   2.  Si la composicion viviera dentro de update_field(), no habria forma de
+ *       comprobarla sin un mapa, y la regla de los campos seria lo unico del
+ *       componente que no tendria un test que pueda fallar sin hardware.
+ */
+int rx550_mmio_apply_field(uint32_t raw, uint32_t mask, uint32_t value,
+			   uint32_t *out);
+
 /* Lee, cambia SOLO los bits del campo, y escribe.  Devuelve el valor que queda
  * en el registro, para que el llamante pueda comprobarlo sin releer. */
 int rx550_mmio_update_field(const struct rx550_mmio_map *map,
@@ -784,8 +827,28 @@ _Static_assert((RX550_CNTL_BLOCK_SIZE_MASK >> RX550_CNTL_BLOCK_SIZE_SHIFT) == 0x
 		"PAGE_TABLE_BLOCK_SIZE ocupa 4 bits, luego block_size en [9,24]");
 _Static_assert((RX550_MX_ACCESS_MODE_MASK >> RX550_MX_ACCESS_MODE_SHIFT) == 0x3u,
 		"SYSTEM_ACCESS_MODE ocupa 2 bits");
-_Static_assert(RX550_FLD_NR == 28u,
-		"la tabla de campos de CNTL y MX_L1_TLB_CNTL tiene 22+6 entradas");
+/*  El numero de la tabla de campos.  ERA 28  (22 de mmVM_CONTEXT1_CNTL y 6 de
+ *  mmMC_VM_MX_L1_TLB_CNTL)  y ahora es 55,  con los 27 campos que
+ *  gmc_v8_0_gart_enable() escribe y faltaban:
+ *
+ *      VM_L2_CNTL      7      VM_L2_CNTL2   2      VM_L2_CNTL3   3
+ *      VM_L2_CNTL4    12      VM_CONTEXT0_CNTL   3
+ *
+ *  Y el reparto por registro, que es lo que hay que recontar cuando cambie:
+ *
+ *      mmVM_CONTEXT1_CNTL          22
+ *      mmVM_L2_CNTL                 7
+ *      mmVM_L2_CNTL2                2
+ *      mmVM_L2_CNTL3                3
+ *      mmVM_L2_CNTL4               12
+ *      mmVM_CONTEXT0_CNTL           3
+ *      mmMC_VM_MX_L1_TLB_CNTL       6
+ *      ------------------------------------
+ *      total                       55
+ *
+ *  Ver el finding 1030. */
+_Static_assert(RX550_FLD_NR == 55u,
+		"la tabla de campos tiene 22+7+2+3+12+3+6 = 55 entradas");
 /* Y D1:  el rango del VALOR tiene que ser el rango del CAMPO desplazado por la
  * base.  Si alguien cambia la base y no el rango, estas dos lo dicen. */
 _Static_assert(RX550_CNTL_BLOCK_SIZE_FIELD_MAX ==
