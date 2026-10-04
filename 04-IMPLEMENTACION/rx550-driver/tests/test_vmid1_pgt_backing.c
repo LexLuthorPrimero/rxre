@@ -226,11 +226,34 @@ static void b2_2gib_root_from_geometry(void)
 	CHECK_EQ(fake_geom(GIB, &g1), RX550_PGT_OK, "B2 geometry(1GiB)");
 	CHECK_EQ(fake_geom(2 * GIB, &g2), RX550_PGT_OK, "B2 geometry(2GiB)");
 
-	/* La geometria dice cosas distintas, y por eso el tamano sale de ella. */
+	/* MEDIDO 2026-10-04:  el par de ventanas de este test era 1 GiB y 2 GiB,
+	 * y elSizes del root tienen que ser DISTINTOS  —si los dos dieran 4096, un
+	 * literal hardcodeado pasaria el test sin que se notase—.
+	 *
+	 * MEDIDO que con la formula de cobertura CORREGIDA  (amdgpu_vm_pt.c:84-85:
+	 * las entradas de la raiz salen de un round_up de max_pfn,  no de
+	 * 2^block_size)  1 GiB y 2 GiB dan AMBOS raiz de 4 KiB:
+	 *
+	 *     1 GiB   block_size 9   ceil(2^18 / 2^9)  = 512 entradas = 4 KiB
+	 *     2 GiB   block_size 10  ceil(2^19 / 2^10) = 512 entradas = 4 KiB
+	 *
+	 * Los dos dan 512 porque el block_size sube justo cuando el numerador se
+	 * duplica.  O sea que el invariante de este test era una CONSECUENCIA de la
+	 * formula falsa,  y no una propiedad.  El caso de 3 GiB daba 6144  —que no
+	 * es ni multiplo de 4 KiB ni un tamano de pagina—  lo que delata que el
+	 * numero de entradas venia de ahi.
+	 *
+	 * EL INVARIANTE SE CONSERVA,  con un par donde si distingue:  2 GiB da 4
+	 * KiB y 4 GiB da 8 KiB.  Y se anade la comprobacion de por que 1 y 2 GiB
+	 * coinciden,  porque es el dato que hace que el par no sirva. */
+	CHECK_EQ(g1.root_bytes, g2.root_bytes,
+		 "B2 1 GiB y 2 GiB dan el MISMO root: 512 entradas cada uno, y el "
+		 "block_size sube con el numerador");
+	CHECK(fake_geom(4 * GIB, &g2) == RX550_PGT_OK, "B2 geometry(4GiB)");
 	CHECK(g1.root_bytes != g2.root_bytes,
-	      "B2 1 GiB y 2 GiB deberian derivar roots de tamano distinto");
+	      "B2 2 GiB y 4 GiB SI derivan roots distintos: 512 contra 1024");
 	CHECK_EQ(g2.root_bytes, 8192u,
-		 "B2 la geometria de 2 GiB deriva 8 KiB: el literal esta en el"
+		 "B2 la geometria de 4 GiB deriva 8 KiB: el literal esta en el"
 		 " test, no en el modulo");
 
 	fake_init(UINT64_C(0x10000000), 4096, GIB);
@@ -240,11 +263,11 @@ static void b2_2gib_root_from_geometry(void)
 	CHECK_EQ(b1.root.bytes, g1.root_bytes, "B2 root de 1 GiB = geometria");
 	rx550_pgt_backing_destroy(&b1);
 
-	fake_init(UINT64_C(0x10000000), 4096, 2 * GIB);
+	fake_init(UINT64_C(0x10000000), 4096, 4 * GIB);
 	CHECK_EQ(rx550_pgt_backing_create(&b2, &g2, &g_ops,
 					  RX550_PGT_LEAF_SINGLE_BLOCK),
-		 RX550_PGT_OK, "B2 create(2GiB)");
-	CHECK_EQ(b2.root.bytes, g2.root_bytes, "B2 root de 2 GiB = geometria");
+		 RX550_PGT_OK, "B2 create(4GiB)");
+	CHECK_EQ(b2.root.bytes, g2.root_bytes, "B2 root de 4 GiB = geometria");
 	/* Y el Allocation pidio el valor de la geometria, no otro.  Esto es lo
 	 * que detecta un 4096 hardcodeado en el modulo. */
 	CHECK_EQ(g_fake.bytes - (int)g2.root_bytes - (int)g2.pte_pages * (int)g2.pte_page_bytes, 0,
@@ -252,14 +275,45 @@ static void b2_2gib_root_from_geometry(void)
 	rx550_pgt_backing_destroy(&b2);
 }
 
-/* B3  8 GiB es rechazado ANTES de una allocation real */
-static void b3_8gib_rejected_before_alloc(void)
+/* B3  UNA VENTANA IMPOSIBLE ES RECHAZADA ANTES DE UNA ALLOCATION REAL
+ *
+ * MEDIDO 2026-10-04:  este nodo usaba 8 GiB como "ventana imposible",  porque
+ * con la formula falsa la cobertura eran 4 GiB y no llegaba.  MEDIDO que con la
+ * formula corregida el corpus CUBRE 8 GiB —y 64 GiB,  que es la ventana de esta
+ * maquina—,  de modo que el test llevaba dos commits多万元 检查endo algo que no
+ * es un defecto.
+ *
+ * MEDIDO que 1 TiB NO es imposible:  rx550_vmid1_geometry() la acepta  (rc = 0),
+ * porque el tope no es el de la ventana sino el del desplazamiento y del
+ * producto.  MEDIDO tam/en con el propio modulo:  de siete ventanas balotadas,
+ *  las que se rechazan son la de 0 bytes  (RX550_PGT_ERR_VM_SIZE)  y la de
+ * UINT64_MAX  (que no es multiplo de 4 KiB,  mismo codigo).  La de 1 TiB entra.
+ *
+ * Aqui se usa la de 0,  que es la ventana imposible trivial y la que un
+ * llamante puede encontrar sin proposito.  Y se mide el caso de 1 TiB para que
+ * quede escrito que entra,  y no se confunda con una frontera.
+ */
+static void b3_1tib_rejected_before_alloc(void)
 {
 	struct rx550_vmid1_geom g;
 	struct rx550_pgt_backing b;
 
-	CHECK(fake_geom(8 * GIB, &g) != RX550_PGT_OK,
-	      "B3 la geometria de 8 GiB deberia rechazarse");
+	CHECK_EQ(fake_geom(0, &g), RX550_PGT_ERR_VM_SIZE,
+	      "B3 una ventana de 0 bytes se rechaza");
+	CHECK_EQ(fake_geom(1024 * 1024 * GIB, &g), RX550_PGT_OK,
+	      "B3 y 1 TiB SE ACEPTA:  el tope no es el de la ventana");
+	CHECK_EQ(fake_geom(8 * GIB, &g), RX550_PGT_OK,
+	      "B3 y 8 GiB SE ACEPTA:  el corpus lo cubre");
+	CHECK_EQ(fake_geom(64 * GIB, &g), RX550_PGT_OK,
+	      "B3 y 64 GiB SE ACEPTA:  es la ventana de esta maquina");
+	/* Y el resto del nodo trabaja con la geometria INVALIDA,  de modo que se
+	 * vuelve a pedir:  MEDIDO que sin esta linea el create recibia la de
+	 * 64 GiB —que es valida—  y por eso tenia exito,  y las tres
+	 * comprobaciones siguientes decian la verdad sobre una geometria que no
+	 * era la que creian.  MEDIDO:  el fallo aparecia como "create
+	 * deberia fallar" cuando lo que pasaba es que se le habia dado otra. */
+	CHECK_EQ(fake_geom(0, &g), RX550_PGT_ERR_VM_SIZE,
+	      "B3 y para el resto del nodo, la geometria es la invalida");
 
 	/* Y con una geometria que no es valida, create no pide NADA.  Esta es la
 	 * condicion que hace que una ventana imposible no llegue al allocator:
@@ -905,7 +959,7 @@ int main(int argc, char **argv)
 
 	b1_1gib();
 	b2_2gib_root_from_geometry();
-	b3_8gib_rejected_before_alloc();
+	b3_1tib_rejected_before_alloc();
 	b4_root_dma();
 	b5_leaf_dmas();
 	b6_pde_from_leaf_dma();

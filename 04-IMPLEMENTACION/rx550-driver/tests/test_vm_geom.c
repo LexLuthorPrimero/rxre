@@ -23,6 +23,7 @@
  *   NOT_OBSERVED y este test no lo cambia.
  */
 #include "rx550_vm_geom.h"
+#include "rx550_vmid1_pgt.h"
 #include <stdio.h>
 
 static int pass, fail;
@@ -263,35 +264,95 @@ static void fase_overrides(void)
 	      "fragment_size 0 rechazado");
 }
 
-/* ── LA FRONTERA QUE ESTA ABIERTA Y QUE ESTE TEST NO PUEDE CERRAR ──────── */
-static void fase_frontera(void)
+/* ── LA COBERTURA DEL WALKER:  REFUTADA Y CORREGIDA ───────────────────────── */
+static void fase_cobertura(void)
 {
-	printf("lo que sigue abierto\n");
+	struct rx550_vmid1_geom g;
 
-	/* block_size = 10 produce un page walker de dos niveles con 2^10
-	 * entradas de bloque:  cobertura = 2^10 * 2^10 * 2^12 = 2^32 = 4 GiB.
-	 * Y la ventana que anuncia el plan es de 64 GiB
-	 * (START = 0, END = max_pfn - 1 = 16777215).
-	 *
-	 * O sea:  60 de los 64 GiB quedan fuera del rango que el walker recorre.
-	 * NO es un error del calculo:  el corpus escribe exactamente eso
-	 * (gmc_v8_0.c:908-909 con START=0 y END=max_pfn-1) y no lo evita.
-	 *
-	 * Lo que NO sabemos, y este test no lo puede saber,  es que hace el
-	 * silicio con una VA por encima de 2^32 en esa situacion.  Es
-	 * NOT_DETERMINED,  y hace falta hardware. */
-	CHECK(UINT64_C(1) << 32 == UINT64_C(4) << 30,
-	      "la cobertura del walker de block_size = 10 son 4 GiB");
-	CHECK((UINT64_C(64) << 30) > (UINT64_C(4) << 30),
-	      "y la ventana que anuncia el plan es de 64 GiB: no la cubre");
-	CHECK(1, "que hace el silicio con una VA por encima: NOT_DETERMINED, "
-	      "no lo cierra un test de aritmetica");
+	printf("la cobertura del walker\n");
 
-	/* Y el guard del constructor usa 15 para los tres campos,  y el
-	 * fragment_size va a un campo de 6 bits y a uno de 5.  Aqui solo se
-	 * comprueba que los dos anchos del corpus son los que se dicen. */
-	CHECK(RX550_VM_FRAGMENT_DEFAULT == 9u,
-	      "fragment_size por defecto = 9, el literal de gmc_v8_0.c:1127");
+	/* MEDIDO 2026-10-04.  Esta seccion AFIRMABA que la cobertura del walker
+	 * con block_size = 10  era de 4 GiB,  y por tanto que la ventana de 64 GiB
+	 * de esta tarjeta NO estaba cubierta  —"60 de los 64 GiB quedan fuera".
+	 *
+	 * LAS DOS COSAS ERAN FALSAS,  y la segunda era la que mas dano hizo porque
+	 * se conto como frontera abierta durante dias.
+	 *
+	 * LA FORMULA ERA:  2^block_size * 2^block_size << 12 = 2^32.
+	 * Trata la RAIZ como una tabla mas de 2^block_size entradas.  El corpus no
+	 * lo hace  (amdgpu_vm_pt.c:81-85):  con num_level == 1  el root_level es
+	 * PDB0,  y su numero de entradas es round_up(max_pfn, 2^shift) >> shift,
+	 * que DEPENDE de la ventana  y no es una potencia de dos fija.
+	 *
+	 * LO QUE LA AFIRMACION TIENA COMO EVIDENCIA,  y por eso era tan grave:  tres
+	 * identidades de tiempo de compilacion.  1<<32 == 4<<30 se cumple para
+	 * CUALQUIER estado del driver.  Un control que no puede fallar no es un
+	 * control,  y estaba sosteniendo la afirmacion mas fuerte del componente.
+	 *
+	 * LO QUE LA REFUTO:  un adversario independiente leyo amdgpu_vm_pt.c y
+	 * amdgpu_vm.h y le dio 64 GiB.  Esta seccion lo comprueba contra el corpus,
+	 * no contra la memoria de nadie. */
+	{
+		/* amdgpu_vm_pt.c:58-59,  con num_level == 1  ->  root_level PDB0:
+		 *      level_shift(PDB0) = 9*(PDB0-PDB0) + block_size = block_size */
+		uint32_t block = 10;
+		uint64_t max_pfn = UINT64_C(64) << 18;	/* 64 GiB, esta maquina */
+		uint64_t shift_bits = block;
+		uint64_t shift = UINT64_C(1) << shift_bits;
+		uint64_t root_entries, leaf_entries, cobertura;
+
+		leaf_entries = UINT64_C(1) << block;	/* amdgpu_vm.c:91 */
+		root_entries = (max_pfn + shift - 1u) / shift;  /* :84-85 */
+		cobertura = root_entries * leaf_entries << 12;
+
+		/* MEDIDO al escribirlo:  el corpus divide por 1 << shift  y no
+		 * por shift.  Con shift = 10  en vez de 1024  la cobertura de esta
+		 * ventana salia de 64 GiB x 51,  o sea de un numero que no
+		 * significa nada y que aun asi identificaba la cobertura correcta
+		 * por un camino equivocado. */
+		CHECK(shift == 1024,
+		      "el nivel raiz hace shift de block_size, y divide por 2^ese");
+		CHECK(root_entries == (UINT64_C(1) << 14),
+		      "la raiz tiene 2^14 entradas, y eso sale de max_pfn  y no de block_size");
+		CHECK(leaf_entries == 1024,
+		      "la hoja tiene 2^10 entradas: 1 << block_size");
+		CHECK(cobertura == (UINT64_C(64) << 30),
+		      "la cobertura son 64 GiB:  LA VENTANA ENTERA");
+		CHECK(cobertura == max_pfn << 12,
+		      "y es exactamente max_pfn paginas: no falta ni un bit de la ventana");
+		CHECK(cobertura != (UINT64_C(4) << 30),
+		      "NO son 4 GiB:  la cifra que este componente repitio era falsa");
+	}
+
+	/* Y el efecto en el PRODUCTOR,  que es donde se nota de verdad:  con la
+	 * formula falsa,  rx550_vmid1_geometry() rechazaba la geometria real de
+	 * esta tarjeta.  Eso no era una frontera abierta:  era un rechazo
+	 * equivocado de lo que el corpus si soporta. */
+	CHECK(rx550_vmid1_geometry(UINT64_C(64) << 30, &g) == 0,
+	      "la geometria de 64 GiB de esta tarjeta SE ACEPTA");
+	CHECK(g.coverage_bytes == (UINT64_C(64) << 30),
+	      "y su cobertura son los 64 GiB  enteros, no 4");
+	CHECK(g.end_pn == ((UINT64_C(64) << 18) - 1u),
+	      "y end_pn = max_pfn - 1, que es lo que escribe gmc_v8_0.c:909");
+
+	/* Y el caso que la tabla de rx550_vmid1_pgt.h daba por RECHAZADO: */
+	CHECK(rx550_vmid1_geometry(UINT64_C(8) << 30, &g) == 0,
+	      "8 GiB tambien se acepta:  la tabla lo daba por no cubierto y el "
+	      "corpus lo cubre");
+	CHECK(rx550_vmid1_geometry(UINT64_C(2) << 30, &g) == 0
+	      && rx550_vmid1_geometry(UINT64_C(4) << 30, &g) == 0,
+	      "y 2 y 4 GiB,  que antes eran los unicos que pasaban");
+
+	/* LO QUE SIGUE SIN SABERSE,  y que este test no intenta tapar:  el
+	 * num_entries de la raiz sale de round_up,  de modo que si la ventana no
+	 * es un multiplo exacto de 2^block_size paginas,  la ultima entrada de la
+	 * raiz cubre paginas de mas.  Que el hardware las traduzca o no es
+	 * NOT_DETERMINED  y hace falta hardware.  Con la ventana de esta maquina
+	 * —64 GiB = 2^24 paginas  y  shift 10—  el multiplo es exacto y no hay
+	 * entrada sobrante;  y eso si se comprueba. */
+	CHECK((UINT64_C(64) << 18) % 1024u == 0,
+	      "con la ventana de esta maquina el round_up de la raiz es EXACTO: "
+	      "no hay entrada que cubra de mas");
 }
 
 int main(void)
@@ -302,7 +363,7 @@ int main(void)
 	fase_dominio();
 	fase_tmp_reasignado();
 	fase_overrides();
-	fase_frontera();
+	fase_cobertura();
 
 	printf("\n  %d pass, 0 fail\n", pass);
 	if (fail)

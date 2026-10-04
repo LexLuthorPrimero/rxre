@@ -573,24 +573,52 @@ static void guards(void)
 		 "2 GiB deberia aceptarse: block_size 10 cabe en el campo");
 	CHECK_EQ(g.block_size, 10, "2 GiB -> block_size 10");
 	CHECK_EQ(g.block_size_field, 1, "2 GiB -> PAGE_TABLE_BLOCK_SIZE = 1");
-	CHECK_EQ(g.root_bytes, 8192u,
-		 "2 GiB -> raiz de 8 KiB, DERIVADA de 2^10 entradas * 8");
-	CHECK_EQ(g.pte_pages, 1024u, "2 GiB -> 1024 paginas PTE");
-	/* Y la cobertura con holgura es correcta, no un defecto:  START y END
-	 * acotan la ventana real, y eso es de M6. */
-	CHECK(g.coverage_bytes > g.vm_size_bytes,
-	      "2 GiB con cobertura de 4 GiB es sobreaprovisionar, no incoherencia");
+	/* MEDIDO 2026-10-04.  Estas cinco comprobaciones estaban mal y las tres
+	 * que siguen decia por que.
+	 *
+	 * MEDIAN  que 2 GiB -> raiz de 8 KiB.  Con la formula corregida,  la raiz
+	 * de 2 GiB tiene ceil(2^19 / 2^10) = 512 entradas de 8 bytes = 4 KiB,  y
+	 * no 1024.  El numero de entradas de la raiz sale de un round_up de
+	 * max_pfn  (amdgpu_vm_pt.c:84-85),  no de 2^block_size.
+	 *
+	 * MEDIAN  que hay "1024 paginas PTE".  pte_pages es el numero de PAGINAS
+	 * de hoja,  que es el numero de entradas de la raiz:  512 para 2 GiB.
+	 *
+	 * MEDIAN  que la cobertura de 2 GiB es de 4 GiB y que eso es
+	 * "sobreaprovisionar".  La cobertura es exactamente la ventana:  no hay
+	 * holgura que defender ni que acotar con START/END.
+	 *
+	 * Y MEDIAN  que 8 y 64 GiB se rechazan por cobertura insuficiente.  No se
+	 * rechazan:  el corpus los cubre.  Y 64 GiB es LA VENTANA DE ESTA
+	 * MAQUINA,  de modo que el driver rechazaba su propia geometria real.
+	 *
+	 * Quien refuto todo esto:  un adversario independiente leyo
+	 * amdgpu_vm_pt.c y amdgpu_vm.h.  Y la formula estaba replicada en tres
+	 * ficheros  —el modulo,  corpus_geometry() en test_block_size.c,  y aqui
+	 * por lo que se ve en los valores esperados—,  de modo que los tests se
+	 * confirmaban entre si y ninguno contrastaba con el corpus.
+	 */
+	CHECK_EQ(g.root_bytes, 4096u,
+		 "2 GiB -> raiz de 4 KiB: 512 entradas de 8, del round_up de max_pfn");
+	CHECK_EQ(g.pte_pages, 512u,
+		 "2 GiB -> 512 paginas de hoja, que es el numero de entradas de la raiz");
+	CHECK_EQ(g.coverage_bytes, g.vm_size_bytes,
+		 "2 GiB -> la cobertura es EXACTAMENTE la ventana, sin holgura");
 
-	/* 8 GiB:  el motivo del rechazo es la cobertura, y se exige el codigo. */
-	CHECK_EQ(rx550_vmid1_geometry(WINDOW_1GIB * 8u, &g),
-		 RX550_PGT_ERR_VM_SIZE_INCOHERENT,
-		 "8 GiB se rechaza por cobertura insuficiente, no por block_size");
-	CHECK_EQ(rx550_vmid1_geometry(WINDOW_1GIB * 64u, &g),
-		 RX550_PGT_ERR_VM_SIZE_INCOHERENT,
-		 "64 GiB se rechaza por cobertura insuficiente");
-	/* Y 4 GiB, que es la cobertura maxima efectiva:  entra exacto. */
+	/* Y las ventanas que el corpus si soporta,  incluida la de esta maquina. */
+	CHECK_EQ(rx550_vmid1_geometry(WINDOW_1GIB * 8u, &g), RX550_PGT_OK,
+		 "8 GiB SE ACEPTA:  el corpus lo cubre y nosotros lo rechazabamos");
+	CHECK_EQ(g.coverage_bytes, WINDOW_1GIB * 8u,
+		 "8 GiB -> cobertura exacta de 8 GiB");
+	CHECK_EQ(rx550_vmid1_geometry(WINDOW_1GIB * 64u, &g), RX550_PGT_OK,
+		 "64 GiB SE ACEPTA:  es la ventana de esta tarjeta");
+	CHECK_EQ(g.coverage_bytes, WINDOW_1GIB * 64u,
+		 "64 GiB -> cobertura exacta,  y end_pn = max_pfn - 1");
+	CHECK_EQ(g.end_pn, (UINT32_C(64) << 18) - 1u,
+		 "64 GiB -> end_pn = 16777215,  que es lo que escribe gmc_v8_0.c:909");
+	/* Y 4 GiB entra exacto,  que era lo que decia este bloque. */
 	CHECK_EQ(rx550_vmid1_geometry(WINDOW_1GIB * 4u, &g), RX550_PGT_OK,
-		 "4 GiB deberia aceptarse: es la cobertura maxima efectiva");
+		 "4 GiB deberia aceptarse");
 	CHECK_EQ(g.coverage_bytes, WINDOW_1GIB * 4u,
 		 "4 GiB -> cobertura exacta de 4 GiB");
 

@@ -770,32 +770,64 @@ static char *m10_read(const char *path, char *buf, size_t bufsz,
 	return buf;
 }
 
-/* El enum de campos ABREVIA el nombre del registro  —RX550_FLD_CNTL0_ para
- * VM_CONTEXT0_CNTL,  RX550_FLD_MX_ para MC_VM_MX_L1_TLB_CNTL—  de modo que el
- * identificador completo no es el nombre del campo sino el nombre del campo con
- * un prefijo.  El sufijo es lo que se compara.
+/* El enum de campos ABREVIA el nombre del campo,  de modo que el nombre de la
+ * tabla y el identificador del enum NO son comparables por sufijo:
  *
- * Y POR QUE SUFIJO Y NO "CONTIENE":  "CONTIENE" daria verde a un enum que
- * declarase un campo que no existe,  porque el nombre buscado puede aparecer
- * dentro de otro mas largo.  Un sufijo que termina en el limite de la cadena es
- * una coincidencia exacta  —salvo que el campo sea prefijo de otro,  y eso lo
- * descarta el mismo test  porque el sufijo acabaria antes del fin—.
+ *     tabla   RANGE_PROTECTION_FAULT_ENABLE_DEFAULT
+ *     enum    RX550_FLD_CNTL_RANGE_PROT_FAULT_DEFAULT
  *
- * Y EL CASO INVERSO,  que es el que importa:  un enum con el MISMO nombre en el
- * indice equivocado pasa los dos controles por separado y falla en la
- * EMPAREJA.  Por eso la comparacion de arriba es por indice declarado,  no por
- * posicion recorrida. */
-static bool m10_nombre_coincide(const char *campo, const char *enum_nombre)
-{
-	size_t lc, le;
+ * Son una CONTRACCION,  no un prefijo.  La primera version de esta
+ * comprobacion comparaba por sufijo y reportaba 81 fallos que no eran fallos:
+ * el enum y la tabla si estaban de acuerdo.  Un detector que fabrica
+ * discrepancias entrena al que lee a ignorar los findings buenos,  que es
+ * peor que no detectar.
+ *
+ * LO QUE SI ES COMPROBABLE,  y es la invariante real:  el PREFIJO del
+ * identificador determina el REGISTRO.  Y esa correspondencia no es una
+ * conjetura:  sale de emparejar el enum original con la tabla original,  los 55
+ * de antes,  donde los dos son los mismos objetos.
+ *
+ * No es un adorno:  es lo que impide que un identificador acorte el PREFIJO y
+ * acabe apuntando a otro registro.  RX550_FLD_CNTL_ y RX550_FLD_CNTL0_ se
+ * diferencian en un caracter y van a registros distintos,  que es exactamente
+ * el modo de fallo que un nombre abreviado facilita.
+ */
+static const struct {
+	const char	*prefijo;
+	const char	*reg;
+} m10_prefijo_a_reg[] = {
+	{ "RX550_FLD_CNTL_",      "VM_CONTEXT1_CNTL"      },
+	{ "RX550_FLD_CNTL0_",     "VM_CONTEXT0_CNTL"      },
+	{ "RX550_FLD_PRT_CNTL_",  "VM_PRT_CNTL"           },
+	{ "RX550_FLD_MX_",        "MC_VM_MX_L1_TLB_CNTL"  },
+	{ "RX550_FLD_L2_",        "VM_L2_CNTL"            },
+	{ "RX550_FLD_L2C2_",      "VM_L2_CNTL2"           },
+	{ "RX550_FLD_L2C3_",      "VM_L2_CNTL3"           },
+	{ "RX550_FLD_L2C4_",      "VM_L2_CNTL4"           },
+};
 
-	if (!campo || !enum_nombre)
-		return false;
-	lc = strlen(campo);
-	le = strlen(enum_nombre);
-	if (le < lc)
-		return false;
-	return strcmp(campo, enum_nombre + (le - lc)) == 0;
+/* El prefijo MAS LARGO que coincide.  El orden de la tabla no sirve:  CNTL_ es
+ * prefijo de CNTL0_ con el caracter de menos,  y con una busqueda por orden de
+ * tabla el identificador corto se asignaria al registro largo.  MEDIDO:  con la
+ * tabla tal cual  los dos primeros casos fallan al reves. */
+static const char *m10_reg_de_prefijo(const char *id)
+{
+	const char *mejor = NULL;
+	const char *mejor_reg = NULL;
+	unsigned i, n = (unsigned)(sizeof(m10_prefijo_a_reg) /
+				   sizeof(m10_prefijo_a_reg[0]));
+
+	for (i = 0; i < n; i++) {
+		size_t lp = strlen(m10_prefijo_a_reg[i].prefijo);
+
+		if (strncmp(id, m10_prefijo_a_reg[i].prefijo, lp) != 0)
+			continue;
+		if (!mejor || lp > strlen(mejor)) {
+			mejor     = m10_prefijo_a_reg[i].prefijo;
+			mejor_reg = m10_prefijo_a_reg[i].reg;
+		}
+	}
+	return mejor_reg;
 }
 
 /* Extrae de gmc_8_1_sh_mask.h  REG__FIELD_MASK = valor   y   REG__FIELD__SHIFT.
@@ -1618,54 +1650,116 @@ static void m11_field_ops(void)
 		      "M11 se pudo leer rx550_mmio_access.h: sin el no hay contra que "
 		      "comparar el orden del enum");
 		if (hn) {
-			/* Se recorre el .h en orden y se empareja cada RX550_FLD_* con su
-			 * indice declarado.  Un salto o una repeticion se ven como un
-			 * desajuste,  que es exactamente el fallo que se busca. */
+			/* Se recorre LINEA A LINEA y solo se aceptan las que TIENEN la
+			 * forma de un miembro del enum:  tabulador, RX550_FLD_, nombre,
+			 * relleno, igual, indice, coma.  MEDIDO que hace falta el filtro:  la
+			 * primera version hacia strstr("RX550_FLD_")  sobre el fichero
+			 * entero  y capturaba las menciones que estan en los COMENTARIOS  —
+			 * y este .h explica en un comentario por que se conserva cada
+			 * nombre—.  Con eso el contador de posicion se iba y M11 reportaba
+			 * un desfase que no existia en el enum.  Un detector que encuentra
+			 * cosas donde no las hay  es peor que uno que no busca:  entrena al
+			 * que lee a desconfiar de los findings buenos. */
 			char *p = hn;
 			uint32_t idx = 0;
+			bool leido_alguno = false;
 
-			while ((p = strstr(p, "RX550_FLD_")) != NULL) {
-				char nom[128];
-				char *q = p + strlen("RX550_FLD_");
-				unsigned k = 0, idx_decl = 0;
+			while (p != NULL) {
+				char *nl = strchr(p, '\n');
+				size_t len = nl ? (size_t)(nl - p) : strlen(p);
+				char lin[256];
 				const struct rx550_reg_field *f;
+				unsigned k = 0, idx_decl = 0, k_nombre = 0;
 
-				if (*q == 'N' && strncmp(q, "NR", 2) == 0)
-					break;
-				while (q[k] && (q[k] == '_' || q[k] == '\''
-					      || (q[k] >= 'A' && q[k] <= 'Z')
-					      || (q[k] >= '0' && q[k] <= '9'))) {
-					nom[k] = q[k];
+				if (len >= sizeof(lin))
+					len = sizeof(lin) - 1u;
+				memcpy(lin, p, len);
+				lin[len] = '\0';
+				p = nl ? nl + 1 : NULL;
+
+				/* La forma del miembro:  empieza por TAB y el nombre. */
+				if (lin[0] != '\t'
+				    || strncmp(lin + 1, "RX550_FLD_", 10))
+					continue;
+				/* MEDIDO:  el prefijo "RX550_FLD_" tiene DIEZ caracteres,  y
+				 * la primera version comparaba once.  Con once comparaba
+				 * tambien el primer caracter del nombre del campo,  que no
+				 * es parte del prefijo  ->  la condicion nunca era cierta  ->
+				 * cero miembros leidos  ->  y el fallo se reportaba como
+				 * "el enum declara 0 entradas".  Un numero de longitud mal
+				 * puesto produce un fallo que parece de datos y es de codigo. */
+				k = 10;
+				while (lin[k] && (lin[k] == '_' || lin[k] == '\''
+						  || (lin[k] >= 'A' && lin[k] <= 'Z')
+						  || (lin[k] >= '0' && lin[k] <= '9')))
 					k++;
-				}
-				nom[k] = '\0';
+				k_nombre = k;
+				/* MEDIDO que hace falta SALTAR el relleno:  el enum se
+				 * genera alineado a 56 columnas,  de modo que entre el
+				 * nombre y el igual hay espacios.  La primera version
+				 * paraba en el primer espacio y rechazaba las 81
+				 * lineas:  el control contaba cero y daba FALLO por el
+				 * total.  Un filtro demasiado estrecho produce el
+				 * mismo fallo que uno demasiado ancho. */
+				while (lin[k] == ' ' || lin[k] == '\t')
+					k++;
+				if (!lin[k] || lin[k] != '=')
+					continue;	/* no es un miembro: es texto */
 				{
-					char *eq = strstr(q + k, "=");
+					const char *eq = strchr(lin + 1, '=');
 
-					if (!eq) { p = q + k; continue; }
 					idx_decl = (uint32_t)strtoul(eq + 1, NULL, 10);
 				}
+				/* MEDIDO,  y este era el fallo que hacia que el control
+				 * leyera 82 miembros y no reconociera el centinela:
+				 * el relleno va ENTRE el nombre y el igual,  de modo que
+				 * cortar en el igual deja el nombre con la columna entera
+				 * de espacios pegada.  El nombre se corta donde TERMINA,
+				 * que es k_nombre,  y no donde empieza el igual. */
+				lin[k] = '\0';
+				lin[k_nombre] = '\0';
+				/* RX550_FLD_NR es el CENTINELA de fin,  no un campo:  lo declara
+				 * el enum con el mismo prefijo que los demas  y por eso la forma
+				 * de la linea no lo distingue.  Sin este corte se contaba como un
+				 * miembro mas  y el total salia 82.  MEDIDO. */
+				if (strcmp(lin + 1, "RX550_FLD_NR") == 0)
+					break;
+				leido_alguno = true;
 				f = rx550_field_of((enum rx550_field_id)idx_decl);
-				/* La pareja que importa:  el indice que el .h DECLARA  contra el
-				 * nombre que la .c tiene en ese indice. */
+				/* LA PAREJA:  el indice que el .h DECLARA  contra el nombre que
+				 * la .c tiene en ese indice. */
 				if (idx_decl != idx) {
 					parejas_ok = false;
-					printf("  FALLO  M11 el .h declara RX550_FLD_%s = %u  "
-					       "y le toca el %u:  el enum y la tabla estan "
-					       "desalineados\n", nom, idx_decl, idx);
+					printf("  FALLO  M11 el .h declara %s = %u  y le toca el "
+					       "%u:  el enum y la tabla estan desalineados\n",
+					       lin + 1, idx_decl, idx);
 					g_fail++;
-				} else if (!f || !f->name
-					   || !m10_nombre_coincide(f->name, nom)) {
-					parejas_ok = false;
-					printf("  FALLO  M11 el enum[%u] declara RX550_FLD_%s y la "
-					       "tabla tiene %s\n", idx, nom,
-					       f && f->name ? f->name : "(nada)");
-					g_fail++;
+				} else {
+					const char *reg_esperado = m10_reg_de_prefijo(lin + 1);
+
+					if (!reg_esperado) {
+						parejas_ok = false;
+						printf("  FALLO  M11 %s no empieza por ningun "
+						       "prefijo conocido:  el enum se ha acortado "
+						       "de una forma que esta tabla no "
+						       "reconoce\n", lin + 1);
+						g_fail++;
+					} else if (!f || strcmp(f->reg, reg_esperado) != 0) {
+						parejas_ok = false;
+						printf("  FALLO  M11 %s dice que es de %s y la tabla "
+						       "tiene un campo de %s\n", lin + 1,
+						       reg_esperado,
+						       f && f->reg ? f->reg : "(nada)");
+						g_fail++;
+					}
 				}
 				leidos_enum++;
 				idx++;
-				p = q + k;
 			}
+			CHECK(leido_alguno,
+			      "M11 se encontraron miembros del enum de campos: si no se "
+			      "encuentra ninguno,  el filtro de lineas esta demasiado "
+			      "estrecho y el control no mide nada");
 		}
 		CHECK_EQ(leidos_enum, rx550_reg_field_count,
 			 "M11 el enum declara una entrada por cada fila de la tabla; si no, "
