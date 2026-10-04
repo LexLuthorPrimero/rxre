@@ -12,8 +12,18 @@
  *   gmc_v8_0.c:829-946 (gmc_v8_0_gart_enable) hace.
  *
  *   Devuelve un plan.  No toca hardware, no tiene mapa, no depende de nada.
- *   Quien lo ejecuta es rx550_target.c, con rx550_mmio_write32 y
- *   rx550_mmio_update_field.
+ *
+ *   MEDIDO 2026-10-04: este parrafo decia "Quien lo ejecuta es
+ *   rx550_target.c, con rx550_mmio_write32 y rx550_mmio_update_field".  ESO
+ *   ES FALSO.  Contadas las apariciones en rx550_target.c:
+ *     rx550_mmio_write32        0
+ *     rx550_mmio_update_field   0
+ *     rx550_gart_apply          0
+ *     rx550_gart_build_from     0
+ *     rx550_mmio_read32         5   <-- lo unico que el modulo usa
+ *   El unico consumidor real de esta secuencia es tests/.  Y eso concuerda con
+ *   rx550_gart_seq.c:624-628, que si lo dice: "Nada de esto se ha ejecutado".
+ *   Los dos comentarios se contradecian a doce lineas de distancia.
  *
  * POR QUE UN PLAN Y NO UNA FUNCION QUE ESCRIBA
  *
