@@ -338,10 +338,10 @@ test_vram_pool: test_vram_pool.c ../rx550_vram_pool.c ../rx550_vram_pool.h \
 # un fallo a mitad dice EN QUE paso se paro.
 test_gart_boot: test_gart_boot.c ../rx550_gart_boot.c ../rx550_gart_boot.h \
                 ../rx550_gart_seq.c ../rx550_mmio_access.c \
-                ../rx550_gart_table.c ../rx550_vram_pool.c
+                ../rx550_gart_table.c ../rx550_vram_pool.c ../rx550_vm_geom.c
 	$(CC) $(CFLAGS) -o $@ test_gart_boot.c ../rx550_gart_boot.c \
 		../rx550_gart_seq.c ../rx550_mmio_access.c \
-		../rx550_gart_table.c ../rx550_vram_pool.c
+		../rx550_gart_table.c ../rx550_vram_pool.c ../rx550_vm_geom.c
 
 test_gart_geom: test_gart_geom.c ../rx550_gart_geom.c ../rx550_gart_geom.h
 	$(CC) $(CFLAGS) -o $@ test_gart_geom.c ../rx550_gart_geom.c

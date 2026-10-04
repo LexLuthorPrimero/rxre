@@ -12,10 +12,10 @@
  *   - No calcula la geometria.  Eso es rx550_gart_geometry(), y esta funcion es
  *     su CONSUMIDORA:  recibe la ventana ya decidida y la vuelve a validar, que
  *     es lo que hacia el resto del componente.
- *   - No inventa block_size, fragment_size ni max_pfn.  Los recibe marcados
- *     como MODELO en la cabecera, porque MEDIDO no hay ningun codigo que los
- *     fije desde una lectura, y ese es el unico sitio del componente donde se
- *     podria estar inventando un valor.
+ *   - block_size, fragment_size y max_pfn los PRODUCE rx550_vm_geometry().
+ *     Antes no los rellenaba nadie y esta funcion era el unico sitio donde
+ *     el componente podia estar inventando un valor.
+ *     Y ahora el req NO LOS LLEVA:  no se pueden pasar a mano.
  */
 #include "rx550_gart_boot.h"
 
@@ -60,6 +60,14 @@ int rx550_gart_boot(const struct rx550_gart_boot_req *req,
 		out->tabla_geom.bytes         = cero64;
 		out->tabla_geom.entradas_max  = cero32;
 
+		out->vm_geom.vm_size_gb    = cero32;
+		out->vm_geom.max_pfn       = cero64;
+		out->vm_geom.num_level     = cero32;
+		out->vm_geom.block_size    = cero32;
+		out->vm_geom.fragment_size = cero32;
+		out->vm_geom.degenerado    = 0;
+		out->aviso                = 0;
+
 		out->seq.n  = cero32;
 		out->apply.n_escritas          = cero32;
 		out->apply.n_verificadas       = cero32;
@@ -82,7 +90,52 @@ int rx550_gart_boot(const struct rx550_gart_boot_req *req,
 		return out->err;
 	}
 
-	/* ── 0 · GEOMETRIA, Y PRIMERO.  MEDIDO 2026-10-04: esto estaba despues de la
+	/* ── 0 · GEOMETRIA DE LA VENTANA DE VM, Y PRIMERO DE TODO ────────────────
+	 *
+	 * MEDIDO 2026-10-04: estos tres numeros (block_size, fragment_size,
+	 * max_pfn) NO LOS RELLENABA NINGUN CODIGO.  Entraban en el req como
+	 * MODELO y los ponia a mano el test.  Ahora los produce
+	 * rx550_vm_geometry(), que es puro como rx550_gart_geometry().
+	 *
+	 * Va PRIMERO, y por una razon concreta y no por simetria:
+	 * max_pfn acota la ventana del GART, y la comprobacion de abajo
+	 *     gart_end < max_pfn
+	 * es la que decide si la ventana cabe.  Si este paso fuera despues, la
+	 * ventana se validaria contra un max_pfn que todavia no existe,  que es
+	 * el mismo error de orden que ya se corrigio una vez en esta funcion.
+	 *
+	 * Con los valores de esta maquina sale block_size = 10,  fragment_size = 9
+	 * y max_pfn = 64 << 18 = 16777216.
+	 *
+	 * CUARTO DEFECTO QUE SALIO AL HACER ESTO, y que no habia visto:
+	 * el campo max_pfn del req era uint32_t.  Con los 16777216 de esta
+	 * maquina no hay problema,  asi que el defecto era LATENTE.  Y el tipo
+	 * correcto es el de rx550_vm_geom.max_pfn,  uint64_t,  que es
+	 * UINT32_MAX veces mayor:  max_pfn = (uint64_t)vm_size << 18 con
+	 * vm_size = 8192 GB da 2^31,  y ahi un uint32_t habria guardado 0.  Es
+	 * la clase de fallo que este componente lleva tres commits corrigiendo
+	 * en otros sitios:  un numero plausible y falso.  Ahora el valor pasa
+	 * por un uint64_t de punta a punta,  porque lo produce un tipo que ya
+	 * es de 64 bits y no un cast. */
+	out->ultimo_paso = RX550_GART_BOOT_VM_GEOM;
+	{
+		int rc_vm;
+
+		rc_vm = rx550_vm_geometry(&req->vm, &out->vm_geom);
+		if (rc_vm != RX550_VM_GEOM_OK) {
+			out->err         = RX550_GART_BOOT_ERR_VM_GEOM;
+			out->rc_del_paso = rc_vm;
+			return out->err;
+		}
+		/* `degenerado` no es un fallo:  el corpus avisa con dev_err y sigue
+		 * (amdgpu_vm.c:2454-2455),  y los numeros los hemos dejado tal cual
+		 * para que no difieran de lo que veria el hardware.  Pero un informe
+		 * que no lo dijera seria un informe que calla un estado raro. */
+		if (out->vm_geom.degenerado)
+			out->aviso = 1;
+	}
+
+	/* ── 1 · GEOMETRIA.  MEDIDO 2026-10-04: esto estaba despues de la
 	 * reserva, y era un BUG DE ORDEN mio.  Con gart_start > gart_end el
 	 * `gart_end - gart_start + 1` de abajo se va en unsigned y la funcion de la
 	 * tabla recibia un numero gigante, de modo que el fallo salia por el paso
@@ -170,9 +223,11 @@ int rx550_gart_boot(const struct rx550_gart_boot_req *req,
 	 * silencio. */
 	p.gart_start     = req->gart_start;
 	p.gart_end       = req->gart_end;
-	p.block_size     = req->block_size;
-	p.fragment_size  = req->fragment_size;
-	p.max_pfn        = req->max_pfn;
+	p.block_size     = out->vm_geom.block_size;
+	p.fragment_size  = out->vm_geom.fragment_size;
+	/* Los tres, de la geometria PRODUCIDA en el paso 0.  No de req:  req ya
+	 * no los tiene,  y esa es la parte del arreglo que importa. */
+	p.max_pfn        = out->vm_geom.max_pfn;
 	p.table_addr     = out->tabla_gpu_offset;
 	p.dummy_page_addr = req->dummy_page_addr;
 	for (i = 0; i < (unsigned)(sizeof(p.cur) / sizeof(p.cur[0])); i++)

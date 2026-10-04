@@ -78,13 +78,42 @@ static void fase_completa(void)
 	req.dummy_page_addr = UINT64_C(0x000012340000);
 	req.gart_start      = GART_START;
 	req.gart_end        = GART_END;
-	req.block_size      = 10;		/* MODELO */
-	req.fragment_size   = 9;		/* MODELO */
-	req.max_pfn         = UINT64_C(64) << 18;	/* MODELO */
-	req.vmid            = 0;
+	/* MEDIDO 2026-10-04: esto ponia los tres numeros A MANO,  y no habia
+	 * ningun codigo de produccion que los rellenara.  El req ya no los lleva:
+	 * entra la RAM y el producto sale de rx550_vm_geometry(),  que es puro y
+	 * por eso se puede comprobar aqui sin GPU.
+	 *
+	 * La RAM es la MEDIDA de esta maquina:  /proc/meminfo -> 12098908 kB,  y
+	 * el corpus la redondea al alza en GiB (amdgpu_vm.c:2427-2428),  luego 12.
+	 * Con 12 GiB el clamp por el suelo da vm_size = 64. */
+	req.vm.ram_gb        = 12;		/* MEDIDO en /proc/meminfo */
+	req.vm.vm_size_gb    = RX550_VM_GEOM_SIN_OVERRIDE;
+	req.vm.block_size    = RX550_VM_GEOM_SIN_OVERRIDE;
+	req.vm.fragment_size = RX550_VM_GEOM_SIN_OVERRIDE;
+	req.vmid             = 0;
 
 	rc = rx550_gart_boot(&req, &rep);
 
+	/* ESTA ES LA ASERCION DE ACEPTACION DEL PRODUCTOR.  Antes, los tres
+	 * numeros entraban a mano en este fichero  y ningun codigo de produccion
+	 * los rellenaba.  Ahora el plan entero sale de una RAM de 12 GiB leida de
+	 * /proc/meminfo,  y los campos que se escriben en los registros tienen que
+	 * ser los que el corpus escribiria con esa ventana.
+	 *
+	 * No se comprueba el numero intermedio sino el REGISTRO:  que el campo
+	 * PAGE_TABLE_BLOCK_SIZE valga 1  es lo que significa block_size = 10,  y
+	 * que BANK_SELECT y L2_CACHE_BIGK_FRAGMENT_SIZE valgan 9  es lo que
+	 * significa fragment_size = 9.  Un test que comprobara block_size == 10
+	 * comprobaria una variable;  este comprueba lo que va al hardware. */
+	CHECK(rep.vm_geom.block_size == 10,
+	      "el productor da block_size = 10 desde 12 GiB de RAM");
+	CHECK(rep.vm_geom.fragment_size == 9,
+	      "y fragment_size = 9, que es el literal de gmc_v8_0.c:1127");
+	CHECK(rep.vm_geom.max_pfn == (UINT64_C(64) << 18),
+	      "y max_pfn = 64 << 18 = 16777216");
+	CHECK(rx550_vm_geom_block_field(rep.vm_geom.block_size) == 1,
+	      "el campo del plan seria 1: block_size - 9");
+	CHECK(rep.aviso == 0, "sin aviso: el estado no es degenerado");
 	CHECK(rc == RX550_GART_BOOT_OK, "la secuencia completa devuelve OK");
 	CHECK(rep.err == RX550_GART_BOOT_OK, "y el informe no marca error");
 	CHECK(rep.rc_del_paso == 0, "sin codigo de fallo pendiente");
@@ -177,9 +206,10 @@ static void fase_fallo(void)
 	req.dummy_page_addr = UINT64_C(0x000012340000);
 	req.gart_start    = GART_START;
 	req.gart_end      = GART_END;
-	req.block_size    = 10;
-	req.fragment_size = 9;
-	req.max_pfn       = UINT64_C(64) << 18;
+	req.vm.ram_gb        = 12;
+	req.vm.vm_size_gb    = RX550_VM_GEOM_SIN_OVERRIDE;
+	req.vm.block_size    = RX550_VM_GEOM_SIN_OVERRIDE;
+	req.vm.fragment_size = RX550_VM_GEOM_SIN_OVERRIDE;
 
 	/* Un pool con ventana de 4 KiB no puede dar los 512 KiB.  El fallo tiene
 	 * que ser EN EL PASO DE LA RESERVA, y el informe tiene que decirlo. */
@@ -233,11 +263,23 @@ static void fase_informe(void)
 	/* MEDIDO: el enum tiene PRESENTE..LISTO = 0..7 y NR_PASOS = 8.  Mi
 	 * primer test pedia 9 y LISTO == 8, contando un estado de mas.  El
 	 * recuento se mira en vez de suponerse. */
-	CHECK(RX550_GART_BOOT_NR_PASOS == 8,
-	      "hay 8 estados: 6 pasos mas PRESENTO, LISTO y NR_PASOS");
-	CHECK((int)RX550_GART_BOOT_PRESENTE == 0 && (int)RX550_GART_BOOT_LISTO == 7,
+	/* MEDIDO 2026-10-04: eran 8 estados y 6 pasos.  Ahora hay 9 y 7,  porque
+	 * el paso de la geometria de VM es NUEVO y no uno renumerado:  la cadena
+	 * tiene siete pasos,  y el recuento se mira en vez de suponerse,  que es
+	 * lo que este test ya hacia antes de que el numero cambiara. */
+	CHECK(RX550_GART_BOOT_NR_PASOS == 9,
+	      "hay 9 estados: 7 pasos mas PRESENTO, LISTO y NR_PASOS");
+	CHECK((int)RX550_GART_BOOT_PRESENTE == 0 && (int)RX550_GART_BOOT_LISTO == 8,
 	      "PRESENTO es 0 y LISTO es el ultimo, para que un consumidor pueda "
 	      "contar por donde llego sin conocer la lista");
+	/* Y el paso nuevo va PRIMERO,  y por un motivo que se comprueba:  max_pfn
+	 * acota la ventana del GART,  de modo que la geometria del GART no se
+	 * puede validar antes de que exista un max_pfn.  Si el orden se invirtiera,
+	 * la ventana se mediria contra un max_pfn que todavia no esta decidido. */
+	CHECK((int)RX550_GART_BOOT_VM_GEOM < (int)RX550_GART_BOOT_RESERVA &&
+	      (int)RX550_GART_BOOT_VM_GEOM < (int)RX550_GART_BOOT_GEOMETRIA,
+	      "la geometria de VM va antes que la reserva y que la del GART: "
+	      "max_pfn acota la ventana que el GART luego valida");
 	CHECK((int)RX550_GART_BOOT_VACIO_TLB > (int)RX550_GART_BOOT_APLICADO,
 	      "el vaciado de TLB va DESPUES de aplicar: no es orden de archivo, "
 	      "es que invalidar antes de escribir deja la TLB con la tabla vieja");

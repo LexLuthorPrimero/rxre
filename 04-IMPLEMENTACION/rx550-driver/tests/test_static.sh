@@ -371,6 +371,44 @@ for o in $(sed -n "s/^[[:space:]]*${mod_nombre}-objs[[:space:]]*:*=[[:space:]]*/
 done
 chk $([ "$n_lic" -ge 1 ] && echo 0 || echo 1) COB-MODULOS \
     "ALGUN objeto enlazado lleva MODULE_LICENSE(): modpost no rechazara el modulo (measured $n_lic, declarado >=1)"
+# ── LIT-GEOM · EL 10 Y EL 9 NO PUEDEN VIVIR COMO LITERAL EN PRODUCCION ───────
+#
+# MEDIDO 2026-10-04.  block_size, fragment_size y max_pfn NO los rellenaba
+# NINGUN codigo de produccion:  estaban escritos a mano en tres fixtures de
+# test y marcados MODELO.  Ahora rx550_vm_geometry() los produce, y el req de
+# la secuencia ya no los lleva,  de modo que no se pueden pasar a mano.
+#
+# Un comentario no cuenta,  y por eso el listado va SIN comentarios:  el
+# preprocesador de C los quita de forma exacta,  sin heuristicas de sed sobre
+# lineas que empiezan por asterisco.  Los tres numeros salen en los comentarios
+# de tres ficheros,  y con que uno se colara en codigo seria el defecto
+#回来了.
+#
+# POR QUE UNA PUERTA Y NO UN SCRIPT DE UN USO:  este componente lleva tres
+# commits corrigiendo un literal escrito a mano que parecia un dato.  Un grep
+# que alguien lanzo una vez no lo evita la segunda vez;  un check que sale de
+# nonzero cuando aparece, si.
+n_lit=0
+n_fich=0
+# MEDIDO: mi primera version hacia `grep '\.[co]$'` sobre la lista -objs,  y
+# esa lista tiene nombres .o,  no .c:  el bucle no iteraba NADA,  contaba 0
+# ficheros revisados  y daba PASS.  Un check que no revisa nada y dice que esta
+# bien es peor que un check ausente,  porque ocupa su sitio.  El recuento de
+# ficheros revisados va en el mensaje para que ese fallo se vea.
+for f in $(sed -n 's/^[[:space:]]*rx550_drv-objs[[:space:]]*:*=[[:space:]]*//p' "$DRV/Makefile" | tr ' ' '\n' | grep '\.o$'); do
+  src="$DRV/${f%.o}.c"
+  [ -f "$src" ] || continue
+  n_fich=$((n_fich + 1))
+  # -fpreprocessed -dD -E -P: quita comentarios y directivas, deja el codigo
+  if "${CC:-cc}" -fpreprocessed -dD -E -P "$src" 2>/dev/null | \
+     grep -Eq 'block_size[[:space:]]*=[[:space:]]*10|fragment_size[[:space:]]*=[[:space:]]*9([^0-9]|$)|max_pfn[[:space:]]*=[[:space:]]*\(?[[:space:]]*UINT64_C\(64\)'; then
+    n_lit=$((n_lit + 1))
+    echo "        literal de geometria en $src (sin comentarios)"
+  fi
+done
+chk $([ "$n_lit" -eq 0 ] && echo 0 || echo 1) LIT-GEOM \
+    "ninguno de los $n_fich .c de produccion escribe block_size=10, fragment_size=9 ni max_pfn=(64<<18) como literal (measured $n_lit, declarado 0)"
+
 # Y el otro sentido: cada .o de -objs tiene su .c en el arbol.
 n_objs=$(sed -n 's/^[[:space:]]*rx550_drv-objs[[:space:]]*:*=[[:space:]]*//p' "$DRV/Makefile" | tr ' ' '\n' | grep -c '\.o$')
 n_faltan=0
