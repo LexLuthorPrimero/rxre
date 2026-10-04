@@ -19,7 +19,14 @@
 #             de forma unica NO entra en el manifiesto: no se adivina.
 # ORACULO     RESEARCH/evidence/linux-7.1.3.tar.xz
 #             sha256(tarball) = be41c068e88f5242a19bccdbffbe077b18c47b45f627e2325504b4fab79dd1dc
-#             (valor oficial de kernel.org; MEDIDO en esta maquina)
+#             MEDIDO en esta maquina.  Y MEDIDO CONTRA UN ORACULO INDEPENDIENTE
+#             el 2026-10-04,  que es lo que convierte "coincide con kernel.org"
+#             de una frase heredada en un dato:
+#               https://cdn.kernel.org/pub/linux/kernel/v7.x/sha256sums.asc
+#               be41c068...dd1dc  linux-7.1.3.tar.xz
+#             64 digitos coincidentes.  La FIRMA PGP de ese listado NO se ha
+#             verificado:  PGP_NOT_VERIFIED,  y por eso lo que queda probado es
+#             "el listado de kernel.org dice este hash",  no "Linus lo firmo".
 # TARBALL     93609 miembros regulares indexados con lzma+parseo tar en python3
 #             (sin usar el comando tar). Dos corridas independientes coinciden
 #             93609/93609.
@@ -29,6 +36,39 @@
 #             como parte del nombre del fichero). Esta en el hermano:
 #             corpus-amdgpu-instrumented-linux-7.1.3.txt  (4 campos, TAB)
 #
+# ESTAS 61 ENTRADAS NO SON TODAS LAS MODIFICACIONES DEL CORPUS.  MEDIDO 2026-10-04.
+#   El alcance de ESTE fichero es "los ficheros que CITA el componente", y es un
+#   alcance CORRECTO y se mantiene:  las 61 lineas de datos de abajo son las que
+#   sha256sum -c puede comprobar, y su hash es el del fichero en el arbol.
+#   Lo que este fichero NO puede decir, y antes no decia, es quantas diferencias
+#   tiene el corpus con el tarball oficial.  MEDIDO contra
+#   RESEARCH/evidence/linux-7.1.3.tar.xz (sha256 be41c068..., el oficial de
+#   kernel.org):  el corpus tiene SEIS ficheros modificados, +13687 bytes en
+#   total, y de los seis solo DOS estan en las 61 entradas de abajo:
+#       drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c            +518   SI esta
+#       drivers/gpu/drm/amd/amdgpu/amdgpu_vm_pt.c         +917   SI esta
+#       drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c     +10646   NO esta
+#       drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.h      +1514   NO esta
+#       drivers/gpu/drm/Kconfig                             +46   NO esta
+#       drivers/gpu/drm/Makefile                            +46   NO esta
+#   Los cuatro que faltan NO se anaden aqui, y el motivo es concreto:  el
+#   componente no los cita (MEDIDO: 0 ocurrencias en los 82 fuentes de
+#   04-IMPLEMENTACION/rx550-driver/),  y su hash de disco es el INSTRUMENTADO,
+#   de modo que 'sha256sum -c' contra el tarball oficial los rechazaria.  Meterlos
+#   haria que este fichero afirmara dos cosas falsas a la vez.
+#   Lo que los registra, con los DOS hashes de cada uno  --el del arbol y el del
+#   tarball--,  es la seccion MODIFICACIONES del hermano.  El cruce entre las
+#   dos secciones lo comprueba corpus_manifest_check.py,  en los dos sentidos.
+#
+# CORRECCION DE UN CONTEO QUE SE DABA POR BUENO.  Estas cabeceras declaraban, con
+#   acierto,  que solo 2 entradas cumplian el criterio de instrumentado.  Un
+#   encargo posterior las leyo como "el manifiesto cubre 4 de las 6
+#   modificaciones".  MEDIDO:  no cubre 4.  Cubre 2.  amdgpu_debugfs.c y
+#   amdgpu_debugfs.h no estan, y su sha256 instrumentado no aparece en ninguno
+#   de los 78467 ficheros de texto del repo leidos FUERA de los tres arboles
+#   del kernel.  La cabecera de abajo era correcta;  lo incompleto era el
+#   estado del corpus,  que es lo que esta seccion viene a cerrar.
+#
 # CRITERIO de la columna instrumented (medido, no supuesto):
 #   no   el sha256 coincide con el del tarball oficial -> sin modificacion local
 #   yes  difiere, y el diff son SOLO lineas anadidas (0 eliminadas), y el fichero
@@ -36,6 +76,25 @@
 #         -> 2 entradas de este manifiesto cumplen eso:
 #           drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c  +518 bytes  (44 citas)
 #           drivers/gpu/drm/amd/amdgpu/amdgpu_vm_pt.c  +917 bytes  (3 citas)
+#   OJO, Y MEDIDO QUE ESTA AFIRMACION ES MAS CHICA DE LO QUE PARECE.  Ese
+#   criterio ("0 lineas eliminadas" + marcadores RE-02-E1 / RG-1) NO lo cumplen
+#   solo las dos entradas de arriba.  MEDIDO el diff de los seis contra el
+#   tarball, linea a linea:
+#       fichero                          +lin  -lin  RE-02-E1  RG-1  solo anadidas  marcadores
+#       amdgpu_vm.c                        12     0         1     1   si             si
+#       amdgpu_vm_pt.c                     26     0         1     1   si             si
+#       amdgpu_debugfs.c                  264     0         6     4   si             si
+#       amdgpu_debugfs.h                   33     0         2     2   si             si
+#       drivers/gpu/drm/Kconfig             2     0         0     0   si             NO
+#       drivers/gpu/drm/Makefile            1     0         0     0   si             NO
+#   O sea que los seis son SOLO lineas anadidas,  y CUATRO cumplen el criterio
+#   entero.  amdgpu_debugfs.c  y  .h  son instrumentacion de amdgpu con los
+#   mismos marcadores que las otras dos,  y no son entradas de este manifiesto
+#   porque el componente no las cita.  Los dos de kbuild  --Kconfig y Makefile--
+#   no llevan marcadores:  no son instrumentacion de amdgpu sino plomeria de
+#   kbuild,  y por eso su "instrumented" es de otra clase.  Instrumented SI,  y
+#   con otro significado.  Confundir las dos clases seria el mismo error que
+#   hacer del hash unico un criterio de clase.
 #
 # SNAPSHOT de las 69 fuentes del componente escaneadas: 30de0beba7deebd4d63cd41a9640460254d3fc6405b634ad0d9b97ca656e4be3
 #           (MEDIDO 2026-10-04 01:43:20. Ojo: el componente lo esta editando otro agente; este

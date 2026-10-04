@@ -544,6 +544,138 @@ int main(void)
 		q.max_pfn = 0x10000000ull;			/* END = 2^28 - 1, justo */
 		CHECK(rx550_gart_seq_build(&mala, &q) == 0,
 		      "S3 y con max_pfn justo SI cabe en los 28 bits");
+
+		/* ── EL SUELO DE dummy_page_addr, Y POR QUE ESTA SEPARADO ────────
+		 *
+		 *  MEDIDO 2026-10-04: el guard de arriba acota el TECHO y no el
+		 *  SUELO,  y para este parametro el suelo es el que ata.  Si se
+		 *  acepta un 0,  lo que se programa es esto:
+		 *
+		 *      gmc_v8_0.c:890-891  mmVM_CONTEXT0_PROTECTION_FAULT_DEFAULT_ADDR
+		 *                          = (u32)(adev->dummy_page_addr >> 12)
+		 *      gmc_v8_0.c:920-921  mmVM_CONTEXT1_PROTECTION_FAULT_DEFAULT_ADDR
+		 *                          = (u32)(adev->dummy_page_addr >> 12)
+		 *
+		 *  y los dos se quedan a 0.  El corpus USA ese cero como centinela de
+		 *  AUSENTE en cinco sitios,  ninguno de los cuales escribe jamas una PA
+		 *  valida a proposito:
+		 *
+		 *      amdgpu_gart.c:79    if (adev->dummy_page_addr) return 0;
+		 *      amdgpu_gart.c:84-88 if (dma_mapping_error(..)) { .. = 0; -ENOMEM }
+		 *      amdgpu_gart.c:101   if (!adev->dummy_page_addr) return;
+		 *      amdgpu_gart.c:106   adev->dummy_page_addr = 0;
+		 *      amdgpu_gart.c:520   if (adev->dummy_page_addr) return 0;
+		 *
+		 *  Y un cero no es lo mismo que un PA de mas de 40 bits:  son dos
+		 *  arreglos distintos y por eso los tests de abajo comprueban el CODIGO
+		 *  exacto de cada uno y no solo que "algo se rechazo".
+		 *
+		 *  El destino se envenena aqui y se comprueba DESPUES del rechazo,  y
+		 *  no al final del bloque:  las comprobaciones que hay entre medias
+		 *  aceptan parametros buenos,  y un build correcto deja n = 34,  que
+		 *  es indistinguible de un destino tocado.  MEDIDO:  la primera
+		 *  version de esta comprobacion estaba al final y fallaba con
+		 *  (34 != 2779096485)  —  0xa5a5a5a5 ulf,  o sea que el fallo era del
+		 *  test y no del guard.
+		 */
+		mala.n = 0xa5a5a5a5u & 0xffffffffu;
+		q = p;
+		q.dummy_page_addr = 0;
+		CHECK(rx550_gart_seq_build(&mala, &q) ==
+			      RX550_GART_SEQ_ERR_NO_DUMMY_PAGE,
+		      "S3 dummy_page_addr == 0: nadie ha producido la pagina");
+		CHECK_EQ(mala.n, 0xa5a5a5a5u,
+		      "S3 el rechazo por el suelo tampoco toca el destino");
+
+		/*  ESTE es el test que hace falta:  el de arriba por si solo no
+		 *  distinguiria el suelo del techo,  porque los dos rechazan.  Si
+		 *  compartieran codigo,  este pasaria igual.  Si compartieran codigo,
+		 *  el llamante no podria saber si tiene que ensanchar la mascara DMA
+		 *  o producir la pagina,  y no hay forma de distinguirlo desde fuera.
+		 *  O sea que la comprobacion de que el techo sigue siendo GEOMETRY no
+		 *  es una comprobacion de que el techo no se ha movido:  es la
+		 *  comprobacion de que el suelo tiene su propio codigo. */
+		q = p;
+		q.dummy_page_addr = UINT64_C(1) << 41;
+		CHECK(rx550_gart_seq_build(&mala, &q) ==
+			      RX550_GART_SEQ_ERR_GEOMETRY,
+		      "S3 y el TECHO sigue siendo GEOMETRY, no el codigo del suelo");
+		CHECK(RX550_GART_SEQ_ERR_NO_DUMMY_PAGE != RX550_GART_SEQ_ERR_GEOMETRY,
+		      "S3 los dos codigos son distintos: sin eso el llamante no puede actuar");
+
+		/*  Y el suelo es un SUELO,  no un "> 0" disfrazado:  la primera pagina
+		 *  valida tiene que entrar.  MEDIDO:  RX550_PA_BITS son 40,  asi que
+		 *  0x1000 es representable de sobra y  es lo que devuelve
+		 *  rx550_dummy_page_pfn() para una pagina en el suelo. */
+		q = p;
+		q.dummy_page_addr = UINT64_C(0x1000);
+		CHECK(rx550_gart_seq_build(&mala, &q) == 0,
+		      "S3 la PRIMERA pagina valida (0x1000) se acepta: el guard es == 0");
+		CHECK_EQ(mala.op[8].value, 1u,
+		      "S3 y su PHYSICAL_PAGE_NUMBER es 1, no 0");
+
+		/*  ESTA LINEA EXISTE PORQUE UNA MUTACION PASABA.  MEDIDO 2026-10-04:
+		 *  con el guard escrito `< 0x1000`  en vez de `== 0`,  las ocho
+		 *  comprobaciones de arriba pasaban igual  —rc=0,  0 FAIL—  porque
+		 * los dos valores probados,  0 y 0x1000,  quedan al mismo lado de
+		 *  las dos reglas.  El valor que separa las dos reglas es el que
+		 *  queda ENTRE 0 y 0x1000,  y no habia ninguno.
+		 *
+		 *  O sea que el test fijaba un "> 0" disfrazado de suelo sin saberlo.
+		 *
+		 *  Y POR QUE 1 TIENE QUE ACEPTARSE,  que es la pregunta incomoda:  una
+		 *  PA de sub-pagina no es una PA que produzca el hardware,  y no se
+		 *  esta afirmando que lo sea.  Lo que se afirma es mas estrecho y es
+		 *  lo unico que el corpus sostiene:  la UNICA regla que se anade es la
+		 *  del cero,  porque el cero es el centinela que el corpus usa para
+		 *  decir "no hay pagina"  (amdgpu_gart.c:79, :86, :101, :106, :520).
+		 *  Un requisito de alineacion seria OTRO defecto,  con su propia
+		 *  evidencia,  y colarlo aqui seria inventar una regla que nadie ha
+		 *  medido.  Queda declarado como NO_CUBIERTO,  no como correcto.
+		 */
+		q = p;
+		q.dummy_page_addr = UINT64_C(1);
+		CHECK(rx550_gart_seq_build(&mala, &q) == 0,
+		      "S3 una PA de sub-pagina NO la rechaza el guard del cero");
+		CHECK_EQ(mala.op[8].value, 0u,
+		      "S3 y >> 12 de 1 es 0: el registro no ve la diferencia");
+
+		/* ── LA ASIMETRIA CON table_addr, Y AQUI ES DONDE SE MIDE ────────────
+		 *
+		 *  El nodo pregunto si el guard de `table_addr` tiene el mismo
+		 *  problema.  MEDIDO: NO,  y por una razon que esta en el corpus y no
+		 *  en una opinion.  Los dos parametros tienen centinelas DISTINTOS:
+		 *
+		 *      pagina de relleno  -> el centinela es 0
+		 *          amdgpu_gart.c:79, :86, :101, :106, :520
+		 *      offset de VRAM     -> el centinela es LONG_MAX,  NO 0
+		 *          amdgpu_object.h:39   #define AMDGPU_BO_INVALID_OFFSET LONG_MAX
+		 *          amdgpu_object.c:1513-1526  el offset sale de
+		 *              (bo->tbo.resource->start << PAGE_SHIFT)
+		 *              + amdgpu_ttm_domain_start(adev, mem_type)
+		 *
+		 *  O sea que 0 es un offset de VRAM LEGAL  —la propia funcion lo
+		 *  devuelve sin preguntar nada—  y un guard `table_addr == 0`  seria
+		 *  inventar una regla que el corpus no tiene.  Este test es la
+		 *  MEDIDA de esa decision:  si alguna vez se anade el guard,  esta
+		 *  linea pasa a fallar y dice exactamente cual fue el cambio. */
+		q = p;
+		q.table_addr = 0;
+		CHECK(rx550_gart_seq_build(&mala, &q) == 0,
+		      "S3 table_addr == 0 SE ACEPTA: su centinela es LONG_MAX, no 0");
+		CHECK_EQ(mala.op[7].value, 0u,
+		      "S3 y CTX0_PT_BASE queda a 0, que es un VRAM offset legal");
+
+		/*  Y el cero de la tabla no se confunde con el de la pagina:  con la
+		 *  tabla a 0 y la pagina a 0  solo se rechaza por la pagina,  y el
+		 *  codigo lo dice.  Si el guard del suelo mirase la tabla,  este
+		 *  caso daria GEOMETRY. */
+		q = p;
+		q.table_addr = 0;
+		q.dummy_page_addr = 0;
+		CHECK(rx550_gart_seq_build(&mala, &q) ==
+			      RX550_GART_SEQ_ERR_NO_DUMMY_PAGE,
+		      "S3 con las dos a cero el unico rechazo es el de la pagina");
 	}
 
 	/* Y rx550_gart_seq_len de un plan que no existe. */

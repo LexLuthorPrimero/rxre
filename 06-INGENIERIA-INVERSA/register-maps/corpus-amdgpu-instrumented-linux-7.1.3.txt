@@ -67,3 +67,93 @@ f362d7eb69bbb57a8815fb54d6c2bfdd5e2e781e5ca587b0e0fef69f1ab4ce7c	include/linux/s
 9d61d2c171b2715484a3f360b386cf93da495091b143c80c79bcad219fe284b2	include/linux/types.h	no	0
 806c87c44e0a1a267b996c669ef36faeec94fee46bc4513f0d332d2169718855	include/uapi/linux/const.h	no	0
 99f352857009064137f51283090ec024b91484f057350bb1b7dbaa10c2071a4f	tools/include/nolibc/sys/stat.h	no	0
+
+# ═══════════════════════════════════════════════════════════════════════════
+# MODIFICACIONES DEL CORPUS · LAS SEIS, NO LAS DOS
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# POR QUE EXISTE ESTA SECCION, Y POR QUE ESTA EN EL HERMANO Y NO EN EL MANIFIESTO
+#
+#   El manifiesto principal tiene un alcance declarado y CORRECTO:  "sha256 de
+#   cada fichero del corpus que CITA 04-IMPLEMENTACION/rx550-driver/".  Ese
+#   alcance no incluye las cuatro ficheros que el componente no cita, y por eso
+#   anadirlos al manifiesto principal seria FALSO en los dos sentidos:  diria
+#   que el componente los cita,  y su hash de arriba es el INSTRUMENTADO,  que
+#   'sha256sum -c' contra el tarball oficial rechazaria.
+#
+#   MEDIDO 2026-10-04, y el numero era peor de lo que decia el encargo:
+#     - el encargo decia que el manifiesto cubria "las 4 instrumentadas de
+#       amdgpu".  MEDIDO:  cubre DOS.  amdgpu_debugfs.c y amdgpu_debugfs.h NO
+#       estan en las 61 entradas.  El propio manifiesto lo decia en su linea 36
+#       ("2 entradas de este manifiesto cumplen eso"),  de modo que el
+#       manifiesto era COHERENTE consigo mismo y lo que era incompleto era el
+#       estado del corpus,  no el manifiesto.
+#     - el encargo decia que faltaban 2.  MEDIDO:  faltan CUATRO, y las cuatro
+#       tienen su hash instrumentado ausente de todo el repo.
+#     - MEDIDO:  78467 ficheros de texto leidos FUERA de los tres arboles del
+#       kernel.  El sha256 INSTRUMENTADO de amdgpu_debugfs.c,  de
+#       amdgpu_debugfs.h,  de drivers/gpu/drm/Kconfig y de
+#       drivers/gpu/drm/Makefile NO aparece en NINGUNO.  Los de amdgpu_vm.c y
+#       amdgpu_vm_pt.c si,  y solo en estos dos ficheros.
+#     - MEDIDO y en contra del encargo:  amdgpu_debugfs.c tiene 0 citas en los
+#       82 fuentes de 04-IMPLEMENTACION/rx550-driver/  (no 1343 en 30 ficheros,
+#       que es una cifra que no se reproduce).  Repo entero,  fuera de los
+#       arboles del kernel:  27 ocurrencias en 16 ficheros,  todas en
+#       documentacion.  O sea que su ausencia del manifiesto principal es
+#       CORRECTA y lo que falta es el registro del corpus.
+#
+# QUE ES CADA LINEA  (campos separados por TAB, 9 en total)
+#   1  #MOD                     marca de seccion.  Empieza por '#'  y por eso
+#                               el parseo de las 61 entradas de arriba la
+#                               salta:  anadirla aqui no rompe el hermano.
+#   2  ruta                     relativa al arbol del corpus
+#   3  sha256_arbol             tal y como esta en el arbol que usa el
+#                               componente  (RESEARCH/kernelbuild/linux-7.1.3)
+#   4  bytes_arbol              tamano en disco
+#   5  sha256_oficial           miembro homonimo de linux-7.1.3.tar.xz
+#   6  bytes_oficial            tamano del miembro oficial
+#   7  delta                    bytes_arbol - bytes_oficial,  CON SIGNO
+#   8  instrumented             yes|no.  Debe ser (3 != 5),  y la tool lo
+#                               comprueba:  un "yes" sobre dos hashes iguales
+#                               es un estado INCOHERENTE,  no un dato.
+#   9  citado                   yes|no.  Si el componente lo cita,  tiene que
+#                               estar TAMBIEN en las 61 entradas del manifiesto
+#                               principal,  y la tool lo comprueba en los dos
+#                               sentidos.  Ese cruce es lo que hace que el
+#                               agujero sea detectable en vez de invisible.
+#
+# EL ORACULO Y COMO SE CALCULO
+#   RESEARCH/evidence/linux-7.1.3.tar.xz
+#     sha256 = be41c068e88f5242a19bccdbffbe077b18c47b45f627e2325504b4fab79dd1dc
+#     MEDIDO en esta maquina,  y ADEMAS contrastado con un oraculo INDEPENDIENTE
+#     el 2026-10-04:
+#       https://cdn.kernel.org/pub/linux/kernel/v7.x/sha256sums.asc
+#       be41c068e88f5242a19bccdbffbe077b18c47b45f627e2325504b4fab79dd1dc  linux-7.1.3.tar.xz
+#     Los 64 digitos coinciden con los medidos en disco,  byte a byte.
+#     LO QUE NO SE HA VERIFICADO,  y queda dicho para que nadie lo de por hecho:
+#     la FIRMA PGP del fichero no se ha comprobado.  Se ha leido el texto
+#     armorado por HTTPS y se ha comparado la linea;  eso acredita que el listado
+#     coincide,  no que Linus lo haya firmado.  Para eso haria falta la clave y
+#     gpg --verify.  PGP_NOT_VERIFIED.
+#   MEDIDO 2026-10-04:  99849 miembros recorridos con tarfile de python3,  sin
+#   usar el comando tar,  y los 6 presentes.  Los dos hashes de cada linea se
+#   calcularon de cero aqui;  ninguno estaba copiado de otro sitio.
+#
+# LO QUE ESTA SECCION HACE VERIFICABLE SIN EL ARBOL
+#   Las columnas 3, 4, 5, 6, 7 y 8 son una DECLARACION,  y se pueden comprobar
+#   entre si sin ningun fichero:  que el delta sea la resta,  y que el
+#   instrumented sea la desigualdad de los hashes.  Eso es lo que responde a
+#   "que estado del corpus hay",  y no necesita el arbol.  Lo que necesita el
+#   arbol es la OTRA pregunta,  "el arbol de ahora es el de entonces",  que es
+#   distinta y sale con codigo de salida distinto.  Ver corpus_manifest_check.py.
+#MOD	drivers/gpu/drm/Kconfig	b7abe26dad6265506121e4e04145e348e1d5e9921d21e173bbd31952b347e7f2	11530	dc7fa973ecfcec32596a64c2d4344cfaf9637ac9f0323e1629d00ccb2ede0f35	11484	+46	yes	no
+#MOD	drivers/gpu/drm/Makefile	c0b1af16ea47962054e3d55a71abb5187ee28f6d190ad89c66cbdacfee06f0ea	7733	20228b767dab3da3ae45c92e459df914d1d751b0005099326e40528809405f53	7687	+46	yes	no
+#MOD	drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c	b0dda80b0abc07c6fc41362e688600e6e4c5f4d6eaa2d8baa49d1939847abf8f	67381	0317189bf9981352c782eb4e77dad862da91c073666c083546a8f1789baa7567	56735	+10646	yes	no
+#MOD	drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.h	a6373979ad4606002e9db4ff890e653cbfa907c18190022ec84dde50aaeaff70	3352	bb336696f19bdb79b260645bccbc867c9478435916cda5d4f347846130569952	1838	+1514	yes	no
+#MOD	drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c	de4f485cb8ec0aa50fe7c73d582b038a982211ce01e2bf093fd240b6b69da79e	87642	263c5d83b1f1fd6ba575ee9bfc8e098ca9783ad775dd86d14a85778fa532e72a	87124	+518	yes	yes
+#MOD	drivers/gpu/drm/amd/amdgpu/amdgpu_vm_pt.c	98dde50a9c66cf6f80238d1119708c5268a2a4306dcc7a4bb5d2a6dc0b2f97e9	27774	910eef3f27e2f98a9d3f6c40ddffab32c57276907324805062bd46bc56b4c100	26857	+917	yes	yes
+
+# RESUMEN DE LA SECCION, MEDIDO:  6 de 6 instrumentadas,  +13687 bytes,
+# 13687 = 46 + 46 + 10646 + 1514 + 518 + 917.  De las seis,  dos las cita el
+# componente y cuatro no.  Las seis tienen aqui su hash instrumentado,  que antes
+# no estaba en ningun sitio para cuatro de ellas.
