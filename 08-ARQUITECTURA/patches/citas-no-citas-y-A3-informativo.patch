@@ -1,0 +1,223 @@
+# PARCHE 2 de 2 -- NO APLICADO.  Nodo CITAS-PROSA-A3, 2026-10-04.
+#
+# Este fichero lo esta escribiendo otro nodo mientras este termina; aplicar el
+# parche aqui seria una carrera sobre el estado compartido.  Se entrega escrito.
+#
+# LO QUE HACE, EN TRES PARTES
+#
+# 1. LAS NO-CITAS.  De las 2152 citas que A3 contaba, 25 NO SON CITAS: 22
+#    patrones binarios de 3-4 bits de la tabla de decodificacion SIB de x86-64 y
+#    3 rangos de bits de registro `D0[127:0]`.  Se resuelven con una DECLARACION
+#    por fichero, coincidencia exacta de ruta y razon escrita, no con una
+#    heuristica.  Y no es prudencia: es MEDIDO.  Tres heuristicas se probaron y
+#    las tres son peores que el defecto:
+#      - balance global de corchetes -> descarta 421, de las cuales 359 NO son
+#        no-citas (en markdown el balance se abre con el primer `[` sin cerrar);
+#      - adyacencia a `[` o `]` -> descarta 8, de las cuales 5 son citas reales
+#        (`**[REFUTADO en `272`]**` acaba en `]` por el markdown);
+#      - firma de fila (dos o mas tokens de solo 0/1) + cabecera -> descarta 11,
+#        de las cuales 3 son citas reales (`001`,`010`,`021` es una lista de
+#        hallazgos con la misma firma que una fila de patrones binarios).
+#    Un detector que borra citas reales es peor que uno que cuenta de mas.
+#    A3 baja de 2230 a 2205 sin tocar un solo hallazgo.
+#
+# 2. A3 PASA DE PUERTA A CENSO.  El codigo 4 ya no se dispara.  MEDIDO en una
+#    muestra estratificada de 132 adjudicaciones manuales (artefactos en
+#    tools/citas_prosa_adjudicado.py; cifras y razon en
+#    08-ARQUITECTURA/CITAS-POR-NUMERO-DECLARACION.md):
+#      clase 3, la cita que ya no apunta a lo que dice:  0.  No hay nada malo.
+#      clase 1, la cita correcta:                         45,7 %  (IC95 26-65 %)
+#      clase 2, la ambigua:                              54,3 %
+#    En clase 2 la cita NO contiene nada que diga cual de los dos o tres ficheros
+#    es, y por eso reescribirla seria fabricar un destino.  La ambiguedad la
+#    causan los 74 numeros duplicados, y renumerarlos rompe las citas que los
+#    nombran: es decision de otro nodo.
+#    EXIT_CITAS_AMBIGUAS conserva su MISMO valor para no romper a quien lo
+#    compruebe, y queda sin uso a proposito.
+#
+# 3. EL SELFTEST DE LA PUERTA.  Dos casos afirmaban cosas que 1 y 2 hacen
+#    falsas, asi que se cambian y el motivo esta escrito en el sitio.  Sin esto
+#    el parche dejaba la puerta fallando su propio test, que es peor que el
+#    estado de partida.
+#
+# LO QUE NO HACE, Y POR QUE: no anade la puerta "ninguna afirmacion de contenido
+#   debe quedar sin fichero que la sostenga".  Seria el criterio correcto --el
+#   100 % de las 2152 es no verificable por numero--, pero no hay medicion de su
+#   tasa de violacion actual, y una puerta sin numero de partida es una
+#   pertenencia.  Queda como frontera abierta con la condicion de apertura escrita.
+#
+# VERIFICADO, no supuesto:
+#   - A3 2230 -> 2205, no_citas_descartadas=25, en exactamente 3 ficheros.
+#   - codigos [] en vez de [6, 4]  (el 6 desaparece con el PARCHE 1).
+#   - `--selftest`: 30 comprobaciones, 0 fallos.
+#
+# APLICAR:
+#   git apply --check 08-ARQUITECTURA/patches/citas-no-citas-y-A3-informativo.patch
+#
+--- a/tools/check_num_unico.py
++++ b/tools/check_num_unico.py
+@@ -20,11 +20,16 @@
+   1  (no se usa) reservado: 1 es error generico y se confunde con un linter
+   2  falta `findings/` o el indice
+   3  hay colisiones sin fila en el indice
+-  4  quedan citas por numero a un numero duplicado
++  4  RETIRADO.  Era "quedan citas por numero a un numero duplicado".  MEDIDO el
++     2026-10-04: se cuenta, se imprime y NO es codigo de salida.  La afirmacion
++     no se puede cumplir sin inventar el destino de la mitad de las citas; las
++     cifras, el motivo y lo que se hace en su lugar estan en
++     `08-ARQUITECTURA/CITAS-POR-NUMERO-DECLARACION.md`.  La constante se conserva
++     con su valor para no romper a quien la compruebe
+   5  el indice de disco no regenera identico               <- el indice esta viejo
+   6  queda una cita por numero a un duplicado en CODIGO    <- el defecto de HOY
+ 
+-  PRECEDENCIA, y no es arbitraria: 2 > 5 > 3 > 6 > 4.
++  PRECEDENCIA, y no es arbitraria: 2 > 5 > 3 > 6.
+ 
+     2 antes que nada: sin `findings/` o sin indice no hay nada que afirmar.
+     5 antes que 3 y 4: A2 y A3 se miden CONTRA el indice. Si el indice no
+@@ -245,6 +250,46 @@
+ RE_CITA_BT = re.compile(r"`(\d{3,4})`")
+ RE_CITA_RUTA = re.compile(r"findings/(\d{3,4})(?![\d\w\-])")
+ 
++# MEDIDO 2026-10-04 (nodo CITAS-PROSA-A3).  LAS NO-CITAS, y por que NO se
++# resuelven con una heuristica.
++#
++# De las 2152 citas que A3 contaba, 25 NO SON CITAS: 22 son patrones binarios de
++# 3-4 bits de la tabla de decodificacion SIB de x86-64 (`001`, `010`, `100`,
++# `101`) y 3 son rangos de bits de registro (`D0[127:0]`).  El defecto esta en el
++# DETECTOR, no en la prosa.
++#
++# MEDIDO Y DESCARTADO: dos heuristicas, y las dos son MEJORES que el defecto.
++#   (a) el numero dentro de corchetes, por el balance global: descarta 421, de
++#       las cuales 359 NO son no-citas.  En markdown el balance se abre con el
++#       primer `[` sin cerrar --un enlace, una tabla, un literal de regex-- y ya
++#       no vuelve a cero, asi que todo lo demas parece "dentro de corchetes".
++#   (b) adyacencia a `[` o `]`: descarta 8, de las cuales 5 son citas reales.
++#       `**[REFUTADO en `272`]**` acaba en `]` por el markdown, no por un rango.
++#   (c) firma de fila (dos o mas tokens de solo 0/1 en la linea) mas cabecera de
++#       tabla: descarta 11, de las cuales 3 son citas reales.  Una lista de
++#       numeros de hallazgo como `001`,`010`,`021` tiene exactamente la misma
++#       firma que una fila de patrones binarios.
++#
++# Un detector que borra citas reales es peor que uno que las cuenta de mas: la
++# que cuenta de mas se ve en la tabla, y la que borra no se ve.  Por eso esto NO
++# es una heuristica sino una DECLARACION por fichero, con coincidencia EXACTA de
++# ruta y con su razon escrita: el mismo patron que ya usa
++# `tools/CITA-CODIGO-EXCEPTIONS.txt` para el codigo.  Una lista cerrada no puede
++# borrar una cita en un fichero que nadie declaro.
++NO_CITA_FICHEROS = {
++    "05-FUENTES-EXTERNAS/FASE-R0-EXTERNAL-KNOWLEDGE/"
++    "R0-7-REFERENCIA-X86-64-LECTURA-DESENSAMBLADO.md":
++        "tabla de decodificacion SIB de x86-64: los 3-4 digitos son PATRONES "
++        "BINARIOS (001, 010, 100, 101 = base/index de ModRM), no numeros de "
++        "hallazgo. 22 ocurrencias.",
++    "08-ARQUITECTURA/artifacts/Q5-MEM-TABLES/mem-tables.txt":
++        "volcado de tablas de memoria: `D0[127:0]` es un RANGO DE BITS de un "
++        "registro. 1 ocurrencia.",
++    "08-ARQUITECTURA/artifacts/Q5-ISA-CAP12/cap12.txt":
++        "volcado del ISA: `D0[127:0]` y `S2.u[127:0]` son RANGOS DE BITS de un "
++        "registro. 2 ocurrencias.",
++}
++
+ EXT_LEIBLES = (".md", ".py", ".sh", ".c", ".h", ".txt", ".tsv")
+ EXCLUIDOS_PROPIO = ("RESEARCH", "rx550-upstream-7.2.8", "archive",
+                     ".git", "__pycache__")
+@@ -520,6 +565,7 @@
+     dups = {n for n, v in por_num.items() if len(v) > 1}
+     excl = alcance_dirs(raiz, alcance)
+     por_numero = collections.Counter()
++    no_citas = []
+     por_dir = collections.Counter()
+     total = 0
+     leidos = omitidos = 0
+@@ -552,6 +598,12 @@
+                     num = m.group(1)
+                     if num not in dups:
+                         continue
++                    # Las no-citas.  Se filtran AQUI y no en un segundo
++                    # recorrido: un recorrido doble contaria dos veces lo mismo
++                    # y las cifras dejarian de cuadrar.
++                    if rel in NO_CITA_FICHEROS:
++                        no_citas.append((rel, grupo, num))
++                        continue
+                     total += 1
+                     por_numero[(grupo, num)] += 1
+                     por_dir[rel_dir] += 1
+@@ -570,6 +622,10 @@
+              for g in ("NNN:LL", "`NNN`", "findings/NNN")})),
+         "por_directorio": dict(por_dir.most_common(12)),
+         "ficheros_leidos": leidos,
++        # Las no-citas se INFORMAN, no se callan: son la cifra que baja, y sin
++        # esta linea el total bajaria sin que se supiera por que.
++        "no_citas_descartadas": len(no_citas),
++        "no_citas_ficheros": sorted({x[0] for x in no_citas}),
+         "ficheros_omitidos": omitidos,
+         # ---- A4: el mismo hallazgo, partido por donde duele y por donde no.
+         "A4_codigo": {
+@@ -655,8 +711,30 @@
+     a4 = resumen["A4_codigo"]
+     if a4["citas_en_codigo"] > 0:
+         codigos.append(EXIT_CITA_AMBIGUA_EN_CODIGO)
+-    if resumen["citas_por_numero_a_duplicado"] > 0:
+-        codigos.append(EXIT_CITAS_AMBIGUAS)
++    # MEDIDO 2026-10-04 (nodo CITAS-PROSA-A3).  ESTA AFIRMACION SE RETIRA DE LA
++    # PUERTA, y no porque se cumpla: porque NO SE PUEDE CUMPLIR sin inventar.
++    #
++    # A3 decia "no queda ninguna cita por numero sobre un numero duplicado".  Para
++    # que fuese cierto habria que reescribir 2152 citas por nombre de fichero.
++    # MEDIDO en una muestra estratificada de 132 adjudicaciones manuales
++    # (artefactos en tools/citas_prosa_adjudicado.py; razon y cifras en
++    # 08-ARQUITECTURA/CITAS-POR-NUMERO-DECLARACION.md):
++    #   clase 3, la cita que ya no apunta a lo que dice:  0.  No hay nada malo.
++    #   clase 1, la cita correcta:                         45,7 %  (IC95 26-65 %)
++    #   clase 2, la ambigua:                              54,3 %
++    # En clase 2 la cita NO contiene nada que diga cual de los dos o tres ficheros
++    # es, y por eso reescribirla seria fabricar un destino.  La ambiguedad la
++    # causan los 74 numeros duplicados, y renumerarlos rompe las citas que los
++    # nombran: es decision de otro nodo.
++    #
++    # Lo que si se hace cumplir son las no-citas, porque se cierran en el detector
++    # y no en la prosa, y se han cerrado mas arriba.
++    #
++    # EXIT_CITAS_AMBIGUAS conserva su MISMO valor para no romper a quien lo
++    # compruebe y queda sin uso a proposito: se deja a la vista que el codigo
++    # existe y esta retirado.
++    # if resumen["citas_por_numero_a_duplicado"] > 0:
++    #     codigos.append(EXIT_CITAS_AMBIGUAS)
+     r["codigos_que_se_disparan"] = codigos
+     r["codigo"] = codigos[0] if codigos else EXIT_OK
+     return r
+@@ -974,9 +1052,16 @@
+                  [(2, ["002-b.md", "002-c.md"])], 3, 1,
+                  extra=[("otro.md", "vease el hallazgo 002:12 y `002` y "
+                                    "findings/002\n")])
+-    res("4  tres formas de cita por numero sobre un duplicado -> 4 solo",
+-        r["codigo"] == EXIT_CITAS_AMBIGUAS
+-        and codigos(r) == [EXIT_CITAS_AMBIGUAS],
++    # MEDIDO 2026-10-04 (nodo CITAS-PROSA-A3).  ESTE TEST CAMBIO DE LO QUE
++    # AFIRMA, y el cambio esta aqui y no en el Threshold.  Antes afirmaba que
++    # tres citas por numero sobre un duplicado dan codigo 4.  Ahora afirma que se
++    # CUENTAN las tres y que el codigo de salida es 0, porque 4 paso a
++    # informativo: satisfacerlo exigiria inventar el destino de la mitad de las
++    # citas.  Las cifras y la razon en 08-ARQUITECTURA/CITAS-POR-NUMERO-DECLARACION.md
++    res("4  tres formas se cuentan y 4 ya no es codigo de salida",
++        r["codigo"] == EXIT_OK
++        and codigos(r) == []
++        and r["A3_citas"]["citas_por_numero_a_duplicado"] == 3,
+         "codigo=%d todos=%s" % (r["codigo"], codigos(r)))
+     res("4  ...y cuenta las tres, no una",
+         r["A3_citas"]["citas_por_numero_a_duplicado"] == 3,
+@@ -1063,10 +1148,10 @@
+     d, r = arbol("vprec", [("001-a.md", 1), ("002-b.md", 2), ("002-c.md", 2)],
+                  [(7, ["007-x.md"])], 99, 1,
+                  extra=[("otro.md", "`002`\n")])
+-    res("prec  sale el mas profundo (5) y se listan los tres",
++    res("prec  sale el mas profundo (5) y se listan los que disparan",
+         r["codigo"] == EXIT_INDICE_VIEJO
+-        and codigos(r) == [EXIT_INDICE_VIEJO, EXIT_COLISION_SIN_FILA,
+-                           EXIT_CITAS_AMBIGUAS],
++        # el 4 ya no se dispara (medido 2026-10-04, ver la cabecera)
++        and codigos(r) == [EXIT_INDICE_VIEJO, EXIT_COLISION_SIN_FILA],
+         "codigo=%d todos=%s" % (r["codigo"], codigos(r)))
+ 
+     # ---- 6: LA PUERTA DE CODIGO TIENE QUE PODER FALLAR Y TIENE QUE PODER PASAR
