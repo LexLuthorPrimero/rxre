@@ -10,7 +10,13 @@ KVER := $(shell uname -r)
 KDIR := /lib/modules/$(KVER)/build
 HERE := $(shell pwd)
 
-# Un SOLO modulo con tres objetos. Declarar dos veces obj-m crearia dos .ko
+# Un SOLO modulo. Declarar dos veces obj-m crearia dos .ko,  y el segundo no
+# tendria MODULE_LICENSE() porque esa macro solo esta en el fichero que declara
+# el modulo:  modpost lo rechaza con "missing MODULE_LICENSE()".
+# MEDIDO 2026-10-04:  eso fue lo que paso al anadir rx550_vm_geom.o,  y el
+# chequeo COB de test_static.sh dio VERDE igual,  porque comprueba que el .c
+# este DECLARADO,  no que este declarado en la lista correcta.  La puerta que
+# faltaba es COB-MODULOS,  y ahora esta en test_static.sh.
 # independientes, y pci_resource.o se quejaria de no tener MODULE_LICENSE.
 # El nombre del modulo COMPUESTO no puede coincidir con el de un fuente:
 # kbuild lo interpretaria como modulo y no como objeto.  El nombre del
@@ -21,7 +27,7 @@ HERE := $(shell pwd)
 # Esto es pertenencia al binario, NO ejecucion: el accessor sigue sin
 # llamada productiva desde el probe, y el mapeo del BAR no existe.
 obj-m := rx550_drv.o
-rx550_drv-objs := rx550_target.o pci_resource.o rx550_mmio_access.o rx550_pdb0.o rx550_vmid0_gart.o rx550_vmid1_pgt.o rx550_submission.o rx550_gart_write.o rx550_dummy_page.o rx550_gart_seq.o rx550_gart_table.o rx550_vram_pool.o rx550_gart_boot.o rx550_gart_geom.o
+rx550_drv-objs := rx550_target.o pci_resource.o rx550_mmio_access.o rx550_pdb0.o rx550_vmid0_gart.o rx550_vmid1_pgt.o rx550_submission.o rx550_gart_write.o rx550_dummy_page.o rx550_gart_seq.o rx550_gart_table.o rx550_vram_pool.o rx550_gart_boot.o rx550_gart_geom.o rx550_vm_geom.o
 
 .PHONY: all modules test clean verify-kdir
 

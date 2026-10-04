@@ -134,16 +134,41 @@
  * El campo son 4 bits, luego block_size - 9 cabe en [0, 15] y el rango
  * codificable es [9, 24].
  *
- * Y EL ESTADO DE LA EVIDENCIA POR VALOR, que no es uniforme:
- *   9   DEMONSTRADO_EN_GFX8   gmc_v8_0.c:933, unica escritura del campo
- *   10  COMPUTADO_Y_CODIFICABLE
- *       amdgpu_vm.c:2375-2376 lo produce para 2 GiB, y el campo lo codifica
- *       NO ESCRIBE_EN_GFX8    y se declara, no se disimula
- *   24  EL TOPE DEL CAMPO     codificable, no alcanzado por esta ASIC
+ * Y EL ESTADO DE LA EVIDENCIA POR VALOR.  MEDIDO 2026-10-04, CORREGIDO:  esta
+ * clasificacion estaba AL REVES,  y era el unico sitio del componente que
+ * declaraba un valor de block_size contradictorio.
+ *
+ * Decia "9 DEMONSTRADO_EN_GFX8" y "10 COMPUTADO_Y_CODIFICABLE, NO_ESCRIBE_EN
+ * GFX8".  La primera mitad de la primera frase es cierta:  gmc_v8_0.c:933 ES el
+ * sitio de escritura del campo.  Pero el VALOR que llega ahi sale de
+ * amdgpu_vm.c:2466,  que con la ventana de 64 GiB de esta maquina produce 10.
+ * O sea:  el corpus escribe 10 en gmc_v8_0.c:934,  no 9.  Y "para 2 GiB", que
+ * decia la entrada del 10,  era mas estrecho que la verdad:  amdgpu_vm.c:2375-2376
+ * produce 10 para 2, 4, 8 y 64 GiB.
+ *
+ *   9   CODIFICABLE_SIN_ALCANZAR  lo daria el reset de GFX9, no el de GFX8
+ *   10  DEMOSTRADO_EN_GFX8         derivado de los literales de
+ *                                  gmc_v8_0.c:1127 (64, 9, 1, 40) mas
+ *                                  amdgpu_vm.c:2436-2466, y corroborado por el
+ *                                  log del arranque: "block size is 10-bit".
+ *                                  El barrido de TODO el dominio legal de
+ *                                  vm_size lo da constante,  y eso prueba que no
+ *                                  depende de la RAM.  Ver rx550_vm_geom.c.
+ *   24  EL TOPE DEL CAMPO          codificable, no alcanzado por esta ASIC
+ *
+ * POR QUE LA CONFUSION ERA FACIL, y por que el 9 no es un valor de GFX8:
+ * el reset de GFX9 SI da 9.  mmhub_1_0_default.h lo decodifica a
+ * PAGE_TABLE_BLOCK_SIZE = 0,  o sea block_size 9,  y es coherente porque en
+ * GFX9 el driver pone block_size = 9 por la rama de num_level > 1
+ * (amdgpu_vm.c:2464),  que GFX8 nunca toma porque max_level = 1.  El valor de
+ * reset de una generacion no es el valor que escribe otra.
  */
 #define RX550_VMID1_BLOCK_SIZE_MIN		9u
 #define RX550_VMID1_BLOCK_SIZE_MAX		24u
-#define RX550_VMID1_BLOCK_SIZE_DEMOSTRADO	RX550_VMID1_BLOCK_SIZE_MIN
+/* 10, y no el MINIMO.  El valor que el corpus ESCRIBE en esta ASIC.  Antes
+ * apuntaba a 9,  que es el valor del reset de GFX9:  un valor de otra
+ * generacion usado como si fuera el de esta. */
+#define RX550_VMID1_BLOCK_SIZE_DEMOSTRADO	10u
 
 /* ── HARDWARE_REQUIREMENT: LIMITE DEL ROOT ──────────────────────────────────
  * mmVM_CONTEXT1_PAGE_TABLE_BASE_ADDR__PHYSICAL_PAGE_NUMBER  mask 0xfffffff

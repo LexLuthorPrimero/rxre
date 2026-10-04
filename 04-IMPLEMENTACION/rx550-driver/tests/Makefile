@@ -183,7 +183,7 @@ run: $(KO) test_target_match test_resource test_regs test_vm test_fence test_sub
      test_mmio_access test_block_size test_gart_write test_ib_bridge \
      test_ib_composer test_pdb0 test_submission test_vmid0_gart test_mem \
      test_ctxpt test_update_field test_dummy_page test_gart_seq \
-     test_gart_apply test_gart_table test_vram test_vram_pool test_gart_boot test_gart_geom \
+     test_gart_apply test_gart_table test_vram test_vram_pool test_gart_boot test_gart_geom test_vm_geom \
      test_vmid1_pgt test_vmid1_pgt_backing
 	@./test_resource
 	@./test_regs $(CORPUS)/gfx_8_0_d.h $(CORPUS)/gfx_8_1_d.h
@@ -215,6 +215,7 @@ run: $(KO) test_target_match test_resource test_regs test_vm test_fence test_sub
 	@./test_vram_pool
 	@./test_gart_boot
 	@./test_gart_geom
+	@./test_vm_geom
 	@./test_vmid0_gart
 	@./test_vmid1_pgt
 	@./test_vmid1_pgt_backing
@@ -344,6 +345,16 @@ test_gart_boot: test_gart_boot.c ../rx550_gart_boot.c ../rx550_gart_boot.h \
 
 test_gart_geom: test_gart_geom.c ../rx550_gart_geom.c ../rx550_gart_geom.h
 	$(CC) $(CFLAGS) -o $@ test_gart_geom.c ../rx550_gart_geom.c
+
+# test_vm_geom comprueba el PRODUCTOR de block_size, fragment_size, num_level y
+# max_pfn.  Hasta que este modulo existio,  esos tres numeros no los rellenaba
+# NINGUN codigo de produccion:  estaban escritos a mano en tres fixtures de
+# test.  El caso que este test cierra de verdad no es el valor,  sino que el
+# barrido de TODO el dominio legal de vm_size da block_size = 10 siempre:  eso
+# prueba que el numero no depende de la RAM de la maquina,  aunque
+# si_meminfo() este en el camino de calculo.
+test_vm_geom: test_vm_geom.c ../rx550_vm_geom.c ../rx550_vm_geom.h
+	$(CC) $(CFLAGS) -o $@ test_vm_geom.c ../rx550_vm_geom.c
 
 test_vmid1_pgt: test_vmid1_pgt.c ../rx550_vmid1_pgt.c
 	$(CC) $(CFLAGS) -o $@ test_vmid1_pgt.c ../rx550_vmid1_pgt.c

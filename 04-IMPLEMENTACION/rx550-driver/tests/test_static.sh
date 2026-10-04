@@ -324,6 +324,63 @@ done
 chk $([ "$n_acc" -eq "$n_exent" ] && echo 0 || echo 1) COB \
     "cada exención de MMIO ($MMIO_EXENTOS) sigue siendo un fichero que hace MMIO ($n_acc/$n_exent)"
 
+# ── COB-MODULOS · LO QUE FALTABA, Y POR QUE EL DE ARRIBA NO LO DETECTA ──────
+#
+# MEDIDO 2026-10-04.  Al anadir rx550_vm_geom.o se metio en la LINEA DE obj-m en
+# vez de en rx550_drv-objs,  y el chequeo COB de arriba dio VERDE.  No fallo por
+# poco:  dio verde porque lo que comprueba es que el .c este DECLARADO, y lo
+# estaba.  Lo que estaba DECLARADO MAL es otra cosa.
+#
+# Por eso el fallo real tardo en salir:  modpost responde
+#     ERROR: modpost: missing MODULE_LICENSE() in rx550_vm_geom.o
+# porque MODULE_LICENSE() solo esta en el fichero que DECLARA el modulo,  o sea
+# rx550_target.c.  Un .o suelto en obj-m se convierte en un SEGUNDO modulo,  y
+# ese segundo no tiene macro de licencia.  El comentario del propio Makefile:13
+# advertia de esto;  lo que faltaba era una puerta.
+#
+# Lo que esta comprobacion mide,  y son tres cosas distintas:
+#   1. obj-m declara UN SOLO modulo.
+#   2. Ese .o tiene su .c en el arbol.
+#   3. Todo .o de rx550_drv-objs tiene su .c.  (al reves: un .c declarado sin
+#      su .o no se enlazaria, y kbuild avisa pero no rompe)
+n_objm=$(grep -c '^[[:space:]]*obj-m[[:space:]]*:*=' "$DRV/Makefile")
+chk $([ "$n_objm" -eq 1 ] && echo 0 || echo 1) COB-MODULOS \
+    "obj-m se declara UNA vez en el Makefile (measured $n_objm, declarado 1)"
+# Los .o de la linea obj-m: tiene que ser exactamente uno, y ese es el modulo.
+mods=$(sed -n 's/^[[:space:]]*obj-m[[:space:]]*:*=[[:space:]]*//p' "$DRV/Makefile" | tr ' ' '\n' | grep -c '\.o$')
+chk $([ "$mods" -eq 1 ] && echo 0 || echo 1) COB-MODULOS \
+    "obj-m declara UN SOLO .o: los demas van en -objs (measured $mods, declarado 1)"
+# LA LICENCIA.  MEDIDO: mi primera version de esta comprobacion exigia que el
+# fichero cuyo nombre es el del modulo,  rx550_drv.c,  llevara MODULE_LICENSE().
+# Ese fichero NO EXISTE y no debe existir:  un modulo compuesto se construye a
+# partir de su lista -objs,  y rx550_drv.c no esta en ella.  La comprobacion
+# fallaba por exigir algo que la convencion de kbuild prohibe.
+#
+# La invariante real,  y la que modpost aplica,  es que ALGUN objeto ENLAZADO
+# aporte la macro.  El mensaje de modpost  "missing MODULE_LICENSE() in <obj>"
+# nombra el .o que se proceso,  no el fichero fuente donde deberia estar la
+# macro:  el nombre ahi es el del .o,  no el de un fuente.
+mod_nombre=$(sed -n 's/^[[:space:]]*obj-m[[:space:]]*:*=[[:space:]]*//p' "$DRV/Makefile" | tr ' ' '\n' | grep '\.o$' | sed 's/\.o$//' | head -1)
+grep -q "^[[:space:]]*${mod_nombre}-objs[[:space:]]*:*=" "$DRV/Makefile" && \
+  chk 0 COB-MODULOS "el modulo $mod_nombre tiene su lista ${mod_nombre}-objs: es un modulo compuesto, no un fuente suelto" \
+              || no COB-MODULOS "el modulo $mod_nombre NO tiene lista ${mod_nombre}-objs: o no existe, o es un fuente suelto en obj-m"
+n_lic=0
+for o in $(sed -n "s/^[[:space:]]*${mod_nombre}-objs[[:space:]]*:*=[[:space:]]*//p" "$DRV/Makefile" | tr ' ' '\n' | grep '\.o$'); do
+  b=${o%.o}
+  [ -f "$DRV/$b.c" ] && grep -q 'MODULE_LICENSE(' "$DRV/$b.c" && n_lic=$((n_lic + 1))
+done
+chk $([ "$n_lic" -ge 1 ] && echo 0 || echo 1) COB-MODULOS \
+    "ALGUN objeto enlazado lleva MODULE_LICENSE(): modpost no rechazara el modulo (measured $n_lic, declarado >=1)"
+# Y el otro sentido: cada .o de -objs tiene su .c en el arbol.
+n_objs=$(sed -n 's/^[[:space:]]*rx550_drv-objs[[:space:]]*:*=[[:space:]]*//p' "$DRV/Makefile" | tr ' ' '\n' | grep -c '\.o$')
+n_faltan=0
+for o in $(sed -n 's/^[[:space:]]*rx550_drv-objs[[:space:]]*:*=[[:space:]]*//p' "$DRV/Makefile" | tr ' ' '\n' | grep '\.o$'); do
+  b=${o%.o}
+  [ -f "$DRV/$b.c" ] || n_faltan=$((n_faltan + 1))
+done
+chk $([ "$n_faltan" -eq 0 ] && echo 0 || echo 1) COB-MODULOS \
+    "los $n_objs .o de rx550_drv-objs tienen todos su .c (measured $n_faltan sin fuente, declarado 0)"
+
 # Ningun objeto fuera de la excepcion puede tocar el dispositivo.
 #
 # La lista de exentos ENTRA en el awk como VALOR (`-v exentos=...`), nunca como
