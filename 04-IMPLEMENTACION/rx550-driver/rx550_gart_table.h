@@ -112,9 +112,51 @@ int rx550_gart_tabla_geom(uint64_t gart_size, struct rx550_gart_tabla_geom *out)
  *  un valor:  acepta un numero de ENTRADAS y un valor, y convierte una vez. */
 int rx550_gart_tabla_rellena(uint64_t *tabla, uint64_t entradas, uint64_t valor);
 
-/*  Lo mismo, con el valor del corpus.  Existe para que el 0x10 no se escriba a
- *  mano en el llamante:  es un valor que viene de amdgpu_vm.h:65,  y escribirlo
- *  en otro sitio es copiar un bit de una cabecera de otro fichero. */
+/*  Lo mismo, con el valor por PALABRA de 64 bits.  Existe para que el 0x10 no
+ *  se escriba a mano en el llamante.
+ *
+ *  MEDIDO 2026-10-04.  ESTO NO ES EL VALOR DEL CORPUS, y la frase anterior si
+ *  lo decia.  La cadena real es:
+ *
+ *    - AMDGPU_PTE_EXECUTABLE = (1ULL << 4) = 0x10   (amdgpu_vm.h:65)
+ *    - ese valor se asigna a gart_pte_flags         (gmc_v8_0.c:961)
+ *    - y se pasa a memset_io(ptr, gart_pte_flags, table_size)
+ *                                                  (amdgpu_gart.c:276)
+ *    - memset_io toma un INT DE BYTE, no una palabra:
+ *      `void memset_io(volatile void __iomem *, int, size_t)`
+ *      (arch/x86/include/asm/io.h:205), y su implementacion en
+ *      arch/x86/lib/iomem.c:114-125 acaba en memset((void *)a, b, c).
+ *
+ *  Luego el corpus NO escribe 0x10 por entrada:  escribe 0x10 en CADA BYTE, y
+ *  cada entrada de 64 bits queda 0x1010101010101010.  Eso tiene tres
+ *  consecuencias, y las tres estan medidas:
+ *
+ *    1. NUESTRO VALOR PASARIA NUESTRO VALIDADOR Y EL SUYO NO.
+ *       rx550_pte_check() (rx550_gart_write.c:24) rechaza lo que hay fuera de
+ *       RX550_PTE_GFX8_ALLOWED, y 0x1010101010101010 viola los bits 44, 52 y
+ *       60.  Si adoptamos el valor byte-replicado, el relleno de este modulo
+ *       no podria alimentarse de rx550_gart_write(), que valida cada entrada
+ *       antes del primer store.
+ *
+ *    2. LA DIFERENCIA ES INOBSERVABLE PARA ESTA TARJETA.  Bit a bit:
+ *         bit 0  VALID   0 en ambos
+ *         bit 4  EXEC    1 en ambos
+ *         bits 12,20,28,36 (PA)   0 aqui, basura ahi
+ *         bits 44,52,60 (reservado alto)  0 aqui, basura ahi
+ *       Con VALID = 0 la entrada es invalida y su campo de direccion no se
+ *       consulta: el acceso falla y PROTECTION_FAULT_DEFAULT manda a la pagina
+ *       de relleno.  El unico caso en que la diferencia seria observable es
+ *       que el bit 0 del valor estuviera a 1, y no lo esta.
+ *
+ *    3. ES UN DEFECTO LATENTE DE amdgpu, no una decision.  gart_pte_flags es
+ *       una mascara de bits en todas partes (amdgpu_gmc.c:1135 hace
+ *       `flags |= VALID|READABLE|...` sobre ella), y pasarla como argumento de
+ *       byte es un desajuste de tipo.  En esta ASIC no se ve por el motivo 2.
+ *
+ *  ASI QUE ESTE MODULO ESCRIBE 0x10 POR PALABRA, y la afirmacion correcta es:
+ *  "un valor cuyos bits funcionales son los del corpus", no "el valor del
+ *  corpus".  La diferencia esta registrada, no resuelta, porque resolverla
+ *  exigiria saber que hace el silicio con una entrada invalida. */
 int rx550_gart_tabla_reinicia(uint64_t *tabla, uint64_t entradas);
 
 #endif /* RX550_GART_TABLE_H */

@@ -116,14 +116,24 @@ struct rx550_gart_op {
 	uint32_t	value;
 	/*  VERIFICABLE:  se puede comprobar releyendo el registro.  Y para
 	 *
-	 *  24 de las 34 escrituras van a registros que la propia tabla del driver
+	 *  25 de las 34 escrituras van a registros que la propia tabla del driver
 	 *  declara "W",  o sea de solo escritura:
 	 *
 	 *      los 15 PAGE_TABLE_BASE del bucle de contextos
 	 *      PAGE_TABLE_START y _END de los dos contextos
 	 *      PROTECTION_FAULT_DEFAULT de los dos contextos
 	 *      los tres de la identity aperture
-	 *      y CNTL2 del contexto 1  ("W" segun la tabla)
+	 *
+	 *  MEDIDO 2026-10-04 sobre la columna `access` de rx550_vmid1_regs[]:
+	 *  la tabla tiene 9 "RW", 29 "W" y 1 "R".
+	 *
+	 *  CORRECCION:  este bloque decia antes 24, y su misma linea 12 mas abajo
+	 *  decia 25.  El item que faltaba era "y CNTL2 del contexto 1 ("W" segun
+	 *  la tabla)",  que es FALSO:  mmVM_CONTEXT1_CNTL2 esta declarado "RW" en
+	 *  la tabla (rx550_mmio_access.c), igual que el del contexto 0.  El 25 es
+	 *  el bueno y el enumerado que lo respaldaba era el que estaba mal.  Una
+	 *  enumeracion que no cuadra con su propio recuento es peor que no
+	 *  enumerar: 16 + 4 + 2 + 3 = 25,  y el "+1" que se restaba no existia.
 	 *
 	 *  Releerlos NO prueba que la escritura haya tenido efecto:  lo unico que
 	 *  devolveria es lo que hubiera,  que es lo mismo que devolveria si no se
@@ -234,8 +244,16 @@ struct rx550_gart_apply_report {
  *      gmc_v8_0_flush_gpu_tlb()        L661-666   la que usa gart_enable:  1 WREG32
  *      gmc_v8_0_emit_flush_gpu_tlb()   L668-683   la que usa el ring:     2 emit_wreg
  *
- *  La que se necesita para terminar la secuencia es la PRIMERA.  Ninguna de las
- *  dos es nuestra:  no hay funcion de vaciado en el componente.
+ *  La que se necesita para terminar la secuencia es la PRIMERA, y es NUESTRA:
+ *  rx550_gart_tlb_flush(),  unas	lineas mas abajo en este mismo fichero y en
+ *  rx550_gart_seq.c:750.  Sin mb() y sin flush_hdp,  igual que el corpus,  que
+ *  en gmc_v8_0.c:941 tampoco los tiene.
+ *
+ *  CORRECCION 2026-10-04:  este bloque decia "Ninguna de las dos es nuestra:
+ *  no hay funcion de vaciado en el componente".  Eso es un negativo escrito SIN
+ *  SCOPE GATE,  y desmentido por la declaracion que aparece dieciocho lineas
+ *  mas abajo del MISMO fichero.  Un NOT_FOUND convertido a PROVEN_ABSENT.
+ *  Nota: la segunda funcion,  la del anillo de PM4,  esa si que no es nuestra.
  *
  *  Y EL VALOR QUE TOCA ES 0, no 1..15.  Con vmid = 0,  1 << 0 = 1,  y el bit 0
  *  es el dominio del contexto del GART.  El corpus invalida el resto del
