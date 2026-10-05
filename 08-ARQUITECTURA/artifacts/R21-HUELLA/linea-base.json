@@ -452,15 +452,15 @@
    "sha256": "70d442e8a8d7195542e1d4a5bdf43ba5a6ef67ce4fcef4cfb6e2308b9bc81933"
   },
   {
-   "bytes": 30668,
-   "lineas": 641,
+   "bytes": 31633,
+   "lineas": 660,
    "ruta": "tools/huella.py",
    "selftest": {
     "detalle": "`--toma` no ejecuta; use --verifica",
     "estado": "NO_MEASURE",
     "rc": null
    },
-   "sha256": "f63982306ddc24f72d78d3dd8a1d5ce273933b484ee2db142e0980b8fd37a222"
+   "sha256": "97158d27f14b84af62739ff6badf434bdb4b94a2085268e639ebad3338f28da6"
   },
   {
    "bytes": 50706,
@@ -474,15 +474,15 @@
    "sha256": "9853b45d49094de7097c8e424610fce18bd4da5fefa691a8c4453ce21c613918"
   },
   {
-   "bytes": 138257,
-   "lineas": 3044,
+   "bytes": 143532,
+   "lineas": 3136,
    "ruta": "tools/ibref.py",
    "selftest": {
     "detalle": "`--toma` no ejecuta; use --verifica",
     "estado": "NO_MEASURE",
     "rc": null
    },
-   "sha256": "10c69adb1a6249cb843a520e18c1dcffaac9847190e8c635d793167edec95b5b"
+   "sha256": "95ddca2a1a4daa8ca9ed116d6ebf6c96339620344911b6b5c419c8fb4afad203"
   },
   {
    "bytes": 21729,
@@ -1255,15 +1255,15 @@
    "sha256": "ebc70a447124778b771119cae2cafc9e7cc71ebcc8232e9e135bcd97f86b1343"
   },
   {
-   "bytes": 17243,
-   "lineas": 408,
+   "bytes": 18398,
+   "lineas": 432,
    "ruta": "08-ARQUITECTURA/tools/causal.py",
    "selftest": {
     "detalle": "`--toma` no ejecuta; use --verifica",
     "estado": "NO_MEASURE",
     "rc": null
    },
-   "sha256": "75f9292858a584f58cc818904a1a7365faca85ed5db451c4f9a9ade95db55c3a"
+   "sha256": "57229ad3a4154cade407f527b55076efafce615b6115ec6276b0d02afd5a2923"
   },
   {
    "bytes": 12124,
@@ -1310,15 +1310,15 @@
    "sha256": "75ec278754d9f22aafceef7490303dd74c43441a3c5bdf424347ce3d3410961b"
   },
   {
-   "bytes": 24602,
-   "lineas": 579,
+   "bytes": 25760,
+   "lineas": 603,
    "ruta": "08-ARQUITECTURA/tools/citecheck.py",
    "selftest": {
     "detalle": "`--toma` no ejecuta; use --verifica",
     "estado": "NO_MEASURE",
     "rc": null
    },
-   "sha256": "2d196491b528bd6a50b295061701099f042626eab52258387d267cc7b73c7581"
+   "sha256": "9f592d613fc7ef67db26ff9ff2fdeb16ca4b59b354473f0f865e90c83dd066b6"
   },
   {
    "bytes": 7531,
@@ -1805,15 +1805,15 @@
    "sha256": "c002e8024e67d996c2dc5466e802c1c70bc40a64091663360e398b7996f73dfe"
   },
   {
-   "bytes": 13301,
-   "lineas": 372,
+   "bytes": 14227,
+   "lineas": 393,
    "ruta": "08-ARQUITECTURA/tools/scopeguard.py",
    "selftest": {
     "detalle": "`--toma` no ejecuta; use --verifica",
     "estado": "NO_MEASURE",
     "rc": null
    },
-   "sha256": "064a5d5ec0b184c9d5da88b9cc42f305864c55d0376a9e76a1ea9b08c2aa4878"
+   "sha256": "d054c82a6d02e39ca5664b64c0038a4102c1931920cf9892a5ee533a6e339a69"
   },
   {
    "bytes": 15450,
@@ -1871,15 +1871,15 @@
    "sha256": "9f3b6a73aa35e7797d2ea2a080ea58b177487cba95ab7253501c23c58a8616b6"
   },
   {
-   "bytes": 40492,
-   "lineas": 885,
+   "bytes": 42356,
+   "lineas": 916,
    "ruta": "08-ARQUITECTURA/tools/toolkit.py",
    "selftest": {
     "detalle": "`--toma` no ejecuta; use --verifica",
     "estado": "NO_MEASURE",
     "rc": null
    },
-   "sha256": "be7c579b6d41bdb13f56fc1063417802f6d9aaeb989cd64d2590bc1ab89eb4fd"
+   "sha256": "ac7beedcbc37a57b6fc56673bbd092f8260fb5a07bf01d86c975a4a6f55afed3"
   },
   {
    "bytes": 6654,
@@ -1926,15 +1926,15 @@
    "sha256": "7e7037cadea20251652a542ab03069faf8fe95b85d2038594b94de114b790b2a"
   },
   {
-   "bytes": 22315,
-   "lineas": 490,
+   "bytes": 23468,
+   "lineas": 514,
    "ruta": "08-ARQUITECTURA/tools/xref.py",
    "selftest": {
     "detalle": "`--toma` no ejecuta; use --verifica",
     "estado": "NO_MEASURE",
     "rc": null
    },
-   "sha256": "90bb073df932d9baecb463fbc9651b9ac2d79db8728628cd9b83c2001d16f37d"
+   "sha256": "c58f0fa176248e51be44e02a48cb895739ecb53bf0a995eaa32b522a9e6590c7"
   },
   {
    "bytes": 100985,
@@ -2301,7 +2301,7 @@
   }
  ],
  "instrumentos": 209,
- "sha256_de_la_linea_base": "a088229ee9d4effd54474c72977dbf858d76866169df333b341671afbc4cd9f8",
+ "sha256_de_la_linea_base": "f351b26983bf95e805a4b8b977ce8271b5e97bc3bf496217389491c9e7274a4b",
  "tool": "huella",
  "version": "1.0.0"
 }

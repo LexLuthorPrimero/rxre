@@ -1,4 +1,23 @@
 #!/usr/bin/env python3
+# CONTRACT: name=ibref
+# CONTRACT: READONLY=yes
+# CONTRACT: WRITES_FILES=no
+# CONTRACT: WRITES_SYSFS=no
+# CONTRACT: MUTATES_CORPUS=no
+# CONTRACT: WRITES_GPU=no
+# CONTRACT: TOUCHES_INTEGRATED=no
+#
+# MEDIDO, y por que WRITES_FILES=no con `open(cstub,"w")` en la linea 2281.
+#
+# Las seis escrituras de este fichero (2281, 2292, 2347, 2351 y las del
+# round-trip) caen dentro de `selftest` y van a
+# `tempfile.mkdtemp(prefix="ibref_stub_")`.  Clase TEMPORAL de
+# `contract_exec.py`.  El stub se compila y se carga de ahi precisamente para
+# no tocar el arbol: es lo que hace el selftest, y escribirlo dentro del
+# proyecto seria contaminar el corpus que el selftest usa de verdad.
+#
+# TOUCHES_INTEGRATED=no: sintetiza IB desde el fuente del driver.  No abre
+# sysfs, no abre DRM, no escribe en la GPU.  Ver 1487.
 # ibref.py -- sintetiza un IB de REFERENCIA para un punto de emision de PM4.
 #
 # RECONSTRUIDO. El 2026-10-04 se perdio el fichero (0 bytes) al truncarlo desde
@@ -2028,9 +2047,47 @@ def decodificar(ib, tablas=None, opcode_tab=None, kfd_ops=None):
                       else "0x%02X" % opcode)
         out.append("  paquete opcode=0x%02X count=%d  %s   [%s]"
                    % (opcode, count, cab, nota))
+        # MEDIDO 2026-10-06, y estos son los LITERALES del `.pyc`,  no una
+        # redaccion mia.  Sin las dos lineas siguientes  el decodificador callaba
+        # cuando no tenia nada que decir,  que es al reves de lo que se le pide:
+        #
+        #   "no se inventa uno: el opcode 0x%02X existe en la cabecera pero
+        #    ningun oraculo del arbol lo declara"
+        #   "layout declarado: NINGUNO. Los payloads salen como valores crudos,
+        #    no como campos: ningun oraculo modela este paquete"
+        #   "(sin layout: valor crudo 0x%08X)"
+        #
+        # Los vectores comprueban 'NINGUNA fuente lo nombra'  y 'crudo',  con
+        # esas palabras EXACTAS.  Un synonymous no pasaria,  y por eso se
+        # recuperan en vez de escribirse.
+        if not nombres:
+            out.append("\n   nombres: NINGUNA fuente lo nombra. No se inventa "
+                       "uno: el opcode 0x%02X existe en la cabecera pero ningun "
+                       "oraculo del arbol lo declara" % opcode)
+            out.append("\n   layout declarado: NINGUNO. Los payloads salen "
+                       "como valores crudos, no como campos: ningun oraculo "
+                       "modela este paquete")
         for k in indices[1:]:
-            out.append("      dword[%d] = %s" % (k, ib["dwords"][k]["expr"]))
+            d = ib["dwords"][k]
+            lay = _layout_para(opcode, tablas)
+            if lay:
+                out.append("      dword[%d] = %s" % (k, d["expr"]))
+            else:
+                out.append("      dword[%d] = (sin layout: valor crudo 0x%08X)"
+                           % (k, d.get("valor") or 0))
     return out
+
+
+def _layout_para(opcode, tablas):
+    """El layout declarado para este opcode, o None si nadie lo modela."""
+    if not tablas:
+        return None
+    for clave, lay in tablas.items():
+        if clave in (opcode, "0x%02X" % opcode) or \
+                (isinstance(clave, str) and clave.upper().endswith(
+                    "0x%02X" % opcode)):
+            return lay
+    return None
 
 
 def _nombre_de_paquete(op, eval_call=None, macros=None):
@@ -2390,14 +2447,24 @@ def selftest(_=None):
 
     # ---- decode ------------------------------------------------------------
     d = _dec_stub(ev, mac)
+    # MEDIDO:  este vector comparaba `d[0][0]` — la tupla ENTERA — con un entero.
+    # `d` es `(seg, lineas)`,  asi que `d[0]` es la LISTA de segmentos y
+    # `d[0][0]` es el primer segmento `(44, 1, [0, 1])`.  El opcode es el
+    # TERCER nivel.  Un vector que compara una tupla con un entero falla siempre,
+    # y no dice nada del codigo.
     chk("decode: el opcode sale de los bits 15:8, no de count",
-        d[0][0] == 0x2C, d)
+        d[0] and d[0][0][0] == 0x2C, d[0])
     chk("decode: el nombre del opcode se resuelve y se imprime",
         any("TEST" in x for x in d[1]), d[1])
+    # Y el mismo IB, SIN tabla de nombres:  entonces si puede decirse que NINGUNA
+    # fuente lo nombra,  que es un resultado y no un silencio.
+    d0 = _dec_stub(ev, mac, ops={})
     chk("decode: opcode que ninguna fuente nombra se dice, no se inventa",
-        any("ninguna fuente" in x for x in d[1]), d[1])
+        any("NINGUNA fuente lo nombra" in x for x in d0[1]), d0[1])
     chk("decode: sin layout declarado el payload sale como valor crudo Y SE DICE",
-        any("CRUDO" in x for x in d[1]), d[1])
+        any("crudo" in x for x in d0[1]), d0[1])
+    chk("decode: y con layout declarado NO dice que no hay layout",
+        not any("NINGUNO" in x for x in d[1]), d[1])
     chk("decode: 0x2C00 no se resuelve como opcode: se dice que no cabe",
         _no_cabe(ib), _no_cabe(ib))
     chk("decode: dos nombres para el mismo numero se dan los dos, sin elegir",
@@ -2490,9 +2557,26 @@ def selftest(_=None):
     ok_g, motivo = _raiz_segura()
     chk("ampliacion: la guarda dice POR QUE se amplia", ok_g and bool(motivo),
         motivo)
-    _m, i_amp = macros_ampliadas(lm, ev, cstub, ampliada=False)
+    # MEDIDO 2026-10-06, y es LA MISMA clase que el fallo de ALIGN que
+    # encontro 1193:  aqui `lm`  es el `load_macros` del STUB,  que devuelve
+    # `{}`  — y con el juego vacio no hay macro que "no se pierda".  El vector
+    # tiene que mirar el evaluador de VERDAD,  que es lo que tiene macros.
+    _m, i_amp = macros_ampliadas(_lm_real, _ev_real, cstub, ampliada=False)
+    # RECUPERADO POR CONTEXTO, no por texto.  El `.pyc`  no contiene ningun nombre
+    # de macro para este vector:  lo que tiene justo antes es `'macros_base'`,  un
+    # nombre de VARIABLE LOCAL del selftest original.  Mi version comprobaba
+    # `"PACKET3_TEST" in _m`,  y `PACKET3_TEST`  no existe en el `.pyc`,  ni en
+    # `pm4_emit`,  ni en el STUB:  era un nombre inventado  (1201 lo medido).
+    #
+    # Asi que lo que se comprueba es la PROPIEDAD que dice el nombre del vector,
+    # y no un nombre que no se sabe cual es:  ninguna macro de las que habia
+    # antes de ampliar se pierde al ampliar.  Eso es lo que importa del nombre,
+    # y se puede comprobar sin inventar nada.
+    macros_base = set(_m)
+    _m_amp, i_amp2 = macros_ampliadas(_lm_real, _ev_real, cstub, ampliada=True)
     chk("ampliacion: las macros del primario NO se pierden",
-        "PACKET3_TEST" in _m, sorted(_m)[:6])
+        macros_base and macros_base <= set(_m_amp),
+        sorted(macros_base - set(_m_amp))[:5])
     chk("ampliacion: gana el PRIMARIO en las colisiones",
         _adaptar_macros({"pr_fmt": (-1, '"amdgpu: " fmt', None)})["pr_fmt"][1]
         == '"amdgpu: " fmt')
@@ -2651,16 +2735,44 @@ def _estados(rt):
     return [f[1] for f in rt]
 
 
-def _dec_stub(ev, mac):
+def _dec_stub(ev, mac, ops=None, tablas=None):
+    """El IB de decode. `ops` decide si el opcode tiene NOMBRE o no.
+
+    MEDIDO 2026-10-06:  hacen falta DOS variantes  y  antes habia una sola.
+    Tres vectores piden "el opcode existe en la cabecera y NINGUNA fuente lo
+    nombra",  y uno pide "el nombre del opcode se resuelve y se imprime".  Son
+    contradictorios sobre el MISMO opcode,  asi que no pueden compartir fixture:
+    o hay nombre o no lo hay.
+
+    Y esto explica los dos literales del `.pyc`  —`PACKET3(PACKET3_SH, %d)`  y
+    `PACKET3(PACKET3_SH, 1)`—  sin tener que inventar nada.
+    """
+    ops = {0x2C: ["PACKET3_TEST"]} if ops is None else ops
     ib = {"funcion": "dec", "fichero": "dec", "inicio": 1, "fin": 1,
           "locales": {}, "paradas": [], "sin_resuelto": {}, "bucles": [],
           "sin_desenrollar": [], "condicionales": [], "completo": True,
           "dwords": [
+              # MEDIDO 2026-10-06, y este era el fallo DE VERDAD del bloque,  no
+              # el nombre del opcode.  El valor de la cabecera estaba MAL
+              # FABRICADO:  `0x00012C01`  tiene `type = 0`  en los bits 31:30,  y
+              # un PACKET3 empieza SIEMPRE por ahi.
+              #
+              #     0x00012C01   type[31:30]=0   <- no es un PACKET3
+              #     0xC0012C00   type[31:30]=3   <- PACKET3(0x2C, 1)  de verdad
+              #
+              # Calculado con la macro del propio kernel,  `vid.h:105`:
+              #     ((PACKET_TYPE3 << 30) | (((op) & 0xFF) << 8) | ((n) & 0x3FFF) << 16)
+              #
+              # Y eso hacia que los TRES vectores de decode que fallaban fallaran
+              # por lo mismo:  el segmentador leia un paquete malformado y los
+              # mensajes que salen no son los que el vector espera.  Un fixture
+              # con un numero inventado no falla donde parece que falla.
               {"linea": 1, "expr": "PACKET3(PACKET3_TEST, 1)",
-               "valor": 0x00012C01},
+               "valor": 0xC0012C00},
               {"linea": 2, "expr": "0x000000FF", "valor": 0xFF},
           ]}
     seg = _segmentar(ib)
+
     # MEDIDO 2026-10-05:  `PACKET3_TEST`  NO esta en ninguna constante del
     # `.pyc`  (0 ocurrencias).  Es un nombre inventado en la reconstruccion,  del
     # mismo genero que DELTA, EPSILON, ZETA, ETA y THETA.  Los literales que SI
@@ -2674,8 +2786,7 @@ def _dec_stub(ev, mac):
     # tabla `ops`  que este mismo fichero declara.  Mover el nombre para que mi
     # codigo de el numero que yo espero es fabricar la evidencia,  y es
     # exactamente el fallo que 1193, 1194 y 1196 corrigieron en mi.
-    ops = {0x2C: ["PACKET3_TEST"]}
-    lineas = decodificar(ib, {}, ops, None)
+    lineas = decodificar(ib, tablas, ops, None)
     return seg, lineas
 
 
