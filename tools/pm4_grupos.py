@@ -167,6 +167,138 @@ def grupos(lineas, solo=None):
     return salida
 
 
+def grupos_por_paquete(lineas, solo=None):
+    """{paquete: [(nombre_de_grupo, campos), ...]}  en orden de aparicion.
+
+    MEDIDO 2026-10-06:  la correccion anterior de --plano  no funciono porque
+    indexaba por NOMBRE DE GRUPO.  Hay 14 comentarios  /* CONTROL */  repartidos
+    entre varios paquetes,  asi que  grupo_de["CONTROL"]  accumulating campos de
+    paquetes distintos,  y  grupo_de["PACKET3_UNMAP_QUEUES"]  salia vacio  ->  el
+    mensaje seguia diciendo "sin comentario de grupo"  con la holgura -2 de
+    siempre.  Para que la atribucion sea real  el grupo y el paquete tienen que
+    viajar juntos en el MISMO barrido,  que es lo que hace esta funcion.
+    """
+    salida = {}
+    paq = None
+    grupo = None
+    for i, texto in enumerate(lineas, 1):
+        op = P_OPCODE.search(texto)
+        if op is not None:
+            #  DEFECTO 3,  MEDIDO 2026-10-06:  la primera version de esta
+            #  funcion ponia  paq = None  al ver un opcode  pero NUNCA le
+            #  asignaba el nombre.  O sea  que  paq  era  None  siempre,  y
+            #  ningun grupo podia归属于  a ningun paquete:  salia
+            #  "sin comentario de grupo"  con  UNMAP_QUEUES,  que si los tiene.
+            paq = op.group(1)
+            grupo = None
+            continue
+        g = P_GRUPO.match(texto)
+        if g is not None:
+            # el comentario de grupo pertenece al paquete VIGENTE,  que el
+            # opcode anterior fijo.  Si no hay paquete vigente,  se descarta:
+            # un /* CONTROL */ suelto antes del primer opcode no es de nadie.
+            if paq is not None:
+                grupo = (g.group(1), [])
+                salida.setdefault(paq, []).append(grupo)
+            continue
+        if paq is None or grupo is None:
+            continue
+        d = P_DEF.search(texto)
+        if d is None:
+            continue
+        nombre, resto = d.group(1), d.group(2)
+        if solo is not None and solo not in nombre:
+            continue
+        fl = P_FLAG.search(texto)
+        sh = P_SHIFT.search(resto)
+        if fl is not None:
+            grupo[1].append([nombre, int(fl.group(1)), i, True])
+        elif sh is not None:
+            grupo[1].append([nombre, int(sh.group(1)), i, False])
+    return {k: [g for g in v if g[1]] for k, v in salida.items()}
+
+
+def _layout_con_ajenos_levanta(pl):
+    """¿Pasarle el grupo _ajenos a layout() revienta?
+
+    MEDIDO 2026-10-06:  _ajenos  guarda NOMBRES SUELTOS,  no listas de campos,
+    y  layout()  hace  for k, (nombre, inicio, linea, es_flag) in ...  .  Un
+    string de 5 caracteres desempaquetado en 4 nombres levanta ValueError.
+
+    Este helper NO es una prueba de que el defecto este arreglado:  es al reves.
+    Comprueba que el sintoma SIGUE presente,  para que el arreglo del informe no
+    pueda pasar por "ya no da error" sin que quede constancia de por que daba.
+    """
+    ajenos = pl.get("_ajenos")
+    if not ajenos:
+        return False
+    try:
+        layout(ajenos, {})
+    except ValueError:
+        return True
+    except Exception:
+        return True
+    return False
+
+
+def _informe_plano_devuelve_cero(lineas):
+    """Ejecuta informe_plano() entero y comprueba que llega al final.
+
+    MEDIDO 2026-10-06:  la mutacion que devuelve _ajenos a layout()  deja el
+    selftest en verde si nadie ejecuta este recorrido,  porque el selftest solo
+    llama a plano()  y plano()  no falla.  El defecto estaba en informe_plano().
+    Con este vector  la mutacion se pone en rojo.
+    """
+    import contextlib
+    import io
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            codigo = informe_plano()
+    except Exception:                             # noqa: BLE001
+        #  Esto es lo que hacia el defecto:  informe_plano()  reventaba con
+        #  ValueError  al llegar a  _ajenos.  El except lo traga a proposito,
+        #  para que el vector pueda distinguir "explota" de "termina".
+        return False
+    return codigo == 0
+
+
+def _plano_sin_corte(lineas, solo=None):
+    """plano() con la seccion recortada a la fuerza,  para poder COMPARAR.
+
+    Existe solo para que un vector pueda demostrar  que  el corte de seccion
+    cambia el resultado.  Si el corte desapareciera,  este helper daria el mismo
+    numero que  plano()  y el vector  "sin el corte serian 99,  no 48"  no
+    distinguiria los dos casos.
+    """
+    salida = {}
+    paq = None
+    OPC = re.compile(r"#\s*define\s+(PACKET3_[A-Z0-9_]+)\s+(0x[0-9A-Fa-f]+)\s*$")
+    DEF = re.compile(r"#\s*define\s+(PACKET3_[A-Z0-9_]+|[A-Z][A-Z0-9_]+)\s*(.*)$")
+    for i, texto in enumerate(lineas, 1):
+        m = OPC.match(texto)
+        if m is not None and int(m.group(2), 16) <= 0xFF:
+            paq = m.group(1)
+            salida.setdefault(paq, [])
+            continue
+        if paq is None:
+            continue
+        d = DEF.match(texto)
+        if d is None:
+            continue
+        nombre, resto = d.group(1), d.group(2)
+        corto = paq[len("PACKET3_"):]
+        if not (nombre.startswith(paq) or nombre.startswith(corto)):
+            salida.setdefault("_ajenos", []).append(nombre)
+        fl = P_FLAG.search(texto)
+        sh = P_SHIFT.search(resto)
+        if fl is not None:
+            salida[paq].append([nombre, int(fl.group(1)), i, True])
+        elif sh is not None:
+            salida[paq].append([nombre, int(sh.group(1)), i, False])
+    return salida
+
+
 def plano(lineas, solo=None):
     """Los macros de cada paquete, SIN usar comentarios de grupo.
 
@@ -181,9 +313,22 @@ def plano(lineas, solo=None):
     """
     salida = {}
     paq = None
+    #  CORRECCION DEL DEFECTO 4  ( ver ventanas()  ).  aqui  el fallo era que
+    #  plano()  NUNCA suelta  paq:  lo suelta solo al ver el opcode siguiente,  y el
+    #  ultimo opcode de la seccion  (QUERY_STATUS, vid.h:436 )  no lo tiene.  Asi
+    #  que se comia  hasta el fin del fichero,  y las 32 macros que le seguian
+    #  --las copias de registro  RB_*/PKR_*/SC_*/SE_*  de  vid.h:480-506,  las
+    #  mismas que 1221  identifico como copia literal de PA_SC_RASTER_CONFIG --
+    #  contaban como campos de QUERY_STATUS.  De ahi el "38 campos" de un paquete
+    #  que tiene 6.
+    sec = seccion_paquetes(lineas)
+    fin_sec = sec[1] if sec else len(lineas)
     OPC = re.compile(r"#\s*define\s+(PACKET3_[A-Z0-9_]+)\s+(0x[0-9A-Fa-f]+)\s*$")
     DEF = re.compile(r"#\s*define\s+(PACKET3_[A-Z0-9_]+|[A-Z][A-Z0-9_]+)\s*(.*)$")
     for i, texto in enumerate(lineas, 1):
+        if i > fin_sec:
+            paq = None
+            continue
         m = OPC.match(texto)
         #  Un valor > 0xFF no es un opcode  (vid.h:105-107):  no cierra paquete.
         if m is not None and int(m.group(2), 16) <= 0xFF:
@@ -216,6 +361,30 @@ def plano(lineas, solo=None):
     return {k: v for k, v in salida.items() if v}
 
 
+P_OTRA_LENGUA = re.compile(
+    r"#\s*define\s+(VCE_CMD|HEVC_ENC_CMD|VCN_[A-Z])")
+
+
+def seccion_paquetes(lineas):
+    """(primera_linea, ultima_linea) de la seccion de paquetes PACKET3 de vid.h.
+
+    MEDIDO 2026-10-06:  lineas 112..455.  La 456 empieza VCE_CMD_NO_OP,  que es
+    otra lengua de comandos con otro header.  Sin este corte,  el ultimo paquete
+    de la seccion se traga lo que viene detrás.
+    """
+    if not P_OTRA_LENGUA.search("\n".join(lineas)):
+        return None
+    ini = None
+    for i, linea in enumerate(lineas, 1):
+        if P_OPCODE.search(linea):
+            ini = i
+            break
+    for i in range((ini or 1) + 1, len(lineas) + 1):
+        if P_OTRA_LENGUA.search(lineas[i - 1]):
+            return (ini, i - 1)
+    return None
+
+
 def ventanas(lineas):
     """{paquete: (linea_de_su_opcode, linea_del_opcode_siguiente)}.
 
@@ -235,9 +404,27 @@ def ventanas(lineas):
         return m.group(1)
     pos = [(i, _opcode(linea)) for i, linea in enumerate(lineas, 1)
            if _opcode(linea) is not None]
+    #  DEFECTO 4,  MEDIDO 2026-10-06:  la seccion de paquetes PACKET3 de vid.h
+    #  NO acaba en el fin del fichero.  Acaba en la linea 455,  y en la 456 empieza
+    #  OTRA lengua de comandos:  VCE_CMD_*,  HEVC_ENC_CMD_*,  VCN_*.  El ultimo
+    #  opcode PACKET3 es QUERY_STATUS ( vid.h:436 )  y no tiene opcode siguiente,
+    #  asi que su ventana arrivaba hasta el final del fichero  y se comia  las 32
+    #  macros de VCE/HEVC/VCN.  Por eso QUERY_STATUS salia con 38 campos  cuando
+    #  tiene 6.  Es el mismo fallo de 1213/1215  --contar lo que cae dentro de una
+    #  ventana--  pero por el otro extremo:  no por el principio,  por el final.
+    fin_seccion = None
+    for i in range(pos[0][0] + 1 if pos else 1, len(lineas) + 1):
+        if P_OTRA_LENGUA.search(lineas[i - 1]):
+            fin_seccion = i
+            break
     salida = {}
     for k, (ini, paq) in enumerate(pos):
-        fin = pos[k + 1][0] if k + 1 < len(pos) else len(lineas) + 1
+        if k + 1 < len(pos):
+            fin = pos[k + 1][0]
+        elif fin_seccion is not None:
+            fin = fin_seccion
+        else:
+            fin = len(lineas) + 1
         salida[paq] = (ini, fin)
     return salida
 
@@ -368,7 +555,7 @@ def _cubre(campos):
 GRUPOS_VID_H = 14
 
 # Cuantos vectores DEBEN ejecutarse.  Si el numero baja,  algo se ha saltado.
-VECTORES_ESPERADOS = 57
+VECTORES_ESPERADOS = 68
 
 
 def comentarios_de_dword(lineas):
@@ -554,16 +741,51 @@ def informe_plano(solo=None):
     if estado != "OK":
         return 2
     plano_ = plano(lineas, solo=solo)
+    #  DOS DEFECTOS DE ESTE MODO,  MEDIDOS 2026-10-06,  ambos visibles:
+    #
+    #  (1)  "_ajenos"  NO es un paquete:  es un cubo de contabilidad con NOMBRES
+    #       SUELTOS  (  ver  plano()  ),  no listas de campos.  Pasarlo por
+    #       layout() 试图 desempaquetar un string de 1 elemento en 4 nombres  y
+    #       revienta con  ValueError.  El selftest SI lo excluia  (  pl_ok  )  y
+    #       el informe no.  O sea:  el selftest sabia  y el informe no.  Y como
+    #       "_ajenos" nunca esta vacio  ( 99 nombres  ),  ESTE MODO NUNCA HA
+    #       LLEGADO AL FINAL.
+    #
+    #  (2)  La etiqueta  "sin comentario de grupo"  era MENTIRA para todo paquete
+    #       que si los tiene.  UNMAP_QUEUES tiene SIETE  (  CONTROL,  CONTROL2a,
+    #       CONTROL2b,  CONTROL3a,  CONTROL3b,  CONTROL4,  CONTROL5  )  y al
+    #       aplastarlos en una sola lista los desplazamientos se pisan:
+    #       DOORBELL_OFFSET0..3  los cuatro en  << 2,  y salen anchuras
+    #       NEGATIVAS  ( "holgura -2" ).  Un dword no puede empezar en <<0 cuatro
+    #       veces.  La causa es que los cuatro DOORBELL_OFFSET estan en
+    #       CONTROL2b,  CONTROL3b,  CONTROL4  y  CONTROL5:  son dwords distintos.
+    plano_ = {k: v for k, v in plano_.items() if k != "_ajenos"}
+    grupo_de = grupos_por_paquete(lineas, solo=solo)
     print("  paquetes con lista plana de macros: %d\n" % len(plano_))
     for paq, campos in sorted(plano_.items()):
-        print("  %s   (%d macros, sin comentario de grupo)"
-              % (paq, len(campos)))
-        for fila in layout(campos, enums):
-            print(fila)
-        hs = huecos(campos)
-        print("      cubiertos %2d/32   huecos sin campo: %s"
-              % (_cubre(campos),
-                 ", ".join("bits [%d:%d]" % (a, b) for a, b in hs) or "NINGUNO"))
+        g = grupo_de.get(paq, [])
+        if g:
+            print("  %s   (%d macros, REPARTIDOS en %d grupos de dword declarados:  %s)"
+                  % (paq, len(campos), len(g),
+                     ", ".join(n for n, _ in g)))
+            for nombre, gc in g:
+                for fila in layout(gc, enums):
+                    print(fila)
+                hs = huecos(gc)
+                print("      [%s]  cubiertos %2d/32   huecos sin campo: %s"
+                      % (nombre, _cubre(gc),
+                         ", ".join("bits [%d:%d]" % (a, b) for a, b in hs)
+                         or "NINGUNO"))
+        else:
+            print("  %s   (%d macros, sin comentario de grupo)"
+                  % (paq, len(campos)))
+            for fila in layout(campos, enums):
+                print(fila)
+            hs = huecos(campos)
+            print("      cubiertos %2d/32   huecos sin campo: %s"
+                  % (_cubre(campos),
+                     ", ".join("bits [%d:%d]" % (a, b) for a, b in hs)
+                     or "NINGUNO"))
         print()
     return 0
 
@@ -701,10 +923,31 @@ def selftest():
     # paquete pertenecen de verdad a el es NOT_DETERMINED donde el nombre
     # discrepa,  y por eso el vector cuenta los discrepantes en vez de
     # suponerlos correctos.
+    #  MEDIDO 2026-10-06:  PKR_MAP ( vid.h:488 )  y  SE_PAIR_YSEL_MASK (:513 )  estan
+    #  FUERA de la seccion de paquetes  ( 112..455 ).  Antes  caian en _ajenos  y los
+    #  vectores los exigian alli;  con el corte correcto  ya no son de ningun paquete.
+    #  La pertenencia a un paquete es lo que estos vectores comprueban,  no el nombre.
     ajenos = pl.get("_ajenos", [])
-    chk("99 macros tienen nombre que no lleva el de su paquete",
-        len(ajenos) == 99, str(len(ajenos)))
-    for nom in ("WR_ONE_ADDR", "WR_CONFIRM", "PKR_MAP", "SE_PAIR_YSEL_MASK"):
+    for nombre, linea in (("PKR_MAP", 488), ("SE_PAIR_YSEL_MASK", 513)):
+        chk("%s esta en la linea %d, fuera de la seccion 112..455, y no es "
+            "campo de ningun paquete" % (nombre, linea),
+            linea > 455 and nombre not in ajenos, "%s en %s" % (nombre, ajenos[:5]))
+    #  y el corte es lo que los saca:  sin el  el numero de ajenos es 99
+    #  MEDIDO 2026-10-06:  este vector estaba escrito con  len(diccionario)  y no
+    #  con  len(diccionario["_ajenos"])  ->  contaba 71  (  los 70 opcodes mas el
+    #  cubo  )  y fallaba.  El numero de la guarda global ya habia avisado de que
+    #  faltaban vectores por ejecutar;  aqui el aviso fue al reves:  se ejecuto
+    #  un vector mal escrito.  Los dos fallos tienen la misma causa raiz:  un
+    #  numero que se toma del sitio equivocado.
+    chk("sin el corte de seccion los ajenos serian 99, no 48",
+        len(_plano_sin_corte(L).get("_ajenos", [])) == 99,
+        str(len(_plano_sin_corte(L).get("_ajenos", []))))
+    chk("48 macros tienen nombre que no lleva el de su paquete",
+        len(ajenos) == 48, str(len(ajenos)))
+    #  WR_ONE_ADDR y WR_CONFIRM  si son ajenos por nombre,  y siguen estan dentro
+    #  de la seccion  ( vid.h:150,151  de WRITE_DATA  ).  PKR_MAP y
+    #  SE_PAIR_YSEL_MASK ya no se comprueban aqui:  los trata el bloque de arriba.
+    for nom in ("WR_ONE_ADDR", "WR_CONFIRM"):
         chk("el discrepante %s esta en la lista de ajenos" % nom,
             nom in ajenos, str(len(ajenos)))
     wd = pl_ok.get("PACKET3_WRITE_DATA", [])
@@ -769,6 +1012,63 @@ def selftest():
         str(ven2.get("PACKET3_SET_SH_REG")))
     chk("PACKET3_SET_SH_REG_START ya NO es una ventana",
         "PACKET3_SET_SH_REG_START" not in ven2, "esta")
+
+    # --- los cuatro defectos de --plano y de plano(),  MEDIDOS 2026-10-06
+    sec = seccion_paquetes(L)
+    chk("la seccion de paquetes PACKET3 de vid.h es 112..455",
+        sec == (112, 455), str(sec))
+    pl2 = plano(L)
+    chk("plano() ya no se pasa de la seccion:  QUERY_STATUS tiene 6 campos, no 38",
+        len(pl2.get("PACKET3_QUERY_STATUS", [])) == 6,
+        str(len(pl2.get("PACKET3_QUERY_STATUS", []))))
+    ven2 = ventanas(L)
+    chk("ninguna ventana de opcode pasa de la linea 455",
+        all(b <= 456 for _, b in ven2.values()),
+        str(max((b for _, b in ven2.values()), default=0)))
+    con = [k for k in ven2 if pl2.get(k)]
+    chk("70 opcodes validos,  15 con campos declarados,  55 sin ninguno",
+        len(ven2) == 70 and len(con) == 15 and len(ven2) - len(con) == 55,
+        "%d opcodes, %d con campos" % (len(ven2), len(con)))
+    gpp = grupos_por_paquete(L)
+    chk("UNMAP_QUEUES reparte sus 10 macros en 7 grupos de dword",
+        len(gpp.get("PACKET3_UNMAP_QUEUES", [])) == 7,
+        str(len(gpp.get("PACKET3_UNMAP_QUEUES", []))))
+    chk("MAP_QUEUES reparte en 2 grupos:  CONTROL y CONTROL2",
+        [n for n, _ in gpp.get("PACKET3_MAP_QUEUES", [])] == ["CONTROL", "CONTROL2"],
+        str([n for n, _ in gpp.get("PACKET3_MAP_QUEUES", [])]))
+    chk("el informe plano ya no pasa _ajenos por layout()",
+        "_ajenos" not in {k: v for k, v in pl2.items() if k != "_ajenos"},
+        str(sorted(pl2)))
+    #  DEFECTO (1)  GUARDADO DE VERDAD,  MEDIDO 2026-10-06.
+    #
+    #  El vector de arriba  --una comprobacion sobre el diccionario--  NO protege
+    #  del defecto real.  Mutacion comprobada:  volver a pasar _ajenos por
+    #  layout()  deja el selftest EN VERDE,  porque  layout()  solo se llama desde
+    #  informe_plano()  y el selftest no lo ejecuta.  Es el fallo de 1209 una vez
+    #  mas:  el selftest pasa mientras el instrumento esta roto,  porque no toca
+    #  el camino de codigo que se rompe.
+    #
+    #  Asi que hay que ejecutar el camino,  y ademas comprobar que el sintoma
+    #  sigue presente en el modo sin arreglar:  _ajenos  son cadenas sueltas  y
+    #  layout()  desempaqueta cuatro nombres,  luego tiene que FALLAR.
+    chk("pasarle _ajenos a layout() sigue dando ValueError (el sintoma sigue vivo)",
+        _layout_con_ajenos_levanta(pl2), "no levanto: el defecto se corrigio de mas")
+    chk("informe_plano() se ejecuta entero y termina con codigo 0",
+        _informe_plano_devuelve_cero(L), "no completo el recorrido")
+    #  ESTE VECTOR ESTABA MAL ESCRITO  (  MEDIDO 2026-10-06  ).  Comprobaba
+    #  P_OPCODE,  que es un PATRON y no un filtro:  casa con  SET_SH_REG_START=0x2c00
+    #  y con cualquier valor grande,  asi que .Findia  "hay opcode > 0xFF"  y el
+    #  fallo era del vector,  no del codigo.  El filtro de 0xFF vive dentro de
+    #  ventanas().  Lo que si importa  y si se comprueba  es la cuenta:
+    #  78 defines PACKET3_ con valor,  de los cuales 8 superan 0xFF  y quedan fuera.
+    chk("de los defines PACKET3_ con valor en vid.h, 8 superan 0xFF y no son opcode",
+        len([x for x in L if P_OPCODE.search(x)]) == 78
+        and len([x for x in L if P_OPCODE.search(x)
+                 and int(P_OPCODE.search(x).group(2), 16) > 0xFF]) == 8,
+        "%d defines, %d mayores que 0xFF"
+        % (len([x for x in L if P_OPCODE.search(x)]),
+           len([x for x in L if P_OPCODE.search(x)
+                and int(P_OPCODE.search(x).group(2), 16) > 0xFF])))
 
     # --- modo CLASE:  count de cabecera contra escrituras del driver
     if os.path.exists(GFX8):
