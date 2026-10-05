@@ -1223,6 +1223,16 @@ def _valor_de(termino, eval_call, macros, enlaces):
         return None
 
 
+# MEDIDO 2026-10-05.  `RE_IF_BLOQUE` exige LLAVES,  y hay `if` sin ellas:
+# `if (x)` seguido de una sola sentencia.  Esa forma no se excluia,  y el
+# vector "una asignacion DENTRO de un `if` no se propaga (no hay flujo)"
+# fallaba con `{'b': 2}`:  el valor propagado era el de la rama condicional.
+#
+#     lo que se protege es la AUSENCIA DE FLUJO,  y un `if` sin llaves sigue
+#     sin tener flujo:  que no lleve llaves no lo convierte en una asignacion
+#     incondicional
+RE_IF_SIN_LLAVES = re.compile(r"^[ \t]*if[ \t]*\([^)]*\)[ \t]*(?!\{)", re.M)
+
 RE_IF_BLOQUE = re.compile(
     r"^[ \t]*if[ \t]*\(([^)]*)\)[ \t]*\{", re.M)
 RE_COMPARACION = re.compile(r"^(.+?)\s*(==|!=)\s*(.+)$")
@@ -1333,7 +1343,27 @@ def escrituras(lineas, ini, fin, consumidos=(), condicionales=None):
     for c in (condicionales or []):
         if c.get("veredicto") == "SI":
             fuera.update(c.get("lineas") or ())
-    fuera.update(tuple(r) for r in (consumidos or ()))
+    # MEDIDO 2026-10-05.  Esto era
+    #
+    #     fuera.update(tuple(r) for r in (consumidos or ()))
+    #
+    # y no hacia NADA,  sin error.  `set.update` itera su argumento y mete cada
+    # elemento que aparece;  aqui el generador Yield una sola cosa por vuelta:
+    # la TUPLA `(2,3,4,5)`.  O sea que `fuera` acababa siendo
+    # `{(2,3,4,5)}`,  un conjunto de tuplas,  y `3 in fuera` era False.  El
+    # filtro de escrituras no filtraba,  y `tuple(r)`  —que es un no-op sobre
+    # una tupla—  era lo que tapaba el error de tipo.
+    #
+    #     un no-op en el sitio del bucle hace que un fallo de tipo no se vea
+    #
+    # `consumidos` es una secuencia de RANGOS,  y un rango puede venir como
+    # entero suelto o como coleccion.  Se distinguen los dos explicitamente:
+    # adivinarlo es lo que tenia el codigo.
+    for r in (consumidos or ()):
+        if isinstance(r, int):
+            fuera.add(r)
+        else:
+            fuera.update(r)
     out = []
     for m in RE_RING_WRITE.finditer(cuerpo):
         fila = cuerpo.count("\n", 0, m.start()) + ini + 1
@@ -1382,6 +1412,11 @@ def ligar(nombre_expr, enlaces, eval_call=None, sin_resuelto=None, expr=None):
     return v & 0xFFFFFFFF
 
 
+# Un `.` entre LETRAS es miembro de struct;  entre DIGITOS es punto decimal.
+# Sin esto, `0.5` se convierte en `0_5` y deja de ser un numero.
+RE_PUNTO_MIEMBRO = re.compile(r"(?<=[A-Za-z_])[.](?=[A-Za-z_])")
+
+
 def normalizar(expr):
     """`ring->queue` -> `ring_queue`.
 
@@ -1391,7 +1426,18 @@ def normalizar(expr):
     con guion bajo es una forma distinta y equivalente, y el evaluador la
     acepta sin tocar una linea suya.
     """
-    return expr.replace("->", "_").replace(".", "_")
+    # MEDIDO 2026-10-05:  aqui estaba `expr.replace("->", "_").replace(".", "_")`,
+    # que convierte TODO punto en guion bajo,  incluido el de `0.5`.  El
+    # regex que distingue miembro de decimal  (`RE_PUNTO_MIEMBRO`)  estaba
+    # aplicado DESPUES,  en `_alias`,  sobre un texto al que ya no le quedaba
+    # ningun punto.  No hacia nada,  y el vector "un punto DECIMAL no se
+    # convierte en guion bajo"  fallaba con `0_5`.
+    #
+    #     el cuidado puesto despues del hecho ya no cuida nada
+    #
+    # El punto solo se convierte cuando hay LETRAS a ambos lados,  que es lo
+    # que hace el regex:  `ib.flags` -> `ib_flags`,  y `0.5` se queda `0.5`.
+    return RE_PUNTO_MIEMBRO.sub("_", expr.replace("->", "_"))
 
 
 RE_TERNARIO = re.compile(r"^(.*?)\?(.*?):(.*)$")
@@ -1508,6 +1554,11 @@ def propagar_locales(lineas, ini, fin, eval_call=None, macros=None,
     # `condicionales_de`: las dos rutas tienen que coincidir, porque cuando no
     # coincidian una IB llevaba un paquete de mas.
     fuera = set()
+    for m in RE_IF_SIN_LLAVES.finditer(cuerpo):
+        largo, _n = _sentencia(cuerpo, m.end())
+        ini_l = cuerpo.count("\n", 0, m.end()) + ini + 1
+        if largo:
+            fuera.update(range(ini_l, ini_l + largo.count("\n") + 1))
     for m in RE_IF_BLOQUE.finditer(cuerpo):
         largo, _n = _cuerpo_de_llave(cuerpo, m.end() - 1)
         ini_l = cuerpo.count("\n", 0, m.end()) + ini + 1
@@ -2647,7 +2698,6 @@ def _condicionales_vectores(chk, ev, macR):
         _alias("0.5") == "0.5", _alias("0.5"))
 
 
-RE_PUNTO_MIEMBRO = re.compile(r"(?<=[A-Za-z_])[.](?=[A-Za-z_])")
 
 
 def _alias(clave):
