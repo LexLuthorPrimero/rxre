@@ -441,15 +441,15 @@
    "sha256": "31996969e78600146363ed465affe02d00f051c89bfb82a6410481f64e24a0bc"
   },
   {
-   "bytes": 134916,
-   "lineas": 2984,
+   "bytes": 137448,
+   "lineas": 3025,
    "ruta": "tools/ibref.py",
    "selftest": {
     "detalle": "`--toma` no ejecuta; use --verifica",
     "estado": "NO_MEASURE",
     "rc": null
    },
-   "sha256": "5801f98d5175348f0300fb0c8aa367287b0fa6d654b06d33090e1b17132f12a8"
+   "sha256": "6f9991fff4665b6300e08c75cfa31bc11e976fa83f6ec59490482f0d713dc033"
   },
   {
    "bytes": 20623,
@@ -2257,7 +2257,7 @@
   }
  ],
  "instrumentos": 205,
- "sha256_de_la_linea_base": "a5488e45270e7831b979ca13be921c5d1e98b33480713796b25bd738bafc714c",
+ "sha256_de_la_linea_base": "55647fafb6a6d09c73608d80776bba41ee26def1f9a3f890def204719d9de430",
  "tool": "huella",
  "version": "1.0.0"
 }
