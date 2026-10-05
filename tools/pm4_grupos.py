@@ -37,6 +37,14 @@ exige la enumeración",  no "el hardware lo interpreta así".
 Salida
 ------
     python3 tools/pm4_grupos.py            informe de todos los paquetes
+    python3 tools/pm4_grupos.py --plano     modo PLANO:  sin comentarios de
+                                            grupo.  Los macros que hay entre
+                                            el opcode de un paquete y el
+                                            siguiente opcode le pertenecen.
+                                            Es lo unico que se puede
+                                           determinar para los paquetes que no
+                                            declaran sus dwords,  como
+                                            WRITE_DATA.
     python3 tools/pm4_grupos.py --paquete MAP_QUEUES
     python3 tools/pm4_grupos.py --selftest
 """
@@ -155,6 +163,71 @@ def grupos(lineas, solo=None):
             actual[1].append([nombre, int(fl.group(1)), i, True])
         elif sh is not None:
             actual[1].append([nombre, int(sh.group(1)), i, False])
+    return salida
+
+
+def plano(lineas, solo=None):
+    """Los macros de cada paquete, SIN usar comentarios de grupo.
+
+    La frontera es el opcode:  todo lo que hay entre el opcode de un paquete y
+    el opcode siguiente le pertenece.  Es mas debil que el modo por grupos
+    --no dice que dword es cual--  pero recupera los paquetes que no declaran
+    la estructura,  como PACKET3_WRITE_DATA,  que tiene 5 macros sueltas y
+    ningun comentario de grupo.
+
+    Los macros sin prefijo del nombre del paquete (WRITE_DATA_DST_SEL,  que es
+    PACKET3_WRITE_DATA_DST_SEL sin el prefijo) se aceptan por sufijo.
+    """
+    salida = {}
+    paq = None
+    OPC = re.compile(r"#\s*define\s+(PACKET3_[A-Z0-9_]+)\s+(0x[0-9A-Fa-f]+)\s*$")
+    DEF = re.compile(r"#\s*define\s+(PACKET3_[A-Z0-9_]+|[A-Z][A-Z0-9_]+)\s*(.*)$")
+    for i, texto in enumerate(lineas, 1):
+        m = OPC.match(texto)
+        if m is not None:
+            paq = m.group(1)
+            salida.setdefault(paq, [])
+            continue
+        if paq is None:
+            continue
+        d = DEF.match(texto)
+        if d is None:
+            continue
+        nombre, resto = d.group(1), d.group(2)
+        if solo is not None and solo not in nombre:
+            continue
+        #  ATRIBUCION POR POSICION,  no por nombre.  vid.h  usa tres prefijos
+        #  distintos para los campos de WRITE_DATA:  WRITE_DATA_*  y WR_*,  y
+        #  ningun filtro por nombre los captura a los dos.  La frontera la da
+        #  el opcode,  que ya es la regla que uso para los grupos.
+        #  Se informa de cuantos Macros NO llevan el nombre del paquete,  para
+        #  que la atribucion por posicion sea visible y no silenciosa.
+        corto = paq[len("PACKET3_"):]
+        if not (nombre.startswith(paq) or nombre.startswith(corto)):
+            salida.setdefault("_ajenos", []).append(nombre)
+        fl = P_FLAG.search(texto)
+        sh = P_SHIFT.search(resto)
+        if fl is not None:
+            salida[paq].append([nombre, int(fl.group(1)), i, True])
+        elif sh is not None:
+            salida[paq].append([nombre, int(sh.group(1)), i, False])
+    return {k: v for k, v in salida.items() if v}
+
+
+def ventanas(lineas):
+    """{paquete: (linea_de_su_opcode, linea_del_opcode_siguiente)}.
+
+    Es lo que convierte el modo plano de una suposicion en una atribucion
+    ACOTADA:  si todos los macros de un paquete caen entre su opcode y el
+    siguiente,  el propio header los delimita  y no hay que suponer nada.
+    """
+    OPC = re.compile(r"#\s*define\s+(PACKET3_[A-Z0-9_]+)\s+(0x[0-9A-Fa-f]+)\s*$")
+    pos = [(i, OPC.match(t).group(1)) for i, t in enumerate(lineas, 1)
+           if OPC.match(t)]
+    salida = {}
+    for k, (ini, paq) in enumerate(pos):
+        fin = pos[k + 1][0] if k + 1 < len(pos) else len(lineas) + 1
+        salida[paq] = (ini, fin)
     return salida
 
 
@@ -284,7 +357,7 @@ def _cubre(campos):
 GRUPOS_VID_H = 14
 
 # Cuantos vectores DEBEN ejecutarse.  Si el numero baja,  algo se ha saltado.
-VECTORES_ESPERADOS = 30
+VECTORES_ESPERADOS = 47
 
 
 def comentarios_de_dword(lineas):
@@ -325,6 +398,29 @@ def informe(solo=None):
 
     for ini, (nombre, campos) in sorted(g.items()):
         print("  %s   (comentario en vid.h:%d)" % (nombre, ini))
+        for fila in layout(campos, enums):
+            print(fila)
+        hs = huecos(campos)
+        print("      cubiertos %2d/32   huecos sin campo: %s"
+              % (_cubre(campos),
+                 ", ".join("bits [%d:%d]" % (a, b) for a, b in hs) or "NINGUNO"))
+        print()
+    return 0
+
+
+def informe_plano(solo=None):
+    with open(VID, encoding="utf-8", errors="replace") as f:
+        lineas = f.read().split("\n")
+    enums = enumeraciones(lineas)
+    estado, detalle = _autovalidacion(enums)
+    print("  AUTOVALIDACION  %s -- %s" % (estado, detalle))
+    if estado != "OK":
+        return 2
+    plano_ = plano(lineas, solo=solo)
+    print("  paquetes con lista plana de macros: %d\n" % len(plano_))
+    for paq, campos in sorted(plano_.items()):
+        print("  %s   (%d macros, sin comentario de grupo)"
+              % (paq, len(campos)))
         for fila in layout(campos, enums):
             print(fila)
         hs = huecos(campos)
@@ -454,6 +550,64 @@ def selftest():
         chk("DMA_DATA/COMMAND: los dos swaps son EXACTOS",
             texto.count("EXACTO") == 2, texto)
 
+    # --- modo PLANO:  la fuente debil que sube la cobertura de 6% a 20%
+    pl = plano(L)
+    pl_ok = {k: v for k, v in pl.items() if k != "_ajenos"}
+    chk("vid.h da lista plana de macros a 15 paquetes",
+        len(pl_ok) == 15, str(len(pl_ok)))
+    # LIMITACION PERMANENTE.  El limite del modo plano es el OPCODE,  pero el
+    # header no mantiene ese invariante:  hay 85 macros cuyo nombre no lleva
+    # el del paquete y que caen dentro de otro por posicion.  Ejemplo medido:
+    # PACKET3_SURFACE_SYNC se come 23 macros,  de las cuales RB_MAP_PKR0,
+    # PKR_MAP, SC_MAP y SE_MAP  son un bloque de mapa de registros,  no campos
+    # de SURFACE_SYNC.  El modo plano da un SUPERCONJUNTO.  Que macros de un
+    # paquete pertenecen de verdad a el es NOT_DETERMINED donde el nombre
+    # discrepa,  y por eso el vector cuenta los discrepantes en vez de
+    # suponerlos correctos.
+    ajenos = pl.get("_ajenos", [])
+    chk("99 macros tienen nombre que no lleva el de su paquete",
+        len(ajenos) == 99, str(len(ajenos)))
+    for nom in ("WR_ONE_ADDR", "WR_CONFIRM", "PKR_MAP", "SE_PAIR_YSEL_MASK"):
+        chk("el discrepante %s esta en la lista de ajenos" % nom,
+            nom in ajenos, str(len(ajenos)))
+    wd = pl_ok.get("PACKET3_WRITE_DATA", [])
+    chk("WRITE_DATA tiene 5 macros en su lista plana", len(wd) == 5,
+        str([x[0] for x in wd]))
+    texto = "\n".join(layout(wd, enums))
+    chk("WRITE_DATA: DST_SEL en [15:8], 8 bits, holgura 5",
+        "bits [15:8 ] =  8 bits" in texto and "holgura 5" in texto, texto)
+    chk("WRITE_DATA: ENGINE_SEL en [31:30], 2 bits, EXACTO",
+        "bits [31:30] =  2 bits" in texto and "EXACTO" in texto, texto)
+    # WR_ONE_ADDR y WR_CONFIRM empiezan por WR_,  no por WRITE_DATA_:  un
+    # filtro por nombre los pierde.  La atribucion es POR POSICION.
+    chk("WRITE_DATA: los dos macros WR_ estan como FLAG, no como campo",
+        texto.count("FLAG de 1 bit") == 2, texto)
+    chk("los macros WR_ se atribuyen por posicion, no por nombre",
+        any(x[0] == "WR_ONE_ADDR" for x in wd), str([x[0] for x in wd]))
+    chk("WRITE_DATA deja 3 huecos: [0:7], [17:19], [21:24]",
+        huecos(wd) == [(0, 7), (17, 19), (21, 24)], str(huecos(wd)))
+    # Lo que hace el modo plano DEFENDIBLE:  los macros caen dentro de la
+    # ventana que el header delimita entre opcode y opcode.  Sin esto seria
+    # una suposicion de posicion;  con esto es una atribucion acotada.
+    ven = ventanas(L)
+    fuera = [p for p, cs in pl_ok.items()
+             if not all(ven.get(p, (0, 0))[0] < x[2] < ven.get(p, (0, 0))[1]
+                        for x in cs)]
+    chk("los macros de los 15 paquetes caen dentro de su ventana de opcode",
+        not fuera, str(fuera))
+    chk("la ventana de WRITE_DATA es [141:161]",
+        ven.get("PACKET3_WRITE_DATA") == (141, 161),
+        str(ven.get("PACKET3_WRITE_DATA")))
+    chk("WRITE_DATA: sus 5 macros estan en vid.h:142..160",
+        all(141 < x[2] < 161 for x in wd), str([x[2] for x in wd]))
+
+    solo_planas = set(pl_ok) - {"PACKET3_DMA_DATA", "PACKET3_MAP_QUEUES",
+                                "PACKET3_UNMAP_QUEUES", "PACKET3_QUERY_STATUS"}
+    chk("11 paquetes tienen lista plana y NO tienen grupo",
+        len(solo_planas) == 11, str(len(solo_planas)))
+    chk("WRITE_DATA esta entre ellos", "PACKET3_WRITE_DATA" in solo_planas,
+        str(sorted(solo_planas)))
+
     # --- la prosa, que es la afirmacion independiente
     d7 = prosa_de(p, 7, contiene="COMMAND [30:21]")
     chk("la prosa de DMA_DATA declara 7 dwords con COMMAND [30:21]",
@@ -488,6 +642,8 @@ def selftest():
 def main(argv):
     if "--selftest" in argv:
         return selftest()
+    if "--plano" in argv:
+        return informe_plano()
     solo = None
     if "--paquete" in argv:
         i = argv.index("--paquete")
