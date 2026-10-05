@@ -1,0 +1,13 @@
+LOCALES RESUELTAS POR PROPAGACION
+   sgpr_offset      = 1280
+   total_size       = 1448
+   vgpr_offset      = 768
+
+PARADAS DECLARADAS: 9  ->  ['i', 'r', 'tmp']
+
+COMPROBACION INDEPENDIENTE DE LAS POSICIONES
+   vgpr_offset/4 = 768/4  = 192   -> 66 escrituras en ptr[192..257]
+   sgpr_offset/4 = 1280/4 = 320   -> 42 escrituras en ptr[320..361]
+   hueco: ptr[258..319] = 62 dwords
+   ALIGN(sizeof(vgpr_init_compute_shader),256)/4 - 66 = 128 - 66 = 62
+   -> EL HUECO COINCIDE CON LA FORMULA DEL DRIVER: 62 = 62

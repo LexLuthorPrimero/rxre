@@ -1,0 +1,14 @@
+
+IB de REFERENCIA -- gfx_v8_0_kcq_disable  (gfx_v8_0.c:4761-4796)
+========================================================================================
+dwords escritos: 6   completos: 6   incompletos: 0
+
+linea   dword       expresion en el driver
+----------------------------------------------------------------------------------------
+4773    0xC004A300  PACKET3(PACKET3_UNMAP_QUEUES, 4)
+4774    0x20000001  /* Q_sel: 0, vmid: 0, engine: 0, num_Q: 1 */ PACKET3_UNMAP
+4779    0x0000001C  PACKET3_UNMAP_QUEUES_DOORBELL_OFFSET0(ring->doorbell_index
+4780    0x00000000  0
+4781    0x00000000  0
+4782    0x00000000  0
+

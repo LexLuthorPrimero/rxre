@@ -1,0 +1,65 @@
+# R19-VBIOS: lectura de solo lectura del firmware y del estado de la RX550
+generado=2026-10-05T00:56:46Z
+DISPOSITIVO=0000:01:00.0 (RX550, card1, 1002:699f)
+NO_TOCADO=0000:00:02.0 (Intel 8086:0412), i915, fb0, DRM master
+RIESGO=READ_ONLY; no se escribio nada; no se toco la salida de display
+
+=== IDENTIDAD (sysfs, sin root) ===
+modalias           pci:v00001002d0000699Fsv00001002sd00000B04bc03sc00i00
+revision           0xc7
+vendor             0x1002
+device             0x699f
+subsystem_vendor   0x1002
+subsystem_device   0x0b04
+boot_vga           1
+board_info         type : cem
+reset_method       bus
+
+=== MEMORIA ===
+mem_info_vram_total      2147483648
+mem_info_vram_used       5439488
+mem_info_vis_vram_total  268435456
+mem_info_gtt_total       6194642944
+
+=== ESCALERAS DE RELOJ (pp_dpm_*) ===
+pp_dpm_sclk: 0: 214Mhz * 1: 551Mhz  2: 734Mhz  3: 980Mhz  4: 1000Mhz  5: 1020Mhz  6: 1046Mhz  7: 1071Mhz  
+pp_dpm_mclk: 0: 300Mhz * 1: 625Mhz  2: 1500Mhz  
+pp_dpm_pcie: 0: 2.5GT/s, x8  1: 5.0GT/s, x16 * 
+pp_num_states: states: 2 0 boot 1 performance 
+
+=== ENLACE PCIe ===
+actual=5.0 GT/s PCIe x4   maximo=8.0 GT/s PCIe x8
+
+=== VBIOS (lo que el driver expone por sysfs) ===
+vbios_build=565939    vbios_version=xxx-xxx-xxx
+
+=== ESTADO VIVO (debugfs, requiere sudo) ===
+GFX Clocks and Power:
+	300 MHz (MCLK)
+	214 MHz (SCLK)
+	214 MHz (PSTATE_SCLK)
+	625 MHz (PSTATE_MCLK)
+	700 mV (VDDGFX)
+	3.14 W (current SoC)
+
+GPU Temperature: 31 C
+GPU Load: 0 %
+MEM Load: 0 %
+
+
+=== FIRMWARE POR IP (debugfs) ===
+VCE feature version: 0, firmware version: 0x351a0300
+UVD feature version: 0, firmware version: 0x01821000
+MC feature version: 0, firmware version: 0x00b4dc50
+ME feature version: 49, firmware version: 0x000000a7
+PFP feature version: 49, firmware version: 0x000000fe
+CE feature version: 49, firmware version: 0x0000008c
+RLC feature version: 1, firmware version: 0x00000018
+RLC SRLC feature version: 0, firmware version: 0x00000000
+RLC SRLG feature version: 0, firmware version: 0x00000000
+
+=== NEGATIVOS, DECLARADOS ===
+  sysfs rom:      read() -> EINVAL (no es problema de permisos)
+  amdgpu_vbios:   58880 bytes volcados, sha256 2b59f50859ec8003
+                 3 ocurrencias de 'ATOM', NINGUNA con longitud coherente:
+                 NO contiene la tabla maestra de AtomBIOS. NO es la VBIOS.

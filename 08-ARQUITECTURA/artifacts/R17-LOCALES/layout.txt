@@ -1,0 +1,33 @@
+LAYOUT DEL IB DE gfx_v8_0_do_edc_gpr_workarounds, RECONSTRUIDO
+generado=2026-10-04   fuente: 08-ARQUITECTURA/artifacts/R17-LOCALES/ib.json
+
+rango        que hay                            dwords    de donde sale el numero
+----------------------------------------------------------------------------------------
+ptr[0..185]  stream de comandos                 186       CONTADO por el sintetizador
+ptr[186..191] relleno (ALIGN)                    6         192 - 186
+ptr[192..257] vgpr_init_compute_shader           66        ARRAY_SIZE(vgpr_init_compute_shader)
+ptr[258..319] relleno (ALIGN)                    62        320 - 258
+ptr[320..361] sgpr_init_compute_shader           42        ARRAY_SIZE(sgpr_init_compute_shader)
+----------------------------------------------------------------------------------------
+TOTAL                                           362       total_size/4 = 1448/4
+
+COMPROBACIONES INDEPENDIENTES
+
+  1. los comandos, contados por el sintetizador: 186
+     la formula del driver, por su cuenta:
+        ((ARRAY_SIZE(vgpr_init_regs)/2)*3) + 4 + 5 + 2 = 62 dwords por bloque
+        3 bloques                                            = 186 dwords
+        -> 186 = 186
+
+  2. las sumas del layout cubren el total EXACTAMENTE
+        186 + 6 + 66 + 62 + 42 = 362
+        total_size/4 = 362   -> COINCIDE
+
+  3. losOffsets de los bloques de shader, de la propagacion de locales
+        vgpr_offset = 768 bytes -> /4 = 192 dwords
+        sgpr_offset = 1280 bytes -> /4 = 320 dwords
+
+  4. nada se solapa
+        comandos 186 <= vgpr 192 : True
+        vgpr 258 <= sgpr 320     : True
+        sgpr 362 <= total 362   : True
