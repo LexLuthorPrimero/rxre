@@ -103,16 +103,29 @@ def campos_por_parseo(header, struct):
     if not os.path.exists(p):
         return None
     dentro = False
+    pendiente = False
     off = 0
     out = []
-    prof = 0
     for linea in open(p, encoding="utf-8", errors="replace"):
         s = linea.strip()
         if not dentro:
-            if re.match(r"^\s*struct\s+%s\s*\{" % re.escape(struct), linea):
+            #  MEDIDO 2026-10-06:  este regex exigia la LLAVE EN LA MISMA LINEA
+            #  que el nombre.  smu7_discrete.h:38-39 parte los dos:
+            #      38  struct SMU7_SoftRegisters
+            #      39  {
+            #  y el resultado era CERO CAMPOS para esa cabecera,  en silencio.
+            #  Los otros cinco si la traen en la misma linea,  asi que el fallo
+            #  parecia un dato  --  "este struct no declara campos"  --  y no un
+            #  defecto.  Se/downloads lo Shakespeare's manifestaba el producto de
+            #  la interseccion dando cero.
+            if re.match(r"^\s*struct\s+%s\s*\{?\s*$" % re.escape(struct), linea):
                 dentro = True
-                prof = 0
                 off = 0
+                pendiente = "{" not in linea
+            continue
+        if pendiente:
+            if "{" in s:
+                pendiente = False
             continue
         if s.startswith("}"):
             return out
@@ -278,6 +291,7 @@ VECTORES = {
     "V7": 'el caso PARCIAL  (una copia rota  y las demas bien)  conserva el motivo Y la divergencia',
     "V8": "si no compila ninguna copia,  se dice y no se devuelve 'sin divergencias'",
     "V9": "los offsets NO dependen de SMU__NUM_*:  es una invariancia comprobada, no casual",
+    "V11": "el modo --todos declara cuantos campos se preguntan  y cuantos hay",
 }
 
 
@@ -394,6 +408,37 @@ def selftest():
     #  O sea  la inmunidad es CORRECTA.  Pero correcta por casualidad  es una
     #  invariancia que se pierde en cuanto alguien compila el struct de otra forma,
     #  y este tool no lo notaria.  Convertirla en vector la deja vigilada.
+    #  V11.  La reduccion por nombre tiene que ser VISIBLE  (  ver  --todos  ).
+    declarados = min(len(campos_por_parseo(h, s) or []) for h, s in COPIAS)
+    preguntados = len(campos_comunes())
+    chk(VECTORES["V11"], preguntados > 0 and declarados >= preguntados,
+        "declarados %d,  preguntados %d" % (declarados, preguntados))
+    cod, txt = _main_capturado(["--todos"])
+    chk("main(--todos) se ejecuta y termina",
+        cod is not None, "main devolvio %s" % cod)
+    chk("main(--todos) IMPRIME el aviso de reduccion,  no solo la cuenta",
+        "AVISO" in txt and "deja fuera" in txt,
+        "la salida no menciona la reduccion:  %s" % txt[:120])
+    #  Aserto por NUMERO,  no por frase.  MEDIDO 2026-10-06:  un vector anterior
+    #  comprobaba que la salida contenga las dos frases,  y una mutacion que
+    #  imprimia el mismo numero dos veces  —  "40 preguntados por 40 declarados"  —
+    #  lo dejaba EN VERDE.  Frase esta bien,  numero no:  una cuenta que miente
+    #  sigue diciendo lo mismo.
+    import re as _re
+    mdecl = _re.search(r"copia mas pequena: (\d+)", txt)
+    mpreg = _re.search(r"preguntados por nombre: (\d+)", txt)
+    chk("main(--todos) dice las DOS CUENTAS,  y son distintas  (  reduccion real  )",
+        mdecl is not None and mpreg is not None
+        and int(mdecl.group(1)) == declarados
+        and int(mpreg.group(1)) == preguntados
+        and int(mdecl.group(1)) != int(mpreg.group(1)),
+        "declarados %s  preguntados %s  (calculados %d y %d)"
+        % (mdecl and mdecl.group(1), mpreg and mpreg.group(1), declarados, preguntados))
+    chk("el modo --todos declara la reduccion  (  no la hace en silencio  )",
+        declarados > preguntados,
+        "si declarados == preguntados,  este vector dejaria de comprobar la "
+        "reduccion:  habria que cambiarlo cuando el truncado se arregle")
+
     antes = offsets_por_compilacion("smu7_discrete.h", "SMU7_SoftRegisters", campos)[0]
     global MACROS
     guardado = dict(MACROS)
@@ -409,6 +454,40 @@ def selftest():
     return total[0], fallos
 
 
+def campos_comunes():
+    """Los campos que declara TODAS las copias, por el productor de parseo."""
+    por = []
+    for h, s in COPIAS:
+        pp = campos_por_parseo(h, s)
+        if not pp:
+            return []
+        por.append({n for n, _ in pp})
+    if not por:
+        return []
+    return sorted(set.intersection(*por))
+
+
+def _main_capturado(argv):
+    """Ejecuta main() con la salida capturada  y  devuelve  (codigo, texto).
+
+    MEDIDO 2026-10-06:  el aviso de reduccion por nombre  (  --todos  )  vive en
+    main(),  y el selftest no llamaba a main().  Mutar  "if declarados > len(campos)"
+    a  "if False"  dejaba el selftest EN VERDE.  O sea:  un vector  ("la reduccion
+    no se hace en silencio")  que solo comprobaba una aritmetica interna  y  no  que
+    el aviso se imprima.  Es el fallo de 1209 por tercera vez  y el segundo en este
+    tool:  un check que pasa mientras el codigo que importa no se ejecuta.
+    """
+    import contextlib
+    import io
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            codigo = main(argv)
+    except Exception:                                   # noqa: BLE001
+        return None, ""
+    return codigo, buf.getvalue()
+
+
 def main(argv):
     if "--selftest" in argv:
         total, fallos = selftest()
@@ -418,6 +497,41 @@ def main(argv):
         return 1 if fallos else 0
     campos = ["DRAM_LOG_ADDR_H", "DRAM_LOG_ADDR_L", "DRAM_LOG_PHY_ADDR_H",
               "DRAM_LOG_PHY_ADDR_L", "DRAM_LOG_BUFF_SIZE"]
+    if "--todos" in argv:
+        campos = campos_comunes()
+        if not campos:
+            print("  no hay campos comunes:  el parseo no vio las seis copias")
+            return 2
+        #  LA REDUCCION POR NOMBRE,  HECHA VISIBLE.
+        #
+        #  MEDIDO 2026-10-06:  smu7_discrete.h  TRUNCA cinco nombres largos
+        #  (PmTimerPeriod -> PmTimerP,  AverageGraphicsActivity ->
+        #  AverageGraphicsA,  y otros tres).  Las cinco truncaciones caen en el
+        #  MISMO offset  y la MISMA posicion,  asi que el layout es identico y solo
+        #  cambian los identificadores.  PERO  el corte por nombre no lo ve:  la
+        #  interseccion se queda con 30 campos  cuando la copia mas pequena
+        #  declara 40.
+        #
+        #  Y eso es peligroso por una razon concreta:  los campos truncados  NO
+        #  aparecen en la tabla,  asi que tampoco pueden marcarse como
+        #  divergentes.  El informe decia "todos unicos"  sobre una pregunta mas
+        #  pequena de la que el lector creia.  Eso no es un numero malo:  es una
+        #  pregunta mas pequena que PARECE una respuesta.
+        #
+        #  Por eso el modo --todos imprime las dos cifras:  lo que se declaro  y
+        #  lo que se pregunto.  Si no coinciden,  el lector tiene que saberlo
+        #  antes de leer la tabla.
+        declarados = min(len(campos_por_parseo(h, s) or []) for h, s in COPIAS)
+        print("  (modo --todos)  declarados por la copia mas pequena: %d   "
+              "preguntados por nombre: %d" % (declarados, len(campos)))
+        if declarados > len(campos):
+            print("  AVISO  la interseccion por NOMBRE deja fuera %d campos.  "
+                  "No es que no divergan:  es que no seestan preguntando."
+                  % (declarados - len(campos)))
+            print("          la causa medida es que smu7_discrete.h trunca cinco "
+                  "nombres largos.  Para comparar por POSICION hace falta otro modo.\n")
+        else:
+            print()
     if "--campos" in argv:
         i = argv.index("--campos")
         campos = [x for x in argv[i + 1].split(",") if x]
