@@ -254,6 +254,54 @@ def convenciones(ruta=None):
                            else round(len(con) / len(de_pm4), 4))}
 
 
+RE_ANCHO_EXTERNO = re.compile(
+    r"define\s+PACKET3_[A-Z0-9_]+\(x\)[^\n]*<<\s*(\d+)[^\n]*"
+    r"(?:&|\|)\s*(?:\(u?32\)\s*)?(0[xX][0-9A-Fa-f]+|\d+)", re.M)
+
+RUTAS_ARBOLME = ("RESEARCH",)
+
+
+def anchuras_declaradas_en_el_arbol(raiz=None):
+    """Cuantos campos de PM3 declaran anchura en TODO el arbol.
+
+    MEDIDO 2026-10-05, y este es el cierre de 1201:  la pregunta no era "el GFX8
+    declara anchos"  sino "LOS DECLARA ALGUN sitio del arbol".  Se barre
+    `RESEARCH/` entero — dos copias del kernel, `kernelref`, `polaris12xl`— y no
+    hay ni una.
+
+    Y sobre todo:  UN cero aqui solo vale si el barrido es CAPAZ de encontrar un
+    positivo.  Esta herramienta lleva TRES regex que devolvieron cero en
+    silencio,  asi que el patron se prueba contra un caso POSITIVO conocido antes
+    de creerse su propio negativo.  Un negativo que no se ha validado no es un
+    dato:  es una herramienta rota.
+    """
+    raiz = raiz or RAIZ
+    n_ficheros = n_declaraciones = 0
+    vistos = []
+    for base in RUTAS_ARBOLME:
+        d = os.path.join(raiz, base)
+        for dirpath, _dn, filenames in os.walk(d):
+            for fn in filenames:
+                if not fn.endswith((".h", ".c", ".hh", ".cc")):
+                    continue
+                p = os.path.join(dirpath, fn)
+                n_ficheros += 1
+                try:
+                    txt = open(p, encoding="utf-8", errors="replace").read()
+                except OSError:
+                    continue
+                for m in RE_ANCHO_EXTERNO.finditer(txt):
+                    n_declaraciones += 1
+                    vistos.append(os.path.relpath(p, raiz))
+    # LA COMPROBACION DE LA HERRAMIENTA, antes de creerse su cero.
+    positivo = ("#define PACKET3_MAP_QUEUES_DOORBELL_OFFSET(x) "
+                "(((x) << 2) & 0x3)\n")
+    el_patron_ve_un_positivo = bool(RE_ANCHO_EXTERNO.search(positivo))
+    return {"ficheros": n_ficheros, "declaraciones": n_declaraciones,
+            "vistos": sorted(set(vistos))[:5],
+            "el_patron_ve_un_positivo": el_patron_ve_un_positivo}
+
+
 def validar(anchos):
     """(solapes, sin_dueno) para unos anchos DADOS de fuera.
 
@@ -415,7 +463,7 @@ def selftest(_=None):
     if fallos:
         print("SELFTEST FALLIDO: %d" % len(fallos))
         return 1
-    print("SELFTEST OK: %d vectores" % (len(fallos) + 28))
+    print("SELFTEST OK: %d vectores" % (len(fallos) + 31))
     return 0
 
 
@@ -432,6 +480,10 @@ def main(argv=None):
                          "son manejables")
     ap.add_argument("--solo-problemas", action="store_true",
                     help="solo los grupos con algun campo sin determinar")
+    ap.add_argument("--arborme", action="store_true",
+                    help="barra TODO el arbol buscando campos de PM3 que "
+                         "declaren anchura,  y comprueba antes que el patron "
+                         "sepa ver un positivo")
     ap.add_argument("--convenciones", action="store_true",
                     help="cuantos campos de PM4 declaran mascara, y cuantos "
                          "registros del mismo header si")
@@ -441,6 +493,23 @@ def main(argv=None):
     a = ap.parse_args(argv)
     if a.selftest:
         return selftest()
+    if a.arborme:
+        r = anchuras_declaradas_en_el_arbol()
+        print("BARRIDO DEL ARBOL  %d ficheros" % r["ficheros"])
+        print("  campos de PM3 que declaran anchura: %d" % r["declaraciones"])
+        print("  el patron VE un positivo conocido:  %s"
+              % r["el_patron_ve_un_positivo"])
+        if not r["el_patron_ve_un_positivo"]:
+            print("  EL BARRIDO NO ES FIABLE:  no encuentra ni el caso de")
+            print("  prueba.  Su cero no es un dato.")
+            return 2
+        if r["declaraciones"]:
+            for v in r["vistos"]:
+                print("    %s" % v)
+        else:
+            print("  Ni una.  En TODO el arbol.  La anchura de un campo de PM4")
+            print("  no se puede leer de aqui,  para NINGUN ASIC.")
+        return 0
     if a.convenciones:
         c = convenciones(a.header)
         print("CONVENCIONES DE ANCHURA EN %s" % (a.header or VID))
