@@ -67,6 +67,7 @@ P_GRUPO = re.compile(r"^\s*/\s*\*?\s*(CONTROL\d*[a-z]?|COMMAND)\s*\*/")
 P_DEF = re.compile(r"#\s*define\s+(PACKET3_[A-Z0-9_]+)\s*(.*)$")
 # Un opcode de paquete es  "PACKET3_X   0xNN"  y no lleva "(x)" ni "<<".
 P_OPCODE = re.compile(r"#\s*define\s+(PACKET3_[A-Z0-9_]+)\s+(0x[0-9A-Fa-f]+|\\d+)\s*$")
+OPC_ALL = re.compile(r"#\s*define\s+(PACKET3_[A-Z0-9_]+)\s+(0x[0-9A-Fa-f]+)\s*$")
 P_SHIFT = re.compile(r"<<\s*(\d+)")
 P_FLAG = re.compile(r"\(\s*1\s*<<\s*(\d+)\s*\)")
 
@@ -184,7 +185,8 @@ def plano(lineas, solo=None):
     DEF = re.compile(r"#\s*define\s+(PACKET3_[A-Z0-9_]+|[A-Z][A-Z0-9_]+)\s*(.*)$")
     for i, texto in enumerate(lineas, 1):
         m = OPC.match(texto)
-        if m is not None:
+        #  Un valor > 0xFF no es un opcode  (vid.h:105-107):  no cierra paquete.
+        if m is not None and int(m.group(2), 16) <= 0xFF:
             paq = m.group(1)
             salida.setdefault(paq, [])
             continue
@@ -221,9 +223,18 @@ def ventanas(lineas):
     ACOTADA:  si todos los macros de un paquete caen entre su opcode y el
     siguiente,  el propio header los delimita  y no hay que suponer nada.
     """
+    #  SOLO son opcodes los que caben en 8 bits.  PACKET3(op,n)  aplica
+    #  (op) & 0xFF  -- vid.h:105-107 --  asi que un valor mayor que 0xFF no
+    #  puede viajar como opcode:  son constantes de reubicacion,  y contarlas
+    #  como paquetes parte las ventanas en lugares donde no hay paquete.
     OPC = re.compile(r"#\s*define\s+(PACKET3_[A-Z0-9_]+)\s+(0x[0-9A-Fa-f]+)\s*$")
-    pos = [(i, OPC.match(t).group(1)) for i, t in enumerate(lineas, 1)
-           if OPC.match(t)]
+    def _opcode(linea):
+        m = OPC.match(linea)
+        if m is None or int(m.group(2), 16) > 0xFF:
+            return None
+        return m.group(1)
+    pos = [(i, _opcode(linea)) for i, linea in enumerate(lineas, 1)
+           if _opcode(linea) is not None]
     salida = {}
     for k, (ini, paq) in enumerate(pos):
         fin = pos[k + 1][0] if k + 1 < len(pos) else len(lineas) + 1
@@ -357,7 +368,7 @@ def _cubre(campos):
 GRUPOS_VID_H = 14
 
 # Cuantos vectores DEBEN ejecutarse.  Si el numero baja,  algo se ha saltado.
-VECTORES_ESPERADOS = 47
+VECTORES_ESPERADOS = 53
 
 
 def comentarios_de_dword(lineas):
@@ -607,6 +618,31 @@ def selftest():
         len(solo_planas) == 11, str(len(solo_planas)))
     chk("WRITE_DATA esta entre ellos", "PACKET3_WRITE_DATA" in solo_planas,
         str(sorted(solo_planas)))
+
+    # --- la contaminacion de opcodes por constantes de reubicacion
+    formas = [l for l in L if OPC_ALL.match(l)]
+    reales = [l for l in formas
+              if int(OPC_ALL.match(l).group(2), 16) <= 0xFF]
+    chk("vid.h tiene 78 lineas con la forma de opcode", len(formas) == 78,
+        str(len(formas)))
+    chk("solo 70 pueden ser opcode: 8 tienen valor > 0xFF",
+        len(reales) == 70, str(len(reales)))
+    chk("las 8 son las cuatro familias *_START/_END de reubicacion",
+        all(re.search(r"_(START|END)$", OPC_ALL.match(l).group(1))
+            for l in formas if int(OPC_ALL.match(l).group(2), 16) > 0xFF),
+        str([OPC_ALL.match(l).group(1) for l in formas
+             if int(OPC_ALL.match(l).group(2), 16) > 0xFF]))
+    ven2 = ventanas(L)
+    chk("las ventanas ya no tienen entradas de mas", len(ven2) == 70,
+        str(len(ven2)))
+    #  Con el filtro de 8 bits,  la ventana de SET_SH_REG se ABRE:  sus dos
+    #  constantes de reubicacion  (vid.h:348 y :349)  ya no la cierran,  asi que
+    #  se queda con ellas dentro.  Eso es lo correcto:  le pertenecen.
+    chk("SET_SH_REG existe como opcode y su ventana se abre a [347:350]",
+        "PACKET3_SET_SH_REG" in ven2 and ven2["PACKET3_SET_SH_REG"] == (347, 350),
+        str(ven2.get("PACKET3_SET_SH_REG")))
+    chk("PACKET3_SET_SH_REG_START ya NO es una ventana",
+        "PACKET3_SET_SH_REG_START" not in ven2, "esta")
 
     # --- la prosa, que es la afirmacion independiente
     d7 = prosa_de(p, 7, contiene="COMMAND [30:21]")
