@@ -107,7 +107,7 @@ es el mismo `rmw` de siempre, y lo que cambia es **el tamaño del buffer**.
 > **Que un cambio de reloj de memoria no arrastre al de gráficos es un hecho medido en los tres
 > regímenes, y es una característica del diseño de la SMU que el driver no expone por ninguna
 > interfaz.** Para el objetivo del proyecto importa: es una palanca de rendimiento que existe,
-> y para检出 de forma fiable tendría que controlarla el propio driver.
+> y para captarla de forma fiable tendría que controlarla el propio driver.
 
 ## 5. Un detalle que encaja con el 1485
 
