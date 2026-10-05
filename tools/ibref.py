@@ -250,15 +250,139 @@ RE_CAST_TIPO = re.compile(r"\(\s*__typeof__\s*\(\s*[^()]*?\s*\)\s*\)\s*"
                           r"\(\s*([^()]*?)\s*\)")
 
 
+def _cierra(s, i):
+    """Índice del `)` que cierra el `(` de `s[i]`, o -1 si no cierra.
+
+    MEDIDO:  hacer esto con un REGEX no funciona.  `(__typeof__(x))(__typeof__(y))(7)`
+    tiene un cast cuyo ARGUMENTO es otro cast, y un patron que exige `[^()]*?`
+    dentro no puede consumirlo: se come el de dentro y deja `(__typeof__(x))7`
+    colgando, que es justo lo que hacia el vector.
+
+        lo que exige emparejar parentesis no se escribe con parentesis
+    """
+    d = 0
+    for j in range(i, len(s)):
+        if s[j] == "(":
+            d += 1
+        elif s[j] == ")":
+            d -= 1
+            if d == 0:
+                return j
+    return -1
+
+
+def _quita_cabeza(s):
+    """(argumento, cola) si `s` empieza por un cast `(__typeof__(x))(`; None.
+
+    `argumento` lleva SUS PROPIOS parentesis, porque el argumento de un cast
+    puede ser a su vez un cast: `(__typeof__(x))(__typeof__(y))(7)`  tiene como
+    argumento `(__typeof__(y))(7)`,  y su parentesis de cierre es el ultimo de
+    la cadena.  MEDIDO:  tomar el texto DESPUES del cierre daba `` (el
+    argumento entero se perdia)  y tomar el INTERIOR daba `(7)` en vez de `7`.
+    El argumento es `s[j:c3+1]`, con los dos extremos.
+    """
+    t = s.lstrip()
+    if not t.startswith("(__typeof__"):
+        return None
+    k = len("(__typeof__")
+    c1 = _cierra(t, k)                     # cierra el `(x)` del typeof
+    if c1 < 0 or c1 + 1 >= len(t) or t[c1 + 1] != ")":
+        return None
+    j = c1 + 2                            # abre el `(argumento)`
+    while j < len(t) and t[j] in " \t\n":
+        j += 1
+    if j >= len(t) or t[j] != "(":
+        return None
+    c3 = _cierra(t, j)                     # cierra el `(argumento)`
+    if c3 < 0:
+        return None
+    return t[j:c3 + 1], t[c3 + 1:]
+
+
+def _desenvuelve(s):
+    """Quita los parentesis que ENVUELVEN todo, y solo esos.
+
+    Se exige que al quitar uno los siguientes sigan cerrando todo, y eso lo dice
+    `_cierra`:  `a + (b)` no se desenvuelve,  `(a) + b` tampoco.
+
+    MEDIDO:  la primera version llamaba a `balanced()`,  que existe en el STUB
+    como cadena y NO como funcion de este modulo.  Un nombre que suena a que
+    existe y no existe es un `NameError` esperando:  aqui salio al ejecutar, y
+    en un vector habria salido como fallo de la regla y no como fallo del
+    codigo.
+    """
+    t = s.strip()
+    while t.startswith("(") and t.endswith(")") and _cierra(t, 0) == len(t) - 1:
+        t = t[1:-1].strip()
+    return t
+
+
+def _quita_cast_medio(s):
+    """Quita UN cast `(__typeof__(x))(a)` que este EN MEDIO de la expresion.
+
+    MEDIDO, y esto es lo que fallo al reescribir:  el cuerpo real de
+    `__ALIGN_KERNEL` es
+
+        __ALIGN_KERNEL_MASK(x, (__typeof__(x))(a) - 1)
+
+    con el cast EN MEDIO.  La primera version (un regex) lo cubria porque
+    sustitulia en cualquier sitio;  la segunda solo quitaba casts al PRINCIPIO,
+    y al perder el caso intermedio el cuerpo de `__ALIGN_KERNEL` se quedo con
+    `__typeof__` sin resolver y `sintetizar("ALIGN(0,256)")` devolvio `None`.
+
+        un parser mas estricto no es un parser mas correcto:  es un parser que
+        ha perdido el caso que el regex cubria sin que se notara
+
+    Se limita a UNA sustitucion y exige que el argumento no tenga parentesis
+    anidados, que es justo lo que el regex permitia.  El caso anidado lo cubre
+    `_quita_cabeza`.
+    """
+    salida, pos, quito = [], 0, False
+    for mt in RE_CAST_TIPO.finditer(s):
+        salida.append(s[pos:mt.start()])
+        salida.append(mt.group(1))
+        pos = mt.end()
+        quito = True
+    if not quito:
+        return None
+    salida.append(s[pos:])
+    return "".join(salida)
+
+
 def quitar_cast_tipo(cuerpo):
-    """`(__typeof__(x))(a)` -> `a`. El cast a un tipo no cambia un entero."""
-    if "__typeof__" not in cuerpo:
-        return cuerpo
-    prev = None
-    while prev != cuerpo:
-        prev = cuerpo
-        cuerpo = RE_CAST_TIPO.sub(r"\1", cuerpo)
-    return cuerpo
+    """`(__typeof__(x))(a)` -> `a`. El cast a un tipo no cambia un entero.
+
+    Y se ENCADENA cuando el cast esta al principio:
+    `(__typeof__(x))(__typeof__(y))(7)` -> `7`.  MEDIDO, y las versiones
+    intermedias fallaron de tres maneras distintas,  las tres pareciendo un
+    error de tecleo:  el regex se comia el cast de dentro y dejaba
+    `(__typeof__(x))7`;  el parser mal escrito devolvia `''`;  y el parser bien
+    escrito perdio el caso EN MEDIO y dejo `ALIGN` sin resolver.
+
+    EL ALCANCE, y por que `_desenvuelve` solo se aplica a los casts de cabeza:
+
+    `_adaptar_macros` aplica esta funcion a los CUERPOS de las 114672 macros del
+    arbol.  MEDIDO:  al principio `_desenvuelve` se llamaba SIEMPRE, y al
+    desenvolver los parentesis cambio el cuerpo de `ALIGN`.  Es semanticamente
+    equivalente, y aun asi los cinco vectores de ALIGN volvieron a fallar.
+
+        quitar parentesis de todo lo que se pasa es cambiar cosas que no se
+        han pedido cambiar
+    """
+    s = cuerpo
+    cabeza = False                     # se quito un cast de CABEZA
+    for _ in range(64):              # guarda: 64 niveles es absurdo
+        r = _quita_cabeza(s)
+        if r is not None:
+            argumento, cola = r
+            s = argumento + cola
+            cabeza = True
+            continue
+        r = _quita_cast_medio(s)
+        if r is None:
+            break
+        s = r
+    return _desenvuelve(s) if cabeza else s
 
 
 def _adaptar_macros(macros):
@@ -1195,8 +1319,19 @@ def comparar(cond, enlaces=None):
     return (a == b) if op == "==" else (a != b)
 
 
+# MEDIDO 2026-10-05, y faltaba la mitad de la Asignacion:  esto solo
+# reconocia `x = e;`  y no `x += e;`.  El vector "P1: `a = 1; a += 1;` da 2"
+# fallaba con `{'a': 1}`,  que es el valor ANTES del `+=`:  la sentencia se
+# veia y se ignoraba,  no se rechazaba.
+#
+# El grupo 3 es el OPERADOR COMPUESTO,  vacio si es un `=` normal.  Se escribe
+# con parentesis alrededor de AMBOS lados al evaluar,  y no reescribiendo el
+# texto,  porque `a *= 2 + 3`  en C es `a = a * (2 + 3)`  y no `a = a * 2 + 3`:
+# una reescritura textual de este tipo esta bien para `+=` y esta mal para
+# `*=`,  y el fallo solo aparece en el operador que no se mira.
 RE_ASIGNACION = re.compile(
-    r"^[ \t]*(?:u32\s+|int\s+|unsigned\s+)?([A-Za-z_]\w*)\s*=\s*"
+    r"^[ \t]*(?:u32\s+|int\s+|unsigned\s+)?([A-Za-z_]\w*)\s*"
+    r"(\+=|\-=|\*=|/=|%=|&=|\|=|\^=|<<=|>>=|=)\s*"
     r"([^;]+);", re.M)
 
 
@@ -1229,7 +1364,16 @@ def propagar_locales(lineas, ini, fin, eval_call=None, macros=None,
             if fila in fuera:
                 continue
             clave = normalizar(m.group(1))
-            valor = m.group(2).strip()
+            operador = m.group(2)
+            valor = m.group(3).strip()
+            if operador != "=":
+                # MEDIDO:  sin valor previo NO se inventa.  Un `a += 1` con `a`
+                # desconocido se queda sin propagating,  y `paradas` lo dira;
+                # rellenar con 0 seria NULO_NO_ES_CERO.
+                previo = locales.get(clave)
+                if previo is None:
+                    continue
+                valor = "(%d) %s (%s)" % (previo, operador[:-1], valor)
             v = _evaluar_local(valor, eval_call, macros, enlaces, locales,
                                arrays, clave)
             if v is None:
@@ -2009,13 +2153,25 @@ def selftest(_=None):
     _m2, i_off = macros_ampliadas(lm, ev, cstub, ampliada=False)
     chk("ampliacion: --sin-ampliar NO amplia y lo dice",
         not i_off["ampliada"] and bool(i_off["motivo"]), i_off["motivo"])
-    macR = _macros_reales(lm, ev)
+    # MEDIDO 2026-10-05, y lo encontro un fallo que PARECIA del entorno:  los
+    # cinco vectores de ALIGN fallaban, y la causa no era `RAIZ` ni el
+    # evaluador — era que aqui se pasaba el juego de macros del STUB.
+    #
+    #     ev, lm  son del stub  (linea 1812,  `cargar_evaluador(pystub)`)
+    #     _ev_real, _lm_real  son los de verdad  (linea 1987)
+    #
+    # `ALIGN` es una macro del kernel,  no del stub,  asi que el stub no la
+    # tiene y `ALIGN(0,256)` no se podia evaluar.  El vector de arriba
+    # (condicionales) si usa los reales,  y por eso los otros si pasan.
+    # Corregirlo subio el recuento en cinco vectores que nunca debieron fallar.
+    macR = _macros_reales(_lm_real, _ev_real)
     for expr, val in (("ALIGN(0,256)", 0), ("ALIGN(1,256)", 256),
                       ("ALIGN(256,256)", 256), ("ALIGN(257,256)", 512)):
         chk("ALIGN: %s == %d  (1140 C4)" % (expr, val),
-            sintetizar(expr, ev, macR, {}, {}, {}, {}) == val)
+            sintetizar(expr, _ev_real, macR, {}, {}, {}, {}) == val)
     chk("ALIGN: la cadena sigue entera hasta la aritmetica",
-        sintetizar("ALIGN(300, 256) + 7", ev, macR, {}, {}, {}, {}) == 512 + 7)
+        sintetizar("ALIGN(300, 256) + 7", _ev_real, macR, {}, {}, {}, {})
+        == 512 + 7)
 
     print()
     if fallos:
