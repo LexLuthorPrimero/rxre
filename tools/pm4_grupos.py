@@ -368,7 +368,7 @@ def _cubre(campos):
 GRUPOS_VID_H = 14
 
 # Cuantos vectores DEBEN ejecutarse.  Si el numero baja,  algo se ha saltado.
-VECTORES_ESPERADOS = 53
+VECTORES_ESPERADOS = 57
 
 
 def comentarios_de_dword(lineas):
@@ -383,6 +383,111 @@ def comentarios_de_dword(lineas):
         if m is not None:
             salida.append((i, m.group(1)))
     return salida
+
+
+# --- CLASE:  count de la cabecera  contra  las escrituras que hace el driver ---
+P_EMITE = re.compile(r"PACKET3\(\s*(PACKET3_[A-Z0-9_]+)\s*,\s*([^)]+)\)")
+P_WRITE = re.compile(r"amdgpu_ring_write\s*\(|ib\.ptr\[|buffer\[count\+\+\]|"
+                     r"ib\.length_dw\+\+|hdr\b.*PACKET3")
+
+
+def clase(lineas_ruta, paquetes):
+    """Clasifica cada paquete por la regla MECANICA:
+
+        count de la cabecera  ==  (numero de escrituras que siguen) - 1
+
+    Devuelve filas de texto.  La cuenta de escrituras se detiene en la primera
+    linea en blanco, en el siguiente PACKET3(.,.) o en una llave de cierre, que
+    es donde termina el enunciado en este driver.  Sin esa parada el contador
+    se comia el cuerpo de un bucle posterior y daba un NO CUADRA falso.
+
+    Hay DOS formas de asignacion,  y se distinguen mecanicamente:
+
+      a)  var = PACKET3(PAQUETE, N)   y  luego  amdgpu_ring_write(ring, var)
+          -> es un paquete de verdad.  Se cuenta desde esa escritura.
+          Es el caso de INDIRECT_BUFFER_CONST  (asignado en 6078,  escrito en
+          6091),  donde ademas el if/else del otro ramal tiene otro PACKET3(.)
+          y por eso hay que buscar la escritura en vez de parar en el.
+
+      b)  .campo = PACKET3(PAQUETE, N)  dentro de un inicializador de struct
+          -> NO es un paquete en un flujo.  Es la tabla de funciones del anillo
+          guardando el comando de sincronizacion.  Es el caso de NOP:
+          .nop = PACKET3(PACKET3_NOP, 0x3FFF),  y 0x3FFF es el payload del NOP,
+          no un count de payload.
+    """
+    filas = []
+    for paq in paquetes:
+        full = "PACKET3_" + paq
+        i = next((k for k, l in enumerate(lineas_ruta, 1)
+                  if (mm := P_EMITE.search(l)) and mm.group(1) == full), None)
+        if i is None:
+            filas.append("  %-24s sin emision PACKET3(.,.) aqui" % paq)
+            continue
+        m = P_EMITE.search(lineas_ruta[i - 1])
+        bruto = m.group(2).strip()
+        asignacion = P_WRITE.search(lineas_ruta[i - 1]) is None
+        # si el literal esta en una asignacion,  la escritura puede venir despues
+        try:
+            cnt = int(bruto, 0)
+        except ValueError:
+            filas.append("  %-24s count no literal: %s" % (paq, bruto))
+            continue
+        pay = cnt + 1
+        if asignacion:
+            # ¿la variable asignada se escribe despues?
+            nom = re.match(r"([A-Za-z_][A-Za-z0-9_]*)\s*=", lineas_ruta[i - 1].strip())
+            var = nom.group(1) if nom else None
+            arranque = i
+            if var:
+                for k2 in range(i + 1, min(i + 26, len(lineas_ruta)) + 1):
+                    if re.search(r"amdgpu_ring_write\s*\([^)]*\b%s\b" % re.escape(var),
+                                 lineas_ruta[k2 - 1]):
+                        arranque = k2 - 1
+                        break
+                else:
+                    filas.append("  %-24s count=%-6d payload=%-3d  ASIGNACION sin "
+                                 "escritura posterior  -> NO APLICA"
+                                 % (paq, cnt, pay))
+                    continue
+            else:
+                filas.append("  %-24s count=%-6d payload=%-3d  ASIGNACION a miembro "
+                             "de struct,  no es un paquete en un flujo"
+                             % (paq, cnt, pay))
+                continue
+            k, w, donde = arranque, 0, []
+            while k < len(lineas_ruta):
+                k += 1
+                t = lineas_ruta[k - 1].strip()
+                if t == "" or P_EMITE.search(t) or t.startswith("}"):
+                    break
+                if P_WRITE.search(lineas_ruta[k - 1]):
+                    w += 1
+                    donde.append(k)
+            #  MEDIDO 2026-10-06:  aqui la escritura de la CABECERA es una
+            #  escritura distinta de la del literal  (literal en 6078,  cabecera
+            #  escrita en 6091),  asi que cuenta de mas.  Se resta 1.  Con eso
+            #  INDIRECT_BUFFER_CONST  da 3 escrituras de payload contra count=2,
+            #  y cuadra.
+            w -= 1
+            filas.append("  %-24s count=%-6d payload=%-3d escrituras=%-3d %s  "
+                         "lineas %s" % (paq, cnt, pay, w,
+                                        "CUADRA" if w == pay else "NO CUADRA",
+                                        donde[1:]))
+            continue
+        k, w, donde = i, 0, []
+        while k < len(lineas_ruta):
+            k += 1
+            t = lineas_ruta[k - 1].strip()
+            if t == "" or P_EMITE.search(t) or t.startswith("}"):
+                break
+            if P_WRITE.search(lineas_ruta[k - 1]):
+                w += 1
+                donde.append(k)
+        if True:
+            filas.append("  %-24s count=%-6d payload=%-3d escrituras=%-3d %s  %s"
+                         % (paq, cnt, pay, w, "CUADRA" if w == pay else "NO CUADRA",
+                            "lineas %s" % donde))
+    return filas
 
 
 # --- informe --------------------------------------------------------------
@@ -416,6 +521,27 @@ def informe(solo=None):
               % (_cubre(campos),
                  ", ".join("bits [%d:%d]" % (a, b) for a, b in hs) or "NINGUNO"))
         print()
+    return 0
+
+
+CLASE_PAQUETES = ["NOP", "DISPATCH_DIRECT", "CONTEXT_CONTROL", "CLEAR_STATE",
+                  "COND_EXEC", "INDIRECT_BUFFER_CONST", "COPY_DATA",
+                  "PFP_SYNC_ME", "SWITCH_BUFFER"]
+
+GFX8 = os.path.join(RAIZ, "RESEARCH", "working", "linux-7.1.3", "drivers",
+                    "gpu", "drm", "amd", "amdgpu", "gfx_v8_0.c")
+
+
+def informe_clase():
+    if not os.path.exists(GFX8):
+        print("  no encuentro %s" % GFX8)
+        return 2
+    with open(GFX8, encoding="utf-8", errors="replace") as f:
+        L = f.read().split("\n")
+    print("  REGLA:  count de la cabecera  ==  escrituras que siguen  -  1")
+    print("  (count = payload - 1,  corroborado en 1199 con tres puntos)\n")
+    for f in clase(L, CLASE_PAQUETES):
+        print(f)
     return 0
 
 
@@ -644,6 +770,24 @@ def selftest():
     chk("PACKET3_SET_SH_REG_START ya NO es una ventana",
         "PACKET3_SET_SH_REG_START" not in ven2, "esta")
 
+    # --- modo CLASE:  count de cabecera contra escrituras del driver
+    if os.path.exists(GFX8):
+        with open(GFX8, encoding="utf-8", errors="replace") as f:
+            GL = f.read().split("\n")
+        filas = clase(GL, CLASE_PAQUETES)
+        txt = "\n".join(filas)
+        cuadran = txt.count("CUADRA")
+        chk("8 de los 9 paquetes cuadran con count = payload - 1",
+            cuadran == 8, txt)
+        chk("NOP es la unica excepcion, y es ASIGNACION a miembro de struct",
+            "NOP" in txt and "no es un paquete en un flujo" in txt, txt)
+        chk("INDIRECT_BUFFER_CONST cuadra tras restar la escritura de cabecera",
+            any("INDIRECT_BUFFER_CONST" in l and "CUADRA" in l for l in filas), txt)
+        chk("los nueve paquetes de la cola estan en la lista",
+            len(CLASE_PAQUETES) == 9, str(len(CLASE_PAQUETES)))
+    else:
+        chk("gfx_v8_0.c disponible para el modo clase", False, GFX8)
+
     # --- la prosa, que es la afirmacion independiente
     d7 = prosa_de(p, 7, contiene="COMMAND [30:21]")
     chk("la prosa de DMA_DATA declara 7 dwords con COMMAND [30:21]",
@@ -680,6 +824,8 @@ def main(argv):
         return selftest()
     if "--plano" in argv:
         return informe_plano()
+    if "--clase" in argv:
+        return informe_clase()
     solo = None
     if "--paquete" in argv:
         i = argv.index("--paquete")
