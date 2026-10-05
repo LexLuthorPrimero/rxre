@@ -1,0 +1,2252 @@
+{
+ "filas": [
+  {
+   "bytes": 12409,
+   "lineas": 270,
+   "ruta": "tools/_pycdc314.sh",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "e621bd98f68440b4b4d639255fe2a4a5cc52e6e75cd41ea73526b2b1ccc7a3ec"
+  },
+  {
+   "bytes": 85169,
+   "lineas": 1718,
+   "ruta": "tools/artifacts.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "59d3d3189e96f9d5b40a85d4bf40cd4eafdc67d0f8c5b834cbe1cb95e30da28e"
+  },
+  {
+   "bytes": 40583,
+   "lineas": 950,
+   "ruta": "tools/asic_resolver.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "fb2a8fe32fcf394a517741950df802b1c4361727d493e435870b589377378ec9"
+  },
+  {
+   "bytes": 22391,
+   "lineas": 554,
+   "ruta": "tools/assert_contract.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "b203942237ae5ab83049bf4a67144ebbd3060e2bc16fcc35eddd69526494efdd"
+  },
+  {
+   "bytes": 27278,
+   "lineas": 650,
+   "ruta": "tools/atom_chain.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "00d4835724a65540bed1f9ed3415ca974253b963f8dee420f15bf359303b936b"
+  },
+  {
+   "bytes": 12796,
+   "lineas": 319,
+   "ruta": "tools/audit_citations.sh",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "dc6f1ac822eb61e0f7538ca6a5e75b2a8c38c52ac58966d3cd6790841b777ec8"
+  },
+  {
+   "bytes": 24929,
+   "lineas": 558,
+   "ruta": "tools/cap_census.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "6a283b50d3de6aba997cca9210cbaf3d5e14e2c524527c97e30b7afad640f275"
+  },
+  {
+   "bytes": 70512,
+   "lineas": 1434,
+   "ruta": "tools/check_num_unico.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "f1ea6b883bb43de0dcf3cac8091bd07a6c00cd5500df6a7fc9e8b5c825d2a3ed"
+  },
+  {
+   "bytes": 11804,
+   "lineas": 288,
+   "ruta": "tools/citas.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "b0d4393d2212c859d7ddcfa4e51c8120469a479d0dbe5611ddd4deba540585fd"
+  },
+  {
+   "bytes": 28833,
+   "lineas": 381,
+   "ruta": "tools/citas_prosa_adjudicado.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "b8bca52619f0ffab6f6ced67c00898152eb33d930735183570733f0c06bb7b00"
+  },
+  {
+   "bytes": 58875,
+   "lineas": 1215,
+   "ruta": "tools/citas_prosa_census.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "b8572afae33cf3f2458c988c1c70095d5c45cf7597ffddf0b6686a3ad5f53204"
+  },
+  {
+   "bytes": 6532,
+   "lineas": 108,
+   "ruta": "tools/citas_prosa_etiquetas.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "54d7df4f342f9e15ce751a877a1307bc09c5afa325f49b781072d5b457ab6c8b"
+  },
+  {
+   "bytes": 46169,
+   "lineas": 1061,
+   "ruta": "tools/citations.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "6281e397fb19938d296b9c94dd9a69f6e70b5ec6bc11d3412e8d87a317713cc2"
+  },
+  {
+   "bytes": 42138,
+   "lineas": 822,
+   "ruta": "tools/citeambig.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "95c2fa42453779fbe6b80dcca1ff491dacc46bc9ea1918a7bcfb63fe56344493"
+  },
+  {
+   "bytes": 20888,
+   "lineas": 510,
+   "ruta": "tools/citegen.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "e4d729dca12b8f82ad5ec2176d8e636f4a7cc855679a8588579e570c76b7b030"
+  },
+  {
+   "bytes": 31508,
+   "lineas": 758,
+   "ruta": "tools/claim.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "d580064207cd467e9d894767074dedc8a5d9941c4215e3282f3dcebc49cb15d1"
+  },
+  {
+   "bytes": 66180,
+   "lineas": 1412,
+   "ruta": "tools/claims.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "b55ae9e3d53c1641a85a25feda74c9d3fb849cba8fed356036702c307f9fbe00"
+  },
+  {
+   "bytes": 31224,
+   "lineas": 735,
+   "ruta": "tools/constmap.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "1262a6e2d1de41dbdff27129d25a40a868968b56e0ee29533238049d3748ff32"
+  },
+  {
+   "bytes": 20041,
+   "lineas": 438,
+   "ruta": "tools/contradict.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "43b2bf80fa760dc9aa314a8c2e6fc0075ed7ad661dbc3ed82f5f0618939c6910"
+  },
+  {
+   "bytes": 16590,
+   "lineas": 389,
+   "ruta": "tools/corroboration.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "f7356c7b380693ab635942069cb6705c8740acd89691980ed4b5ce098f98acb3"
+  },
+  {
+   "bytes": 25407,
+   "lineas": 603,
+   "ruta": "tools/count_guard.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "823bcbf277facbf7758ef599ede329f549287cd96afff2a7cba28545b2516577"
+  },
+  {
+   "bytes": 51821,
+   "lineas": 1212,
+   "ruta": "tools/docscan.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "889f990c117e4fc6690768323309518928da579a6f3597e707ebff018d403af6"
+  },
+  {
+   "bytes": 50851,
+   "lineas": 1116,
+   "ruta": "tools/drift.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "ffa7a9f2aad294933d0e945fd422ac025dce494b0819280e38c872f757d86fcf"
+  },
+  {
+   "bytes": 12394,
+   "lineas": 287,
+   "ruta": "tools/driroute.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "e8d51e0320b397b01566ae4321a6a7bea69cf6cba2edd64e8b6d34110dd2f584"
+  },
+  {
+   "bytes": 28863,
+   "lineas": 627,
+   "ruta": "tools/drvchain.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "657905ce2fa0cb17308f74c1fd78bae51c8f92ef73a3391a2605204a0f68c1dc"
+  },
+  {
+   "bytes": 24638,
+   "lineas": 585,
+   "ruta": "tools/dupenum.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "67181553b9d31cee6b70bd827acf1548d81fc949e10b604e2c3d4b0015f95331"
+  },
+  {
+   "bytes": 31543,
+   "lineas": 701,
+   "ruta": "tools/dwarfx.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "33c9254741bb882e21b2035c970c876da12a6bbee85ccb97be007a34acdca688"
+  },
+  {
+   "bytes": 21971,
+   "lineas": 494,
+   "ruta": "tools/envcheck.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "be6e1e2a07afce17815e25fdb7bf9381e2ac09dd5d9addf5b4f838eced2fc939"
+  },
+  {
+   "bytes": 47196,
+   "lineas": 1129,
+   "ruta": "tools/evidence_search.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "f364ac1465a51ab8da90bc77c928024d2754d4ce36ee6dc1317f34343cd429ed"
+  },
+  {
+   "bytes": 22926,
+   "lineas": 550,
+   "ruta": "tools/fingerprint.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "aa26c787fb23364cf1b666ae7a8a45b0b3df4b7941564ff85b51a6f15e2b5741"
+  },
+  {
+   "bytes": 33559,
+   "lineas": 802,
+   "ruta": "tools/flags_inventory.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "ccd506c561852ba9ac4cce092361ccf1d82f464612d7e0acf5c78a443842a0ee"
+  },
+  {
+   "bytes": 44436,
+   "lineas": 925,
+   "ruta": "tools/frontier.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "b69b540b521466e1a2f45cc000859fec4d716d8ad6daa6d56c33e3d30a2c5ee5"
+  },
+  {
+   "bytes": 14236,
+   "lineas": 348,
+   "ruta": "tools/fwsel.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "a74e2fa088e5c09d2c13274ee02aa5ce5713c724f5fa9878cd7d4600e1671dae"
+  },
+  {
+   "bytes": 15067,
+   "lineas": 351,
+   "ruta": "tools/gccverify.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "fbdc1fa626333ac237ddd44698c88ec1b19ceee14e4bf1d405b3c925e3ffa4b1"
+  },
+  {
+   "bytes": 13349,
+   "lineas": 319,
+   "ruta": "tools/git_sano.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "9fb6868eb21c4daa51e1a289ba8667d5bcf4f980809428ea9dc801ea217422d4"
+  },
+  {
+   "bytes": 41287,
+   "lineas": 882,
+   "ruta": "tools/govcheck.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "959bf46be6125e9870ee548314e859cfd9d1fd4fc54df4a5a9a7927682cfce80"
+  },
+  {
+   "bytes": 6801,
+   "lineas": 182,
+   "ruta": "tools/gttlimit.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "e4f23a671d9332be7254a6ce87bc60da5e6d4a69da8e5150596563fadd0fe961"
+  },
+  {
+   "bytes": 18491,
+   "lineas": 459,
+   "ruta": "tools/hcconsist.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "61a45f959067e2e6c4a0509b4f5273fc7e266c46bef42be6c6b06a614888490a"
+  },
+  {
+   "bytes": 30668,
+   "lineas": 641,
+   "ruta": "tools/huella.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "f63982306ddc24f72d78d3dd8a1d5ce273933b484ee2db142e0980b8fd37a222"
+  },
+  {
+   "bytes": 49604,
+   "lineas": 1127,
+   "ruta": "tools/hwip.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "31996969e78600146363ed465affe02d00f051c89bfb82a6410481f64e24a0bc"
+  },
+  {
+   "bytes": 108496,
+   "lineas": 2434,
+   "ruta": "tools/ibref.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "90341ed5e18f62ef8cf823fc7a14746c33e59519ebed48c970bafd4b38d3ab3e"
+  },
+  {
+   "bytes": 20623,
+   "lineas": 496,
+   "ruta": "tools/implgate.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "75f90b283c785255ebcf78940884d60e46c47841147c698127a80cb5d0086a06"
+  },
+  {
+   "bytes": 24040,
+   "lineas": 555,
+   "ruta": "tools/integridad.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "170590c79ad845c36bfc68518abaab3d075d03592bb2678d113b83c5c1c43726"
+  },
+  {
+   "bytes": 49953,
+   "lineas": 1221,
+   "ruta": "tools/ipsolve.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "ca359fdaead325605f449c9bbc761864df93db53a15b56b7519728bee03f667e"
+  },
+  {
+   "bytes": 8681,
+   "lineas": 361,
+   "ruta": "tools/kdeps.c",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "78b9de4f2c27465a45710499195c5d75e4869bf146f8d2456fe05c7b2e9aba1f"
+  },
+  {
+   "bytes": 89617,
+   "lineas": 1938,
+   "ruta": "tools/layoutcross.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "30f6c89f30badc176ce76a22e9e3f8f0263baaa3c4e10ce7d8f0831cde0e08c6"
+  },
+  {
+   "bytes": 49786,
+   "lineas": 1020,
+   "ruta": "tools/lint.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "de07fd1c73a023ce947e8a746fe2f6750d595101968586bcf9fc08331c48814c"
+  },
+  {
+   "bytes": 40024,
+   "lineas": 819,
+   "ruta": "tools/mmio.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "924692d202e014c9d23ffe88257a346ee40e4a4f34c8d052a5aa00282af5adf8"
+  },
+  {
+   "bytes": 14699,
+   "lineas": 378,
+   "ruta": "tools/mountcheck.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "564afa2f3d3141c29d9390f0220e5fac00129b482cdeb93afe7e68152f151887"
+  },
+  {
+   "bytes": 30424,
+   "lineas": 668,
+   "ruta": "tools/msg_census.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "f00166daee63770769bb61b19c43a0fc96575136e7a6b46b2fd8696bc6426e6a"
+  },
+  {
+   "bytes": 19096,
+   "lineas": 428,
+   "ruta": "tools/mutate.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "e013ee68e6d2ec3bce4a699751494b32c3d4c146d5175f294769e3d659aba91a"
+  },
+  {
+   "bytes": 42359,
+   "lineas": 904,
+   "ruta": "tools/mutscore.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "884028f47d4684b453c604c6dd6e35f66cddd57b8145bb4350cba63118f34d94"
+  },
+  {
+   "bytes": 40850,
+   "lineas": 955,
+   "ruta": "tools/nextnum.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "754021d1116b1526e0a94c5d1a9bba38b8c616d020290adcaba1ea2cc74cfe91"
+  },
+  {
+   "bytes": 18541,
+   "lineas": 414,
+   "ruta": "tools/oracle.sh",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "7c84b8254e2a45fc8344afcf2ba76352b847c90774d45bf8683e130e361cbbb3"
+  },
+  {
+   "bytes": 21885,
+   "lineas": 536,
+   "ruta": "tools/oracle_drift.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "ef36dbdd598fa2207129b1edd7df547dbec1038945677532429297001f11efab"
+  },
+  {
+   "bytes": 26632,
+   "lineas": 671,
+   "ruta": "tools/pipeline.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "0ca8f4ab3686dab2514ff35c244f0c74a0743bc90c8785b3b1ec7bbdb5c1af64"
+  },
+  {
+   "bytes": 26775,
+   "lineas": 628,
+   "ruta": "tools/pm4census.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "467cb83d34045d4ed3a854f380b23e1d3027380d37489a53905592af0211aa42"
+  },
+  {
+   "bytes": 18082,
+   "lineas": 525,
+   "ruta": "tools/pm4decode.c",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "4b19f862228fb127111956afeac766c29725a01f263962d9286834306b99141e"
+  },
+  {
+   "bytes": 3543,
+   "lineas": 81,
+   "ruta": "tools/pm4decode.h",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "471262c1dcf247cf2f646cff9454ccbb77b1645026814242d16a28d172563031"
+  },
+  {
+   "bytes": 42045,
+   "lineas": 1458,
+   "ruta": "tools/pm4dw.c",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "598f026e36e468b63631ec03a2532fc0e179520555716c88f0184575570d3bf6"
+  },
+  {
+   "bytes": 60241,
+   "lineas": 1243,
+   "ruta": "tools/pm4ops.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "239d76e093bc1d1ed129396397bda70a60d366960aab57decb28449583d0cfd2"
+  },
+  {
+   "bytes": 48180,
+   "lineas": 1076,
+   "ruta": "tools/pm4tila.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "4f3175d250c0f62e2bc74022a102230b4bdc4372d1c43abba1b0a4ecd1c920de"
+  },
+  {
+   "bytes": 35708,
+   "lineas": 822,
+   "ruta": "tools/ppt_validate.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "d3f548b097d89df8ce9a48f656ce9920584ac199cd6b127c0c4d78e05cbcdf69"
+  },
+  {
+   "bytes": 47010,
+   "lineas": 1199,
+   "ruta": "tools/prosa.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "b28dcf07ed83cc7818d36838245d478c6274254ed0e07691a999c722adc4a3b2"
+  },
+  {
+   "bytes": 28859,
+   "lineas": 606,
+   "ruta": "tools/puerta_filtros.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "144f72c2dc631baa2bd8d039d897c8ed81af86c56dae2c01c3d25c2abefab8a1"
+  },
+  {
+   "bytes": 14076,
+   "lineas": 340,
+   "ruta": "tools/reftriage.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "02bff40a119efca3f60cb276272e8d6c56597888a21eb74b576e06d14c4ecdcd"
+  },
+  {
+   "bytes": 15179,
+   "lineas": 369,
+   "ruta": "tools/reg_census.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "d9104e563c244f20a0ac1b51b8d597370dae237a5e898b47251a287e41245ab4"
+  },
+  {
+   "bytes": 23703,
+   "lineas": 540,
+   "ruta": "tools/reg_resolve.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "cc44585983ccea54469b2a51f264f5ff759e45f083640bb87ad52b7f48887a47"
+  },
+  {
+   "bytes": 14056,
+   "lineas": 355,
+   "ruta": "tools/regalias.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "931c0b7eaad2ca9d1407d2ed705ab26086273ca2e6c6468008dc6f26d92523a6"
+  },
+  {
+   "bytes": 31289,
+   "lineas": 614,
+   "ruta": "tools/regconst.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "0a1ca689f1806412ba5022a1f7101aa4dc37875703e0e9f4ff0046406fda90a2"
+  },
+  {
+   "bytes": 28394,
+   "lineas": 657,
+   "ruta": "tools/regtable_audit.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "094a047084cc182f0172230875c3e3994c2ec98055c1c037d44ec06ad22ba225"
+  },
+  {
+   "bytes": 45605,
+   "lineas": 1013,
+   "ruta": "tools/relations.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "240506f0e454933ac0dfb63f6d307388ffef9f6608a4a97af4b415ca3c5a17c7"
+  },
+  {
+   "bytes": 97455,
+   "lineas": 2012,
+   "ruta": "tools/reservas_gate.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "01f3ab850e27eb6bc09ab9e7de7ef3cd514a8558a42998f40210d4d8c5615afe"
+  },
+  {
+   "bytes": 54858,
+   "lineas": 1238,
+   "ruta": "tools/riesgo.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "dd4fc3c5413e4519154ed56af65800fa1ab8df749f32f617bb329669eb0e2348"
+  },
+  {
+   "bytes": 37716,
+   "lineas": 944,
+   "ruta": "tools/round.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "b4747500e61180eb94a2fad13854b5cd7550af40f9564192c1cc9494919ebcf1"
+  },
+  {
+   "bytes": 30079,
+   "lineas": 677,
+   "ruta": "tools/routeaudit.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "65c205d7dc19f263f494afd3c28fdbe909da5278aadd6db8a10b7d835eaebf8e"
+  },
+  {
+   "bytes": 35368,
+   "lineas": 1031,
+   "ruta": "tools/rx550pm4val.c",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "284b7bffbe2d5c6549179041281f02284cec7fc3d7b13db5b8e84270d571b5e9"
+  },
+  {
+   "bytes": 37629,
+   "lineas": 1281,
+   "ruta": "tools/rx550ref.c",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "35ebc831db2cb4f12e2fbf907f9619669f723a0f9857e5f9f2e606ce4b4e7086"
+  },
+  {
+   "bytes": 117128,
+   "lineas": 2411,
+   "ruta": "tools/rxre.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "f2d9329a9625d9ab961b3e5e52717f5e4a636acc3413e18fc910c56e8344a5ef"
+  },
+  {
+   "bytes": 62285,
+   "lineas": 1327,
+   "ruta": "tools/sello_prov.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "d66ab6937f79041415122fdfca6c5c4706037d624c14fe7b0f36b3e4e964b98c"
+  },
+  {
+   "bytes": 112367,
+   "lineas": 2419,
+   "ruta": "tools/smc_copy_scope.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "032a0d1c93a4a574791daa56eb47900df96639b60c3b382078c7fbc07f48e246"
+  },
+  {
+   "bytes": 63817,
+   "lineas": 1451,
+   "ruta": "tools/smc_layout.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "4780b325cc1e511b00ade4a3d8c894de644ebe8a929f28dd695ab861699df4c6"
+  },
+  {
+   "bytes": 43414,
+   "lineas": 1046,
+   "ruta": "tools/snapshot.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "37d70894a17592d10cb8753308da8a867b7e776df04cda11758bd20864736829"
+  },
+  {
+   "bytes": 71777,
+   "lineas": 1695,
+   "ruta": "tools/struct_layout.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "7a31e230d11366317201d6ac987201723740809fd925a3014f66dfaf0a3bcf78"
+  },
+  {
+   "bytes": 13816,
+   "lineas": 344,
+   "ruta": "tools/sysaccess.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "a2b022cfa26c19c03cdaafa2f00a8dc9d97285441c08a8a32eaae3309796e347"
+  },
+  {
+   "bytes": 13706,
+   "lineas": 351,
+   "ruta": "tools/toolcheck.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "05182e59afd8f486c3920ecc27c2c9fac98809a08e92c89761da618e94f750c7"
+  },
+  {
+   "bytes": 55585,
+   "lineas": 1208,
+   "ruta": "tools/toolreg.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "1630c24969c3e4bbad611bcf6bdfab95a2441f2c156e69d2aa694c3ab70e1ec4"
+  },
+  {
+   "bytes": 42191,
+   "lineas": 920,
+   "ruta": "tools/trace_path.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "4a5ea2d649191b72375802705572bfe2050754161341766835e455d325b25c56"
+  },
+  {
+   "bytes": 15272,
+   "lineas": 372,
+   "ruta": "tools/treescope.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "e62e0f366e79b142fe9b43ec909dfb35097d10d9712d216dd1222717b5c4ac3f"
+  },
+  {
+   "bytes": 32144,
+   "lineas": 831,
+   "ruta": "tools/uninit_copy.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "60ae8d7a5fe666bd285606ee0f319524938d7b374edbf6e405029aa27eecb816"
+  },
+  {
+   "bytes": 39445,
+   "lineas": 917,
+   "ruta": "tools/unreach.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "5a30c537b0731cc143ce8785328005f2d0a19d654612f5c9b6c7a81c1fcfeb42"
+  },
+  {
+   "bytes": 12371,
+   "lineas": 302,
+   "ruta": "tools/validate_rx550_final.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "2d7c4c9c8e3e03879f0a5a4c17ab31b618c019781c9cb459d5d38a8d88c435c3"
+  },
+  {
+   "bytes": 49875,
+   "lineas": 1052,
+   "ruta": "tools/verif.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "bd6613528246766435fd90489eeab1e533b90f56f7f6bc1c002d0902a7494edd"
+  },
+  {
+   "bytes": 36707,
+   "lineas": 879,
+   "ruta": "tools/vmid_map.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "db23071635a8ace8c0a8aebe699e4ac8ac537075b5bc74729fbb6d14c2b5be16"
+  },
+  {
+   "bytes": 19647,
+   "lineas": 491,
+   "ruta": "tools/vocabpm4.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "d325f5b2a951cad558e45242cdb3833c9b370f3f9666e6f13f0a64a4bfb26f72"
+  },
+  {
+   "bytes": 30960,
+   "lineas": 693,
+   "ruta": "tools/which_hw.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "355e3da03b0db19ba5ef2a789ce37a740f33795bec7341d12fc31b4b31557055"
+  },
+  {
+   "bytes": 25569,
+   "lineas": 586,
+   "ruta": "tools/xref.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "4205fbc42e9e2abfb245a93867bb91729583c8ebbeabc27c4137c63a021415f8"
+  },
+  {
+   "bytes": 7661,
+   "lineas": 167,
+   "ruta": "08-ARQUITECTURA/tools/_selftest_help_no_alloc.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "11d2c173cdbbc24bc3754c7f7fe9c3c8f9b5a3cf01b33f8f0949f1404dd2a035"
+  },
+  {
+   "bytes": 7345,
+   "lineas": 194,
+   "ruta": "08-ARQUITECTURA/tools/_selftest_num_collision.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "73c901994662b895366d488aa21e68a464a7cb362ab0d17aaf027a663478edf9"
+  },
+  {
+   "bytes": 20293,
+   "lineas": 505,
+   "ruta": "08-ARQUITECTURA/tools/_selftest_runtime_obs.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "64723084d61794b518117dcc35d645a0055a9d30504557fb739d8cfad75ec356"
+  },
+  {
+   "bytes": 30804,
+   "lineas": 639,
+   "ruta": "08-ARQUITECTURA/tools/_selftest_stale_gap.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "113ab5d23e21658c7b8ec46a628b9651f6403cd1f5d9666b9ca1cb3fc76f7b8c"
+  },
+  {
+   "bytes": 16534,
+   "lineas": 394,
+   "ruta": "08-ARQUITECTURA/tools/ambig_citas.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "0f53dd595acb241fbe52846b0baa80fd4adfc691078700e4358ee3f391c7c185"
+  },
+  {
+   "bytes": 8920,
+   "lineas": 194,
+   "ruta": "08-ARQUITECTURA/tools/amdinfo.c",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "90a06270c9502b3133c2b655826efe836c3cc7baf45675b1a309c36586f63f5e"
+  },
+  {
+   "bytes": 14583,
+   "lineas": 320,
+   "ruta": "08-ARQUITECTURA/tools/amdioread.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "29ea6177a4e12dac812fe95aaf6494c6a924307e292fd327c206d8cb273947a5"
+  },
+  {
+   "bytes": 4715,
+   "lineas": 96,
+   "ruta": "08-ARQUITECTURA/tools/amdmmr.c",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "8c6abcefab6e4f4073e48457d60565ef7644040c1021199510a8d8a9e3ccad4c"
+  },
+  {
+   "bytes": 13139,
+   "lineas": 324,
+   "ruta": "08-ARQUITECTURA/tools/aperture.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "e2b6f18d17b9429976a252db9d7818fe9c4f2920ccccf2106ffd9d86817cd998"
+  },
+  {
+   "bytes": 12095,
+   "lineas": 340,
+   "ruta": "08-ARQUITECTURA/tools/asic_table.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "4e7ad0fadb643253fcb927a6a74dd760731ff621b58c20d7bcfef90b9e8dd605"
+  },
+  {
+   "bytes": 81556,
+   "lineas": 1621,
+   "ruta": "08-ARQUITECTURA/tools/bench.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "4fb5b397f9eb9a39b281716851b63b6f98324cc18e6f07e8dda77ab9dc32a97b"
+  },
+  {
+   "bytes": 12494,
+   "lineas": 332,
+   "ruta": "08-ARQUITECTURA/tools/binfacts.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "ebc70a447124778b771119cae2cafc9e7cc71ebcc8232e9e135bcd97f86b1343"
+  },
+  {
+   "bytes": 17243,
+   "lineas": 408,
+   "ruta": "08-ARQUITECTURA/tools/causal.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "75f9292858a584f58cc818904a1a7365faca85ed5db451c4f9a9ade95db55c3a"
+  },
+  {
+   "bytes": 12124,
+   "lineas": 329,
+   "ruta": "08-ARQUITECTURA/tools/causal_chain.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "bf5fd75d7de1a9b2e7a6ecd61539e1ceb8aa59d20e58a5c15f81ce6f01d023bc"
+  },
+  {
+   "bytes": 20697,
+   "lineas": 465,
+   "ruta": "08-ARQUITECTURA/tools/causal_map.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "28ef84926ece22b4284d88eb2f4548b4abe6b1a301c7000ec2f1ea3cb8f2c05c"
+  },
+  {
+   "bytes": 21783,
+   "lineas": 470,
+   "ruta": "08-ARQUITECTURA/tools/check_chain.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "506bf4fa6a87405c000cabf713010dc48d0f8e75a0eb63c526e3bcb4b61d120d"
+  },
+  {
+   "bytes": 20687,
+   "lineas": 466,
+   "ruta": "08-ARQUITECTURA/tools/cite_registry.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "75ec278754d9f22aafceef7490303dd74c43441a3c5bdf424347ce3d3410961b"
+  },
+  {
+   "bytes": 24602,
+   "lineas": 579,
+   "ruta": "08-ARQUITECTURA/tools/citecheck.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "2d196491b528bd6a50b295061701099f042626eab52258387d267cc7b73c7581"
+  },
+  {
+   "bytes": 7531,
+   "lineas": 194,
+   "ruta": "08-ARQUITECTURA/tools/commitmsg_lint.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "6ea22ec75d352ab03608d21c35b6ebb22b47b23c349c97714351a7fe4d922034"
+  },
+  {
+   "bytes": 29996,
+   "lineas": 640,
+   "ruta": "08-ARQUITECTURA/tools/contract_exec.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "f6cf05a2a30f698c35d1cd24e60ea4dcfd130ae6d7d712724378870286658382"
+  },
+  {
+   "bytes": 12134,
+   "lineas": 255,
+   "ruta": "08-ARQUITECTURA/tools/contract_filter.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "a6db25d3eb3d25808c195c8b8e4c474ad1bdee45eb112622ffc1c068a26afc0b"
+  },
+  {
+   "bytes": 16930,
+   "lineas": 401,
+   "ruta": "08-ARQUITECTURA/tools/contradict.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "6d31aa3206c2a2b56c169144e7c2ffe3bd58f9439846ae53485219a8387b7c96"
+  },
+  {
+   "bytes": 18565,
+   "lineas": 465,
+   "ruta": "08-ARQUITECTURA/tools/corpus_gap.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "b07557fe531c5ffa679311955b5f3612b0d665994957f7bd084b3c938aaff60a"
+  },
+  {
+   "bytes": 10194,
+   "lineas": 280,
+   "ruta": "08-ARQUITECTURA/tools/corpus_guard.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "115834333f1f8526ad97c85a7c015d414ff0ac9b32084cfda4d84ba2b07e3b36"
+  },
+  {
+   "bytes": 2758,
+   "lineas": 75,
+   "ruta": "08-ARQUITECTURA/tools/count_vmflush_dw.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "d3d981ecf764353abb16c51604fd7a59ac569552dee4c6533677f9f18eb1ff53"
+  },
+  {
+   "bytes": 20164,
+   "lineas": 468,
+   "ruta": "08-ARQUITECTURA/tools/doclint.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "b53ddfd5a610d2cefe5bbcff504dce26c6de2e70ae992e2138ccd2d00f6217f9"
+  },
+  {
+   "bytes": 20781,
+   "lineas": 497,
+   "ruta": "08-ARQUITECTURA/tools/driver_offsets.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "8ad9bd373b7c0d60f96befb3e0db3f11034bdae8b84c19a03de03682eab2d139"
+  },
+  {
+   "bytes": 22771,
+   "lineas": 518,
+   "ruta": "08-ARQUITECTURA/tools/emisor.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "de181dc7386595412edfbc99a4bcf26af87c82bfaa82d4d7f48338a979c97ca3"
+  },
+  {
+   "bytes": 5875,
+   "lineas": 153,
+   "ruta": "08-ARQUITECTURA/tools/exit_contract.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "532477488d45c03d255bae5d058b466d68938ab271e6a2043cb86af67d894634"
+  },
+  {
+   "bytes": 43469,
+   "lineas": 922,
+   "ruta": "08-ARQUITECTURA/tools/findings_index.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "fb2fe26eb37006344e09f35fd628cd4dc2b5a0a7e0a8bd2ae61ef6cbd53e5807"
+  },
+  {
+   "bytes": 31707,
+   "lineas": 721,
+   "ruta": "08-ARQUITECTURA/tools/findnum.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "0c416caa689f0790365a265419aa1a02ec60a1c2b13ae32cca99ea9d3f261d35"
+  },
+  {
+   "bytes": 13296,
+   "lineas": 339,
+   "ruta": "08-ARQUITECTURA/tools/fingerprint.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "5057d6df1f2b4422603fdafbf667a61fb909b899614ae183dc2280b5222b1ff0"
+  },
+  {
+   "bytes": 5615,
+   "lineas": 137,
+   "ruta": "08-ARQUITECTURA/tools/frame_budget.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "7fcd489b70e877ee0c5ac42e56c29bb7c556c512e695a4c506b21de41a001557"
+  },
+  {
+   "bytes": 20773,
+   "lineas": 479,
+   "ruta": "08-ARQUITECTURA/tools/fronteras.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "905447fee7bdded1c1790f7960c36ecb1d052ed00512a6b1edbd086a08ffbef8"
+  },
+  {
+   "bytes": 10726,
+   "lineas": 293,
+   "ruta": "08-ARQUITECTURA/tools/fw_ipver.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "d3d8acc5d0c27afacf05a6ff5a90ed2c67340ac9fc2094e25cf69ccd08fcb1fe"
+  },
+  {
+   "bytes": 17998,
+   "lineas": 400,
+   "ruta": "08-ARQUITECTURA/tools/gfx8_opcode.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "1b1b59838400fb378085931ea804062d160174aab005a99a4c5a0b10afae5694"
+  },
+  {
+   "bytes": 14226,
+   "lineas": 342,
+   "ruta": "08-ARQUITECTURA/tools/gmmio_inventory.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "191d9461f8c9a2d1079423f1167643867d2cb75a59f235c419023de6a8e438e5"
+  },
+  {
+   "bytes": 9979,
+   "lineas": 242,
+   "ruta": "08-ARQUITECTURA/tools/h1_stale.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "bc460762e6b785df654c01b35e14714fce3cc379062ea8ac3beb196640cbf6cd"
+  },
+  {
+   "bytes": 13956,
+   "lineas": 340,
+   "ruta": "08-ARQUITECTURA/tools/hdrmap.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "f7016fe9fb9e7fe21ffbee9e8a433858bcf33f6ef049e9783e51b1c2daf187ef"
+  },
+  {
+   "bytes": 12667,
+   "lineas": 258,
+   "ruta": "08-ARQUITECTURA/tools/huella.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "5f6e3dfa3ea8e15b13fde8ba6a374caf3e34a9b344e55a9be5c021f4acce4041"
+  },
+  {
+   "bytes": 8230,
+   "lineas": 226,
+   "ruta": "08-ARQUITECTURA/tools/include_closure.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "5195407a7181af9f2b7e7a2ea99518b57333383e52d9563155516803c0fa38c6"
+  },
+  {
+   "bytes": 50170,
+   "lineas": 1077,
+   "ruta": "08-ARQUITECTURA/tools/inst_closure.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "93f115b90c5bb405f782c96f46659fdb67cb0b480729e63958110b2f720c28bd"
+  },
+  {
+   "bytes": 15407,
+   "lineas": 400,
+   "ruta": "08-ARQUITECTURA/tools/ip_surface.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "e05854f9a5d9cc10204b39910889ccf981cd7d197ec80203760e49b17c54171c"
+  },
+  {
+   "bytes": 11742,
+   "lineas": 293,
+   "ruta": "08-ARQUITECTURA/tools/ipver_zero.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "a6a3eaf0535ded8f3b1227245d8ca7847ad0e9168972124ecf9ef204c56dba3e"
+  },
+  {
+   "bytes": 17481,
+   "lineas": 452,
+   "ruta": "08-ARQUITECTURA/tools/ko_immediate.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "5325f5aa8582fd2e2024685902446ec5e0f9db1986f09c30a5732838646ff32b"
+  },
+  {
+   "bytes": 15154,
+   "lineas": 373,
+   "ruta": "08-ARQUITECTURA/tools/mmio_map.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "18e857142a9a5780738ac07d3455eed66063049e7239b70d2ece3eae39c877c8"
+  },
+  {
+   "bytes": 34521,
+   "lineas": 787,
+   "ruta": "08-ARQUITECTURA/tools/mqd_layout.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "6937aa5554f028f0a2531fa2532d32777cdceb7b3289d7af4c03ed0656ab310b"
+  },
+  {
+   "bytes": 13354,
+   "lineas": 306,
+   "ruta": "08-ARQUITECTURA/tools/next_work.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "afe8946505a100cd1abc3d544933f9620714665e1c1f9569b6dd609424269f17"
+  },
+  {
+   "bytes": 9279,
+   "lineas": 254,
+   "ruta": "08-ARQUITECTURA/tools/num_collision.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "e10e8d7cd6347089d9b013236b7b342d1aa5edd0099536d5173d6dc375a1ab3e"
+  },
+  {
+   "bytes": 14456,
+   "lineas": 272,
+   "ruta": "08-ARQUITECTURA/tools/pcie_bandwidth.c",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "d3b12847123187a87853a88dab0c7fa5fc8bdfb4434d7f9ec2bcf3e382f4f676"
+  },
+  {
+   "bytes": 15996,
+   "lineas": 429,
+   "ruta": "08-ARQUITECTURA/tools/pm4_codec.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "d158f2f0d4a7d7adead00de06e07b9213e9b276984edf96bf08ee945344d663e"
+  },
+  {
+   "bytes": 6822,
+   "lineas": 159,
+   "ruta": "08-ARQUITECTURA/tools/pm4_count_census.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "ad1f43a9d767468deae4cadabc9adbae7f19272a04006931eca5dd6010d983a9"
+  },
+  {
+   "bytes": 40938,
+   "lineas": 1118,
+   "ruta": "08-ARQUITECTURA/tools/pm4_emit.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "89ca128f5a975e7861a7749d83504b7856e96ad6bfd78735b0d073c6a029e035"
+  },
+  {
+   "bytes": 6610,
+   "lineas": 177,
+   "ruta": "08-ARQUITECTURA/tools/pm4_layout_audit.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "c588440731a0d5ec43d43e95e61b72849562dde86e9937e9739e53ff80190b33"
+  },
+  {
+   "bytes": 23274,
+   "lineas": 525,
+   "ruta": "08-ARQUITECTURA/tools/pm4_reachable.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "4a154381331ea790672dc3c64fd99b5bb499ec9a8827e1b372165480cd9ee404"
+  },
+  {
+   "bytes": 4462,
+   "lineas": 104,
+   "ruta": "08-ARQUITECTURA/tools/recovery_preflight.sh",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "c155561f5441a0c9171bd19744648f2eadb97a5c59666eaf2d39734b296dbc9a"
+  },
+  {
+   "bytes": 64505,
+   "lineas": 1287,
+   "ruta": "08-ARQUITECTURA/tools/reenvio_freeze.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "f2de8f21efc972877dbd377256c8959d4d3bf2a434b28907f375a5202a35caf1"
+  },
+  {
+   "bytes": 45921,
+   "lineas": 893,
+   "ruta": "08-ARQUITECTURA/tools/reenvio_gate.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "a4bab464ee5c1c13cbcb10205f8fe20892a5deed7d7bee7250807c188e84d22b"
+  },
+  {
+   "bytes": 27659,
+   "lineas": 558,
+   "ruta": "08-ARQUITECTURA/tools/refs_repair.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "1d996978b2b935cbabde9b3d486de0d521949dc3cfe6faa33c187187f5e7af40"
+  },
+  {
+   "bytes": 18203,
+   "lineas": 442,
+   "ruta": "08-ARQUITECTURA/tools/regdb.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "93dd5c536a1ee141e1ee2e22feeb231b0cb699d157d7f86a03d0f23755c39391"
+  },
+  {
+   "bytes": 37232,
+   "lineas": 690,
+   "ruta": "08-ARQUITECTURA/tools/run_all.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "68ae766c648d767432a4d55704cbf2c3df772b74f87fb8d036503e354fc3da68"
+  },
+  {
+   "bytes": 17258,
+   "lineas": 431,
+   "ruta": "08-ARQUITECTURA/tools/runtime_obs.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "c002e8024e67d996c2dc5466e802c1c70bc40a64091663360e398b7996f73dfe"
+  },
+  {
+   "bytes": 13301,
+   "lineas": 372,
+   "ruta": "08-ARQUITECTURA/tools/scopeguard.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "064a5d5ec0b184c9d5da88b9cc42f305864c55d0376a9e76a1ea9b08c2aa4878"
+  },
+  {
+   "bytes": 15450,
+   "lineas": 380,
+   "ruta": "08-ARQUITECTURA/tools/smumsg.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "f7491e50338e078f7ee81fbc4c7c65ec511640babdd5c5d16787fad77fb77923"
+  },
+  {
+   "bytes": 53805,
+   "lineas": 1226,
+   "ruta": "08-ARQUITECTURA/tools/stale_gap.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "cc4067b426c8eb3577bb801a38f3f02bfefac3a23a86e9adab520b29f59c53d0"
+  },
+  {
+   "bytes": 7244,
+   "lineas": 182,
+   "ruta": "08-ARQUITECTURA/tools/struct_rw.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "f18b3f22ebdd16c158d0d75c8a5f66c8e3a8a33c875277646d035b0270c07cfa"
+  },
+  {
+   "bytes": 35996,
+   "lineas": 780,
+   "ruta": "08-ARQUITECTURA/tools/toalaudit.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "1b7e4ce35fbbd9a5a2ec0c88daa7a710d7f05369443ce4299432a00747750134"
+  },
+  {
+   "bytes": 42450,
+   "lineas": 915,
+   "ruta": "08-ARQUITECTURA/tools/toolaudit.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "9f3b6a73aa35e7797d2ea2a080ea58b177487cba95ab7253501c23c58a8616b6"
+  },
+  {
+   "bytes": 40492,
+   "lineas": 885,
+   "ruta": "08-ARQUITECTURA/tools/toolkit.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "be7c579b6d41bdb13f56fc1063417802f6d9aaeb989cd64d2590bc1ab89eb4fd"
+  },
+  {
+   "bytes": 6654,
+   "lineas": 175,
+   "ruta": "08-ARQUITECTURA/tools/toolkit_cross.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "0f45db8eb33b50a9a7af7f4e6505479e22c46b5083804e026915b58e77a33b00"
+  },
+  {
+   "bytes": 5047,
+   "lineas": 115,
+   "ruta": "08-ARQUITECTURA/tools/unversioned_drift.sh",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "d4be00d68f6bb2da1c55762827cddf21c718ae057b1c6a21c0297b33a9fc660e"
+  },
+  {
+   "bytes": 21232,
+   "lineas": 477,
+   "ruta": "08-ARQUITECTURA/tools/vbiosread.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "9b030fc46cdc49cc0fef84a217c705fb05eff60c12ba87e2a3c6cdd500f884be"
+  },
+  {
+   "bytes": 68802,
+   "lineas": 1142,
+   "ruta": "08-ARQUITECTURA/tools/vulkan_compute_probe.c",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "7e7037cadea20251652a542ab03069faf8fe95b85d2038594b94de114b790b2a"
+  },
+  {
+   "bytes": 22315,
+   "lineas": 490,
+   "ruta": "08-ARQUITECTURA/tools/xref.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "90bb073df932d9baecb463fbc9651b9ac2d79db8728628cd9b83c2001d16f37d"
+  },
+  {
+   "bytes": 99976,
+   "lineas": 2200,
+   "ruta": "revkit/atomrom.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "97e718d5aa4624a82deb2f82b131d00591721621915cc7b8db68e06d96e83fed"
+  },
+  {
+   "bytes": 10837,
+   "lineas": 250,
+   "ruta": "revkit/bootcheck.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "7e97b90ca7a0a5ed1216f648909d1480c4e46820601211a1eb552ba7a765b7c0"
+  },
+  {
+   "bytes": 18306,
+   "lineas": 444,
+   "ruta": "revkit/btfsnap.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "c740eeb2906bed96a53b815758b45b6f17af81cff765a0ab288cc4f637b34965"
+  },
+  {
+   "bytes": 12247,
+   "lineas": 312,
+   "ruta": "revkit/captura.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "728db65b67ad911275d9103e29684e1eb282bbd75eb40ca94f1a81cc972aa50a"
+  },
+  {
+   "bytes": 10523,
+   "lineas": 294,
+   "ruta": "revkit/causa.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "673428deb9ebba75e3cb4f375ed53929093bb11045a75f1f1f56a25d00e74708"
+  },
+  {
+   "bytes": 31016,
+   "lineas": 621,
+   "ruta": "revkit/check.sh",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "27a98a818d040b2ed093a0f8f9d69672c6f82ba11e406bf4e269270927ab4017"
+  },
+  {
+   "bytes": 18841,
+   "lineas": 473,
+   "ruta": "revkit/cidx.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "4c8a050ab2321d1e21a0562ef92a54b72994742edf8ff6b2c1d095c7826e4f52"
+  },
+  {
+   "bytes": 54295,
+   "lineas": 1024,
+   "ruta": "revkit/cn7.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "e1ec5697173a373071ed8782c29b72fc79cf238b69277d3a8a99291f267a5913"
+  },
+  {
+   "bytes": 28763,
+   "lineas": 591,
+   "ruta": "revkit/cn8.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "5112da78600f408100d91a1b47f3c584059333081c14594c9ea96b37fd39a71a"
+  },
+  {
+   "bytes": 7078,
+   "lineas": 184,
+   "ruta": "revkit/correlate.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "12d211edd56e17307b633f2f67b2bdb0a5db57f39b86e582e14eaa373583a14b"
+  },
+  {
+   "bytes": 17763,
+   "lineas": 383,
+   "ruta": "revkit/dires.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "87f3e2f1a000267f4856ac243e21d46e6f6b7cf9f86c0d869d2286e12ccd0e3b"
+  },
+  {
+   "bytes": 29089,
+   "lineas": 721,
+   "ruta": "revkit/emitref.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "906dd20a2ae0c8a1e8b9d9be755a5b7c15e34da3cc4f741375775acaded9ea20"
+  },
+  {
+   "bytes": 7293,
+   "lineas": 194,
+   "ruta": "revkit/estado.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "90fdc43fcd66288f01b2eaee47753e3cf1e2db62588dc82c758d2ac882c29db8"
+  },
+  {
+   "bytes": 20010,
+   "lineas": 444,
+   "ruta": "revkit/gchwip_alcance.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "2530551ff03df8b6db9ad1ca3970ef28d698a6b1cc1bde7e1c3b17c51f4fd5fb"
+  },
+  {
+   "bytes": 27085,
+   "lineas": 582,
+   "ruta": "revkit/gfx8blocks.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "f10ba91ecc40f6ed96c3f5bc1702eba8028647f3d3efc64118a56d88fb893439"
+  },
+  {
+   "bytes": 17163,
+   "lineas": 388,
+   "ruta": "revkit/gputel.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "0bfbbdc50d79e8fab6bcdd93396a49719b5f777ae4a16eaf129ed50d7c1104d4"
+  },
+  {
+   "bytes": 12789,
+   "lineas": 294,
+   "ruta": "revkit/huerfanos.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "385975dc568b4646f02dced989577fcc6845fcc76d4cedf53ac90def1d49e2fe"
+  },
+  {
+   "bytes": 11037,
+   "lineas": 281,
+   "ruta": "revkit/ibpools.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "49413b6e5db7b275a92bae2638a03d2fca8a991108150d623cf77e98ed2b78de"
+  },
+  {
+   "bytes": 23468,
+   "lineas": 567,
+   "ruta": "revkit/ibtrace.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "218a43cb90098326656e74cba862e8f7f4765f44dedff86e6aa1dd0b7531086f"
+  },
+  {
+   "bytes": 23342,
+   "lineas": 548,
+   "ruta": "revkit/integro.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "639f64a07d08ae1272ad28a9cae2771fd94083ef6cc14d0901524a5fe0b89ffc"
+  },
+  {
+   "bytes": 6678,
+   "lineas": 184,
+   "ruta": "revkit/klog.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "b5a21c5bd27592c25169203af3d61719ed1b0d544c5a255649b6a2ba7cf16eb9"
+  },
+  {
+   "bytes": 11585,
+   "lineas": 302,
+   "ruta": "revkit/mmo.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "c18560f289e930314270fc6a43789a05c8ed1016c35322958cfe7f182b19d802"
+  },
+  {
+   "bytes": 8324,
+   "lineas": 228,
+   "ruta": "revkit/obs.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "348c668d92dda5fe7223227936dc71337ec75eb6d9979e2605c5e46d02bfd285"
+  },
+  {
+   "bytes": 55047,
+   "lineas": 1187,
+   "ruta": "revkit/pm4dec.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "87354fa73ab2f0d30ca187a32f1ed7e732beb8f29c434caa946672cbcd91f001"
+  },
+  {
+   "bytes": 10819,
+   "lineas": 261,
+   "ruta": "revkit/pte.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "563df59d52658b6212a7beb402d0d04b796393f4b97176dd2624e867841076c3"
+  },
+  {
+   "bytes": 7889,
+   "lineas": 212,
+   "ruta": "revkit/pub.sh",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "b7ffb8b3b21e8c2bbc0e19f8f72de5a05ee774af04dad5cc1e54b6339bc8bfff"
+  },
+  {
+   "bytes": 8583,
+   "lineas": 203,
+   "ruta": "revkit/pub_selftest.sh",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "68fcebed3b5e30f5f1efede0428f1e1705986ac5ccc62c2806b61f278029f4a7"
+  },
+  {
+   "bytes": 20410,
+   "lineas": 479,
+   "ruta": "revkit/regs.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "1903c3da3b154838e2e53e20dfa9673784279e2eb0e92db38e2ad3341e8a3bcc"
+  },
+  {
+   "bytes": 11510,
+   "lineas": 300,
+   "ruta": "revkit/scan.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "2648716103f99e783fd6e7bb5f5cf6e358ccaca50e3592ba01c7ade1de8d71e0"
+  },
+  {
+   "bytes": 29066,
+   "lineas": 682,
+   "ruta": "revkit/selfcheck.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "a049d2a57796e46d3e3281ab6f294c52eb4c880ae20692faaab6a5fb2bf13c6c"
+  },
+  {
+   "bytes": 43292,
+   "lineas": 992,
+   "ruta": "revkit/sello.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "722c6ffcbe89f111cf5bdc1e71581561845df170aee8548e331ca40fadceceeb"
+  },
+  {
+   "bytes": 12540,
+   "lineas": 297,
+   "ruta": "revkit/vclaims.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "32edc96e8aeff8497adac310a94287e2e5e149e742f9e948536c45b38df1c25c"
+  },
+  {
+   "bytes": 12251,
+   "lineas": 328,
+   "ruta": "revkit/verdiff.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "f41335ce3d57fb2cae8e98de94d175cfc9e07cad33cb8c8949ce0fb9c121a27b"
+  }
+ ],
+ "instrumentos": 204,
+ "sha256_de_la_linea_base": "864334d6a30cdc4783f38fe7431cbcc50c60325a2b27d66b70823b9ec051cb59",
+ "tool": "huella",
+ "version": "1.0.0"
+}

@@ -1254,14 +1254,64 @@ REGLAS = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# 7a. LOS DOS VOCABULARIOS, Y POR QUE HACE FALTA CERRARLOS
+#
+# MEDIDO por mutacion:  dos validadores comparaban con `==` contra una palabra
+# suelta, y por eso se esquivaban cambiando la palabra.  `fuente="static"` en
+# vez de `"estatico"`, u `origen="ghidra"` en vez de `"decompilador"`, pasaban
+# los dos.
+#
+#     una puerta que se abre con una tilde no es una puerta
+#
+# La diferencia con un simple `in` es que el conjunto se DECLARA aqui y se
+# comprueba:  una palabra que no este en el vocabulario NO se trata como
+# "seguro por defecto", sino como "no reconocida", que es un estado distinto.
+# ---------------------------------------------------------------------------
+ORIGEN_ESTATICO = ("estatico", "static", "source", "fuente", "codigo",
+                   "source-code", "lectura-de-fichero")
+ORIGEN_REPRESENTACION = ("descompilador", "decompilador", "ghidra", "radare2",
+                         "r2", "cutter", "pycdc", "llvm-objdump", "objdump",
+                         "binja", "retdec", "ida", "representacion", "disassembly")
+
+# Y el TERCER vocabulario, que se me quedo abierto en el mismo commit en que
+# cerre los otros dos.  MEDIDO:  la regla comparaba `afirmacion == "PROVEN"`, y
+# la mutacion de prueba usaba "CORROBORADO" — el mismo concepto en castellano.
+# Con las dos escrituras, la mutacion pasaba.  Es el mismo defecto de antes,
+# aplicado a la palabra que acababa de decidir cerrar:
+#
+#     cerrar dos vocabularios y dejar el tercero abierto no es cerrar
+AFIRMACION_FUERTE = ("proven", "corroborated", "corroborado", "proven_derived",
+                     "proven-derivado")
+ESTADO_DISPONIBLE = ("disponible", "validado", "verificado", "probada_ok",
+                     "probada-ok")
+
+
+def _es_estatico(fuente):
+    return str(fuente).strip().lower() in ORIGEN_ESTATICO
+
+
+def _es_representacion(origen):
+    return str(origen).strip().lower() in ORIGEN_REPRESENTACION
+
+
 def valida(regla, hecho):
     """(veredicto, motivo). `hecho` es un dict con lo que se sabe."""
     r = regla
     if r == "AUSENCIA_NO_ES_INEXISTENCIA":
         if "busqueda" not in hecho:
             return ("NO_APLICA", "no se dice que se busco")
-        if hecho.get("resultado") == "NOT_FOUND" and hecho.get("veredicto") == "PROVEN_ABSENT":
-            return ("FALLA", "se declara PROVEN_ABSENT tras NO FIND")
+        if hecho.get("resultado") == "NOT_FOUND" and \
+                hecho.get("veredicto") == "PROVEN_ABSENT":
+            return ("FALLA", "se declara PROVEN_ABSENT tras NOT_FOUND")
+        # MEDIDO por mutacion:  omitir el veredicto y declarar solo NOT_FOUND
+        # daba PASA.  Es la misma confusion —la ausencia convertida en
+        # inexistencia por omision— y por ser silenciosa no era menos grave.
+        # La regla ahora exige que, si se busco y no se encontro, se DIGA que
+        # no se ha determinado.
+        if hecho.get("resultado") == "NOT_FOUND" and "veredicto" not in hecho:
+            return ("FALLA", "NOT_FOUND sin veredicto: la ausencia queda "
+                             "declarada por omision")
         return ("PASA", "no se confunde la ausencia con la inexistencia")
     if r == "VERDE_NO_ES_CORRECTO":
         if "rc" not in hecho or "validado" not in hecho:
@@ -1272,40 +1322,64 @@ def valida(regla, hecho):
     if r == "SOFTWARE_NO_ES_HARDWARE":
         if "fuente" not in hecho:
             return ("NO_APLICA", "no se dice de donde salio")
-        if hecho["fuente"] == "estatico" and hecho.get("afirmacion") == "OBSERVED":
+        if _es_estatico(hecho["fuente"]) and hecho.get("afirmacion") == \
+                "OBSERVED":
             return ("FALLA", "estatico declarado como OBSERVED del hardware")
         return ("PASA", "la procedencia se respeta")
     if r == "COMPILAR_NO_ES_EJECUTAR":
         if "compila" not in hecho or "reejecuta" not in hecho:
             return ("NO_APLICA", "falta uno de los dos datos")
-        if hecho["compila"] and not hecho["reejecuta"] and \
-                hecho.get("afirmacion") == "CORRECTO":
-            return ("FALLA", "compila y se declara correcto sin reejecutar")
+        if hecho["compila"] and hecho.get("afirmacion") == "CORRECTO" and (
+                not hecho["reejecuta"] or
+                hecho.get("reejecuta_igual") is False):
+            return ("FALLA", "compila y se declara correcto sin reejecutar, "
+                             "o reejecutando y obteniendo otra cosa")
         return ("PASA", "")
     if r == "REPRESENTACION_NO_ES_FUENTE":
         if "origen" not in hecho:
             return ("NO_APLICA", "")
-        if hecho["origen"] in ("descompilador", "decompilador") and \
-                hecho.get("estado") == "PROVEN":
-            return ("FALLA", "una representacion decompilada no es PROVEN")
+        if _es_representacion(hecho["origen"]) and \
+                str(hecho.get("estado", "")).strip().lower() in \
+                ("proven", "proven_derived", "proven-derivado"):
+            return ("FALLA", "una representacion (%s) no es PROVEN: es "
+                             "HIPOTESIS hasta validarla"
+                             % hecho["origen"])
         return ("PASA", "")
     if r == "SIN_PROBAR_NO_ES_DISPONIBLE":
         if "estado" not in hecho:
             return ("NO_APLICA", "")
-        if hecho["estado"] == "DISPONIBLE" and hecho.get("verificada") is False:
-            return ("FALLA", "declarada DISPONIBLE sin prueba")
+        # MEDIDO por mutacion:  la regla solo miraba DISPONIBLE.  VALIDADO es
+        # MAS FUERTE que DISPONIBLE, y un instrumento sin probar declarado
+        # VALIDADO se colaba por el lado fuerte de la misma puerta.
+        if str(hecho["estado"]).strip().lower() in ESTADO_DISPONIBLE and \
+                hecho.get("verificada") is False:
+            return ("FALLA", "declarada %s sin prueba" % hecho["estado"])
         return ("PASA", "")
     if r == "NULO_NO_ES_CERO":
         if "valor" not in hecho:
             return ("NO_APLICA", "")
-        if hecho["valor"] == 0 and hecho.get("origen") == "desconocido":
+        # MEDIDO por mutacion:  `valor == 0` es cierto para el TEXTO "0" en
+        # Python, porque "0" == 0 es False pero el caso real aqui es el
+        # inverso —una cadena numerica leida de un fichero— y se colaba como
+        # cero medido.  Un cero medido es un int de un sensor o de un
+        # registro;  una cadena es una suposicion con formato de numero.
+        if hecho.get("origen") == "desconocido" and \
+                str(hecho["valor"]).strip() in ("0", "0.0", "0x0", "00"):
+            return ("FALLA", "un valor desconocido se ha rellenado con cero")
+        if hecho.get("origen") == "desconocido" and isinstance(
+                hecho["valor"], (int, float)) and hecho["valor"] == 0:
             return ("FALLA", "un valor desconocido se ha rellenado con 0")
         return ("PASA", "")
     if r == "COINCIDENCIA_UNICA_NO_ES_INDEPENDIENTE":
         if "caminos" not in hecho:
             return ("NO_APLICA", "")
-        if hecho.get("afirmacion") == "PROVEN" and hecho["caminos"] < 2:
-            return ("FALLA", "una sola coincidencia declarada PROVEN")
+        # MEDIDO por mutacion:  solo miraba PROVEN.  CORROBORATED significa
+        # dos fuentes independientes por definicion, y con un solo camino no
+        # cabe igual que no quepa PROVEN.
+        if str(hecho.get("afirmacion", "")).strip().lower() in \
+                AFIRMACION_FUERTE and hecho["caminos"] < 2:
+            return ("FALLA", "una sola coincidencia declarada %s"
+                             % hecho["afirmacion"])
         return ("PASA", "")
     if r == "DECODIFICADO_NO_ES_VERIFICADO":
         if "decodificado" not in hecho:
@@ -1314,6 +1388,156 @@ def valida(regla, hecho):
             return ("FALLA", "se declara el decodificado sin reensamblado")
         return ("PASA", "")
     return ("NO_APLICA", "regla desconocida: no se inventa su veredicto")
+
+
+# ---------------------------------------------------------------------------
+# 7b. EL VALIDADOR DE LOS VALIDADORES: SI LOS VALIDADORES SABEN FALLAR
+#
+# MEDIDO 2026-10-04.  Cada uno de los nueve validadores de arriba tiene
+# vectores que prueban que PASA cuando la regla se respeta.  Eso es la mitad,
+# y es la mitad facil:  un validador que no dispara nunca da siempre verde y no
+# se distingue de uno que works.
+#
+#     GREEN_TEST != CORRECTNESS,  aplicado a los propios validadores
+#
+# Falta la otra mitad:  dado un HECHO que incumple la regla, ¿el validador lo
+# ve?  Eso se mide con mutacion —  se parte de un hecho que CUMPLE y se le
+# rompe UN campo de los que la regla mira  —  y se cuenta cuantas mutaciones
+# detecta.  Las que NO detecta son FALSOS NEGATIVOS,  y son la medida que no
+# tenia:  no basta con saber cuantos vectores hay.
+#
+# Y aqui esta el limite, escrito antes que el resultado para que el resultado
+# no se lea de mas:  esto mide la deteccion de MUTACIONES DE UN CAMPO.  No mide
+# si un validador sobrevive a un oraculo equivocdo, ni a una regla mal escrita,
+# ni a un dato que miente de forma coherente.  Es UN frente de alarma, y
+# `mutation_sensitivity` no es `correccion`.
+# ---------------------------------------------------------------------------
+# (regla, nombre_de_la_mutacion, hecho_que_CUMPLE, mutacion, por_que_debe_verla)
+MUTACIONES = [
+    ("AUSENCIA_NO_ES_INEXISTENCIA", "PROVEN_ABSENT tras NO_FOUND",
+     {"busqueda": "grep -rn", "resultado": "NOT_FOUND",
+      "veredicto": "NOT_DETERMINED"},
+     {"busqueda": "grep -rn", "resultado": "NOT_FOUND",
+      "veredicto": "PROVEN_ABSENT"},
+     "es exactamente la confusion que la regla prohibe"),
+    ("AUSENCIA_NO_ES_INEXISTENCIA", "PROVEN_ABSENT sin decir el veredicto",
+     {"busqueda": "grep -rn", "resultado": "NOT_FOUND",
+      "veredicto": "NOT_DETERMINED"},
+     {"busqueda": "grep -rn", "resultado": "NOT_FOUND"},
+     "omitir el veredicto y thereby declarar la inexistencia es la MISMA "
+     "confusion, y no por ser silenciosa deja de serlo"),
+    ("VERDE_NO_ES_CORRECTO", "rc=0 como certificacion",
+     {"rc": 0, "validado": True}, {"rc": 0, "validado": False},
+     "el caso que la regla prohibe"),
+    ("VERDE_NO_ES_CORRECTO", "rc=0 con validado ausente",
+     {"rc": 0, "validado": True}, {"rc": 0},
+     "sin la marca de validacion no se sabe si se valido; no puede pasar"),
+    ("SOFTWARE_NO_ES_HARDWARE", "estatico como OBSERVED",
+     {"fuente": "estatico", "afirmacion": "DERIVED"},
+     {"fuente": "estatico", "afirmacion": "OBSERVED"},
+     "el caso que la regla prohibe"),
+    ("SOFTWARE_NO_ES_HARDWARE", "el mismo estatico escrito de otra forma",
+     {"fuente": "estatico", "afirmacion": "DERIVED"},
+     {"fuente": "static", "afirmacion": "OBSERVED"},
+     "una regla que se puede esquivar con una tilde deja de ser puerta"),
+    ("COMPILAR_NO_ES_EJECUTAR", "compila y se declara correcto",
+     {"compila": True, "reejecuta": True},
+     {"compila": True, "reejecuta": False, "afirmacion": "CORRECTO"},
+     "el caso que la regla prohibe"),
+    ("COMPILAR_NO_ES_EJECUTAR", "reejecuta pero NO da lo mismo",
+     {"compila": True, "reejecuta": True},
+     {"compila": True, "reejecuta": True, "reejecuta_igual": False,
+      "afirmacion": "CORRECTO"},
+     "reexecutar y obtener algo distinto NO es haber ejecutado"),
+    ("REPRESENTACION_NO_ES_FUENTE", "decompilador como PROVEN",
+     {"origen": "decompilador", "estado": "DERIVED"},
+     {"origen": "decompilador", "estado": "PROVEN"},
+     "el caso que la regla prohibe"),
+    ("REPRESENTACION_NO_ES_FUENTE", "otra representacion como PROVEN",
+     {"origen": "decompilador", "estado": "DERIVED"},
+     {"origen": "ghidra", "estado": "PROVEN"},
+     "la regla nombra dos palabras y hay seisInstrumentos que producen "
+     "representaciones; con dos no cubre el caso que dice cubrir"),
+    ("SIN_PROBAR_NO_ES_DISPONIBLE", "DISPONIBLE sin probar",
+     {"estado": "DISPONIBLE", "verificada": True},
+     {"estado": "DISPONIBLE", "verificada": False},
+     "el caso que la regla prohibe"),
+    ("SIN_PROBAR_NO_ES_DISPONIBLE", "VALIDADO sin probar",
+     {"estado": "DISPONIBLE", "verificada": True},
+     {"estado": "VALIDADO", "verificada": False},
+     "VALIDADO es MAS FUERTE que DISPONIBLE: si la regla no lo cubre, no "
+     "cubre el caso fuerte"),
+    ("NULO_NO_ES_CERO", "desconocido rellenado con 0",
+     {"valor": 0, "origen": "medido"}, {"valor": 0, "origen": "desconocido"},
+     "el caso que la regla prohibe"),
+    ("NULO_NO_ES_CERO", "el cero de TEXTO cuenta como cero",
+     {"valor": 0, "origen": "medido"}, {"valor": "0", "origen": "desconocido"},
+     "un valor de texto no es un cero medido: es un cero Inventado"),
+    ("COINCIDENCIA_UNICA_NO_ES_INDEPENDIENTE", "un camino como PROVEN",
+     {"caminos": 2, "afirmacion": "PROVEN"},
+     {"caminos": 1, "afirmacion": "PROVEN"},
+     "el caso que la regla prohibe"),
+    ("COINCIDENCIA_UNICA_NO_ES_INDEPENDIENTE", "un camino como CORROBORADO",
+     {"caminos": 2, "afirmacion": "PROVEN"},
+     {"caminos": 1, "afirmacion": "CORROBORADO"},
+     "CORROBORADO significa dos fuentes independientes; con una no cabe"),
+    ("DECODIFICADO_NO_ES_VERIFICADO", "decodificado sin reensamblar",
+     {"decodificado": True, "verificado": True},
+     {"decodificado": True, "verificado": False},
+     "el caso que la regla prohibe"),
+]
+
+
+def mutation_sensitivity():
+    """Que mutaciones detecta cada regla, y cuales se le escapan.
+
+    Devuelve la medida que no existia:  no cuantos vectores hay,  sino cuantos
+    de los fallos que la regla dice prohibir los ve EN REALIDAD.
+    """
+    por_regla = {}
+    for regla, nombre, ok, mal, por_que in MUTACIONES:
+        v_ok = valida(regla, ok)[0]
+        v_mal = valida(regla, mal)[0]
+        fila = por_regla.setdefault(regla, {"deteccion": 0, "total": 0,
+                                            "fugas": [], "control_sano": True})
+        fila["total"] += 1
+        if v_ok != "PASA":
+            fila["control_sano"] = False
+            fila.setdefault("control_roto", []).append((nombre, v_ok))
+        if v_mal == "FALLA":
+            fila["deteccion"] += 1
+        else:
+            # MEDIDO, y la distincion es la que hace que la cifra signifique
+            # algo:  de las ocho fugas, siete salian PASA y una NO_APLICA.
+            # No es lo mismo.
+            #
+            #   FUGA_ENGANOSA  sale PASA.  La regla dice que el hecho es malo y
+            #                   el validador lo aprueba.  Esto es un falso verde.
+            #   FUGA_SIN_JUZGAR sale NO_APLICA.  No aprueba nada, pero tampoco
+            #                   protege:  un hecho que no declara el dato escapa
+            #                   de la regla sin que nadie lo note.
+            #
+            # Juntas en un solo numero, la segunda haria que la primera pareciese
+            # menos grave de lo que es, y la segunda pareciese igual de grave.
+            fila["fugas"].append({
+                "mutacion": nombre, "veredicto": v_mal,
+                "gravedad": "FUGA_ENGANOSA" if v_mal == "PASA"
+                else "FUGA_SIN_JUZGAR",
+                "por_que_deberia": por_que, "hecho": mal})
+    eng = sum(1 for f in por_regla.values() for x in f["fugas"]
+              if x["gravedad"] == "FUGA_ENGANOSA")
+    sinj = sum(1 for f in por_regla.values() for x in f["fugas"]
+               if x["gravedad"] == "FUGA_SIN_JUZGAR")
+    return {"por_regla": por_regla,
+            "deteccion": sum(f["deteccion"] for f in por_regla.values()),
+            "total": sum(f["total"] for f in por_regla.values()),
+            "fugas_enganosas": eng, "fugas_sin_juzgar": sinj,
+            "fugas": eng + sinj,
+            "tasa": "%.0f%%" % (100.0 * sum(
+                f["deteccion"] for f in por_regla.values()) /
+                max(1, sum(f["total"] for f in por_regla.values()))),
+            "controles_rotos": sum(0 if f["control_sano"] else 1
+                                   for f in por_regla.values())}
 
 
 def valida_todo(hechos):
@@ -1900,11 +2124,98 @@ def selftest(_=None):
         "solo de las tres de la interfaz",
         set(TOOLREG_INTERFAZ) <= {"inventory", "run_selftests", "TOOL_DIRS"})
 
+    # --- EL VALIDADOR DE LOS VALIDADORES ---------------------------------
+    # MEDIDO.  Cada validador tenia vectores que probaban que PASA.  Faltaba
+    # la otra mitad:  que se le vea el incumplimiento.  Se midio por mutacion
+    # y salio 9 de 17,  con cero falsos verdes antes de arreglar nada.
+    _ms = mutation_sensitivity()
+    chk("mutacion: TODA regla tiene al menos una mutacion, o no esta medida",
+        set(_ms["por_regla"]) == {r for r, _d in REGLAS} and
+        all(f["total"] >= 1 for f in _ms["por_regla"].values()),
+        sorted(set(_ms["por_regla"]) ^ {r for r, _d in REGLAS}))
+    chk("mutacion: y CADA mutacion tiene su porque, o es decorativa",
+        all(x["por_que_deberia"] for f in _ms["por_regla"].values()
+            for x in f["fugas"]) and
+        all(p for _r, _n, _o, _m, p in MUTACIONES),
+        [x["mutacion"] for f in _ms["por_regla"].values() for x in f["fugas"]])
+    chk("mutacion: los controles sanos Pasan todos, o la medicion no vale",
+        _ms["controles_rotos"] == 0, _ms["controles_rotos"])
+    chk("mutacion: y CADA regla detecta su violacion canonica, sin excepciones",
+        all(f["deteccion"] >= 1 for f in _ms["por_regla"].values()),
+        {k: v["deteccion"] for k, v in _ms["por_regla"].items()
+         if v["deteccion"] < 1})
+    chk("mutacion: CERO falsos verdes: ninguna mutacion sale PASA",
+        _ms["fugas_enganosas"] == 0,
+        [(k, x["mutacion"], x["veredicto"])
+         for k, f in _ms["por_regla"].items() for x in f["fugas"]
+         if x["gravedad"] == "FUGA_ENGANOSA"])
+    # MEDIDO, y esta era la separacion que hacia falta:  de las ocho fugas
+    # iniciales, siete salian PASA y una NO_APLICA.  Juntas en un numero, la
+    # segunda hacia que la primera pareciese menos grave de lo que es.
+    chk("mutacion: una fuga PASA y una fuga NO_APLICA NO son la misma cosa",
+        {x["gravedad"] for f in _ms["por_regla"].values()
+         for x in f["fugas"]} <= {"FUGA_ENGANOSA", "FUGA_SIN_JUZGAR"},
+        sorted({x["gravedad"] for f in _ms["por_regla"].values()
+                for x in f["fugas"]}))
+    chk("mutacion: y lo que queda SIN JUZGAR se declara con su nombre, no se "
+        "cuenta como resuelto",
+        _ms["fugas_sin_juzgar"] == 1 and
+        all(x["veredicto"] == "NO_APLICA" for f in _ms["por_regla"].values()
+            for x in f["fugas"]),
+        [(x["mutacion"], x["veredicto"]) for f in _ms["por_regla"].values()
+         for x in f["fugas"]])
+    # Y el limite del metodo, comprobado en vez de declarado:  si las MUTACIONES
+    # que escapan salen PASA, entonces esa fuga NO es sin juzgar;  y si una
+    # mutacion pasara por PASA, este vector tiene que verlo.
+    chk("mutacion: lo que queda sin juzgar NO es un PASA encubierto",
+        all(x["veredicto"] == "NO_APLICA" for f in _ms["por_regla"].values()
+            for x in f["fugas"] if x["gravedad"] == "FUGA_SIN_JUZGAR"),
+        [x["veredicto"] for f in _ms["por_regla"].values() for x in f["fugas"]
+         if x["gravedad"] == "FUGA_SIN_JUZGAR"])
+    # El limite, PROBADO:  la misma mutacion, pero cambiando el campo que la
+    # regla mira.  Si el validador dependiera solo del NOMBRE del campo y no
+    # de su contenido, esta tambien pasaria, y eso seria un validador de
+    # forma y no de fondo.
+    chk("mutacion: el validador mira el CONTENIDO del campo, no su nombre",
+        valida("NULO_NO_ES_CERO",
+               {"valor": 0, "origen": "medido"})[0] == "PASA" and
+        valida("NULO_NO_ES_CERO",
+               {"valor": 0, "origen": "desconocido"})[0] == "FALLA",
+        (valida("NULO_NO_ES_CERO", {"valor": 0, "origen": "medido"}),
+         valida("NULO_NO_ES_CERO", {"valor": 0, "origen": "desconocido"})))
+
+    # --- LOS TRES VOCABULARIOS CERRADOS ----------------------------------
+    # MEDIDO: se cerraron `fuente` y `origen` y se dejo abierto el de los
+    # ESTADOS, en el mismo commit.  "CORROBORATED" (regla) y "CORROBORADO"
+    # (mutacion) son el mismo concepto, y con las dos escrituras la mutacion
+    # pasaba.  Cerrar dos y dejar el tercero es no cerrar.
+    chk("vocabulario: cada uno declara MAS DE UNA escritura del mismo hecho",
+        all(len(v) >= 2 for v in (ORIGEN_ESTATICO, ORIGEN_REPRESENTACION,
+                                  AFIRMACION_FUERTE, ESTADO_DISPONIBLE)))
+    chk("vocabulario: y ninguna palabra esta duplicada dentro de su conjunto",
+        all(len(v) == len(set(v)) for v in (ORIGEN_ESTATICO,
+                                            ORIGEN_REPRESENTACION,
+                                            AFIRMACION_FUERTE,
+                                            ESTADO_DISPONIBLE)))
+    chk("vocabulario: la comparacion es por palabra COMPLETA, no por subcadena",
+        not _es_estatico("mi-estatico-propio") and
+        not _es_representacion("no-es-un-objdump"),
+        (_es_estatico("mi-estatico-propio"),
+         _es_representacion("no-es-un-objdump")))
+    chk("vocabulario: una palabra NO reconocida no se trata como segura",
+        not _es_estatico("fuente-del-proyecto") and
+        not _es_representacion("radare"), _es_estatico("fuente-del-proyecto"))
+    chk("vocabulario: el mismo concepto en castellano e ingles se reconoce",
+        valida("COINCIDENCIA_UNICA_NO_ES_INDEPENDIENTE",
+               {"caminos": 1, "afirmacion": "CORROBORADO"})[0] == "FALLA" and
+        valida("COINCIDENCIA_UNICA_NO_ES_INDEPENDIENTE",
+               {"caminos": 1, "afirmacion": "CORROBORATED"})[0] == "FALLA")
+
     print()
     if fallos:
         print("SELFTEST FALLIDO: %d" % len(fallos))
         return 1
-    print("SELFTEST OK: %d vectores" % (len(fallos) + 155))
+    print("SELFTEST OK: %d vectores" % (len(fallos) + 171))
     return 0
 
 
@@ -1971,6 +2282,8 @@ def main(argv=None):
     sub.add_parser("frontera", help="el reparto de GPU de esta maquina")
     sub.add_parser("workscan", help="la cuenta del arbol: hallazgos, repeticiones")
     sub.add_parser("madurez", help="que hace rxre y que queda para la IA")
+    sub.add_parser("mutacion",
+                   help="¿los validadores saben FALLAR?  por regla")
     hg = sub.add_parser("huecos", help="capacidades que NADIE puede dar")
     hg.add_argument("--goal")
     sub.add_parser("catalogo", help="el indice de capacidades")
@@ -2035,6 +2348,18 @@ def main(argv=None):
             print("  %-14s %-24s %-10s %s"
                   % (f["herramienta"], f["capacidad"], f["verificacion"],
                      f.get("evidencia", "")))
+        return 0
+    if args.cmd == "mutacion":
+        s = mutation_sensitivity()
+        print("SENSIBILIDAD A MUTACION  %d de %d  (%s)"
+              % (s["deteccion"], s["total"], s["tasa"]))
+        print("  falsos verdes: %d      sin juzgar: %d"
+              % (s["fugas_enganosas"], s["fugas_sin_juzgar"]))
+        for r, f in sorted(s["por_regla"].items()):
+            print("  %-40s %d/%d" % (r, f["deteccion"], f["total"]))
+            for x in f["fugas"]:
+                print("      %-18s %-40s -> %s"
+                      % (x["gravedad"], x["mutacion"], x["veredicto"]))
         return 0
     if args.cmd == "madurez":
         filas = madurez()
