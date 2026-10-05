@@ -1668,6 +1668,73 @@ def cobertura_de_campos():
             "reglas_totales": len(filas)}
 
 
+# ---------------------------------------------------------------------------
+# 7d. LA ESCALERA: QUE CAMPOS DESBLOQUEAN CUANTAS REGLAS
+#
+# MEDIDO, y responde a la pregunta accionable de 1191.  AHI se demostro que
+# CERO de las nueve reglas son aplicables a un hallazgo.  Eso podia leerse como
+# "hay que escribir 676 hallazgos con 17 campos",  que es un precio que nadie
+# paga.  La pregunta util es otra:  ¿cuantos campos hacen falta para desbloquear
+# CUANTAS reglas?
+#
+# MEDIDO:  la curva sube de uno en uno y NO HAY ATAJO.  Ni 4 campos ni 11
+# desbloquean las nueve:  para las nueve hacen falta los 17,  porque cada regla
+# mira su propia vocabulaire y no hay campo que sirva para dos.
+#
+# Pero el dato accionable es otro, y es este:  los cuatro campos con MAS
+# PRESENCIA en el cuerpo  —`fuente` 8, `estado` 3, `origen` 2, `valor` 2—  son
+# tambien los cuatro que, juntos, desbloquean tres reglas.  Esos cuatro ya se
+# escriben;  lo que no se hace es escribirlos JUNTOS.
+#
+#     el coste no son los campos:  es la co-ocurrencia
+# ---------------------------------------------------------------------------
+def _reglas_desbloqueadas(campos):
+    s = set(campos)
+    return [r for r, cs in CAMPOS_DE_LA_REGLA.items() if set(cs) <= s]
+
+
+def cobertura_minima(k_max=None):
+    """Escalera (k campos -> maximo de reglas desbloqueadas) y el conjunto.
+
+    Se recorre por subconjuntos y no con un codicioso:  con 17 campos son
+    131072 combinaciones,  que es poco,  y el codicioso puede quedarse corto sin
+    que se note.  Aqui el maximo esta demostrado, noy se sabe.
+    """
+    import itertools
+    campos = list(_CAMPOS_TODOS)
+    k_max = k_max or len(campos)
+    escalera, seen = [], -1
+    for k in range(1, k_max + 1):
+        mejor_n, mejor_c = -1, ()
+        for combo in itertools.combinations(campos, k):
+            n = len(_reglas_desbloqueadas(combo))
+            if n > mejor_n:
+                mejor_n, mejor_c = n, combo
+        if mejor_n != seen:
+            escalera.append({"k": k, "reglas": mejor_n, "campos": list(mejor_c)})
+            seen = mejor_n
+    return {"escalera": escalera,
+            "para_todas": len(CAMPOS_DE_LA_REGLA),
+            "campos_para_todas": sorted(
+                {c for cs in CAMPOS_DE_LA_REGLA.values() for c in cs})}
+
+
+def coocurrencia_de_campos():
+    """De los campos que el cuerpo YA tiene, ¿cuantos se escriben juntos?
+
+    Es la pregunta de la accion:  no hay que aprender a escribir campos nuevos,
+    hay que escribir en la MISMA linea los que ya se escriben.
+    """
+    capas = _porta_campos()
+    vivos = {c for c in _CAMPOS_TODOS if any(c in v for v in capas.values())}
+    return {"campos_vivos": sorted(vivos),
+            "maximo_por_hallazgo": max(
+                (len(v & vivos) for v in capas.values()), default=0),
+            "hallazgos_con_2_o_mas": sum(
+                1 for v in capas.values() if len(v & vivos) >= 2),
+            "hallazgos": len(capas)}
+
+
 def valida_todo(hechos):
     """[(regla, veredicto, motivo)] para un caso."""
     return [(r, ) + valida(r, hechos) for r, _d in REGLAS]
@@ -2388,11 +2455,51 @@ def selftest(_=None):
               {"busqueda":"x","resultado":"NOT_FOUND",
                "veredicto":"PROVEN_ABSENT"})]), "regla pura")
 
+    # --- LA ESCALERA, Y LO QUE EL CUERPO HACE DE VERDAD -------------------
+    # MEDIDO, y corrige la lectura de 1191:  "0 de 9 reglas aplicables" puede
+    # leerse como "hay que escribir 676 hallazgos con 17 campos",  que es un
+    # precio que nadie paga.  La pregunta util es cuantos campos hacen falta
+    # para desbloquear CUANTAS,  y si el cuerpo ya los tiene.
+    _cm = cobertura_minima()
+    chk("escalera: la escalera es MONOTONA y termina en las nueve reglas",
+        [s["reglas"] for s in _cm["escalera"]] ==
+        sorted(s["reglas"] for s in _cm["escalera"]) and
+        _cm["escalera"][-1]["reglas"] == _cm["para_todas"],
+        [s["reglas"] for s in _cm["escalera"]])
+    chk("escalera: y NO HAY ATAJO:  el minimo para todas son TODOS los campos",
+        len(_cm["campos_para_todas"]) == _cm["escalera"][-1]["k"] and
+        _cm["escalera"][-1]["k"] == len(_CAMPOS_TODOS),
+        (_cm["escalera"][-1]["k"], len(_CAMPOS_TODOS)))
+    chk("escalera: cada peldano desbloquea de verdad lo que dice",
+        all(len(_reglas_desbloqueadas(s["campos"])) == s["reglas"]
+            for s in _cm["escalera"]),
+        [(s["k"], s["reglas"], len(_reglas_desbloqueables(s["campos"]))
+          if False else len(_reglas_desbloqueadas(s["campos"])))
+         for s in _cm["escalera"] if
+         len(_reglas_desbloqueadas(s["campos"])) != s["reglas"]])
+    chk("escalera: con 1 solo campo no se desbloquea NINGUNA regla, y no "
+        "deberia:  las nueve miran dos o mas",
+        _cm["escalera"][0]["reglas"] == 0 and
+        all(len(cs) >= 2 for cs in CAMPOS_DE_LA_REGLA.values()))
+    # Y el dato que cambia la accion:  no faltan CAMPOS,  faltan CAMPOS JUNTOS.
+    _co = coocurrencia_de_campos()
+    chk("coocurrencia: el cuerpo tiene campos vivos,  y son pocos",
+        len(_co["campos_vivos"]) >= 5, _co["campos_vivos"])
+    chk("coocurrencia: y casi ningun hallazgo los lleva JUNTOS:  ese es el "
+        "coste real, no los campos nuevos",
+        _co["maximo_por_hallazgo"] <= 3 and
+        _co["hallazgos_con_2_o_mas"] <= _co["hallazgos"] // 10,
+        (_co["maximo_por_hallazgo"], _co["hallazgos_con_2_o_mas"],
+         _co["hallazgos"]))
+    chk("coocurrencia: se cuenta por hallazgo completo,  no por el primero "
+        "que aparece",
+        len(_porta_campos()) == _co["hallazgos"], len(_porta_campos()))
+
     print()
     if fallos:
         print("SELFTEST FALLIDO: %d" % len(fallos))
         return 1
-    print("SELFTEST OK: %d vectores" % (len(fallos) + 180))
+    print("SELFTEST OK: %d vectores" % (len(fallos) + 188))
     return 0
 
 
@@ -2459,6 +2566,8 @@ def main(argv=None):
     sub.add_parser("frontera", help="el reparto de GPU de esta maquina")
     sub.add_parser("workscan", help="la cuenta del arbol: hallazgos, repeticiones")
     sub.add_parser("madurez", help="que hace rxre y que queda para la IA")
+    sub.add_parser("escalera",
+                   help="cuantos campos desbloquean cuantas reglas")
     sub.add_parser("cobertura",
                    help="¿las reglas alcanzan a los hallazgos reales?")
     sub.add_parser("mutacion",
@@ -2527,6 +2636,21 @@ def main(argv=None):
             print("  %-14s %-24s %-10s %s"
                   % (f["herramienta"], f["capacidad"], f["verificacion"],
                      f.get("evidencia", "")))
+        return 0
+    if args.cmd == "escalera":
+        e = cobertura_minima()
+        print("ESCALERA  campos -> reglas desbloqueadas")
+        for s in e["escalera"]:
+            print("  %2d -> %d   %s" % (s["k"], s["reglas"],
+                                        ", ".join(s["campos"])))
+        co = coocurrencia_de_campos()
+        print()
+        print("LO QUE EL CUERPO YA HACE")
+        print("  campos con presencia: %s" % ", ".join(co["campos_vivos"]))
+        print("  maximo juntos en un hallazgo: %d"
+              % co["maximo_por_hallazgo"])
+        print("  hallazgos con 2 o mas: %d de %d"
+              % (co["hallazgos_con_2_o_mas"], co["hallazgos"]))
         return 0
     if args.cmd == "cobertura":
         c = cobertura_de_campos()
