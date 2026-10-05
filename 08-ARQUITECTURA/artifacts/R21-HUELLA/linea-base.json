@@ -34,6 +34,17 @@
    "sha256": "fb2a8fe32fcf394a517741950df802b1c4361727d493e435870b589377378ec9"
   },
   {
+   "bytes": 16716,
+   "lineas": 394,
+   "ruta": "tools/asicpath.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "ef9672bef7a1b457da15c1781b790e384e607a7a5ebbcabc7d86cd512039a524"
+  },
+  {
    "bytes": 22391,
    "lineas": 554,
    "ruta": "tools/assert_contract.py",
@@ -2256,8 +2267,8 @@
    "sha256": "f41335ce3d57fb2cae8e98de94d175cfc9e07cad33cb8c8949ce0fb9c121a27b"
   }
  ],
- "instrumentos": 205,
- "sha256_de_la_linea_base": "55647fafb6a6d09c73608d80776bba41ee26def1f9a3f890def204719d9de430",
+ "instrumentos": 206,
+ "sha256_de_la_linea_base": "4d26944d8c985600f51155e5271846fc55f4dd07d65aad6f80a30e4474bb160c",
  "tool": "huella",
  "version": "1.0.0"
 }
