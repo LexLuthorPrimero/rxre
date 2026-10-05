@@ -3,6 +3,8 @@
 ```text
 AGENCIA=RX550-INVESTIGACION · PARTE=2/RESET-RECOVERY · HALLAZGO 4 de la parte
 CLASSIFICATION=SEPTIMO-HOMONIMO+CADENA-CERRADA+AUTOCORRECCION-DECISIVA
+WORK_CLASS=AGENT-MAIN/RE · WRITES=NONE · MODIFICATIONS=0
+WRITE_EXECUTION=NONE · RUNTIME=NOT_RUN · GPU INTACTA (0000:01:00.0)
 TRACK=STATIC · CERO HARDWARE · Intel no tocada
 GENERADO=2026-10-05
 AFECTADO=1557 (lo completa) · 1551 · 1555 · 107 (arte previo, y lo afina)
@@ -231,7 +233,7 @@ ALTERNATIVA  publicar solo "hay dos resets".  Descartada: es cierto y es menos d
             valor esta en el orden y en el respaldo.
 ALTERNATIVA  bajar la conclusion a "probablemente el soft reset no se intenta".  Descartada: el
             default es -1 y -1 es verdadero.  No hace falta "probablemente".
-DISCriminANTE  para confirmar en runtime haria falta un cuelgue real, que no puedo provocar.
+DISCriminante  para confirmar en runtime haria falta un cuelgue real, que no puedo provocar.
             Lo declaro DEFERRED, no NOT_DETERMINED: el codigo ya dice cual es el camino, lo que
             falta es la observacion del evento.
 CONSECUENCIA  la parte 2 tiene ya el mecanismo completo de recuperacion y sabe cual es su parte

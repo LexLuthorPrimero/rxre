@@ -3,6 +3,8 @@
 ```text
 AGENCIA=RX550-INVESTIGACION · PARTE=2/RESET-RECOVERY · HALLAZGO 5 de la parte
 CLASSIFICATION=AUTOCORRECCION-PROPIA+CADENA-CERRADA+CONEXION-CON-LA-PARTE-1
+WORK_CLASS=AGENT-MAIN/RE · WRITES=NONE · MODIFICATIONS=0
+WRITE_EXECUTION=NONE · RUNTIME=NOT_RUN · GPU INTACTA (0000:01:00.0)
 TRACK=STATIC · CERO HARDWARE · Intel no tocada
 GENERADO=2026-10-05
 AFECTADO=1559 (LO CORRIGE, y la correccion va contra mi) · 1557 · 1555 · 1551 · 1418 · 1530
@@ -233,7 +235,7 @@ ALTERNATIVA  no tocar el 1559 y publicar este como un hallazgo mas.  Descartada:
 ALTERNATIVA  reescribir el 1559.  Descartada: el 1559 es correcto sobre lo que medido; lo que
             faltaba era el tramo siguiente, que es informacion nueva.  Corregir hacia atras es
             reescribir historia; corregir hacia delante es avanzar.
-DISCriminANTE  para el alcance, falta saber si `amdgpu_atom_asic_init` puede fallar.  Es
+DISCriminante  para el alcance, falta saber si `amdgpu_atom_asic_init` puede fallar.  Es
             observable por el `dev_warn("asic atom init failed!")` de :5198, pero solo con un
             cuelgue real, que no puedo provocar.  DEFERRED, no NOT_DETERMINED.
 CONSECUENCIA  la parte 2 tiene el mecanismo de recuperacion entero.  Para un driver propio la

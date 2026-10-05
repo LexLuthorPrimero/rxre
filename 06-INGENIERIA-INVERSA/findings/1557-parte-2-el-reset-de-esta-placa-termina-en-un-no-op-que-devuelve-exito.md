@@ -3,6 +3,8 @@
 ```text
 AGENCIA=RX550-INVESTIGACION · PARTE=2/RESET-RECOVERY · HALLAZGO 3 de la parte
 CLASSIFICATION=CADENA-CERRADA+HUEGO-DE-CORPUS-DECLARADO+VACIO-DETECTADO
+WORK_CLASS=AGENT-MAIN/RE · WRITES=NONE · MODIFICATIONS=0
+WRITE_EXECUTION=NONE · RUNTIME=NOT_RUN · GPU INTACTA (0000:01:00.0)
 TRACK=STATIC + UNA LECTURA de lspci · CERO ESCRITURA · Intel no tocada
 GENERADO=2026-10-05
 AFECTADO=1551 (metodo) · 1555 (implementacion) · 1418 (bloques IP) · 1435 (ruta smu7)
@@ -211,7 +213,7 @@ Y medido en esta maquina, lectura pura:
 ```
 
 > **PROBADO por dos vias: `0x699F` esta en la tabla de `amdgpu_drv.c:2041` como
-> `CHIP_POLARIS12`, y la tarjeta de esta maquina es `1002:699f`.** Eight IDs distintos comparten
+> `CHIP_POLARIS12`, y la tarjeta de esta maquina es `1002:699f`.** Ocho IDs distintos comparten
 > ASIC; el nuestro es uno de los ocho.
 
 ## 8. Donde queda la parte 2
@@ -250,7 +252,7 @@ ALTERNATIVA  no publicar hasta resolver la tabla de ops.  Descartada: el hallazg
             como parálisis.
 ALTERNATIVA  publicar "el reset no existe en esta placa".  Descartada por imprecisa: el
             reset no se ejecuta; el resto del camino si corre y limpia flags.
-DISCriminANTE  para el alcance: falta `amdgpu_discovery.c` completo.  Para el guard: ninguno,
+DISCriminante  para el alcance: falta `amdgpu_discovery.c` completo.  Para el guard: ninguno,
             ya esta cerrado.
 CONSECUENCIA  la parte 2 ya tiene metodo, implementacion, y ahora el comportamiento real.  La
             siguiente pregunta —que pasa en un cuelgue, cuando el reset no hace nada— es la
