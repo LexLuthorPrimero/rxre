@@ -78,15 +78,15 @@
    "sha256": "dc6f1ac822eb61e0f7538ca6a5e75b2a8c38c52ac58966d3cd6790841b777ec8"
   },
   {
-   "bytes": 23956,
-   "lineas": 509,
+   "bytes": 27067,
+   "lineas": 578,
    "ruta": "tools/campos_pm4.py",
    "selftest": {
     "detalle": "`--toma` no ejecuta; use --verifica",
     "estado": "NO_MEASURE",
     "rc": null
    },
-   "sha256": "a992ace70bcb7f53dca9eaeda4cd70ef6a53c7953acf02688f55a68fdc038b74"
+   "sha256": "5f5a39f910257c512c35a259b31c84f9ab805e5b9a4b419c66a9d25b485b495d"
   },
   {
    "bytes": 24929,
@@ -463,15 +463,15 @@
    "sha256": "31996969e78600146363ed465affe02d00f051c89bfb82a6410481f64e24a0bc"
   },
   {
-   "bytes": 137448,
-   "lineas": 3025,
+   "bytes": 138257,
+   "lineas": 3044,
    "ruta": "tools/ibref.py",
    "selftest": {
     "detalle": "`--toma` no ejecuta; use --verifica",
     "estado": "NO_MEASURE",
     "rc": null
    },
-   "sha256": "6f9991fff4665b6300e08c75cfa31bc11e976fa83f6ec59490482f0d713dc033"
+   "sha256": "10c69adb1a6249cb843a520e18c1dcffaac9847190e8c635d793167edec95b5b"
   },
   {
    "bytes": 20623,
@@ -518,15 +518,15 @@
    "sha256": "78b9de4f2c27465a45710499195c5d75e4869bf146f8d2456fe05c7b2e9aba1f"
   },
   {
-   "bytes": 89617,
-   "lineas": 1938,
+   "bytes": 90389,
+   "lineas": 1956,
    "ruta": "tools/layoutcross.py",
    "selftest": {
     "detalle": "`--toma` no ejecuta; use --verifica",
     "estado": "NO_MEASURE",
     "rc": null
    },
-   "sha256": "30f6c89f30badc176ce76a22e9e3f8f0263baaa3c4e10ce7d8f0831cde0e08c6"
+   "sha256": "cb959d2fb3ad4b362c24062f18768669368c72e07915bcb801d473ec421d591a"
   },
   {
    "bytes": 49786,
@@ -540,15 +540,15 @@
    "sha256": "de07fd1c73a023ce947e8a746fe2f6750d595101968586bcf9fc08331c48814c"
   },
   {
-   "bytes": 40024,
-   "lineas": 819,
+   "bytes": 41050,
+   "lineas": 841,
    "ruta": "tools/mmio.py",
    "selftest": {
     "detalle": "`--toma` no ejecuta; use --verifica",
     "estado": "NO_MEASURE",
     "rc": null
    },
-   "sha256": "924692d202e014c9d23ffe88257a346ee40e4a4f34c8d052a5aa00282af5adf8"
+   "sha256": "29c5b3fe9d8a8c87b4f080ca7d7ad403f60d21f33f0706f5a6eb7878be60fea0"
   },
   {
    "bytes": 14699,
@@ -980,15 +980,15 @@
    "sha256": "05182e59afd8f486c3920ecc27c2c9fac98809a08e92c89761da618e94f750c7"
   },
   {
-   "bytes": 55585,
-   "lineas": 1208,
+   "bytes": 56655,
+   "lineas": 1230,
    "ruta": "tools/toolreg.py",
    "selftest": {
     "detalle": "`--toma` no ejecuta; use --verifica",
     "estado": "NO_MEASURE",
     "rc": null
    },
-   "sha256": "1630c24969c3e4bbad611bcf6bdfab95a2441f2c156e69d2aa694c3ab70e1ec4"
+   "sha256": "abb5658f5aeda4b46ef523b6b2c397a79b6fdbe135a8ad17bccfd1f63b702358"
   },
   {
    "bytes": 42191,
@@ -2290,7 +2290,7 @@
   }
  ],
  "instrumentos": 208,
- "sha256_de_la_linea_base": "0219b6f01c6d1146c2f14bc83303b6b8598eca4f98a36adc9a1ad66e9f9bf24a",
+ "sha256_de_la_linea_base": "5fe8a19dd6f7cf8fa282b215d0ded6d57f69b1ae8dc4ba2f2b654b42b097022b",
  "tool": "huella",
  "version": "1.0.0"
 }
