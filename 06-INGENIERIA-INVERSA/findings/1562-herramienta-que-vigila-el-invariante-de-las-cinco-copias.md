@@ -53,7 +53,7 @@ reportaba las demás contra ella. Con `COPIAS[0] = smu71.h` eso producía:
 otro fichero.
 
 **El blame dependía del orden de la lista, y eso es lo peor que puede tener una herramienta de
-verificación**: no es que siea approxada, es que su salida cambia con la entrada sin que cambie el
+verificación**: no es que sea aproximada, es que su salida cambia con la entrada sin que cambie el
 hecho. Un `grep` mal escrito da un número malo; esto daba un veredicto *sobre el fichero
 equivocado*, y eso se lee como verdad.
 
