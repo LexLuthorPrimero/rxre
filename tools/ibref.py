@@ -1137,6 +1137,34 @@ def desenrollar(lineas, max_iter=64):
                 filas.append((ini_l + cuerpo.count("\n", 0, pos), it,
                               expr, "", destino))
         consumidos.append((ini_l, fin_l))
+    # MEDIDO 2026-10-05.  Todo lo anterior solo mira `RE_FOR`,  que exige `<`
+    # COMPARACION ESTRICTA.  Un `for (i = 0; i != 4; i++)`  no casa,  asi que no
+    # entra en el bucle,  no se rechaza,  y se pierde EN SILENCIO:  el
+    # desenrollador devuelve menos filas de las que hay  y no dice por que.
+    #
+    #     un bucle que no se reconoce y no se reporta no es un bucle que se
+    #     ignore con seguridad:  es una fila que falta sin aviso
+    #
+    # Para eso esta `RE_FOR_CUALQUIER`,  el unico regex recuperado que no se
+    # usaba:  encuentra CUALQUIER `for`,  y los que no ha tomado `RE_FOR` se
+    # rechazan uno por uno CON SU MOTIVO.  Y el motivo lo dice `RE_COMPARACION`,
+    # que es el otro regex recuperado que no se usaba.
+    tomados = {m.start() for m in RE_FOR.finditer(txt)}
+    for m in RE_FOR_CUALQUIER.finditer(txt):
+        if m.start() in tomados:
+            continue
+        fila = txt.count("\n", 0, m.start()) + 1
+        cabecera = txt[m.start():txt.find(";", m.start()) + 1] if \
+            txt.find(";", m.start()) > 0 else txt[m.start():m.start() + 80]
+        cmp_ = RE_COMPARACION.search(cabecera)
+        if cmp_ and cmp_.group(2) != "<":
+            motivo = ("comparacion `%s`:  solo se entiende `<`,  que es lo que "
+                      "exige el contrato del desenrollado" % cmp_.group(2))
+        else:
+            motivo = ("forma de bucle NO reconocida:  solo se entiende "
+                      "`for (V = <entero>; V < <limite>; V += <entero>)`:  `%s`"
+                      % cabecera.strip())
+        sin_desenrollar.append({"linea": fila, "motivo": motivo})
     filas.sort(key=lambda f: f[0])
     return filas, bucles, sin_desenrollar, consumidos
 
@@ -2633,6 +2661,19 @@ def _dec_stub(ev, mac):
               {"linea": 2, "expr": "0x000000FF", "valor": 0xFF},
           ]}
     seg = _segmentar(ib)
+    # MEDIDO 2026-10-05:  `PACKET3_TEST`  NO esta en ninguna constante del
+    # `.pyc`  (0 ocurrencias).  Es un nombre inventado en la reconstruccion,  del
+    # mismo genero que DELTA, EPSILON, ZETA, ETA y THETA.  Los literales que SI
+    # estan  —`PACKET3_SH`,  `PACKET3_SH_X(1)`,  `PACKET3(PACKET3_SH, 1)`—  son
+    # de OTRO fixture del original  y `PACKET3_SH`  tampoco esta en las tablas de
+    # `pm4_emit`,  asi que cambiar el nombre no arregla nada:  lo que falta es el
+    # fixture de este bloque,  entero.
+    #
+    # Se prueba a cambiar el nombre y se revierte:  105 -> 104,  porque el vector
+    # "decode: el nombre del opcode se resuelve y se imprime"  compara contra la
+    # tabla `ops`  que este mismo fichero declara.  Mover el nombre para que mi
+    # codigo de el numero que yo espero es fabricar la evidencia,  y es
+    # exactamente el fallo que 1193, 1194 y 1196 corrigieron en mi.
     ops = {0x2C: ["PACKET3_TEST"]}
     lineas = decodificar(ib, {}, ops, None)
     return seg, lineas
