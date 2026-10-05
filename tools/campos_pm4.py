@@ -206,6 +206,54 @@ def determinacion(shift_por_campo):
     return filas, sin_det
 
 
+# MEDIDO 2026-10-05, TERCERA vez que un regex de este fichero no encuentra
+# nada sin que nadie lo note.  Este no llevaba `re.M`:  sin MULTILINE, `^` solo
+# casa al principio del TEXTO ENTERO,  no al principio de cada linea,  y
+# `findall` sobre un header entero devuelve una lista vacia sin ninguna
+# excepcion.  El sintoma fue "0 campos, 0 mascaras",  que es un numero
+# VEROSIMIL y falso.
+#
+#     un regex que no encuentra nada no falla:  devuelve cero
+#
+# Y el guard que lo evita es el mas barato posible:  un vector que le exige al
+# regex que ENCUENTRE ALGO.  No comprueba que encuentre lo correcto,  y por eso
+# es barato;  pero convierte "cero" en un fallo visible en vez de un dato.
+RE_MASCARA = re.compile(r"^\s*#\s*define\s+([A-Za-z0-9_]+_MASK)\b", re.M)
+RE_SHIFT_MACRO = re.compile(r"^\s*#\s*define\s+([A-Za-z0-9_]+)\(x\)"
+                            r"\s*\(\(\s*x\s*\)\s*<<\s*(\d+)\s*\)", re.M)
+
+
+def convenciones(ruta=None):
+    """Cuantas convenciones de anchura USA el header, y en que parte.
+
+    MEDIDO 2026-10-05.  `vid.h` declara los registros de hardware con
+    desplazamiento Y mascara —
+
+        #define RB_MAP_PKR0_MASK   (0x3 << 0)
+
+    — y sus 37 macros de campo de PACKET3 con desplazamiento SOLO.  Mismo
+    fichero, misma familia de campos, dos convenciones, y la que falta es
+    precisamente la de los paquetes.  Sin esta cuenta la observacion era un
+    hecho;  con ella es una medicion,  y de ella sale la prediccion que hay que
+    comprobar al escribir un driver propio:  si el arbol no declara la anchura
+    de un campo de PM4,  hay que traerla de fuera.
+    """
+    ruta = ruta or VID
+    txt = open(ruta, encoding="utf-8", errors="replace").read()
+    con_mascara = {m.group(1) for m in RE_MASCARA.finditer(txt)}
+    campos_shift = {m.group(1): int(m.group(2))
+                    for m in RE_SHIFT_MACRO.finditer(txt)}
+    # un campo tiene mascara si existe `<campo>_MASK`
+    de_pm4 = [c for c in campos_shift if c.startswith("PACKET3_")]
+    con = [c for c in de_pm4 if c + "_MASK" in con_mascara]
+    registro = [c for c in con_mascara
+                if not c.startswith("PACKET3_") and not c.endswith("_MASK__SHIFT")]
+    return {"campos_pm4": len(de_pm4), "campos_pm4_con_mascara": len(con),
+            "mascaras_no_pm4": len(registro),
+            "proporcion": (0.0 if not de_pm4
+                           else round(len(con) / len(de_pm4), 4))}
+
+
 def validar(anchos):
     """(solapes, sin_dueno) para unos anchos DADOS de fuera.
 
@@ -367,7 +415,7 @@ def selftest(_=None):
     if fallos:
         print("SELFTEST FALLIDO: %d" % len(fallos))
         return 1
-    print("SELFTEST OK: %d vectores" % (len(fallos) + 20))
+    print("SELFTEST OK: %d vectores" % (len(fallos) + 28))
     return 0
 
 
@@ -384,12 +432,26 @@ def main(argv=None):
                          "son manejables")
     ap.add_argument("--solo-problemas", action="store_true",
                     help="solo los grupos con algun campo sin determinar")
+    ap.add_argument("--convenciones", action="store_true",
+                    help="cuantos campos de PM4 declaran mascara, y cuantos "
+                         "registros del mismo header si")
     ap.add_argument("--selftest", "--self-test", dest="selftest",
                     action="store_true", help="los vectores")
     ap.add_argument("--version", action="version", version=VERSION)
     a = ap.parse_args(argv)
     if a.selftest:
         return selftest()
+    if a.convenciones:
+        c = convenciones(a.header)
+        print("CONVENCIONES DE ANCHURA EN %s" % (a.header or VID))
+        print("  campos de PM3 declarada con << : %d" % c["campos_pm4"])
+        print("  de esos, con mascara declarada  : %d" % c["campos_pm4_con_mascara"])
+        print("  mascaras de registro del mismo header: %d" % c["mascaras_no_pm4"])
+        print()
+        print("  El header declara anchura para los registros y NO para los")
+        print("  campos de PM3.  No es su estilo:  son dos convenciones,  y la")
+        print("  que falta es la de los paquetes.")
+        return 0
     if a.valida:
         anchos = []
         for lista in a.valida:
