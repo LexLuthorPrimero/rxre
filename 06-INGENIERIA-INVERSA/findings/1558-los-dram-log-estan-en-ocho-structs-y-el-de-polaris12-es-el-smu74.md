@@ -173,7 +173,7 @@ DESVIO MIO,  y lo cuento porque es el cuarto de esta tanda
   mi primer programa de sonda uso  #SM  (  el operador de conversion a cadena  )
   FUERA de un #define.  Solo funciona dentro de una macro,  y gcc lo leyo como
   una directiva de preprocesamiento.  Ademas lo puse como macro de sentencia en
-  ámbito de fichero,  lo que tampoco compila.  Y un -D mio.define SM__NUM_...
+  ámbito de fichero,  lo que tampoco compila.  Y un -D mio definia SM__NUM_...
   en vez de SMU__NUM_...,  por perder una U
   Los tres los vi  porque gcc los decia con el numero de linea.
   Y uno de mis escaneos estructurales fallo antes:  busco "typedef struct"  y
