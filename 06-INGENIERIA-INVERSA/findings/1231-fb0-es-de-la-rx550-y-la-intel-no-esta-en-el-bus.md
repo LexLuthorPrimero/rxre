@@ -12,7 +12,12 @@ CONTRADICION   la nota de autorizacion del arbol afirma
                 Mientras ese hecho se cumpla,  trabajar sobre la RX550 no
                 amenaza la consola"
                y el TARGET CONTRACT afirma  "iGPU: Intel HD Graphics 4600"
-               MEDIDO   las dos cosas son falsas hoy
+               MEDIDO   las dos cosas eran verdade el 2026-10-04  y son falsas hoy
+AUTOCORR.     la primera version de este hallazgo decia "no se sabe por que se
+               registro distinto"  y sostenia que la premisa NUNCA se habia
+               verificado.  Es falso:  el hallazgo 1439,  GENERADO=2026-10-04,
+               registro  fb0_name = i915drmfb  con  card0 control=auto
+               runtime=active  como dato MEDIDO.  La maquina cambio despues
 ALCANCE   decide el nivel de riesgo del frente de runtime.  No es cosmetico
 GENERADO=2026-10-06 · MEDIDO=EN ESTA HOST
 ```
@@ -76,7 +81,7 @@ El `1366x768` coincide, lo que hace la contradicción más incómoda: **el tama�
 registró y el dueño es el contrario.** Eso es exactamente lo que pasa cuando dos fuentes
 distintas dan el mismo número y una se mezcla con la otra.
 
-### La segunda: la iGPU
+### La segunda: la iGPU, y aquí sí hay una transición de estado
 
 ```text
   REGISTRADO   iGPU: Intel HD Graphics 4600          (TARGET CONTRACT, §2)
@@ -88,6 +93,48 @@ distintas dan el mismo número y una se mezcla con la otra.
                y no hay card0.
                La funcion esta ausente del bus,  no es que este sin(driver).
 ```
+
+## 2bis · La premisa **sí** se había medido, y la máquina cambió después
+
+Esta es la parte que corregí, y es la que convierte el hallazgo de "una premisa
+que nunca se comprobó" en "un estado de hardware que cambió", que es otra cosa
+completamente distinta.
+
+```text
+  1439-primera-lectura-del-silicio-...   GENERADO=2026-10-04
+      INTEL  0000:00:02.0  (i915, HD 4600)   <-- prohibida, verificada intacta
+      | fb0_name | i915drmfb | i915drmfb |
+      FRONTERA Intel intacta:  fb0=i915drmfb 1366,768, card0 control=auto
+                runtime=active,  un /dev/fb0
+      y 1467, 1472 y 1489 repiten la misma linea de frontera
+```
+
+**Ayer la Intel estaba en el bus, era `fb0`, tenía `card0` con runtime activo, y
+`1439` además leyó el silicio de la RX550 por MMIO y no la tocó.** Ese trabajo es real:
+leídos 20 registros, con el canario `mmSCRATCH_REG0 = 0xdeadbeef` en el offset que
+la cabecera declara, y `mmVM_CONTEXT0_CNTL = 0x00fffed9` / `CONTEXT1_CNTL =
+0x01fffedb` que distinguen VMID0 plano de VMID1 PD+PT.
+
+Hoy, un día después:
+
+```text
+  0000:00:02.0   ausente del bus
+  i915           no cargado
+  card0          no existe
+  fb0            amdgpudrmfb,  en 0000:01:00.0
+```
+
+**La transición ocurrió entre el 2026-10-04 y hoy.** No sé por qué, y no lo adivino:
+puede ser un cambio de BIOS, un apagado del iGPU, un cambio de máquina, o que
+`1439` se escribiera contra otro host. Lo único que afirmo es que **ayer era
+distinto de hoy**, y que eso es un hecho medido por el lado de los dos.
+
+Y **corrijo mi propia lectura de partida, que era peor**: yo daba el tree por
+consultado y con la lista de bloqueadas al día, y la lista decía
+"Runtime: nunca se ha leído un registro de 0000:01:00.0". **Es falso, y estaba en
+el árbol desde ayer.** Lo vi al buscar el ítem 12, es decir, después de proponer
+ítem 12. Debí hacer el barrido de §58 **antes** de elegir trabajo, no después de
+elegirlo.
 
 ## 3 · Qué cambia, en las dos direcciones
 
@@ -183,11 +230,13 @@ MEDIDO     fb0 = amdgpudrmfb en 0000:01:00.0,  1366x768,  unico framebuffer
 CONTRADICCION  registrada contra dos afirmaciones del propio arbol:
            (a)  la nota de autorizacion,  sobre  fb0 = i915drmfb
            (b)  el TARGET CONTRACT §2,  sobre  iGPU: Intel HD Graphics 4600
-           RESOLUCION  en cuanto al estado actual del hardware:  RESOLVED por
-           medicion directa.  En cuanto a por que se registro distinto:  no se
-           sabe,  y no se intenta adivinar:  puede ser una BIOS distinta,  una
-           sesion anterior,  o un error de lectura al registrar.  Lo unico que
-           afirmo es que HOY  no es cierto.
+           RESOLUCION  en cuanto al estado de HOY:  RESOLVED por medicion directa.
+           En cuanto a la transicion:  DATADA.  El 2026-10-04  el hallazgo 1439
+           la midio como cierta,  con la misma tabla de evidencia.  Hoy es falsa.
+           La causa  NO SE DETERMINA  y no se intenta adivinar.
+           Y no es una contradiccion del arbol:  es una transicion de estado de
+           hardware,  con dos mediciones en dias distintos  que no se contradicen
+           entre si  sino que se succession.
 DECISION    el plan de runtime sigue en READ_ONLY.  Escalarlo a escritura
            requiere una nueva decision del propietario,  porque el fundamento
            de la decision anterior  ("la consola es de la Intel")  resulto falso
