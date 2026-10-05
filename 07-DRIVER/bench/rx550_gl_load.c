@@ -52,35 +52,70 @@ static void *glXGetProcAddressLike(const char *n) { return (void *)eglGetProcAdd
 
 /* #version 430 hace falta para que el compilador acepte layout(binding=) de forma estandar
  * en un compute shader de GL 4.3. */
-static const char *CS_SRC =
+/* La plantilla lleva %d para NMLP porque el array local del shader
+ *     uint v[NMLP];
+ * es de TAMAÑO DE COMPILACION.  La primera version lo dejo en 1 y lo uso con uMlp=8, o sea
+ * escribiendo 7 elementos pasado un array de uno: comportamiento indefinido.  Los cuatro
+ * puntos medidos salieron con un degradado lineal casi perfecto, que era justo la firma del
+ * fallo, y ninguno valia.  Ahora el fuente se genera con el NMLP que toca y se recompila por
+ * cada valor de --mlp. */
+static char *make_shader(int mlp)
+{
+    static char buf[8192];
+    const char *tmpl =
 "#version 430\n"
 "layout(local_size_x = 64) in;\n"
 "layout(std430, binding = 0) buffer Buf { uint data[]; };\n"
-"uniform uint uMode;   // 0 = fill (escritura pura), 1 = rmw (lee+escribe), 2 = math (ALU)\n"
-"uniform uint uIters;  // iteraciones de la cadena FMA, solo para el modo math\n"
-"uniform uint uBase;   // primer elemento del trozo; permite trocear sin rebasar el limite\n"
+"#define NMLP %d\n"
+"uniform uint uMode;\n"
+"uniform uint uIters;\n"
+"uniform uint uBase;\n"
+"uniform uint uMlp;\n"
+"uniform uint uStride;\n"
+"uniform uint uBlock;\n"
 "void main()\n"
 "{\n"
-"    uint i = gl_GlobalInvocationID.x + uBase;\n"
+"    uint g = gl_GlobalInvocationID.x;\n"
+"    uint i;\n"
+"    if (uBlock == 1u) {\n"
+"        uint wg = gl_WorkGroupID.x;\n"
+"        uint nwg = gl_NumWorkGroups.x;\n"
+"        uint lane = gl_LocalInvocationID.x;\n"
+"        uint perRow = max(nwg / 8u, 1u);\n"
+"        i = uBase + (wg %% perRow) * 64u + lane;\n"
+"    } else {\n"
+"        i = uBase + g;\n"
+"    }\n"
 "    if (uMode == 0u) {\n"
 "        data[i] = 0xdeadbeefu;\n"
 "    } else if (uMode == 1u) {\n"
-"        uint v = data[i];\n"
-"        v ^= v << 13;\n"
-"        v ^= v >> 17;\n"
-"        v ^= v << 5;\n"
-"        data[i] = v;\n"
+"        if (uMlp > 1u) {\n"
+"            uint v[NMLP];\n"
+"            for (uint j = 0u; j < uMlp; ++j) v[j] = data[i + j * uStride];\n"
+"            for (uint j = 0u; j < uMlp; ++j) {\n"
+"                uint t = v[j];\n"
+"                t ^= t << 13; t ^= t >> 17; t ^= t << 5;\n"
+"                data[i + j * uStride] = t;\n"
+"            }\n"
+"        } else {\n"
+"            uint v = data[i];\n"
+"            v ^= v << 13; v ^= v >> 17; v ^= v << 5;\n"
+"            data[i] = v;\n"
+"        }\n"
 "    } else {\n"
 "        uint v = data[i] | 1u;\n"
-"        for (uint k = 0u; k < uIters; ++k)\n"
-"            v = v * 1664525u + 1013904223u;\n"
+"        for (uint k = 0u; k < uIters; ++k) v = v * 1664525u + 1013904223u;\n"
 "        data[i] = v;\n"
 "    }\n"
 "}\n";
+    snprintf(buf, sizeof buf, tmpl, mlp);
+    return buf;
+}
 
 int main(int argc, char **argv)
 {
     int seconds = 8, mib = 256, mode = 1, sync_every = 1, iters = 64;
+    int mlp = 1, pattern = 0;
     /* sync_every = cuantas iteraciones se agrupan en un unico command buffer antes de esperar.
      * 1 = comportamiento anterior (sincronizar en cada vuelta).  N>1 = el banco de pruebas
      * deja de paying la latencia de sincronizacion en cada iteracion.
@@ -91,6 +126,8 @@ int main(int argc, char **argv)
         if (!strcmp(argv[i], "--seconds") && i + 1 < argc) seconds = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--buffer") && i + 1 < argc) mib = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--sync-every") && i + 1 < argc) sync_every = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--mlp") && i + 1 < argc) mlp = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--pattern") && i + 1 < argc) pattern = !strcmp(argv[++i], "block");
         else if (!strcmp(argv[i], "--iters") && i + 1 < argc) iters = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--mode") && i + 1 < argc) {
             const char *m = argv[++i];
@@ -238,7 +275,8 @@ int main(int argc, char **argv)
         (PFNGLGETUNIFORMLOCATIONPROC)glXGetProcAddressLike("glGetUniformLocation");
     PFNGLUNIFORM1UIPROC glUniform1u_ = (PFNGLUNIFORM1UIPROC)glXGetProcAddressLike("glUniform1ui");
 
-    GLuint cs = glCreateShader_(GL_COMPUTE_SHADER); glShaderSource_(cs, 1, &CS_SRC, NULL);
+    char *cs_src = make_shader(mlp);
+    GLuint cs = glCreateShader_(GL_COMPUTE_SHADER); glShaderSource_(cs, 1, (const GLchar * const *)&cs_src, NULL);
     glCompileShader_(cs);
     { GLint ok = 0; glGetShaderiv_(cs, GL_COMPILE_STATUS, &ok);
       if (!ok) { char l[4096]; GLsizei n=0; glGetShaderInfoLog_(cs,sizeof l,&n,l);
@@ -255,13 +293,19 @@ int main(int argc, char **argv)
     glBindBufferBase_(GL_SHADER_STORAGE_BUFFER, 0, sbo);
     glUseProgram_(prog);
     glUniform1i_(glGetUniformLocation_(prog, "data"), 0);
-    GLint uMode = glGetUniformLocation_(prog, "uMode");
-    GLint uIters = glGetUniformLocation_(prog, "uIters");
-    GLint uBase = glGetUniformLocation_(prog, "uBase");
-    glUniform1u_(uMode, (GLuint)mode);
-    glUniform1u_(uIters, (GLuint)(mode == 2 ? iters : 1));
+    /* Los uniformes se asignan AQUI, despues de calcular los tamanos, y no antes: uStride
+     * depende de elements/mlp y no se conoce hasta entonces.  La primera version los asignaba
+     * antes, uStride se quedaba en 0, y el shader hacia data[i + j*0] = data[i], o sea N
+     * accesos a la MISMA direccion.  El aviso del compilador de "variable sin usar" era la
+     * senal y no la lei: cuatro mediciones salieron limpias y no significaban nada. */
 
     uint32_t elements = (uint32_t)(bytes / 4u);
+    if (mlp < 1) mlp = 1;
+    if (mlp > 16) { fprintf(stderr, "--mlp maximo 16\n"); return 2; }
+    /* con MLP>1 cada invocacion emite mlp accesos separados por uStride, asi que el numero
+     * de invocaciones que cubren el buffer es elements/mlp y el salto es ese mismo ancho */
+    uint32_t invocations = elements / (uint32_t)mlp;
+    uint32_t stride = invocations;
     uint32_t max_wg = 65535u;                 /* minimo garantizado por la spec de GL 4.3 */
     uint32_t per = max_wg * 64u;
     uint32_t chunks = (elements + per - 1u) / per;
@@ -272,6 +316,14 @@ int main(int argc, char **argv)
            mib, elements, max_wg, chunks, seconds, mode_name,
            mode == 2 ? iters : 1, sync_every, traffic_mult,
            mode == 0 ? "solo escritura" : "lectura + escritura");
+    printf("  patron de acceso %s   MLP por hilo %d   invocaciones %u   salto %u\n",
+           pattern ? "bloque (workgroup contiguo)" : "lineal", mlp, invocations, stride);
+
+    glUniform1u_(glGetUniformLocation_(prog, "uMode"), (GLuint)mode);
+    glUniform1u_(glGetUniformLocation_(prog, "uIters"), (GLuint)(mode == 2 ? iters : 1));
+    glUniform1u_(glGetUniformLocation_(prog, "uMlp"), (GLuint)mlp);
+    glUniform1u_(glGetUniformLocation_(prog, "uStride"), (GLuint)stride);
+    glUniform1u_(glGetUniformLocation_(prog, "uBlock"), (GLuint)pattern);
 
     double t0 = now_s(); uint32_t it = 0; float best = 0.f;
     if (sync_every < 1) sync_every = 1;
@@ -286,7 +338,7 @@ int main(int argc, char **argv)
         glMemoryBarrier_(GL_SHADER_STORAGE_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT);
         for (uint32_t k = 0; k < (uint32_t)sync_every; k++)
             for (uint32_t c = 0; c < chunks; c++) {
-                glUniform1u_(uBase, (GLuint)((uint64_t)c * per));
+                glUniform1u_(glGetUniformLocation_(prog, "uBase"), (GLuint)((uint64_t)c * per));
                 glDispatchCompute_(max_wg, 1, 1);
             }
         glFinish();
