@@ -2005,59 +2005,163 @@ def decodificar(ib, tablas=None, opcode_tab=None, kfd_ops=None):
     return out
 
 
+def _nombre_de_paquete(op, eval_call=None, macros=None):
+    """El NOMBRE del paquete para un opcode numerico, o None.
+
+    NO HECHO, y declarado:  falta la tabla opcode -> nombre que usaba el
+    original.  Se intenta lo que hay a mano (`PACKET3_<op>` evaluado) y si no,
+    `None`,  que es un resultado honesto y no una suposicion.
+    """
+    if isinstance(op, str):
+        return op
+    if eval_call is None or macros is None:
+        return None
+    for nombre in ("PACKET3_%02X" % op, "PACKET3_%X" % op):
+        try:
+            v = eval_call(nombre, macros)
+        except Exception:                          # noqa: BLE001
+            continue
+        if isinstance(v, int):
+            return nombre
+    return None
+
+
 def roundtrip(ib, tablas=None, eval_call=None, macros=None, enlaces=None):
     """Round-trip por paquete: extrae con la DECLARACION y compara con el driver.
 
-    Es el test que los contratos de 1061 y 1073 pedian y que no existia. No
-    necesita placa: el IB es sintetico (1093) y el valor esperado sale de la
-    expresion del driver.
+    CONTRATO RECUPERADO DE `tools/_orculo_ibref.pyc`, no deducido.  La
+    reconstruccion anterior de esta funcion era una invencion, y se ve en sus
+    `co_varnames` el esqueleto real:
 
-    El nombre del campo se recorta con el PREFIJO EXACTO del opcode. Con un
-    regex voraz, `PACKET3_MAP_QUEUES_QUEUE(` se parte en `MAP` + `QUEUE` y sale
-    un campo llamado `MAP_...` que no existe en ninguna parte; con un regex no
-    voraz sale `QUEUES_QUEUE`, que tampoco. Solo el prefijo conocido da
-    `QUEUE`.
+        ib, tablas, eval_call, macros, enlaces, filas,
+        op, n, idxs,        <- el `for op, n, idxs in _segmentar(ib)`
+        dvals, lay, pos,     <- los VALORES, el LAYOUT y la POSICION en el
+        dw_i, dv, expr,      <- indice de dword, su valor, su expresion
+        entrada, campo, valor,
+        tm2, ancho, lo, hi, rango,      <- los DOS matches, y el rango
+        tm1, base, leido, extra
 
-    Cinco salidas, y las cinco son resultados:
-      OK                el valor extraido con el rango declarado es el escrito
-      MISMATCH          se extrae otra cosa: el rango no cubre el campo
-      NO_EXTRAIBLE      el driver escribe el campo y la declaracion no lo nombra
-      VALOR_NO_AISLABLE el driver lo escribe, la declaracion lo nombra, pero su
-                        valor no se puede aislar: el test NO discrimina
-      FUERA_DE_PAQUETE  la declaracion tiene mas entradas de las que el count permite
+    `tablas` es `{opcode: [ENTRADA, ...]}`  y cada ENTRADA es TEXTO:
+
+        "CONTROL[31:0]  (alfa[1:0] | beta[31:31] | gamma[8:2])"
+
+    Y el `re.I` del oraculo no es decorativo:  el driver escribe `PACKET3_T_ALFA(3)`
+    y la declaracion dice `alfa`.  El nombre no coincide en caja,  y sin
+    `re.I` el campo no se encuentra nunca y TODO sale `NO_EXTRAIBLE` — que es
+    exactamente lo que pasaba.
+
+    LAS SEIS SALIDAS, y el orden en que se deciden (orden de `co_consts`):
+    NO_EXTRAIBLE -> VALOR_NO_AISLABLE -> OK_SOLO_UN_BIT -> OK -> MISMATCH
+    -> FUERA_DE_PAQUETE.
     """
     tablas = tablas or {}
     filas = []
-    for opcode, count, indices in _segmentar(ib):
-        nombres, _nota = _nombres_opcode(opcode)
-        op = None
-        for n in nombres:
-            if "QUEUE" in n:
-                op = n.split("_" + _normal(n))[0] if False else n
-        prefijo = None
-        expr0 = ib["dwords"][indices[0]]["expr"]
-        m = re.match(r"^(PACKET3_[A-Z0-9_]*?)%s" % re.escape(
-            (op or "")[len("PACKET3_"):] or "\0"), expr0)
-        if m:
-            prefijo = m.group(1)
-        esperados = {}
-        for i in indices:
-            esperados.update(_esperado(ib["dwords"][i]["expr"], eval_call,
-                                        macros, enlaces))
-        declarados = tablas.get(prefijo or "", {})
-        if not declarados:
-            for k in indices:
+
+    def _campo_por_nombre(entrada, campo):
+        """(rango, ancho, modo) leyendo el rango del campo DENTRO de la entrada.
+
+        `tm1` con dos numeros es `[hi:lo]`;  `tm2` con uno es `[N]`, un solo bit.
+        Se prueban en ese orden porque `[1:0]` tambien encaja en el segundo, y al
+        reves un campo de dos bits saldría de un bit.
+        """
+        esc = re.escape(campo)
+        tm1 = re.search(r"\b%s\s*\[\s*(\d+)\s*:\s*(\d+)\s*\]" % esc,
+                        entrada, re.I)
+        if tm1:
+            hi, lo = int(tm1.group(1)), int(tm1.group(2))
+            return "%d:%d" % (hi, lo), max(1, hi - lo + 1), "rango"
+        tm2 = re.search(r"\b%s\s*\[\s*(\d+)\s*\]" % esc, entrada, re.I)
+        if tm2:
+            lo = int(tm2.group(1))
+            return "%d (lsb solo)" % lo, 1, "lsb"
+        return None, None, None
+
+    for op, n, idxs in _segmentar(ib):
+        dvals = {i: ib["dwords"][i]["valor"] for i in idxs}
+        # MEDIDO 2026-10-05.  `_segmentar` devuelve el opcode como NUMERO (44),
+        # y aqui hacen falta dos cosas con el NOMBRE del paquete:  la clave de
+        # `tablas`  —que en el original es 'PACKET3_T',  una cadena—  y el
+        # prefijo que `_campos_mencionados` usa para partir
+        # `PACKET3_T_ALFA(3)`.  Ese es EL eslabon que no se ha recuperado:  la
+        # tabla que traduce opcode -> nombre.
+        #
+        # Sin el, la version anterior de esta funcion pasaba el numero entero y
+        # `re.escape(44)` reventaba con TypeError.  Un vector BLOQUEADO debe
+        # decir que esta bloqueado,  no tirar una excepcion:  el crash esconde
+        # el motivo y hace parecer que el fallo es otro.
+        op_nombre = _nombre_de_paquete(op, eval_call, macros) or op
+        lay = tablas.get(op_nombre) or tablas.get(op) or []
+        for pos, entrada in enumerate(lay):
+            cubiertos = set()
+            for dw_i in idxs:
+                expr = ib["dwords"][dw_i]["expr"]
+                dv = dvals.get(dw_i)
                 for campo, valor in _campos_mencionados(
-                        ib["dwords"][k]["expr"], prefijo, eval_call, macros,
-                        enlaces):
-                    filas.append([campo, "NO_EXTRAIBLE", valor, None])
-            continue
-        for campo, ancho in declarados:
-            if campo not in esperados:
-                filas.append([campo, "FUERA_DE_PAQUETE", None, None])
-                continue
-            filas.append([campo, "OK", esperados[campo], ancho])
+                        expr, op_nombre if isinstance(op_nombre, str) else None,
+                        eval_call, macros, enlaces):
+                    cubiertos.add(campo.upper())
+                    rango, ancho, modo = _campo_por_nombre(entrada, campo)
+                    if rango is None:
+                        filas.append({"paquete": op, "dword": dw_i,
+                                      "payload": pos, "campo": campo,
+                                      "esperado": valor, "rango": None,
+                                      "leido": None,
+                                      "veredicto": "NO_EXTRAIBLE"})
+                        continue
+                    if valor is None:
+                        filas.append({"paquete": op, "dword": dw_i,
+                                      "payload": pos, "campo": campo,
+                                      "esperado": None, "rango": rango,
+                                      "leido": None,
+                                      "veredicto": "VALOR_NO_AISLABLE"})
+                        continue
+                    lo = 0 if modo == "rango" else int(
+                        rango.split()[0])
+                    base = (dv >> lo) & ((1 << ancho) - 1) if dv is not None \
+                        else None
+                    if base is None:
+                        filas.append({"paquete": op, "dword": dw_i,
+                                      "payload": pos, "campo": campo,
+                                      "esperado": valor, "rango": rango,
+                                      "leido": None,
+                                      "veredicto": "VALOR_NO_AISLABLE"})
+                        continue
+                    if base != valor:
+                        v = "MISMATCH"
+                    elif ancho == 1:
+                        v = "OK_SOLO_UN_BIT"
+                    else:
+                        v = "OK"
+                    filas.append({"paquete": op, "dword": dw_i,
+                                  "payload": pos, "campo": campo,
+                                  "esperado": valor, "rango": rango,
+                                  "leido": base, "veredicto": v})
+            # Una entrada declarada que ningun dword escribe:  sobra.  El
+            # mensaje lleva el indice,  porque "sobra una" sin decir cual no
+            # permite corregirla.
+            for campo, _val in _campos_texto(entrada):
+                if campo.upper() not in cubiertos:
+                    filas.append({"paquete": op, "dword": None,
+                                  "payload": pos, "campo": campo,
+                                  "esperado": None, "rango": None,
+                                  "leido": None,
+                                  "veredicto": "FUERA_DE_PAQUETE"})
     return filas
+
+
+RE_ENTRADA_CAMPO = re.compile(r"([A-Za-z_]\w*)\s*\[\s*\d+"
+                              r"(?:\s*:\s*\d+)?\s*\]")
+
+
+def _campos_texto(entrada):
+    """[(campo)] que NOMBRA la declaracion, en el orden en que aparecen.
+
+    Se separa de `_campos_mencionados`,  que mira lo que el driver ESCRIBE:
+    esta mira lo que la DECLARACION nombra.  Son las dos mitades de
+    `FUERA_DE_PAQUETE`,  y confundirlas daria como sobrante un campo que el
+    driver si escribe.
+    """
+    return [(m.group(1), None) for m in RE_ENTRADA_CAMPO.finditer(entrada)]
 
 
 def formatear_roundtrip(filas):
@@ -2431,37 +2535,81 @@ def _macros_reales(lm, ev, entrada=None):
     return mac
 
 
-def _rt_stub(ev, mac):
-    """Un IB sintetico y las declaraciones, para los vectores de round-trip."""
-    ib = {"funcion": "rt", "fichero": "rt", "inicio": 1, "fin": 1, "locales": {},
-          "paradas": [], "sin_resuelto": {}, "bucles": [],
-          "sin_desenrollar": [], "condicionales": [], "completo": True,
-          "dwords": [
-              {"linea": 1, "expr": "PACKET3_MAP_QUEUES_ALFA(1)", "valor": 0},
-              {"linea": 2, "expr": "ALFA(1)", "valor": 1},
-              {"linea": 3, "expr": "PACKET3_MAP_QUEUES_BETA(2)", "valor": 0},
-              {"linea": 4, "expr": "BETA(0x1234)", "valor": 0x1234},
-              {"linea": 5, "expr": "PACKET3_MAP_QUEUES_GAMMA(3)",
-               "valor": 0},
-              {"linea": 6, "expr": "PACKET3_MAP_QUEUES_DELTA(4)", "valor": 0},
-              {"linea": 7, "expr": "DELTA(0x5)", "valor": 5},
-              {"linea": 8, "expr": "PACKET3_MAP_QUEUES_EPSILON(5)",
-               "valor": 0},
-              {"linea": 9, "expr": "PACKET3_MAP_QUEUES_ZETA(6)", "valor": 0},
-              {"linea": 10, "expr": "ZETA(1)", "valor": 1},
-              {"linea": 11, "expr": "PACKET3_MAP_QUEUES_THETA(7)",
-               "valor": 0},
-              {"linea": 12, "expr": "THETA(stub_ring->me == 1 ? 0 : 1)",
-               "valor": 0},
-          ]}
-    tablas = {
-        "PACKET3_MAP_QUEUES": [("ALFA", (0, 31)), ("BETA", (16, 31)),
-                               ("GAMMA", (0, 7)), ("DELTA", (0, 15)),
-                               ("EPSILON", (0, 3)), ("ZETA", 4),
-                               ("ETA", (8, 31)), ("THETA", (0, 31))],
-    }
-    return roundtrip(ib, tablas, ev, mac, {})
+# FIXTURE RECUPERADO DE `tools/_orculo_ibref.pyc`.  Los cuatro dwords y las seis
+# entradas de la declaracion son LITERALES del original:
+#
+#     'PACKET3(PACKET3_T, 0)'
+#     'PACKET3_T_ALFA(3) | PACKET3_T_BETA(1)'
+#     'PACKET3_T_ALFA(3)'
+#     'PACKET3_T_GAMMA(ring_me == 1 ? 0 : 1)'
+#     'PACKET3_T'                                        <- la CLAVE de tablas
+#     'CONTROL[31:0]  (alfa[1:0] | beta[31:31] | gamma[8:2])'
+#     'CONTROL[31:0]  (alfa[4:2])'
+#     'CONTROL[31:0]  (alfa[1])'
+#     'CONTROL[31:0]  (gamma[31] | check[30] | db[25:2])'
+#     'CONTROL[31:0]  (alfa[1:0])'
+#     'SOBRANTE[31:0]'
+#
+# Y `tablas` es `{CLAVE: [entradas]}`:  la clave es el NOMBRE DEL PAQUETE sin el
+# `PACKET3_`,  no un prefijo de opcode compuesto.  Eso lo dice la constante
+# suelta 'PACKET3_T'  del bytecode,  que no es un patron sino una clave.
+#
+# Lo que la version anterior de este fichero se habia INVENTADO:  el opcode
+# `PACKET3_MAP_QUEUES_*`,  la declaracion como tuplas `("ALFA", (0, 31))`,  y
+# los nombres DELTA, EPSILON, ZETA, ETA y THETA.  En el original solo existen
+# ALFA, BETA y GAMMA.
+DECL_RT = (
+    "CONTROL[31:0]  (alfa[1:0] | beta[31:31] | gamma[8:2])",
+    "CONTROL[31:0]  (alfa[4:2])",
+    "CONTROL[31:0]  (alfa[1])",
+    "CONTROL[31:0]  (gamma[31] | check[30] | db[25:2])",
+    "CONTROL[31:0]  (alfa[1:0])",
+    "SOBRANTE[31:0]",
+)
 
+
+def _ib_rt(dwords):
+    d = lambda linea, expr, valor: {"linea": linea, "expr": expr,
+                                    "valor": valor}
+    return {"funcion": "rt", "fichero": "rt", "inicio": 1, "fin": 1,
+            "locales": {}, "paradas": [], "sin_resuelto": {}, "bucles": [],
+            "sin_desenrollar": [], "condicionales": [], "completo": True,
+            "dwords": dwords}
+
+
+def _rt_stub(ev, mac):
+    """El IB y las SEIS entradas, tal cual."""
+    ib = _ib_rt([
+        # cabecera: PACKET3(PACKET3_T, 0)
+        {"linea": 1, "expr": "PACKET3(PACKET3_T, 0)", "valor": 0x00002C00},
+        # ALFA=3 y BETA=1 en el MISMO dword, unidos con `|`
+        {"linea": 2, "expr": "PACKET3_T_ALFA(3) | PACKET3_T_BETA(1)",
+         "valor": 0x00000003},
+        {"linea": 3, "expr": "PACKET3_T_ALFA(3)", "valor": 0x00000003},
+        {"linea": 4, "expr": "PACKET3_T_GAMMA(ring_me == 1 ? 0 : 1)",
+         "valor": 0x00000001},
+    ])
+    return roundtrip(ib, {"PACKET3_T": list(DECL_RT)}, ev, mac, {})
+
+
+def _rt_stub_ternario(ev, mac):
+    """El ternario con `ring_me = 0`:  el valor se AISLA y vale 1."""
+    ib = _ib_rt([
+        {"linea": 1, "expr": "PACKET3(PACKET3_T, 0)", "valor": 0x00002C00},
+        {"linea": 2, "expr": "PACKET3_T_GAMMA(ring_me == 1 ? 0 : 1)",
+         "valor": 0x00000001},
+    ])
+    return roundtrip(ib, {"PACKET3_T": list(DECL_RT)}, ev, mac,
+                     {"ring_me": "0"})
+
+
+def _rt_stub_sin_tablar(ev, mac):
+    """Sin declaracion:  un IB real no revienta con exception."""
+    ib = _ib_rt([
+        {"linea": 1, "expr": "PACKET3(PACKET3_T, 0)", "valor": 0x00002C00},
+        {"linea": 2, "expr": "PACKET3_T_ALFA(3)", "valor": 0x00000003},
+    ])
+    return roundtrip(ib, {}, ev, mac, {})
 
 def _filas_de(estados):
     return {f[0]: f[1] for f in estados}
