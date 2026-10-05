@@ -56,23 +56,50 @@ static const char *CS_SRC =
 "#version 430\n"
 "layout(local_size_x = 64) in;\n"
 "layout(std430, binding = 0) buffer Buf { uint data[]; };\n"
+"uniform uint uMode;   // 0 = fill (escritura pura), 1 = rmw (lee+escribe), 2 = math (ALU)\n"
+"uniform uint uIters;  // iteraciones de la cadena FMA, solo para el modo math\n"
+"uniform uint uBase;   // primer elemento del trozo; permite trocear sin rebasar el limite\n"
 "void main()\n"
 "{\n"
-"    uint i = gl_GlobalInvocationID.x;\n"
-"    uint v = data[i];\n"
-"    v ^= v << 13;\n"
-"    v ^= v >> 17;\n"
-"    v ^= v << 5;\n"
-"    data[i] = v;\n"
+"    uint i = gl_GlobalInvocationID.x + uBase;\n"
+"    if (uMode == 0u) {\n"
+"        data[i] = 0xdeadbeefu;\n"
+"    } else if (uMode == 1u) {\n"
+"        uint v = data[i];\n"
+"        v ^= v << 13;\n"
+"        v ^= v >> 17;\n"
+"        v ^= v << 5;\n"
+"        data[i] = v;\n"
+"    } else {\n"
+"        uint v = data[i] | 1u;\n"
+"        for (uint k = 0u; k < uIters; ++k)\n"
+"            v = v * 1664525u + 1013904223u;\n"
+"        data[i] = v;\n"
+"    }\n"
 "}\n";
 
 int main(int argc, char **argv)
 {
-    int seconds = 8, mib = 256;
+    int seconds = 8, mib = 256, mode = 1, do_sync = 1, iters = 64;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--seconds") && i + 1 < argc) seconds = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--buffer") && i + 1 < argc) mib = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--no-sync")) do_sync = 0;
+        else if (!strcmp(argv[i], "--iters") && i + 1 < argc) iters = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--mode") && i + 1 < argc) {
+            const char *m = argv[++i];
+            mode = !strcmp(m, "fill") ? 0 : !strcmp(m, "rmw") ? 1 : 2;
+        }
     }
+    const char *mode_name = mode == 0 ? "fill" : mode == 1 ? "rmw" : "math";
+    /* Trafico de DRAM POR ITERACION, en multiplos del tamano del buffer.
+     *   fill : 1x  (solo escribe; no lee)
+     *   rmw  : 2x  (lee y escribe)
+     *   math : 2x  (lee y escribe)
+     * Multiplicar por lo que sea sin mirar el modo daria una cuenta que no significa nada, y
+     * en el 1485 eso ya paso: conte el buffer una vez y por eso el rmw salio 18.3 GB/s cuando
+     * el trafico real era el doble. */
+    double traffic_mult = (mode == 0) ? 1.0 : 2.0;
     setvbuf(stdout, NULL, _IONBF, 0);
 
     /* ---- 1) EGL sin plataforma por defecto:|display no existe y no se quiere ---- */
@@ -203,6 +230,7 @@ int main(int argc, char **argv)
         (PFNGLBINDBUFFERBASEPROC)glXGetProcAddressLike("glBindBufferBase");
     PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation_ =
         (PFNGLGETUNIFORMLOCATIONPROC)glXGetProcAddressLike("glGetUniformLocation");
+    PFNGLUNIFORM1UIPROC glUniform1u_ = (PFNGLUNIFORM1UIPROC)glXGetProcAddressLike("glUniform1ui");
 
     GLuint cs = glCreateShader_(GL_COMPUTE_SHADER); glShaderSource_(cs, 1, &CS_SRC, NULL);
     glCompileShader_(cs);
@@ -221,32 +249,46 @@ int main(int argc, char **argv)
     glBindBufferBase_(GL_SHADER_STORAGE_BUFFER, 0, sbo);
     glUseProgram_(prog);
     glUniform1i_(glGetUniformLocation_(prog, "data"), 0);
+    GLint uMode = glGetUniformLocation_(prog, "uMode");
+    GLint uIters = glGetUniformLocation_(prog, "uIters");
+    GLint uBase = glGetUniformLocation_(prog, "uBase");
+    glUniform1u_(uMode, (GLuint)mode);
+    glUniform1u_(uIters, (GLuint)(mode == 2 ? iters : 1));
 
     uint32_t elements = (uint32_t)(bytes / 4u);
     uint32_t max_wg = 65535u;                 /* minimo garantizado por la spec de GL 4.3 */
     uint32_t per = max_wg * 64u;
     uint32_t chunks = (elements + per - 1u) / per;
     printf("\n=== la carga ===\n  buffer %d MiB (%u elementos de 4 B)\n"
-           "  %u workgroups por dispatch, %u trozos\n  duracion %d s\n\nARRANCANDO\n",
-           mib, elements, max_wg, chunks, seconds);
+           "  %u workgroups por dispatch, %u trozos\n  duracion %d s\n"
+           "  modo %s   iters(FMA) %d   sincronizacion por iteracion: %s\n"
+           "  trafico de DRAM por iteracion: %.0fx el buffer  (%s)\n\nARRANCANDO\n",
+           mib, elements, max_wg, chunks, seconds, mode_name,
+           mode == 2 ? iters : 1, do_sync ? "si" : "no", traffic_mult,
+           mode == 0 ? "solo escritura" : "lectura + escritura");
 
     double t0 = now_s(); uint32_t it = 0; float best = 0.f;
     for (;;) {
         if (now_s() - t0 >= (double)seconds) break;
-        for (uint32_t c = 0; c < chunks; c++)
+        for (uint32_t c = 0; c < chunks; c++) {
+            glUniform1u_(uBase, (GLuint)((uint64_t)c * per));
             glDispatchCompute_(max_wg, 1, 1);
-        glMemoryBarrier_(GL_SHADER_STORAGE_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT);
-        glFinish();
+        }
+        if (do_sync) {
+            glMemoryBarrier_(GL_SHADER_STORAGE_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT);
+            glFinish();
+        }
         it++;
         if ((it % 16) == 0) {
-            float gbs = (float)((double)bytes * it / (now_s() - t0) / 1e9);
+            float gbs = (float)((double)bytes * traffic_mult * it / (now_s() - t0) / 1e9);
             if (gbs > best) best = gbs;
             printf("  t=%6.2fs iter=%-6u %8.2f GB/s (pico %.2f)\n", now_s()-t0, it, gbs, best);
         }
     }
     double el = now_s() - t0;
-    printf("\nFINALIZADO  %.3f s  %u iteraciones\n"
-           "  ancho de banda aparente  media %.2f GB/s  pico %.2f GB/s\n",
-           el, it, (double)bytes * it / el / 1e9, best);
+    printf("\nFINALIZADO  modo %s  %.3f s  %u iteraciones\n"
+           "  trafico de DRAM (%.0fx buffer/iter)  media %.2f GB/s  pico %.2f GB/s\n",
+           mode_name, el, it, traffic_mult,
+           (double)bytes * traffic_mult * it / el / 1e9, best);
     return 0;
 }
