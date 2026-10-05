@@ -4072,3 +4072,42 @@ de producir progreso técnico real:
 ```text
 CONTINUÁ.
 ```
+
+---
+
+# AUTORIZACIÓN DEL PROPIETARIO — 2026-10-04, con una frontera dura
+
+```text
+AUTORIZA=el propietario. "haz lo que quieras siempre y cuando no toques mi grafica
+         integrada del procesador"
+ALCANCE=  todo lo que este proyecto ya podia hacer, MAS la intervencion sobre la
+         RX550 (1002:699f) que antes estaba vedada por la regla "no probar el driver
+         hasta reconstruir como funciona la RX550".  Esa regla la REemplaza el
+         propietario, no la deroga el agente por decision propia.
+```
+
+## LA FRONTERA DURA: la GPU integrada del procesador NO SE TOCA
+
+```text
+PROHIBIDO   cualquier escritura sobre 0000:00:02.0  (Intel HD 4600, i915)
+PROHIBIDO   descargar, bloquear ni modificar el modulo i915
+PROHIBIDO   tocar fb0 / i915drmfb / el DRM master de la Intel
+PROHIBIDO   alterar el estado de energia o el runtime PM de la Intel
+PROHIBIDO   cambiar la salida de consola: la consola es de la Intel y debe seguir siendolo
+PROHIBIDO   trabajar sobre un node DRM que pertenezca a 0000:00:02.0
+```
+
+## Consecuencias que se derivan, y que no son obvias
+
+1. **La consola es de la Intel.** `fb0 = i915drmfb`, 1366x768. La RX550 no tiene nodo fb.
+   Mientras ese hecho se cumpla, trabajar sobre la RX550 no amenaza la consola.
+2. **La RX550 ya posee el rango VGA legacy** (`boot_vga=1`,
+   `vgaarb: VGA device added: decodes=io+mem, owns=io+mem`). Esto es un hecho PREEXISTENTE,
+   no algo que hagamos. Pero significa que **programar la salida de display de la RX550**
+   puede encender DVI-D-1 / HDMI-A-2 en un monitor que la Intel tambien maneja.
+   **Por eso la salida de display de la RX550 sigue siendo un tema aparte y sin permiso.**
+3. **Cada operacion se declara por su numero de dispositivo antes de ejecutarla.** Si una
+   accion toca algo distinto de 0000:01:00.0, no se ejecuta y se escribe por que.
+4. Ante la duda entre "avanzar" y "no tocar la Intel", **gana la Intel**. El coste de no
+   avanzar es un hallazgo menos. El coste de tocar la consola es la sesion.
+```
