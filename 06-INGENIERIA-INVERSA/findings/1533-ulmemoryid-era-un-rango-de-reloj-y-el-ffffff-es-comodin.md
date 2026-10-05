@@ -84,6 +84,13 @@ Y el `0x00009C40` = 40 000 sigue **sin unidad declarada**: el corpus usa "10kHz"
 otros sitios, pero no para `ulMemClockRange`, y no los voy a igualar por parecido de nombre.
 `NOT_DETERMINED`, con la razon.
 
+> **ACTUALIZADO por el hallazgo `1542`: este punto quedo RESUELTO despues.** El mismo campo
+> `ulMemClockRange` recorre once valores —40 000, 80 000, 90 000, 100 000, 112 500, 125 000,
+> 137 500, 150 000, 162 500, 175 000, 200 000— y en unidades de **10 kHz** son exactamente la escalera
+> de reloj de DRAM de 400 a 2000 MHz. **La unidad es 10 kHz, deducida de la estructura de la tabla, no
+> de un comentario.** El `NOT_DETERMINED` de esta linea ya no aplica; se conserva la frase porque es el
+> estado en el momento en que se escribio este hallazgo.
+
 ## 4. El detalle que reinforce todo: el driver tampoco lo decodifica
 
 ```text
