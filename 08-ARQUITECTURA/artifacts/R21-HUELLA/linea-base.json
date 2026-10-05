@@ -749,15 +749,15 @@
    "sha256": "cc44585983ccea54469b2a51f264f5ff759e45f083640bb87ad52b7f48887a47"
   },
   {
-   "bytes": 14056,
-   "lineas": 355,
+   "bytes": 24979,
+   "lineas": 552,
    "ruta": "tools/regalias.py",
    "selftest": {
     "detalle": "`--toma` no ejecuta; use --verifica",
     "estado": "NO_MEASURE",
     "rc": null
    },
-   "sha256": "931c0b7eaad2ca9d1407d2ed705ab26086273ca2e6c6468008dc6f26d92523a6"
+   "sha256": "8a71928058925b9cebd4350258e94dffcb637112ba91f42918f796b7bd15072f"
   },
   {
    "bytes": 31289,
@@ -859,15 +859,15 @@
    "sha256": "35ebc831db2cb4f12e2fbf907f9619669f723a0f9857e5f9f2e606ce4b4e7086"
   },
   {
-   "bytes": 117128,
-   "lineas": 2411,
+   "bytes": 126880,
+   "lineas": 2606,
    "ruta": "tools/rxre.py",
    "selftest": {
     "detalle": "`--toma` no ejecuta; use --verifica",
     "estado": "NO_MEASURE",
     "rc": null
    },
-   "sha256": "f2d9329a9625d9ab961b3e5e52717f5e4a636acc3413e18fc910c56e8344a5ef"
+   "sha256": "277e42bb24a499c7d6048815e075cfa76835b630773ff3a73bcf3cb34a9db7a3"
   },
   {
    "bytes": 62285,
@@ -2246,7 +2246,7 @@
   }
  ],
  "instrumentos": 204,
- "sha256_de_la_linea_base": "864334d6a30cdc4783f38fe7431cbcc50c60325a2b27d66b70823b9ec051cb59",
+ "sha256_de_la_linea_base": "1b57e9f6653c1ecc08bf2245ca204d23f09cade7dbb925762253c33694eeeed4",
  "tool": "huella",
  "version": "1.0.0"
 }

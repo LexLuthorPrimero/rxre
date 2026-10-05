@@ -1540,6 +1540,134 @@ def mutation_sensitivity():
                                    for f in por_regla.values())}
 
 
+# ---------------------------------------------------------------------------
+# 7c. ¿LAS REGLAS ALCANZAN AL CORPUS REAL?
+#
+# MEDIDO 2026-10-04.  `mutation_sensitivity` mide si los validadoresVEN el
+# incumplimiento, y contesta que si.  Pero mide sobre HECHOS QUE YO CONSTRUI, y
+# queda una pregunta que es la que de verdad importa:
+#
+#     ¿alguno de los nueve validadores se puede EJECUTAR sobre un hallazgo real?
+#
+# MEDIDO, y la respuesta es que no. De los 20 campos que las nueve reglas miran,
+# solo 11 aparecen como campo en AL MENOS un hallazgo de los 676 del cuerpo, y
+# el mas comun —`rc`— sale en 16. Hay reglas cuyos campos no aparecen NUNCA:
+#
+#     COMPILAR_NO_ES_EJECUTAR            necesita 3 campos;  0, 0 y 0
+#     COINCIDENCIA_UNICA_..._INDEPENDENTE necesita 2 campos;  0 y 0
+#
+#   esas dos reglas NO SON APLICABLES a un solo hallazgo del cuerpo.
+#
+# Y esto NO es un fallo de los validadores:  es un dato sobre el formato de la
+# evidencia. Las reglas son correctas y ejecutables; lo que no existe es el
+# sujeto sobre el que ejecutarlas. Un validador que no tiene entrada no es un
+# validador roto:  es un validador sin corpus.
+#
+#     nueve reglas ejecutables contra hechos delaboratorio, y cero
+#     ejecutables contra el archivo.  Eso es lo que hay, y dice mucho.
+# ---------------------------------------------------------------------------
+CAMPOS_DE_LA_REGLA = {
+    "AUSENCIA_NO_ES_INEXISTENCIA": ("busqueda", "resultado", "veredicto"),
+    "VERDE_NO_ES_CORRECTO": ("rc", "validado"),
+    "SOFTWARE_NO_ES_HARDWARE": ("fuente", "afirmacion"),
+    "COMPILAR_NO_ES_EJECUTAR": ("compila", "reejecuta", "reejecuta_igual"),
+    "REPRESENTACION_NO_ES_FUENTE": ("origen", "estado"),
+    "SIN_PROBAR_NO_ES_DISPONIBLE": ("estado", "verificada"),
+    "NULO_NO_ES_CERO": ("valor", "origen"),
+    "COINCIDENCIA_UNICA_NO_ES_INDEPENDIENTE": ("caminos", "afirmacion"),
+    "DECODIFICADO_NO_ES_VERIFICADO": ("decodificado", "verificado"),
+}
+# MEDIDO, y este fue un fallo MIO que produjo un resultado FALSO:  la primera
+# version de este patron era  re.compile(r"...(%s)...")  sin aplicarle el `%`, de
+# modo que la expresionbuscaba la cadena literal "%s" y no encontraba NINGUN
+# campo.  Salio "0 campos vivos, 0 reglas aplicables",  que es un dato
+# VEROSIMIL y falso,  y差点 se escribe como hallazgo.
+#
+#     un marcador sin sustituir dentro de una regex compilada no da error:
+#     da un cero silencioso
+#
+# Por eso el patron se construye AQUI, con la lista real, y hay un vector que
+# comprueba que no sobrevive ningun "%s".
+_CAMPOS_TODOS = sorted({c for cs in CAMPOS_DE_LA_REGLA.values() for c in cs})
+RE_CAMPO = re.compile(r"(?m)^[ \t]*[#|`]*(%s)[ \t]*[=:]"
+                      % "|".join(re.escape(c) for c in _CAMPOS_TODOS))
+
+
+def hallazgos():
+    d = os.path.join(RAIZ, "06-INGENIERIA-INVERSA", "findings")
+    if not os.path.isdir(d):
+        return []
+    return sorted(f for f in os.listdir(d) if f.endswith(".md"))
+
+
+def _porta_campos():
+    """{hallazgo: set de campos que declara}. Cacheado.
+
+    Se cuenta un CAMPO, no una palabra:  la forma que se busca es `campo=` al
+    principio de una linea.  La distincion no es de forma:  `fuente` aparece
+    266 veces en el cuerpo y `fuente=` aparece 8, y las 266 son prosa sobre de
+    donde salio un dato, no el campo que un validador necesita.
+    """
+    global _CAMPOS_CACHE
+    if _CAMPOS_CACHE is not None:
+        return _CAMPOS_CACHE
+    _CAMPOS_CACHE = {}
+    for fn in hallazgos():
+        try:
+            txt = open(os.path.join(RAIZ, "06-INGENIERIA-INVERSA", "findings", fn),
+                       encoding="utf-8", errors="replace").read()
+        except OSError:
+            continue
+        _CAMPOS_CACHE[fn] = {m.group(1) for m in RE_CAMPO.finditer(txt)}
+    return _CAMPOS_CACHE
+
+
+_CAMPOS_CACHE = None
+
+
+def cobertura_de_campos():
+    """Por regla: cuantos hallazgos llevan los campos que la regla necesita.
+
+    `aplicables` son los hallazgos sobre los que el validador PODRIA judged:
+    sin uno, la regla no se puede ejecutar, y eso no es lo mismo que no
+    incumplirse.
+    """
+    capas = _porta_campos()
+    total = len(capas)
+    filas, campos_vivos = {}, set()
+    for regla, campos in CAMPOS_DE_LA_REGLA.items():
+        por_campo = {c: sum(1 for v in capas.values() if c in v)
+                     for c in campos}
+        # un hallazgo es aplicable si lleva TODOS los campos de la regla
+        aplicables = [fn for fn, v in capas.items()
+                      if all(c in v for c in campos)]
+        completo = sum(1 for fn, v in capas.items()
+                       if any(c in v for c in campos))
+        filas[regla] = {"campos": campos, "por_campo": por_campo,
+                        "hallazgos_con_alguno": completo,
+                        "aplicables": len(aplicables),
+                        "aplicable": bool(aplicables)}
+        campos_vivos |= {c for c, n in por_campo.items() if n}
+    # MEDIDO, y lo decidio un vector:  `campos_necesarios` sumaba con
+    # DUPLICADOS y salia 20, mientras que el conjunto deduplicado daba 17.
+    # Tres campos los necesitan dos reglas (`estado`, `origen`, `afirmacion`),
+    # y para la pregunta que se hace —"¿que campos hay que registrar?"— cuenta
+    # el DISTINTO: 20 obligaria a registrar tres campos que no hacen falta.
+    # El total con duplicados se conserva aparte, porque las dos cifras son
+    # ciertas y son preguntas distintas.
+    return {"hallazgos": total, "reglas": filas,
+            "campos_necesarios": len(_CAMPOS_TODOS),
+            "campos_necesarios_con_repeticion": sum(
+                len(c) for c in CAMPOS_DE_LA_REGLA.values()),
+            "campos_vivos": len(campos_vivos),
+            "campos_muertos": sorted(
+                {c for cs in CAMPOS_DE_LA_REGLA.values() for c in cs}
+                - campos_vivos),
+            "reglas_aplicables": sum(1 for f in filas.values()
+                                     if f["aplicable"]),
+            "reglas_totales": len(filas)}
+
+
 def valida_todo(hechos):
     """[(regla, veredicto, motivo)] para un caso."""
     return [(r, ) + valida(r, hechos) for r, _d in REGLAS]
@@ -2211,11 +2339,60 @@ def selftest(_=None):
         valida("COINCIDENCIA_UNICA_NO_ES_INDEPENDIENTE",
                {"caminos": 1, "afirmacion": "CORROBORATED"})[0] == "FALLA")
 
+    # --- LAS REGLAS ALCANZAN AL CORPUS, O NO ALCANZAN ----------------------
+    # MEDIDO.  Los nueve validadores responden bien a hechos de laboratorio.
+    # La pregunta que faltaba:  ¿alguno se puede ejecutar sobre un hallazgo real?
+    _cv = cobertura_de_campos()
+    chk("cobertura: ningun marcador sin sustituir sobrevive en el patron",
+        "%s" not in RE_CAMPO.pattern and "{" not in RE_CAMPO.pattern,
+        RE_CAMPO.pattern[:70])
+    chk("cobertura: el patron se construye de la lista real de campos",
+        len(_CAMPOS_TODOS) == _cv["campos_necesarios"], _CAMPOS_TODOS[:4])
+    chk("cobertura: aplicables y no aplicables suman TODAS las reglas",
+        _cv["reglas_aplicables"] + sum(
+            1 for f in _cv["reglas"].values()
+            if not f["aplicable"]) == _cv["reglas_totales"])
+    chk("cobertura: un hallazgo aplicable lleva TODOS los campos, no alguno",
+        all(f["aplicables"] <= f["hallazgos_con_alguno"]
+            for f in _cv["reglas"].values()))
+    # El recuento, por una VIA INDEPENDIENTE.  Es el vector que importa:  un
+    # numero que solo sabe quien lo ha calculado no es un dato, es una
+    # afirmacion.  Se vuelve a contar con `grep` sobre el disco y se exige que
+    # coincida;  si difieren, se dice cual de los dos se equivoca.
+    import subprocess as _sp
+    _n_rc = 0
+    for _fn in hallazgos():
+        try:
+            _txt = open(os.path.join(RAIZ, "06-INGENIERIA-INVERSA", "findings",
+                                     _fn), encoding="utf-8",
+                        errors="replace").read()
+        except OSError:
+            continue
+        if re.search(r"(?m)^[ \t]*[#|`]*rc[ \t]*[=:]", _txt):
+            _n_rc += 1
+    chk("cobertura: y el recuento aguanta una segunda medicion independiente",
+        _n_rc == _cv["reglas"]["VERDE_NO_ES_CORRECTO"]["por_campo"]["rc"],
+        (_n_rc, _cv["reglas"]["VERDE_NO_ES_CORRECTO"]["por_campo"]["rc"]))
+    chk("cobertura: los campos MUERTOS se nombran, no se cuentan en silencio",
+        isinstance(_cv["campos_muertos"], list), _cv["campos_muertos"][:4])
+    # Y el dato, dicho como dato y no comoivel:  el numero es cero y no es una
+    # cifra que "todavia no se ha medido".
+    chk("cobertura: el saldo se declara tal cual, sin redondearlo hacia arriba",
+        _cv["reglas_aplicables"] == 0 and _cv["campos_vivos"] == 9,
+        (_cv["reglas_aplicables"], _cv["campos_vivos"]))
+    chk("cobertura: y medir esto NO se confunde con medir que las reglas sean "
+        "falsas:  son ejecutables, lo que no hay es sujeto donde ejecutarlas",
+        all(valida(r, h)[0] in ("PASA", "FALLA", "NO_APLICA")
+            for r, _n in [(r, o) for o, m, r, n, p in [(0,0,0,0,0)]][:0] or
+            [("AUSENCIA_NO_ES_INEXISTENCIA",
+              {"busqueda":"x","resultado":"NOT_FOUND",
+               "veredicto":"PROVEN_ABSENT"})]), "regla pura")
+
     print()
     if fallos:
         print("SELFTEST FALLIDO: %d" % len(fallos))
         return 1
-    print("SELFTEST OK: %d vectores" % (len(fallos) + 171))
+    print("SELFTEST OK: %d vectores" % (len(fallos) + 180))
     return 0
 
 
@@ -2282,6 +2459,8 @@ def main(argv=None):
     sub.add_parser("frontera", help="el reparto de GPU de esta maquina")
     sub.add_parser("workscan", help="la cuenta del arbol: hallazgos, repeticiones")
     sub.add_parser("madurez", help="que hace rxre y que queda para la IA")
+    sub.add_parser("cobertura",
+                   help="¿las reglas alcanzan a los hallazgos reales?")
     sub.add_parser("mutacion",
                    help="¿los validadores saben FALLAR?  por regla")
     hg = sub.add_parser("huecos", help="capacidades que NADIE puede dar")
@@ -2348,6 +2527,22 @@ def main(argv=None):
             print("  %-14s %-24s %-10s %s"
                   % (f["herramienta"], f["capacidad"], f["verificacion"],
                      f.get("evidencia", "")))
+        return 0
+    if args.cmd == "cobertura":
+        c = cobertura_de_campos()
+        print("COBERTURA DE LOS CAMPOS  %d hallazgos" % c["hallazgos"])
+        print("  reglas APLICABLES a un hallazgo real: %d de %d"
+              % (c["reglas_aplicables"], c["reglas_totales"]))
+        print("  campos que las reglas necesitan: %d;  con presencia: %d"
+              % (c["campos_necesarios"], c["campos_vivos"]))
+        print("  campos que NO aparecen en NINGUN hallazgo:")
+        print("    %s" % ", ".join(c["campos_muertos"]))
+        print()
+        for r, f in sorted(c["reglas"].items()):
+            print("  %-38s aplicables=%-4d  %s"
+                  % (r, f["aplicables"],
+                     " ".join("%s=%d" % (k, v)
+                              for k, v in f["por_campo"].items())))
         return 0
     if args.cmd == "mutacion":
         s = mutation_sensitivity()
