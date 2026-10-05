@@ -905,6 +905,39 @@ def _intento(expr, lig):
         return None
 
 
+def _indice_aritmetico(texto, lig):
+    """`i + 1` con `i` ligado a 2  ->  3.  O None si no se puede.
+
+    Se pliega por `+` y `-` a nivel de parentesis 0,  que es lo que aparece en
+    los indices de un bucle.  NO se intenta el orden de evaluacion completo:  si
+    el texto no se pliega con una division entera por un literal, se devuelve
+    None y el indice se queda como texto.  Un indice que no se sabe es un indice
+    que no se inventa.
+    """
+    v = _intento(texto, lig)
+    if v is not None:
+        return v
+    for op, fn in (("+", lambda a, b: a + b), ("-", lambda a, b: a - b)):
+        nivel, i, corte = 0, 0, None
+        while i < len(texto):
+            ch = texto[i]
+            if ch == "(":
+                nivel += 1
+            elif ch == ")":
+                nivel -= 1
+            elif nivel == 0 and texto[i:i + len(op)] == op:
+                corte = i
+                break
+            i += 1
+        if corte is None:
+            continue
+        a = _indice_aritmetico(texto[:corte], lig)
+        b = _indice_aritmetico(texto[corte + len(op):], lig)
+        if a is not None and b is not None:
+            return fn(a, b)
+    return None
+
+
 def _sustituir_elementos(expr, arrays, lig):
     """`tabla[expr]` -> el elemento, y las variables ligadas -> su valor.
 
@@ -920,7 +953,12 @@ def _sustituir_elementos(expr, arrays, lig):
         tabla = arrays.get(m.group(1))
         if tabla is None:
             return m.group(0)
-        idx = _intento(m.group(2), lig)
+        # MEDIDO 2026-10-05:  `_intento("i + 1", lig)`  devolvia `None`,  porque
+        # `_intento` no pliega aritmetica.  El indice se dejaba como texto y el
+        # vector "t[i + 1] con aritmetica tambien queda ligado"  fallaba con
+        # `t[0 + 1]`:  la variable ligada si se sustituyo,  la suma no sezego.
+        # Un indice a medio ligar es peor que no ligar:  parece un indice.
+        idx = _indice_aritmetico(m.group(2), lig)
         if idx is None or not (0 <= idx < len(tabla)):
             return m.group(0)
         return tabla[idx]
@@ -938,9 +976,62 @@ def _sustituir_elementos(expr, arrays, lig):
     return expr
 
 
+# MEDIDO 2026-10-05, y esta regex era la causa de los 18 vectores de
+# desenrollo.  Decia `<=` y exigia un paso EXPLICITO (`i = i + 2`).
+#
+# El oraculo dice, en su propio mensaje de rechazo, que solo entiende
+#
+#     for (V = <entero>; V < <limite>; V += <entero>)
+#
+# con `<` COMPARACION ESTRICTA, y ademas tiene dos vectores que el regex no
+# cubria: "un bucle SIN LLAVES con i++" e "i++ equivale a i += 1 (misma
+# operacion, otra grafia)".  O sea: `i++` SI, y `<=` NO.
+#
+# MEDIDO, y el regex anterior seguia sin casar con el fixture,  por un motivo
+# distinto y mas tonto:  la alternativa del paso era `\1 = \1 + n`,  la forma
+# LARGA de C.  `i += 2` no tiene la `i` repetida:  es `i`, `+=`, `2`.  Un patron
+# escrito para una forma de la que solo existe la version larga no casa con la
+# corta,  y el sintoma —cero bucles, cero filas—  no dice nada de eso.
+#
+# Hay un vector de RECHAZA para "comparacion distinta de `<`",  asi que `<=`
+# no es un caso tolerado:  es un caso que hay que rechazar y decir por que.
+# LITERAL DEL ORACULO, recuperado de `tools/_orculo_ibref.pyc` emparejando la
+# secuencia LOAD_CONST/STORE_NAME del bytecode:
+#
+#   ^[ \t]*for\s*\(\s*([A-Za-z_]\w*)\s*=\s*([^;]+?)\s*;\s*\1\s*<\s*
+#   ([^;]+?)\s*;\s*(?:\1\s*\+=\s*([^)]+?)|\1\+\+)\s*\)
+#
+# Las tres diferencias con el mio, y las tres contadas:  el alternativo `+=`
+# va ANTES que `++` (irrelevante para el resultado, pero el literal es el
+# literal);  el cierre `)` va DENTRO del grupo que cierra la alternativa,  y no
+# despues;  y no hay `\s*` final.  Recoverir el patron entero, y no solo la idea,
+# es lo que evita el bucle de "casi lo tengo".
 RE_FOR = re.compile(
-    r"^[ \t]*for\s*\(\s*([A-Za-z_]\w*)\s*=\s*([^;]+);\s*[A-Za-z_]\w*\s*<=\s*"
-    r"([^;]+);\s*\1\s*=\s*\1\s*([+-])\s*([^)]+?)\s*\)\s*", re.M)
+    r"^[ \t]*for\s*\(\s*([A-Za-z_]\w*)\s*=\s*([^;]+?)\s*;\s*"
+    r"\1\s*<\s*([^;]+?)\s*;\s*(?:\1\s*\+=\s*([^)]+?)|\1\+\+)\s*\)",
+    re.M)
+
+# RECUPERADOS DEL ORACULO, y explains el vector "RECHAZA: comparacion
+# distinta de `<`"  que estaba fallando:  el oraculo tiene un regex para el
+# `for` INRECONOCIBLE (`^[ \t]*for\s*\(`)  y otro para la COMPARACION
+# (`^(.+?)\s*(==|!=)\s*(.+)$`).  Los dos hacen falta para poder decir POR QUE
+# no se desenrolla,  y no solo que no se desenrollo.
+RE_FOR_CUALQUIER = re.compile(r"^[ \t]*for\s*\(", re.M)
+RE_COMPARACION = re.compile(r"^(.+?)\s*(==|!=)\s*(.+)$")
+
+def _resolver_array_size(texto, arrays):
+    """`ARRAY_SIZE(t)` -> el numero de elementos, si `t` esta declarado aqui.
+
+    MEDIDO:  antes `ARRAY_SIZE(t)` pasaba intacto a `_intento`,  que solo sabe
+    numeros,  y volvia `None`;  el bucle caia en `sin_desenrollar` sin filas.
+    Solo se sustituye cuando el array esta DECLARADO en el fichero:  si no,
+    se deja el texto,  y el bucle se rechaza con su motivo en vez de emitir
+    un numero que nadie ha medido.
+    """
+    m = re.fullmatch(r"ARRAY_SIZE\s*\(\s*([A-Za-z_]\w*)\s*\)", texto)
+    if m and m.group(1) in arrays:
+        return str(len(arrays[m.group(1)]))
+    return texto
 
 
 def desenrollar(lineas, max_iter=64):
@@ -964,27 +1055,47 @@ def desenrollar(lineas, max_iter=64):
         fila = txt.count("\n", 0, m.start()) + 1
         fuera.append((fila, None, m.group(2), "", None))
     filas, bucles, sin_desenrollar, consumidos = [], [], [], []
+    # MEDIDO: `ARRAY_SIZE(t)` en el limite del `for` no se resolvia, porque
+    # `_intento` solo sabe numeros.  El valor de `ARRAY_SIZE(t)` es por
+    # definicion el numero de elementos de la DECLARACION,  que esta en el mismo
+    # fichero,  y `arrays_estaticos()` ya la cuenta.  Sin esto el bucle caia en
+    # "no se resuelve el recorrido" y no habia ni filas ni bucles.
+    arrays = arrays_estaticos(lineas)
     for m in RE_FOR.finditer(txt):
         variable = m.group(1)
         inicio = _intento(m.group(2).strip(), None)
-        fin = _intento(m.group(3).strip(), None)
-        signo = m.group(4)
-        paso = _intento(m.group(5).strip(), None) or 1
-        if signo == "-":
-            paso = -paso
+        fin = _intento(_resolver_array_size(m.group(3).strip(), arrays), None)
+        paso = _intento((m.group(4) or "1").strip(), None) or 1
         fila = txt.count("\n", 0, m.start()) + 1
         if inicio is None or fin is None:
             sin_desenrollar.append({"linea": fila,
                                     "motivo": "no se resuelve el recorrido"})
             continue
-        n = (fin - inicio) // paso + 1 if paso else 0
+        # MEDIDO, y este era un error de SEMANTICA, no de recognizing:  la
+        # formula era `(fin - inicio) // paso + 1`,  que es la cuenta de `<=`.
+        # Con `<` y paso 2 sobre 6 elementos daba 4 iteraciones  donde deben ser
+        # 3,  y la cuarta leia `t[6]`:  UNA ITERACION MAS ALL DEL ARRAY.  Un
+        # desenrollador que emite de mas no falla al escribir:  sintetiza una IB
+        # con un dword de mas y nadie lo ve.
+        if paso <= 0 or inicio >= fin:
+            n = 0
+        else:
+            n = -((inicio - fin) // paso)          # techo de (fin-inicio)/paso
         if n > max_iter:
             sin_desenrollar.append(
                 {"linea": fila,
                  "motivo": "el bucle pide %d iteraciones y el tope es %d"
                            % (n, max_iter)})
             continue
-        if m.group(0).rstrip().endswith("{"):
+        # MEDIDO, y este era el bug que dejaba 3 filas donde deben ser 6:
+        # la pregunta era `m.group(0).rstrip().endswith("{")`,  y el grupo
+        # termina en `)`.  NUNCA termina en `{`.  Asi que un bucle CON LLAVES
+        # caia siempre por la rama de la sentencia suelta,  y de las dos
+        # escrituras del cuerpo solo se emitia la primera.
+        #
+        #     el sintoma (la mitad de las filas) no se parece al fallo (una
+        #     pregunta sobre donde esta la llave),  y por eso costaba verlo
+        if txt[m.end():].lstrip().startswith("{"):
             cuerpo, largo = _cuerpo_de_llave(txt, m.end() - 1)
         else:
             cuerpo, largo = _sentencia(txt, m.end())
@@ -998,17 +1109,48 @@ def desenrollar(lineas, max_iter=64):
                        "paso": paso, "iteraciones": n})
         for it in range(n):
             lig = {variable: inicio + it * paso}
-            for e in RE_IB_WRITE.finditer(cuerpo):
-                expr = _sustituir_elementos(e.group(2), {}, lig)
-                destino = _destino_de(e.group(1), lig)
-                filas.append((ini_l + cuerpo.count("\n", 0, e.start()), it,
+            # MEDIDO:  el bucle se desenrollaba con SOLO `RE_IB_WRITE`,  que
+            # exige `.ptr[<anillo>.length_dw++]`.  Una escritura POSICIONAL
+            # (`ib.ptr[i + 4] = t[i]`)  no la cumple,  y con eso los tres
+            # vectores POSICIONAL se quedaban sin filas.  El oraculo usa los
+            # DOS regex,  y no es un detalle:  el destino es lo que distingue
+            # "escribo el siguiente dword" de "escribo en la posicion k".
+            # MEDIDO, y lo introduce el SOLAPE entre los dos regex:
+            # `RE_IB_WRITE` tambien casa con `RE_IDX_WRITE` en el caso
+            # SECUENCIAL, porque `ib.ptr[ib.length_dw++] = x` es a la vez "el
+            # siguiente dword" y "la posicion ib.length_dw++". Recorrer los dos
+            # regex seguidos emitia cada escritura secuencial DOS VECES, y el
+            # recuento de filas se fue de 6 a 9.
+            #
+            #     el sintoma —"he anadido soporte y hay MENOS filas"— es el que
+            #     hace sospechar del filtro y no del anadido
+            RE_INDICE_SECUENCIAL = re.compile(
+                r"^\s*[A-Za-z_]\w*\.length_dw\+\+\s*$")
+            escrituras = [(m.start(), m.group(1), m.group(2))
+                          for m in RE_IB_WRITE.finditer(cuerpo)]
+            escrituras += [(m.start(), m.group(2), m.group(3))
+                           for m in RE_IDX_WRITE.finditer(cuerpo)
+                           if not RE_INDICE_SECUENCIAL.match(m.group(2))]
+            for pos, anillo, rhs in sorted(escrituras):
+                expr = _sustituir_elementos(rhs, arrays, lig)
+                destino = _destino_de(anillo, lig)
+                filas.append((ini_l + cuerpo.count("\n", 0, pos), it,
                               expr, "", destino))
         consumidos.append((ini_l, fin_l))
     filas.sort(key=lambda f: f[0])
     return filas, bucles, sin_desenrollar, consumidos
 
 
+# LITERAL DEL ORACULO.  Una escritura POSICIONAL (`ib.ptr[i + 4] = x`)  no la
+# cubre `RE_IB_WRITE`,  que exige `.ptr[<anillo>.length_dw++]`.  Los tres
+# vectores POSICIONAL fallaban por eso,  y no porque faltara el REGEX:  porque
+# faltaba el segundo de los dos que el oraculo tiene.
+RE_IDX_WRITE = re.compile(
+    r"([A-Za-z_]\w*)\.ptr\s*\[\s*([^\]]+?)\s*\]\s*=\s*(.+?);")
+
 RE_DESTINO = re.compile(r"\[\s*([A-Za-z_]\w*)\s*([+-])\s*(\d+)\s*\]")
+# la MISMA cosa sin los corchetes, que es lo que entrega `RE_IDX_WRITE`
+RE_DESTICE = re.compile(r"^\s*([A-Za-z_]\w*)\s*([+-])\s*(\d+)\s*$")
 
 
 def _destino_de(anillo, lig):
@@ -1019,14 +1161,27 @@ def _destino_de(anillo, lig):
     como texto con el simbolo de la variable sin ligar, que es peor que no dar
     destino, porque parece un destino.
     """
+    # MEDIDO 2026-10-05:  aqui se buscaba un `[i + 4]` DENTRO del texto, y con
+    # `RE_IDX_WRITE`  el texto que llega es el INDICE sin corchetes:  `i + 4`.
+    # El `search` no encontraba nada  y devolvia None,  que es el sintoma
+    # "captura la escritura pero no su destino".  Con None no hay forma de
+    # distinguir "es escritura secuencial" de "no se pudo ligar el indice".
+    #
+    # Se aceptan las dos formas: con corchetes (lo que se pasaba antes) y sin
+    # ellos (lo que pasa ahora).  Asi el llamante no tiene que saber cual de las
+    # dos ha ocurrido,  y cambiar el regex no rompe a quien ya lo usaba.
     m = RE_DESTINO.search(anillo)
-    if not m:
-        return None
-    base = lig.get(m.group(1))
+    if m:
+        nombre, signo, off = m.group(1), m.group(2), int(m.group(3))
+    else:
+        m2 = RE_DESTICE.match(anillo.strip())
+        if not m2:
+            return None
+        nombre, signo, off = m2.group(1), m2.group(2), int(m2.group(3))
+    base = lig.get(nombre)
     if base is None:
         return None
-    off = int(m.group(3))
-    return base + off if m.group(2) == "+" else base - off
+    return base + off if signo == "+" else base - off
 
 
 def cuerpo_de_funcion(lineas, nombre):
@@ -2268,12 +2423,27 @@ def _no_cabe(ib):
 DES_BUCLE_LLAVES = """
 static void f(struct ring *ring, struct amdgpu_ib *ib) {
 	u32 t[] = { 1, 2, 3, 4, 5, 6 };
-	for (i = 0; i < ARRAY_SIZE(t); i++) {
+	for (i = 0; i < ARRAY_SIZE(t); i += 2) {
 		ib.ptr[ib.length_dw++] = t[i];
 		ib.ptr[ib.length_dw++] = t[i + 1];
 	}
 }
 """
+# MEDIDO 2026-10-05.  Este fixture es RECONSTRUIDO, y mi primera version ponia
+# `i++`.  Dos cosas lo dicen, y ninguna es yo:
+#
+#   1. el nombre del vector del ORACULO es, literalmente,
+#      "desenrollo: el bucle de ARRAY_SIZE da 3 iteraciones (6 elem, +2)".
+#      Con `i++` sobre 6 elementos salen 6 iteraciones en C,  no 3.  El "+2" del
+#      nombre ES el paso.
+#   2. el mensaje de rechazo del oraculo dice que solo se entiende
+#      `for (V = <entero>; V < <limite>; V += <entero>)`,  y hay un vector
+#      APARTE para `i++` ("i++ equivale a i += 1"),  o sea que `i++` existe pero
+#      en otro fixture.
+#
+# Recuperar el fixture por el nombre del vector, y no al reves:  cambiar el
+# codigo para que de 3 con `i++` habria sido inventar una regla de C que no
+# existe.
 
 
 def _desenrollar_vectores(chk):

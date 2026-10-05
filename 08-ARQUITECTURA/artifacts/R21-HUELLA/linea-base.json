@@ -441,15 +441,15 @@
    "sha256": "31996969e78600146363ed465affe02d00f051c89bfb82a6410481f64e24a0bc"
   },
   {
-   "bytes": 115187,
-   "lineas": 2590,
+   "bytes": 124492,
+   "lineas": 2760,
    "ruta": "tools/ibref.py",
    "selftest": {
     "detalle": "`--toma` no ejecuta; use --verifica",
     "estado": "NO_MEASURE",
     "rc": null
    },
-   "sha256": "cc4715e7ae064245b9d7288d854e0a84a051b6e50c2f5ec34c368a72c82d147d"
+   "sha256": "1e4259464bc23cd82d083e9c4eab5dee880da843cf75afb1818d67cdc740c37d"
   },
   {
    "bytes": 20623,
@@ -672,15 +672,15 @@
    "sha256": "239d76e093bc1d1ed129396397bda70a60d366960aab57decb28449583d0cfd2"
   },
   {
-   "bytes": 48180,
-   "lineas": 1076,
+   "bytes": 51096,
+   "lineas": 1126,
    "ruta": "tools/pm4tila.py",
    "selftest": {
     "detalle": "`--toma` no ejecuta; use --verifica",
     "estado": "NO_MEASURE",
     "rc": null
    },
-   "sha256": "4f3175d250c0f62e2bc74022a102230b4bdc4372d1c43abba1b0a4ecd1c920de"
+   "sha256": "fb6a386e05e67c4d2aa2086ee2c655e80f00e5b0b277a155f062b79cc11ad9be"
   },
   {
    "bytes": 35708,
@@ -738,15 +738,15 @@
    "sha256": "02bff40a119efca3f60cb276272e8d6c56597888a21eb74b576e06d14c4ecdcd"
   },
   {
-   "bytes": 15179,
-   "lineas": 369,
+   "bytes": 18103,
+   "lineas": 449,
    "ruta": "tools/reg_census.py",
    "selftest": {
     "detalle": "`--toma` no ejecuta; use --verifica",
     "estado": "NO_MEASURE",
     "rc": null
    },
-   "sha256": "d9104e563c244f20a0ac1b51b8d597370dae237a5e898b47251a287e41245ab4"
+   "sha256": "a5ba97d665b1a18bb7bdfde03af963366aba7187a9b934a3fc55c53bd312cd19"
   },
   {
    "bytes": 23703,
@@ -2257,7 +2257,7 @@
   }
  ],
  "instrumentos": 205,
- "sha256_de_la_linea_base": "a6e10405326810e7c1d6607b09aed5f93089baaddbf030890856eea622fcabd3",
+ "sha256_de_la_linea_base": "04e0889ac67503de10a928e41bb76ce379fa15e9b4ae2fa784b54f69b260df0e",
  "tool": "huella",
  "version": "1.0.0"
 }
