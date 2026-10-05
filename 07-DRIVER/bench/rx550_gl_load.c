@@ -80,11 +80,17 @@ static const char *CS_SRC =
 
 int main(int argc, char **argv)
 {
-    int seconds = 8, mib = 256, mode = 1, do_sync = 1, iters = 64;
+    int seconds = 8, mib = 256, mode = 1, sync_every = 1, iters = 64;
+    /* sync_every = cuantas iteraciones se agrupan en un unico command buffer antes de esperar.
+     * 1 = comportamiento anterior (sincronizar en cada vuelta).  N>1 = el banco de pruebas
+     * deja de paying la latencia de sincronizacion en cada iteracion.
+     * NO se puede simplemente "no sincronizar nunca": el command buffer estaria en uso cuando
+     * la siguiente iteracion intenta grabarlo encima, y eso es un fallo de Vulkan, no una
+     * medicion.  Por eso se agrupan. */
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--seconds") && i + 1 < argc) seconds = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--buffer") && i + 1 < argc) mib = atoi(argv[++i]);
-        else if (!strcmp(argv[i], "--no-sync")) do_sync = 0;
+        else if (!strcmp(argv[i], "--sync-every") && i + 1 < argc) sync_every = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--iters") && i + 1 < argc) iters = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--mode") && i + 1 < argc) {
             const char *m = argv[++i];
@@ -261,29 +267,33 @@ int main(int argc, char **argv)
     uint32_t chunks = (elements + per - 1u) / per;
     printf("\n=== la carga ===\n  buffer %d MiB (%u elementos de 4 B)\n"
            "  %u workgroups por dispatch, %u trozos\n  duracion %d s\n"
-           "  modo %s   iters(FMA) %d   sincronizacion por iteracion: %s\n"
+           "  modo %s   iters(FMA) %d   sincronizacion cada %d iteracion(es)\n"
            "  trafico de DRAM por iteracion: %.0fx el buffer  (%s)\n\nARRANCANDO\n",
            mib, elements, max_wg, chunks, seconds, mode_name,
-           mode == 2 ? iters : 1, do_sync ? "si" : "no", traffic_mult,
+           mode == 2 ? iters : 1, sync_every, traffic_mult,
            mode == 0 ? "solo escritura" : "lectura + escritura");
 
     double t0 = now_s(); uint32_t it = 0; float best = 0.f;
+    if (sync_every < 1) sync_every = 1;
     for (;;) {
         if (now_s() - t0 >= (double)seconds) break;
-        for (uint32_t c = 0; c < chunks; c++) {
-            glUniform1u_(uBase, (GLuint)((uint64_t)c * per));
-            glDispatchCompute_(max_wg, 1, 1);
-        }
-        if (do_sync) {
-            glMemoryBarrier_(GL_SHADER_STORAGE_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT);
-            glFinish();
-        }
-        it++;
-        if ((it % 16) == 0) {
-            float gbs = (float)((double)bytes * traffic_mult * it / (now_s() - t0) / 1e9);
-            if (gbs > best) best = gbs;
-            printf("  t=%6.2fs iter=%-6u %8.2f GB/s (pico %.2f)\n", now_s()-t0, it, gbs, best);
-        }
+        /* UN LOTE: sync_every iteraciones grabadas en el MISMO command buffer, un envio, una
+         * espera.  Asi la sincronizacion se amortiza en sync_every, que es justo lo que se
+         * quiere medir, y el buffer nunca se reutiliza en vuelo.
+         * NO se puede simplemente "no sincronizar nunca": el command buffer estaria en uso
+         * cuando la siguiente iteracion intentara grabarse encima, y eso es un fallo de
+         * Vulkan, no una medicion.  Por eso se agrupan y no se eliminan. */
+        glMemoryBarrier_(GL_SHADER_STORAGE_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT);
+        for (uint32_t k = 0; k < (uint32_t)sync_every; k++)
+            for (uint32_t c = 0; c < chunks; c++) {
+                glUniform1u_(uBase, (GLuint)((uint64_t)c * per));
+                glDispatchCompute_(max_wg, 1, 1);
+            }
+        glFinish();
+        it += (uint32_t)sync_every;
+        float gbs = (float)((double)bytes * traffic_mult * it / (now_s() - t0) / 1e9);
+        if (gbs > best) best = gbs;
+        printf("  t=%6.2fs iter=%-6u %8.2f GB/s (pico %.2f)\n", now_s()-t0, it, gbs, best);
     }
     double el = now_s() - t0;
     printf("\nFINALIZADO  modo %s  %.3f s  %u iteraciones\n"
