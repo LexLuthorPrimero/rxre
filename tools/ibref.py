@@ -2279,13 +2279,21 @@ def selftest(_=None):
     # ---- desenrollo --------------------------------------------------------
     _desenrollar_vectores(chk)
 
-    # ---- comentarios -------------------------------------------------------
-    src = ["int a;", "/* uno", "   dos */", "int b;"]
-    sin = _sin_comentarios("\n".join(src))
-    chk("comentarios: quitar un comentario NO desplaza las lineas posteriores",
-        len(sin.split("\n")) == len(src), sin.split("\n"))
-    chk("comentarios: el contenido del comentario desaparece pero el sitio no",
-        "dos" not in sin and "int b;" in sin, sin)
+    # MEDIDO 2026-10-05:  aqui habia un SEGUNDO par de vectores de comentarios,
+    # con nombres IDENTICOS a los de mas abajo.  Dos nombres repetidos para 116
+    # vectores,  y el oraculo los nombra una sola vez cada uno:
+    #
+    #     'comentarios: quitar un comentario NO desplaza las lineas posteriores'
+    #     'comentarios: el contenido del comentario desaparece pero el sitio no'
+    #
+    # Este par usaba un array INVENTADO  (`["int a;", "/* uno", "   dos */",
+    # "int b;"]`)  y el de mas abajo usa el literal del `.pyc`,  que es
+    # exactamente 'a\n/* uno\ndos\ntres */\nb\n'.  Un vector duplicado PASA,  y
+    # pasar es lo que se supone que tiene que hacer:  por eso no se ve contando
+    # fallos sino contando NOMBRES.
+    #
+    #     dos vectores que prueban lo mismo no son cobertura,  son ruido con
+    #     forma de cobertura
 
     # ---- sizeof ------------------------------------------------------------
     a3 = {"T3": ["0", "0", "0"], "T1": ["0"]}
@@ -2359,6 +2367,24 @@ def selftest(_=None):
     _m2, i_off = macros_ampliadas(lm, ev, cstub, ampliada=False)
     chk("ampliacion: --sin-ampliar NO amplia y lo dice",
         not i_off["ampliada"] and bool(i_off["motivo"]), i_off["motivo"])
+    # RECUPERADO POR NOMBRE, NO POR CODIGO.  El `.pyc`  nombra este vector
+    # ("ampliacion: la prueba de roots se pudo ejecutar")  pero su asercion esta
+    # en el bytecode y no es legible como texto.  Lo que se afirma aqui es lo
+    # que el NOMBRE permite afirmar,  y se declara que no es mas que eso:
+    #
+    #     un vector cuyo nombre se recupera y cuya afirmacion no,  es un vector
+    #     con el nombre puesto.  Se declara para que nadie lo cite como prueba
+    #     de una propiedad que no midio
+    #
+    # La afirmacion: la prueba de raiz tiene que poder EJECUTARSE.  Si
+    # `KERNEL_INC` no existe, `_raiz_segera()` devuelve False sin mirar nada y
+    # la ampliacion queda muerta para siempre sin que nada lo diga:  el
+    # sintoma seria "no hay macros",  no "no se pudo comprobar".
+    chk("ampliacion: la prueba de roots se pudo ejecutar",
+        os.path.isdir(KERNEL_INC) and bool(_FICHEROS_EDITADOS),
+        {"KERNEL_INC": KERNEL_INC,
+         "existe": os.path.isdir(KERNEL_INC),
+         "ficheros_que_hay_que_probar": len(_FICHEROS_EDITADOS)})
     # MEDIDO 2026-10-05, y lo encontro un fallo que PARECIA del entorno:  los
     # cinco vectores de ALIGN fallaban, y la causa no era `RAIZ` ni el
     # evaluador — era que aqui se pasaba el juego de macros del STUB.
