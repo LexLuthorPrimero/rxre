@@ -1,0 +1,276 @@
+{
+  "generado": "2026-10-04T20:12:43-0300",
+  "herramienta": "verif 1.0.0",
+  "medidas": {
+    "_ibref_dwords_total": 294,
+    "cabeceras.contradicciones": [
+      "08-ARQUITECTURA/tools/ambig_citas.py",
+      "08-ARQUITECTURA/tools/amdioread.py",
+      "08-ARQUITECTURA/tools/huella.py",
+      "08-ARQUITECTURA/tools/inst_closure.py",
+      "08-ARQUITECTURA/tools/struct_rw.py",
+      "08-ARQUITECTURA/tools/toolkit.py",
+      "08-ARQUITECTURA/tools/vbiosread.py",
+      "tools/oracle_drift.py",
+      "tools/reservas_gate.py"
+    ],
+    "corpus.comparados": 2787,
+    "corpus.ficheros_modificados": [
+      "drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c",
+      "drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.h",
+      "drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c",
+      "drivers/gpu/drm/amd/amdgpu/amdgpu_vm_pt.c"
+    ],
+    "corpus.trabaja_sin_include": "working_include=1 de upstream_include=16322 angulo=angulo=0 comillas=1",
+    "dwarf.cabecera_no_leida": 446,
+    "dwarf.coincide": 204,
+    "dwarf.linea_movida": [],
+    "dwarf.solo_en_cabecera": [],
+    "dwarf.solo_en_dwarf": [],
+    "flags.ambiguos": [
+      "04-IMPLEMENTACION/rx550-driver/tools/gart_seq_oracle.py",
+      "08-ARQUITECTURA/tools/_selftest_help_no_alloc.py",
+      "08-ARQUITECTURA/tools/_selftest_num_collision.py",
+      "08-ARQUITECTURA/tools/_selftest_runtime_obs.py",
+      "08-ARQUITECTURA/tools/_selftest_stale_gap.py",
+      "08-ARQUITECTURA/tools/amdioread.py",
+      "08-ARQUITECTURA/tools/causal.py",
+      "08-ARQUITECTURA/tools/citecheck.py",
+      "08-ARQUITECTURA/tools/contradict.py",
+      "08-ARQUITECTURA/tools/doclint.py",
+      "08-ARQUITECTURA/tools/emisor.py",
+      "08-ARQUITECTURA/tools/hdrmap.py",
+      "08-ARQUITECTURA/tools/regdb.py",
+      "08-ARQUITECTURA/tools/run_all.py",
+      "08-ARQUITECTURA/tools/scopeguard.py",
+      "08-ARQUITECTURA/tools/smumsg.py",
+      "08-ARQUITECTURA/tools/toolkit.py",
+      "08-ARQUITECTURA/tools/xref.py",
+      "revkit/emitref.py",
+      "revkit/gfx8blocks.py",
+      "revkit/ibtrace.py",
+      "tools/citas_prosa_adjudicado.py",
+      "tools/oracle.sh"
+    ],
+    "gate.alcanzable_sin_flag": [
+      "08-ARQUITECTURA/tools/amdioread.py"
+    ],
+    "gate.huecos": [
+      "08-ARQUITECTURA/tools/amdinfo.c",
+      "08-ARQUITECTURA/tools/amdioread.py",
+      "08-ARQUITECTURA/tools/amdmmr.c",
+      "08-ARQUITECTURA/tools/vbiosread.py",
+      "09-POWER-CLOCKS/tools/rx550_hold.c",
+      "revkit/captura.py",
+      "revkit/mmo.py"
+    ],
+    "gate.peligroso_sin_flag": [
+      "08-ARQUITECTURA/tools/amdioread.py -> IOCTL_AMDGPU"
+    ],
+    "ibref.bucles_no_desenrollados": [],
+    "ibref.desenrollados": [
+      "i:17",
+      "i:17",
+      "i:17",
+      "i:25",
+      "i:42",
+      "i:66"
+    ],
+    "ibref.dwords_duplicados": [],
+    "ibref.emit_ib_vs_declarado": [
+      "sin_flag=4",
+      "con_flag=7"
+    ],
+    "ibref.kiq_dwords": [
+      "1=0xC006A000",
+      "2=0x00000000",
+      "3=0x0000000F",
+      "4=0x00000000",
+      "5=0x00000000",
+      "6=0x00000000",
+      "7=0x00000000",
+      "8=0x00000000",
+      "9=0xC005A200",
+      "10=0x20000000",
+      "11=0x2C000014",
+      "12=0x55667788",
+      "13=0x11223344",
+      "14=0xDDEEFF00",
+      "15=0x99AABBCC"
+    ],
+    "ibref.kiq_incompletos": 0,
+    "ibref.locales": [
+      "sgpr_offset=1280",
+      "total_size=1448",
+      "vgpr_offset=768"
+    ],
+    "ibref.locales_paradas": [
+      "i",
+      "r",
+      "tmp"
+    ],
+    "ibref.unmap_dwords": [
+      "1=0xC004A300",
+      "2=0x20000001",
+      "3=0x0000001C",
+      "4=0x00000000",
+      "5=0x00000000",
+      "6=0x00000000"
+    ],
+    "layout.bits_afirmadas": 46,
+    "layout.bits_anchura": [
+      "PACKET3_MAP_QUEUES.doorbell_offset",
+      "PACKET3_UNMAP_QUEUES.DOORBELL_OFFSET0"
+    ],
+    "layout.bits_anchura_no_declarada": [
+      "PACKET3_CP_DMA.ENGINE",
+      "PACKET3_MAP_QUEUES.engine_sel",
+      "PACKET3_MAP_QUEUES.num_queues",
+      "PACKET3_MAP_QUEUES.queue_sel",
+      "PACKET3_MAP_QUEUES.queue_type"
+    ],
+    "layout.bits_contradicciones": [],
+    "layout.bits_dword": [
+      "PACKET3_SET_RESOURCES.dw2.queue_type",
+      "PACKET3_SET_RESOURCES.dw2.vmid_mask"
+    ],
+    "layout.bits_inventados": [
+      "PACKET3_SET_RESOURCES.RESOURCE_SIZE"
+    ],
+    "layout.bits_ok": 20,
+    "layout.bits_posicion": [
+      "PACKET3_UNMAP_QUEUES.ACTION",
+      "PACKET3_UNMAP_QUEUES.ENGINE_SEL",
+      "PACKET3_UNMAP_QUEUES.NUM_QUEUES",
+      "PACKET3_UNMAP_QUEUES.QUEUE_SEL"
+    ],
+    "layout.cob_alcance": "gfx_v8_0.c",
+    "layout.cob_no_declarados": [
+      "PACKET3_MAP_QUEUES.ME",
+      "PACKET3_MAP_QUEUES.PIPE",
+      "PACKET3_MAP_QUEUES.QUEUE"
+    ],
+    "layout.declaraciones": 7,
+    "layout.declarantes": [
+      "pm4_codec.py"
+    ],
+    "layout.discrepancias": [
+      "PACKET3_CP_DMA"
+    ],
+    "layout.nombres_no_comparables": [
+      "PACKET3_QUERY_STATUS",
+      "PACKET3_RUN_CLEANER_SHADER",
+      "PACKET3_UNMAP_QUEUES"
+    ],
+    "layout.sin_oraculo": 0,
+    "mmio.bases": [
+      "SET_CONFIG_REG=0x68/0x2000",
+      "SET_CONTEXT_REG=0x69/0xA000",
+      "SET_SH_REG=0x76/0x2C00",
+      "SET_UCONFIG_REG=0x79/0xC000"
+    ],
+    "mmio.escala": "GFX8 (vid.h) escala=0 otra_generacion_escala=2",
+    "mmio.macros": 83441,
+    "mmio.tablas_en_ventana": [],
+    "mmio.valores_mm": 10219,
+    "mmio.ventanas": 4,
+    "opcode.entradas": 77,
+    "opcode.fuera_de_rango": [
+      "0x2000.PACKET3_SET_CONFIG_REG_START",
+      "0x2C00.PACKET3_SET_SH_REG_START",
+      "0x3000.PACKET3_SET_SH_REG_END",
+      "0xA000.PACKET3_SET_CONTEXT_REG_START",
+      "0xA400.PACKET3_SET_CONTEXT_REG_END",
+      "0xC000.PACKET3_SET_UCONFIG_REG_START",
+      "0xC400.PACKET3_SET_UCONFIG_REG_END"
+    ],
+    "pm4.alcance_generacion": [
+      "vid.h"
+    ],
+    "pm4.alcance_integro": false,
+    "pm4.dif_correctos_pm4decode": 15,
+    "pm4.disidentes_pm4decode": [
+      "0x59:RELEASE_MEM"
+    ],
+    "pm4.includes_quebrados": [
+      "amdgpu_dal_power_if.h"
+    ],
+    "pm4.inconsistentes_pm4decode": [
+      "0x40:PREAMBLE_BEGIN=TRUNCADO_NO_OPCODE",
+      "0x41:PREAMBLE_END=TRUNCADO_NO_OPCODE",
+      "0x59:RELEASE_MEM=DISIDENTE",
+      "0xc0:CONTROL_SWITCH=FUERA_DE_FUENTES"
+    ],
+    "pm4.nombres_fuera_de_alcance": [
+      "ALLOC_GDS",
+      "AQL_PACKET",
+      "ATOMIC",
+      "BLK_CNTX_UPDATE",
+      "CE_WRITE",
+      "COND_INDIRECT_BUFFER",
+      "COND_INDIRECT_BUFFER_CNST",
+      "COND_PREEMPT",
+      "CONTEXT_REG_RMW",
+      "COPY_DATA_RB",
+      "COPY_DW",
+      "CP_DMA",
+      "DISPATCH_DRAW",
+      "DISPATCH_DRAW_ACE",
+      "DISPATCH_DRAW_PREAMBLE",
+      "DISPATCH_DRAW_PREAMBLE_ACE",
+      "DMA_DATA_FILL_MULTI",
+      "DRAW_INDEX_IMMD",
+      "DRAW_INDEX_INDIRECT_COUNT_MULTI",
+      "DRAW_INDEX_MULTI_ELEMENT",
+      "DRAW_INDEX_MULTI_INST",
+      "DRAW_INDIRECT_COUNT_MULTI",
+      "DRAW_MULTI_PREAMBLE",
+      "DUMP_CONST_RAM_OFFSET",
+      "FORWARD_HEADER",
+      "GEN_PDEPTE",
+      "GET_LOD_STATS",
+      "GFX_CNTX_UPDATE",
+      "GFX_PIPE_LOCK",
+      "HDP_FLUSH",
+      "INCR_UPDT_STATE",
+      "INDEX_ATTRIBUTES_INDIRECT",
+      "INDIRECT_BUFFER_CNST",
+      "INDIRECT_BUFFER_CNST_END",
+      "INDIRECT_BUFFER_END",
+      "INDIRECT_BUFFER_PASID",
+      "INDIRECT_BUFFER_PRIV",
+      "INTERRUPT",
+      "INVALIDATE_TLBS",
+      "LOAD_COMPUTE_STATE",
+      "LOAD_CONTEXT_REG_INDEX",
+      "LOAD_SH_REG_INDEX",
+      "MAP_PROCESS",
+      "MAP_PROCESS_VM",
+      "MEM_WRITE",
+      "ME_INITIALIZE",
+      "ME_WRITE",
+      "MPEG_INDEX",
+      "ONE_REG_WRITE",
+      "PRIME_UTCL2",
+      "RUN_CLEANER_SHADER",
+      "RUN_CLEANER_SHADER_9_0",
+      "RUN_LIST",
+      "SET_CE_DE_COUNTERS",
+      "SET_CONTEXT_REG_INDEX",
+      "SET_Q_PREEMPTION_MODE",
+      "SET_RESOURCE_INDIRECT",
+      "SET_SH_REG_DI",
+      "SET_SH_REG_DI_MULTI",
+      "SET_SH_REG_INDEX",
+      "SET_UCONFIG_REG_INDEX",
+      "SET_VGPR_REG_DI_MULTI",
+      "WAIT_ON_AVAIL_BUFFER",
+      "WAIT_ON_DE_COUNTER",
+      "WAIT_REG_MEM64",
+      "WRITE_CONST_RAM_OFFSET",
+      "WRITE_GDS_RAM"
+    ],
+    "shell.no_clasificable": []
+  },
+  "nota": "Las medidas se toman de riesgos/pm4ops/dwarfx.  DERIVA es deriva: este fichero no juzga si un cambio es bueno."
+}

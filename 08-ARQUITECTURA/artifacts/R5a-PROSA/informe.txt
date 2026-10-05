@@ -1,0 +1,753 @@
+==========================================================================
+prosa 1.0.0 -- el contrato EN PROSA de las herramientas, contra su codigo
+==========================================================================
+
+POBLACION       238 ficheros en los directorios declarados
+CON CONTRATO    205
+NO CLASIFICABLE 32
+SIN CONTRATO    1
+
+afirmaciones de entrada, por veredicto
+--------------------------------------------------------------------------
+  SIN_RESOLVER           242
+  FLAG_EN_ARGPARSE       214
+  AUTOREFERENCIA         160
+  NO_CLASIFICABLE        138
+  SOLO_EN_LISTA          129
+  EN_APLICACION           76
+  FLAG_INEXISTENTE         6
+  FLAG_RETIRADO            1
+
+VEREDICTOS, y hasta donde llega cada uno
+--------------------------------------------------------------------------
+  EN_APLICACION     el nombre llega a una llamada.  NO prueba uso.
+  SOLO_EN_LISTA     se enumera como candidato.  NO falsable: se
+                    informa aparte y no se cuenta como hallazgo.
+  SIN_RESOLVER      la declaracion no aparece en el codigo.  NO es
+                    MENTIRA: una ruta construida en runtime no
+                    deja rastro literal.
+  FLAG_INEXISTENTE  prosa nombra un flag que add_argument no
+                    registra.  Decidible y completo.
+  AUTOREFERENCIA    la herramienta nombrandose a si misma.
+
+FILAS A REVISAR (118 herramientas)
+==========================================================================
+
+  04-IMPLEMENTACION/rx550-driver/tools/gart_seq_oracle.py
+      [SIN_RESOLVER    ] FICHERO rx550_gart_seq.c
+           el codigo si referencia: amdgpu_ids.h, gmc_v8_0.c
+      [SIN_RESOLVER    ] FICHERO tests/test_gart_seq.c
+           el codigo si referencia: amdgpu_ids.h, gmc_v8_0.c
+
+  08-ARQUITECTURA/tools/_selftest_help_no_alloc.py
+      [SIN_RESOLVER    ] FICHERO run_all.py
+           el codigo si referencia: findnum.py
+
+  08-ARQUITECTURA/tools/_selftest_num_collision.py
+      [SIN_RESOLVER    ] FICHERO num_collision.py
+           el codigo si referencia: 001-a.md, 002-b.md, 033-a.md, 033-b.md, 033-c.md, 033-x.md, 033-y.md, 047-cosa.md
+      [SIN_RESOLVER    ] FICHERO run_all.py
+           el codigo si referencia: 001-a.md, 002-b.md, 033-a.md, 033-b.md, 033-c.md, 033-x.md, 033-y.md, 047-cosa.md
+
+  08-ARQUITECTURA/tools/_selftest_runtime_obs.py
+      [SIN_RESOLVER    ] FICHERO _selftest_num_collision.py
+           el codigo si referencia: runtime_obs.py
+      [SIN_RESOLVER    ] FICHERO _selftest_stale_gap.py
+           el codigo si referencia: runtime_obs.py
+      [SIN_RESOLVER    ] FICHERO run_all.py
+           el codigo si referencia: runtime_obs.py
+      [SIN_RESOLVER    ] FICHERO gfx8_opcode.py
+           el codigo si referencia: runtime_obs.py
+
+  08-ARQUITECTURA/tools/_selftest_stale_gap.py
+      [SIN_RESOLVER    ] FICHERO stale_gap.py
+           el codigo si referencia: t1-viva.md, t10-neg.md, t10-resp.md, t10b-ok.md, t10b-resp.md, t10c-mencion.md, t10c-resp.md, t10d-ref.md
+      [SIN_RESOLVER    ] FICHERO toolkit.py
+           el codigo si referencia: t1-viva.md, t10-neg.md, t10-resp.md, t10b-ok.md, t10b-resp.md, t10c-mencion.md, t10c-resp.md, t10d-ref.md
+      [SIN_RESOLVER    ] FICHERO run_all.py
+           el codigo si referencia: t1-viva.md, t10-neg.md, t10-resp.md, t10b-ok.md, t10b-resp.md, t10c-mencion.md, t10c-resp.md, t10d-ref.md
+
+  08-ARQUITECTURA/tools/ambig_citas.py
+      [SIN_RESOLVER    ] FICHERO refs_repair.py
+           el codigo si referencia: 001-que-es-lo-mismo-para-lo-que.md, 023-pte-productor.md, 1000-de-pci.md, 133-g-el-mtype-no-existe-en-gfx8.md, ambig-citas.json, sin-numero.md
+
+  08-ARQUITECTURA/tools/amdioread.py
+      [SIN_RESOLVER    ] FICHERO amdgpu_discovery.c
+           el codigo si referencia: amdgpu_drm.h, amdioread.py, dev.c, drm.h, errno.h, fcntl.h, gfx_v8_0.c, ioctl.h
+      [SIN_RESOLVER    ] FICHERO HARDWARE-FINGERPRINT.md
+           el codigo si referencia: amdgpu_drm.h, amdioread.py, dev.c, drm.h, errno.h, fcntl.h, gfx_v8_0.c, ioctl.h
+
+  08-ARQUITECTURA/tools/asic_table.py
+      [SIN_RESOLVER    ] FICHERO hwmgr.c
+           el codigo si referencia: binfacts.py
+      [SIN_RESOLVER    ] FICHERO 050-frontera-de-corpus-no-de-hardware.md
+           el codigo si referencia: binfacts.py
+
+  08-ARQUITECTURA/tools/binfacts.py
+      [SIN_RESOLVER    ] RUTA   /.../amdgpu.ko.zst
+           el codigo si referencia: amdgpu.ko, amdgpu_loaded.ko
+
+  08-ARQUITECTURA/tools/btfq/btfq.py
+      [SIN_RESOLVER    ] RUTA   /usr/include/linux/btf.h
+
+  08-ARQUITECTURA/tools/btfq/cn5.py
+      [SIN_RESOLVER    ] FICHERO crosscheck.py
+           el codigo si referencia: amdgpu_gmc.h
+
+  08-ARQUITECTURA/tools/btfq/cn6.py
+      [SIN_RESOLVER    ] FICHERO rx550_vmid1_pgt.c
+      [SIN_RESOLVER    ] FICHERO rx550_mmio_access.h
+      [SIN_RESOLVER    ] FICHERO RESEARCH-LINES.md
+
+  08-ARQUITECTURA/tools/btfq/vmsize.py
+      [SIN_RESOLVER    ] FICHERO amdgpu_vm.c
+           el codigo si referencia: gmc_v8_0.c
+
+  08-ARQUITECTURA/tools/causal.py
+      [SIN_RESOLVER    ] FICHERO pm4_codec.py
+      [SIN_RESOLVER    ] FICHERO gmmio_inventory.py
+
+  08-ARQUITECTURA/tools/citecheck.py
+      [SIN_RESOLVER    ] FICHERO kfd_ioctl_defs.h
+           el codigo si referencia: 030-page-walker.md, CONTRADICTIONS.md, amdgpu_vm.c, fichero_inventado.c, gmc_v8_0.c, page-walker.md, writeback-buffer.md
+      [SIN_RESOLVER    ] FICHERO amdgpu_vm.h
+           el codigo si referencia: 030-page-walker.md, CONTRADICTIONS.md, amdgpu_vm.c, fichero_inventado.c, gmc_v8_0.c, page-walker.md, writeback-buffer.md
+      [SIN_RESOLVER    ] FICHERO doclint.py
+           el codigo si referencia: 030-page-walker.md, CONTRADICTIONS.md, amdgpu_vm.c, fichero_inventado.c, gmc_v8_0.c, page-walker.md, writeback-buffer.md
+      [SIN_RESOLVER    ] FICHERO hall1.md
+           el codigo si referencia: 030-page-walker.md, CONTRADICTIONS.md, amdgpu_vm.c, fichero_inventado.c, gmc_v8_0.c, page-walker.md, writeback-buffer.md
+      [SIN_RESOLVER    ] FICHERO hall2.md
+           el codigo si referencia: 030-page-walker.md, CONTRADICTIONS.md, amdgpu_vm.c, fichero_inventado.c, gmc_v8_0.c, page-walker.md, writeback-buffer.md
+
+  08-ARQUITECTURA/tools/contract_exec.py
+      [SIN_RESOLVER    ] FICHERO toolkit.py
+           el codigo si referencia: aperture.py, contract_exec.py, contract_exec.vigila.json, doclint.py, findings_index.py, ipver_zero.py, pm4_emit.py, struct_rw.py
+      [SIN_RESOLVER    ] RUTA   /tmp/opencode/ko.asm
+           el codigo si referencia: aperture.py, contract_exec.py, contract_exec.vigila.json, doclint.py, findings_index.py, ipver_zero.py, pm4_emit.py, struct_rw.py
+
+  08-ARQUITECTURA/tools/contradict.py
+      [SIN_RESOLVER    ] FICHERO CONTRADICTIONS.md
+           el codigo si referencia: a.md, b.md, c.md, gmc_v8_0.c, xref.py
+      [FLAG_INEXISTENTE] FLAG   --with-code
+
+  08-ARQUITECTURA/tools/corpus_gap.py
+      [SIN_RESOLVER    ] FICHERO 008-firmware-blob.md
+           el codigo si referencia: binfacts.py, hwmgr.c
+
+  08-ARQUITECTURA/tools/doclint.py
+      [SIN_RESOLVER    ] FICHERO gfx_v8_0.c
+           el codigo si referencia: rx550_este_fichero_no_existe.h, rx550_mc.h, smu9_driver_if.h
+      [SIN_RESOLVER    ] FICHERO fichero.md
+           el codigo si referencia: rx550_este_fichero_no_existe.h, rx550_mc.h, smu9_driver_if.h
+
+  08-ARQUITECTURA/tools/emisor.py
+      [SIN_RESOLVER    ] FICHERO 07-DRIVER/tests/test_pm4.c
+           el codigo si referencia: emisor.py, rx550_pm4.c, rx550_pm4.h, sdma_v3_0.c, sdma_v4_0.c
+      [SIN_RESOLVER    ] FICHERO amdgpu.ko
+           el codigo si referencia: emisor.py, rx550_pm4.c, rx550_pm4.h, sdma_v3_0.c, sdma_v4_0.c
+      [SIN_RESOLVER    ] FICHERO findings/023-pte-productor-sdma-gfx8.md
+           el codigo si referencia: emisor.py, rx550_pm4.c, rx550_pm4.h, sdma_v3_0.c, sdma_v4_0.c
+      [SIN_RESOLVER    ] FICHERO findings/036-correccion-023-implementada-ptepde.md
+           el codigo si referencia: emisor.py, rx550_pm4.c, rx550_pm4.h, sdma_v3_0.c, sdma_v4_0.c
+
+  08-ARQUITECTURA/tools/findnum.py
+      [SIN_RESOLVER    ] FICHERO num_collision.py
+           el codigo si referencia: 1000-b.md, 1001-c.md, 999-a.md, findnum.py, s.md
+
+  08-ARQUITECTURA/tools/fw_ipver.py
+      [SIN_RESOLVER    ] FICHERO amdgpu_ucode.c
+           el codigo si referencia: polaris12_mc.bin, polaris12_pfp.bin, polaris12_sdma.bin
+
+  08-ARQUITECTURA/tools/gmmio_inventory.py
+      [SIN_RESOLVER    ] FICHERO pm4_reachable.py
+           el codigo si referencia: _d.h, _sh_mask.h, bif_5_0_d.h, dce_10_0_d.h, gfx_8_0_d.h, gfx_v8_0.c, gmc_8_2_d.h, oss_3_0_d.h
+
+  08-ARQUITECTURA/tools/hdrmap.py
+      [SIN_RESOLVER    ] FICHERO gfx_v8_0.c
+           el codigo si referencia: _d.h, _default.h, _enum.h, _offset.h, _sh.h, _sh_mask.h, amdgpu.h, dce_10_0_d.h
+      [SIN_RESOLVER    ] FICHERO vi.c
+           el codigo si referencia: _d.h, _default.h, _enum.h, _offset.h, _sh.h, _sh_mask.h, amdgpu.h, dce_10_0_d.h
+      [SIN_RESOLVER    ] FICHERO include_closure.py
+           el codigo si referencia: _d.h, _default.h, _enum.h, _offset.h, _sh.h, _sh_mask.h, amdgpu.h, dce_10_0_d.h
+
+  08-ARQUITECTURA/tools/huella.py
+      [SIN_RESOLVER    ] FICHERO chain.c
+           el codigo si referencia: occ.c, vulkan_compute_probe.c
+      [SIN_RESOLVER    ] FICHERO cache.c
+           el codigo si referencia: occ.c, vulkan_compute_probe.c
+
+  08-ARQUITECTURA/tools/include_closure.py
+      [SIN_RESOLVER    ] FICHERO gfx_v8_0.c
+      [SIN_RESOLVER    ] FICHERO dm_services_types.h
+      [SIN_RESOLVER    ] FICHERO pm4_reachable.py
+      [SIN_RESOLVER    ] FICHERO fichero.c
+
+  08-ARQUITECTURA/tools/ipver_zero.py
+      [SIN_RESOLVER    ] FICHERO AGENTS.md
+           el codigo si referencia: amdgpu.h, amdgpu_cs.c, amdgpu_device.c, amdgpu_display.c, amdgpu_dma_buf.c, amdgpu_gfx.c, amdgpu_gmc.c, amdgpu_ids.c
+
+  08-ARQUITECTURA/tools/num_collision.py
+      [SIN_RESOLVER    ] FICHERO 033-mmu-vm-no-publicado.md
+      [SIN_RESOLVER    ] FICHERO 033-pm4-spec-gfx8-no-existe-y-el-encuadre.md
+      [SIN_RESOLVER    ] FICHERO 033-protections-opaco-en-el-camino-gpuvm.md
+
+  08-ARQUITECTURA/tools/pm4_codec.py
+      [SIN_RESOLVER    ] FICHERO fichero.bin
+           el codigo si referencia: gfx_v8_0.c
+      [SIN_RESOLVER    ] FICHERO f.bin
+           el codigo si referencia: gfx_v8_0.c
+
+  08-ARQUITECTURA/tools/pm4_reachable.py
+      [SIN_RESOLVER    ] FICHERO sid.h
+           el codigo si referencia: amdgpu_gfx.c, amdgpu_gfx.h, cikd.c, gfx_v8_0.c, gmc_v8_0.c, include_closure.py, sdma_v3_0.c
+
+  08-ARQUITECTURA/tools/reenvio_freeze.py
+      [SIN_RESOLVER    ] FICHERO 156-coherencia-cpu-gpu-tres-mecanismos.md
+           el codigo si referencia: 271-el-kernel-de-cache-mide-la-tasa-de-emision.md, FINDINGS-RENUMERACIONES.md, a.md, b.md, c.md, coherencia-cpu-gpu-tres-mecanismos.md, d.md, doclint-no-indexaba-07-driver.md
+      [SIN_RESOLVER    ] FICHERO 232-coherencia-cpu-gpu-tres-mecanismos.md
+           el codigo si referencia: 271-el-kernel-de-cache-mide-la-tasa-de-emision.md, FINDINGS-RENUMERACIONES.md, a.md, b.md, c.md, coherencia-cpu-gpu-tres-mecanismos.md, d.md, doclint-no-indexaba-07-driver.md
+      [SIN_RESOLVER    ] FICHERO refs_repair.py
+           el codigo si referencia: 271-el-kernel-de-cache-mide-la-tasa-de-emision.md, FINDINGS-RENUMERACIONES.md, a.md, b.md, c.md, coherencia-cpu-gpu-tres-mecanismos.md, d.md, doclint-no-indexaba-07-driver.md
+
+  08-ARQUITECTURA/tools/reenvio_gate.py
+      [SIN_RESOLVER    ] FICHERO 1036-el-indice-de-renumeraciones-no-es-derivable-del-arbol.md
+           el codigo si referencia: 001-antes.md, 001-destino.md, 001-otro.md, 002-destino.md, destino.md, no-existe.md, s.md
+      [SIN_RESOLVER    ] FICHERO refs_repair.py
+           el codigo si referencia: 001-antes.md, 001-destino.md, 001-otro.md, 002-destino.md, destino.md, no-existe.md, s.md
+      [SIN_RESOLVER    ] FICHERO 400-el-resumen-y-el-aviso-tienen-vector.md
+           el codigo si referencia: 001-antes.md, 001-destino.md, 001-otro.md, 002-destino.md, destino.md, no-existe.md, s.md
+      [SIN_RESOLVER    ] FICHERO 400-...md
+           el codigo si referencia: 001-antes.md, 001-destino.md, 001-otro.md, 002-destino.md, destino.md, no-existe.md, s.md
+
+  08-ARQUITECTURA/tools/refs_repair.py
+      [SIN_RESOLVER    ] FICHERO FINDINGS-RENUMERACIONES.md
+
+  08-ARQUITECTURA/tools/regdb.py
+      [SIN_RESOLVER    ] FICHERO mmhub_1_8_0_sh_mask.h
+      [SIN_RESOLVER    ] FICHERO include_closure.py
+
+  08-ARQUITECTURA/tools/runtime_obs.py
+      [SIN_RESOLVER    ] RUTA   /sys/bus/pci/devices/0000
+           el codigo si referencia: runtime_obs_ref.json
+      [SIN_RESOLVER    ] RUTA   /proc/mounts
+           el codigo si referencia: runtime_obs_ref.json
+
+  08-ARQUITECTURA/tools/stale_gap.py
+      [SIN_RESOLVER    ] FICHERO causal_map.py
+      [SIN_RESOLVER    ] FICHERO frontier.py
+
+  08-ARQUITECTURA/tools/struct_rw.py
+      [SIN_RESOLVER    ] FICHERO ip_discovery.bin
+
+  08-ARQUITECTURA/tools/toalaudit.py
+      [SIN_RESOLVER    ] FICHERO toolaudit.py
+           el codigo si referencia: toalaudit.py, toolkit.py, x.md
+
+  08-ARQUITECTURA/tools/toolkit.py
+      [SIN_RESOLVER    ] FICHERO runtime_obs.py
+           el codigo si referencia: TOOLKIT.json, doclint.py, no_existe.py, ruta.py, tk_selftest.py, tk_selftest_val.py, toolaudit.py
+      [SIN_RESOLVER    ] FICHERO nuevo.py
+           el codigo si referencia: TOOLKIT.json, doclint.py, no_existe.py, ruta.py, tk_selftest.py, tk_selftest_val.py, toolaudit.py
+
+  08-ARQUITECTURA/tools/vbiosread.py
+      [SIN_RESOLVER    ] FICHERO amdgpu_atombios.c
+           el codigo si referencia: amdgpu_drm.h, atom.c, drm.h, dump.c, errno.h, fcntl.h, ioctl.h, stdint.h
+      [SIN_RESOLVER    ] FICHERO amdgpu_kms.c
+           el codigo si referencia: amdgpu_drm.h, atom.c, drm.h, dump.c, errno.h, fcntl.h, ioctl.h, stdint.h
+      [SIN_RESOLVER    ] RUTA   /sys/bus/pci/devices/0000
+           el codigo si referencia: amdgpu_drm.h, atom.c, drm.h, dump.c, errno.h, fcntl.h, ioctl.h, stdint.h
+
+  revkit/atomrom.py
+      [SIN_RESOLVER    ] FICHERO atom.h
+           el codigo si referencia: amdgpu_pm_info.txt, amdgpu_vbios.txt, amdgpu_vram_mm.txt, atom.c, atombios.h, atomrom.py, captura.py, gfx8blocks.py
+
+  revkit/bootcheck.py
+      [SIN_RESOLVER    ] FICHERO gfx8blocks.py
+
+  revkit/btfsnap.py
+      [SIN_RESOLVER    ] RUTA   /ruta/x.btf
+           el codigo si referencia: s-layouts.txt
+      [SIN_RESOLVER    ] RUTA   /ruta/salida.txt
+           el codigo si referencia: s-layouts.txt
+
+  revkit/cidx.py
+      [SIN_RESOLVER    ] FICHERO gmc_v8_0.c
+           el codigo si referencia: gmc_vX_0.c
+
+  revkit/correlate.py
+      [SIN_RESOLVER    ] FICHERO gmc_v8_0.c
+           el codigo si referencia: FICHERO.c, causa.py, cidx.py, ibtrace.py, pte.py, regs.py, verdiff.py
+
+  revkit/dires.py
+      [SIN_RESOLVER    ] FICHERO regs.py
+           el codigo si referencia: _d.h, _default.h, _enum.h, _hubmask.h, _offset.h, _reg.h, _sh_mask.h, athub_0_0_d.h
+
+  revkit/emitref.py
+      [SIN_RESOLVER    ] FICHERO docs/IMPLEMENTATION-STATUS.md
+           el codigo si referencia: rx550_pm4.c, rx550_pm4.h, sdma_v3_0.c, sdma_v4_0.c, vi.c
+
+  revkit/integro.py
+      [SIN_RESOLVER    ] FICHERO revkit/mmo.py
+           el codigo si referencia: a_perdido.md, b_truncado.py, c_disperso.md, d_limpio.md, integro.py, x.md
+      [SIN_RESOLVER    ] FICHERO 06-INGENIERIA-INVERSA/findings/050-...md
+           el codigo si referencia: a_perdido.md, b_truncado.py, c_disperso.md, d_limpio.md, integro.py, x.md
+
+  revkit/mmo.py
+      [SIN_RESOLVER    ] RUTA   /proc/PID/cmdline
+
+  revkit/obs.py
+      [SIN_RESOLVER    ] RUTA   /sys/kernel/debug/dri
+
+  revkit/regs.py
+      [SIN_RESOLVER    ] FICHERO include/asic_reg/gca/gfx_8_0_sh_mask.h
+           el codigo si referencia: _sh_mask.h
+
+  revkit/selfcheck.py
+      [SIN_RESOLVER    ] FICHERO WAIT-REG-MEM.md
+           el codigo si referencia: amdgpu_vm.c, causa.py, cidx.py, correlate.py, fichero_que_no_existe_jamas.c, gfx_v8_0.c, gmc_8_1_sh_mask.h, gmc_8_2_sh_mask.h
+
+  revkit/vclaims.py
+      [SIN_RESOLVER    ] FICHERO fichero.c
+           el codigo si referencia: draw_vbo.c, lp_bld_format_a8r8g8b8.c, lp_bld_format_s3tc.c, lp_bld_init.c, si_blit.c, texcompress_s3tc_tmp.h, vulkan_core.h
+
+  tools/artifacts.py
+      [SIN_RESOLVER    ] FICHERO audit_citations.sh
+           el codigo si referencia: 3-B.md, AGENTS.md, OPEN-FRONTIERS.md, REF-EXCEPTIONS.txt, ambos.py, artifacts.py, claims.py, con.py
+      [SIN_RESOLVER    ] FICHERO 022-pte-productor-sdma-gfx8.md
+           el codigo si referencia: 3-B.md, AGENTS.md, OPEN-FRONTIERS.md, REF-EXCEPTIONS.txt, ambos.py, artifacts.py, claims.py, con.py
+      [SIN_RESOLVER    ] FICHERO 023-pte-productor-sdma-gfx8.md
+           el codigo si referencia: 3-B.md, AGENTS.md, OPEN-FRONTIERS.md, REF-EXCEPTIONS.txt, ambos.py, artifacts.py, claims.py, con.py
+
+  tools/assert_contract.py
+      [SIN_RESOLVER    ] FICHERO pp_debug.h
+           el codigo si referencia: assert_contract.py, smu7_hwmgr.c
+
+  tools/atom_chain.py
+      [SIN_RESOLVER    ] FICHERO amdgpu_atombc.c
+           el codigo si referencia: atom_chain.py, captura_vbios.bin, smu7_hwmgr.c
+
+  tools/check_num_unico.py
+      [SIN_RESOLVER    ] FICHERO 08-ARQUITECTURA/tools/findings_index.py
+           el codigo si referencia: 001-a.md, 001-alpha.md, 001-b.md, 001-c.md, 001-d.md, 002-b.md, 002-beta.md, 002-c.md
+      [SIN_RESOLVER    ] FICHERO 1011-el-grep-de-ad8...md
+           el codigo si referencia: 001-a.md, 001-alpha.md, 001-b.md, 001-c.md, 001-d.md, 002-b.md, 002-beta.md, 002-c.md
+      [SIN_RESOLVER    ] FICHERO 1011-la-regla-de-shell...md
+           el codigo si referencia: 001-a.md, 001-alpha.md, 001-b.md, 001-c.md, 001-d.md, 002-b.md, 002-beta.md, 002-c.md
+      [SIN_RESOLVER    ] FICHERO dupenum.py
+           el codigo si referencia: 001-a.md, 001-alpha.md, 001-b.md, 001-c.md, 001-d.md, 002-b.md, 002-beta.md, 002-c.md
+
+  tools/citas_prosa_adjudicado.py
+      [SIN_RESOLVER    ] FICHERO FINDINGS-RENDEX.md
+           el codigo si referencia: 001.md, 010-x.md, 021-write-lock-scoped-subdir-does-not-block.md, 023-pm4-count-convencion-medida.md, 023-pte-productor-sdma-gfx8.md, 024-page-table-geometria-gfx8.md, 025-vm-flush-...md, 025-vm-flush-path-gfx8-63dw.md
+
+  tools/citations.py
+      [SIN_RESOLVER    ] FICHERO amdgpu_gmc.c
+           el codigo si referencia: amb.c, dup.c, file.c, gmc_8_0.c, gmc_v8_0.c, latin.c, long.c, mio.md
+      [SIN_RESOLVER    ] FICHERO gmc_8_1_d.h
+           el codigo si referencia: amb.c, dup.c, file.c, gmc_8_0.c, gmc_v8_0.c, latin.c, long.c, mio.md
+      [SIN_RESOLVER    ] FICHERO vi.h
+           el codigo si referencia: amb.c, dup.c, file.c, gmc_8_0.c, gmc_v8_0.c, latin.c, long.c, mio.md
+      [SIN_RESOLVER    ] FICHERO amdgpu/vi.h
+           el codigo si referencia: amb.c, dup.c, file.c, gmc_8_0.c, gmc_v8_0.c, latin.c, long.c, mio.md
+      [SIN_RESOLVER    ] FICHERO drivers/staging/media/tegra-video/vi.h
+           el codigo si referencia: amb.c, dup.c, file.c, gmc_8_0.c, gmc_v8_0.c, latin.c, long.c, mio.md
+      [SIN_RESOLVER    ] FICHERO pci.h
+           el codigo si referencia: amb.c, dup.c, file.c, gmc_8_0.c, gmc_v8_0.c, latin.c, long.c, mio.md
+      [SIN_RESOLVER    ] FICHERO types.h
+           el codigo si referencia: amb.c, dup.c, file.c, gmc_8_0.c, gmc_v8_0.c, latin.c, long.c, mio.md
+      [SIN_RESOLVER    ] FICHERO file.h
+           el codigo si referencia: amb.c, dup.c, file.c, gmc_8_0.c, gmc_v8_0.c, latin.c, long.c, mio.md
+      [SIN_RESOLVER    ] FICHERO amdgpu_vm.c
+           el codigo si referencia: amb.c, dup.c, file.c, gmc_8_0.c, gmc_v8_0.c, latin.c, long.c, mio.md
+      [SIN_RESOLVER    ] FICHERO amdgpu_vm_pt.c
+           el codigo si referencia: amb.c, dup.c, file.c, gmc_8_0.c, gmc_v8_0.c, latin.c, long.c, mio.md
+      [SIN_RESOLVER    ] FICHERO amdgpu_debugfs.c
+           el codigo si referencia: amb.c, dup.c, file.c, gmc_8_0.c, gmc_v8_0.c, latin.c, long.c, mio.md
+      [SIN_RESOLVER    ] FICHERO amdgpu_debugfs.h
+           el codigo si referencia: amb.c, dup.c, file.c, gmc_8_0.c, gmc_v8_0.c, latin.c, long.c, mio.md
+      [SIN_RESOLVER    ] FICHERO RESEARCH/evidence/working-vs-kernelbuild-difference.md
+           el codigo si referencia: amb.c, dup.c, file.c, gmc_8_0.c, gmc_v8_0.c, latin.c, long.c, mio.md
+
+  tools/citeambig.py
+      [SIN_RESOLVER    ] FICHERO tools/treescope.py
+           el codigo si referencia: 001-unico.md, 002-otro.md, 002-uno.md, 010-notas.md, 010-x.md, 020-a.md, 021-b.md, 147-slug.md
+      [SIN_RESOLVER    ] FICHERO fichero.c
+           el codigo si referencia: 001-unico.md, 002-otro.md, 002-uno.md, 010-notas.md, 010-x.md, 020-a.md, 021-b.md, 147-slug.md
+      [SIN_RESOLVER    ] FICHERO findings/147-el-nombre-del-op-12.md
+           el codigo si referencia: 001-unico.md, 002-otro.md, 002-uno.md, 010-notas.md, 010-x.md, 020-a.md, 021-b.md, 147-slug.md
+
+  tools/citegen.py
+      [SIN_RESOLVER    ] FICHERO findings/043-vuelta-atras-035-y-036-leian-el-asic-equivocado.md
+           el codigo si referencia: amdgpu_discovery.c, gfx_v7_0.c, gmc_7_0_d.h, gmc_v8_0.c, sdma_v3_0.c, sdma_v4_0.c, vi.c
+      [SIN_RESOLVER    ] FICHERO which_hw.py
+           el codigo si referencia: amdgpu_discovery.c, gfx_v7_0.c, gmc_7_0_d.h, gmc_v8_0.c, sdma_v3_0.c, sdma_v4_0.c, vi.c
+
+  tools/claim.py
+      [SIN_RESOLVER    ] FICHERO 030-x.md
+           el codigo si referencia: 001-otro.md, 001-uno.md, 002-sin-cita.md, 003-declara.md, 004-menciona.md, 077-x.md, 999-fantasma.md, EVIDENCE-MATRIX.md
+      [FLAG_INEXISTENTE] FLAG   --coverage
+
+  tools/claims.py
+      [SIN_RESOLVER    ] FICHERO citegen.py
+           el codigo si referencia: _sh_mask.h, audit_citations.sh, fichero.c, gfx_8_0_enum.h, gfx_8_0_sh_mask.h, gfx_9_4_2.c, gfx_v8_0.c, gmc_8_1_d.h
+
+  tools/constmap.py
+      [SIN_RESOLVER    ] FICHERO docs/OPEN-FRONTIERS.md
+           el codigo si referencia: citations.py, rx550_pm4.h, sid.h
+      [SIN_RESOLVER    ] FICHERO rx550_pm4.c
+           el codigo si referencia: citations.py, rx550_pm4.h, sid.h
+      [SIN_RESOLVER    ] FICHERO vid.h
+           el codigo si referencia: citations.py, rx550_pm4.h, sid.h
+      [SIN_RESOLVER    ] FICHERO gfx_v8_0.c
+           el codigo si referencia: citations.py, rx550_pm4.h, sid.h
+
+  tools/contradict.py
+      [SIN_RESOLVER    ] FICHERO polaris10_smumgr.c
+           el codigo si referencia: 010-a.md, 011-b.md, 012-c.md, 013-d.md, 014.md, 015-prosa.md, gfx_8_0_d.h, nope.md
+
+  tools/corroboration.py
+      [SIN_RESOLVER    ] FICHERO findings/122-para-que-el-encuadre-de-dos-fuentes-resulte-honesto.md
+           el codigo si referencia: 007-x.md, 017-x.md, gmc_8_1_sh_mask.h, gmc_8_2_d.h, soc15d.h, vid.h
+
+  tools/count_guard.py
+      [SIN_RESOLVER    ] FICHERO mclk_table.c
+           el codigo si referencia: count_guard.py, sint.c, sint.h, smu7_hwmgr.c, tipo.ambiguo.c
+      [SIN_RESOLVER    ] FICHERO sclk_table.c
+           el codigo si referencia: count_guard.py, sint.c, sint.h, smu7_hwmgr.c, tipo.ambiguo.c
+
+  tools/docscan.py
+      [SIN_RESOLVER    ] FICHERO tools/toolreg.py
+           el codigo si referencia: 001-a.md, 006-f.md, A-MAIN.md, B-OK.md, CURRENT-STATE.md, EVIDENCE-MATRIX.md, FINDINGS-INDEX.md, MASTER-RESEARCH-STATUS.md
+
+  tools/drift.py
+      [SIN_RESOLVER    ] FICHERO nhwa.c
+           el codigo si referencia: 001-a.md, 001.md, 002-b.md, AGENTS.md, CHANGELOG-RESEARCH.md, CONTRADICTIONS.md, COORDINACION.md, CURRENT-STATE.md
+
+  tools/driroute.py
+      [SIN_RESOLVER    ] FICHERO herramientas.md
+
+  tools/drvchain.py
+      [SIN_RESOLVER    ] FICHERO AGENTS.md
+           el codigo si referencia: drvchain.py
+
+  tools/dupenum.py
+      [SIN_RESOLVER    ] FICHERO nextnum.py
+           el codigo si referencia: 200-a-cosa.md, 200-b-cosa.md, 200-c-cosa.md, 205-b-cosa.md, 210-sin-numero.md, 212-otro.md, 213-otro.md, 300-a.md
+      [SIN_RESOLVER    ] FICHERO citeambig.py
+           el codigo si referencia: 200-a-cosa.md, 200-b-cosa.md, 200-c-cosa.md, 205-b-cosa.md, 210-sin-numero.md, 212-otro.md, 213-otro.md, 300-a.md
+      [SIN_RESOLVER    ] FICHERO AGENTS.md
+           el codigo si referencia: 200-a-cosa.md, 200-b-cosa.md, 200-c-cosa.md, 205-b-cosa.md, 210-sin-numero.md, 212-otro.md, 213-otro.md, 300-a.md
+
+  tools/dwarfx.py
+      [SIN_RESOLVER    ] FICHERO rx550_pdb0.h
+           el codigo si referencia: demo.h, otro.h, rx550_drv.ko, viejo.h
+      [SIN_RESOLVER    ] FICHERO rx550_gart_geom.h
+           el codigo si referencia: demo.h, otro.h, rx550_drv.ko, viejo.h
+      [SIN_RESOLVER    ] FICHERO rx550_vm_geom.h
+           el codigo si referencia: demo.h, otro.h, rx550_drv.ko, viejo.h
+      [SIN_RESOLVER    ] FICHERO rx550_target.c
+           el codigo si referencia: demo.h, otro.h, rx550_drv.ko, viejo.h
+      [SIN_RESOLVER    ] FICHERO rx550_vmid1_pgt.c
+           el codigo si referencia: demo.h, otro.h, rx550_drv.ko, viejo.h
+
+  tools/envcheck.py
+      [SIN_RESOLVER    ] FICHERO artifacts.py
+           el codigo si referencia: AGENTS.md, acoplado.py, govcheck.py, roto.py, solo_antes.py
+      [SIN_RESOLVER    ] FICHERO integridad.py
+           el codigo si referencia: AGENTS.md, acoplado.py, govcheck.py, roto.py, solo_antes.py
+      [SIN_RESOLVER    ] FICHERO 01-AUDITORIA/TOOLS-STATUS-SELFTEST-DRIFT-2026-10-03.md
+           el codigo si referencia: AGENTS.md, acoplado.py, govcheck.py, roto.py, solo_antes.py
+
+  tools/evidence_search.py
+      [SIN_RESOLVER    ] FICHERO RESEARCH/evidence/search-ledger.json
+           el codigo si referencia: alfa.h, amdgpu_ring.c, evidence_search.py, r3-manifest.json, sched_main.c
+
+  tools/fingerprint.py
+      [SIN_RESOLVER    ] FICHERO CURRENT-STATE.md
+
+  tools/flags_inventory.py
+      [SIN_RESOLVER    ] FICHERO aperture.py
+           el codigo si referencia: esta.py, hijo.py, lint.py, t_argumento.py, t_delegada.py, t_dup.py, t_manual.py, t_ninguna.py
+      [SIN_RESOLVER    ] FICHERO causal_chain.py
+           el codigo si referencia: esta.py, hijo.py, lint.py, t_argumento.py, t_delegada.py, t_dup.py, t_manual.py, t_ninguna.py
+      [SIN_RESOLVER    ] FICHERO driver_offsets.py
+           el codigo si referencia: esta.py, hijo.py, lint.py, t_argumento.py, t_delegada.py, t_dup.py, t_manual.py, t_ninguna.py
+      [SIN_RESOLVER    ] FICHERO commitmsg_lint.py
+           el codigo si referencia: esta.py, hijo.py, lint.py, t_argumento.py, t_delegada.py, t_dup.py, t_manual.py, t_ninguna.py
+      [SIN_RESOLVER    ] FICHERO bench.py
+           el codigo si referencia: esta.py, hijo.py, lint.py, t_argumento.py, t_delegada.py, t_dup.py, t_manual.py, t_ninguna.py
+
+  tools/frontier.py
+      [SIN_RESOLVER    ] FICHERO AGENTS.md
+
+  tools/gccverify.py
+      [SIN_RESOLVER    ] FICHERO smu74.h
+           el codigo si referencia: _discrete.h, gcc.c, no_existe_este_fichero.h, probe.c, smu74_discrete.h, stddef.h, stdint.h, stdio.h
+
+  tools/hcconsist.py
+      [SIN_RESOLVER    ] FICHERO 07-DRIVER/kernel/rx550_pm4.h
+           el codigo si referencia: 007-x.md
+      [SIN_RESOLVER    ] FICHERO 07-DRIVER/kernel/rx550_pm4.c
+           el codigo si referencia: 007-x.md
+
+  tools/ipsolve.py
+      [SIN_RESOLVER    ] FICHERO tools/toolreg.py
+           el codigo si referencia: amdgpu_dm.c, amdgpu_ip.c, decoy.c, demo.c, demo_v3_1.c, enum.h, include.h, soc.c
+      [SIN_RESOLVER    ] FICHERO sdma_v3_1.c
+           el codigo si referencia: amdgpu_dm.c, amdgpu_ip.c, decoy.c, demo.c, demo_v3_1.c, enum.h, include.h, soc.c
+      [SIN_RESOLVER    ] FICHERO sdma_v3_0.c
+           el codigo si referencia: amdgpu_dm.c, amdgpu_ip.c, decoy.c, demo.c, demo_v3_1.c, enum.h, include.h, soc.c
+      [SIN_RESOLVER    ] FICHERO tools/evidence_search.py
+           el codigo si referencia: amdgpu_dm.c, amdgpu_ip.c, decoy.c, demo.c, demo_v3_1.c, enum.h, include.h, soc.c
+      [SIN_RESOLVER    ] FICHERO tools/asic_resolver.py
+           el codigo si referencia: amdgpu_dm.c, amdgpu_ip.c, decoy.c, demo.c, demo_v3_1.c, enum.h, include.h, soc.c
+
+  tools/lint.py
+      [SIN_RESOLVER    ] FICHERO fichero.md
+           el codigo si referencia: 117-doclint-x.md, 900-bueno.md, 901-sinhal.md, 902-inexistente.md, 903-partido.md, 904-sinestado.md, 905-largo.md, 999-no-existe.md
+
+  tools/mountcheck.py
+      [SIN_RESOLVER    ] FICHERO artifacts.py
+           el codigo si referencia: AGENTS.md, TOOLS-STATUS.md, a.py, b.py, con.py, no-existe.py, sin.py
+      [SIN_RESOLVER    ] FICHERO integridad.py
+           el codigo si referencia: AGENTS.md, TOOLS-STATUS.md, a.py, b.py, con.py, no-existe.py, sin.py
+
+  tools/msg_census.py
+      [FLAG_INEXISTENTE] FLAG   --list-unknown
+
+  tools/mutscore.py
+      [SIN_RESOLVER    ] FICHERO toolcheck.py
+           el codigo si referencia: AGENTS.md, _boot.py, fingerprint.py, frame.f_code.c, govcheck.py, lineas.json, lint.py, nextnum.py
+
+  tools/nextnum.py
+      [SIN_RESOLVER    ] FICHERO findings/048-numeros-de-hallazgo-no-identifican.md
+           el codigo si referencia: 001-a.md, 001-b.md, 002-c.md, 002-ya-existe.md, 010-d.md, c.py, d.py, reservas_gate.py
+
+  tools/oracle_drift.py
+      [SIN_RESOLVER    ] FICHERO tools/artifacts.py
+           el codigo si referencia: AGENTS.md, fijo_derrota.py, fijo_ok.py, fijo_roto.py, oracle_drift.py
+      [SIN_RESOLVER    ] FICHERO govcheck.py
+           el codigo si referencia: AGENTS.md, fijo_derrota.py, fijo_ok.py, fijo_roto.py, oracle_drift.py
+      [SIN_RESOLVER    ] FICHERO X.py
+           el codigo si referencia: AGENTS.md, fijo_derrota.py, fijo_ok.py, fijo_roto.py, oracle_drift.py
+
+  tools/pipeline.py
+      [SIN_RESOLVER    ] RUTA   /tmp/mapa.dot
+           el codigo si referencia: dot.c
+
+  tools/pm4census.py
+      [SIN_RESOLVER    ] FICHERO findings/023-pm4-count-convencion-medida.md
+           el codigo si referencia: cikd.h, gfx_v12_1_pkt.h, gfx_v8_0.c, nvd.h, sid.h, soc15d.h, vector.c, vid.h
+      [SIN_RESOLVER    ] FICHERO gfx_v6_0.c
+           el codigo si referencia: cikd.h, gfx_v12_1_pkt.h, gfx_v8_0.c, nvd.h, sid.h, soc15d.h, vector.c, vid.h
+      [SIN_RESOLVER    ] FICHERO gfx_v7_0.c
+           el codigo si referencia: cikd.h, gfx_v12_1_pkt.h, gfx_v8_0.c, nvd.h, sid.h, soc15d.h, vector.c, vid.h
+      [SIN_RESOLVER    ] FICHERO gfx_v10_0.c
+           el codigo si referencia: cikd.h, gfx_v12_1_pkt.h, gfx_v8_0.c, nvd.h, sid.h, soc15d.h, vector.c, vid.h
+      [SIN_RESOLVER    ] FICHERO vi.c
+           el codigo si referencia: cikd.h, gfx_v12_1_pkt.h, gfx_v8_0.c, nvd.h, sid.h, soc15d.h, vector.c, vid.h
+      [SIN_RESOLVER    ] FICHERO findings/043-vuelta-atras-035-y-036-leian-el-asic-equivocado.md
+           el codigo si referencia: cikd.h, gfx_v12_1_pkt.h, gfx_v8_0.c, nvd.h, sid.h, soc15d.h, vector.c, vid.h
+      [SIN_RESOLVER    ] FICHERO sdma_v4_0.c
+           el codigo si referencia: cikd.h, gfx_v12_1_pkt.h, gfx_v8_0.c, nvd.h, sid.h, soc15d.h, vector.c, vid.h
+      [SIN_RESOLVER    ] FICHERO AGENTS.md
+           el codigo si referencia: cikd.h, gfx_v12_1_pkt.h, gfx_v8_0.c, nvd.h, sid.h, soc15d.h, vector.c, vid.h
+
+  tools/prosa.py
+      [SIN_RESOLVER    ] FICHERO tools/toolreg.py
+           el codigo si referencia: BORDE__sid.h, NEGATIVO__cikd.h, POSITIVO__sid.h, README.md, REGRESION__qq4w.h, abrevia.py, ajeno.py, amano.py
+      [SIN_RESOLVER    ] FICHERO tools/toolcheck.py
+           el codigo si referencia: BORDE__sid.h, NEGATIVO__cikd.h, POSITIVO__sid.h, README.md, REGRESION__qq4w.h, abrevia.py, ajeno.py, amano.py
+      [SIN_RESOLVER    ] FICHERO tools/riesgo.py
+           el codigo si referencia: BORDE__sid.h, NEGATIVO__cikd.h, POSITIVO__sid.h, README.md, REGRESION__qq4w.h, abrevia.py, ajeno.py, amano.py
+      [SIN_RESOLVER    ] FICHERO riesgo.py
+           el codigo si referencia: BORDE__sid.h, NEGATIVO__cikd.h, POSITIVO__sid.h, README.md, REGRESION__qq4w.h, abrevia.py, ajeno.py, amano.py
+      [SIN_RESOLVER    ] FICHERO revkit/pm4dec.py
+           el codigo si referencia: BORDE__sid.h, NEGATIVO__cikd.h, POSITIVO__sid.h, README.md, REGRESION__qq4w.h, abrevia.py, ajeno.py, amano.py
+      [SIN_RESOLVER    ] FICHERO gfx_v8_0.c
+           el codigo si referencia: BORDE__sid.h, NEGATIVO__cikd.h, POSITIVO__sid.h, README.md, REGRESION__qq4w.h, abrevia.py, ajeno.py, amano.py
+      [SIN_RESOLVER    ] FICHERO pm4dec.py
+           el codigo si referencia: BORDE__sid.h, NEGATIVO__cikd.h, POSITIVO__sid.h, README.md, REGRESION__qq4w.h, abrevia.py, ajeno.py, amano.py
+      [SIN_RESOLVER    ] FICHERO algo.h
+           el codigo si referencia: BORDE__sid.h, NEGATIVO__cikd.h, POSITIVO__sid.h, README.md, REGRESION__qq4w.h, abrevia.py, ajeno.py, amano.py
+      [SIN_RESOLVER    ] FICHERO algo.c
+           el codigo si referencia: BORDE__sid.h, NEGATIVO__cikd.h, POSITIVO__sid.h, README.md, REGRESION__qq4w.h, abrevia.py, ajeno.py, amano.py
+      [SIN_RESOLVER    ] FICHERO algo.py
+           el codigo si referencia: BORDE__sid.h, NEGATIVO__cikd.h, POSITIVO__sid.h, README.md, REGRESION__qq4w.h, abrevia.py, ajeno.py, amano.py
+      [SIN_RESOLVER    ] RUTA   /ruta/absoluta
+           el codigo si referencia: BORDE__sid.h, NEGATIVO__cikd.h, POSITIVO__sid.h, README.md, REGRESION__qq4w.h, abrevia.py, ajeno.py, amano.py
+
+  tools/puerta_filtros.py
+      [SIN_RESOLVER    ] FICHERO 08-ARQUITECTURA/FILTROS-MAL-FORMADOS.md
+           el codigo si referencia: amdgpu_drv.c, assert_contract.py, bif_4_1_d.h, bif_5_0_d.h, calla.py, cap_census.py, citegen.py, declara.py
+      [SIN_RESOLVER    ] FICHERO toolreg.py
+           el codigo si referencia: amdgpu_drv.c, assert_contract.py, bif_4_1_d.h, bif_5_0_d.h, calla.py, cap_census.py, citegen.py, declara.py
+
+  tools/reftriage.py
+      [SIN_RESOLVER    ] FICHERO tools/audit_citations.sh
+           el codigo si referencia: 26.md, CLAUDE.md, DESIGN.md, REF-EXCEPTIONS.txt, X-otro.md, X.md, artifacts.py, c.md
+      [SIN_RESOLVER    ] FICHERO audit_citations.sh
+           el codigo si referencia: 26.md, CLAUDE.md, DESIGN.md, REF-EXCEPTIONS.txt, X-otro.md, X.md, artifacts.py, c.md
+
+  tools/reg_resolve.py
+      [FLAG_INEXISTENTE] FLAG   --across-headers
+
+  tools/regconst.py
+      [SIN_RESOLVER    ] FICHERO AGENTS.md
+           el codigo si referencia: _d.h, amdgpu.h, drvchain.py, gfx_8_0_d.h, navi10_d.h, regconst.py
+
+  tools/reservas_gate.py
+      [SIN_RESOLVER    ] FICHERO findnum.py
+           el codigo si referencia: 300-unico.md, 306-b.md, RESERVAS-DESYNC.md, mitad.md, mitad2.md, nextnum.py, reservas_gate.py, s.md
+      [SIN_RESOLVER    ] FICHERO check_num_unico.py
+           el codigo si referencia: 300-unico.md, 306-b.md, RESERVAS-DESYNC.md, mitad.md, mitad2.md, nextnum.py, reservas_gate.py, s.md
+      [SIN_RESOLVER    ] FICHERO reenvio_freeze.py
+           el codigo si referencia: 300-unico.md, 306-b.md, RESERVAS-DESYNC.md, mitad.md, mitad2.md, nextnum.py, reservas_gate.py, s.md
+
+  tools/riesgo.py
+      [SIN_RESOLVER    ] FICHERO amdioread.py
+           el codigo si referencia: auto.sh, autocabeza.py, comentario.c, embebido.py, fcntl.h, frag.sh, guion.sh, hold.c
+      [SIN_RESOLVER    ] FICHERO A32/TOOL-VALIDATION.md
+           el codigo si referencia: auto.sh, autocabeza.py, comentario.c, embebido.py, fcntl.h, frag.sh, guion.sh, hold.c
+
+  tools/round.py
+      [SIN_RESOLVER    ] FICHERO amdgpu_vm.c
+           el codigo si referencia: .round-state.json, 001-bueno.md, 002-contradice.md, E.md, causal_map.py
+
+  tools/routeaudit.py
+      [SIN_RESOLVER    ] FICHERO findings/134-que-se-puede-ver-sin-root-y-que-no.md
+           el codigo si referencia: AGENTS.md, amdgpu_sa.c, x.md
+
+  tools/rx550/alcance.py
+      [SIN_RESOLVER    ] RUTA   /home/lucas/Escritorio/RX550-INVESTIGACION
+           el codigo si referencia: alcance.json, alcance.py, amdgpu_device.c, amdgpu_ip.c, amdgpu_job.c, gmc_v8_0.c
+
+  tools/rx550/bits.py
+      [SIN_RESOLVER    ] FICHERO ciclo.py
+           el codigo si referencia: bits.json, bits.py, gmc_8_1_sh_mask.h, gmc_v8_0.c
+      [SIN_RESOLVER    ] RUTA   /home/lucas/Escritorio/RX550-INVESTIGACION
+           el codigo si referencia: bits.json, bits.py, gmc_8_1_sh_mask.h, gmc_v8_0.c
+
+  tools/rx550/ciclo.py
+      [SIN_RESOLVER    ] RUTA   /home/lucas/Escritorio/RX550-INVESTIGACION
+           el codigo si referencia: ciclo.json, ciclo.py
+
+  tools/rx550/conflicto.py
+      [SIN_RESOLVER    ] FICHERO contract.c
+           el codigo si referencia: amdgpu_irq.c, conflicto.json, conflicto.py, gfx_v8_0.c, gmc_v8_0.c
+      [SIN_RESOLVER    ] RUTA   /home/lucas/Escritorio/RX550-INVESTIGACION
+           el codigo si referencia: amdgpu_irq.c, conflicto.json, conflicto.py, gfx_v8_0.c, gmc_v8_0.c
+
+  tools/rx550/contract.py
+      [SIN_RESOLVER    ] FICHERO AGENTS.md
+           el codigo si referencia: CONTRATO.md, _offset.h, _sh_mask.h, amdgpu_gmc.c, amdgpu_ttm.c, amdgpu_vm.c, gfx_v8_0.c, gfxhub_v2_1.c
+
+  tools/rx550/crosscheck.py
+      [SIN_RESOLVER    ] FICHERO regctx.py
+           el codigo si referencia: _offset.h, amdgpu_gmc.c, amdgpu_ttm.c, amdgpu_vm.c, amdgpu_vm_cpu.c, amdgpu_vm_sdma.c, gfx_v8_0.c, gfxhub_v2_1.c
+
+  tools/rx550/paths.py
+      [SIN_RESOLVER    ] FICHERO contract.py
+           el codigo si referencia: gfx_v8_0.c
+      [SIN_RESOLVER    ] FICHERO funcspan.py
+           el codigo si referencia: gfx_v8_0.c
+      [SIN_RESOLVER    ] FICHERO callgraph.py
+           el codigo si referencia: gfx_v8_0.c
+      [SIN_RESOLVER    ] FICHERO regctx.py
+           el codigo si referencia: gfx_v8_0.c
+      [SIN_RESOLVER    ] FICHERO gfx_v8_0.c.98c128ba4308.json
+           el codigo si referencia: gfx_v8_0.c
+
+  tools/rx550/pisa.py
+      [SIN_RESOLVER    ] RUTA   /home/lucas/Escritorio/RX550-INVESTIGACION
+           el codigo si referencia: pisa.json, pisa.py
+
+  tools/rx550/regla.py
+      [SIN_RESOLVER    ] FICHERO fichero.json
+           el codigo si referencia: AGENTS.md, regla.py
+
+  tools/rx550/transiciones.py
+      [SIN_RESOLVER    ] RUTA   /home/lucas/Escritorio/RX550-INVESTIGACION
+           el codigo si referencia: transiciones.json, transiciones.py
+
+  tools/sello_prov.py
+      [SIN_RESOLVER    ] FICHERO tools/riesgo.py
+           el codigo si referencia: amb.md, amb2.md, art.json, art2.json, cont.md, cont2.md, cont3.md, copia.json
+      [SIN_RESOLVER    ] FICHERO 08-ARQUITECTURA/artifacts/R1-RIESGO/riesgo.json
+           el codigo si referencia: amb.md, amb2.md, art.json, art2.json, cont.md, cont2.md, cont3.md, copia.json
+      [SIN_RESOLVER    ] FICHERO sello.py
+           el codigo si referencia: amb.md, amb2.md, art.json, art2.json, cont.md, cont2.md, cont3.md, copia.json
+
+  tools/snapshot.py
+      [SIN_RESOLVER    ] FICHERO EXPERIMENTS.md
+           el codigo si referencia: EVIDENCE-MATRIX.md, drm.c
+      [SIN_RESOLVER    ] FICHERO tools/validate_rx550_final.py
+           el codigo si referencia: EVIDENCE-MATRIX.md, drm.c
+
+  tools/struct_layout.py
+      [FLAG_INEXISTENTE] FLAG   --fields
+
+  tools/toolreg.py
+      [SIN_RESOLVER    ] FICHERO reg_resolve.py
+           el codigo si referencia: TOOLS-STATUS.md, failing_tool.py, good_tool.py, ideas.txt, notool_test.py, tool_that_does_not_exist.py, unclassified_tool.py, unsafe_tool.py
+      [SIN_RESOLVER    ] FICHERO reg_census.py
+           el codigo si referencia: TOOLS-STATUS.md, failing_tool.py, good_tool.py, ideas.txt, notool_test.py, tool_that_does_not_exist.py, unclassified_tool.py, unsafe_tool.py
+      [SIN_RESOLVER    ] FICHERO xref.py
+           el codigo si referencia: TOOLS-STATUS.md, failing_tool.py, good_tool.py, ideas.txt, notool_test.py, tool_that_does_not_exist.py, unclassified_tool.py, unsafe_tool.py
+      [SIN_RESOLVER    ] FICHERO contradict.py
+           el codigo si referencia: TOOLS-STATUS.md, failing_tool.py, good_tool.py, ideas.txt, notool_test.py, tool_that_does_not_exist.py, unclassified_tool.py, unsafe_tool.py
+      [SIN_RESOLVER    ] FICHERO toolcheck.py
+           el codigo si referencia: TOOLS-STATUS.md, failing_tool.py, good_tool.py, ideas.txt, notool_test.py, tool_that_does_not_exist.py, unclassified_tool.py, unsafe_tool.py
+
+  tools/treescope.py
+      [SIN_RESOLVER    ] FICHERO audit_citations.sh
+           el codigo si referencia: amdgpu_gfx.c, fichero.c, gfx_v8_0.c, zzz.c
+      [SIN_RESOLVER    ] FICHERO artifacts.py
+           el codigo si referencia: amdgpu_gfx.c, fichero.c, gfx_v8_0.c, zzz.c
+
+  tools/uninit_copy.py
+      [SIN_RESOLVER    ] FICHERO polaris10_smumgr.c
+           el codigo si referencia: caso1.c, caso10.c, caso11.c, caso12.c, caso2.c, caso3.c, caso4.c, caso5.c
+
+  tools/verif.py
+      [SIN_RESOLVER    ] FICHERO toolreg.py
+           el codigo si referencia: a.py, b.py, base.json, c.py, cabeceras.c, dwarf.c, dwarfx.py, gate.h
+
+  tools/vmid_map.py
+      [SIN_RESOLVER    ] FICHERO amdgpu_vm_ids.c
+           el codigo si referencia: amdgpu_amdkfd.c, amdgpu_gmc.h, amdgpu_ids.h, gmc_8_1_d.h, gmc_v8_0.c
+      [SIN_RESOLVER    ] FICHERO amdgpu_ids.c
+           el codigo si referencia: amdgpu_amdkfd.c, amdgpu_gmc.h, amdgpu_ids.h, gmc_8_1_d.h, gmc_v8_0.c
+      [SIN_RESOLVER    ] FICHERO amdgpu_vm.h
+           el codigo si referencia: amdgpu_amdkfd.c, amdgpu_gmc.h, amdgpu_ids.h, gmc_8_1_d.h, gmc_v8_0.c
+      [SIN_RESOLVER    ] FICHERO gfx_v8_0.c
+           el codigo si referencia: amdgpu_amdkfd.c, amdgpu_gmc.h, amdgpu_ids.h, gmc_8_1_d.h, gmc_v8_0.c
+
+  tools/which_hw.py
+      [SIN_RESOLVER    ] FICHERO hardware.txt
+           el codigo si referencia: AGENTS.md, amdgpu_discovery.c, amdgpu_doorbell_mgr.c, gfx_v8_0.c, sdma_v4_0.c, sdma_v6_0_0.c
+
+  tools/xref.py
+      [SIN_RESOLVER    ] FICHERO trace_path.py
+           el codigo si referencia: SIN_.c, compiler.h, posix_types.h, types.h
+      [SIN_RESOLVER    ] FICHERO drivers/.../smu7_smumgr.c
+           el codigo si referencia: SIN_.c, compiler.h, posix_types.h, types.h
+      [FLAG_INEXISTENTE] FLAG   --declares
+
+ENUMERADAS, NO USADAS (SOLO_EN_LISTA) -- informativo, 57 herramientas
+--------------------------------------------------------------------------
+  08-ARQUITECTURA/tools/_selftest_num_collision.py     001-a.md, 002-b.md, /tmp/opencode/nc_selftest
+  08-ARQUITECTURA/tools/_selftest_stale_gap.py         /tmp/opencode/stale_gap_selftest
+  08-ARQUITECTURA/tools/amdioread.py                   gfx_v8_0.c, /dev/dri/renderD129, /dev/dri/renderD128
+  08-ARQUITECTURA/tools/aperture.py                    vce_3_0_d.h, uvd_6_0_d.h, gca/gfx_8_0_d.h
+  08-ARQUITECTURA/tools/binfacts.py                    /lib/modules/
+  08-ARQUITECTURA/tools/btfq/btfq.py                   /sys/kernel/btf/amdgpu, /sys/kernel/btf/vmlinux
+  08-ARQUITECTURA/tools/btfq/vmsize.py                 /sys/module/amdgpu/parameters/
+  08-ARQUITECTURA/tools/check_chain.py                 contract_filter.py, toolkit.py, 08-ARQUITECTURA/tools/toolkit.py
+  08-ARQUITECTURA/tools/citecheck.py                   /usr/src/kernels/
+  08-ARQUITECTURA/tools/contract_exec.py               doclint.py, aperture.py, struct_rw.py, ipver_zero.py
+  08-ARQUITECTURA/tools/contract_filter.py             toolkit.py
+  08-ARQUITECTURA/tools/driver_offsets.py              sid.h/vid.h
+  ... y 45 mas (--json para todas)
+
+Ninguna prosa se corrige aqui.  Este fichero MIDE y dice.

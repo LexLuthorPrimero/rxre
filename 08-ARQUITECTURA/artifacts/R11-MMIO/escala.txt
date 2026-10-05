@@ -1,0 +1,34 @@
+ESCALA DE LA TRANSFORMADA: GFX8 frente a RADEON/SI
+generado=2026-10-04T21:08:55Z
+
+=== la forma de cada generacion, con su linea ===
+  RADEON/SI  radeon/si.c:4602     start_reg = (idx_value << 2) + PACKET3_SET_CONFIG_REG_START
+  amdgpu/GFX8 gfx_v8_0.c:6121     payload  = mmX - PACKET3_SET_CONFIG_REG_START
+
+=== con el MISMO registro, mmGDS_COMPUTE_MAX_WAVE_ID = 0x3348, base 0x2000 ===
+  payload que escribe RADEON  = 0x04D2
+  payload que escribe GFX8    = 0x1348
+
+  payload 0x04D2 ->  forma GFX8: 0x24D2 (mmGDS_COMPUTE_MAX_WAVE_ID)
+                   forma RADEON: 0x3348   <-- el mismo registro
+  payload 0x1348 ->  forma GFX8: 0x3348 (mmGDS_COMPUTE_MAX_WAVE_ID)
+                   forma RADEON: 0x6D20
+
+=== salida del instrumento, con el alcance declarado ===
+   ALCANCE               GFX8 (vid.h)
+   ESCALA                reg = base + (payload << 0)
+   origen de la escala   medido en el propio arbol. GFX8: gfx_v8_0.c:1530, gfx_v8_0.c:1536 y gfx_v8_0.c:6121 escriben `reg - PACKET3_..._START`, sin desplazamiento. RADEON/SI: radeon/si.c:4602 escribe `(idx_value << 2) + PACKET3_SET_CONFIG_REG_START`
+   OTRA generacion       drivers/gpu/drm/radeon/si.c:4602 -> escala 2, reg = base + (payload << 2)
+                          usarla aqui daria un registro DISTINTO
+   PACKET3_SET_CONFIG_REG     base de PACKET3_SET_CONFIG_REG_START
+=== si_vm_reg_valid: rangos de registro admitidos (solo RADEON/SI) ===
+static bool si_vm_reg_valid(u32 reg)
+{
+	/* context regs are fine */
+	if (reg >= 0x28000)
+		return true;
+
+	/* shader regs are also fine */
+	if (reg >= 0xB000 && reg < 0xC000)
+		return true;
+

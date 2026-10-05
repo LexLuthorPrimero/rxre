@@ -1,0 +1,85 @@
+==============================================================================
+pm4tila 1.1.0 -- la longitud de un paquete PM4, medida
+==============================================================================
+
+ORACULO 1, GEOMETRICO: un anillo PM4 es una tilesion EXACTA. La suma
+         de las longitudes tiene que dar el numero de dwords del anillo.
+         No depende de ningun nombre de opcode ni de ninguna cabecera.
+
+ESPACIO DE CONVENCIONES (declarado, es parte del contrato):
+   PACKET3=count+1    nop=1dword PACKET2=2*count+1 
+   PACKET3=count+1    nop=1dword PACKET2=count+1   
+   PACKET3=count+1    nop=regla PACKET2=2*count+1 
+   PACKET3=count+1    nop=regla PACKET2=count+1   
+   PACKET3=count+2    nop=1dword PACKET2=2*count+1 
+   PACKET3=count+2    nop=1dword PACKET2=count+1   
+   PACKET3=count+2    nop=regla PACKET2=2*count+1 
+   PACKET3=count+2    nop=regla PACKET2=count+1   
+   PACKET3=2*count+1  nop=1dword PACKET2=2*count+1 
+   PACKET3=2*count+1  nop=1dword PACKET2=count+1   
+   PACKET3=2*count+1  nop=regla PACKET2=2*count+1 
+   PACKET3=2*count+1  nop=regla PACKET2=count+1   
+   PACKET3=2*count+2  nop=1dword PACKET2=2*count+1 
+   PACKET3=2*count+2  nop=1dword PACKET2=count+1   
+   PACKET3=2*count+2  nop=regla PACKET2=2*count+1 
+   PACKET3=2*count+2  nop=regla PACKET2=count+1   
+   (16 combinaciones)
+
+VEREDICTO POR ANILLO
+------------------------------------------------------------------------------
+
+  gfx          PARCIAL               2048 dwords,  2 de 16 convenciones cuadran
+      SIN DECIDIR: pkt2 -> 2*count+1, count+1
+      convention: PACKET3=count+2  NOP=nop=1dword  PACKET2=2*count+1
+      1728 paquetes, 2048 dwords consumidos
+
+  sdma0        NO_ES_PM4_O_TRUNCADO  2048 dwords,  0 de 16 convenciones cuadran
+
+  sdma1        NO_ES_PM4_O_TRUNCADO  2048 dwords,  0 de 16 convenciones cuadran
+
+  comp_1.3.1   PARCIAL               2048 dwords,  2 de 16 convenciones cuadran
+      SIN DECIDIR: pkt2 -> 2*count+1, count+1
+      convention: PACKET3=count+2  NOP=nop=1dword  PACKET2=2*count+1
+      2021 paquetes, 2048 dwords consumidos
+
+COMPOSICION DEL ANILLO GFX, con la convencion adjudicada
+------------------------------------------------------------------------------
+  opcode                          veces   dwords
+  PACKET3_NOP                      1648     1648
+  PACKET3_EVENT_WRITE_EOP            32      192
+  PACKET3_COND_EXEC                   8       40
+  PACKET3_CONTEXT_CONTROL             8       24
+  PACKET3_INDIRECT_BUFFER             8       32
+  PACKET3_SWITCH_BUFFER               8       16
+  PACKET3_WAIT_REG_MEM                8       56
+  PACKET3_WRITE_DATA                  8       40
+  TOTAL                            1728     2048
+
+ORACULO 2, DE FUENTE: cuantas escrituras de payload siguen a cada
+         PACKET3(op, n) en el corpus.  Independiente del anillo.
+------------------------------------------------------------------------------
+  payload == n + 1   (count = payload - 1, len = count + 2): 227
+  payload == n       (count = payload,     len = count + 1): 1
+  fuera de alcance (el emisor no usa amdgpu_ring_write): 3
+      len=count+2      PACKET3_WRITE_DATA           n=3 payload=4   gfx_v10_0.c:4003
+      len=count+2      PACKET3_WAIT_REG_MEM         n=5 payload=6   gfx_v10_0.c:4016
+      len=count+2      PACKET3_SET_UCONFIG_REG      n=1 payload=2   gfx_v10_0.c:4049
+      len=count+2      PACKET3_WRITE_DATA           n=3 payload=4   gfx_v10_0.c:4097
+      len=count+2      PACKET3_PREAMBLE_CNTL        n=0 payload=1   gfx_v10_0.c:6395
+      len=count+2      PACKET3_CONTEXT_CONTROL      n=1 payload=2   gfx_v10_0.c:6398
+      len=count+2      PACKET3_SET_CONTEXT_REG      n=1 payload=2   gfx_v10_0.c:6418
+      len=count+2      PACKET3_PREAMBLE_CNTL        n=0 payload=1   gfx_v10_0.c:6422
+      len=count+2      PACKET3_CLEAR_STATE          n=0 payload=1   gfx_v10_0.c:6425
+      len=count+2      PACKET3_SET_BASE             n=2 payload=3   gfx_v10_0.c:6428
+      len=count+2      PACKET3_CLEAR_STATE          n=0 payload=1   gfx_v10_0.c:6445
+      len=count+2      PACKET3_SET_CONFIG_REG       n=1 payload=2   gfx_v10_0.c:8699
+      len=count+1      PACKET3_SET_CONFIG_REG       n=1 payload=1   gfx_v12_1.c:3440
+
+  los 3 que NO votan, con su motivo.  Un residuo sin
+  motivo escrito es un residuo sin controlar:
+      PACKET3_SWITCH_BUFFER        n=0   constructor en un if/else: no se sabe cual de las dos ramas se emite gfx_v7_0.c:2206
+      PACKET3_RUN_CLEANER_SHADER   n=0   constructor en un if/else: no se sabe cual de las dos ramas se emite gfx_v9_0.c:7476
+      PACKET3_RUN_CLEANER_SHADER_9_0 n=0   constructor en un if/else: no se sabe cual de las dos ramas se emite gfx_v9_0.c:7478
+
+LOS DOS ORACULOS NO SE PROMEDIAN.  Si discreparan, el veredicto
+seria CONTRADICCION y se dira, no se promediara.

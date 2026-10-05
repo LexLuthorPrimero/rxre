@@ -1,0 +1,108 @@
+declarantes localizados:
+  pm4_codec.py                 DOC_LAYOUTS    7 paquetes
+
+================================================================================================
+CONTRASTE CRUZADO DE LAYOUTS DECLARADOS  vs  ORACULOS DEL CORPUS
+================================================================================================
+UNIDADES:  la columna 'herr' es la longitud de la lista declarada.
+           'cab' y 'emi' son SOLO_PAYLOAD.
+           'total' incluye la cabecera; por eso total = cab + 1.
+
+paquete                         herr  total   cab    emi  veredicto    diagnostico
+------------------------------------------------------------------------------------------------
+PACKET3_CP_DMA                     6      6     5      -  DISCREPA     la herramienta declara 6 y el kernel documenta 5 SOLO_PAYLOAD (las 1 sobrantes estan al frente (alineacion=1))
+PACKET3_DMA_DATA                   6      7     6      6  OK           
+PACKET3_MAP_QUEUES                 6      7     6      6  OK           
+PACKET3_QUERY_STATUS               6      7     6      6  NOMBRES_NO_COMPARABLES las cuentas coinciden (6) pero el kernel no desglosa los subcampos, asi que los nombres no son contrastables: no es un veredicto sobre la herramienta
+PACKET3_RUN_CLEANER_SHADER         1      2     1      1  NOMBRES_NO_COMPARABLES las cuentas coinciden (1) pero el kernel no desglosa los subcampos, asi que los nombres no son contrastables: no es un veredicto sobre la herramienta
+PACKET3_SET_RESOURCES              7      8     7      7  OK           
+PACKET3_UNMAP_QUEUES               5      6     5      5  NOMBRES_NO_COMPARABLES las cuentas coinciden (5) pero el kernel no desglosa los subcampos, asi que los nombres no son contrastables: no es un veredicto sobre la herramienta
+
+OK 3   DISCREPA 1   SIN_ORACULO 0   NOMBRES_NO_COMPARABLES 3   (de 7 declaraciones)
+cobertura: 7 de 7 declaraciones contrastadas contra la cabecera; 4 contra la emision.
+
+NOMBRES_NO_COMPARABLES: la cuenta de dwords coincide, pero el
+kernel no desglosa esos subcampos. NO es un veredicto sobre la
+herramienta. Que no haya nombre no es que el nombre sea falso.
+
+------------------------------------------------------------------------------------------------
+ASIGNACION DE CAMPOS A DWORDS  (pregunta distinta del conteo)
+------------------------------------------------------------------------------------------------
+UNIDADES:  'herr' es [hi:lo] afirmado.  'kernel' es el LSB del
+           macro, y solo se imprime si TODAS las cabeceras que
+           definen ese campo coinciden.  el kernel da el desplazamiento, no la anchura
+
+paquete                      campo                herr     kernel    veredicto                      diagnostico
+------------------------------------------------------------------------------------------------
+PACKET3_CP_DMA               BYTE_COUNT           20:0     com[20:0]  OK                             corroborado por el comentario numerado del kernel
+PACKET3_CP_DMA               COMMAND              30:21    com[30:21]  OK                             corroborado por el comentario numerado del kernel
+PACKET3_CP_DMA               CP_SYNC              31:31    -         SIN_ORACULO_BITS               el kernel nombra el campo pero no lo posiciona
+PACKET3_CP_DMA               DST_ADDR_HI          7:0      com[7:0]  OK                             corroborado por el comentario numerado del kernel
+PACKET3_CP_DMA               DST_ADDR_LO          31:0     com[31:0]  OK                             corroborado por el comentario numerado del kernel
+PACKET3_CP_DMA               DST_SEL              21:20    com[21:20]  OK                             corroborado por el comentario numerado del kernel
+PACKET3_CP_DMA               ENGINE               27:27    <<27      OK                             anchura no contrastable: el kernel da el desplazamiento, no la anchura
+PACKET3_CP_DMA               SRC_ADDR_HI          7:0      com[7:0]  OK                             corroborado por el comentario numerado del kernel
+PACKET3_CP_DMA               SRC_SEL              30:29    com[30:29]  OK                             corroborado por el comentario numerado del kernel
+PACKET3_DMA_DATA             BYTE_COUNT           20:0     com[20:0]  OK                             corroborado por el comentario numerado del kernel
+PACKET3_DMA_DATA             COMMAND              30:21    com[30:21]  OK                             corroborado por el comentario numerado del kernel
+PACKET3_DMA_DATA             DST_ADDR_HI          7:0      com[7:0]  OK                             corroborado por el comentario numerado del kernel
+PACKET3_DMA_DATA             DST_ADDR_LO          31:0     com[31:0]  OK                             corroborado por el comentario numerado del kernel
+PACKET3_DMA_DATA             SRC_ADDR_HI          31:0     com[31:0]  OK                             corroborado por el comentario numerado del kernel
+PACKET3_MAP_QUEUES           CONTROL              31:0     -         NOMBRES_NO_COMPARABLES         el kernel no desglosa este dword, asi que el nombre de la herramienta no es contrastable
+PACKET3_MAP_QUEUES           CONTROL2             31:0     -         NOMBRES_NO_COMPARABLES         el kernel no desglosa este dword, asi que el nombre de la herramienta no es contrastable
+PACKET3_MAP_QUEUES           MQD_ADDR_HI          31:0     com[31:0]  OK                             corroborado por el comentario numerado del kernel
+PACKET3_MAP_QUEUES           MQD_ADDR_LO          31:0     com[31:0]  OK                             corroborado por el comentario numerado del kernel
+PACKET3_MAP_QUEUES           WPTR_ADDR_HI         31:0     com[31:0]  OK                             corroborado por el comentario numerado del kernel
+PACKET3_MAP_QUEUES           WPTR_ADDR_LO         31:0     com[31:0]  OK                             corroborado por el comentario numerado del kernel
+PACKET3_MAP_QUEUES           doorbell_offset      25:2     <<2       OK                             anchura no contrastable: el kernel da el desplazamiento, no la anchura
+PACKET3_MAP_QUEUES           engine_sel           26:26    <<26      OK                             anchura no contrastable: el kernel da el desplazamiento, no la anchura
+PACKET3_MAP_QUEUES           num_queues           29:29    <<29      OK                             anchura no contrastable: el kernel da el desplazamiento, no la anchura
+PACKET3_MAP_QUEUES           queue_sel            4:4      <<4       OK                             anchura no contrastable: el kernel da el desplazamiento, no la anchura
+PACKET3_MAP_QUEUES           queue_type           21:21    <<21      OK                             anchura no contrastable: el kernel da el desplazamiento, no la anchura
+PACKET3_QUERY_STATUS         CONTEXT_STATUS       21:12    -         NOMBRES_NO_COMPARABLES         el kernel no desglosa este dword, asi que el nombre de la herramienta no es contrastable
+PACKET3_QUERY_STATUS         REGISTER_INDEX       23:0     -         NOMBRES_NO_COMPARABLES         el kernel no desglosa este dword, asi que el nombre de la herramienta no es contrastable
+PACKET3_QUERY_STATUS         STATUS_VALUE         31:0     -         NOMBRES_NO_COMPARABLES         el kernel no desglosa este dword, asi que el nombre de la herramienta no es contrastable
+PACKET3_QUERY_STATUS         VMID                 31:28    -         NOMBRES_NO_COMPARABLES         el kernel no desglosa este dword, asi que el nombre de la herramienta no es contrastable
+PACKET3_QUERY_STATUS         dword                4:4      -         NOMBRES_NO_COMPARABLES         el kernel no desglosa este dword, asi que el nombre de la herramienta no es contrastable
+PACKET3_SET_RESOURCES        RESOURCE_SIZE        31:0     -         CAMPO_INVENTADO                la herramienta afirma RESOURCE_SIZE y ninguna cabecera lo nombra ni lo posiciona
+PACKET3_SET_RESOURCES        gws_mask_hi          31:0     com[31:0]  OK                             corroborado por el comentario numerado del kernel
+PACKET3_SET_RESOURCES        gws_mask_lo          31:0     com[31:0]  OK                             corroborado por el comentario numerado del kernel
+PACKET3_SET_RESOURCES        queue_mask_hi        31:0     com[31:0]  OK                             corroborado por el comentario numerado del kernel
+PACKET3_SET_RESOURCES        queue_mask_lo        31:0     com[31:0]  OK                             corroborado por el comentario numerado del kernel
+PACKET3_SET_RESOURCES        queue_type           15:14    <<29      CONTRADICCION                  el macro dice QUEUE_TYPE<<29 (las 4 cabeceras coinciden) y la herramienta dice [15:14]. El comentario no declara el rango: no se sabe cual de los dos esta mal
+PACKET3_SET_RESOURCES        vmid_mask            31:16    <<0       CONTRADICCION                  el macro dice VMID_MASK<<0 (las 4 cabeceras coinciden) y la herramienta dice [31:16]. El comentario no declara el rango: no se sabe cual de los dos esta mal
+PACKET3_UNMAP_QUEUES         ACTION               1:1      <<0       CONTRADICCION                  el macro dice ACTION<<0 (las 4 cabeceras coinciden) y la herramienta dice [1:1]. El comentario no declara el rango: no se sabe cual de los dos esta mal
+PACKET3_UNMAP_QUEUES         DOORBELL_OFFSET0     25:2     <<2       OK                             anchura no contrastable: el kernel da el desplazamiento, no la anchura
+PACKET3_UNMAP_QUEUES         ENGINE_SEL           6:5      <<26      CONTRADICCION                  el macro dice ENGINE_SEL<<26 (las 4 cabeceras coinciden) y la herramienta dice [6:5]. El comentario no declara el rango: no se sabe cual de los dos esta mal
+PACKET3_UNMAP_QUEUES         NUM_QUEUES           10:10    <<29      CONTRADICCION                  el macro dice NUM_QUEUES<<29 (las 4 cabeceras coinciden) y la herramienta dice [10:10]. El comentario no declara el rango: no se sabe cual de los dos esta mal
+PACKET3_UNMAP_QUEUES         QUEUE_SEL            2:0      <<4       CONTRADICCION                  el macro dice QUEUE_SEL<<4 (las 4 cabeceras coinciden) y la herramienta dice [2:0]. El comentario no declara el rango: no se sabe cual de los dos esta mal
+PACKET3_UNMAP_QUEUES         dword                2:2      -         NOMBRES_NO_COMPARABLES         el kernel no desglosa este dword, asi que el nombre de la herramienta no es contrastable
+
+CAMPO_INVENTADO 1   CONTRADICCION 6   NOMBRES_NO_COMPARABLES 8   OK 27   SIN_ORACULO_BITS 1
+de 43 afirmaciones de bits.  POSICION_DEPENIENTE_GENERACION no es
+un fallo de la herramienta: es que no hay un valor unico que
+contrastar.  CAMPO_INVENTADO si lo es: el nombre no existe.
+
+------------------------------------------------------------------------------------------------
+COBERTURA: campos que el kernel ESCRIBE y la herramienta NO declara
+------------------------------------------------------------------------------------------------
+Esta es la UNICA tabla que puede ver una ausencia. Las otras dos
+hablan solo de lo declarado: un campo que falta no se compara con
+nada y no sale.
+
+ALCANCE: solo emisiones de gfx_v8_0.c. Es el driver de la generacion
+que declara la herramienta. Comparar la emision de otra
+generacion con un layout de GFX8 seria un error de categoria.
+Emisiones de otras generaciones EXCLUIDAS y no juzgadas: 10
+  amdgpu_amdkfd_gfx_v10.c, amdgpu_amdkfd_gfx_v10_3.c, amdgpu_amdkfd_gfx_v11.c, amdgpu_amdkfd_gfx_v9.c, gfx_v10_0.c, gfx_v11_0.c, gfx_v12_0.c, gfx_v12_1.c, gfx_v9_0.c, gfx_v9_4_3.c
+
+paquete                    fichero          dword dword (kernel)     campo escrito          veredicto
+------------------------------------------------------------------------------------------------
+PACKET3_MAP_QUEUES         gfx_v8_0.c       2     CONTROL2           ME                     CAMPO_ESCRITO_NO_DECLARADO
+PACKET3_MAP_QUEUES         gfx_v8_0.c       2     CONTROL2           PIPE                   CAMPO_ESCRITO_NO_DECLARADO
+PACKET3_MAP_QUEUES         gfx_v8_0.c       2     CONTROL2           QUEUE                  CAMPO_ESCRITO_NO_DECLARADO
+
+3 campos escritos y no declarados.  Decodificar esto no falla:
+devuelve un dword con parte sin etiqueta, que parece correcto
+y no lo es.  Es el fallo que no puede ver un conteo.
+

@@ -1,0 +1,11 @@
+VALIDACION DE LOS CONTRATOS DE REPARACION  (1061, 1073, 1082, 1094, 1106)
+generado=2026-10-04T19:57:46Z
+
+=== VIVO: 08-ARQUITECTURA/tools/pm4_codec.py (intacto, no modificado) ===
+OK 3   DISCREPA 1   SIN_ORACULO 0   NOMBRES_NO_COMPARABLES 3   (de 7 declaraciones)
+CAMPO_INVENTADO 1   DISCREPA_ANCHURA 6   DISCREPA_DWORD 2   DISCREPA_POSICION 4   NOMBRES_NO_COMPARABLES 11   OK 21   SIN_ORACULO_BITS 1
+3 campos escritos y no declarados.  Decodificar esto no falla:
+
+=== CANDIDATA: artifacts/R9-REPARACION/candidata.py ===
+OK 4   DISCREPA 0   SIN_ORACULO 0   NOMBRES_NO_COMPARABLES 3   (de 7 declaraciones)
+ningun campo escrito por el kernel queda sin declarar.

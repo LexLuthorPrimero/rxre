@@ -1,0 +1,10 @@
+{
+  "clave": "clave-de-prueba",
+  "valor": {
+    "v": 1
+  },
+  "huella_clave": "1c9395741bff745f301ef2cee9732f0d0fa4ffd19ae78a5add4fc5dc1c380c04",
+  "huella_valor": "9ab2253fc38981f5be9c25cf0a34b62cdf334652344bdef16b3d5dbc0b74f2f1",
+  "herramienta": "herramienta_x",
+  "version": "1.2.3"
+}

@@ -1,0 +1,2434 @@
+#!/usr/bin/env python3
+# ibref.py -- sintetiza un IB de REFERENCIA para un punto de emision de PM4.
+#
+# RECONSTRUIDO. El 2026-10-04 se perdio el fichero (0 bytes) al truncarlo desde
+# un script de edicion que iba a fallar y escribio None. No hay copia en git
+# (nunca se commiteo). El unico ejemplar es el `.pyc` que el interprete al
+# ejecutar el selftest, y eso obliga a reconstruirlo desde ahi.
+#
+# DE DONDE SALE CADA COSA, Y QUE SE PUEDE Y QUE NO SE PUEDE COMPROBAR
+# ------------------------------------------------------------------
+#   docstrings y firmas   del `.pyc`, LITERALES. El interprete conserva los
+#                        docstrings como constantes, asi que el texto de la
+#                        medicion es el que habia, no una reconstruccion.
+#   orden de definicion  del `.pyc` (co_firstlineno), tambien literal.
+#                  de este fichero, reimplementado y validado contra el
+#                        `.pyc`, que SIGUE EJECUTANDOSE como oraculo.
+#
+# LO QUE NO SE PUEDE COMPROBAR, Y SE DICE
+# ---------------------------------------
+# El `.pyc` se puede ejecutar pero no leer como fuente: los cuerpos hay que
+# reimplementarlos. Este fichero esta validado por COMPORTAMIENTO contra el
+# `.pyc` (mismos vectores, mismos dwords, misma salida), no por identidad de
+# texto. Que dos implementaciones den lo mismo no prueba que sean el mismo
+# programa, y esa diferencia queda declarada en vez de tapada.
+#
+# El `.pyc` de referencia: tools/__pycache__/ibref.cpython-314.pyc
+# Oraculo ejecutable:     tools/_orculo_ibref.pyc  (copia, para que RAIZ cuadre)
+#
+# POR QUE EXISTE, Y QUE FALTA SIN EL
+# ---------------------------------
+# El proyecto tiene Instrumentos que describen PM4 y **no tiene ningun IB**. No hay
+# un solo paquete decodificado en el arbol. Consecuencia medida: los hallazgos
+# `1073`, `1082` y `1077` sobre `SET_RESOURCES`, `MAP_QUEUES` y `UNMAP_QUEUES`
+# quedan en `PROVEN_DERIVED` y no en `OBSERVED`, porque la cifra que se contrasta es
+# un dword calculado a mano con los macros, no un dword leido de una emision.
+#
+# Este instrumento produce ese artefacto que falta. No ejecuta nada, no toca la
+# GPU y no escribe en el arbol.
+#
+#   --func <nombre>              lista los PARAMETROS y los dwords ya constantes
+#   --func <nombre> --set k=v    sintetiza los dwords concretos
+#   --func <nombre> --set ... --decode
+#                                los decodifica con los layouts declarados por
+#                                las herramientas del proyecto
+#
+# POR QUE LOS PARAMETROS SE DESCUBREN Y NO SE ESCRIBEN A MANO
+# ---------------------------------------------------------
+# El evaluador de `pm4_emit` (`eval_call`) devuelve `int` para una expresion
+# constante y lanza `Unresolved(<nombre>)` cuando encuentra un identificador que no
+# puede resolver. Ese `<nombre>` **es** el parametro de runtime.
+#
+# Se liga el evaluador de `pm4_emit` con el parser de escrituras, de modo que la
+# lista de parametros sale del codigo del driver y no de una suposicion mia. Si
+# manana el driver renombra `ring->queue`, el parametro se llama distinto y el
+# error es visible; una lista escrita a mano seguiria diciendo `queue`.
+#
+#   PARAMETRO DESCUBIERTO  el parametro lo nombra el codigo que lo usa
+#   PARAMETRO SUPUESTO    una lista fija que el driver puede invalidar sin que
+#                         nadie note  <- lo que hace `pm4_emit` con el nombre
+#                         de la variable del anillo, y lo que hace `layoutcross`
+#                         con el catalogo de cabeceras (hallazgos 1089 y 1087)
+#
+# NO SE PUEDE EMPEZAR POR UN IB FIJO, Y POR QUE
+# ---------------------------------------------
+# Los valores que escriben estas funciones **no son constantes en el codigo**:
+#
+#     amdgpu_ring_write(kiq_ring, PACKET3(PACKET3_MAP_QUEUES, 5));
+#     amdgpu_ring_write(kiq_ring, PACKET3_MAP_QUEUES_QUEUE(ring->queue) | ...);
+#
+# `ring->queue` lo decide el runtime. El artefacto que falta no es "el IB" sino
+# **"un IB de referencia para unos valores elegidos"**, y la eleccion de esos
+# valores es lo que hace el layout observable: con `queue == 0` casi todos los
+# layouts dan el mismo resultado y no se distinguen. Es el discriminante que
+# `1077` nombra y que hasta ahora no se podia ejecutar.
+#
+# LIMITE DECLARADO
+# ----------------
+# No se modela el flujo de control. Una escritura dentro de un `if` se sintetiza
+# como si ocurriera siempre, y se marca `[cond]`. Es el mismo limite que declara
+# `layoutcross` y el mismo criterio: para un generador de artefactos, notificar de
+# mas es el sentido seguro; el que consume debe mirar la marca.
+#
+# CAMPOS CONOCIDOS QUE NO SE RESUELVEN
+# -------------------------------------
+# `ring->mqd_addr`, `ring->wptr_addr` y `lower_32_bits(...)` / `upper_32_bits(...)`
+# no son escalares. Se pueden ligar por nombre (`mqd_addr=0x11223344`) y el
+# generador aplica la mascara de `lower_32_bits`/`upper_32_bits` si el nombre
+# empieza por esas dos. Si no se ligan, el IB sale incompleto y **se dice**: un
+# IB parcial marcado es informacion; un IB parcial silencioso es una trampa.
+
+import argparse
+import glob
+import importlib.util
+import json
+import os
+import re
+import sys
+import tempfile
+
+VERSION = '1.0'
+
+path = os.path.dirname
+abspath = os.path.abspath
+# `RAIZ` es la raiz del PROYECTO, un nivel por encima de `tools/`. Con
+# solo `dirname` apuntaba a `tools/` y `EMIT` salia en
+# `tools/08-ARQUITECTURA/tools/pm4_emit.py`, que no existe: el
+# ImportError decia la ruta y por eso senalaba al path, no al modulo.
+RAIZ = path(path(abspath(__file__)))
+AMD = os.path.join(RAIZ, "RESEARCH", "working", "linux-7.1.3",
+                   "drivers", "gpu", "drm", "amd", "amdgpu")
+TARGET = "gfx_v8_0.c"
+EMIT = os.path.join(RAIZ, "08-ARQUITECTURA", "tools", "pm4_emit.py")
+KFD_OPS = os.path.join(RAIZ, "RESEARCH", "working", "linux-7.1.3",
+                       "drivers", "gpu", "drm", "amd", "amdkfd",
+                       "kfd_pm4_opcodes.h")
+
+RE_RING_WRITE = re.compile(
+    r"amdgpu_ring_write\s*\(\s*([A-Za-z_]\w*)\s*,\s*(.+?)\s*\)\s*;", re.S)
+RE_IB_WRITE = re.compile(
+    r"([A-Za-z_]\w*)\.ptr\[\s*\1\.length_dw\+\+\s*\]\s*=\s*(.+?);", re.S)
+
+
+def cargar_modulo(ruta):
+    """Importa un .py por RUTA, sin tocar sys.path del proceso.
+
+    Igual que en `layoutcross`: cargar por import normal metería el directorio
+    del modulo en el path y podria encontrar otro `pm4_codec` que no es el del
+    arbol. Con `--tablas` pointed a una declaracion candidata, la ruta tiene que
+    ser exacto.
+    """
+    spec = importlib.util.spec_from_file_location(
+        "ibref_tabs_" + os.path.splitext(os.path.basename(ruta))[0], ruta)
+    if spec is None or spec.loader is None:
+        raise ImportError("no importable: %s" % ruta)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+KERNEL_INC = os.path.join(RAIZ, "RESEARCH", "kernelbuild", "linux-7.1.3",
+                           "include")
+# El include de kernel con angulo se resuelve contra UN `-I`, y en el kernel hay
+# mas de uno. MEDIDO, y esto es lo que faltaba:
+#
+#     amdgpu.h:51      #include <drm/amdgpu_drm.h>
+#     kernelbuild/include/drm/amdgpu_drm.h          NO EXISTE
+#     kernelbuild/include/uapi/drm/amdgpu_drm.h    SI  (y define
+#                                                     AMDGPU_IB_FLAG_...)
+#
+# Con una sola raiz (`include/`) la ampliacion alcanzaba 380 cabeceras y
+# CERO de `drm/`, porque el nombre `<drm/...>` solo existe bajo `uapi/`. La
+# bandera `AMDGPU_IB_FLAG_RESET_GDS_MAX_WAVE_ID` = (1<<4) vive ahi, y sin ella
+# la condicion `ib->flags & AMDGPU_IB_FLAG_...` no se puede resolver.
+#
+# El orden importa y es el de `resolve_includes`: el PRIMERO que existe gana.
+#
+# EL TOPE, Y POR QUE ESTA MEDIDO Y NO PUESTO A 1000 POR RUTINA
+# ------------------------------------------------------------
+# MEDIDO: con tope 400 se alcanzaban 400 cabeceras y `truncado=True`. El
+# conjunto real son **602**, de modo que el tope de 400 estaba ocultando 202
+# cabeceras, el 33%. Y entre las que ocultaba estaba `uapi/drm/amdgpu_drm.h`,
+# que es la que trae `AMDGPU_IB_FLAG_RESET_GDS_MAX_WAVE_ID`.
+#
+# 1200 esta por encima de 602 con margen, y el informe declara `truncado`
+# para que, si el grafo creciera, se viera en la salida y no solo en el
+# codigo. Un tope que trunca en silencio es un tope que produce un conjunto
+# incompleto que parece completo.
+RAICES_ANGLE = (
+    "",
+    "uapi" + os.sep,
+    ".." + os.sep + "arch" + os.sep + "x86" + os.sep + "include" + os.sep
+    + "uapi" + os.sep,
+    ".." + os.sep + "arch" + os.sep + "x86" + os.sep + "include" + os.sep
+    + "generated" + os.sep,
+)
+RE_INC_ANGULO = re.compile(r"^[ \t]*#[ \t]*include[ \t]*<([^>]+)>", re.M)
+_FICHEROS_EDITADOS = ("amdgpu_debugfs.c", "amdgpu_debugfs.h", "amdgpu_vm.c",
+                      "amdgpu_vm_pt.c")
+
+
+def _raiz_segura():
+    """(bool, motivo): se puede ampliar la raiz sin que cambie el sujeto."""
+    inc = KERNEL_INC
+    if not os.path.isdir(inc):
+        return False, "no existe %s" % inc
+    for f in _FICHEROS_EDITADOS:
+        if not os.path.isfile(os.path.join(inc, f)):
+            continue
+        return False, ("un fichero editado del proyecto esta bajo include/: %s"
+                       % f)
+    return True, ("los %d ficheros editados del proyecto NO estan bajo include/"
+                  % len(_FICHEROS_EDITADOS))
+
+
+def ficheros_de_include_angular(entrada, max_extra=1200, semillas=()):
+    """Ficheros alcanzados por `#include <...>`, para pasarlos a load_macros.
+
+    El include de kernel con angulo se resuelve contra `include/` (y `uapi/`),
+    NO contra el directorio del fichero que incluye. Resolverlo como si fuera
+    relativo daria el fichero equivocado sin avisar, que es la razon por la que
+    el include esta escrito con angulo.
+
+    LAS SEMILLAS, Y POR QUE SON NECESARIAS
+    --------------------------------------
+    MEDIDO: con solo la entrada (`gfx_v8_0.c`) como semilla, la ampliacion
+    alcanzaba 380 cabeceras y CERO de `drm/`. Y el include que las trae es
+
+        amdgpu.h:51      #include <drm/amdgpu_drm.h>
+
+    `amdgpu.h` se llega desde `gfx_v8_0.c` con COMILLAS, y este paseo sigue solo
+    `<...>`. O sea: los dos resolutores son complementarios y ninguno basta solo.
+
+      con comillas -> relativos y de los directorios con nombre   (pm4_emit)
+      con angulo   -> include/, include/uapi/, arch/...           (este)
+
+    Por eso `semillas` son los ficheros que el resolutor de comillas YA
+    encontro, y no solo el punto de entrada. Sin esto, lo que hay tras la
+    primera comilla es invisible para el paseo angular.
+    """
+    if not os.path.isdir(KERNEL_INC):
+        return [], {"raiz": KERNEL_INC, "estado": "NO_HAY_RAIZ"}
+    vistos, cola, encontrados = set(), [entrada] + list(semillas), []
+    while cola and len(encontrados) < max_extra:
+        actual = cola.pop(0)
+        if actual in vistos:
+            continue
+        vistos.add(actual)
+        try:
+            txt = open(actual, encoding="utf-8", errors="replace").read()
+        except OSError:
+            continue
+        for m in RE_INC_ANGULO.finditer(txt):
+            for pref in RAICES_ANGLE:
+                cand = os.path.normpath(os.path.join(KERNEL_INC, pref,
+                                                     m.group(1)))
+                if os.path.isfile(cand) and cand not in encontrados:
+                    encontrados.append(cand)
+                    cola.append(cand)
+                    break
+    return encontrados, {
+        "raiz": KERNEL_INC, "estado": "OK",
+        "raices": [os.path.normpath(os.path.join(KERNEL_INC, p))
+                   for p in RAICES_ANGLE],
+        "alcanzados": len(encontrados),
+        "truncado": len(cola) > 0}
+
+
+RE_CAST_TIPO = re.compile(r"\(\s*__typeof__\s*\(\s*[^()]*?\s*\)\s*\)\s*"
+                          r"\(\s*([^()]*?)\s*\)")
+
+
+def quitar_cast_tipo(cuerpo):
+    """`(__typeof__(x))(a)` -> `a`. El cast a un tipo no cambia un entero."""
+    if "__typeof__" not in cuerpo:
+        return cuerpo
+    prev = None
+    while prev != cuerpo:
+        prev = cuerpo
+        cuerpo = RE_CAST_TIPO.sub(r"\1", cuerpo)
+    return cuerpo
+
+
+def _adaptar_macros(macros):
+    """Aplica `quitar_cast_tipo` al CUERPO de cada macro.
+
+    Solo al cuerpo, nunca al nombre: cambiar el nombre de un macro seria
+    inventarse una macro que el kernel no tiene.
+    """
+    out = {}
+    for k, v in macros.items():
+        if isinstance(v, tuple) and len(v) >= 2 and isinstance(v[1], str):
+            out[k] = (v[0], quitar_cast_tipo(v[1]), v[2] if len(v) > 2 else None)
+        else:
+            out[k] = v
+    return out
+
+
+def _primario():
+    """Los ficheros que el resolutor de COMILLAS ya resolvio, como semillas.
+
+    Se recalcula aqui en vez de confiar en el interior de `load_macros`: esa
+    funcion no devuelve la lista, y adivinarla seria inventar. Si el modulo no
+    esta cargado se devuelve vacio y la ampliacion sigue funcionando, con menos
+    cabeceras, y su informe dice cuantas.
+
+    MEDIDO: antes esto devolvia 0 si `cargar_evaluador` no se habia llamado
+    todavia, porque `sys.modules["ibref_pm4_emit"]` valia None. Y 0 semillas
+    NO es un fallo visible: el paseo angular seguia y devolvia 429 ficheros
+    en vez de 602, con `truncado=False`. Una salida incompleta que parece
+    completa es peor que un error.
+    """
+    mod = sys.modules.get("ibref_pm4_emit")
+    if mod is None:
+        try:
+            cargar_evaluador()
+        except Exception as e:                                   # noqa: BLE001
+            print("aviso  _primario sin semillas: %s: %s"
+                  % (type(e).__name__, e), file=sys.stderr)
+            return []
+        mod = sys.modules.get("ibref_pm4_emit")
+    if mod is None or not hasattr(mod, "resolve_includes"):
+        return []
+    asic = os.path.join(AMD, "..", "include")
+    try:
+        return mod.resolve_includes(entrada_por_defecto(),
+                                    [AMD, asic, os.path.join(asic,
+                                                             "asic_reg")])
+    except Exception:                                        # noqa: BLE001
+        return []
+
+
+RE_ENUM = re.compile(r"\benum\b[^{;]*\{(.*?)\}", re.S)
+# `[ \t]*` y NO `\s*`: el espacio de un item de enum es horizontal.
+#
+# MEDIDO, y este patron es la version CORREGIDA de un defecto mio:
+# con `\s*` el match de un item con `=` se COMIA el `,\n\t` del item
+# siguiente. Ese item perdia su `^` y no se encontraba:
+#
+#     con \s*   -> 37 items, y CHIP_PITCAIRN NO ESTA entre ellos
+#     con [ \t]* -> 30 items, todos, CHIP_PITCAIRN incluido
+#
+# El efecto no era un item de menos: al no contarse, el contador NO AVANZA y
+# todos los valores siguientes salen uno bajos. `CHIP_TOPAZ` daba 9 en vez de
+# 10 y `CHIP_POLARIS12` daba 16 en vez de 17. Dos numeros plausibles, y
+# ERRONEOS, que el comentario `/* N */` del propio fichero detectaba.
+RE_ITEM = re.compile(r"^[ \t]*([A-Za-z_]\w*)[ \t]*(=[ \t]*([^,}]+?)[ \t]*)?"
+                     r"(?:,[ \t]*(?:/\*[ \t]*(\d+)[ \t]*\*/)?|[ \t]*$)", re.M)
+
+
+def enums_implicitos(ficheros):
+    """Enum -> {item: valor}, numerando los items que no llevan `=`.
+
+    Devuelve ademas la lista de discrepancias entre la cadena de valores y el
+    comentario `/* N */`, porque un comentario que no cuadra con la cadena es
+    informacion, no ruido: o el kernel se equivoco, o el parser.
+
+    NO se numeran los items cuyo valor declarado no sea un entero literal
+    (`CHIP_X = FOO + 1`, `= 1 << 2` si el evaluador no lo trae). Esos se
+    dejan fuera y se cuentan en `sin_resolver`, en vez de ponerles un numero
+    inventado.
+    """
+    tabla, descuadradas, sin_resolver = {}, [], 0
+    for f in ficheros:
+        try:
+            txt = open(f, encoding="utf-8", errors="replace").read()
+        except OSError:
+            continue
+        for em in RE_ENUM.finditer(txt):
+            siguiente = 0
+            for m in RE_ITEM.finditer(em.group(1)):
+                nombre = m.group(1)
+                if not nombre:
+                    continue
+                declarado = (m.group(3) or "").strip()
+                comentario = m.group(4)
+                if declarado:
+                    try:
+                        siguiente = int(declarado, 0)
+                    except ValueError:
+                        sin_resolver += 1
+                        continue
+                tabla[nombre] = siguiente
+                if comentario is not None:
+                    if int(comentario) != siguiente:
+                        descuadradas.append("%s: cadena=%d comentario=%s"
+                                            % (nombre, siguiente, comentario))
+                siguiente += 1
+    return tabla, descuadradas, sin_resolver
+
+
+def entrada_por_defecto():
+    return os.path.join(AMD, TARGET)
+
+
+def macros_ampliadas(load_macros, eval_call, entrada, ampliada=True):
+    """Las macros de `pm4_emit` mas las de los headers de kernel.
+
+    Devuelve (macros, informe). El informe dice SI se ha ampliado y CUANTAS
+    cabeceras han entrado, porque una amplificacion silenciosa seria una fuente
+    mas de macros de la que nadie sabe. Y si la guarda falla, no amplia y lo
+    dice: una macro de mas es peor que una macro que falta.
+    """
+    macros = load_macros()
+    info = {"ampliada": False, "raices_extra": [], "cabeceras_extra": 0,
+            "motivo": ""}
+    if not ampliada:
+        info["motivo"] = "ampliacion desactivada a peticion"
+        return macros, info
+    ok, motivo = _raiz_segura()
+    info["guarda"] = motivo
+    if not ok:
+        info["motivo"] = "NO se amplia: " + motivo
+        return macros, info
+    extra, iinfo = ficheros_de_include_angular(entrada, semillas=_primario())
+    if not extra:
+        info["motivo"] = "no hay headers <> alcanzables"
+        return macros, info
+    try:
+        extra_macros = load_macros(files=extra)
+    except Exception as exc:                   # noqa: BLE001
+        info["motivo"] = "load_macros(files=) fallo: %s: %s" % (
+            type(exc).__name__, exc)
+        return macros, info
+    # FUSION, NO SUSTITUCION.
+    # `load_macros(files=...)` construye un diccionario NUEVO a partir de los
+    # ficheros que se le pasan. Devolverlo directamente reemplaza la tabla y
+    # tira 83440 macros de golpe. MEDIDO: ampliar sin fusionar daba 20441
+    # macros en vez de 103881, y perdia hasta `PACKET3_SET_SH_REG`.
+    #
+    # Y hay colisiones de verdad: `pr_fmt` es `"amdgpu: " fmt` en amdgpu y `fmt`
+    # en el kernel. Gana el PRIMARIO, que es el header del driver, y la
+    # colision se cuenta y se declara.
+    # La interseccion se calcula ANTES de fusionar. Calcularla despues mezcla
+    # los conjuntos y `extra_macros[k]` revienta con KeyError para cada nombre
+    # que solo esta en uno de los dos. El sintoma (un KeyError sobre un nombre
+    # larguisimo) no senala el sitio: la interseccion es lo que se calculo mal.
+    comunes = set(macros) & set(extra_macros)
+    colisiones = sorted(k for k in comunes
+                        if macros[k] != extra_macros[k])
+    # El PRIMARIO gana. Se hace al reves de lo intuitivo a proposito:
+    # `base.update(extra)` deja que gane el EXTRA, que es justo lo contrario de
+    # lo que el comentario de arriba dice. Ya paso: `pr_fmt` salia con el cuerpo
+    # del kernel (`fmt`) en vez del de amdgpu (`"amdgpu: " fmt`). Un comentario
+    # que describe una politica y un codigo que aplica la contraria es peor que
+    # no tener politica, porque el comentario es lo que se lee.
+    base = dict(extra_macros)
+    for _k, _v in macros.items():
+        base[_k] = _v
+    base = _adaptar_macros(base)
+    # --- LOS ENUMS, QUE MEDIDOS NO LLEGAN POR NINGUN OTRO CAMINO ------------
+    #
+    # MEDIDO: `pm4_emit.load_enums` existe y corre, y sobre
+    # `include/drm/amd_asic_type.h` saca 1 item de 30. Su `ENUM_ITEM_RE` exige
+    # `=`, y en ese enum solo `CHIP_TAHITI = 0` lo lleva; los otros 29 siguen la
+    # cadena. Los que se pierden incluyen `CHIP_POLARIS12` (17), que es la
+    # identidad del ASIC de ESTA maquina segun su device-id 0x699f.
+    #
+    # Aqui se numeran los implicitos por la regla de C, y el comentario
+    # `/* N */` de cada item se usa como ORACULO INDEPENDIENTE. Lo que no es un
+    # literal entero NO se numera: se cuenta y se declara, porque un numero
+    # puesto ahi seria inventado y por indistinguishable de uno medido.
+    enums, descuadradas, sin_numerar = enums_implicitos(
+        [entrada] + list(_primario()) + list(extra))
+    # LA FORMA DE LA ENTRADA, Y POR QUE ES `(-1, str(valor), None)`.
+    #
+    # `pm4_emit.resolve` hace:  `nparams, body, _ = macros[name]` y luego
+    #     if nparams == -1:   <resolver `body` como texto>
+    #     raise Unresolved(name + "/")     # "se llama con argumentos"
+    #
+    # O sea que el PRIMER elemento es el numero de PARAMETROS de la macro, no
+    # su valor. MEDIDO, y el sintoma es el que mas cuesta leer sin la fuente:
+    #
+    #     base["CHIP_TOPAZ"] = (10, "enum", None)
+    #         -> Unresolved: CHIP_TOPAZ/
+    #
+    # con la BARRA FINAL, que es la marca de "no lo se como llamada" y no de
+    # "no lo conozco". Yo habia leido la entrada de otra macro,
+    # `AMDGPU_IB_FLAG_... = (-1, '(1 << 4)', None)`, y habia puesto el valor
+    # en la ranura equivocada: creia que era el valor porque ahi valia -1.
+    # -1 es un centinela de "sin parametros", no un valor.
+    #
+    # La procedencia (que viene de un enum y no de un #define) NO cabe en la
+    # entrada: el tercer elemento lo descarta el evaluador. Va en `info`.
+    n_enum = 0
+    for _nombre, _valor in enums.items():
+        if _nombre not in base:
+            base[_nombre] = (-1, str(_valor), None)
+            n_enum += 1
+    if descuadradas:
+        # Un comentario que no cuadra NO se tira: puede ser que el kernel tenga
+        # el enum mal, y eso es un hallazgo. Se declara entero y se imprime.
+        print("aviso  enums: %d DESCUADRE(S) cadena<->comentario; primeros: %s"
+              % (len(descuadradas), "; ".join(descuadradas[:6])),
+              file=sys.stderr)
+    info["enums_items"] = len(enums)
+    info["enums_nuevos"] = n_enum
+    info["enums_descuadrados"] = len(descuadradas)
+    info["enums_sin_numerar"] = sin_numerar
+    if enums:
+        print("aviso  enums: +%d items a la tabla (de %d en total); "
+              "descuadrados=%d; declaraciones no literales sin numerar=%d"
+              % (n_enum, len(enums), len(descuadradas), sin_numerar),
+              file=sys.stderr)
+    info["colisiones"] = colisiones[:20]
+    info["n_colisiones"] = len(colisiones)
+    info["macros_base"] = len(macros)
+    info["nuevas"] = len(set(extra_macros) - set(macros))
+    info["ampliada"] = True
+    info["cabeceras_extra"] = len(extra)
+    info["raices"] = iinfo.get("raices", [])
+    info["truncado"] = iinfo.get("truncado", False)
+    info["motivo"] = ("ampliada: %d -> %d macros (+%d), %d colision(es) "
+                      "resueltas a favor del primario; guardada: %s"
+                      % (len(macros), len(base),
+                         len(set(extra_macros) - set(macros)),
+                         len(colisiones), motivo))
+    return base, info
+
+
+class NoResuelto(Exception):
+    """Parametro de runtime: el evaluador no puede y NOS LO DICE."""
+
+    def __init__(self, nombre):
+        super().__init__(nombre)
+        self.nombre = nombre
+
+
+def cargar_evaluador(ruta=None):
+    """Importa pm4_emit y devuelve (eval_call, load_macros, Unresolved).
+
+    Se importa POR RUTA, sin tocar sys.path del proceso: cargar un modulo
+    ajeno por import normal metería su directorio en el path y podría hacer que
+    este instrumento encontrase otro `pm4_emit` que no es el del arbol.
+    """
+    ruta = ruta or EMIT
+    mod = sys.modules.get("ibref_pm4_emit")
+    # MEDIDO: `sys.modules` guarda el NOMBRE del modulo, no de donde salio. Con
+    # solo mirar si el nombre esta, el stub que carga el selftest se quedaba
+    # puesto para siempre y `cargar_evaluador()` devolvia el stub cuando se
+    # pedia el evaluador de VERDAD. El sintoma no era un nombre equivocado: eran
+    # 11 vectores de los condicionales fallando con el error del stub, que no
+    # dice de donde viene el modulo.
+    #
+    # Por eso se guarda la RUTA con la que se cargo, y se recarga si se pide
+    # otra. Un modulo cargado por ruta tiene que seguir siendo identificable
+    # por su ruta.
+    if mod is not None and getattr(mod, "__ibref_ruta__", None) != ruta:
+        mod = None
+    if mod is None:
+        if not os.path.isfile(ruta):
+            raise ImportError("no existe el evaluador: %s" % ruta)
+        spec = importlib.util.spec_from_file_location("ibref_pm4_emit", ruta)
+        mod = importlib.util.module_from_spec(spec)
+        mod.__ibref_ruta__ = ruta
+        sys.modules["ibref_pm4_emit"] = mod
+        spec.loader.exec_module(mod)
+    return mod.eval_call, mod.load_macros, mod.Unresolved
+
+RE_DIV_LITERAL = re.compile(
+    r"\(\s*(-?(?:0[xX][0-9a-fA-F]+|\d+))\s*\)\s*/\s*"
+    r"\(\s*(-?(?:0[xX][0-9a-fA-F]+|\d+))\s*\)")
+RE_DIV_PLAIN = re.compile(
+    r"(?<![\w.])(-?(?:0[xX][0-9a-fA-F]+|\d+))\s*/\s*"
+    r"(-?(?:0[xX][0-9a-fA-F]+|\d+))(?![\w.])")
+
+
+def _plegar_division(expresion):
+    """`A / B` con A y B LITERALES enteros -> el cociente entero.
+
+    Plegado de constantes, no un evaluador de expresiones. La diferencia es lo
+    que hace esto seguro: solo toca el caso en que los dos operandos ya son
+    numeros, y en ese caso el resultado no puede depender de la precedencia de
+    nada, porque no queda nada mas que parsear.
+
+    `/` en C es division ENTERA, con la parte decimal descartada. `7 / 2` es 3,
+    no 3.5. Un sintetizador que devolviera un real, o que redondeara, se
+    equivocaria de una forma que solo se ve en el resultado final.
+
+    division por cero -> NO se pliega y se deja como estaba. En C es un error de
+    compilacion o una excepcion; aqui, devolver algo seria inventar. La
+    expression queda intacta para que el evaluador de verdad la rechace.
+
+    Devuelve (expresion, cuantos plegados).
+    """
+    def _uno(m):
+        try:
+            a = int(m.group(1), 0)
+            b = int(m.group(2), 0)
+        except ValueError:
+            return m.group(0)
+        if b == 0:
+            return m.group(0)
+        return "(%d)" % (a // b)
+
+    n = 0
+    prev = None
+    while prev != expresion:
+        prev = expresion
+        nuevo, k = RE_DIV_LITERAL.subn(_uno, expresion)
+        expresion = nuevo
+        n += k
+    prev = None
+    while prev != expresion:
+        prev = expresion
+        nuevo, k = RE_DIV_PLAIN.subn(_uno, expresion)
+        expresion = nuevo
+        n += k
+    return expresion, n
+
+
+def _arraysize(expresion, arrays):
+    """`ARRAY_SIZE(x)` -> numero de elementos, si `x` es un array que conozco.
+
+    OPCAION, y esta medida. Hay tres caminos y este NO es el primero:
+
+      1. entender `ARRAY_SIZE` en general, lo que exige que el evaluador tenga
+         `/`, `[]` y la regla de las aserciones de compilacion (1152 §3). Son
+         tres cambios en `pm4_emit.py`, que es de otra sesion.
+
+      2. SUSTITUIRLO por el dato que ya tengo. `arrays_estaticos()` ya cuenta
+         los elementos porque los necesita para desenrollar bucles. El valor de
+         `ARRAY_SIZE(x)` es, por definicion, ese mismo numero.
+
+      3. dejarlo sin resolver y que la salida lo declare.
+
+    Este es el 2. No necesita nada de nadie mas, y el numero que produce es el
+    mismo que produciria el 1 -- porque `ARRAY_SIZE` esta DEFINIDO como
+    `sizeof(arr)/sizeof(arr[0])`, y para un array de `u32` eso es el numero de
+    elementos. No es una aproximacion: es la misma cantidad por otra via.
+
+    Lo que NO hace es comprobar que `x` sea un array de verdad. No lo comprueba
+    `ARRAY_SIZE` tampoco en tiempo de ejecucion: lo comprueba `__must_be_array`
+    AL COMPILAR, y este codigo ya ha compilado. Por eso sustituir es honesto.
+    """
+    RE_AS = re.compile(r"\bARRAY_SIZE\s*\(\s*([A-Za-z_]\w*)\s*\)")
+
+    def _uno(m):
+        nombre = m.group(1)
+        if nombre not in arrays:
+            return m.group(0)
+        return "(%d)" % len(arrays[nombre])
+
+    return RE_AS.sub(_uno, expresion)
+
+
+RE_SIZEOF = re.compile(r"\bsizeof\s*\(\s*([A-Za-z_]\w*)\s*\)")
+
+
+def _sizeof_arrays(expresion, arrays, entorno=None):
+    """`sizeof(x)` -> bytes, para los arrays estaticos que conozco.
+
+    Devuelve (expresion_sustituida, cuantos_se_hay_sustituido). El recuento se
+    devuelve porque un `sizeof` que se resuelve a medias es peor que uno que no
+    se resuelve: si uno de los tres falla, hay que saberlo.
+    """
+    entorno = entorno or {}
+
+    n = 0
+
+    def _uno(m):
+        nonlocal n
+        nombre = m.group(1)
+        if nombre in arrays:
+            n += 1
+            return "(%d)" % (len(arrays[nombre]) * 4)
+        if nombre in entorno:
+            n += 1
+            return "(%d)" % (int(entorno[nombre]) * 4)
+        return m.group(0)
+
+    # EL RECUENTO ES DE SUSTITUCIONES, NO DE APARICIONES.
+    #
+    # MEDIDO: `sizeof(T3) + sizeof(NOVATO)` tiene DOS apariciones y UNA
+    # sustitucion. Contando apariciones el resultado era 2, que es
+    # indistinguible de "las dos se sustituyeron", y el consumidor no podia
+    # saber si el `sizeof` se habia resuelto a medias. Y un `sizeof` resuelto a
+    # medias es peor que uno que no se resuelve.
+    return RE_SIZEOF.sub(_uno, expresion), n
+
+
+def _sin_comentarios(txt):
+    """Comentarios fuera, ANTES de contar nada, CONSERVANDO el numero de lineas.
+
+    Dos cosas, y las dos importan:
+
+    1. Si las comas de un `/* CU_GROUP_COUNT=1 */` cuentan como elementos, la
+       cuenta de un array sale inflada sin excepcion. Un bucle mas largo de lo
+       que es significa una IB con dwords de mas, y esa IB no se distingue de
+       una buena.
+
+    2. Si se borra el comentario SIN DEJAR SUS SALTOS DE LINEA, todas las lineas
+       posteriores se desplazan. MEDIDO: `gfx_v8_0_do_edc_gpr_workarounds`
+       reportaba bucles no reconocidos en las lineas 1493, 1496 y 1604, y esas
+       tres lineas no contienen ni un `for`: son
+       `WREG32(mmGB_EDC_MODE, 0)`, una expresion de `total_size` y un comentario.
+       Los numeros de linea se calculaban sobre el texto ya recortado, o sea
+       sobre un documento con menos lineas que el fichero.
+
+    Por eso el sustituto conserva el `\\n`: los `\\n` se quedan y el resto se va a
+    espacio. Se puede borrar un comentario sin mover el resto del documento.
+    """
+    txt = re.sub(r"/\*.*?\*/", lambda m: re.sub(r"[^\n]", " ", m.group(0)),
+                 txt, flags=re.S)
+    txt = re.sub(r"//[^\n]*", lambda m: " " * len(m.group(0)), txt)
+    # Las directivas de preprocesador NO SON CODIGO. MEDIDO: sin quitarlas, el
+    # bloque `#ifdef __BIG_ENDIAN ... #endif` de gfx_v8_0.c:6126 aparecia como
+    # una ESCRITURA mas del IB, con el texto de la directiva dentro. Una
+    # escritura que no es una escritura produce un dword de mas, y un dword de
+    # mas es indistinguible de un paquete real.
+    #
+    # Se sustituyen por ESPACIOS y se conservan los saltos de linea, por la
+    # misma razon que los comentarios: los numeros de linea no pueden moverse.
+    txt = re.sub(r"^[ \t]*#(?:ifdef|ifndef|if|else|elif|endif|define|undef|"
+                 r"include|pragma|if\b)[^\n]*$",
+                 lambda m: " " * len(m.group(0)), txt, flags=re.M)
+    return txt
+
+
+def _partir(cuerpo):
+    """Trocea por comas de nivel superficial, RESPETANDO parentesis."""
+    partes, nivel, actual = [], 0, ""
+    for ch in cuerpo:
+        if ch in "([{":
+            nivel += 1
+        elif ch in ")]}":
+            nivel -= 1
+        if ch == "," and nivel == 0:
+            partes.append(actual.strip())
+            actual = ""
+        else:
+            actual += ch
+    if actual.strip():
+        partes.append(actual.strip())
+    return partes
+
+
+RE_ARRAY = re.compile(
+    r"\bu32\s+([A-Za-z_]\w*)\s*\[\s*(?:\]\s*)?=\s*\{(.*?)\}\s*;", re.S)
+
+
+def arrays_estaticos(lineas):
+    """{nombre: [texto_de_cada_elemento]} de los `u32 x[] = {...}` del fichero."""
+    txt = _sin_comentarios("\n".join(lineas))
+    out = {}
+    for m in RE_ARRAY.finditer(txt):
+        out[m.group(1)] = _partir(m.group(2))
+    return out
+
+
+def _cuerpo_de_llave(txt, desde):
+    """El texto entre llaves que empieza en `desde`, y su longitud."""
+    i = txt.find("{", desde)
+    if i < 0:
+        return "", 0
+    nivel, j = 0, i
+    while j < len(txt):
+        if txt[j] == "{":
+            nivel += 1
+        elif txt[j] == "}":
+            nivel -= 1
+            if nivel == 0:
+                return txt[i:j + 1], j + 1 - desde
+        j += 1
+    return "", 0
+
+
+RE_SENTENCIA = re.compile(r"[^;]*;")
+
+
+def _sentencia(txt, desde):
+    """La sentencia que empieza en `desde`, hasta su `;` de nivel superficial.
+
+    Es el cuerpo de un bucle SIN llaves. Las dos formas existen en el arbol y
+    las dos se desenrollan igual, porque el numero de escrituras que hay dentro
+    es lo que decide el contrato, no la presencia de llaves.
+
+    Los bucles de carga de shader de GFX8 (`vgpr_init_compute_shader`,
+    `sgpr_init_compute_shader`, `sec_ded_counter_registers`) son de una
+    sentencia y sin llaves, y con `RE_FOR` exigiendo `{` no se reconocian
+    ninguno. Se declaraban como no reconocidos, que es lo correcto pero
+    oculta 66 + 42 + 25 dwords de carga de shader.
+    """
+    m = RE_SENTENCIA.match(txt, desde)
+    if not m:
+        return "", 0
+    return m.group(0), m.end() - desde
+
+
+def _intento(expr, lig):
+    """El valor entero de `expr` con `lig` aplicado, o None."""
+    if lig:
+        for k, v in lig.items():
+            expr = re.sub(r"\b%s\b" % re.escape(k), str(v), expr)
+    try:
+        return int(expr, 0)
+    except (TypeError, ValueError):
+        m = re.fullmatch(r"\(\s*(-?(?:0[xX][0-9a-fA-F]+|\d+))\s*\)", expr)
+        if m:
+            return int(m.group(1), 0)
+        return None
+
+
+def _sustituir_elementos(expr, arrays, lig):
+    """`tabla[expr]` -> el elemento, y las variables ligadas -> su valor.
+
+    Las variables ligadas se sustituyen al FINAL, y en la expresion entera, no
+    solo dentro de los corchetes. Antes solo se cambiaba `t[i]`, y en
+    `ib.ptr[k + 4] = ...` el `k + 4` se quedaba con la variable puesta: el
+    destino de una escritura posicional salia como texto con un simbolo sin
+    ligar, que es peor que no dar destino, porque parece un destino.
+    """
+    RE_ELEM = re.compile(r"\b([A-Za-z_]\w*)\s*\[\s*([^\]]+?)\s*\]")
+
+    def _uno(m):
+        tabla = arrays.get(m.group(1))
+        if tabla is None:
+            return m.group(0)
+        idx = _intento(m.group(2), lig)
+        if idx is None or not (0 <= idx < len(tabla)):
+            return m.group(0)
+        return tabla[idx]
+
+    previo = expr
+    for _ in range(4):
+        nuevo = RE_ELEM.sub(_uno, expr)
+        if nuevo == previo:
+            break
+        expr = nuevo
+        previo = nuevo
+    if lig:
+        for k, v in lig.items():
+            expr = re.sub(r"\b%s\b" % re.escape(k), str(v), expr)
+    return expr
+
+
+RE_FOR = re.compile(
+    r"^[ \t]*for\s*\(\s*([A-Za-z_]\w*)\s*=\s*([^;]+);\s*[A-Za-z_]\w*\s*<=\s*"
+    r"([^;]+);\s*\1\s*=\s*\1\s*([+-])\s*([^)]+?)\s*\)\s*", re.M)
+
+
+def desenrollar(lineas, max_iter=64):
+    """(filas, bucles, sin_desenrollar) para el fichero entero.
+
+    filas        [(linea, iteracion, expr_ligada, _aviso, destino)]  en orden
+                 `destino` es el indice de una escritura POSICIONAL
+                 (`ib.ptr[i + off] = x`); None en una escritura secuencial.
+    bucles       [{linea, variable, inicio, paso, iteraciones}]
+    sin_desenrollar  [{linea, motivo}]
+    consumidos   [(linea_ini, linea_fin)]  cuerpos de bucle yaemitidos
+
+    No hay estado de modulo: todo lo que se produce se devuelve. Un modulo que
+    guarda el resultado de la ultima llamada no es reentrante, y un sintetizador
+    que depende de si se ha llamado antes no puede usarse dos veces en el mismo
+    proceso sin surprises.
+    """
+    txt = _sin_comentarios("\n".join(lineas))
+    fuera = []
+    for m in RE_IB_WRITE.finditer(txt):
+        fila = txt.count("\n", 0, m.start()) + 1
+        fuera.append((fila, None, m.group(2), "", None))
+    filas, bucles, sin_desenrollar, consumidos = [], [], [], []
+    for m in RE_FOR.finditer(txt):
+        variable = m.group(1)
+        inicio = _intento(m.group(2).strip(), None)
+        fin = _intento(m.group(3).strip(), None)
+        signo = m.group(4)
+        paso = _intento(m.group(5).strip(), None) or 1
+        if signo == "-":
+            paso = -paso
+        fila = txt.count("\n", 0, m.start()) + 1
+        if inicio is None or fin is None:
+            sin_desenrollar.append({"linea": fila,
+                                    "motivo": "no se resuelve el recorrido"})
+            continue
+        n = (fin - inicio) // paso + 1 if paso else 0
+        if n > max_iter:
+            sin_desenrollar.append(
+                {"linea": fila,
+                 "motivo": "el bucle pide %d iteraciones y el tope es %d"
+                           % (n, max_iter)})
+            continue
+        if m.group(0).rstrip().endswith("{"):
+            cuerpo, largo = _cuerpo_de_llave(txt, m.end() - 1)
+        else:
+            cuerpo, largo = _sentencia(txt, m.end())
+        if not cuerpo:
+            sin_desenrollar.append({"linea": fila,
+                                    "motivo": "no se encuentra el cuerpo"})
+            continue
+        ini_l = txt.count("\n", 0, m.end()) + 1
+        fin_l = ini_l + cuerpo.count("\n")
+        bucles.append({"linea": fila, "variable": variable, "inicio": inicio,
+                       "paso": paso, "iteraciones": n})
+        for it in range(n):
+            lig = {variable: inicio + it * paso}
+            for e in RE_IB_WRITE.finditer(cuerpo):
+                expr = _sustituir_elementos(e.group(2), {}, lig)
+                destino = _destino_de(e.group(1), lig)
+                filas.append((ini_l + cuerpo.count("\n", 0, e.start()), it,
+                              expr, "", destino))
+        consumidos.append((ini_l, fin_l))
+    filas.sort(key=lambda f: f[0])
+    return filas, bucles, sin_desenrollar, consumidos
+
+
+RE_DESTINO = re.compile(r"\[\s*([A-Za-z_]\w*)\s*([+-])\s*(\d+)\s*\]")
+
+
+def _destino_de(anillo, lig):
+    """El indice de una escritura POSICIONAL, o None si es secuencial.
+
+    `ib.ptr[i + off] = x` dentro de un bucle con variable `i` tiene un destino
+    que depende de la iteracion. Sin esto, el destino de una escritura salia
+    como texto con el simbolo de la variable sin ligar, que es peor que no dar
+    destino, porque parece un destino.
+    """
+    m = RE_DESTINO.search(anillo)
+    if not m:
+        return None
+    base = lig.get(m.group(1))
+    if base is None:
+        return None
+    off = int(m.group(3))
+    return base + off if m.group(2) == "+" else base - off
+
+
+def cuerpo_de_funcion(lineas, nombre):
+    """(nombre, inicio, fin) de la funcion pedida. `inicio` es 1-based."""
+    pat = re.compile(r"^(?:static\s+)?[\w\*\s]*?\b%s\s*\(" % re.escape(nombre))
+    for i, l in enumerate(lineas):
+        if pat.match(l) and not l.rstrip().endswith(";"):
+            for j in range(i + 1, len(lineas)):
+                if lineas[j].startswith("}"):
+                    return i, j + 1
+            return i, len(lineas)
+    return None
+
+
+def _valor_de(termino, eval_call, macros, enlaces):
+    """El entero de un termino, o None si no se puede saber.
+
+    None es un valor de primera clase aqui: significa "no se sabe", y quien
+    llama tiene que propagarlo en vez de tratarlo como cero. Confundirlo con
+    cero es lo que hace que un condicional mal evaluado parezca evaluado.
+    """
+    t = normalizar(termino.strip())
+    if enlaces and t in enlaces:
+        try:
+            return int(enlaces[t], 0)
+        except (TypeError, ValueError):
+            return None
+    if eval_call is None:
+        return None
+    try:
+        r = eval_call(t, macros)
+    except Exception:                                         # noqa: BLE001
+        return None
+    if isinstance(r, str):
+        return None
+    try:
+        return int(r)
+    except (TypeError, ValueError):
+        return None
+
+
+RE_IF_BLOQUE = re.compile(
+    r"^[ \t]*if[ \t]*\(([^)]*)\)[ \t]*\{", re.M)
+RE_COMPARACION = re.compile(r"^(.+?)\s*(==|!=)\s*(.+)$")
+
+
+def condicionales_de(lineas, ini, fin, eval_call=None, macros=None,
+                     enlaces=None):
+    """[{linea, condicion, veredicto, lineas}] de los `if (...) { ... }` del cuerpo.
+
+    `SI`       la condicion es falsa: NO se emite lo de dentro
+    `NO`       la condicion es cierta: se emite
+    `NO_RESUELTO`  no se sabe: NO se emite, y se DECLARA
+
+    Es la misma regla que `propagar_locales` con las asignaciones dentro de un
+    `if`. La coherencia entre las dos rutas es el punto: antes, la propagacion
+    rechazaba `if (x) a = 2` y las escrituras aceptaban `if (x) write(...)`,
+    con lo que una IB podia llevar un paquete que el driver no escribe.
+
+    Cada elemento `X & Y` es un producto, y basta con que uno sea distinto de
+    cero. `|` NO se trata como "o": se declara NO_RESUELTO, porque el evaluador
+    no tiene caso para el y mixedr el valor de cada lado sin inventar la
+    semantica del cortocircuito.
+    """
+    cuerpo = _sin_comentarios("\n".join(lineas[ini:fin]))
+    out = []
+    for m in RE_IF_BLOQUE.finditer(cuerpo):
+        cond = m.group(1).strip()
+        largo, _n = _cuerpo_de_llave(cuerpo, m.end() - 1)
+        ini_l = cuerpo.count("\n", 0, m.end()) + ini + 1
+        fin_l = ini_l + largo.count("\n")
+        if "|" in cond or "&&" in cond:
+            ver = "NO_RESUELTO"
+            motivo = ("la condicion lleva `%s`, que no se resuelve: no se emite"
+                      % ("|" if "|" in cond else "&&"))
+        elif RE_COMPARACION.match(cond):
+            # UNA COMPARACION NO ES UN PRODUCTO.
+            #
+            # MEDIDO: `adev->asic_type == CHIP_TOPAZ` (gfx_v8_0.c:4152) salia
+            # con la lista de condicionales VACIA, porque al partir por `&` los
+            # terminos son `adev->asic_type`, `==` y `CHIP_TOPAZ`, y ninguno se
+            # resuelve. Y esa condicion es LA IDENTIDAD DEL ASIC: es la que
+            # dice si esta maquina es un Topaz. Una lista vacia no es "no hay
+            # condicionales", es "no supe leerlos", y se ven igual.
+            #
+            # Primero se intenta la comparacion, y solo si la condicion NO es
+            # una comparacion se cae al producto de `&`.
+            _m = RE_COMPARACION.match(cond)
+            izq = _valor_de(_m.group(1), eval_call, macros, enlaces)
+            der = _valor_de(_m.group(3), eval_call, macros, enlaces)
+            if izq is None or der is None:
+                ver = "NO_RESUELTO"
+                motivo = ("no se puede resolver uno de los lados de `%s`: "
+                          "no se emite" % _m.group(2))
+            else:
+                iguales = (izq == der)
+                cierto = iguales if _m.group(2) == "==" else (not iguales)
+                ver = "NO" if cierto else "SI"
+                motivo = ("la comparacion es %s (%d %s %d): %s"
+                          % ("cierta" if cierto else "falsa", izq, _m.group(2),
+                             der, "se emite" if cierto else "no se emite"))
+        else:
+            vals = []
+            for t in [x.strip() for x in cond.split("&") if x.strip()]:
+                vals.append(_valor_de(t, eval_call, macros, enlaces))
+            # El `&` se CALCULA, no se inspecciona término a término.
+            #
+            # MEDIDO, y la versión anterior estaba mal: usaba "todos los
+            # términos a cero" para decidir que la condición era falsa. Con
+            # `ib_flags = 0` y la bandera = 16 los términos son [0, 16]: no son
+            # todos cero, asi que salía `NO` (se emite) cuando `0 & 16` es 0 y
+            # la condición es FALSA. Consecuencia: una IB con el bloque
+            # `SET_CONFIG_REG` de mas con el flag apagado.
+            #
+            # La regla correcta es una sola linea: el AND de los términos.
+            if vals and None not in vals:
+                valor = vals[0]
+                for w in vals[1:]:
+                    valor &= w
+                if valor == 0:
+                    ver = "SI"
+                    motivo = "la condicion vale 0: no se emite"
+                else:
+                    ver = "NO"
+                    motivo = "la condicion vale %d: se emite" % valor
+            else:
+                ver = "NO_RESUELTO"
+                motivo = "no se puede resolver a entero: no se emite"
+        out.append({"linea": cuerpo.count("\n", 0, m.start()) + ini + 1,
+                    "condicion": cond, "veredicto": ver, "motivo": motivo,
+                    "lineas": list(range(ini_l, fin_l + 1))})
+    return out
+
+
+def escrituras(lineas, ini, fin, consumidos=(), condicionales=None):
+    """[(linea, expresion)] de las escrituras de anillo, EN ORDEN.
+
+    El orden importa y no es un detalle: un IB desordenado no es un IB distinto,
+    es un IB imposible, y una herramienta que no respeta el orden no puede
+    afirmar nada sobre framing.
+
+    Las escrituras dentro de un condicional que NO se emite llegan aqui como
+    `consumidos`, para no aparecer en la IB. `condicionales` es lo que se le pasa:
+    lo decide `condicionales_de`, no esta funcion, para que la decision de
+    "esto no se emite" tenga un sitio unico del que inspeccionar.
+    """
+    cuerpo = _sin_comentarios("\n".join(lineas[ini:fin]))
+    fuera = set()
+    for c in (condicionales or []):
+        if c.get("veredicto") == "SI":
+            fuera.update(c.get("lineas") or ())
+    fuera.update(tuple(r) for r in (consumidos or ()))
+    out = []
+    for m in RE_RING_WRITE.finditer(cuerpo):
+        fila = cuerpo.count("\n", 0, m.start()) + ini + 1
+        if fila in fuera:
+            continue
+        out.append((fila, m.group(2).strip()))
+    for m in RE_IB_WRITE.finditer(cuerpo):
+        fila = cuerpo.count("\n", 0, m.start()) + ini + 1
+        if fila in fuera:
+            continue
+        out.append((fila, m.group(2).strip()))
+    out.sort(key=lambda x: x[0])
+    return out
+
+
+
+
+RE_HALFBITS = re.compile(
+    r"(lower_32_bits|upper_32_bits)\s*\(\s*([A-Za-z_][\w\.\->]*)\s*\)")
+
+
+def ligar(nombre_expr, enlaces, eval_call=None, sin_resuelto=None, expr=None):
+    """Sustituye un `Unresolved` por su valor ligado, aplicando la mascara.
+
+    `lower_32_bits(x)` y `upper_32_bits(x)` no son escalares y no se resuelven.
+    Si el usuario liga `mqd_addr=0x11223344`, este generador produce las dos
+    mitades, porque el IB necesita las dos y omitir una seria peor que no
+    ligar nada.
+    """
+    nombre = normalizar(nombre_expr)
+    if not enlaces or nombre not in enlaces:
+        if sin_resuelto is not None and nombre not in sin_resuelto:
+            sin_resuelto[nombre] = expr if expr is not None else nombre_expr
+        return None
+    try:
+        v = int(enlaces[nombre], 0)
+    except (TypeError, ValueError):
+        if sin_resuelto is not None:
+            sin_resuelto[nombre] = "valor ligado ilegible: %r" % (
+                enlaces[nombre],)
+        return None
+    if expr and "upper_32_bits" in expr:
+        v = (v >> 32) & 0xFFFFFFFF
+    elif expr and "lower_32_bits" in expr:
+        v = v & 0xFFFFFFFF
+    return v & 0xFFFFFFFF
+
+
+def normalizar(expr):
+    """`ring->queue` -> `ring_queue`.
+
+    Adaptacion de la FRONTERA, no un parche del evaluador ajeno.
+    `pm4_emit.eval_call` no tokeniza `->` (hallazgo 1090) y falla con
+    `Unresolved('token:>')`. Reescribir el acceso a miembro como identificador
+    con guion bajo es una forma distinta y equivalente, y el evaluador la
+    acepta sin tocar una linea suya.
+    """
+    return expr.replace("->", "_").replace(".", "_")
+
+
+RE_TERNARIO = re.compile(r"^(.*?)\?(.*?):(.*)$")
+
+
+def plegar_ternario(expr, eval_call=None, macros=None, enlaces=None):
+    """Si el ternario tiene condicion constante, devuelve solo la rama.
+
+    `ring->me == 1 ? 0 : 1` con `ring_me` ligado a 1 se convierte en `0`, que es
+    lo que el driver quiere decir. Sin ligar devuelve None, y el caller registra
+    el identificador de la CONDICION como parametro: ligar `ring_me` basta y el
+    usuario no tiene que escribir el ternario entero en la linea de ordenes.
+    """
+    # `original` es lo que se devuelve cuando NO se pliega. Sin guardarlo, el
+    # fallo sale como `(x == 1 ? 0 : 1)` -> `x == 1 ? 0 : 1`: el valor cambia y
+    # parece que se pliego. "No pliega, no inventa" tiene que devolver la misma
+    # cadena, no una version pelada.
+    original = expr
+    if expr.count("?") != 1 or ":" not in expr:
+        return expr
+    m = re.match(r"^\((.*)\)$", expr.strip())
+    if m:
+        expr = m.group(1)
+    m = RE_TERNARIO.match(expr.strip())
+    if not m:
+        return expr
+    cond, si, no = (x.strip() for x in m.groups())
+    v = comparar(cond, enlaces)
+    if v is None:
+        # UN IDENTIFICADOR DESNUDO ES UN TEST DE VERDAD, NO UNA COMPARACION.
+        #
+        # MEDIDO: `comparar` solo reconoce `X == N`, que es lo que dice su
+        # docstring. Pero `(x ? 1 : 2)` tiene una condicion que NO es una
+        # comparacion, y sin este camino el ternario no se plegaba nunca y
+        # `ring->me == 1 ? 0 : 1` tampoco. En C, `x` en una condicion es
+        # "distinto de cero", y el fixture del original usa justo eso.
+        c = normalizar(cond).strip()
+        if enlaces and c in enlaces:
+            try:
+                v = int(enlaces[c], 0) != 0
+            except (TypeError, ValueError):
+                v = None
+    if v is None:
+        return original
+    return si if v else no
+
+
+RE_COMPARAR = re.compile(r"^\s*(\S+?)\s*(==|!=)\s*(\S+)\s*$")
+
+
+def comparar(cond, enlaces=None):
+    """`X == N` con X ligado. `None` si no se puede decidir.
+
+    `pm4_emit` tampoco tokeniza `==` (hallazgo 1090, misma familia: el lexer
+    del evaluador es mas estrecho que el codigo que tiene delante), asi que la
+    comparacion se resuelve AQUÍ y no con el evaluador ajeno. Es la misma
+    adaptation de frontera que `->`, por el mismo motivo y con el mismo
+    criterio: no se toca el evaluador de otro.
+    """
+    m = RE_COMPARAR.match(cond or "")
+    if not m:
+        return None
+    izq, op, der = m.groups()
+
+    def _v(t):
+        t = t.strip()
+        if enlaces and normalizar(t) in enlaces:
+            try:
+                return int(enlaces[normalizar(t)], 0)
+            except (TypeError, ValueError):
+                return None
+        try:
+            return int(t, 0)
+        except (TypeError, ValueError):
+            return None
+
+    a, b = _v(izq), _v(der)
+    if a is None or b is None:
+        return None
+    return (a == b) if op == "==" else (a != b)
+
+
+RE_ASIGNACION = re.compile(
+    r"^[ \t]*(?:u32\s+|int\s+|unsigned\s+)?([A-Za-z_]\w*)\s*=\s*"
+    r"([^;]+);", re.M)
+
+
+def propagar_locales(lineas, ini, fin, eval_call=None, macros=None,
+                     enlaces=None, arrays=None, max_rondas=6):
+    """(locales, paradas) para el cuerpo de una funcion.
+
+    `locales`  {CLAVE: valor_entero}
+    `paradas`  [{clave, ronda, motivo}]  las que NO se pudieron resolver
+
+    Devuelve dos cosas y no una porque un `locales` sin las paradas no dice
+    nada: el consumidor no puede distinguir "no habia ninguna local" de
+    "habia y fallaron".
+    """
+    cuerpo = _sin_comentarios("\n".join(lineas[ini:fin]))
+    locales, paradas = {}, []
+    # Un `if` se rechaza: no hay flujo, y propagar la rama condicional seria
+    # inventar un valor que el codigo no fija. Es la MISMA regla que
+    # `condicionales_de`: las dos rutas tienen que coincidir, porque cuando no
+    # coincidian una IB llevaba un paquete de mas.
+    fuera = set()
+    for m in RE_IF_BLOQUE.finditer(cuerpo):
+        largo, _n = _cuerpo_de_llave(cuerpo, m.end() - 1)
+        ini_l = cuerpo.count("\n", 0, m.end()) + ini + 1
+        fuera.update(range(ini_l, ini_l + largo.count("\n") + 1))
+    for ronda in range(max_rondas):
+        progreso = False
+        for m in RE_ASIGNACION.finditer(cuerpo):
+            fila = cuerpo.count("\n", 0, m.start()) + ini + 1
+            if fila in fuera:
+                continue
+            clave = normalizar(m.group(1))
+            valor = m.group(2).strip()
+            v = _evaluar_local(valor, eval_call, macros, enlaces, locales,
+                               arrays, clave)
+            if v is None:
+                continue
+            if locales.get(clave) != v:
+                locales[clave] = v
+                progreso = True
+        if not progreso:
+            break
+    for clave in sorted(locales):
+        paradas[:0] = []
+    conocidas = set(locales)
+    for m in RE_ASIGNACION.finditer(cuerpo):
+        fila = cuerpo.count("\n", 0, m.start()) + ini + 1
+        if fila in fuera:
+            continue
+        clave = normalizar(m.group(1))
+        if clave in conocidas:
+            continue
+        paradas.append({"clave": clave, "ronda": max_rondas,
+                        "motivo": "no se pudo evaluar: %s"
+                                  % m.group(2).strip()[:60]})
+    return locales, paradas
+
+
+def _evaluar_local(valor, eval_call, macros, enlaces, locales, arrays, clave):
+    v = _intento(valor, None)
+    if v is not None:
+        return v
+    expr = _sustituir_locales(valor, locales)
+    expr = _arraysize(expr, arrays or {})
+    if eval_call is not None:
+        try:
+            r = eval_call(normalizar(expr), macros)
+            if isinstance(r, int):
+                return r & 0xFFFFFFFF
+        except Exception:                                     # noqa: BLE001
+            pass
+    v = _intento(expr, None)
+    return v
+
+
+def _sustituir_locales(expr, locales):
+    """Sustituye `nombre` (ya normalizado) por su valor de `locales`."""
+    if not locales:
+        return expr
+
+    def _uno(m):
+        v = locales.get(m.group(0))
+        return m.group(0) if v is None else "(%d)" % v
+
+    return re.sub(r"[A-Za-z_]\w*", _uno, expr)
+
+
+def sintetizar(expr, eval_call=None, macros=None, enlaces=None,
+               sin_resuelto=None, arrays=None, locales=None):
+    """Un dword, o `None` si le falta un parametro. Nunca lanza por un parametro."""
+    e = expr.strip()
+    e = _sustituir_locales(e, locales)
+    e = _arraysize(e, arrays or {})
+    e, _n = _plegar_division(e)
+    # LAS LIGADURAS SE SUSTITUYEN POR TEXTO, ANTES DE EVALUAR.
+    #
+    # MEDIDO, y sale de los dos lados: el `STUB` autentico (el original) NO
+    # consulta la tabla de macros para un identificador desnudo, y su `OPS` solo
+    # maneja `<< | & +`. O sea que el evaluador de verdad, al que este
+    # instrumento liga, NO es quien resuelve el valor ligado: llega ya
+    # sustituido como literal.
+    #
+    # Con la ligadura solo en la tabla, `eval_call("(5 << 2) | ring_queue")`
+    # llega hasta `ring_queue` y lanza `Unresolved`, y el dword sale INCOMPLETO
+    # aunque el usuario haya ligado el parametro. El sintoma no parece un
+    # problema de ligaduras: parece que la herramienta no sabe sumar.
+    # `lower_32_bits(x)` / `upper_32_bits(x)` no son escalares: se resuelve la
+    # MITAD y se devuelve YA mascarada, sin pasar por el evaluador.
+    #
+    # MEDIDO, y el orden importa. El `STUB` autentico devuelve SIEMPRE
+    # `& 0xFFFFFFFF`, asi que si la mitad se calcula evaluando `x` primero, el
+    # valor de 64 bits queda truncado ANTES del desplazamiento y
+    # `upper_32_bits(0x1122334455667788)` sale 0. Con la mascara puesta al
+    # LIGAR (que es lo que dice el docstring de `ligar`: "sustituye un
+    # `Unresolved` por su valor ligado, aplicando la mascara"), sale 0x11223344.
+    #
+    # O sea: la mascara va en la LIGADURA, no en el resultado final.
+    _hm = re.fullmatch(r"(lower_32_bits|upper_32_bits)\s*\((.+)\)",
+                       normalizar(e).strip())
+    # EL NOMBRE QUE SE DECLARA ES EL DE DENTRO.
+    #
+    # MEDIDO: sin esto, `sin_resuelto` salia
+    #   ['lower_32_bits(ring_mqd_addr)', 'ring_queue', 'upper_32_bits(ring_mqd_addr)']
+    # y el usuario tendria que ligar `upper_32_bits(ring_mqd_addr)=...`, que no
+    # es un parametro del driver: es la funcion que lo envuelve. El parametro
+    # lo nombra el CODIGO, y el codigo nombra `ring->mqd_addr`.
+    if _hm and sin_resuelto is not None:
+        _inner = normalizar(_hm.group(2)).strip().strip("()").strip()
+        if _inner and enlaces and _inner not in enlaces:
+            sin_resuelto.setdefault(_inner, _hm.group(2).strip())
+    # El fast path necesita ligadura; el camino RECURSIVO no.
+    #
+    # MEDIDO: con `if _hm and enlaces:` los dos estaban detrás de la misma
+    # guarda, y en el caso SIN ligar (que es justo el que hay que declarar) el
+    # bloque entero se saltaba. Caia entonces al `eval_call` con
+    # `lower_32_bits(ring_mqd_addr)`, el stub no lo entiende, lanza
+    # `Unresolved` con la EXPRESION COMPLETA, y `sin_resuelto` acababa con
+    #   lower_32_bits(ring_mqd_addr)
+    #   upper_32_bits(ring_mqd_addr)
+    # que no son parametros del driver: son las funciones que los envuelven. El
+    # usuario tendria que ligar un nombre que no existe en el fuente.
+    if _hm:
+        _dentro = normalizar(_hm.group(2)).strip()
+        _clave = _dentro.strip("()").strip()
+        if enlaces and _clave in enlaces:
+            try:
+                _bruto = int(enlaces[_clave], 0)
+            except (TypeError, ValueError):
+                _bruto = None
+            if _bruto is not None:
+                if _hm.group(1) == "lower_32_bits":
+                    return _bruto & 0xFFFFFFFF
+                return (_bruto >> 32) & 0xFFFFFFFF
+        # Y si NO hay ligadura, se sigue dentro y se aplica la mascara. Sin este
+        # camino se perdian los vectores en los que la mitad se resuelve sola
+        # (por ejemplo cuando el interior ya es un literal): el `if` de arriba
+        # cae de largo, el `eval_call` recibe `lower_32_bits(...)`, que no
+        # entiende, y el dword sale INCOMPLETO.
+        _dentro_val = sintetizar(_hm.group(2), eval_call, macros, enlaces,
+                                 sin_resuelto, arrays, locales)
+        if _dentro_val is None:
+            return None
+        if _hm.group(1) == "lower_32_bits":
+            return _dentro_val & 0xFFFFFFFF
+        return (_dentro_val >> 32) & 0xFFFFFFFF
+
+    if enlaces:
+        # Se sustituye sobre el texto NORMALIZADO, porque el fuente escribe
+        # `ring->queue` y la clave es `ring_queue`. Sustituir antes no encuentra
+        # nada y el dword sale INCOMPLETO sin que se note por que.
+        e = normalizar(e)
+        for _k, _v in sorted(enlaces.items(), key=lambda kv: -len(kv[0])):
+            try:
+                _lit = str(int(_v, 0))
+            except (TypeError, ValueError):
+                continue
+            e = re.sub(r"\b%s\b" % re.escape(normalizar(_k)), "(%s)" % _lit, e)
+    if eval_call is not None:
+        try:
+            r = eval_call(normalizar(e), macros)
+            if isinstance(r, int):
+                return r & 0xFFFFFFFF
+        except Exception as exc:                             # noqa: BLE001
+            nombre = getattr(exc, "nombre", None)
+            if nombre:
+                sin_resuelto[normalizar(nombre)] = e
+                return None
+            return None
+    v = _intento(e, None)
+    if v is not None:
+        return v & 0xFFFFFFFF
+    if sin_resuelto is not None:
+        sin_resuelto[normalizar(e)] = e
+    return None
+
+
+def ib_de_funcion(nombre, eval_call=None, macros=None, enlaces=None,
+                  fichero=None):
+    """El IB de una funcion: parametros a ligar, dwords, y lo que no se pudo."""
+    fichero = fichero or entrada_por_defecto()
+    try:
+        lineas = open(fichero, encoding="utf-8", errors="replace").read().split(
+            "\n")
+    except OSError as e:
+        raise KeyError("no se lee %s: %s" % (fichero, e))
+    cuerpo = cuerpo_de_funcion(lineas, nombre)
+    if not cuerpo:
+        raise KeyError("no se encuentra la funcion %s en %s" % (nombre,
+                                                                  fichero))
+    ini, fin = cuerpo
+    arrays = arrays_estaticos(lineas)
+    enlaces = dict(enlaces or {})
+    # LAS LIGADURAS ENTAN EN LA TABLA DE MACROS, NO EN UNA CONSULTA APARTE.
+    #
+    # MEDIDO: el evaluador de `pm4_emit` solo mira `macros`. Si el binding se
+    # queda en un diccionario aparte, `eval_call("A_UNO(stub_ring_queue)")`
+    # resuelve el nombre de la macro y se queda sin ver el valor, y el dword
+    # sale INCOMPLETO aunque el usuario haya ligado el parametro. La entrada es
+    # `(-1, str(valor), None)`: `-1` es el centinela de "sin parametros" y el
+    # cuerpo es el numero como texto, que es lo que el evaluador parsea.
+    mac = dict(macros or {})
+    for _k, _v in enlaces.items():
+        try:
+            mac[_k] = (-1, str(int(_v, 0)), None)
+        except (TypeError, ValueError):
+            pass
+    condicionales = condicionales_de(lineas, ini, fin, eval_call, mac,
+                                      enlaces)
+    consumidos = []
+    filas, bucles, sin_desenrollar, _c = desenrollar(lineas[ini:fin])
+    for a, b in _c:
+        consumidos.append((a + ini + 1, b + ini + 1))
+    crudas = escrituras(lineas, ini, fin, consumidos=tuple(consumidos),
+                        condicionales=condicionales)
+    locales, paradas = propagar_locales(lineas, ini, fin, eval_call, mac,
+                                        enlaces, arrays)
+    sin_resuelto = {}
+    dwords = []
+    for _it, fila, destino in filas:
+        expr = _sustituir_elementos(fila, arrays, None)
+        dwords.append({"linea": expr[0] + ini + 1,
+                       "iteracion": expr[1],
+                       "expr": expr[2],
+                       "destino": expr[4],
+                       "valor": sintetizar(expr[2], eval_call, mac, enlaces,
+                                           sin_resuelto, arrays, locales)})
+    for fila, expr in crudas:
+        if any(abs(fila - d["linea"]) < 1 and d.get("destino") is not None
+               for d in dwords):
+            continue
+        dwords.append({"linea": fila, "iteracion": None, "expr": expr,
+                       "destino": None,
+                       "valor": sintetizar(expr, eval_call, mac, enlaces,
+                                           sin_resuelto, arrays, locales)})
+    dwords.sort(key=lambda d: d["linea"])
+    return {"funcion": nombre, "fichero": fichero,
+            "inicio": ini + 1, "fin": fin,
+            "dwords": dwords, "locales": locales, "paradas": paradas,
+            "sin_resuelto": sin_resuelto,
+            "bucles": bucles, "sin_desenrollar": sin_desenrollar,
+            "condicionales": condicionales,
+            "completo": not sin_resuelto}
+
+
+def formatear(ib, decodificado=None):
+    """IB de REFERENCIA -- %s  (%s:%d-%d)"""
+    out = ["IB de REFERENCIA -- %s  (%s:%d-%d)"
+           % (ib["funcion"], os.path.basename(ib["fichero"]), ib["inicio"],
+              ib["fin"])]
+    if ib.get("locales"):
+        out.append("  locales: %s"
+                   % ", ".join("%s=%s" % (k, hex(v))
+                               for k, v in sorted(ib["locales"].items())))
+    for p in ib.get("paradas") or ():
+        out.append("  PARADA  %s: %s" % (p["clave"], p["motivo"]))
+    for d in ib["dwords"]:
+        v = d["valor"]
+        out.append("    L%-5d %-46s %s" % (
+            d["linea"], d["expr"][:46],
+            "INCOMPLETO" if v is None else "0x%08X" % v))
+    if ib.get("sin_resuelto"):
+        out.append("  parametros a ligar (el nombre lo pone el driver, no esta"
+                   " herramienta):")
+        for k in sorted(ib["sin_resuelto"]):
+            out.append("    --set %s=<valor>" % k)
+    if not ib.get("completo"):
+        out.append("  INCOMPLETO: hay dwords sin valor. No es un IB valido.")
+    if decodificado:
+        out.extend(decodificado)
+    return "\n".join(out)
+
+
+RE_OPCODE_KFD = re.compile(
+    r"^\s*(IT_[A-Z0-9_]+|PACKET3_[A-Z0-9_]+)\s*=\s*(0x[0-9a-fA-F]+)", re.M)
+
+
+def cargar_opcodes_kfd(ruta=None):
+    """{numero: [nombres]} desde kfd_pm4_opcodes.h. Segundo nombre, independiente.
+
+    Es un segundo nombre para el MISMO numero, no una correccion: KFD lista
+    `IT_DMA_DATA = 0x50` como opcode sin modelar su payload. Poder afirmar que
+    un opcode existe con dos fuentes distintas es distinto de poder afirmar
+    cuales son sus campos.
+    """
+    ruta = ruta or KFD_OPS
+    if not os.path.isfile(ruta):
+        return {}, "no existe %s" % ruta
+    txt = open(ruta, encoding="utf-8", errors="replace").read()
+    out = {}
+    for m in RE_OPCODE_KFD.finditer(txt):
+        out.setdefault(int(m.group(2), 16), []).append(m.group(1))
+    return out, "%d numeros desde %s" % (len(out), os.path.basename(ruta))
+
+
+def _normal(nombre):
+    return re.sub(r"^(?:PACKET3|IT)_", "", nombre)
+
+
+RE_DECL_OPCODE = re.compile(
+    r"^\s*([A-Z0-9_]+)\s*=\s*0x([0-9a-fA-F]{1,4})\s*$", re.M)
+RE_DECL_CAMPO = re.compile(
+    r"^\s*([A-Z0-9_]+)\s*:\s*(\d+)\s*(?::\s*(\d+)\s*)?$", re.M)
+
+
+def _nombres_opcode(numero, tabla=None, kfd_ops=None):
+    """(nombres, nota) para un numero de opcode. `nota` explica los limites.
+
+    Devolver una lista y no un nombre es la decision de fondo: con 0x2c00 hay
+    dos respuestas correctas y elegir una en silencio seria fabricar.
+    """
+    nombres, de = [], []
+    if tabla:
+        for n in tabla.get(numero, ()):
+            if n not in nombres:
+                nombres.append(n)
+                de.append("pm4_codec")
+    if kfd_ops:
+        for n in kfd_ops.get(numero, ()):
+            if n not in nombres:
+                nombres.append(n)
+                de.append("kfd")
+    nota = "fuentes: %s" % ", ".join(sorted(set(de))) if de else \
+        "ninguna fuente nombra este numero"
+    return nombres, nota
+
+
+PACKET3_TIPO = 0xC0000000
+PACKET3_COUNT_SHIFT = 16
+PACKET3_COUNT_MASK = 0x3FFF
+PACKET3_OPCODE_SHIFT = 8
+PACKET3_OPCODE_MASK = 0xFF
+
+
+def _segmentar(ib):
+    """[(opcode, n_payload, [indices_de_dword])] leyendo el campo count.
+
+    El IB puede contener VARIOS paquetes, y comparar todos contra el layout
+    del primero daria basura: el segundo paquete estaria fuera de rango y sus
+    campos saldrian NO_EXTRAIBLE sin motivo. Segmentar por `count` ademas
+    convierte esto en una prueba de framing: si el layout declara mas entradas
+    de las que el count permite, el exceso se ve como `FUERA DE PAQUETE`.
+    """
+    vals = [d["valor"] for d in ib["dwords"]]
+    idx = [i for i, v in enumerate(vals) if v is not None]
+    out, i = [], 0
+    while i < len(idx):
+        cab = vals[idx[i]]
+        opcode = (cab >> PACKET3_OPCODE_SHIFT) & PACKET3_OPCODE_MASK
+        count = (cab >> PACKET3_COUNT_SHIFT) & PACKET3_COUNT_MASK
+        cuerpo = idx[i + 1:i + 1 + count]
+        out.append((opcode, count, [idx[i]] + cuerpo))
+        i += 1 + count
+    return out
+
+
+def _esperado(expr, eval_call=None, macros=None, enlaces=None):
+    """{CAMPO: valor} que el driver escribe en este dword.
+
+    Se lee de la EXPRESION, no del layout: es el valor que el driver quiso
+    poner, y es independiente de donde la herramienta lo situe. Por eso el
+    round-trip discrimina: una declaracion con el campo en los bits
+    equivocados extrae un valor distinto, y sale MISMATCH.
+
+    Un valor que no se puede aislar (expresion compuesta) se queda FUERA, y el
+    campo se marca NO_COMPARABLE. Inventar un valor esperado para poder
+    comparar seria fabricar la verdad.
+    """
+    e = expr.strip()
+    m = re.match(r"^PACKET3_([A-Z0-9_]+)\s*\(\s*(.+?)\s*\)$", e)
+    if m and re.fullmatch(r"-?(?:0[xX][0-9a-fA-F]+|\d+)", m.group(2).strip()):
+        return {_normal("PACKET3_" + m.group(1)):
+                int(m.group(2).strip(), 0)}
+    m = re.match(r"^PACKET3_([A-Z0-9_]+)\s*$", e)
+    if m:
+        return {_normal("PACKET3_" + m.group(1)): 1}
+    return {}
+
+
+def _campos_mencionados(expr, op=None, eval_call=None, macros=None,
+                        enlaces=None):
+    """[(campo, valor_o_None)] que el driver escribe en este dword.
+
+    El argumento es OPCIONAL a proposito. Hay dos formas de escribir un campo y
+    las dos existen en el arbol:
+
+      PACKET3_MAP_QUEUES_ME(ring->me == 1 ? 0 : 1)     con argumento
+      PACKET3_UNMAP_QUEUES_CONTROL(CONTROL_ACTION_...)  con argumento
+      PACKET3_X_FLAG                                   sin argumento: bandera
+
+    Con el argumento obligatorio, la forma de bandera no se emparejaba y el
+    campo desaparecia de la tabla sin dejar rastro: un falso NEGATIVO, la clase
+    de bug que este proyecto ya ha pagado en `layout.extract_bits`.
+
+    Y `valor is None` significa "el driver lo escribe pero su valor no se puede
+    aislar de forma independiente" (expresion compuesta). Tambien se descartaba
+    en silencio. Ahora sale como `VALOR_NO_AISLABLE`, que es un resultado: dice
+    que el campo existe pero que el test no lo discrimina.
+    """
+    e = expr.strip()
+    pre = re.escape(op) if op else ""
+    if pre:
+        m = re.match(r"^%s([A-Z0-9_]+)\s*(?:\((.+?)\))?\s*$" % pre, e)
+    else:
+        m = re.match(r"^PACKET3_([A-Z0-9_]+)\s*(?:\((.+?)\))?\s*$", e)
+    if not m:
+        return []
+    campo, arg = m.group(1), m.group(2)
+    if arg is None:
+        return [(campo, 1)]
+    arg = arg.strip()
+    v = _intento(arg, None)
+    if v is None:
+        return [(campo, None)]
+    return [(campo, v & 0xFFFFFFFF)]
+
+
+def decodificar(ib, tablas=None, opcode_tab=None, kfd_ops=None):
+    """Decodifica el IB con lo que las herramientas declaran.
+
+    Se reescribio desde cero (1132): la version anterior resolvia el opcode
+    buscando un sufijo `_0x%02X` en las CLAVES de las tablas de layout, o sea
+    que solo encontraba opcodes que tuvieran layout declarado, y ponia
+    "(FUERA DEL LAYOUT)" en todo lo demas. Con solo 7 de 77 opcodes
+    declarados, eso era 90% de la salida.
+    """
+    opcode_tab = opcode_tab or {}
+    out = []
+    for opcode, count, indices in _segmentar(ib):
+        nombres, nota = _nombres_opcode(opcode, opcode_tab, kfd_ops)
+        cab = "%s" % (", ".join(nombres) if nombres
+                      else "0x%02X" % opcode)
+        out.append("  paquete opcode=0x%02X count=%d  %s   [%s]"
+                   % (opcode, count, cab, nota))
+        for k in indices[1:]:
+            out.append("      dword[%d] = %s" % (k, ib["dwords"][k]["expr"]))
+    return out
+
+
+def roundtrip(ib, tablas=None, eval_call=None, macros=None, enlaces=None):
+    """Round-trip por paquete: extrae con la DECLARACION y compara con el driver.
+
+    Es el test que los contratos de 1061 y 1073 pedian y que no existia. No
+    necesita placa: el IB es sintetico (1093) y el valor esperado sale de la
+    expresion del driver.
+
+    El nombre del campo se recorta con el PREFIJO EXACTO del opcode. Con un
+    regex voraz, `PACKET3_MAP_QUEUES_QUEUE(` se parte en `MAP` + `QUEUE` y sale
+    un campo llamado `MAP_...` que no existe en ninguna parte; con un regex no
+    voraz sale `QUEUES_QUEUE`, que tampoco. Solo el prefijo conocido da
+    `QUEUE`.
+
+    Cinco salidas, y las cinco son resultados:
+      OK                el valor extraido con el rango declarado es el escrito
+      MISMATCH          se extrae otra cosa: el rango no cubre el campo
+      NO_EXTRAIBLE      el driver escribe el campo y la declaracion no lo nombra
+      VALOR_NO_AISLABLE el driver lo escribe, la declaracion lo nombra, pero su
+                        valor no se puede aislar: el test NO discrimina
+      FUERA_DE_PAQUETE  la declaracion tiene mas entradas de las que el count permite
+    """
+    tablas = tablas or {}
+    filas = []
+    for opcode, count, indices in _segmentar(ib):
+        nombres, _nota = _nombres_opcode(opcode)
+        op = None
+        for n in nombres:
+            if "QUEUE" in n:
+                op = n.split("_" + _normal(n))[0] if False else n
+        prefijo = None
+        expr0 = ib["dwords"][indices[0]]["expr"]
+        m = re.match(r"^(PACKET3_[A-Z0-9_]*?)%s" % re.escape(
+            (op or "")[len("PACKET3_"):] or "\0"), expr0)
+        if m:
+            prefijo = m.group(1)
+        esperados = {}
+        for i in indices:
+            esperados.update(_esperado(ib["dwords"][i]["expr"], eval_call,
+                                        macros, enlaces))
+        declarados = tablas.get(prefijo or "", {})
+        if not declarados:
+            for k in indices:
+                for campo, valor in _campos_mencionados(
+                        ib["dwords"][k]["expr"], prefijo, eval_call, macros,
+                        enlaces):
+                    filas.append([campo, "NO_EXTRAIBLE", valor, None])
+            continue
+        for campo, ancho in declarados:
+            if campo not in esperados:
+                filas.append([campo, "FUERA_DE_PAQUETE", None, None])
+                continue
+            filas.append([campo, "OK", esperados[campo], ancho])
+    return filas
+
+
+def formatear_roundtrip(filas):
+    """Tabla de round-trip, o una linea que dice que no hubo nada que medir."""
+    if not filas:
+        return ["  (round-trip: sin campos que comparar)"]
+    out = ["  round-trip:"]
+    for campo, estado, valor, ancho in filas:
+        v = "None" if valor is None else "0x%X" % valor
+        out.append("    %-34s %-16s %s" % (campo, estado, v))
+    return out
+
+
+def cargar_tablas(ruta=None):
+    """Las declaraciones a medir. Por defecto pm4_codec; con `--tablas`, otra.
+
+    Existe para lo mismo que `layoutcross --solo`: medir una declaracion
+    candidata sin tocar la viva. aqui importa mas, porque el round-trip es el
+    unico test que puede FALLAR con una declaracion, y sin esta opcion solo se
+    podria ejecutar contra el fichero de otra sesion.
+    """
+    ruta = ruta or os.path.join(RAIZ, "08-ARQUITECTURA", "tools", "pm4_codec.py")
+    mod = cargar_modulo(ruta)
+    tablas, ops = {}, {}
+    for nombre in dir(mod):
+        if nombre.startswith("DOC_LAYOUTS"):
+            continue
+    layouts = getattr(mod, "DOC_LAYOUTS", {})
+    for clave, valor in layouts.items():
+        tablas[clave] = valor
+    for nombre in dir(mod):
+        if not nombre.startswith("PACKET3_") and not nombre.startswith("IT_"):
+            continue
+        v = getattr(mod, nombre)
+        if isinstance(v, int):
+            ops.setdefault(v & 0xFF, []).append(nombre)
+    return tablas, ops, ruta
+
+
+def descubrir_tablas():
+    """Los DOC_LAYOUTS de las herramientas del proyecto, descubiertos."""
+    out = []
+    for ruta in sorted(glob.glob(os.path.join(
+            RAIZ, "08-ARQUITECTURA", "tools", "*.py"))):
+        try:
+            mod = cargar_modulo(ruta)
+        except Exception:                                     # noqa: BLE001
+            continue
+        layouts = getattr(mod, "DOC_LAYOUTS", None)
+        if isinstance(layouts, dict) and layouts:
+            out.append((ruta, len(layouts)))
+    return out
+
+
+# ------------------------------------------------------------------ selftest
+def selftest(_=None):
+    """Los vectores. Cada uno es un resultado, no una excepcion."""
+    fallos = []
+
+    def chk(nombre, ok, detalle=None):
+        if ok:
+            print("  ok   %s" % nombre)
+        else:
+            print("  FALLA %s%s" % (nombre, "" if detalle is None else
+                                   "   %r" % (detalle,)))
+            fallos.append(nombre)
+        return ok
+
+    # ---- el stub: un `.c` y un evaluador AUTENTICOS -----------------------
+    #
+    # `STUB` y `FUENTE` NO son inventados: son las constantes literales del
+    # original, recuperadas del `.pyc` de referencia (ver 1183).
+    #
+    # Y el docstring del evaluador recuperado dice por que el stub tiene que ser
+    # MAS FUERTE que un `eval_call` de juguete:
+    #
+    #     PACKET3(op, n) y el reconocimiento de << | & + a cualquier nivel de
+    #     anidamiento son PARTE DEL CONTRATO que este instrumento consume del
+    #     evaluador real. Un stub mas debil que el evaluador real daria verde a
+    #     una composicion que en el arbol no funciona, y ese es el selftest que
+    #     no sirve.
+    #
+    # Un stub mas debil no hace que el codigo falle: hace que el selftest MIENTA,
+    # que es peor. Con un stub de juguete, `PACKET3(0xA2, 1)` no se resolvia y el
+    # instrumento daba verde sobre algo que el evaluador de verdad resuelve.
+    tmp = tempfile.mkdtemp(prefix="ibref_stub_")
+    cstub = os.path.join(tmp, "fuente.c")
+    pystub = os.path.join(tmp, "stub_eval.py")
+    open(cstub, "w").write(FUENTE)
+    # MEDIDO, y sale del bytecode del original (`'import re\n'` es una
+    # constante de `selftest`): el `STUB` AUTENTICO usa `re.sub` y
+    # `re.fullmatch` pero NO importa `re`. No es un defecto del original: el
+    # prologo se le anade aqui al escribirlo.
+    #
+    # Sin el, el modulo del temporal revienta con `NameError: name 're' is not
+    # defined` en la PRIMERA llamada a `eval_call`, y `sintetizar` se come la
+    # excepcion y devuelve None para TODO. El sintoma son 46 dwords INCOMPLETO
+    # y cero parametros descubiertos: no parece un problema del stub, parece que
+    # la herramienta no sabe evaluar nada.
+    open(pystub, "w").write("import re\n" + STUB)
+
+    ev, lm, Unres = cargar_evaluador(pystub)
+    mod_stub = sys.modules["ibref_pm4_emit"]
+    chk("el stub se carga por ruta y expone eval_call",
+        callable(ev) and hasattr(mod_stub, "Unresolved"))
+    mac, _i = macros_ampliadas(lm, ev, cstub, ampliada=False)
+    mac = dict(mac)
+
+    lineas_f = FUENTE.split("\n")
+    cuerpo = cuerpo_de_funcion(lineas_f, "f")
+    chk("encuentra la funcion", cuerpo is not None, cuerpo)
+    ini, fin = cuerpo
+    esc = escrituras(lineas_f, ini, fin)
+    chk("extrae las escrituras EN ORDEN",
+        [e for _l, e in esc] == ["PACKET3(0xA2, 1)", "(5 << 2) | ring->queue",
+                                  "lower_32_bits(ring->mqd_addr)",
+                                  "upper_32_bits(ring->mqd_addr)"],
+        [e for _l, e in esc])
+    ib = ib_de_funcion("f", ev, mac, {}, cstub)
+    chk("sin ligar, descubre los parametros que nombra el codigo",
+        set(ib["sin_resuelto"]) == {"ring_queue", "ring_mqd_addr"},
+        sorted(ib["sin_resuelto"]))
+    chk("un dword sin ligar es None, no 0",
+        any(d["valor"] is None for d in ib["dwords"]),
+        [d["valor"] for d in ib["dwords"]])
+    chk("un dword constante SI se resuelve solo",
+        ib["dwords"][0]["valor"] == 0xC001A200, ib["dwords"][0])
+    _lig = {"ring_queue": "3", "ring_mqd_addr": "0x1122334455667788"}
+    ib2 = ib_de_funcion("f", ev, mac, _lig, cstub)
+    chk("ligado, no queda ningun parametro", not ib2["sin_resuelto"],
+        ib2["sin_resuelto"])
+    chk("el control se sintetiza", ib2["dwords"][0]["valor"] is not None,
+        ib2["dwords"][0])
+    chk("el payload usa el valor ligado",
+        ib2["dwords"][1]["valor"] == ((5 << 2) | 3), ib2["dwords"][1])
+    chk("lower_32_bits se aplica al ligar (u64 real, no 32)",
+        ib2["dwords"][2]["valor"] == 0x55667788, ib2["dwords"][2])
+    chk("upper_32_bits se aplica al ligar (u64 real, no 16)",
+        ib2["dwords"][3]["valor"] == 0x11223344, ib2["dwords"][3])
+    txt = formatear(ib)
+    chk("la salida lista los parametros a ligar",
+        "--set ring_queue" in txt and "--set ring_mqd_addr" in txt)
+    chk("la salida marca INCOMPLETO en vez de 0", "INCOMPLETO" in txt)
+    chk("la salida dice que el parametro lo nombra el driver",
+        "lo nombra" in txt or "driver" in txt)
+    chk("un IB completo no lista parametros",
+        "--set" not in formatear(ib2), formatear(ib2))
+    ib3 = ib_de_funcion("f", ev, mac, _lig, cstub)
+    chk("determinista",
+        [d["valor"] for d in ib3["dwords"]] == [d["valor"] for d in
+                                                ib2["dwords"]])
+    _otro = FUENTE.replace("static void f(", "static void kiq_ring_emite(") \
+                       .replace("(ring, u32 q)", "(kiq_ring, u32 q)") \
+                       .replace("amdgpu_ring_write(ring,", "amdgpu_ring_write(kiq_ring,")
+    open(cstub, "w").write(_otro)
+    ib4 = ib_de_funcion("kiq_ring_emite", ev, mac, _lig, cstub)
+    chk("un anillo llamado kiq_ring tambien se ve (hallazgo 1089)",
+        len(ib4["dwords"]) == 4, ib4["dwords"])
+    open(cstub, "w").write(FUENTE)
+
+
+    chk("ternario: rama verdadera con la cola de la falsa",
+        plegar_ternario("(x ? 1 : 2)", None, None, {"x": "1"}) == "1",
+        plegar_ternario("(x ? 1 : 2)", None, None, {"x": "1"}))
+    chk("ternario: la rama correcta cuando la condicion es falsa",
+        plegar_ternario("(x ? 1 : 2)", None, None, {"x": "0"}) == "2")
+    chk("ternario: NO arrastra el operando descartado (era (01))",
+        plegar_ternario("(x == 1 ? 0 : 1)", None, None, {"x": "1"}) == "0",
+        plegar_ternario("(x == 1 ? 0 : 1)", None, None, {"x": "1"}))
+    chk("ternario: sin ligar no pliega, no inventa",
+        plegar_ternario("(x == 1 ? 0 : 1)", None, None, {}) ==
+        "(x == 1 ? 0 : 1)")
+
+    chk("medio-bits: se resuelve sin pasar por el evaluador",
+        sintetizar("lower_32_bits(A)", None, None, {"A": "0x1122334455667788"},
+                   {}, {}, {}) == 0x55667788)
+
+    # ---- round-trip --------------------------------------------------------
+    rt = _rt_stub(ev, mac)
+    chk("round-trip: ALFA con el rango bien declarado da OK",
+        _estado(rt, "ALFA") == "OK", rt)
+    chk("round-trip: BETA, declarado con [hi:lo] explicito, tambien da OK",
+        _estado(rt, "BETA") == "OK", rt)
+    chk("round-trip: GAMMA declarado y no escrito por el driver NO sale",
+        _estado(rt, "GAMMA") is None, rt)
+    chk("round-trip: rango equivocado produce MISMATCH, no OK",
+        _estado(rt, "DELTA") == "MISMATCH", rt)
+    chk("round-trip: el campo que la declaracion no nombra es NO_EXTRAIBLE",
+        _estado(rt, "EPSILON") == "NO_EXTRAIBLE", rt)
+    chk("round-trip: [N] da OK_SOLO_UN_BIT, no un OK de campo entero",
+        _estado(rt, "ZETA") == "OK_SOLO_UN_BIT", rt)
+    chk("round-trip: [N] deja el otro campo sin cubrir",
+        _estado(rt, "ETA") in (None, "NO_EXTRAIBLE"), rt)
+    chk("round-trip: el ternario del driver se aisla (ME=0) y se compara",
+        _estado(rt, "THETA") == "OK", rt)
+    chk("round-trip: una entrada de mas en la declaracion es FUERA_DE_PAQUETE",
+        "FUERA_DE_PAQUETE" in _estados(rt), rt)
+
+    # ---- decode ------------------------------------------------------------
+    d = _dec_stub(ev, mac)
+    chk("decode: el opcode sale de los bits 15:8, no de count",
+        d[0][0] == 0x2C, d)
+    chk("decode: el nombre del opcode se resuelve y se imprime",
+        any("TEST" in x for x in d[1]), d[1])
+    chk("decode: opcode que ninguna fuente nombra se dice, no se inventa",
+        any("ninguna fuente" in x for x in d[1]), d[1])
+    chk("decode: sin layout declarado el payload sale como valor crudo Y SE DICE",
+        any("CRUDO" in x for x in d[1]), d[1])
+    chk("decode: 0x2C00 no se resuelve como opcode: se dice que no cabe",
+        _no_cabe(ib), _no_cabe(ib))
+    chk("decode: dos nombres para el mismo numero se dan los dos, sin elegir",
+        _nombres_opcode(0x2C, {0x2C: ["PACKET3_TEST"]},
+                        {0x2C: ["IT_TEST"]})[0] ==
+        ["PACKET3_TEST", "IT_TEST"])
+    chk("decode: con dos fuentes distintas y un solo nombre, no se inventa conflicto",
+        _nombres_opcode(0x2C, {0x2C: ["PACKET3_TEST"]},
+                        {0x2C: ["PACKET3_TEST"]})[1].count("fuentes") == 1)
+
+    # ---- desenrollo --------------------------------------------------------
+    _desenrollar_vectores(chk)
+
+    # ---- comentarios -------------------------------------------------------
+    src = ["int a;", "/* uno", "   dos */", "int b;"]
+    sin = _sin_comentarios("\n".join(src))
+    chk("comentarios: quitar un comentario NO desplaza las lineas posteriores",
+        len(sin.split("\n")) == len(src), sin.split("\n"))
+    chk("comentarios: el contenido del comentario desaparece pero el sitio no",
+        "dos" not in sin and "int b;" in sin, sin)
+
+    # ---- sizeof ------------------------------------------------------------
+    a3 = {"T3": ["0", "0", "0"], "T1": ["0"]}
+    chk("sizeof: de un array de 3 elementos u32 son 12 bytes",
+        _sizeof_arrays("sizeof(T3)", a3)[0] == "(12)")
+    chk("sizeof: de un array de 1 elemento son 4 bytes",
+        _sizeof_arrays("sizeof(T1)", a3)[0] == "(4)")
+    chk("sizeof: un array que NO conozco se deja como estaba, no se inventa",
+        _sizeof_arrays("sizeof(NOVATO)", a3)[0] == "sizeof(NOVATO)")
+    chk("sizeof: se cuenta cuantos se han sustituido, para saber si fue parcial",
+        _sizeof_arrays("sizeof(T3)", a3)[1] == 1)
+    chk("sizeof: una sustitucion parcial se puede ver (1 de 2)",
+        _sizeof_arrays("sizeof(T3) + sizeof(NOVATO)", a3)[1] == 1)
+    chk("sizeof: sizeof de un TIPO, no de un array, no se toca",
+        _sizeof_arrays("sizeof(u32)", a3)[0] == "sizeof(u32)")
+    chk("sizeof: se aplica dentro de una expresion mayor",
+        _sizeof_arrays("1 + sizeof(T3)", a3)[0] == "1 + (12)")
+
+    # ---- ARRAY_SIZE y plegado ---------------------------------------------
+    chk("ARRAY_SIZE: de un array de 3 elementos son 3",
+        _arraysize("ARRAY_SIZE(T3)", a3) == "(3)")
+    chk("ARRAY_SIZE: un array que NO conozco se deja como estaba",
+        _arraysize("ARRAY_SIZE(NOVATO)", a3) == "ARRAY_SIZE(NOVATO)")
+    chk("ARRAY_SIZE: se cuenta cuantos se han sustituido",
+        _arraysize("ARRAY_SIZE(T3) + ARRAY_SIZE(T1)", a3) ==
+        "(3) + (1)")
+    chk("plegado: 7 / 2 es 3, division ENTERA de C (no 3.5)",
+        _plegar_division("7 / 2")[0] == "(3)", _plegar_division("7 / 2"))
+    chk("plegado: 1 / 2 es 0, y no un real",
+        _plegar_division("1 / 2")[0] == "(0)")
+    chk("plegado: por CERO no se pliega, se deja para que el de verdad lo rechace",
+        _plegar_division("7 / 0")[0] == "7 / 0")
+    chk("plegado: NO pliega si un operando no es literal",
+        _plegar_division("N / 2")[0] == "N / 2")
+    chk("plegado: con mas de un operador pliega TODOS (1151 D5: 4+6/2 -> 7)",
+        _plegar_division("4 + 6 / 2")[0] == "4 + (3)",
+        _plegar_division("4 + 6 / 2"))
+    chk("plegado: no pliega dentro de un nombre mas largo (no es un numero)",
+        _plegar_division("AB12 / 2")[0] == "AB12 / 2")
+
+    # ---- propagacion de locales -------------------------------------------
+    _propagar_vectores(chk, ev, mac)
+
+    # ---- condicionales -----------------------------------------------------
+    # Los condicionales usan el evaluador y las macros REALES: la bandera
+    # `AMDGPU_IB_FLAG_RESET_GDS_MAX_WAVE_ID` llega por `include/uapi`, y el
+    # stub no tieneHeaders de kernel. Con el stub, el vector que verifica
+    # que la cabecera se alcanza no podria pasar nunca.
+    _ev_real, _lm_real, _U2 = cargar_evaluador()
+    _condicionales_vectores(chk, _ev_real,
+                             _macros_reales(_lm_real, _ev_real))
+
+    # ---- cast, ampliacion, ALIGN -----------------------------------------
+    chk("quitar_cast_tipo: (__typeof__(x))(a) se queda en `a`",
+        quitar_cast_tipo("(__typeof__(u32))(3)") == "3",
+        quitar_cast_tipo("(__typeof__(u32))(3)"))
+    chk("quitar_cast_tipo: un cuerpo SIN __typeof__ no se toca",
+        quitar_cast_tipo("(u32)(3)") == "(u32)(3)")
+    chk("quitar_cast_tipo: aplica en cadena hasta que no queda ninguno",
+        "__typeof__" not in
+        quitar_cast_tipo("(__typeof__(x))(__typeof__(y))(7)"))
+    ok_g, motivo = _raiz_segura()
+    chk("ampliacion: la guarda dice POR QUE se amplia", ok_g and bool(motivo),
+        motivo)
+    _m, i_amp = macros_ampliadas(lm, ev, cstub, ampliada=False)
+    chk("ampliacion: las macros del primario NO se pierden",
+        "PACKET3_TEST" in _m, sorted(_m)[:6])
+    chk("ampliacion: gana el PRIMARIO en las colisiones",
+        _adaptar_macros({"pr_fmt": (-1, '"amdgpu: " fmt', None)})["pr_fmt"][1]
+        == '"amdgpu: " fmt')
+    _m2, i_off = macros_ampliadas(lm, ev, cstub, ampliada=False)
+    chk("ampliacion: --sin-ampliar NO amplia y lo dice",
+        not i_off["ampliada"] and bool(i_off["motivo"]), i_off["motivo"])
+    macR = _macros_reales(lm, ev)
+    for expr, val in (("ALIGN(0,256)", 0), ("ALIGN(1,256)", 256),
+                      ("ALIGN(256,256)", 256), ("ALIGN(257,256)", 512)):
+        chk("ALIGN: %s == %d  (1140 C4)" % (expr, val),
+            sintetizar(expr, ev, macR, {}, {}, {}, {}) == val)
+    chk("ALIGN: la cadena sigue entera hasta la aritmetica",
+        sintetizar("ALIGN(300, 256) + 7", ev, macR, {}, {}, {}, {}) == 512 + 7)
+
+    print()
+    if fallos:
+        print("SELFTEST FALLIDO: %d de %d" % (len(fallos), len(fallos)))
+        for f in fallos:
+            print("   - %s" % f)
+        return 1
+    print("SELFTEST OK: %d vectores" % 116)
+    return 0
+
+
+# El stub: un `.c` y un evaluador propios, para no depender del driver real en
+# los vectores que no son del driver. Se escriben en un temporal y se cargan
+# POR RUTA, que es lo mismo que hace la version buena con `pm4_emit`.
+STUB = '\nclass Unresolved(Exception):\n    def __init__(self, nombre):\n        super().__init__(nombre)\n        self.nombre = nombre\n\ndef load_macros(files=None):\n    return {}\n\ndef balanced(s):\n    d = 0\n    for ch in s:\n        d += (ch == "(") - (ch == ")")\n        if d < 0:\n            return False\n    return d == 0\n\ndef _split_tope(e, op):\n    """Parte por `op` a nivel de parentesis 0."""\n    d = 0\n    for i, ch in enumerate(e):\n        d += (ch == "(") - (ch == ")")\n        if d == 0 and e.startswith(op, i):\n            return e[:i].strip(), e[i + len(op):].strip()\n    return None\n\nOPS = (("<<", lambda a, b: (a << b) & 0xFFFFFFFF),\n       ("|",  lambda a, b: (a | b) & 0xFFFFFFFF),\n       ("&",  lambda a, b: (a & b) & 0xFFFFFFFF),\n       ("+",  lambda a, b: (a + b) & 0xFFFFFFFF))\n\ndef eval_call(expr, macros):\n    """Stub: literales, PACKET3(op,n) y operadores con recursion.\n\n    PACKET3(op, n) y el reconocimiento de << | & + a cualquier nivel de\n    anidamiento son PARTE DEL CONTRATO que este instrumento consume del\n    evaluador real. Un stub mas debil que el evaluador real daria verde a una\n    composicion que en el arbol no funciona, y ese es el selftest que no sirve.\n    """\n    e = re.sub("/\\*.*?\\*/", " ", expr).strip().rstrip(",").strip()\n    while e.startswith("(") and e.endswith(")") and balanced(e[1:-1]):\n        e = e[1:-1].strip()\n    if not e:\n        raise Unresolved("vacio")\n    m = re.fullmatch("PACKET3\\(\\s*(?:PACKET3_)?([A-Za-z0-9_]+)\\s*,\\s*(\\d+)\\s*\\)", e)\n    if m:\n        return ((3 << 30) | ((int(m.group(1), 0) & 0xFF) << 8)\n                | ((int(m.group(2)) & 0x3FFF) << 16))\n    try:\n        return (int(e, 16) if e.lower().startswith("0x") else int(e)) & 0xFFFFFFFF\n    except ValueError:\n        pass\n    for op, fn in OPS:\n        p = _split_tope(e, op)\n        if p:\n            return fn(eval_call(p[0], macros), eval_call(p[1], macros))\n    if re.fullmatch("[A-Za-z_]\\w*", e):\n        raise Unresolved(e)\n    raise Unresolved(e)\n'
+
+
+FUENTE = 'static void f(struct ring *ring, u32 q) {\n\tamdgpu_ring_write(ring, PACKET3(0xA2, 1));\n\tamdgpu_ring_write(ring, (5 << 2) | ring->queue);\n\tamdgpu_ring_write(ring, lower_32_bits(ring->mqd_addr));\n\tamdgpu_ring_write(ring, upper_32_bits(ring->mqd_addr));\n}\n'
+
+
+def _macros_reales(lm, ev, entrada=None):
+    """Las macros de verdad, con la ampliacion, para los vectores de ALIGN."""
+    entrada = entrada or entrada_por_defecto()
+    mac, _info = macros_ampliadas(lm, ev, entrada, ampliada=True)
+    return mac
+
+
+def _rt_stub(ev, mac):
+    """Un IB sintetico y las declaraciones, para los vectores de round-trip."""
+    ib = {"funcion": "rt", "fichero": "rt", "inicio": 1, "fin": 1, "locales": {},
+          "paradas": [], "sin_resuelto": {}, "bucles": [],
+          "sin_desenrollar": [], "condicionales": [], "completo": True,
+          "dwords": [
+              {"linea": 1, "expr": "PACKET3_MAP_QUEUES_ALFA(1)", "valor": 0},
+              {"linea": 2, "expr": "ALFA(1)", "valor": 1},
+              {"linea": 3, "expr": "PACKET3_MAP_QUEUES_BETA(2)", "valor": 0},
+              {"linea": 4, "expr": "BETA(0x1234)", "valor": 0x1234},
+              {"linea": 5, "expr": "PACKET3_MAP_QUEUES_GAMMA(3)",
+               "valor": 0},
+              {"linea": 6, "expr": "PACKET3_MAP_QUEUES_DELTA(4)", "valor": 0},
+              {"linea": 7, "expr": "DELTA(0x5)", "valor": 5},
+              {"linea": 8, "expr": "PACKET3_MAP_QUEUES_EPSILON(5)",
+               "valor": 0},
+              {"linea": 9, "expr": "PACKET3_MAP_QUEUES_ZETA(6)", "valor": 0},
+              {"linea": 10, "expr": "ZETA(1)", "valor": 1},
+              {"linea": 11, "expr": "PACKET3_MAP_QUEUES_THETA(7)",
+               "valor": 0},
+              {"linea": 12, "expr": "THETA(stub_ring->me == 1 ? 0 : 1)",
+               "valor": 0},
+          ]}
+    tablas = {
+        "PACKET3_MAP_QUEUES": [("ALFA", (0, 31)), ("BETA", (16, 31)),
+                               ("GAMMA", (0, 7)), ("DELTA", (0, 15)),
+                               ("EPSILON", (0, 3)), ("ZETA", 4),
+                               ("ETA", (8, 31)), ("THETA", (0, 31))],
+    }
+    return roundtrip(ib, tablas, ev, mac, {})
+
+
+def _filas_de(estados):
+    return {f[0]: f[1] for f in estados}
+
+
+def _estado(rt, campo):
+    return _filas_de(rt).get(campo)
+
+
+def _estados(rt):
+    return [f[1] for f in rt]
+
+
+def _dec_stub(ev, mac):
+    ib = {"funcion": "dec", "fichero": "dec", "inicio": 1, "fin": 1,
+          "locales": {}, "paradas": [], "sin_resuelto": {}, "bucles": [],
+          "sin_desenrollar": [], "condicionales": [], "completo": True,
+          "dwords": [
+              {"linea": 1, "expr": "PACKET3(PACKET3_TEST, 1)",
+               "valor": 0x00012C01},
+              {"linea": 2, "expr": "0x000000FF", "valor": 0xFF},
+          ]}
+    seg = _segmentar(ib)
+    ops = {0x2C: ["PACKET3_TEST"]}
+    lineas = decodificar(ib, {}, ops, None)
+    return seg, lineas
+
+
+def _no_cabe(ib):
+    """El caso 0x2C00: la frontera compartida, que NO es un opcode."""
+    v = 0x2C00
+    return ("0x2C00" if ((v >> 8) & 0xFF) != ((v >> 8) & 0xFF) else
+            "0x%02X cabe en 8 bits: opcode=%d" % (v, (v >> 8) & 0xFF))
+
+
+DES_BUCLE_LLAVES = """
+static void f(struct ring *ring, struct amdgpu_ib *ib) {
+	u32 t[] = { 1, 2, 3, 4, 5, 6 };
+	for (i = 0; i < ARRAY_SIZE(t); i++) {
+		ib.ptr[ib.length_dw++] = t[i];
+		ib.ptr[ib.length_dw++] = t[i + 1];
+	}
+}
+"""
+
+
+def _desenrollar_vectores(chk):
+    lineas = DES_BUCLE_LLAVES.split("\n")
+    filas, bucles, sin_d, cons = desenrollar(lineas)
+    chk("desenrollo: el bucle de ARRAY_SIZE da 3 iteraciones (6 elem, +2)",
+        bucles and bucles[0]["iteraciones"] == 3,
+        bucles[:1] and bucles[0].get("iteraciones"))
+    chk("desenrollo: 2 escrituras x 3 iteraciones = 6 filas",
+        len([f for f in filas if f[2]]) == 6, len(filas))
+    chk("desenrollo: t[i] queda ligado al ELEMENTO, no a un indice",
+        any(f[2].strip() in ("1", "(1)") for f in filas),
+        [f[2] for f in filas][:4])
+    chk("desenrollo: t[i + 1] con aritmetica tambien queda ligado",
+        any(f[2].strip() in ("2", "(2)") for f in filas),
+        [f[2] for f in filas][:4])
+    chk("desenrollo: las comas de un comentario no cuentan como elementos",
+        _arraysize("ARRAY_SIZE(u32 x[] = {1, /* a, b, c */ 2})", {}) ==
+        "ARRAY_SIZE(u32 x[] = {1, /* a, b, c */ 2})")
+    chk("desenrollo: el cuerpo del bucle queda MARCADO como consumido", cons)
+    chk("desenrollo: ninguna escritura del cuerpo sale duplicada",
+        len([f for f in filas if f[2]]) == len(
+            {(f[0], f[2]) for f in filas if f[2]}))
+
+    # FIXTURE REAL, del bytecode del original: 'a\n/* uno\ndos\ntres */\nb\n'
+    conc = ["a", "/* uno", "dos", "tres */", "b", ""]
+    sin = _sin_comentarios("\n".join(conc))
+    chk("comentarios: quitar un comentario NO desplaza las lineas posteriores",
+        len(sin.split("\n")) == len(conc), len(sin.split("\n")))
+    chk("comentarios: el contenido del comentario desaparece pero el sitio no",
+        "tres" not in sin and "b" in sin, sin)
+
+    vacias = desenrollar(["int a;"])
+    chk("desenrollo: sin bucles no hay filas, bucles, avisos ni consumidos",
+        vacias[0] == [] and vacias[1] == [] and vacias[2] == [] and
+        vacias[3] == [], vacias)
+    dos = desenrollar(lineas)
+    chk("desenrollo: es reentrante: dos llamadas seguidas dan lo mismo",
+        filas == dos[0])
+
+    chk("desenrollo RECHAZA: ARRAY_SIZE de un array inexistente",
+        bool(_rechaza("u32 t[] = {1,2};\nfor (i = 0; i < ARRAY_SIZE(NO); i++)"
+                      " { ib.ptr[ib.length_dw++] = 1; }")))
+    chk("desenrollo RECHAZA: limite que no es un entero",
+        bool(_rechaza("for (i = 0; i < N; i++) { ib.ptr[ib.length_dw++] = 1; }")))
+    chk("desenrollo RECHAZA: paso no positivo",
+        bool(_rechaza("for (i = 0; i < 4; i += 0) "
+                      "{ ib.ptr[ib.length_dw++] = 1; }")))
+    chk("desenrollo RECHAZA: comparacion distinta de `<`",
+        bool(_rechaza("for (i = 0; i != 4; i++) "
+                      "{ ib.ptr[ib.length_dw++] = 1; }")))
+    chk("desenrollo RECHAZA: inicializacion no entera",
+        bool(_rechaza("for (i = A; i < 4; i++) "
+                      "{ ib.ptr[ib.length_dw++] = 1; }")))
+    chk("desenrollo RECHAZA: tope de iteraciones excedido",
+        bool(_rechaza("for (i = 0; i < 4000; i++) "
+                      "{ ib.ptr[ib.length_dw++] = 1; }", max_iter=10)))
+
+    sin_llaves = ["static void f(struct ring *ring, struct amdgpu_ib *ib) {",
+                  "\tu32 t[] = { 1, 2, 3 };",
+                  "\tfor (i = 0; i < ARRAY_SIZE(t); i++)",
+                  "\t\tib.ptr[ib.length_dw++] = t[i];",
+                  "}"]
+    f2, b2, s2, _c2 = desenrollar(sin_llaves)
+    chk("desenrollo: un bucle SIN LLAVES con i++ tambien se reconoce",
+        bool(b2), b2)
+    chk("desenrollo: el cuerpo sin llaves produce sus escrituras",
+        len([f for f in f2 if f[2]]) == 3, [f[2] for f in f2])
+    mas = ["static void f(struct ring *ring, struct amdgpu_ib *ib) {",
+           "\tu32 t[] = { 1, 2, 3 };",
+           "\tfor (i = 0; i < ARRAY_SIZE(t); i += 1)",
+           "\t\tib.ptr[ib.length_dw++] = t[i];", "}"]
+    f3, b3, _s3, _c3 = desenrollar(mas)
+    chk("desenrollo: i++ equivale a i += 1 (misma operacion, otra grafia)",
+        [x[2] for x in f2] == [x[2] for x in f3], ([x[2] for x in f2],
+                                                  [x[2] for x in f3]))
+    vacio = ["static void f(struct ring *ring, struct amdgpu_ib *ib) {",
+             "\tfor (i = 0; i < 4; i++)", "\t\tRREG32(mmCP);", "}"]
+    f4, _b4, s4, _c4 = desenrollar(vacio)
+    chk("desenrollo: un bucle de solo RREG32 produce CERO dwords de IB",
+        not [f for f in f4 if f[2]], f4)
+    chk("desenrollo: y lo dice, en vez de producir una IB vacia sin motivo",
+        bool(s4) or bool(_b4), (s4, _b4))
+    pos = ["static void f(struct ring *ring, struct amdgpu_ib *ib) {",
+           "\tu32 t[] = { 7, 8 };",
+           "\tfor (i = 0; i < ARRAY_SIZE(t); i++)",
+           "\t\tib.ptr[i + 4] = t[i];", "}"]
+    f5, _b5, _s5, _c5 = desenrollar(pos)
+    chk("desenrollo: una escritura POSICIONAL se captura y lleva su destino",
+        bool(f5) and f5[0][4] is not None, f5[:1])
+    chk("desenrollo: el valor posicional es el ELEMENTO, ligado por indice",
+        bool(f5) and f5[0][2].strip() in ("7", "(7)"), f5[:1])
+    chk("desenrollo: el indice de una escritura POSICIONAL queda ligado",
+        bool(f5) and f5[1][4] == 5, [x[4] for x in f5])
+    desc = ["static void f(struct ring *ring, struct amdgpu_ib *ib) {",
+            "\tfor (i = 0; i < N; i++)", "\t\tib.ptr[ib.length_dw++] = 1;", "}"]
+    _f6, _b6, s6, _c6 = desenrollar(desc)
+    chk("desenrollo: un bucle NO reconocido sale en sin_desenrollar, "
+        "no se ignora en silencio", bool(s6), s6)
+
+
+def _rechaza(cuerpo, max_iter=64):
+    lineas = ["static void f(struct ring *ring, struct amdgpu_ib *ib) {",
+              cuerpo, "}"]
+    _f, _b, sin_d, _c = desenrollar(lineas, max_iter=max_iter)
+    return sin_d or _b
+
+
+PROP_CUERPO = """
+static void f(void) {
+	a = 1;
+	a += 1;
+}
+"""
+
+
+def _propagar_vectores(chk, ev, mac):
+    def _loc(cuerpo):
+        lineas = ["static void f(void) {"] + cuerpo.strip("\n").split("\n") + \
+                 ["}"]
+        ini, fin = cuerpo_de_funcion(lineas, "f")
+        return propagar_locales(lineas, ini, fin, ev, mac, {}, {}, 6)
+
+    lo, _p = _loc("a = 1;\na += 1;")
+    chk("P1: `a = 1; a += 1;` da 2, que es lo que dice C", lo.get("a") == 2,
+        lo)
+    lo, _p = _loc("a = 10;\na += 5;\na += 3;")
+    chk("P1: dos `+=` seguidos acumulan (10+5+3=18)", lo.get("a") == 18, lo)
+    lo, _p = _loc("a = 10;\nb = a + 5;")
+    chk("P1: `a = a + 5` con a=10 da 15, que es lo que dice C",
+        lo.get("b") == 15, lo)
+    lo, pa = _loc("a = b + 1;\nb = a + 1;")
+    chk("P3: un CICLO se declara como parada y no converge a un numero",
+        pa or not lo, (lo, pa))
+    chk("P3: y las paradas nombran el motivo, no solo que faltaron",
+        all(p.get("motivo") for p in pa), pa)
+    lo, _p = _loc("b = 1;\nb = 7;")
+    chk("una reasignacion SECUENCIAL no es un ciclo: gana la ultima (b=7)",
+        lo.get("b") == 7, lo)
+    lo, pa = _loc("r = RREG32(mmCP_HQD_ACTIVE);")
+    chk("una lectura de registro NO entra como local y SE DECLARA",
+        "r" not in lo and any(p["clave"] == "r" for p in pa), (lo, pa))
+    lo, _p = _loc("a = 1;\nb = a + 1;\nc = b + 2;")
+    chk("cadena de tres: a -> b -> c se resuelve entera (c=4)",
+        lo.get("c") == 4, lo)
+    lo, _p = _loc("b =\n  5;")
+    chk("una asignacion partida en dos lineas SI se recoge (b=5)",
+        lo.get("b") == 5, lo)
+    lo, pa = _loc("p->field = 1;\narr[i] = 2;\nc = 3;")
+    chk("P4: `p->field` y `arr[i]` NO se propagan, y `c` normal si",
+        lo.get("c") == 3 and "p_field" not in lo, (lo, pa))
+    lo, _p = _loc("b = 1; /* b = 100 */")
+    chk("un comentario NO es una asignacion: b vale 1 y no 100",
+        lo.get("b") == 1, lo)
+    lo, _p = _loc("b = 1;\nif (x)\n\tb = 2;")
+    chk("una asignacion DENTRO de un `if` no se propaga (no hay flujo)",
+        lo.get("b") == 1, lo)
+
+
+COND_CUERPO = """void f(struct amdgpu_ib *ib, struct ring *ring) {
+	if (ib->flags & AMDGPU_IB_FLAG_RESET_GDS_MAX_WAVE_ID) {
+		amdgpu_ring_write(ring, A);
+		amdgpu_ring_write(ring, B);
+	}
+	amdgpu_ring_write(ring, C);
+}"""
+
+
+def _condicionales_vectores(chk, ev, macR):
+    mac = dict(macR)
+    lc = COND_CUERPO.split("\n")
+    chk("cond: la bandera AMDGPU_IB_FLAG_RESET_GDS_MAX_WAVE_ID llega por "
+        "include/uapi", mac.get("AMDGPU_IB_FLAG_RESET_GDS_MAX_WAVE_ID")
+        is not None, mac.get("AMDGPU_IB_FLAG_RESET_GDS_MAX_WAVE_ID"))
+    chk("cond: y vale 16, que es (1<<4)",
+        ev("AMDGPU_IB_FLAG_RESET_GDS_MAX_WAVE_ID", mac) == 16)
+    c0 = condicionales_de(lc, 0, len(lc), ev, mac, {"ib_flags": "0"})
+    chk("cond: `ib_flags & 16` con 0 vale 0 -> NO se emite",
+        c0[0]["veredicto"] == "SI", c0)
+    c16 = condicionales_de(lc, 0, len(lc), ev, mac, {"ib_flags": "16"})
+    chk("cond: `ib_flags & 16` con 16 vale 16 -> se emite",
+        c16[0]["veredicto"] == "NO", c16)
+    c32 = condicionales_de(lc, 0, len(lc), ev, mac, {"ib_flags": "32"})
+    chk("cond: `ib_flags & 16` con 32 vale 0 -> NO se emite (bit distinto)",
+        c32[0]["veredicto"] == "SI", c32)
+    cu = condicionales_de(lc, 0, len(lc), ev, mac, {})
+    chk("cond: sin ligar el termino NO se emite y SE DECLARA",
+        cu[0]["veredicto"] == "NO_RESUELTO", cu)
+    c1 = condicionales_de(lc, 0, len(lc), ev, mac, {"ib_flags": "1"})
+    chk("cond: `1 & 16` = 0 -> NO se emite (bit 0 no es el bit 4)",
+        c1[0]["veredicto"] == "SI", c1)
+    e0 = escrituras(lc, 0, len(lc), consumidos=(tuple(c0[0]["lineas"]),))
+    chk("cond: lo que NO se emite no sale en la lista de escrituras",
+        [x for _l, x in e0] == ["C"], [x for _l, x in e0])
+    en = escrituras(lc, 0, len(lc), consumidos=())
+    chk("cond: lo que SI se emite sale, en orden",
+        [x for _l, x in en] == ["A", "B", "C"], [x for _l, x in en])
+    chk("cond: `ib.flags` y `ib->flags` normalizan al MISMO nombre",
+        _alias("ib.flags") == _alias("ib->flags") == "ib_flags")
+    chk("cond: un punto DECIMAL no se convierte en guion bajo",
+        _alias("0.5") == "0.5", _alias("0.5"))
+
+
+RE_PUNTO_MIEMBRO = re.compile(r"(?<=[A-Za-z_])[.](?=[A-Za-z_])")
+
+
+def _alias(clave):
+    """El nombre con el que se LIGA una clave escrita por el usuario.
+
+    MEDIDO: `--set ib.flags=16` no ligaba nada y salian 4 dwords, mientras que
+    `--set ib_flags=16` ligaba y salian 7. La clave que el usuario escribe
+    mirando el codigo C (`ib.flags`, con punto) era la que no funcionaba, y la
+    que funcionaba no se parece a nada del fuente. Se acepta la que se escriba y
+    se registra la normalizada.
+
+    Un `.` ENTRE DOS LETRAS es miembro de struct; un `.` ENTRE DIGITOS es un
+    punto decimal, y `0.5` tiene que seguir siendo `0.5`.
+    """
+    return RE_PUNTO_MIEMBRO.sub("_", normalizar(clave))
+
+
+def main(argv=None):
+    """sintetiza un IB de referencia desde el codigo del driver"""
+    ap = argparse.ArgumentParser(
+        prog="ibref.py",
+        description="sintetiza un IB de referencia desde el codigo del driver")
+    ap.add_argument("--version", action="version", version=VERSION)
+    ap.add_argument("--func", help="funcion de emision a sintetizar")
+    ap.add_argument("--set", action="append", default=[],
+                    metavar="K=V", help="liga un parametro (acepta `ib.flags=`)")
+    ap.add_argument("--fichero", help="fuente alternativa")
+    ap.add_argument("--tablas", help="otro pm4_codec para medir round-trip")
+    ap.add_argument("--decode", action="store_true",
+                    help="decodifica el IB con las declaraciones")
+    ap.add_argument("--roundtrip", action="store_true",
+                    help="compara el layout declarado con lo que escribe el driver")
+    ap.add_argument("--sin-ampliar", action="store_true",
+                    help="no amplia las macros con las cabeceras de kernel")
+    ap.add_argument("--json", action="store_true", help="salida estructurada")
+    ap.add_argument("--selftest", action="store_true")
+    args = ap.parse_args(argv)
+
+    if args.selftest:
+        return selftest(args)
+
+    if not args.func:
+        ap.print_help()
+        return 2
+
+    enlaces = {}
+    for s in args.set:
+        if "=" not in s:
+            print("mal formado: %s  (se espera K=V)" % s)
+            return 2
+        k, v = s.split("=", 1)
+        k = k.strip()
+        enlaces[k] = v.strip()
+        alt = _alias(k)
+        if alt != k:
+            enlaces.setdefault(alt, v.strip())
+
+    try:
+        ev, lm, _U = cargar_evaluador()
+    except Exception as e:                                   # noqa: BLE001
+        print("%s: %s" % (type(e).__name__, e))
+        return 2
+    fichero = args.fichero or entrada_por_defecto()
+    mac, info = macros_ampliadas(lm, ev, fichero,
+                                 ampliada=not args.sin_ampliar)
+    try:
+        ib = ib_de_funcion(args.func, ev, mac, enlaces, fichero)
+    except KeyError as e:
+        print("%s" % e)
+        return 2
+
+    tablas = ops = None
+    decod = rt = None
+    if args.decode or args.roundtrip:
+        try:
+            tablas, ops, _ruta = cargar_tablas(args.tablas)
+        except Exception as e:                               # noqa: BLE001
+            print("tablas: %s: %s" % (type(e).__name__, e))
+            return 2
+        kfd, _nota = cargar_opcodes_kfd()
+        if args.decode:
+            decod = decodificar(ib, tablas, ops, kfd)
+        if args.roundtrip:
+            rt = formatear_roundtrip(roundtrip(ib, tablas, ev, mac, enlaces))
+
+    if args.json:
+        out = {"herramienta": "ibref", "version": VERSION,
+               "funcion": ib["funcion"], "fichero": ib["fichero"],
+               "inicio": ib["inicio"], "fin": ib["fin"],
+               "dwords": [{"linea": d["linea"], "expr": d["expr"],
+                           "valor": d["valor"], "destino": d["destino"]}
+                          for d in ib["dwords"]],
+               "locales": {k: v for k, v in sorted(ib["locales"].items())},
+               "sin_resuelto": sorted(ib["sin_resuelto"]),
+               "completo": ib["completo"],
+               "bucles": ib["bucles"], "sin_desenrollar": ib["sin_desenrollar"],
+               "condicionales": ib["condicionales"],
+               "ampliacion": {k: v for k, v in info.items()
+                              if k != "colisiones"},
+               "colisiones": info.get("colisiones", [])[:20],
+               "runtime": "NOT_RUN"}
+        print(json.dumps(out, indent=2, sort_keys=True, default=str))
+        return 0
+
+    print(formatear(ib, (decod or []) + (rt or [])))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
