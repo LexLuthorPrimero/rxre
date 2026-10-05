@@ -78,15 +78,15 @@
    "sha256": "dc6f1ac822eb61e0f7538ca6a5e75b2a8c38c52ac58966d3cd6790841b777ec8"
   },
   {
-   "bytes": 20746,
-   "lineas": 447,
+   "bytes": 23956,
+   "lineas": 509,
    "ruta": "tools/campos_pm4.py",
    "selftest": {
     "detalle": "`--toma` no ejecuta; use --verifica",
     "estado": "NO_MEASURE",
     "rc": null
    },
-   "sha256": "13383176e72958a8be87c2dfaae75c38f0c4671a1a2b3dd1a7db818a4bdf93a4"
+   "sha256": "a992ace70bcb7f53dca9eaeda4cd70ef6a53c7953acf02688f55a68fdc038b74"
   },
   {
    "bytes": 24929,
@@ -2290,7 +2290,7 @@
   }
  ],
  "instrumentos": 208,
- "sha256_de_la_linea_base": "9d817eb996e3c7d05667db16da3114f559aac26231a43d9c821ea5e072df3d39",
+ "sha256_de_la_linea_base": "0219b6f01c6d1146c2f14bc83303b6b8598eca4f98a36adc9a1ad66e9f9bf24a",
  "tool": "huella",
  "version": "1.0.0"
 }
