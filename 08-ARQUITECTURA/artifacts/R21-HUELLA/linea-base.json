@@ -78,6 +78,17 @@
    "sha256": "dc6f1ac822eb61e0f7538ca6a5e75b2a8c38c52ac58966d3cd6790841b777ec8"
   },
   {
+   "bytes": 20746,
+   "lineas": 447,
+   "ruta": "tools/campos_pm4.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "13383176e72958a8be87c2dfaae75c38f0c4671a1a2b3dd1a7db818a4bdf93a4"
+  },
+  {
    "bytes": 24929,
    "lineas": 558,
    "ruta": "tools/cap_census.py",
@@ -1044,6 +1055,17 @@
     "rc": null
    },
    "sha256": "bd6613528246766435fd90489eeab1e533b90f56f7f6bc1c002d0902a7494edd"
+  },
+  {
+   "bytes": 13978,
+   "lineas": 330,
+   "ruta": "tools/vivos.py",
+   "selftest": {
+    "detalle": "`--toma` no ejecuta; use --verifica",
+    "estado": "NO_MEASURE",
+    "rc": null
+   },
+   "sha256": "7dca01ca1f86a0f530803a796846ff4ab914f52940e5f55d83d2daeac416d4ae"
   },
   {
    "bytes": 36707,
@@ -2267,8 +2289,8 @@
    "sha256": "f41335ce3d57fb2cae8e98de94d175cfc9e07cad33cb8c8949ce0fb9c121a27b"
   }
  ],
- "instrumentos": 206,
- "sha256_de_la_linea_base": "4d26944d8c985600f51155e5271846fc55f4dd07d65aad6f80a30e4474bb160c",
+ "instrumentos": 208,
+ "sha256_de_la_linea_base": "9d817eb996e3c7d05667db16da3114f559aac26231a43d9c821ea5e072df3d39",
  "tool": "huella",
  "version": "1.0.0"
 }

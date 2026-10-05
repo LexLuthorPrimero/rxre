@@ -110,10 +110,33 @@ Contando `gfx_v8_0_ring_emit_ib_compute` (6101-6133) en la rama con
              ME              << 31                               -> [31:31] 1 bit
 ```
 
-Esto **resuelve la pregunta abierta**: `doorbell_offset` no es `[25:2]` ni `[22:2]`, es
-**`[3:2]`, de 2 bits**, y `vid.h` no lo dice porque no lo declara en ninguna parte. El
-`[25:2]` era la deducción de quien leyó `DOORBELL_OFFSET << 2` y añadió el siguiente campo
-de la lista equivocada.
+### CORRECCION, y es una inconsistencia de este mismo hallazgo
+
+Al construir la herramienta que hace esta comprobación para todo el header, la salida
+contradijo lo que yo habia escrito aqui:
+
+```text
+  mi tabla de deduccion    DOORBELL_OFFSET << 2,  siguiente ... << 26  ->  [25:2] y hueco
+  mi conclusion            ... y por tanto es [3:2], de 2 bits
+```
+
+Las dos cosas no pueden ser verdad a la vez, y **la que se sostiene es que la anchura no
+se deduce en absoluto**. El "siguiente" de `DOORBELL_OFFSET << 2` no es su vecino: es
+`QUEUE << 26`, que pertenece al **mismo dword pero cuyo valor es de otro campo**… y mas
+aun, `ENGINE_SEL << 26` y `QUEUE << 26` son de dwords distintos, asi que ordenar por
+desplazamiento mezcla palabras.
+
+> Un hueco grande no es un campo ancho: es un layout que los desplazamientos **no**
+> determinan.
+
+`vid.h` declara 5 desplazamientos de `MAP_QUEUES` y **ni una anchura ni una mascara**, y
+para `DOORBELL_OFFSET` en concreto la secuencia de shifts no cierra una particion de 32
+bits. El valor correcto —2 bits en el GFX8— viene de la especificación del ASIC, no de
+este fuente, y esa fuente **no está en el árbol**.
+
+Lo que sí queda cerrado por el conteo del §2 es la convención del recuento, que no depende
+de ninguna deducción: `n = payload − 1`, medido en tres puntos de emisión y corroborado por
+`.emit_ib_size = 7`.
 
 ## 4 · Y el invariante que NO está escrito: el bit de ME y el de PIPE se pisan
 
@@ -198,7 +221,8 @@ MEDIDO      count = payload - 1  en 3 puntos de emision (INDIRECT_BUFFER, MAP_QU
             UNMAP_QUEUES),  y corroborado por .emit_ib_size = 7 contado a mano
 MEDIDO      los anchos de CONTROL y CONTROL2 deducidos del hueco hasta el campo
             siguiente;  ninguno declarado en el fuente
-RESUELTO    la pregunta abierta doorbell_offset [25:2] vs [22:2]:  es [3:2], 2 bits
+CORREGIDO   este mismo hallazgo se contradia a si mismo;  corregido en el
+            propio fichero.  La anchura NO se deduce de los shifts
 RESUELTO    el aparente solape PIPE/ME:  es el invariante ME bit31 == 1 => pipe <= 1,
             aplicado en amdgpu_gfx_kiq_acquire(),  que es el anillo que emite
 NO MEDIDO   el ancho REAL de PIPE en el hardware.  Todo lo anterior es lo que el
