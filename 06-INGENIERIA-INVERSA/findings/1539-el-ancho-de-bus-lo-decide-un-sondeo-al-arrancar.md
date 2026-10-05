@@ -93,6 +93,13 @@ siquiera leyendo el codigo, porque el numero que se escribe no se sabe.
 Eso es un `NOT_DETERMINED` limpio, con productor nombrado y con la razon. Y explica por que el 1445
 tuvo que escribir hardware para obtener el dato: no habia otra via.
 
+> **ACTUALIZADO por el hallazgo `1545`: este punto quedo RESUELTO, y sin hardware.**
+> `ixMC_IO_DEBUG_UP_159` es el indice **0x9F**, segun la entrada 23 de la propia tabla `io_debug` del
+> firmware (`polaris12_mc.bin`, 192 bytes = 24 registros). Ademas, la constante `0x05b4dc40` que el
+> driver compara es **exactamente** el `ucode_version` de `polaris12_32_mc.bin`, y `0x00b4dc50` —lo que
+> el 1445 leyo en el silicio— es el de `polaris12_mc.bin`. El detalle que este hallazgo dejo sin
+> conciliar tambien queda cerrado: si y la misma magnitud.
+
 ## 5. El item 1, como queda
 
 El 1532 dio tres testigos del ROM en contradiccion. Con esta pieza:
