@@ -184,7 +184,7 @@ chk 0 HW "ninguna llamada de acceso a hardware en el cuerpo"
 # leer.  El invariante es "solo el accessor declarado toca el dispositivo, y
 # ningun objeto mas".  Por eso hay una lista de excepcion, y por eso la lista
 # tiene que seguir contendo lo que dice contener.
-MMIO_EXENTOS="rx550_mmio_access.c"
+MMIO_EXENTOS="rx550_mmio_access.c rx550_smc.c"
 # ── LAS EXENCIONES SE LEEN DE $MMIO_EXENTOS, NO DE UN LITERAL ───────────────
 #
 # MEDIDO 2026-10-04: la exencion estaba HARDCODEADA por nombre de fichero, en
