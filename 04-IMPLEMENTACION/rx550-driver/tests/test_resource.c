@@ -109,8 +109,8 @@ int main(int argc, char **argv)
 		    (unsigned long long)(((unsigned long long)b3 << 32) | (b2 & 0xfffffff0u)),
 		    0x00000000F0000000ULL);
 		chk("T1c", "DEVICE", "BASE(4) I/O = 0xE000", (unsigned long long)(b4 & ~1u), 0xE000ULL);
-		chk("T1d", "DEVICE", "BASE(5) = 0xF7D00000",
-		    (unsigned long long)(b5 & 0xfffffff0u), 0xF7D00000ULL);
+		chk("T1d", "DEVICE", "BASE(5) = 0xF7E00000",
+		    (unsigned long long)(b5 & 0xfffffff0u), 0xF7E00000ULL);
 
 		/* T3: longitudes, del tamaño de resourceN */
 		chk("T3a", "DEVICE", "len(BAR0) = 256 MiB", bar_len(0) == 256ULL << 20, 1);

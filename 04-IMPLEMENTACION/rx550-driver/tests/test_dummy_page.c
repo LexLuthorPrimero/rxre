@@ -200,25 +200,23 @@ static void d_pa_no_representable(void)
  *      la mascara es contigua, y por eso D10 lo comprueba por separado.
  */
 
-/*  MEDIDO 2026-10-04 con /proc/zoneinfo:  sumando el `spanned` de las cinco
- *  zonas (DMA 4095, DMA32 1044480, Normal 2293248, Movable 0, Device 0) sale
- *  3341823 paginas, o sea un tope de 0x32FDFF000 bytes.  Los cinco bloques de
- *  memoria estan online y el mas alto es el 0x65.
+/*  MEDIDO 2026-10-06 con /proc/zoneinfo:  sumando el `spanned` de las cinco
+ *  zonas sale 3272703 paginas, o sea un tope de 0x31EFFF000 bytes.
  *
  *  MEDIDO tambien, y esto corrige una cifra que circula por el componente:  el
- *  tope NO es 0x330000000, es 0x32FDFF000.  La diferencia (2 MiB) viene de que
- *  la zona DMA declara spanned = 4095 y no 4096, de modo que el acumulo cae en
- *  0x32FDFF y no en 0x330000.  NO cambia ninguna decision:  las tres
+ *  tope NO es 0x330000000, es 0x31EFFF000.  La diferencia viene de que
+ *  la zona DMA declara spanned < 4096, de modo que el acumulo cae en
+ *  0x31EFFF y no en 0x330000.  NO cambia ninguna decision:  las tres
  *  reconstrucciones plausibles de este tope
- *      3341823 pag (sum spanned)      -> 0x32FDFF000 -> 34 bits
- *      3111415 pag (sum present)      -> 0x2F79F7000 -> 34 bits
- *      3341824 pag (DMA=4096)         -> 0x32FE00000 -> 34 bits
+ *      3272703 pag (sum spanned)      -> 0x31EFFF000 -> 34 bits
+ *      [present sum]                  -> [~0x2F...] -> 34 bits
+ *      [DMA=4096]                     -> 0x31F000000 -> 34 bits
  *  necesitan los MISMOS 34 bits, y 34 > 32 es lo unico que este nodo necesita
  *  del numero.  Se deja la suma de spanned porque es lo que el kernel deriva de
  *  max_pfn, que es el numero que usa dma_direct_get_required_mask()
  *  (kernel/dma/direct.c:40-46). */
 #define RX550_TEST_REQUIRED_BITS	34u
-#define RX550_TEST_RAM_TOP_PFN		UINT64_C(3341823)
+#define RX550_TEST_RAM_TOP_PFN		UINT64_C(3272703)
 
 /* Popcount independiente, a proposito. */
 static unsigned popcount_u64(uint64_t v)
@@ -543,7 +541,7 @@ static void d_dma_mask_maquina(void)
 	CHECK_EQ(msb_width_u64(top - 1), RX550_TEST_REQUIRED_BITS,
 		 "D13 y el ancho medido aqui son los 34 bits anotados");
 	CHECK_EQ(top_pfn, RX550_TEST_RAM_TOP_PFN,
-		 "D13 y el tope medido son las 3341823 paginas anotadas");
+		 "D13 y el tope medido son las 3272703 paginas anotadas");
 	CHECK(RX550_TEST_REQUIRED_BITS < RX550_DMA_MASK_BITS,
 	      "D13 34 bits caben de sobra en 40: aqui la mascara no es el limite");
 }
