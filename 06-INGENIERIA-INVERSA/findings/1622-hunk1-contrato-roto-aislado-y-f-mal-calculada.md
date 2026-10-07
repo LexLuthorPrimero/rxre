@@ -6,7 +6,9 @@ WORK_CLASS=RXRE-017-RECONCILIARE-CAMBIO-CONCURRENTE
 AUTOR=AGENTE_RXRE017 (esta sesión)
 FECHA=2026-10-07
 TARGET=0000:01:00.0 · 1002:699f@c7 · CHIP_POLARIS12 · gfx_8_0
-RUNTIME=NOT_RUN sobre hardware · solo lectura y suites de testa
+RUNTIME=NOT_RUN sobre hardware · solo lectura y suites de test
+WRITE_EXECUTION=NINGUNO · sin MMIO, sin hardware, sin firmware
+MODIFICATIONS=tools/rxre/tests/contrato_relpath017.py + este hallazgo
 P0.2_STATUS=REOPENED_RECONCILIATION (sin cambios)
 ```
 
