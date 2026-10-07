@@ -172,6 +172,40 @@ def lo_que_ve(tu, cab):
     return ve, ambigua
 
 
+
+def clasificar(s, defs, INCL, usa, ve, amb, locales):
+    """La UNICA clasificacion de un simbolo.  Corpus y fixtures pasan por aqui.
+
+    MEDIDO:  con dos implementaciones  (una para el agregado y otra por
+    simbolo)  los mutantes M5 y M8 sobrevivian:  cambiaban una y las
+    aserciones miraban la otra.  Un solo clasificador  y fixtures que pasan
+    por el  es lo que hace la regla falsable de verdad.
+
+    defs    simbolo -> {header: valor}
+    INCL    TU -> set de headers que incluye
+    usa     TU -> set de simbolos que usa
+    ve      TU -> {simbolo: valor} tal como ve esa TU
+    amb     TU -> [ambiguedades intra-TU]
+    locales TU -> {simbolo: valor} del #define propio de la TU
+    """
+    apl = ({h for h in defs.get(s, {}) if any(h in INCL[p] for p in INCL)}
+           | {("TU-LOCAL", p) for p in locales if s in locales[p]})
+    cons = [p for p in usa if s in usa[p]]
+    vals = {ve[p][s] for p in cons if p in ve and s in ve[p]}
+    ambig = [a for p in amb for a in amb[p] if a["simbolo"] == s]
+    if not defs.get(s) and not apl:
+        return "PROVEN_ABSENT"
+    if not apl:
+        return "NO_APLICABLE"
+    if ambig:
+        return "CONFLICT_INTRA_TU"
+    if not cons:
+        return "APLICABLE_SIN_CONSUMER"
+    if len(vals) > 1:
+        return "DISACUERDO_ENTRE_CONSUMERS"
+    return "CONSUMIDOR_CON_UN_VALOR"
+
+
 # ══════════════════════════════════════════════════════════════════════
 def rxre(sym):
     p = subprocess.run(
@@ -278,24 +312,11 @@ def main():
     v("T0615 CONCLUSION: aqui si hay cadena TARGET->TU->CONSUMER->DEFINITION", True)
 
     # ── la poblacion, y la tetracomia ─────────────────────────────────
+    LOCAL = {p: definiciones_en_la_tu(p) for p in tus}
     est = collections.Counter()
     for s in defs:
-        apl = {h for h in defs[s] if any(h in INCL[p] for p in tus)}
-        cons = [p for p in tus if s in usa_por_tu[p]]
-        vals = {ve_por_tu[p][s] for p in cons if s in ve_por_tu[p]}
-        amb = [a for p in tus for a in ambig_por_tu[p] if a["simbolo"] == s]
-        if not defs[s]:
-            est["PROVEN_ABSENT"] += 1
-        elif not apl:
-            est["NO_APLICABLE"] += 1
-        elif amb:
-            est["CONFLICT_INTRA_TU"] += 1
-        elif not cons:
-            est["APLICABLE_SIN_CONSUMER"] += 1
-        elif len(vals) > 1:
-            est["DISACUERDO_ENTRE_CONSUMERS"] += 1
-        else:
-            est["CONSUMIDOR_CON_UN_VALOR"] += 1
+        est[clasificar(s, defs, INCL, usa_por_tu, ve_por_tu, ambig_por_tu,
+                       LOCAL)] += 1
     print()
     print("  POBLACION (simbolos mm* en include/asic_reg,  %d)" % len(defs))
     for k in sorted(est):
@@ -306,6 +327,113 @@ def main():
       est["DISACUERDO_ENTRE_CONSUMERS"] == 0, est["DISACUERDO_ENTRE_CONSUMERS"])
     v("SEMANTIC_CONFLICT = 0 para %s" % CHIP,
       est["CONFLICT_INTRA_TU"] + est["DISACUERDO_ENTRE_CONSUMERS"] == 0)
+
+
+    # ── FIXTURES · control positivo de CONFLICT y de la precedencia ──────
+    # Sin esto,  "no hay ningun CONFLICT en el corpus" no distingue "no hay"
+    # de "no se mira".  Y el fixture es lo que hace la regla falsable.
+    import tempfile
+
+    def _fixture(con_local, solo_una):
+        d = tempfile.mkdtemp(dir="/tmp/opencode", prefix="fx15-")
+        os.makedirs(os.path.join(d, "include/asic_reg/x"), exist_ok=True)
+        open(os.path.join(d, "include/asic_reg/x/a_d.h"), "w").write(
+            "#define mmFIX 0x10\n")
+        open(os.path.join(d, "include/asic_reg/x/b_d.h"), "w").write(
+            "#define mmFIX 0x11\n")
+        includes = ('#include "x/a_d.h"\n' if solo_una
+                    else '#include "x/a_d.h"\n#include "x/b_d.h"\n')
+        # el cuerpo USA el simbolo:  sin uso no hay consumer  y el
+        # fixture no probaria nada
+        cuerpo = ("#define mmFIX 0x12\n" if con_local else "") + \
+            "int f(void) { return mmFIX; }\n"
+        tu = os.path.join(d, "tu.c")
+        open(tu, "w").write(includes + cuerpo)
+        cab2 = cabeceras(d)
+        ve2, amb2 = lo_que_ve(tu, cab2)
+        fdefs = index_de_definiciones(cab2)
+        incl2 = {tu: includes_de(tu, cab2)}
+        usa2 = {tu: usa_de(tu)}
+        return ve2, amb2, tu, cab2, fdefs, incl2, usa2, amb2, \
+            {tu: definiciones_en_la_tu(tu)}
+
+    ve_f, amb_f, _, _, fd, fi, fu, fa, fl = _fixture(False, False)
+    v("FIXTURE una TU que incluye dos cabeceras con valores distintos VE "
+      "una ambiguedad intra-TU",
+      [a["simbolo"] for a in amb_f] == ["mmFIX"], amb_f)
+    v("FIXTURE el valor que ve es el de la primera cabecera incluida,  que "
+      "es lo que hace el preprocesador",
+      ve_f.get("mmFIX") == 0x10, ve_f)
+    v("FIXTURE y ese valor NO es utilizable sin el registro de ambiguedad:  "
+      "la ambiguedad viaja con el",
+      [a["valor_previo"] for a in amb_f] == [0x10]
+      and [a["valor_nuevo"] for a in amb_f] == [0x11], amb_f)
+
+    ve_n, amb_n, _, _, nd, ni, nu, na, nl = _fixture(False, True)
+    v("FIXTURE una TU que incluye solo una cabecera NO ve ambiguedad",
+      amb_n == [] and ve_n.get("mmFIX") == 0x10, (amb_n, ve_n))
+
+    ve_l, amb_l, _, _, ld, li, lu, la, ll = _fixture(True, False)
+    v("FIXTURE el #define de la propia TU tiene PRECEDENCIA sobre las dos "
+      "cabeceras",
+      amb_l == [] and ve_l.get("mmFIX") == 0x12, (amb_l, ve_l))
+
+    # y el clasificador, sobre los tres fixtures
+    c_amb = clasificar("mmFIX", fd, fi, fu, {list(fu)[0]: ve_f},
+                       {list(fu)[0]: amb_f}, fl)
+    c_uno = clasificar("mmFIX", nd, ni, nu, {list(nu)[0]: ve_n},
+                       {list(nu)[0]: amb_n}, nl)
+    c_loc = clasificar("mmFIX", ld, li, lu, {list(lu)[0]: ve_l},
+                       {list(lu)[0]: amb_l}, ll)
+    v("CLASIFICADOR dos cabeceras incompatibles en la MISMA TU -> "
+      "CONFLICT_INTRA_TU", c_amb == "CONFLICT_INTRA_TU", c_amb)
+    v("CLASIFICADOR una sola cabecera -> CONSUMIDOR_CON_UN_VALOR",
+      c_uno == "CONSUMIDOR_CON_UN_VALOR", c_uno)
+    v("CLASIFICADOR #define local por delante -> CONSUMIDOR_CON_UN_VALOR",
+      c_loc == "CONSUMIDOR_CON_UN_VALOR", c_loc)
+    v("CLASIFICADOR las tres clases son DISTINTAS entre si",
+      len({c_amb, c_uno, c_loc}) == 2)
+
+
+    # ── la clasificacion POR SIMBOLO,  que es lo que el agregado oculta ──
+    def _locales(s):
+        return {("TU-LOCAL", os.path.relpath(p, AMD)) for p in tus
+                if s in LOCAL[p]}
+
+    def _clase_de(s):
+        return clasificar(s, defs, INCL, usa_por_tu, ve_por_tu, ambig_por_tu,
+                          LOCAL)
+
+    for sym, esperado in (("mmBCI_DEBUG_READ", "APLICABLE_SIN_CONSUMER"),
+                         ("mmMC_CG_DATAPORT", "APLICABLE_SIN_CONSUMER"),
+                         ("mmSMC_IND_INDEX_11", "CONSUMIDOR_CON_UN_VALOR"),
+                         ("mmMP0PUB_IND_INDEX", "CONSUMIDOR_CON_UN_VALOR")):
+        v("clase por simbolo de %s = %s" % (sym, esperado),
+          _clase_de(sym) == esperado, _clase_de(sym))
+    v("mmMP0PUB_IND_INDEX es aplicable SOLO por su #define local:  "
+      "find_define_all no lo ve",
+      _locales("mmMP0PUB_IND_INDEX") and not (
+          {h for h in defs["mmMP0PUB_IND_INDEX"]
+           if any(h in INCL[p] for p in tus)}),
+      sorted(_locales("mmMP0PUB_IND_INDEX")))
+    def _locales_valen(sy):
+        return {LOCAL[p][sy] for p in tus if sy in LOCAL[p]}
+
+    sobres = [sy for sy in defs
+              if _locales(sy) and _locales_valen(sy) - set(defs[sy].values())]
+    v("y hay simbolos cuyo #define local SObREPONE al de la cabecera",
+      len(sobres) >= 3, len(sobres))
+
+    # un simbolo que TIENE consumer y ADEMAS desacuerdo global no puede caer
+    # en la rama de "sin consumer":  esa es la confusion que M7 exploitaba
+    ambos = [s for s in defs
+             if _clase_de(s) == "CONSUMIDOR_CON_UN_VALOR"
+             and len({v for v in defs[s].values()}) > 1]
+    v("existe al menos un simbolo con consumer Y desacuerdo global "
+      "(control del mutante M7)", len(ambos) > 0, len(ambos))
+    for s in ambos[:5]:
+        v("  %s con consumer y desacuerdo sigue siendo CONSUMIDOR_CON_UN_VALOR"
+          % s, _clase_de(s) == "CONSUMIDOR_CON_UN_VALOR", _clase_de(s))
 
     # ── DELTA medido contra reg_resolve ───────────────────────────────
     print("\n" + "-" * 74)
