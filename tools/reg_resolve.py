@@ -329,6 +329,9 @@ def resolve_reg(amd_root: str, gfx: str, reg: str) -> Dict[str, object]:
         out["byte_offset"] = hex(val * 4) if val is not None else None
         out["warning"] = ("value is the dword register index; the MMIO byte "
                           "offset is value * 4 in amdgpu_device_rreg. "
+                          "The value is NOT a byte offset: dividing it by 4 "
+                          "is not a valid conversion and would name a "
+                          "different register. "
                           "The header definition alone does not prove the "
                           "hardware effect or every PM4 encoding.")
     elif classify_symbol(reg) == "bus_index":
