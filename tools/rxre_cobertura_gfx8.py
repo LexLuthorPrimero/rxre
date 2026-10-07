@@ -23,19 +23,63 @@ ESTADO DE LA HERRAMIENTA:  SELF_TESTED,  no VALIDATED.
 """
 import io
 import json
+import os
 import re
 import sys
 import time
+import hashlib
+import datetime
+import subprocess
 import contextlib
 
-RAIZ = "/home/lucas/Escritorio/RX550-INVESTIGACION"
+# ── RAIZ ────────────────────────────────────────────────────────────────────
+# NO es una ruta absoluta escondida.  Se deriva de donde vive ESTE fichero, de
+# modo que la medicion no pueda ejecutarse contra un arbol que no sea el que
+# contiene la herramienta que la produce.  Se puede forzar de forma explicita
+# con --raiz= o con RXRE_ROOT,  y si se fuerza queda en la procedencia.
+#
+# HISTORICO: esto estaba en "/home/lucas/Escritorio/RX550-INVESTIGACION",  un
+# arbol distinto con otro RXRE (sin core/relations.py,  y con el reg_resolve
+# que inversaba la unidad).  El artefacto de esa corrida es
+# ARTIFACT_INVALIDADO_PARA_SEMANTICA_VIGENTE.
+RAIZ_DEFECTO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _raiz(argv):
+    for a in argv:
+        if a.startswith("--raiz="):
+            return os.path.abspath(a.split("=", 1)[1]), "argv:--raiz"
+    ent = os.environ.get("RXRE_ROOT")
+    if ent:
+        return os.path.abspath(ent), "env:RXRE_ROOT"
+    return RAIZ_DEFECTO, "derivada_de___file__"
+
+
+RAIZ, ORIGEN_RAIZ = _raiz(sys.argv)
 DICC = ("RESEARCH/working/linux-7.1.3/drivers/gpu/drm/amd/include/asic_reg/"
         "gca/gfx_8_0_d.h")
 sys.path.insert(0, RAIZ + "/tools/rxre")
 
+# La UNIDAD que se compara.  No es una opinion de este script:  la declara
+# reg_resolve y la confirma el accessor del kernel (amdgpu_reg_access.c:
+# writel(v, rmmio + (reg * 4)),  @reg: dword aligned register offset).  El
+# valor del #define ES el indice dword;  el byte offset se DERIVA por * 4.
+# Prohibido >>2:  aplicado a un indice produce el indice de OTRO registro.
+UNIDAD = "dword_register_index"
+DERIVACION_BYTE = "byte_offset = valor * 4"
+FUENTE_UNIDAD = ("drivers/gpu/drm/amd/amdgpu/amdgpu_reg_access.c",
+                 "amdgpu_device_rreg/wreg", "writel(v, rmmio + (reg * 4))")
+
 # El patron del oraculo.  Distinto del de rxre a proposito:  siCoinciden las dos
 # lecturas,  el valor no depende de una sola regex.
 ORACULO = re.compile(r'^#define\s+(mm[A-Za-z0-9_]+)\s+(0[xX][0-9a-fA-F]+|\d+)\s*$')
+
+# Contador del fallback DEAD.  chosen es el HIT del #define
+# {file, rel, line, value, text}:  byte_offset vive en el objeto out hermano y
+# nunca estuvo dentro de chosen,  asi que el default no puede dispararse.
+# Se cuenta igualmente para que la afirmacion "no se ejecuta" sea una
+# MEDICION y no una lectura del codigo.
+FALLBACK_DEAD = {"disparado": 0, "registros": 0}
 
 
 def diccionario():
@@ -47,6 +91,66 @@ def diccionario():
             if m:
                 vals[m.group(1)] = int(m.group(2), 0)
     return vals
+
+
+def _sha256(path):
+    if not os.path.isfile(path):
+        return "NOT_FOUND"
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for bloque in iter(lambda: f.read(65536), b""):
+            h.update(bloque)
+    return h.hexdigest()
+
+
+def _git_head(raiz):
+    p = subprocess.run(["git", "-C", raiz, "rev-parse", "HEAD"],
+                       capture_output=True, text=True)
+    return p.stdout.strip() if p.returncode == 0 else "NO_ES_REPO_GIT"
+
+
+def _git_dirty(raiz):
+    p = subprocess.run(["git", "-C", raiz, "status", "--porcelain",
+                        "--", "tools/reg_resolve.py", "tools/rxre/"],
+                       capture_output=True, text=True)
+    return bool(p.stdout.strip())
+
+
+def verifica_arbol():
+    """El RXRE importado tiene que ser el de RAIZ.  Falla si no lo es.
+
+    Sin esto, cambiar RAIZ no cambiaria el RXRE medido:  sys.path ya tenia
+    entradas,  y el arbol equivocado Podia ganarle la resolucion de 'cli'.
+    """
+    esperado = os.path.abspath(os.path.join(RAIZ, "tools/rxre/cli.py"))
+    if not os.path.isfile(esperado):
+        raise SystemExit(
+            "INVALID_TREE: bajo %s no hay tools/rxre/cli.py.\n"
+            "No hay RXRE que medir:  medir aqui seria medir otro arbol."
+            % RAIZ)
+    if not os.path.isfile(os.path.join(RAIZ, DICC)):
+        raise SystemExit(
+            "INVALID_TREE: bajo %s no existe el diccionario %s.\n"
+            "El denominador no lo elige esta herramienta:  si falta, no se "
+            "mide." % (RAIZ, DICC))
+    if not os.path.isfile(os.path.join(RAIZ, "tools/reg_resolve.py")):
+        raise SystemExit(
+            "INVALID_TREE: bajo %s no existe tools/reg_resolve.py.\n"
+            "Es el productor que se esta midiendo:  sin el, la procedencia "
+            "no se puede escribir y la cifra no tiene a quien atribuirse."
+            % RAIZ)
+    import cli
+    aqui = os.path.abspath(cli.__file__)
+    if aqui != esperado:
+        raise SystemExit(
+            "INVALID_TREE: el modulo 'cli' importado es\n  %s\nesperado\n  %s\n"
+            "La medicion seria de otro arbol." % (aqui, esperado))
+    import core.dispatch as _d
+    return {
+        "cli_importado": aqui,
+        "dispatch_root": _d.ROOT,
+        "dispatch_tools": _d.TOOLS,
+    }
 
 
 def consulta_rxre(nombre):
@@ -85,7 +189,13 @@ def consulta_rxre(nombre):
     if elegido is None:
         return None, len(defs), "SIN_CHOSEN", "%d definiciones sin elegir" % len(defs)
     if isinstance(elegido, dict):
-        elegido = elegido.get("value", elegido.get("byte_offset"))
+        if "value" in elegido:
+            elegido = elegido["value"]          # indice dword del #define
+        else:
+            # Rama que no se ha ejecutado nunca.  Se deja el codigo,  se cuenta.
+            FALLBACK_DEAD["disparado"] += 1
+            elegido = elegido.get("byte_offset")
+    FALLBACK_DEAD["registros"] += 1
     return elegido, len(defs), "ok", ""
 
 
@@ -93,13 +203,23 @@ def veredicto(nombre, esperado):
     elegido, ndef, estado, nota = consulta_rxre(nombre)
     if estado != "ok":
         return {"registro": nombre, "esperado": esperado, "estado": estado,
-                "n_definiciones": ndef, "nota": nota}
-    if elegido != esperado:
+                "n_definiciones": ndef, "nota": nota, "unidad": UNIDAD}
+    # La unidad se DECLARA por registro,  no se deduce del numero:  el mismo
+    # entero significa otra cosa segun la unidad,  y el artefacto tiene que
+    # poder distinguirlo sin mirar el codigo que lo produjo.
+    fila = {"registro": nombre, "esperado": esperado, "estado": "ok",
+            "elegido": elegido, "n_definiciones": ndef, "unidad": UNIDAD}
+    if isinstance(elegido, int):
+        fila["byte_offset_derivado"] = elegido * 4
+        fila["derivacion"] = DERIVACION_BYTE
+    else:
         return {"registro": nombre, "esperado": esperado, "estado": "DIVERGE",
                 "elegido": elegido, "n_definiciones": ndef,
-                "delta": (elegido - esperado) if isinstance(elegido, int) else None}
-    return {"registro": nombre, "esperado": esperado, "estado": "ok",
-            "elegido": elegido, "n_definiciones": ndef}
+                "delta": None, "unidad": UNIDAD}
+    if elegido != esperado:
+        fila["estado"] = "DIVERGE"
+        fila["delta"] = elegido - esperado
+    return fila
 
 
 def main():
@@ -109,13 +229,21 @@ def main():
         if a.startswith("--muestra"):
             muestra = int(a.split("=")[1])
     salida = None
+    meta_salida = None
     for a in sys.argv:
         if a.startswith("--salida="):
             salida = a.split("=", 1)[1]
+        if a.startswith("--meta="):
+            meta_salida = a.split("=", 1)[1]
+
+    arbol = verifica_arbol()
 
     vals = diccionario()
     print("DENOMINADOR  %d entradas en %s" % (len(vals), DICC.split("/")[-1]),
           file=sys.stderr)
+    print("RAIZ         %s  (origen: %s)" % (RAIZ, ORIGEN_RAIZ), file=sys.stderr)
+    print("RXRE         %s" % arbol["cli_importado"], file=sys.stderr)
+    print("UNIDAD       %s   byte = valor * 4" % UNIDAD, file=sys.stderr)
 
     nombres = sorted(vals)
     if muestra:
@@ -128,6 +256,8 @@ def main():
 
     destino = open(salida, "w", encoding="utf-8") if salida else sys.stdout
     t0 = time.time()
+    timestamp = datetime.datetime.now().astimezone().isoformat()
+    t_call = sys.argv[:]
     tally = {}
     for i, n in enumerate(nombres, 1):
         esp = vals[n]
@@ -143,6 +273,56 @@ def main():
                   file=sys.stderr)
     destino.close()
     print("FIN", json.dumps(tally, sort_keys=True), file=sys.stderr)
+
+    reg_resolve = os.path.join(RAIZ, "tools/reg_resolve.py")
+    meta = {
+        "artefacto": os.path.abspath(salida) if salida else "stdout",
+        "timestamp": timestamp,
+        "producer_command": " ".join([sys.executable, os.path.basename(__file__)]
+                                     + t_call),
+        "source_root": RAIZ,
+        "source_root_origen": ORIGEN_RAIZ,
+        "source_git_head": _git_head(RAIZ),
+        "source_git_dirty_en_tools": _git_dirty(RAIZ),
+        "rxre_importado": arbol["cli_importado"],
+        "dispatch_root": arbol["dispatch_root"],
+        "reg_resolve_path": reg_resolve,
+        "reg_resolve_sha256": _sha256(reg_resolve),
+        "producer_sha256": _sha256(os.path.abspath(__file__)),
+        "unit_semantics": {
+            "valor_#define": UNIDAD,
+            "byte_offset": DERIVACION_BYTE,
+            "prohibido": "valor >> 2  (produce el indice de OTRO registro)",
+            "fuente": FUENTE_UNIDAD,
+            "alcance": "DERIVED_FROM_ACCESSOR, no observado en hardware",
+        },
+        "generation": "gfx_8_0",
+        "denominador": {"ruta": DICC, "entradas": len(vals), "elegido_por": "el diccionario"},
+        "alcance_ejecutado": len(nombres),
+        "muestra": bool(muestra),
+        "mutacion_oraculo": muta,
+        "segundos": round(time.time() - t0, 1),
+        "reparto": tally,
+        "fallback_byte_offset": {
+            "runtime_path": "DEAD / NOT_REACHED",
+            "disparado": FALLBACK_DEAD["disparado"],
+            "registros_con_chosen_dict": FALLBACK_DEAD["registros"],
+            "por_que": ("chosen es el HIT del #define {file, rel, line, value, "
+                        "text};  byte_offset vive en el objeto out hermano y "
+                        "nunca estuvo dentro de chosen"),
+        },
+        "estado_herramienta": "SELF_TESTED",
+    }
+    if meta_salida:
+        with open(meta_salida, "w", encoding="utf-8") as f:
+            json.dump(meta, f, indent=2, sort_keys=True, ensure_ascii=False)
+            f.write("\n")
+        print("META         %s" % meta_salida, file=sys.stderr)
+    print("PROCEDENCIA  %s" % json.dumps(
+        {k: meta[k] for k in ("source_root", "source_git_head",
+                              "reg_resolve_sha256")}, sort_keys=True),
+        file=sys.stderr)
+    return meta
 
 
 if __name__ == "__main__":
