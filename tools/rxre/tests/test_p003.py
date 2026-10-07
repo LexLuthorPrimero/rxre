@@ -229,6 +229,18 @@ def test_0301_offset_identity_no_collapses():
           "ES el byte offset" not in warnings,
           "la advertencia repite la unidad equivocada")
 
+        # RXRE-012 / hallazgo 1604: el diagnostico viejo decia 'la
+        # representacion pierde LSBs'. Eso era un artefacto de la UNIDAD:
+        # dividir un indice dword por 4 produce el indice de OTRO registro,
+        # no un indice ambiguo. El warning tiene que desdecir ESO, no
+        # limitarse a callar sobre las colisiones.
+        v("T0301 la advertencia prohibe dividir el valor por 4",
+          "NOT a byte offset" in warnings and "dividing it by 4" in warnings,
+          "la advertencia no dice que dividir sea invalido: %s" % warnings[:250])
+        v("T0301 la advertencia nombra el accessor que hace la conversion",
+          "amdgpu_device_rreg" in warnings or "amdgpu_device_wreg" in warnings,
+          "la conversion no esta atribuida a su fuente")
+
 
 # ---------------------------------------------------------------------------
 # TEST T0302 — CONFLICTO DE DEFINICIONES
