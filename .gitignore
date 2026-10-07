@@ -25,8 +25,13 @@ __pycache__/
 *.partial
 *.dmp
 *.core
-core
-core.*
+# MEDIDO 2026-10-07 (RXRE-009): `core` y `core.*` sin ancla ignoran CUALQUIER
+# fichero o directorio llamado `core`, y eso se tragaba los 9 fuentes de
+# `tools/rxre/core/` (target.py, store.py, engine.py...). Un patron de core
+# dumps no puede decidir que el codigo de una herramienta no existe. Se ancla
+# a la raiz del arbol, que es donde cae un dump.
+/core
+/core.*
 
 # Local logs and process output
 *.log

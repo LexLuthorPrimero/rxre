@@ -1,4 +1,26 @@
 #!/usr/bin/env python3
+# CONTRACT: name=reg_resolve
+# CONTRACT: READONLY=yes
+# CONTRACT: WRITES_FILES=no
+# CONTRACT: WRITES_SYSFS=no
+# CONTRACT: MUTATES_CORPUS=no
+# CONTRACT: WRITES_GPU=no
+# CONTRACT: TOUCHES_INTEGRATED=no
+#
+# MEDIDO con RXRE/tools/rxre_contracts.py, no declarado de memoria.  El
+# veredicto fue `READONLY=yes, WRITES_FILES=no`, y las 4 escrituras que
+# tiene se resolvieron a la clase TEMPORAL: 4 caen DENTRO de un `with tempfile...`.
+#
+# Declarar `WRITES_FILES=no` con escrituras dentro no es una contradiccion: es
+# exactamente la clase TEMPORAL de `contract_exec.py`, que existe porque una
+# regex produjo cinco falsos positivos.  Declararlas `yes` seria MENTIR: el
+# validador no puede distinguir un temporal de un fichero del proyecto.
+#
+# `tools/` tenia 3 contratos de 92.  Este bloque no anade comportamiento: hace
+# el comportamiento DECLARABLE, que es la condicion previa a poder usarlo.
+# Sobre la frontera: TOUCHES_INTEGRATED=no, y el campo se declara aunque
+# toolkit.py no lo conozca -- la frontera que no se puede declarar es la que no
+# se puede hacer cumplir (hallazgo 1487).
 """reg_resolve.py — resuelve un registro o campo a su offset, mascara, shift y UNIDAD.
 
 Por qué existe
@@ -165,7 +187,7 @@ def classify_symbol(symbol: str) -> str:
     if symbol.startswith("ix"):
         return "bus_index"
     if symbol.startswith("mm"):
-        return "byte_offset_de_mm"
+        return "dword_index_de_mm"
     if symbol.isupper():
         return "constant_maybe"
     return "unknown"
@@ -221,6 +243,16 @@ def resolve_reg(amd_root: str, gfx: str, reg: str) -> Dict[str, object]:
     base_dir = os.path.join(amd_root, "include", "asic_reg")
     order = [os.path.join(base_dir, "gca", f"{gfx}_d.h"),
              os.path.join(base_dir, "gc", f"{gfx}_offset.h")]
+    # GFX8 borrows GMC 8.1 register definitions. Only accept a borrowed
+    # header when this target's consumer explicitly includes that file.
+    if gfx == "gfx_8_0":
+        consumer = os.path.join(amd_root, "amdgpu", "gmc_v8_0.c")
+        if os.path.isfile(consumer):
+            with open(consumer, "r", encoding="utf-8", errors="replace") as fh:
+                source = fh.read()
+            m = re.search(r'^#include "gmc/(gmc_8_[0-9]+_d\.h)"$', source, re.M)
+            if m:
+                order.append(os.path.join(base_dir, "gmc", m.group(1)))
     if not any(os.path.isfile(p) for p in order):
         order = [p for p in header_index(amd_root).values()
                  if os.path.basename(p).startswith(gfx)]
@@ -258,14 +290,47 @@ def resolve_reg(amd_root: str, gfx: str, reg: str) -> Dict[str, object]:
     out["value"] = hex(val) if val is not None else None
     out["defined_in"] = [h["rel"] for h in hits]
 
-    if classify_symbol(reg) == "byte_offset_de_mm":
-        out["unit"] = "byte offset (contrato del kernel)"
+    # T0302: deteccion de conflicto cuando multiples definiciones tienen
+    # valores distintos.  mmMC_CG_DATAPORT = 0xA21 en un fichero, 0xA32 en otro.
+    # El defecto actual elige el primero por orden alfabetico sin declarar
+    # que hay una colision.  La reparacion minima: declarar CONFLICT=true,
+    # listar CANDIDATES, y dejar CHOSEN=null (no hay regla de seleccion).
+    unique_values: set = set()
+    for h in hits:
+        if h["value"] is not None:
+            unique_values.add(h["value"])
+    if len(unique_values) > 1:
+        out["conflict"] = True
+        out["candidates"] = sorted(hex(v) for v in unique_values)
+        if chosen and gfx == "gfx_8_0" and chosen["rel"].startswith("include/asic_reg/gmc/"):
+            consumer = os.path.join(amd_root, "amdgpu", "gmc_v8_0.c")
+            borrowed = os.path.basename(str(chosen["file"]))
+            with open(consumer, "r", encoding="utf-8", errors="replace") as fh:
+                lines = fh.readlines()
+            include = '#include "gmc/' + borrowed + '"'
+            matches = [i for i, line in enumerate(lines, 1) if line.strip() == include]
+            if matches:
+                out["selection_rule"] = "GFX8 GMC consumer includes the selected register header"
+                out["selection_evidence"] = {
+                    "file": consumer, "line": matches[0], "text": include,
+                    "definition": chosen,
+                }
+                out["excluded"] = other
+        if "selection_evidence" not in out:
+            out["chosen"] = None
+            out["value"] = None
+        out["conflict_note"] = ("different register definitions across lineages; "
+                                "selection is valid only with an explicit include edge")
+
+    if classify_symbol(reg) == "dword_index_de_mm":
+        out["unit"] = "dword register index (GFX8 MMIO consumer)"
         out["unit_evidence"] = UNIT_DECLARATION
-        out["dword_index"] = hex(val >> 2) if val is not None else None
-        out["byte_offset"] = hex(val) if val is not None else None
-        out["warning"] = ("no confundir: el propio valor ES el byte offset. "
-                          "Lo que se multiplica por 4 es el valor de SOC15_REG_OFFSET, "
-                          "que es un indice dword de otra capa.")
+        out["dword_index"] = hex(val) if val is not None else None
+        out["byte_offset"] = hex(val * 4) if val is not None else None
+        out["warning"] = ("value is the dword register index; the MMIO byte "
+                          "offset is value * 4 in amdgpu_device_rreg. "
+                          "The header definition alone does not prove the "
+                          "hardware effect or every PM4 encoding.")
     elif classify_symbol(reg) == "bus_index":
         out["unit"] = "indice de bus indirecto"
         out["warning"] = "NO es un offset de byte ni de MMIO: se escribe en mm*_IND_INDEX"
@@ -390,7 +455,7 @@ def selftest() -> int:
         if got != want:
             failures.append(f"{name}: obtuve {got!r}, esperaba {want!r}")
 
-    check("class.mm", classify_symbol("mmDIDT_IND_INDEX"), "byte_offset_de_mm")
+    check("class.mm", classify_symbol("mmDIDT_IND_INDEX"), "dword_index_de_mm")
     check("class.ix", classify_symbol("ixDIDT_SQ_CTRL0"), "bus_index")
     check("class.ixGC", classify_symbol("ixGC_CAC_CNTL"), "bus_index")
     check("class.mask", classify_symbol("DIDT_SQ_CTRL0__PHASE_OFFSET_MASK"),
@@ -424,8 +489,9 @@ def selftest() -> int:
 
         r = resolve_reg(amd_root, "gfx_8_0", "mmDIDT_IND_INDEX")
         check("reg.valor", r["value"], "0x3280")
-        check("reg.unidad", r["unit"], "byte offset (contrato del kernel)")
-        check("reg.dword", r["dword_index"], "0xca0")
+        check("reg.unidad", r["unit"], "dword register index (GFX8 MMIO consumer)")
+        check("reg.dword", r["dword_index"], "0x3280")
+        check("reg.byte", r["byte_offset"], "0xca00")
         check("reg.definiciones", r["definition_count"], 2)
         check("reg.veredicto", r["verdict"], "DEFINIDO_EN_GENERACION_OBJETIVO")
 
