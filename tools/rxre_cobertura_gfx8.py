@@ -116,6 +116,51 @@ def _git_dirty(raiz):
     return bool(p.stdout.strip())
 
 
+def huella_productor(raiz):
+    """Identidad del PRODUCTOR en este instante.
+
+    MEDIDO 2026-10-07: una corrida de 2.633 registros produjo 1.256 filas
+    `error` seguidas,  desde la fila 1378 hasta el final,  porque otro autor
+    estaba editando tools/reg_resolve.py mientras la corrida lo moria.  El
+    sha se escribia UNA vez  y al FINAL  (api de meta),  asi que decia
+    431b884b  --  que no era ni el de HEAD  ni el del disco.  La procedencia
+    no podia detectslo porque se media despues de que el cambio ocurriera.
+
+    Por eso la huella se toma ANTES de la primera consulta,  se comprueba cada
+    50 filas  y se vuelve a tomar al final.  Si cambia,  la corrida se declara
+    INVALIDADA y no se presenta un reparto como si fuera una medicion.
+    """
+    return {
+        "reg_resolve": _sha256(os.path.join(raiz, "tools/reg_resolve.py")),
+        "rxre": _arbol(raiz),
+        "herramienta": _sha256(os.path.abspath(__file__)),
+    }
+
+
+def _arbol(raiz):
+    """Digest barato del arbol de codigo que RXRE ejecuta:  ruta+tam+mtime."""
+    h = hashlib.sha256()
+    base = os.path.join(raiz, "tools/rxre")
+    for dirpath, dirnames, filenames in os.walk(base):
+        dirnames[:] = sorted(d for d in dirnames
+                             if d not in ("__pycache__", "github", "storage"))
+        for fn in sorted(filenames):
+            if not fn.endswith(".py"):
+                continue
+            p = os.path.join(dirpath, fn)
+            try:
+                st = os.stat(p)
+            except OSError:
+                continue
+            h.update(("%s|%d|%d\n" % (os.path.relpath(p, base), st.st_size,
+                                     st.st_mtime_ns)).encode())
+    return h.hexdigest()
+
+
+DRIFT = {"detectado": False, "primera_fila": None, "inicio": None, "final": None}
+NO_MEDIBLE = ("error", "ERROR", "NO_JSON", "VACIO", "SIN_STATUS")
+
+
 def verifica_arbol():
     """El RXRE importado tiene que ser el de RAIZ.  Falla si no lo es.
 
@@ -258,26 +303,64 @@ def main():
     t0 = time.time()
     timestamp = datetime.datetime.now().astimezone().isoformat()
     t_call = sys.argv[:]
+    DRIFT["inicio"] = huella_productor(RAIZ)
+    print("PRODUCTOR   reg_resolve=%s  rxre=%s"
+          % (DRIFT["inicio"]["reg_resolve"][:12], DRIFT["inicio"]["rxre"][:12]),
+          file=sys.stderr)
     tally = {}
+    no_medibles = 0
     for i, n in enumerate(nombres, 1):
         esp = vals[n]
         if muta:
             esp = esp ^ 0x10          # el oraculo cambia;  rxre no
         r = veredicto(n, esp)
+        if r["estado"] in NO_MEDIBLE:
+            no_medibles += 1
+            r["no_medible"] = True
         tally[r["estado"]] = tally.get(r["estado"], 0) + 1
         destino.write(json.dumps(r, sort_keys=True) + "\n")
         destino.flush()
         if i % 50 == 0:
+            ahora = huella_productor(RAIZ)
+            if ahora != DRIFT["inicio"]:
+                DRIFT["detectado"] = True
+                DRIFT["primera_fila"] = i
+                print("  !! PRODUCTOR CAMBIADO EN VUELO en la fila %d" % i,
+                      file=sys.stderr)
+                print("     inicio %s" % DRIFT["inicio"], file=sys.stderr)
+                print("     ahora  %s" % ahora, file=sys.stderr)
             print("  %4d/%d  %.0f s  %s" % (i, len(nombres), time.time() - t0,
                                               json.dumps(tally, sort_keys=True)),
                   file=sys.stderr)
     destino.close()
+    DRIFT["final"] = huella_productor(RAIZ)
+    if DRIFT["final"] != DRIFT["inicio"]:
+        DRIFT["detectado"] = True
     print("FIN", json.dumps(tally, sort_keys=True), file=sys.stderr)
 
     reg_resolve = os.path.join(RAIZ, "tools/reg_resolve.py")
+    # El estado de una corrida es parte de la MEDICION,  no un comentario.
+    # MEDIDO:  una corrida dio {ok:402, SIN_CHOSEN:975, error:1256}  y su
+    # procedencia describia un productor que no era ninguno de los que
+    # existen.  Sin este campo,  un reparto con 48 % de filas no medibles
+    # se lee como una cifra de cobertura.
+    invalidas = []
+    if DRIFT["detectado"]:
+        invalidas.append("PRODUCTOR_CAMBIO_DURANTE_LA_CORRIDA")
+    if no_medibles:
+        invalidas.append("FILAS_NO_MEDIBLES")
+    if invalidas:
+        print("INVALIDA    %s  ->  esta corrida NO es una medicion"
+              % ", ".join(invalidas), file=sys.stderr)
     meta = {
         "artefacto": os.path.abspath(salida) if salida else "stdout",
         "timestamp": timestamp,
+        "estado": "VALIDA" if not invalidas else "INVALIDADA",
+        "motivos_de_invalidez": invalidas,
+        "filas_no_medibles": no_medibles,
+        "productor_al_inicio": DRIFT["inicio"],
+        "productor_al_final": DRIFT["final"],
+        "productor_cambio_en_fila": DRIFT["primera_fila"],
         "producer_command": " ".join([sys.executable, os.path.basename(__file__)]
                                      + t_call),
         "source_root": RAIZ,
