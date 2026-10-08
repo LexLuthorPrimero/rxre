@@ -475,6 +475,48 @@ def build_pattern(query: str, exact_word: bool) -> re.Pattern:
 
 
 
+def _fast_word_matcher(query: str, exact_word: bool):
+    """FAST PATH A (SEARCH-OPT-003): literal + exact_word=True -> str.find.
+
+    Gate de elegibilidad explícito:
+      · `exact_word is True` (la consulta se interpreta con límites de palabra).
+      · La literalidad es siempre por construcción: el backend ESCAPA la query
+        (build_pattern usa re.escape), luego re.escape(query) matchea la cadena
+        literal query; str.find(query) encuentra exactamente esa cadena. Son
+        equivalentes para toda query, incluidos metacaracteres (^, $, (?=...),
+        (?:...), \\1, a+b) que el backend trata como literales (SEARCH-OPT-001 §3
+        pattern_classes: las clases "regex" del corpus son LITERALES escapadas).
+
+    El único matiz semántico de exact_word es el \\b condicional, que este
+    matcher replica manualmente: \\b se exige en un lado sólo si el carácter
+    adyacente de la query es \\w (isalnum() or "_"), igual que build_pattern.
+    \\w de Python = char alfanumérico Unicode o '_'; el límite falla si el
+    carácter previo/siguiente es eso mismo, no-\\w o fin de línea lo satisface.
+
+    Devuelve `None` cuando el fast path NO es elegible: el llamador usa
+    build_pattern (backend actual, sin cambio de comportamiento).
+    """
+    if not exact_word:
+        return None
+    prefix_b = bool(query[:1].isalnum() or query[:1] == "_")
+    suffix_b = bool(query[-1:].isalnum() or query[-1:] == "_")
+    n = len(query)
+
+    def matches(text: str) -> bool:
+        start = 0
+        while True:
+            pos = text.find(query, start)
+            if pos < 0:
+                return False
+            if prefix_b and pos > 0 and (text[pos - 1].isalnum() or text[pos - 1] == "_"):
+                start = pos + 1
+                continue
+            if suffix_b and pos + n < len(text) and (text[pos + n].isalnum() or text[pos + n] == "_"):
+                start = pos + 1
+                continue
+            return True
+
+    return matches
 
 
 def search(query: str, roots: list[Root], exact_word: bool,
@@ -487,9 +529,17 @@ def search(query: str, roots: list[Root], exact_word: bool,
     contenido cuando lo que se comprobaba era la existencia del fichero.
     """
     filt = re.compile(include) if include else None
-    pat = build_pattern(query, exact_word)
+    # SEARCH-OPT-003: fast path A. `_fast_word_matcher` devuelve un matcher
+    # str.find+boundary si la consulta es elegible (literal + exact_word=True),
+    # y None si no: en ese caso se usa build_pattern, el backend de siempre.
+    fast = _fast_word_matcher(query, exact_word)
+    pat = None if fast is not None else build_pattern(query, exact_word)
     hits: list[dict] = []
     universe: dict[str, dict] = {}
+
+    def matches(text: str) -> bool:
+        """Matcher real por línea: fast path A o regex del backend (fallback)."""
+        return fast(text) if fast is not None else pat.search(text) is not None
 
     for root in roots:
         root.resolve()
@@ -505,7 +555,7 @@ def search(query: str, roots: list[Root], exact_word: bool,
             if filt and not filt.search(logical):
                 continue
             if match_name:
-                if pat.search(logical):
+                if matches(logical):
                     hits.append({
                         "root": root.name,
                         "file": logical,
@@ -514,7 +564,7 @@ def search(query: str, roots: list[Root], exact_word: bool,
                     })
                 continue
             for n, line in enumerate(lines, 1):
-                if pat.search(line):
+                if matches(line):
                     hits.append({
                         "root": root.name,
                         "file": logical,
