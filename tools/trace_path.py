@@ -150,6 +150,118 @@ def parse_chip_enum(path: str) -> Dict[str, int]:
     return out
 
 
+# El simbolo del enum de ASIC que trace_path necesita para evaluar las
+# ramas `chip_id == CHIP_*`.  Es un SIMBOLO, no una ruta: la ruta
+# historica (`include/drm/amd_asic_type.h`) es solo donde ese simbolo
+# se definio en kernels que tienen el arbol include/ completo.
+_ENUM_SYMBOL = "amd_asic_type"
+
+# Linea de definicion: `enum ... asic_type` al principio de linea.
+# Distingue la DEFINICION de los USOS del tipo (miembro de struct,
+# parametro, `switch`): ambos contienen `enum ... asic_type`, pero
+# solo la definicion tiene cuerpo entre llaves con valores CHIP_*,
+# y solo ella produce valores bajo parse_chip_enum.
+_ENUM_DEF_LINE = re.compile(r"^\s*enum\b[^;{]*\b" + _ENUM_SYMBOL + r"\b",
+                            re.MULTILINE)
+
+
+def _enum_def_line_no(text: str, m: "re.Match[str]") -> int:
+    """Linea (1-based) donde empieza el match, en el texto original."""
+    return text.count("\n", 0, m.start()) + 1
+
+
+def _enum_candidates_in(kernel_root: str) -> List[Dict[str, object]]:
+    """Candidatos a definicion de `enum amd_asic_type` en un corpus.
+
+    Recorre el corpus una sola vez.  Un fichero es candidato solo si
+    contiene una linea `enum ... asic_type` cuyo parseo produce al
+    menos un valor CHIP_*: eso separa la DEFINICION de los USOS del
+    tipo, que es la unica forma estatica de no confundir
+    `enum amd_asic_type asic_type;` (miembro de struct, amdgpu.h)
+    con `enum amd_asic_type { CHIP_... };` (la definicion).
+    """
+    cands: List[Dict[str, object]] = []
+    for dirpath, dirnames, filenames in os.walk(kernel_root):
+        # Poda: directorios ocultos y de control de versiones.
+        dirnames[:] = [d for d in dirnames
+                       if not d.startswith(".") and d != "__pycache__"]
+        for fn in filenames:
+            if not (fn.endswith(".h") or fn.endswith(".c")):
+                continue
+            p = os.path.join(dirpath, fn)
+            try:
+                with open(p, "r", encoding="utf-8", errors="replace") as fh:
+                    text = fh.read()
+            except OSError:
+                continue
+            if "asic_type" not in text:
+                continue
+            m = _ENUM_DEF_LINE.search(text)
+            if not m:
+                continue
+            values = parse_chip_enum(p)
+            if not values:
+                continue
+            cands.append({"path": p,
+                          "line": _enum_def_line_no(text, m),
+                          "values": values})
+    return cands
+
+
+def resolve_enum_definition(kernel: str,
+                            symbol: str = _ENUM_SYMBOL,
+                            known_rel: str = ASIC_ENUM_REL
+                            ) -> Dict[str, object]:
+    """Resuelve la definicion de un enum de ASIC dentro de un corpus.
+
+    Contrato (DOGFOOD-002):
+      1. Ruta conocida: si existe y contiene una definicion valida
+         (parseo con >= 1 valor), se usa.  Provenance: ruta historica.
+      2. Si no, se busca la definicion del simbolo en TODO el corpus.
+      3. Un candidato es valido solo si el parseo produce >= 1 valor
+         CHIP_*: rechaza usos del tipo (struct, parametro, switch).
+      4. Exactamente un candidato valido -> RESOLVED.
+      5. Mas de uno -> AMBIGUOUS_SYMBOL (no se elige arbitrariamente).
+      6. Ninguno -> NOT_FOUND (ausencia EN EL CORPUS, no ausencia
+         probada del simbolo).
+      7. Provenance conservada: archivo, linea, simbolo, corpus.
+    """
+    res: Dict[str, object] = {
+        "status": "NOT_FOUND", "symbol": symbol, "corpus": kernel,
+        "known_path": os.path.join(kernel, known_rel),
+        "path": None, "line": None, "values": {}, "candidates": [],
+        "source": None,
+    }
+    # 1. Ruta conocida.
+    known = str(res["known_path"])
+    if os.path.isfile(known):
+        try:
+            with open(known, "r", encoding="utf-8", errors="replace") as fh:
+                text = fh.read()
+        except OSError:
+            text = ""
+        m = _ENUM_DEF_LINE.search(text)
+        if m:
+            vals = parse_chip_enum(known)
+            if vals:
+                res.update({"status": "RESOLVED", "path": known,
+                            "line": _enum_def_line_no(text, m),
+                            "values": vals, "source": "KNOWN_PATH"})
+                return res
+    # 2. Busqueda en el corpus.
+    cands = _enum_candidates_in(kernel)
+    res["candidates"] = [{"path": c["path"], "line": c["line"]}
+                         for c in cands]
+    if len(cands) > 1:
+        res["status"] = "AMBIGUOUS_SYMBOL"
+        return res
+    if len(cands) == 1:
+        res.update({"status": "RESOLVED", "path": cands[0]["path"],
+                    "line": cands[0]["line"], "values": cands[0]["values"],
+                    "source": "CORPUS_SEARCH"})
+    return res
+
+
 def function_bodies(text: str) -> List[Dict[str, object]]:
     """Trocea el fichero en funciones, con su linea y su cuerpo.
 
@@ -505,10 +617,43 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         ap.error("--kernel es obligatorio salvo con --selftest")
     kernel = os.path.abspath(args.kernel)
     root = args.root or os.path.join(kernel, "drivers/gpu/drm/amd")
-    enum = parse_chip_enum(os.path.join(kernel, ASIC_ENUM_REL))
+    # Resolucion del enum de ASIC (DOGFOOD-002): el simbolo se
+    # resuelve DENTRO del corpus, no por una ruta asumida. La ruta
+    # historica se usa cuando existe y es valida; si no, se busca
+    # la definicion en el corpus, rechazando usos del tipo, y se
+    # rechaza la ambiguedad en lugar de elegirla.
+    res = resolve_enum_definition(kernel)
+    if res["status"] != "RESOLVED":
+        if res["status"] == "AMBIGUOUS_SYMBOL":
+            print(f"ERROR  AMBIGUOUS_SYMBOL: la definicion de enum "
+                  f"'{res['symbol']}' se encontro en "
+                  f"{len(res['candidates'])} ficheros del corpus",
+                  file=sys.stderr)
+            for c in res["candidates"]:
+                print(f"  {c['path']}:{c['line']}", file=sys.stderr)
+            print("  No se elige arbitrariamente entre definiciones "
+                  "competidoras.", file=sys.stderr)
+        else:
+            print(f"ERROR  la definicion del enum '{res['symbol']}' "
+                  f"no se encontro en el corpus {kernel}",
+                  file=sys.stderr)
+            print(f"  La ruta conocida {res['known_path']} no existe "
+                  f"o no contiene la definicion.", file=sys.stderr)
+            print("  NOT_FOUND es ausencia en el corpus, no ausencia "
+                  "prohada del simbolo: el corpus puede estar "
+                  "incompleto.", file=sys.stderr)
+        return 2
+    enum = res["values"]
+    if res["source"] == "CORPUS_SEARCH":
+        print(f"NOTA: definicion de '{res['symbol']}' resuelta por "
+              f"busqueda en {res['path']}:{res['line']}"
+              f" (la ruta conocida {ASIC_ENUM_REL} no existe en este "
+              f"corpus)", file=sys.stderr)
     chip_val = enum.get(args.chip)
     if chip_val is None:
-        print(f"ERROR  {args.chip} no esta en {ASIC_ENUM_REL}", file=sys.stderr)
+        print(f"ERROR  {args.chip} no esta en {res['path']}:"
+              f"{res['line']} (definicion de {res['symbol']})",
+              file=sys.stderr)
         return 2
 
     idx = Index(root, [os.path.join(kernel, "include")])
@@ -764,6 +909,93 @@ def selftest() -> int:
               [f["name"] for f in function_bodies(text4)], ["usar"])
 
         check("enum.inexistente", parse_chip_enum(os.path.join(td, "nope.h")), {})
+
+    # --- resolver de definicion de enum (DOGFOOD-002) ---
+    #
+    # El defecto de DOGFOOD-001: trace_path asumia la ruta
+    # `include/drm/amd_asic_type.h` y, cuando el corpus no la
+    # tiene (arbol include/ podado), fallaba con un mensaje que
+    # afirmaba falsamente que el CHIP no estaba en ese fichero.
+    # Seis vectores: la ruta historica, la ruta alternativa, la
+    # ambiguedad, la ausencia, el USO rechazado, y la
+    # coherencia de la provenance.
+    ENUM_SRC = ("enum amd_asic_type {\n"
+                "\tCHIP_POLARIS10,\t/* 15 */\n"
+                "\tCHIP_POLARIS11,\t/* 16 */\n"
+                "\tCHIP_POLARIS12,\t/* 17 */\n"
+                "\tCHIP_VEGAM,\t/* 18 */\n};\n")
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as td:
+        # CASE 1: la ruta conocida existe y contiene la definicion.
+        hist = os.path.join(td, "c1", "include", "drm")
+        os.makedirs(hist)
+        with open(os.path.join(hist, "amd_asic_type.h"),
+                  "w", encoding="utf-8") as fh:
+            fh.write(ENUM_SRC)
+        r1 = resolve_enum_definition(os.path.join(td, "c1"))
+        check("resolver.caso1_ruta_historica", r1["status"], "RESOLVED")
+        check("resolver.caso1_provenance",
+              (r1["path"], r1["source"]),
+              (os.path.join(hist, "amd_asic_type.h"), "KNOWN_PATH"))
+
+        # CASE 2: la ruta conocida NO existe; la definicion esta
+        # en otra ruta del corpus.  Se resuelve, no se falla.
+        alt = os.path.join(td, "c2", "drivers", "gpu", "drm",
+                           "amd", "amdgpu")
+        os.makedirs(alt)
+        with open(os.path.join(alt, "amdgpu.h"), "w",
+                  encoding="utf-8") as fh:
+            fh.write(ENUM_SRC)
+        r2 = resolve_enum_definition(os.path.join(td, "c2"))
+        check("resolver.caso2_ruta_alternativa", r2["status"], "RESOLVED")
+        check("resolver.caso2_provenance",
+              (r2["path"], r2["source"]),
+              (os.path.join(alt, "amdgpu.h"), "CORPUS_SEARCH"))
+
+        # CASE 3: dos definiciones validas -> AMBIGUOUS_SYMBOL.
+        # No se elige arbitrariamente.
+        amb = os.path.join(td, "c3")
+        for rel in ("a/amd_asic_type.h", "b/amd_asic_type.h"):
+            d = os.path.join(amb, os.path.dirname(rel))
+            os.makedirs(d, exist_ok=True)
+            with open(os.path.join(amb, rel), "w",
+                      encoding="utf-8") as fh:
+                fh.write(ENUM_SRC)
+        r3 = resolve_enum_definition(amb)
+        check("resolver.caso3_ambiguo", r3["status"], "AMBIGUOUS_SYMBOL")
+        check("resolver.caso3_no_elige", r3["path"], None)
+
+        # CASE 4: el simbolo esta ausente del corpus.
+        empty = os.path.join(td, "c4")
+        os.makedirs(empty)
+        with open(os.path.join(empty, "otro.h"), "w",
+                  encoding="utf-8") as fh:
+            fh.write("#define X 1\n")
+        r4 = resolve_enum_definition(empty)
+        check("resolver.caso4_ausente", r4["status"], "NOT_FOUND")
+
+        # CASE 5: el fichero contiene el simbolo pero es un USO
+        # (miembro de struct, parametro), no la definicion.
+        # Sin valores CHIP_* extraibles, no es candidato.
+        uso = os.path.join(td, "c5", "drivers", "gpu", "drm",
+                           "amd", "amdgpu")
+        os.makedirs(uso)
+        with open(os.path.join(uso, "amdgpu.h"), "w",
+                  encoding="utf-8") as fh:
+            fh.write("struct amdgpu_device {\n"
+                     "\tenum amd_asic_type\t\tasic_type;\n"
+                     "};\n"
+                     "bool f(enum amd_asic_type t);\n")
+        r5 = resolve_enum_definition(os.path.join(td, "c5"))
+        check("resolver.caso5_rechaza_uso", r5["status"], "NOT_FOUND")
+
+        # CASE 6: la provenance es coherente: la linea que el
+        # resolver reporta contiene la definicion (`enum` y
+        # `asic_type` en ella), no otra linea del fichero.
+        with open(str(r2["path"]), "r", encoding="utf-8") as fh:
+            reported = fh.read().splitlines()[int(str(r2["line"])) - 1]
+        check("resolver.caso6_provenance_coherente",
+              ("enum" in reported) and ("asic_type" in reported), True)
 
     print(f"{NAME} {VERSION} · self-test")
     if failures:

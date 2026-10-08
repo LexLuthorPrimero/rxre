@@ -1,0 +1,12 @@
+trace_path 1.0.0 · chip=CHIP_POLARIS12 valor=17
+  DIRECTA=llamada a funcion   VTABLE=puntero a funcion   MACRO=indireccion
+  VIVA / MUERTA / PARCIAL se refiere a las comparaciones chip_id del cuerpo,
+  NO a si la funcion se ejecuta. NO_CONDICIONAL = sin comparacion contra CHIP_*.
+  poblacion indexada: 970 ficheros .c bajo /home/lucas/Escritorio/RX550-INVESTIGACION/RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd
+  Los veredictos de abajo son sobre ESA poblacion y sobre
+  ningun otro corpus. Leer un veredicto sin este numero es
+  leerlo sin denominador.
+
+  DIRECTA  mmhub_v3_0_1_get_invalidate_req              NO_CONDICIONAL mmhub_v3_0_1.c:82
+
+  ficheros .c indexados: 970
