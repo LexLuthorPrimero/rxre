@@ -475,6 +475,7 @@ def build_pattern(query: str, exact_word: bool) -> re.Pattern:
 
 
 
+
 def _fast_word_matcher(query: str, exact_word: bool):
     """FAST PATH A (SEARCH-OPT-003): literal + exact_word=True -> str.find.
 
