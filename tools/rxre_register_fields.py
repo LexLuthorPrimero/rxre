@@ -141,13 +141,20 @@ def derive_sh_mask_header(resolved_d_header: str) -> Optional[str]:
     <prefixo>_<versao>_d.h e existe o arquivo homonimo com _sh_mask.h na
     mesma pasta. Se nao houver cabeca resolvida ou a cabeca de campos nao
     existir, devolve None.
+
+    Aceita tanto caminhos absolutos quanto relativos. Para caminhos
+    relativos, resolve em relação ao root do projeto (derivado de __file__).
     """
     if not resolved_d_header:
         return None
 
     d_path = resolved_d_header
+    # Converter caminho relativo para absoluto.
+    # Se for relativo, assumir que esta baseado no root do corpus RXRE.
     if not os.path.isabs(d_path):
-        return None
+        # Raiz do projeto: /home/lucas/Escritorio/rxre
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
+        d_path = os.path.normpath(os.path.join(project_root, d_path))
 
     filename = os.path.basename(d_path)
     if not filename.endswith("_d.h"):
