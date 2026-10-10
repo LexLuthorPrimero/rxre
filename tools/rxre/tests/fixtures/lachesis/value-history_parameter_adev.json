@@ -1,0 +1,2310 @@
+{
+  "schema_version": 1,
+  "query": "value-history",
+  "focus": {
+    "id": "v2:frontend:clang-c:parameter:4afbcc267c1671efd7dc",
+    "kind": "parameter",
+    "label": "adev",
+    "locator": {
+      "tier": "T4",
+      "artifact": "t4_proof.json",
+      "kind": "parameter",
+      "label": "adev",
+      "owner_chain": [
+        {
+          "kind": "project",
+          "id": "layered-project:97ae5f16c7687d75210a",
+          "label": "project"
+        },
+        {
+          "kind": "file",
+          "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+          "label": "amdgpu/gmc_v8_0.c"
+        },
+        {
+          "kind": "function",
+          "id": "v2:frontend:clang-c:function:bdbb42d5fb44a31bcc57",
+          "label": "gmc_v8_0_gart_enable"
+        },
+        {
+          "kind": "expression",
+          "id": "v2:frontend:clang-c:body:77bdded0efb896854b32",
+          "label": "adev"
+        }
+      ],
+      "location": {
+        "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+        "start_line": 829,
+        "start_column": 33,
+        "end_line": 829,
+        "end_column": 59
+      }
+    },
+    "location": {
+      "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+      "start_line": 829,
+      "start_column": 33,
+      "end_line": 829,
+      "end_column": 59
+    },
+    "origin": "compiler",
+    "confidence": "exact"
+  },
+  "summary": {
+    "related_value_count": 101,
+    "transition_count": 220
+  },
+  "sections": {
+    "history": [
+      {
+        "id": "v2:frontend:clang-c:body:77bdded0efb896854b32",
+        "kind": "expression",
+        "label": "adev",
+        "locator": {
+          "tier": "T3",
+          "artifact": "t3_body.json",
+          "kind": "expression",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:204febc9c67e7543030c",
+              "label": "gmc_v8_0_hw_init"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 1228,
+            "start_column": 27,
+            "end_line": 1228,
+            "end_column": 31
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 1228,
+          "start_column": 27,
+          "end_line": 1228,
+          "end_column": 31
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "ARGUMENT_BINDS_PARAMETER",
+          "source": "v2:frontend:clang-c:body:77bdded0efb896854b32",
+          "target": "v2:frontend:clang-c:parameter:4afbcc267c1671efd7dc",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": null,
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:body:0042b4703cbb72797781",
+        "kind": "expression",
+        "label": "adev",
+        "locator": {
+          "tier": "T3",
+          "artifact": "t3_body.json",
+          "kind": "expression",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:bdbb42d5fb44a31bcc57",
+              "label": "gmc_v8_0_gart_enable"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 839,
+            "start_column": 26,
+            "end_line": 839,
+            "end_column": 30
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 839,
+          "start_column": 26,
+          "end_line": 839,
+          "end_column": 30
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:4afbcc267c1671efd7dc",
+          "target": "v2:frontend:clang-c:body:0042b4703cbb72797781",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:body:0134f3abd60fba65225e",
+        "kind": "expression",
+        "label": "adev",
+        "locator": {
+          "tier": "T3",
+          "artifact": "t3_body.json",
+          "kind": "expression",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:bdbb42d5fb44a31bcc57",
+              "label": "gmc_v8_0_gart_enable"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 887,
+            "start_column": 46,
+            "end_line": 887,
+            "end_column": 50
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 887,
+          "start_column": 46,
+          "end_line": 887,
+          "end_column": 50
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:4afbcc267c1671efd7dc",
+          "target": "v2:frontend:clang-c:body:0134f3abd60fba65225e",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:body:080b7abdceeaa5945d4f",
+        "kind": "expression",
+        "label": "adev",
+        "locator": {
+          "tier": "T3",
+          "artifact": "t3_body.json",
+          "kind": "expression",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:bdbb42d5fb44a31bcc57",
+              "label": "gmc_v8_0_gart_enable"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 888,
+            "start_column": 44,
+            "end_line": 888,
+            "end_column": 48
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 888,
+          "start_column": 44,
+          "end_line": 888,
+          "end_column": 48
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:4afbcc267c1671efd7dc",
+          "target": "v2:frontend:clang-c:body:080b7abdceeaa5945d4f",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:body:083446228da3010b6ef8",
+        "kind": "expression",
+        "label": "adev",
+        "locator": {
+          "tier": "T3",
+          "artifact": "t3_body.json",
+          "kind": "expression",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:bdbb42d5fb44a31bcc57",
+              "label": "gmc_v8_0_gart_enable"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 836,
+            "start_column": 11,
+            "end_line": 836,
+            "end_column": 15
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 836,
+          "start_column": 11,
+          "end_line": 836,
+          "end_column": 15
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:4afbcc267c1671efd7dc",
+          "target": "v2:frontend:clang-c:body:083446228da3010b6ef8",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:body:47566813d5414dee23c3",
+        "kind": "expression",
+        "label": "adev",
+        "locator": {
+          "tier": "T3",
+          "artifact": "t3_body.json",
+          "kind": "expression",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:bdbb42d5fb44a31bcc57",
+              "label": "gmc_v8_0_gart_enable"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 942,
+            "start_column": 23,
+            "end_line": 942,
+            "end_column": 27
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 942,
+          "start_column": 23,
+          "end_line": 942,
+          "end_column": 27
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:4afbcc267c1671efd7dc",
+          "target": "v2:frontend:clang-c:body:47566813d5414dee23c3",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:body:4dc56f9e59d8347ed664",
+        "kind": "expression",
+        "label": "adev",
+        "locator": {
+          "tier": "T3",
+          "artifact": "t3_body.json",
+          "kind": "expression",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:bdbb42d5fb44a31bcc57",
+              "label": "gmc_v8_0_gart_enable"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 937,
+            "start_column": 37,
+            "end_line": 937,
+            "end_column": 41
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 937,
+          "start_column": 37,
+          "end_line": 937,
+          "end_column": 41
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:4afbcc267c1671efd7dc",
+          "target": "v2:frontend:clang-c:body:4dc56f9e59d8347ed664",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:body:8aa1af63bb509db03312",
+        "kind": "expression",
+        "label": "adev",
+        "locator": {
+          "tier": "T3",
+          "artifact": "t3_body.json",
+          "kind": "expression",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:2115dc0357e61a6d68bc",
+              "label": "amdgpu/amdgpu.h"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:d810988b8e6b6aaebb99",
+              "label": "gmc_v8_0_mc_stop"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/amdgpu.h",
+            "start_line": 1295,
+            "start_column": 43,
+            "end_line": 1295,
+            "end_column": 43
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/amdgpu.h",
+          "start_line": 1295,
+          "start_column": 43,
+          "end_line": 1295,
+          "end_column": 43
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:4afbcc267c1671efd7dc",
+          "target": "v2:frontend:clang-c:body:8aa1af63bb509db03312",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:body:b06282688ec281b39d9f",
+        "kind": "expression",
+        "label": "adev",
+        "locator": {
+          "tier": "T3",
+          "artifact": "t3_body.json",
+          "kind": "expression",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:bdbb42d5fb44a31bcc57",
+              "label": "gmc_v8_0_gart_enable"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 939,
+            "start_column": 37,
+            "end_line": 939,
+            "end_column": 41
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 939,
+          "start_column": 37,
+          "end_line": 939,
+          "end_column": 41
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:4afbcc267c1671efd7dc",
+          "target": "v2:frontend:clang-c:body:b06282688ec281b39d9f",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:body:c04eaa55df0fec49b482",
+        "kind": "expression",
+        "label": "adev",
+        "locator": {
+          "tier": "T3",
+          "artifact": "t3_body.json",
+          "kind": "expression",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:bdbb42d5fb44a31bcc57",
+              "label": "gmc_v8_0_gart_enable"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 941,
+            "start_column": 25,
+            "end_line": 941,
+            "end_column": 29
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 941,
+          "start_column": 25,
+          "end_line": 941,
+          "end_column": 29
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:4afbcc267c1671efd7dc",
+          "target": "v2:frontend:clang-c:body:c04eaa55df0fec49b482",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:body:c37993f0e051383fc073",
+        "kind": "expression",
+        "label": "adev",
+        "locator": {
+          "tier": "T3",
+          "artifact": "t3_body.json",
+          "kind": "expression",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:bdbb42d5fb44a31bcc57",
+              "label": "gmc_v8_0_gart_enable"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 909,
+            "start_column": 44,
+            "end_line": 909,
+            "end_column": 48
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 909,
+          "start_column": 44,
+          "end_line": 909,
+          "end_column": 48
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:4afbcc267c1671efd7dc",
+          "target": "v2:frontend:clang-c:body:c37993f0e051383fc073",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:body:c815754209ba4ca5d7f5",
+        "kind": "expression",
+        "label": "adev",
+        "locator": {
+          "tier": "T3",
+          "artifact": "t3_body.json",
+          "kind": "expression",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:bdbb42d5fb44a31bcc57",
+              "label": "gmc_v8_0_gart_enable"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 943,
+            "start_column": 19,
+            "end_line": 943,
+            "end_column": 23
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 943,
+          "start_column": 19,
+          "end_line": 943,
+          "end_column": 23
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:4afbcc267c1671efd7dc",
+          "target": "v2:frontend:clang-c:body:c815754209ba4ca5d7f5",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:parameter:1cb0fb5ac02039ffd1e1",
+        "kind": "parameter",
+        "label": "adev",
+        "locator": {
+          "tier": "T4",
+          "artifact": "t4_proof.json",
+          "kind": "parameter",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:d7892c083f7d624f8de1",
+              "label": "gmc_v8_0_polaris_mc_load_microcode"
+            },
+            {
+              "kind": "expression",
+              "id": "v2:frontend:clang-c:body:a104d3093973d82e1287",
+              "label": "adev"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 348,
+            "start_column": 47,
+            "end_line": 348,
+            "end_column": 73
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 348,
+          "start_column": 47,
+          "end_line": 348,
+          "end_column": 73
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:1cb0fb5ac02039ffd1e1",
+          "target": "v2:frontend:clang-c:body:8aa1af63bb509db03312",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:parameter:1ffc30cb9e3f9f7e3a42",
+        "kind": "parameter",
+        "label": "adev",
+        "locator": {
+          "tier": "T4",
+          "artifact": "t4_proof.json",
+          "kind": "parameter",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:54d19c81d6e0b1be0fbd",
+              "label": "fiji_update_mc_medium_grain_clock_gating"
+            },
+            {
+              "kind": "expression",
+              "id": "v2:frontend:clang-c:body:8a388523bb00b531a668",
+              "label": "adev"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 1507,
+            "start_column": 54,
+            "end_line": 1507,
+            "end_column": 80
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 1507,
+          "start_column": 54,
+          "end_line": 1507,
+          "end_column": 80
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:1ffc30cb9e3f9f7e3a42",
+          "target": "v2:frontend:clang-c:body:8aa1af63bb509db03312",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:parameter:262077f3ca218b6095e5",
+        "kind": "parameter",
+        "label": "adev",
+        "locator": {
+          "tier": "T4",
+          "artifact": "t4_proof.json",
+          "kind": "parameter",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:6f17d2b7428b0d88ce93",
+              "label": "gmc_v8_0_init_microcode"
+            },
+            {
+              "kind": "expression",
+              "id": "v2:frontend:clang-c:body:6a243695ffbde2bef70e",
+              "label": "adev"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 217,
+            "start_column": 36,
+            "end_line": 217,
+            "end_column": 62
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 217,
+          "start_column": 36,
+          "end_line": 217,
+          "end_column": 62
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:262077f3ca218b6095e5",
+          "target": "v2:frontend:clang-c:body:8aa1af63bb509db03312",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:parameter:2fa40c99553bac8081ea",
+        "kind": "parameter",
+        "label": "adev",
+        "locator": {
+          "tier": "T4",
+          "artifact": "t4_proof.json",
+          "kind": "parameter",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:0795fcb3afa95f0baa04",
+              "label": "gmc_v8_0_set_fault_enable_default"
+            },
+            {
+              "kind": "expression",
+              "id": "v2:frontend:clang-c:body:8aa1af63bb509db03312",
+              "label": "adev"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 737,
+            "start_column": 47,
+            "end_line": 737,
+            "end_column": 73
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 737,
+          "start_column": 47,
+          "end_line": 737,
+          "end_column": 73
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:2fa40c99553bac8081ea",
+          "target": "v2:frontend:clang-c:body:8aa1af63bb509db03312",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:parameter:39036118591bb7de2076",
+        "kind": "parameter",
+        "label": "adev",
+        "locator": {
+          "tier": "T4",
+          "artifact": "t4_proof.json",
+          "kind": "parameter",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:a29edc1ff534f814e757",
+              "label": "gmc_v8_0_process_interrupt"
+            },
+            {
+              "kind": "expression",
+              "id": "v2:frontend:clang-c:body:0e307ebe42a8d49a79ef",
+              "label": "adev"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 1427,
+            "start_column": 39,
+            "end_line": 1427,
+            "end_column": 65
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 1427,
+          "start_column": 39,
+          "end_line": 1427,
+          "end_column": 65
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:39036118591bb7de2076",
+          "target": "v2:frontend:clang-c:body:8aa1af63bb509db03312",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:parameter:4f870fd6a598242358a4",
+        "kind": "parameter",
+        "label": "adev",
+        "locator": {
+          "tier": "T4",
+          "artifact": "t4_proof.json",
+          "kind": "parameter",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:4b47ab72c7793af52a9f",
+              "label": "gmc_v8_0_set_prt"
+            },
+            {
+              "kind": "expression",
+              "id": "v2:frontend:clang-c:body:425704b0e29f5314d99b",
+              "label": "adev"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 766,
+            "start_column": 30,
+            "end_line": 766,
+            "end_column": 56
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 766,
+          "start_column": 30,
+          "end_line": 766,
+          "end_column": 56
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:4f870fd6a598242358a4",
+          "target": "v2:frontend:clang-c:body:8aa1af63bb509db03312",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:parameter:5d9218ce81b6e9e37b10",
+        "kind": "parameter",
+        "label": "adev",
+        "locator": {
+          "tier": "T4",
+          "artifact": "t4_proof.json",
+          "kind": "parameter",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:d245a1c520d634280586",
+              "label": "gmc_v8_0_tonga_mc_load_microcode"
+            },
+            {
+              "kind": "expression",
+              "id": "v2:frontend:clang-c:body:6637888ac6da28371b2a",
+              "label": "adev"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 279,
+            "start_column": 45,
+            "end_line": 279,
+            "end_column": 71
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 279,
+          "start_column": 45,
+          "end_line": 279,
+          "end_column": 71
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:5d9218ce81b6e9e37b10",
+          "target": "v2:frontend:clang-c:body:8aa1af63bb509db03312",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:parameter:5eb511c70f91d805e636",
+        "kind": "parameter",
+        "label": "adev",
+        "locator": {
+          "tier": "T4",
+          "artifact": "t4_proof.json",
+          "kind": "parameter",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:6e91ec7064ffff02feda",
+              "label": "gmc_v8_0_vm_fault_interrupt_state"
+            },
+            {
+              "kind": "expression",
+              "id": "v2:frontend:clang-c:body:8aa1af63bb509db03312",
+              "label": "adev"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 1385,
+            "start_column": 46,
+            "end_line": 1385,
+            "end_column": 72
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 1385,
+          "start_column": 46,
+          "end_line": 1385,
+          "end_column": 72
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:5eb511c70f91d805e636",
+          "target": "v2:frontend:clang-c:body:8aa1af63bb509db03312",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:parameter:776fcf2466dc1be6bc3a",
+        "kind": "parameter",
+        "label": "adev",
+        "locator": {
+          "tier": "T4",
+          "artifact": "t4_proof.json",
+          "kind": "parameter",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:50599be29489599d357f",
+              "label": "gmc_v8_0_flush_gpu_tlb_pasid"
+            },
+            {
+              "kind": "expression",
+              "id": "v2:frontend:clang-c:body:8aa1af63bb509db03312",
+              "label": "adev"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 625,
+            "start_column": 42,
+            "end_line": 625,
+            "end_column": 68
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 625,
+          "start_column": 42,
+          "end_line": 625,
+          "end_column": 68
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:776fcf2466dc1be6bc3a",
+          "target": "v2:frontend:clang-c:body:8aa1af63bb509db03312",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:parameter:7b62d7c494bdf2de594e",
+        "kind": "parameter",
+        "label": "adev",
+        "locator": {
+          "tier": "T4",
+          "artifact": "t4_proof.json",
+          "kind": "parameter",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:6e64691ae6cf0b9e9ed1",
+              "label": "gmc_v8_0_flush_gpu_tlb"
+            },
+            {
+              "kind": "expression",
+              "id": "v2:frontend:clang-c:body:8aa1af63bb509db03312",
+              "label": "adev"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 661,
+            "start_column": 36,
+            "end_line": 661,
+            "end_column": 62
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 661,
+          "start_column": 36,
+          "end_line": 661,
+          "end_column": 62
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:7b62d7c494bdf2de594e",
+          "target": "v2:frontend:clang-c:body:8aa1af63bb509db03312",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:parameter:83811f62433e4d12676f",
+        "kind": "parameter",
+        "label": "adev",
+        "locator": {
+          "tier": "T4",
+          "artifact": "t4_proof.json",
+          "kind": "parameter",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:a869388807a311741785",
+              "label": "gmc_v8_0_gart_disable"
+            },
+            {
+              "kind": "expression",
+              "id": "v2:frontend:clang-c:body:e8035a169a4f03e7a69e",
+              "label": "adev"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 972,
+            "start_column": 35,
+            "end_line": 972,
+            "end_column": 61
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 972,
+          "start_column": 35,
+          "end_line": 972,
+          "end_column": 61
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:83811f62433e4d12676f",
+          "target": "v2:frontend:clang-c:body:8aa1af63bb509db03312",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:parameter:a03066a3785fe58cda9c",
+        "kind": "parameter",
+        "label": "adev",
+        "locator": {
+          "tier": "T4",
+          "artifact": "t4_proof.json",
+          "kind": "parameter",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:75cc6cc9e5b00ad1e87b",
+              "label": "fiji_update_mc_light_sleep"
+            },
+            {
+              "kind": "expression",
+              "id": "v2:frontend:clang-c:body:8aa1af63bb509db03312",
+              "label": "adev"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 1587,
+            "start_column": 40,
+            "end_line": 1587,
+            "end_column": 66
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 1587,
+          "start_column": 40,
+          "end_line": 1587,
+          "end_column": 66
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:a03066a3785fe58cda9c",
+          "target": "v2:frontend:clang-c:body:8aa1af63bb509db03312",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:parameter:cd16ba187849f49d40dd",
+        "kind": "parameter",
+        "label": "adev",
+        "locator": {
+          "tier": "T4",
+          "artifact": "t4_proof.json",
+          "kind": "parameter",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:1f71a7c73613ea659acb",
+              "label": "gmc_v8_0_mc_program"
+            },
+            {
+              "kind": "expression",
+              "id": "v2:frontend:clang-c:body:c0a09ef8b8c8c96b2275",
+              "label": "adev"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 433,
+            "start_column": 33,
+            "end_line": 433,
+            "end_column": 59
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 433,
+          "start_column": 33,
+          "end_line": 433,
+          "end_column": 59
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:cd16ba187849f49d40dd",
+          "target": "v2:frontend:clang-c:body:8aa1af63bb509db03312",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:parameter:dd355868a94d2df9ab47",
+        "kind": "parameter",
+        "label": "adev",
+        "locator": {
+          "tier": "T4",
+          "artifact": "t4_proof.json",
+          "kind": "parameter",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:d810988b8e6b6aaebb99",
+              "label": "gmc_v8_0_mc_stop"
+            },
+            {
+              "kind": "expression",
+              "id": "v2:frontend:clang-c:body:20a96e5870b0ae534f41",
+              "label": "adev"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 170,
+            "start_column": 30,
+            "end_line": 170,
+            "end_column": 56
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 170,
+          "start_column": 30,
+          "end_line": 170,
+          "end_column": 56
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:dd355868a94d2df9ab47",
+          "target": "v2:frontend:clang-c:body:8aa1af63bb509db03312",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:parameter:e6a491d77effd48a3777",
+        "kind": "parameter",
+        "label": "adev",
+        "locator": {
+          "tier": "T4",
+          "artifact": "t4_proof.json",
+          "kind": "parameter",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:e9786e64d333aaeeb63b",
+              "label": "gmc_v8_0_mc_resume"
+            },
+            {
+              "kind": "expression",
+              "id": "v2:frontend:clang-c:body:04aaad453ece3ab97bc1",
+              "label": "adev"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 194,
+            "start_column": 32,
+            "end_line": 194,
+            "end_column": 58
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 194,
+          "start_column": 32,
+          "end_line": 194,
+          "end_column": 58
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:e6a491d77effd48a3777",
+          "target": "v2:frontend:clang-c:body:8aa1af63bb509db03312",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:value:f8e26baa773e8056c9ae",
+        "kind": "variable",
+        "label": "adev",
+        "locator": {
+          "tier": "T4",
+          "artifact": "t4_proof.json",
+          "kind": "variable",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:659959083ca6fe7e8da6",
+              "label": "gmc_v8_0_soft_reset"
+            },
+            {
+              "kind": "expression",
+              "id": "v2:frontend:clang-c:body:f3b9153e99d9cf7a6c83",
+              "label": "ip_block->adev"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 1345,
+            "start_column": 2,
+            "end_line": 1345,
+            "end_column": 45
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 1345,
+          "start_column": 2,
+          "end_line": 1345,
+          "end_column": 45
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:value:f8e26baa773e8056c9ae",
+          "target": "v2:frontend:clang-c:body:8aa1af63bb509db03312",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:body:a104d3093973d82e1287",
+        "kind": "expression",
+        "label": "adev",
+        "locator": {
+          "tier": "T3",
+          "artifact": "t3_body.json",
+          "kind": "expression",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:204febc9c67e7543030c",
+              "label": "gmc_v8_0_hw_init"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 1221,
+            "start_column": 42,
+            "end_line": 1221,
+            "end_column": 46
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 1221,
+          "start_column": 42,
+          "end_line": 1221,
+          "end_column": 46
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "ARGUMENT_BINDS_PARAMETER",
+          "source": "v2:frontend:clang-c:body:a104d3093973d82e1287",
+          "target": "v2:frontend:clang-c:parameter:1cb0fb5ac02039ffd1e1",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": null,
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:body:1154b8309a9fe7785d46",
+        "kind": "expression",
+        "label": "adev",
+        "locator": {
+          "tier": "T3",
+          "artifact": "t3_body.json",
+          "kind": "expression",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:d7892c083f7d624f8de1",
+              "label": "gmc_v8_0_polaris_mc_load_microcode"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 370,
+            "start_column": 2,
+            "end_line": 370,
+            "end_column": 6
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 370,
+          "start_column": 2,
+          "end_line": 370,
+          "end_column": 6
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:1cb0fb5ac02039ffd1e1",
+          "target": "v2:frontend:clang-c:body:1154b8309a9fe7785d46",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:body:2241f2d69995b92a1f40",
+        "kind": "expression",
+        "label": "adev",
+        "locator": {
+          "tier": "T3",
+          "artifact": "t3_body.json",
+          "kind": "expression",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:d7892c083f7d624f8de1",
+              "label": "gmc_v8_0_polaris_mc_load_microcode"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 361,
+            "start_column": 24,
+            "end_line": 361,
+            "end_column": 28
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 361,
+          "start_column": 24,
+          "end_line": 361,
+          "end_column": 28
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:1cb0fb5ac02039ffd1e1",
+          "target": "v2:frontend:clang-c:body:2241f2d69995b92a1f40",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:body:2d4a1c608cdfdbcd28dc",
+        "kind": "expression",
+        "label": "adev",
+        "locator": {
+          "tier": "T3",
+          "artifact": "t3_body.json",
+          "kind": "expression",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:d7892c083f7d624f8de1",
+              "label": "gmc_v8_0_polaris_mc_load_microcode"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 401,
+            "start_column": 18,
+            "end_line": 401,
+            "end_column": 22
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 401,
+          "start_column": 18,
+          "end_line": 401,
+          "end_column": 22
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:1cb0fb5ac02039ffd1e1",
+          "target": "v2:frontend:clang-c:body:2d4a1c608cdfdbcd28dc",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:body:3434d29d559a018cf4c5",
+        "kind": "expression",
+        "label": "adev",
+        "locator": {
+          "tier": "T3",
+          "artifact": "t3_body.json",
+          "kind": "expression",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:d7892c083f7d624f8de1",
+              "label": "gmc_v8_0_polaris_mc_load_microcode"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 376,
+            "start_column": 4,
+            "end_line": 376,
+            "end_column": 8
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 376,
+          "start_column": 4,
+          "end_line": 376,
+          "end_column": 8
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:1cb0fb5ac02039ffd1e1",
+          "target": "v2:frontend:clang-c:body:3434d29d559a018cf4c5",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:body:4254c2db21b00f1ed81b",
+        "kind": "expression",
+        "label": "adev",
+        "locator": {
+          "tier": "T3",
+          "artifact": "t3_body.json",
+          "kind": "expression",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:d7892c083f7d624f8de1",
+              "label": "gmc_v8_0_polaris_mc_load_microcode"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 373,
+            "start_column": 4,
+            "end_line": 373,
+            "end_column": 8
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 373,
+          "start_column": 4,
+          "end_line": 373,
+          "end_column": 8
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:1cb0fb5ac02039ffd1e1",
+          "target": "v2:frontend:clang-c:body:4254c2db21b00f1ed81b",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:body:d4379413dfb5af6a79fd",
+        "kind": "expression",
+        "label": "adev",
+        "locator": {
+          "tier": "T3",
+          "artifact": "t3_body.json",
+          "kind": "expression",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:d7892c083f7d624f8de1",
+              "label": "gmc_v8_0_polaris_mc_load_microcode"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 367,
+            "start_column": 48,
+            "end_line": 367,
+            "end_column": 52
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 367,
+          "start_column": 48,
+          "end_line": 367,
+          "end_column": 52
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:1cb0fb5ac02039ffd1e1",
+          "target": "v2:frontend:clang-c:body:d4379413dfb5af6a79fd",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:body:8a388523bb00b531a668",
+        "kind": "expression",
+        "label": "adev",
+        "locator": {
+          "tier": "T3",
+          "artifact": "t3_body.json",
+          "kind": "expression",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:54d19c81d6e0b1be0fbd",
+              "label": "fiji_update_mc_medium_grain_clock_gating"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 1512,
+            "start_column": 17,
+            "end_line": 1512,
+            "end_column": 21
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 1512,
+          "start_column": 17,
+          "end_line": 1512,
+          "end_column": 21
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:1ffc30cb9e3f9f7e3a42",
+          "target": "v2:frontend:clang-c:body:8a388523bb00b531a668",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:body:6a243695ffbde2bef70e",
+        "kind": "expression",
+        "label": "adev",
+        "locator": {
+          "tier": "T3",
+          "artifact": "t3_body.json",
+          "kind": "expression",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:66774f5fdd1cb3d33364",
+              "label": "gmc_v8_0_sw_init"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 1143,
+            "start_column": 30,
+            "end_line": 1143,
+            "end_column": 34
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 1143,
+          "start_column": 30,
+          "end_line": 1143,
+          "end_column": 34
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "ARGUMENT_BINDS_PARAMETER",
+          "source": "v2:frontend:clang-c:body:6a243695ffbde2bef70e",
+          "target": "v2:frontend:clang-c:parameter:262077f3ca218b6095e5",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": null,
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:body:0b73f98b9635ce2c8432",
+        "kind": "expression",
+        "label": "adev",
+        "locator": {
+          "tier": "T3",
+          "artifact": "t3_body.json",
+          "kind": "expression",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:6f17d2b7428b0d88ce93",
+              "label": "gmc_v8_0_init_microcode"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 242,
+            "start_column": 21,
+            "end_line": 242,
+            "end_column": 25
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 242,
+          "start_column": 21,
+          "end_line": 242,
+          "end_column": 25
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:262077f3ca218b6095e5",
+          "target": "v2:frontend:clang-c:body:0b73f98b9635ce2c8432",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:body:0cccc8eec02d28a265dc",
+        "kind": "expression",
+        "label": "adev",
+        "locator": {
+          "tier": "T3",
+          "artifact": "t3_body.json",
+          "kind": "expression",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:6f17d2b7428b0d88ce93",
+              "label": "gmc_v8_0_init_microcode"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 229,
+            "start_column": 41,
+            "end_line": 229,
+            "end_column": 45
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 229,
+          "start_column": 41,
+          "end_line": 229,
+          "end_column": 45
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:262077f3ca218b6095e5",
+          "target": "v2:frontend:clang-c:body:0cccc8eec02d28a265dc",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      },
+      {
+        "id": "v2:frontend:clang-c:body:0d9713489405fd8ad17d",
+        "kind": "expression",
+        "label": "adev",
+        "locator": {
+          "tier": "T3",
+          "artifact": "t3_body.json",
+          "kind": "expression",
+          "label": "adev",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:54913cd25f2beacc08a1",
+              "label": "amdgpu/gmc_v8_0.c"
+            },
+            {
+              "kind": "function",
+              "id": "v2:frontend:clang-c:function:6f17d2b7428b0d88ce93",
+              "label": "gmc_v8_0_init_microcode"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 262,
+            "start_column": 29,
+            "end_line": 262,
+            "end_column": 33
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 262,
+          "start_column": 29,
+          "end_line": 262,
+          "end_column": 33
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "via": {
+          "kind": "VALUE_FLOWS_TO",
+          "source": "v2:frontend:clang-c:parameter:262077f3ca218b6095e5",
+          "target": "v2:frontend:clang-c:body:0d9713489405fd8ad17d",
+          "confidence": "exact",
+          "context_id": null,
+          "reason": "read",
+          "evidence_ids": []
+        }
+      }
+    ],
+    "transitions": [],
+    "evidence": [],
+    "unresolved": []
+  },
+  "continuations": [
+    {
+      "operation": "expand",
+      "query": "value-history",
+      "focus_id": "v2:frontend:clang-c:parameter:4afbcc267c1671efd7dc",
+      "section": "history",
+      "offset": 40,
+      "omitted_count": 61,
+      "next_node_id": "v2:frontend:clang-c:body:16582b6e7cc23fb3bc6f",
+      "node_id": "v2:frontend:clang-c:body:16582b6e7cc23fb3bc6f",
+      "reason": "budget"
+    },
+    {
+      "operation": "expand",
+      "query": "value-history",
+      "focus_id": "v2:frontend:clang-c:parameter:4afbcc267c1671efd7dc",
+      "section": "transitions",
+      "offset": 0,
+      "omitted_count": 220,
+      "next_node_id": "v2:frontend:clang-c:parameter:4afbcc267c1671efd7dc",
+      "node_id": "v2:frontend:clang-c:parameter:4afbcc267c1671efd7dc",
+      "reason": "budget"
+    },
+    {
+      "operation": "expand",
+      "query": "value-history",
+      "focus_id": "v2:frontend:clang-c:parameter:4afbcc267c1671efd7dc",
+      "section": "evidence",
+      "offset": 0,
+      "omitted_count": 102,
+      "next_node_id": "v2:frontend:clang-c:body:4dc56f9e59d8347ed664",
+      "node_id": "v2:frontend:clang-c:body:4dc56f9e59d8347ed664",
+      "reason": "budget"
+    }
+  ],
+  "budget": {
+    "requested_tokens": 12000,
+    "truncated": true,
+    "omitted": {
+      "history": 61,
+      "transitions": 220,
+      "evidence": 102
+    },
+    "estimator": "serialized-characters/4",
+    "estimated_tokens": 11665
+  }
+}

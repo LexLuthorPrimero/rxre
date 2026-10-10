@@ -1,0 +1,41 @@
+{
+  "_contrato": "La decision §18, en forma que se pueda MUTAR. Si viviera solo en la prosa de la matriz, cambiar PRIMARY=radare2 no detectaria nadie, y §15 exige que exista una mutacion que lo cambie y provoque fallo. Este fichero es el objetivo de esa mutacion.",
+  "_regla": "`primary` debe ser el backend que aporta MAS capacidades medidas con salida parseada. No es una preferencia y no es el mas popular: es el que mas filas de la matriz cierra. Si mañana un backend nuevo cerrara mas filas, este fichero tiene que cambiar, y por eso hay un vector que compara `primary` contra el recuento real.",
+  "primary": "rizin",
+  "secondary": "radare2",
+  "analytical": "NOT_DETERMINED",
+  "basis": {
+    "primary": "rizin cierra 14 capacidades medidas con producer; radare2 cierra 8. Ademas es el unico medido con `rz-bin`, que da inspeccion ESTATICA sin analysis (info/sections/symbols/imports/exports), que es la entrada de la cadena sin depender del estado del analisis.",
+    "secondary": "radare2 es el unico backend MEDIDO que da `binary.cfg` y `binary.callgraph` en JSON (`agfj`, `agCj` -> 84 nodos). rizin 0.7.4 emite ASCII visual en ambos. Ese es su unico motivo para existir aqui.",
+    "analytical": "NOT_DETERMINED, y no `UNAVAILABLE`. No se compilo ni se instalo angr ni rz-ghidra. `import angr` funciona DENTRO del arbol del proyecto porque el directorio clonado se llama `angr` y Python lo toma como namespace package (`angr.__file__` es None); fuera da ModuleNotFoundError. No se comprobo que angr no sirva: se comprobo que no se puede VERIFICAR aqui."
+  },
+  "medido": {
+    "fecha": "2026-10-06",
+    "runtime_rizin": "0.7.4 (Fedora 43)",
+    "runtime_radare2": "5.9.8",
+    "repo_rizin": "d14c3fac4126bc5fbe66e7f3d1660aeab22b01d8 (v0.10.0-dev, branch dev)",
+    "repo_radare2": "008a7a6cd2e5acb8268f65f486760d080f3b107b (master)",
+    "matriz": "tools/rxre/docs/RXRE-004-BACKEND-MATRIX.md"
+  },
+  "capacidades_cerradas_por_backend": {
+    "rizin": 14,
+    "radare2": 8
+  },
+  "recuento_desde_la_matriz_al_principio": {
+    "rizin": 11,
+    "radare2": 7,
+    "por_que_cambio": "La matriz se escribio antes de la medicion de B5. B5 anadio `binary.dataflow` a radare2 como AVAILABLE (su `afvxj` emite JSON VALIDO) y corrigio la razon de rizin a PARTIAL por FORMATO. Los numeros de la prosa se habian quedado viejos y el vector que compara contra el registro los delato. La ETIQUETA de primary no cambio: rizin sigue cerrando mas. Eso es lo que importa de un recuento: si hubiera cambiado el ORDEN, habria que revisar la decision entera.",
+    "estado": "CORREGIDO contra el registro"
+  },
+  "revisado_por_mutacion": "tools/rxre/tests/test_mutations003.py (M_PRIMARY_CAMBIA)",
+  "revisado_por_vector": "tools/rxre/tests/test_dispatch004.py (seccion B7)",
+  "limitaciones": [
+    "El recuento `capacidades_cerradas_por_backend` se compara contra el registro REAL en el vector. Si alguien anade una capacidad a un backend sin actualizar el numero, el vector falla: ese es el punto de que exista.",
+    "Esta decision es sobre lo MEDIDO en esta maquina con estos binarios. No es sobre lo que un backend podria hacer con otro build. `tool_version` y `repository_commit` estan separados por eso."
+  ],
+  "no_decidido": [
+    "compilar rizin 0.10-dev: diferido hasta que exista una pregunta que lo exija (§20)",
+    "instalar angr: NO instalado globalmente",
+    "instalar Ghidra + rz-ghidra: NO instalado; es la ruta de decompilacion y por eso `binary.decompile` sigue sin declararse en ningun backend medido"
+  ]
+}

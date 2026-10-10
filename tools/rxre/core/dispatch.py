@@ -185,6 +185,39 @@ def _b_provenance(a: Dict[str, Any]) -> List[str]:
     return ["--dir", d, "--json"]
 
 
+def _b_defuse(a: Dict[str, Any]) -> List[str]:
+    # `defuse` habla el contrato de lachesis_defuse.py: --intent y
+    # --subject. El sujeto viaja en `target` como en el resto de
+    # capacidades. MEDIDO: el kernel por defecto es `kernelbuild`
+    # (la unica raiz verificada con include/drm completo); `working`
+    # tambien tiene asic_reg, pero `kernelbuild` es la raiz que
+    # RXRE-1629 midio para identidad de registro.
+    # El timeout de la OPERACION no es el del probe: una consulta
+    # de lachesis mide ~65 s, y `def-use` de un registro hace
+    # find-entity + value-history por identidad.
+    argv = ["--intent", a.get("intent", "def-use"),
+            "--subject", a["target"],
+            "--kernel", a.get("kernel") or _kernelbuild(),
+            "--gfx", a.get("gfx", "gfx_8_0"), "--json"]
+    if a.get("ip_block"):
+        argv += ["--ip-block", a["ip_block"]]
+    if a.get("address"):
+        argv += ["--address", str(a["address"])]
+    if a.get("graph"):
+        argv += ["--graph", a["graph"]]
+    elif a.get("corpus"):
+        argv += ["--corpus", a["corpus"]]
+    if a.get("lachesis_bin"):
+        argv += ["--lachesis-bin", a["lachesis_bin"]]
+    if a.get("timeout"):
+        argv += ["--timeout", str(a["timeout"])]
+    if a.get("build_timeout"):
+        argv += ["--build-timeout", str(a["build_timeout"])]
+    if a.get("budget_tokens"):
+        argv += ["--budget-tokens", str(a["budget_tokens"])]
+    return argv
+
+
 def _b_capabilities(_a: Dict[str, Any]) -> List[str]:
     # MEDIDO 2026-10-05: `toolreg.py --json` sin mas se pasa de 400s. Sin
     # `--no-selftest` EJECUTA el self-test de las 220 herramientas, y eso es un
@@ -258,6 +291,15 @@ _reg(Adapter(
     probe=["--self-test"], stage=3,
     summary="Claves de procedencia mas usadas en el arbol.",
     build=_b_provenance))
+
+#: stage 4: primera capacidad respaldada por un EXTERNO invocado
+#: por CLI. El adaptador es nuevo; el registro es el mismo.
+_reg(Adapter(
+    name="defuse", cmd=["rxre/adapters/lachesis_defuse.py"],
+    probe=["--selftest"], stage=4,
+    summary="Flujo de datos interprocedural (def-use) con identidad "
+            "de registro por bloque de IP, via Lachesis por CLI.",
+    build=_b_defuse))
 
 
 def probe_all(timeout: int = 60) -> List[Dict[str, Any]]:
