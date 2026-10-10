@@ -1,0 +1,439 @@
+{
+  "rc": 0,
+  "wall_s": 247.8,
+  "contrato": {
+    "tool": "lachesis_defuse.py",
+    "version": "1.0.0",
+    "operation": "defuse",
+    "intent": "def-use",
+    "subject": "mmATC_L2_CNTL",
+    "layers": {
+      "identity": {
+        "producer": "reg_resolve.py",
+        "status": "resolved",
+        "verdict": "DEFINIDO_EN_GENERACION_OBJETIVO",
+        "note": null,
+        "kernel": "/home/lucas/.rxre-wt/adapter-defuse-1630/RESEARCH/kernelbuild/linux-7.1.3",
+        "gfx": "gfx_8_0",
+        "unit_declaration": {
+          "file": "drivers/gpu/drm/amd/amdgpu_reg_access.c",
+          "symbol": "amdgpu_device_rreg",
+          "quote": "@reg: dword aligned register offset",
+          "operational_check": "reg * 4 en readl(((void __iomem *)adev->rmmio) + (reg * 4))",
+          "consequence": "los offsets mm* son indices dword; el byte offset es offset*4"
+        },
+        "identity_count": 3,
+        "conflict": true,
+        "candidates": [
+          "0x640",
+          "0x800",
+          "0xcd5"
+        ],
+        "selection": {
+          "identity_index": 1,
+          "selected_by": "reg_resolve.py",
+          "rule": "GFX8 GMC consumer includes the selected register header",
+          "evidence": {
+            "file": "/home/lucas/.rxre-wt/adapter-defuse-1630/RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c",
+            "line": 35,
+            "text": "#include \"gmc/gmc_8_1_d.h\"",
+            "definition": {
+              "file": "/home/lucas/.rxre-wt/adapter-defuse-1630/RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/include/asic_reg/gmc/gmc_8_1_d.h",
+              "rel": "include/asic_reg/gmc/gmc_8_1_d.h",
+              "line": 539,
+              "value": 3285,
+              "text": "#define mmATC_L2_CNTL                                                           0xcd5"
+            }
+          }
+        }
+      },
+      "provider": {
+        "producer": "lachesis",
+        "status": "ambiguous",
+        "question": "find-entity",
+        "criteria": {
+          "name": "mmATC_L2_CNTL",
+          "kind": null,
+          "file": null
+        },
+        "summary": null,
+        "budget": null,
+        "match_count": 9
+      },
+      "dataflow": {
+        "producer": "lachesis",
+        "query": "value-history",
+        "status": "per-identity",
+        "detail": "un nodo representativo por identidad; declarado, no silencioso"
+      }
+    },
+    "results": [
+      {
+        "state": "PROVEN",
+        "kind": "register_identity",
+        "symbol": "mmATC_L2_CNTL",
+        "ip_block": "GC",
+        "address": "0x800",
+        "byte_offset": "0x2000",
+        "unidad": "indice dword (byte offset = indice * 4)",
+        "definition_count": 3,
+        "definitions": [
+          {
+            "file": "include/asic_reg/gc/gc_9_0_offset.h",
+            "line": 1132,
+            "value": "0x800",
+            "text": "#define mmATC_L2_CNTL                                                                                  0x0800"
+          },
+          {
+            "file": "include/asic_reg/gc/gc_9_1_offset.h",
+            "line": 1165,
+            "value": "0x800",
+            "text": "#define mmATC_L2_CNTL                                                                                  0x0800"
+          },
+          {
+            "file": "include/asic_reg/gc/gc_9_2_1_offset.h",
+            "line": 1103,
+            "value": "0x800",
+            "text": "#define mmATC_L2_CNTL                                                                                  0x0800"
+          }
+        ],
+        "provider_nodes": [
+          {
+            "node_id": "v2:frontend:clang-c:macro:58c95d3e1d8240ea594e",
+            "kind": "macro",
+            "label": "mmATC_L2_CNTL",
+            "location": {
+              "file": "/home/lucas/.rxre-wt/adapter-defuse-1630/tools/rxre/tests/fixtures/lachesis/corpus-small/include/asic_reg/gc/gc_9_0_offset.h",
+              "start_line": 1132,
+              "start_column": 1,
+              "end_line": 1132,
+              "end_column": 109
+            },
+            "origin": "compiler",
+            "confidence": "exact",
+            "locator_tier": "T4",
+            "union": "clave de definicion (sufijo asic_reg + linea)"
+          },
+          {
+            "node_id": "v2:frontend:clang-c:macro:6f37f5f7682831a4111a",
+            "kind": "macro",
+            "label": "mmATC_L2_CNTL",
+            "location": {
+              "file": "/home/lucas/.rxre-wt/adapter-defuse-1630/tools/rxre/tests/fixtures/lachesis/corpus-small/include/asic_reg/gc/gc_9_1_offset.h",
+              "start_line": 1165,
+              "start_column": 1,
+              "end_line": 1165,
+              "end_column": 109
+            },
+            "origin": "compiler",
+            "confidence": "exact",
+            "locator_tier": "T4",
+            "union": "clave de definicion (sufijo asic_reg + linea)"
+          },
+          {
+            "node_id": "v2:frontend:clang-c:macro:cd2da1491103aca1bc6c",
+            "kind": "macro",
+            "label": "mmATC_L2_CNTL",
+            "location": {
+              "file": "/home/lucas/.rxre-wt/adapter-defuse-1630/tools/rxre/tests/fixtures/lachesis/corpus-small/include/asic_reg/gc/gc_9_2_1_offset.h",
+              "start_line": 1103,
+              "start_column": 1,
+              "end_line": 1103,
+              "end_column": 109
+            },
+            "origin": "compiler",
+            "confidence": "exact",
+            "locator_tier": "T4",
+            "union": "clave de definicion (sufijo asic_reg + linea)"
+          }
+        ],
+        "provider_nodes_without_definition": [],
+        "dataflow": {
+          "state": "NOT_DETERMINED",
+          "causa": "el proveedor reporta historial vacio (related_value_count=0) para el nodo macro v2:frontend:clang-c:macro:58c95d3e1d8240ea594e: una #define es un valor opaco en su modelo, sin def-use. Esto NO es ausencia de flujo de datos: es un limite del modelo del proveedor. Los usos del registro (RREG32/WREG32) son macros y son invisibles para el proveedor (medido en RXRE-1629 caso 3).",
+          "summary": {
+            "related_value_count": 0,
+            "transition_count": 0
+          },
+          "representative_node": "v2:frontend:clang-c:macro:58c95d3e1d8240ea594e",
+          "sampling": "un nodo representativo por identidad"
+        },
+        "provenance": {
+          "identity": {
+            "producer": "reg_resolve.py",
+            "kernel": "/home/lucas/.rxre-wt/adapter-defuse-1630/RESEARCH/kernelbuild/linux-7.1.3",
+            "gfx": "gfx_8_0"
+          },
+          "provider": {
+            "producer": "lachesis",
+            "question": "find-entity"
+          }
+        }
+      },
+      {
+        "state": "PROVEN",
+        "kind": "register_identity",
+        "symbol": "mmATC_L2_CNTL",
+        "ip_block": "GMC",
+        "address": "0xcd5",
+        "byte_offset": "0x3354",
+        "unidad": "indice dword (byte offset = indice * 4)",
+        "definition_count": 5,
+        "definitions": [
+          {
+            "file": "include/asic_reg/gmc/gmc_6_0_d.h",
+            "line": 565,
+            "value": "0xcd5",
+            "text": "#define mmATC_L2_CNTL 0x0CD5"
+          },
+          {
+            "file": "include/asic_reg/gmc/gmc_7_0_d.h",
+            "line": 494,
+            "value": "0xcd5",
+            "text": "#define mmATC_L2_CNTL                                                           0xcd5"
+          },
+          {
+            "file": "include/asic_reg/gmc/gmc_7_1_d.h",
+            "line": 526,
+            "value": "0xcd5",
+            "text": "#define mmATC_L2_CNTL                                                           0xcd5"
+          },
+          {
+            "file": "include/asic_reg/gmc/gmc_8_1_d.h",
+            "line": 539,
+            "value": "0xcd5",
+            "text": "#define mmATC_L2_CNTL                                                           0xcd5"
+          },
+          {
+            "file": "include/asic_reg/gmc/gmc_8_2_d.h",
+            "line": 541,
+            "value": "0xcd5",
+            "text": "#define mmATC_L2_CNTL                                                           0xcd5"
+          }
+        ],
+        "provider_nodes": [
+          {
+            "node_id": "v2:frontend:clang-c:macro:07e2b789f5758e6bc816",
+            "kind": "macro",
+            "label": "mmATC_L2_CNTL",
+            "location": {
+              "file": "/home/lucas/.rxre-wt/adapter-defuse-1630/tools/rxre/tests/fixtures/lachesis/corpus-small/include/asic_reg/gmc/gmc_6_0_d.h",
+              "start_line": 565,
+              "start_column": 1,
+              "end_line": 565,
+              "end_column": 28
+            },
+            "origin": "compiler",
+            "confidence": "exact",
+            "locator_tier": "T4",
+            "union": "clave de definicion (sufijo asic_reg + linea)"
+          },
+          {
+            "node_id": "v2:frontend:clang-c:macro:a427f89a240a98c973d2",
+            "kind": "macro",
+            "label": "mmATC_L2_CNTL",
+            "location": {
+              "file": "/home/lucas/.rxre-wt/adapter-defuse-1630/tools/rxre/tests/fixtures/lachesis/corpus-small/include/asic_reg/gmc/gmc_7_0_d.h",
+              "start_line": 494,
+              "start_column": 1,
+              "end_line": 494,
+              "end_column": 85
+            },
+            "origin": "compiler",
+            "confidence": "exact",
+            "locator_tier": "T4",
+            "union": "clave de definicion (sufijo asic_reg + linea)"
+          },
+          {
+            "node_id": "v2:frontend:clang-c:macro:f5104e13d620e0e2e5b7",
+            "kind": "macro",
+            "label": "mmATC_L2_CNTL",
+            "location": {
+              "file": "/home/lucas/.rxre-wt/adapter-defuse-1630/tools/rxre/tests/fixtures/lachesis/corpus-small/include/asic_reg/gmc/gmc_7_1_d.h",
+              "start_line": 526,
+              "start_column": 1,
+              "end_line": 526,
+              "end_column": 85
+            },
+            "origin": "compiler",
+            "confidence": "exact",
+            "locator_tier": "T4",
+            "union": "clave de definicion (sufijo asic_reg + linea)"
+          },
+          {
+            "node_id": "v2:frontend:clang-c:macro:e5a8d92d166e9bf4bd10",
+            "kind": "macro",
+            "label": "mmATC_L2_CNTL",
+            "location": {
+              "file": "/home/lucas/.rxre-wt/adapter-defuse-1630/tools/rxre/tests/fixtures/lachesis/corpus-small/include/asic_reg/gmc/gmc_8_1_d.h",
+              "start_line": 539,
+              "start_column": 1,
+              "end_line": 539,
+              "end_column": 85
+            },
+            "origin": "compiler",
+            "confidence": "exact",
+            "locator_tier": "T4",
+            "union": "clave de definicion (sufijo asic_reg + linea)"
+          },
+          {
+            "node_id": "v2:frontend:clang-c:macro:66dbda6a0935f3d24175",
+            "kind": "macro",
+            "label": "mmATC_L2_CNTL",
+            "location": {
+              "file": "/home/lucas/.rxre-wt/adapter-defuse-1630/tools/rxre/tests/fixtures/lachesis/corpus-small/include/asic_reg/gmc/gmc_8_2_d.h",
+              "start_line": 541,
+              "start_column": 1,
+              "end_line": 541,
+              "end_column": 85
+            },
+            "origin": "compiler",
+            "confidence": "exact",
+            "locator_tier": "T4",
+            "union": "clave de definicion (sufijo asic_reg + linea)"
+          }
+        ],
+        "provider_nodes_without_definition": [],
+        "dataflow": {
+          "state": "NOT_DETERMINED",
+          "causa": "el proveedor reporta historial vacio (related_value_count=0) para el nodo macro v2:frontend:clang-c:macro:07e2b789f5758e6bc816: una #define es un valor opaco en su modelo, sin def-use. Esto NO es ausencia de flujo de datos: es un limite del modelo del proveedor. Los usos del registro (RREG32/WREG32) son macros y son invisibles para el proveedor (medido en RXRE-1629 caso 3).",
+          "summary": {
+            "related_value_count": 0,
+            "transition_count": 0
+          },
+          "representative_node": "v2:frontend:clang-c:macro:07e2b789f5758e6bc816",
+          "sampling": "un nodo representativo por identidad"
+        },
+        "provenance": {
+          "identity": {
+            "producer": "reg_resolve.py",
+            "kernel": "/home/lucas/.rxre-wt/adapter-defuse-1630/RESEARCH/kernelbuild/linux-7.1.3",
+            "gfx": "gfx_8_0"
+          },
+          "provider": {
+            "producer": "lachesis",
+            "question": "find-entity"
+          }
+        },
+        "native_selection": {
+          "identity_index": 1,
+          "selected_by": "reg_resolve.py",
+          "rule": "GFX8 GMC consumer includes the selected register header",
+          "evidence": {
+            "file": "/home/lucas/.rxre-wt/adapter-defuse-1630/RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c",
+            "line": 35,
+            "text": "#include \"gmc/gmc_8_1_d.h\"",
+            "definition": {
+              "file": "/home/lucas/.rxre-wt/adapter-defuse-1630/RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/include/asic_reg/gmc/gmc_8_1_d.h",
+              "rel": "include/asic_reg/gmc/gmc_8_1_d.h",
+              "line": 539,
+              "value": 3285,
+              "text": "#define mmATC_L2_CNTL                                                           0xcd5"
+            }
+          }
+        }
+      },
+      {
+        "state": "PROVEN",
+        "kind": "register_identity",
+        "symbol": "mmATC_L2_CNTL",
+        "ip_block": "MMHUB",
+        "address": "0x640",
+        "byte_offset": "0x1900",
+        "unidad": "indice dword (byte offset = indice * 4)",
+        "definition_count": 3,
+        "definitions": [
+          {
+            "file": "include/asic_reg/mmhub/mmhub_1_0_offset.h",
+            "line": 1261,
+            "value": "0x640",
+            "text": "#define mmATC_L2_CNTL                                                                                  0x0640"
+          },
+          {
+            "file": "include/asic_reg/mmhub/mmhub_9_1_offset.h",
+            "line": 1270,
+            "value": "0x640",
+            "text": "#define mmATC_L2_CNTL                                                                                  0x0640"
+          },
+          {
+            "file": "include/asic_reg/mmhub/mmhub_9_3_0_offset.h",
+            "line": 1254,
+            "value": "0x640",
+            "text": "#define mmATC_L2_CNTL                                                                                  0x0640"
+          }
+        ],
+        "provider_nodes": [
+          {
+            "node_id": "v2:frontend:clang-c:macro:e90a85d97d21d2c7977a",
+            "kind": "macro",
+            "label": "mmATC_L2_CNTL",
+            "location": {
+              "file": "/home/lucas/.rxre-wt/adapter-defuse-1630/tools/rxre/tests/fixtures/lachesis/corpus-small/include/asic_reg/mmhub/mmhub_1_0_offset.h",
+              "start_line": 1261,
+              "start_column": 1,
+              "end_line": 1261,
+              "end_column": 109
+            },
+            "origin": "compiler",
+            "confidence": "exact",
+            "locator_tier": "T4",
+            "union": "clave de definicion (sufijo asic_reg + linea)"
+          }
+        ],
+        "provider_nodes_without_definition": [
+          {
+            "file": "include/asic_reg/mmhub/mmhub_9_1_offset.h",
+            "line": 1270,
+            "value": "0x640",
+            "causa": "definicion fuera del corpus que el proveedor parseo: no tiene nodo en SU indice. No es una definicion inexistente."
+          },
+          {
+            "file": "include/asic_reg/mmhub/mmhub_9_3_0_offset.h",
+            "line": 1254,
+            "value": "0x640",
+            "causa": "definicion fuera del corpus que el proveedor parseo: no tiene nodo en SU indice. No es una definicion inexistente."
+          }
+        ],
+        "dataflow": {
+          "state": "NOT_DETERMINED",
+          "causa": "el proveedor reporta historial vacio (related_value_count=0) para el nodo macro v2:frontend:clang-c:macro:e90a85d97d21d2c7977a: una #define es un valor opaco en su modelo, sin def-use. Esto NO es ausencia de flujo de datos: es un limite del modelo del proveedor. Los usos del registro (RREG32/WREG32) son macros y son invisibles para el proveedor (medido en RXRE-1629 caso 3).",
+          "summary": {
+            "related_value_count": 0,
+            "transition_count": 0
+          },
+          "representative_node": "v2:frontend:clang-c:macro:e90a85d97d21d2c7977a",
+          "sampling": "un nodo representativo por identidad"
+        },
+        "provenance": {
+          "identity": {
+            "producer": "reg_resolve.py",
+            "kernel": "/home/lucas/.rxre-wt/adapter-defuse-1630/RESEARCH/kernelbuild/linux-7.1.3",
+            "gfx": "gfx_8_0"
+          },
+          "provider": {
+            "producer": "lachesis",
+            "question": "find-entity"
+          }
+        }
+      }
+    ],
+    "limitations": [
+      "el proveedor NO modela bloques de IP ni direcciones: reporta 9 macros homonymas sin agrupar. La agrupacion por (bloque, direccion) la hace la capa NATIVA (reg_resolve); este adaptador solo une las dos capas por clave de definicion.",
+      "la identidad de registro es (bloque de IP, direccion, procedencia), nunca el nombre: el nombre solo no identifica un registro en este driver.",
+      "union parcial: MMHUB/0x640: 2 de 3 definiciones no tienen nodo en el proveedor (include/asic_reg/mmhub/mmhub_9_1_offset.h:1270, include/asic_reg/mmhub/mmhub_9_3_0_offset.h:1254)",
+      "reg_resolve detecta CONFLICTO: 11 definiciones con 3 direcciones distintas ['0x640', '0x800', '0xcd5']. La eleccion nativa (GFX8 GMC consumer includes the selected register header) solo es valida con la arista de include que la sustenta, y se reporta con su evidencia; las demas identidades siguen siendo respuestas validas para su bloque."
+    ],
+    "tools_used": [
+      {
+        "tool": "reg_resolve.py",
+        "rc": 0
+      },
+      {
+        "tool": "lachesis",
+        "question": "find-entity",
+        "rc": 0
+      }
+    ]
+  },
+  "stderr": ""
+}

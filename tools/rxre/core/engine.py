@@ -26,6 +26,7 @@ algo y no sea decorativo:
 """
 from __future__ import annotations
 
+import json
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from core import dispatch
@@ -60,6 +61,32 @@ def _args_de_operacion(op: str, request: Dict[str, Any]) -> Dict[str, Any]:
         "dir": i.get("dir"),
         "timeout": i.get("timeout", 300),
         "probe_timeout": i.get("probe_timeout", 60),
+        # RXRE-1630: `defuse` habla el contrato de
+        # lachesis_defuse.py. Estas entradas viajan al
+        # adaptador sin reinterpretarlas: el adaptador es
+        # quien sabe que significan. `intent` es la
+        # pregunta (symbol/def-use/value-history/
+        # bit-semantics); `graph`/`corpus` son la
+        # precondicion del proveedor; `kernel` la raiz de
+        # la capa nativa; `ip_block`/`address` la
+        # desambiguacion por identidad de registro;
+        # `lachesis_bin` y `budget_tokens` el transporte.
+        # `adapter_timeout` es el presupuesto de la
+        # OPERACION (el subproceso completo), y es distinto
+        # de `timeout`: una operacion `def-use` de un registro
+        # ejecuta find-entity + value-history por identidad,
+        # y una consulta mide ~65 s, con lo que 4 consultas
+        # superan el default generico de 300 s.
+        "intent": i.get("intent"),
+        "ip_block": i.get("ip_block"),
+        "address": i.get("address"),
+        "graph": i.get("graph"),
+        "corpus": i.get("corpus"),
+        "kernel": i.get("kernel"),
+        "lachesis_bin": i.get("lachesis_bin"),
+        "budget_tokens": i.get("budget_tokens"),
+        "build_timeout": i.get("build_timeout"),
+        "adapter_timeout": i.get("adapter_timeout"),
     }
 
 
@@ -106,6 +133,9 @@ Pipelines: Dict[str, List[Dict[str, Any]]] = {
     ],
     "symbol.locate": [
         {"step": "occurrences", "op": "search", "needs": ["target"]},
+    ],
+    "value.defuse": [
+        {"step": "dataflow", "op": "defuse", "needs": ["target"]},
     ],
     "pm4.opcodes": [{"step": "census", "op": "pm4", "needs": []}],
     "provenance.keys": [{"step": "keys", "op": "provenance", "needs": []}],
@@ -219,6 +249,8 @@ def _normaliza_paso(step: str, env: Dict[str, Any], request: Dict[str, Any]
         for n in (d.get("results") or d.get("chain") or []):
             if isinstance(n, dict):
                 res.extend(N.de_arbol_trace(n))
+    elif op == "defuse":
+        res = N.de_defuse(d)
     elif op == "provenance":
         # MEDIDO 2026-10-05: `provenance` SI emite JSON, con forma propia:
         # `{"D1_pct": 85.7, "D1_sin": 6, ..., "tokens": {...}, "claves": {...}}`.
@@ -251,6 +283,33 @@ def _normaliza_paso(step: str, env: Dict[str, Any], request: Dict[str, Any]
     return res
 
 
+def _dedup_por_clave(seq: List[Any]) -> List[Any]:
+    """Deduplica entries de evidence/provenance por su forma
+    canonica. Dos etapas que citan la misma herramienta con
+    el mismo artifacto son UN hecho de procedencia, no dos:
+    duplicar provenance infla artificialmente la confianza
+    que un consumidor podria derivar del conteo."""
+    vista: set = set()
+    out: List[Any] = []
+    for x in seq:
+        clave = (json.dumps(x, sort_keys=True, default=str)
+                 if isinstance(x, dict) else x)
+        if clave not in vista:
+            vista.add(clave)
+            out.append(x)
+    return out
+
+
+def _dedup_str(seq: List[str]) -> List[str]:
+    vista: set = set()
+    out: List[str] = []
+    for x in seq:
+        if x not in vista:
+            vista.add(x)
+            out.append(x)
+    return out
+
+
 def ejecutar_pipeline(cap: str, request: Dict[str, Any]) -> Dict[str, Any]:
     """Ejecuta el pipeline de una capacidad, con estado por etapa.
 
@@ -271,6 +330,21 @@ def ejecutar_pipeline(cap: str, request: Dict[str, Any]) -> Dict[str, Any]:
     resultados: List[Dict[str, Any]] = []
     estado_global = E.ST_OK
     bloqueos: List[str] = []
+    # RXRE-1630: la evidence, la provenance y las limitaciones
+    # que produce UNA ETAPA son parte de la respuesta, no
+    # detalle interno. Hasta aqui el envelope final las
+    # descartaba (evidence solo de la capacidad, provenance
+    # vacia, limitations solo de bloqueos), y el consumidor
+    # de la maquina recibia una caja negra: veia el resultado
+    # pero no que capa lo produjo, con que herramienta, ni
+    # que se habia declarado sobre el. Eso rompe la cadena
+    # de procedencia (§14) en la frontera pipeline. Se
+    # acumulan por etapa y se propagan al envelope final,
+    # deduplicadas: mas informacion de procedencia nunca
+    # fue un error, y ocultarla si lo es.
+    evidencia: List[Dict[str, Any]] = []
+    provenencia: List[Dict[str, Any]] = []
+    limitaciones: List[str] = []
 
     for p in pasos:
         sub = dict(request)
@@ -285,6 +359,9 @@ def ejecutar_pipeline(cap: str, request: Dict[str, Any]) -> Dict[str, Any]:
         env = ejecutar_operacion(p["op"], sub)
         norm = _normaliza_paso(p["step"], env, request)
         resultados.extend(norm)
+        evidencia.extend(env.get("evidence") or [])
+        provenencia.extend(env.get("provenance") or [])
+        limitaciones.extend(env.get("limitations") or [])
         etapas.append({
             "step": p["step"], "op": p["op"], "status": env.get("status"),
             "resultados": len(norm),
@@ -326,11 +403,15 @@ def ejecutar_pipeline(cap: str, request: Dict[str, Any]) -> Dict[str, Any]:
 
     env_out = E.envelope(
         cap, target=tgt, status=estado_global, results=resultados,
-        evidence=[{"kind": "capability", "value": cap,
-                   "resolved_by": [p["op"] for p in pasos],
-                   "resolved_from": request.get("question") or ""}],
-        provenance=[],
-        limitations=bloqueos + ausencias,
+        evidence=_dedup_por_clave(
+            [{"kind": "capability", "value": cap,
+              "resolved_by": [p["op"] for p in pasos],
+              "resolved_from":
+                  request.get("question") or ""}]
+            + evidencia),
+        provenance=_dedup_por_clave(provenencia),
+        limitations=_dedup_str(limitaciones + bloqueos
+                               + ausencias),
     )
     env_out["stages"] = etapas
     return env_out
