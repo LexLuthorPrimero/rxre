@@ -101,6 +101,33 @@ CAPACIDADES: List[Dict[str, Any]] = [
         "limitations": ["no cubre punteros de funcion ni tablas de dispatch"],
     },
     {
+        "capability": "value.defuse",
+        "question": "¿Qué valores definen y consumen esta variable en esta función?",
+        "requires": ["symbol_name"],
+        "resolved_by": ["defuse"],
+        "example": {"operation": "defuse",
+                    "inputs": {"target": "gmc_v8_0_gart_enable"}},
+        "limitations": [
+            "flujo de datos por Lachesis 0.5.3 (AGPL-3.0), invocado "
+            "como proceso externo por CLI: no se vendoriza ni se "
+            "enlaza; la interpretacion de AGPL-3.0 queda pendiente de "
+            "revision legal antes de redistribuir el conjunto",
+            "la identidad de registro es (bloque de IP, direccion): "
+            "la agrupa reg_resolve (nativo); el proveedor reporta "
+            "macros homonymas sin agrupar y el adaptador las agrupa "
+            "por la identidad nativa, nunca por nombre",
+            "limites autodeclarados por el frontend C: "
+            "direct_data_flow: partial, context_sensitivity: none, "
+            "branch_histories: none",
+            "las #define son opacas para el proveedor: sin historial "
+            "def-use; los usos RREG32/WREG32 son macros invisibles",
+            "el presupuesto de respuesta trunca historiales largos: "
+            "el truncamiento se declara con numeros",
+            "semantica de bits de registro: NOT_DETERMINED por "
+            "contrato; la responde register-fields (nativo)",
+        ],
+    },
+    {
         "capability": "pm4.opcodes",
         "question": "¿Qué opcodes PM4 existen y qué campos tienen?",
         "requires": [],
@@ -146,6 +173,7 @@ _PRIORIDAD = [
     "register.writers", "register.readers", "register.uses",
     "register.definition",
     "symbol.callers", "symbol.callgraph", "symbol.locate",
+    "value.defuse",
     "pm4.opcodes", "provenance.keys", "evidence.search",
     "project.capabilities",
 ]
@@ -164,6 +192,7 @@ PISTAS: List[tuple] = [
     ("symbol.callers", r"\b(quien\s+llama|callers?|quien\s+invoca)\b", 3),
     ("symbol.callgraph", r"\b(a\s+que\s+llama|callees?|callgraph)\b", 3),
     ("symbol.locate", r"\b(donde\s+esta|definicion\s+de|locate|localizar)\b", 2),
+    ("value.defuse", r"\b(definen?|consumen?|flujo\s+de\s+datos|def\s*-?use|value[\s-]?history|dataflow)\b", 3),
     ("pm4.opcodes", r"\b(pm4|packet|opcode|opcodes)\b", 3),
     ("provenance.keys", r"\b(provenance|procedencia|claves)\b", 2),
     ("evidence.search", r"\b(evidencia|evidence)\b", 2),
