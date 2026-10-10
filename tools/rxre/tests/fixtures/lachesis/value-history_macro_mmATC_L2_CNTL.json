@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "query": "value-history",
+  "focus": {
+    "id": "v2:frontend:clang-c:macro:33c86a29407961a9285a",
+    "kind": "macro",
+    "label": "mmATC_L2_CNTL",
+    "locator": {
+      "tier": "T4",
+      "artifact": "t4_proof.json",
+      "kind": "macro",
+      "label": "mmATC_L2_CNTL",
+      "owner_chain": [
+        {
+          "kind": "project",
+          "id": "layered-project:97ae5f16c7687d75210a",
+          "label": "project"
+        },
+        {
+          "kind": "file",
+          "id": "v2:frontend:clang-c:file:a16e47a47b9771c4cbc5",
+          "label": "include/asic_reg/mmhub/mmhub_1_0_offset.h"
+        }
+      ],
+      "location": {
+        "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/include/asic_reg/mmhub/mmhub_1_0_offset.h",
+        "start_line": 1261,
+        "start_column": 1,
+        "end_line": 1261,
+        "end_column": 109
+      }
+    },
+    "location": {
+      "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/include/asic_reg/mmhub/mmhub_1_0_offset.h",
+      "start_line": 1261,
+      "start_column": 1,
+      "end_line": 1261,
+      "end_column": 109
+    },
+    "origin": "compiler",
+    "confidence": "exact"
+  },
+  "summary": {
+    "related_value_count": 0,
+    "transition_count": 0
+  },
+  "sections": {
+    "history": [],
+    "transitions": [],
+    "evidence": [
+      {
+        "id": "v2:frontend:clang-c:macro:33c86a29407961a9285a",
+        "kind": "macro",
+        "label": "mmATC_L2_CNTL",
+        "locator": {
+          "tier": "T4",
+          "artifact": "t4_proof.json",
+          "kind": "macro",
+          "label": "mmATC_L2_CNTL",
+          "owner_chain": [
+            {
+              "kind": "project",
+              "id": "layered-project:97ae5f16c7687d75210a",
+              "label": "project"
+            },
+            {
+              "kind": "file",
+              "id": "v2:frontend:clang-c:file:a16e47a47b9771c4cbc5",
+              "label": "include/asic_reg/mmhub/mmhub_1_0_offset.h"
+            }
+          ],
+          "location": {
+            "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/include/asic_reg/mmhub/mmhub_1_0_offset.h",
+            "start_line": 1261,
+            "start_column": 1,
+            "end_line": 1261,
+            "end_column": 109
+          }
+        },
+        "location": {
+          "file": "/home/lucas/.rxre-wt/audit-reuse/experiment/corpus-small/include/asic_reg/mmhub/mmhub_1_0_offset.h",
+          "start_line": 1261,
+          "start_column": 1,
+          "end_line": 1261,
+          "end_column": 109
+        },
+        "origin": "compiler",
+        "confidence": "exact"
+      }
+    ],
+    "unresolved": []
+  },
+  "continuations": [],
+  "budget": {
+    "requested_tokens": 12000,
+    "truncated": false,
+    "omitted": {},
+    "estimator": "serialized-characters/4",
+    "estimated_tokens": 488
+  }
+}

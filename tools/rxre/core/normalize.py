@@ -149,6 +149,48 @@ def de_registro(d: Dict[str, Any]) -> List[Dict[str, Any]]:
     return out
 
 
+def de_defuse(d: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """`lachesis_defuse.py --json` -> una fila por resultado.
+
+    El estado epistemico del adaptador (`state`) viaja como
+    `status` del resultado normalizado y en `raw.state`. Cuando el
+    estado es una ausencia acotada (PROVEN_ABSENT_*), `raw` lleva
+    ademas `verdict`, para que la regla de ausencia acotada del
+    pipeline (`engine._es_ausencia_acotada`) la reconozca: esa
+    ausencia es de DEFINICION en asic_reg (con busqueda exhaustiva
+    como evidencia), no de hardware, y el envelope la trata como
+    tal en vez de como un hallazgo.
+    """
+    out = []
+    for r in (d.get("results") or []):
+        estado = str(r.get("state") or "NOT_DETERMINED")
+        raw = dict(r)
+        if estado.startswith("PROVEN_ABSENT"):
+            raw.setdefault("verdict", estado)
+        loc = r.get("location") or {}
+        prov = r.get("provenance") or {}
+        productor = prov.get("identity", {}).get("producer") \
+            or prov.get("producer") or "lachesis"
+        lim = ["estado epistemico: %s (productor: %s)"
+               % (estado, productor)]
+        lim.extend(r.get("limitations") or [])
+        out.append(resultado(
+            "defuse_%s" % (r.get("kind") or "resultado"),
+            r.get("label") or r.get("symbol")
+            or r.get("subject") or "?",
+            tool="lachesis_defuse.py", source="lachesis",
+            location={"file": loc.get("file"),
+                      "line": loc.get("start_line")},
+            tool_version=d.get("version", ""),
+            entrada={"intent": d.get("intent"),
+                     "subject": d.get("subject")},
+            status=estado.lower(),
+            raw=raw,
+            limitations=lim,
+        ))
+    return out
+
+
 def de_uso_registro(hit: Dict[str, Any], consulta: str) -> Dict[str, Any]:
     """Una fila de busqueda clasificada como uso de registro por su patron.
 
