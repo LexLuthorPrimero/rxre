@@ -239,6 +239,52 @@ _r = rx([{"op": "record", "kind": "note", "status": "PROVEN",
 v("[research] y PROVEN con refs SI se acepta (la lista, no cada combinacion)",
   _r[0].get("status") == "ok", _r[0].get("status"))
 
+# MEDIDO (RXRE-1644): los vectores de arriba prueban refs VACIOS (se rechazan)
+# y refs VALIDOS `res_` (se aceptan). Faltaban los otros dos casos que el
+# contrato enumera, y por eso dos mutadores SOBREVIVIAN:
+#
+#   `m_refs_invalidos_aceptados` vacia `malos` en `store.registrar_*`: acepta
+#   refs que NO existen. La suite nunca citaba uno inventado.
+#   `m_edge_ref_invalido` rompe la rama `edge:` de `store.ref_existe`: rechaza
+#   TODO `edge:` valido. La suite nunca citaba una arista (`PREFIJOS_REF` tiene
+#   TRES espacios: `res_`, `op_`, `edge:`).
+#
+# `refs_invalidos` comprueba EXISTENCIA, no solo forma. Los dos vectores de
+# abajo lo atan por la superficie publica.
+from core import store as S  # noqa: E402  (mismo import que la seccion (d))
+_c = S.conectar(DB)
+try:
+    S.anadir_edge(_c, "VM_CONTEXT0_CNTL", "writes", "gfx_v8_0.c:1234",
+                  status="observed", scope="linux-7.1.3",
+                  tool="evidence_search.py")
+    _edge_ref = S.ref_de_edge("writes", "VM_CONTEXT0_CNTL", "gfx_v8_0.c:1234")
+    v("[research] setup: la arista recien creada existe y es citable",
+      S.ref_existe(_c, _edge_ref), _edge_ref)
+finally:
+    _c.close()
+
+# (i) Un `edge:` REAL se ACEPTA. Es el tercer espacio citable, y el que hacia
+#     incitable la parte mas valiosa del grafo (RXRE-005, D5).
+_r = rx([{"op": "record", "kind": "note", "status": "PROVEN", "session": SES,
+          "target": TGT, "refs": [_edge_ref],
+          "text": "N2: la arista apunta al mismo escritor"}], db=DB)
+v("[research] un ref `edge:` VALIDO se ACEPTA (los 3 espacios son citables)",
+  _r[0].get("status") == "ok", (_r[0].get("status"), _r[0].get("limitations")))
+
+# (ii) Un ref que NO existe se RECHAZA: la comprobacion es de EXISTENCIA, no
+#      de forma. El mutador vacia `malos` y sin este vector no se ve.
+_r = rx([{"op": "record", "kind": "claim", "status": "PARTIAL", "session": SES,
+          "target": TGT, "refs": ["res_este_resultado_no_existe_000000"],
+          "text": "C3: cita un ref inventado"}], db=DB)
+v("[research] un ref que NO existe se RECHAZA (existencia, no forma)",
+  _r[0].get("status") == "blocked", _r[0].get("status"))
+v("[research] y el motivo nombra el ref que no existe",
+  "res_este_resultado_no_existe_000000"
+  in json.dumps(_r[0].get("limitations") or [])
+  + json.dumps(_r[0].get("rechazo") or {}),
+  (_r[0].get("limitations"),
+   (_r[0].get("rechazo") or {}).get("refs_rechazados")))
+
 # gap_kind solo para hypothesis/claim (§8)
 _r = rx([{"op": "record", "kind": "next_action", "status": "OPEN",
          "session": SES, "text": "x", "gap_kind": "HUECO_DE_CONEXION"}], db=DB)
@@ -309,10 +355,12 @@ v("[checkpoint] y el motivo distingue 'no hay nada' de 'no coincide el filtro'",
 from core import store as S  # noqa: E402
 _c = S.conectar(DB)
 try:
-    # 6 sembradas + 1 `note` PROVEN que el vector anterior grabo con exito.
+    # 6 sembradas + 1 `note` PROVEN que el vector anterior grabo con exito
+    # + 1 `note` PROVEN que cita la arista (RXRE-1644). Los rechazos no dejan
+    # fila, asi que la cuenta es la de las aceptadas.
     v("[research] `research` existe como tabla propia y solo contiene lo "
       "escrito por esta sesion",
-      _c.execute("SELECT COUNT(*) FROM research").fetchone()[0] == 7,
+      _c.execute("SELECT COUNT(*) FROM research").fetchone()[0] == 8,
       _c.execute("SELECT COUNT(*) FROM research").fetchone()[0])
     v("[research] y las 6 rechazadas NO dejaron fila (un rechazo no es un hueco)",
       _c.execute("SELECT COUNT(*) FROM research WHERE text LIKE '%refs%' "
@@ -326,7 +374,7 @@ try:
                                 "WHERE session=?", (SES,)).fetchone()[0]
     results_count = _c.execute("SELECT COUNT(*) FROM results").fetchone()[0]
     v("[research] las entradas NO estan en `results` (interpretacion != evidencia)",
-      research_count == 7 and results_count >= 36,
+      research_count == 8 and results_count >= 36,
       "research=%d entries con kind/session, results=%d registros de evidencia"
       % (research_count, results_count))
     v("[research] las entradas guardan REFS por id, no copias (hypothesis)",

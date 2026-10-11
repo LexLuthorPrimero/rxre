@@ -70,6 +70,26 @@ def _pct_de(r):
     return None
 
 
+def _sin_de(r):
+    """El `sin` (recuento absoluto de ficheros que NO cumplen) de una fila.
+
+    RXRE-1644: el `pct` es un porcentaje REDONDEADO y ata el VALOR; el `sin`
+    ata el DENOMINADOR, que es lo que cambio cuando se anadieron documentos al
+    arbol (n: 7 -> 9). Un `pct` sin su recuento no distingue "crecio el arbol"
+    de "cambio la disciplina": 85.7 -> 88.9 podria ser que 6 de 7 pasaron a 8
+    de 9 (mismo defecto) o que 6 de 7 pasaron a 8 de 9 por OTRA cosa. El `sin`
+    separa las dos.
+
+        un porcentaje sin su recuento no dice si crecio el arbol o la disciplina
+    """
+    if isinstance(r, dict) and isinstance(r.get("sin"), int):
+        return r["sin"]
+    val = r.get("value") if isinstance(r, dict) else None
+    if isinstance(val, dict) and isinstance(val.get("sin"), int):
+        return val["sin"]
+    return None
+
+
 def check(nombre: str, sec: Dict[str, Any], rq: Dict[str, Any],
           env: Dict[str, Any]) -> None:
     """Comprueba un caso contra su EXPECT y su NOT_EXPECT."""
@@ -169,6 +189,14 @@ def check(nombre: str, sec: Dict[str, Any], rq: Dict[str, Any],
             pcts = [p for p in pcts if isinstance(p, (int, float))]
             v("%s: pct medidos == %s" % (nombre, want), pcts == sorted(want),
               pcts)
+        elif k == "sin_valores":
+            # RXRE-1644: ata el DENOMINADOR. Si el arbol gana documentos, el
+            # `sin` de cada clave sube o se queda; si alguien cambia la
+            # disciplina, cambia el `sin`. Un `pct` solo no separa esos dos.
+            sins = sorted(s for s in (_sin_de(r) for r in env.get("results", []))
+                          if isinstance(s, int))
+            v("%s: sin medidos == %s" % (nombre, want), sins == sorted(want),
+              sins)
         elif k == "sin_capability":
             v("%s: sin capacidad" % nombre,
               env.get("capability_resolution", {}).get("resolved") is None,

@@ -413,6 +413,23 @@ for _q, _esp in _CASOS_RESUELVEN:
       _env.get("status") == "ok" and len(_env.get("results", [])) >= 1,
       "%s (%d resultados)" % (_env.get("status"), len(_env.get("results", []))))
 
+# --- 9c. EL TOPE max_hits TOPA DE VERDAD (RXRE-1644) --------------------
+# MEDIDO: `search` aplica el tope en `_busqueda` (commands/handlers.py) y
+# DECLARA el recorte. El bucle de arriba comprueba `>= 1`, no `<= max_hits`,
+# asi que el mutador `m_max_hits_no_limita` -- que COMENTA el recorte --
+# sobrevivia: `search` seguia cumpliendo el vector devolviendo los 35.
+# VM_CONTEXT0_CNTL tiene 35 coincidencias en el corpus, asi que pedir 3 y
+# recibir 35 es exactamente el defecto que el vector tiene que separar.
+_tope, _ = _H.HANDLERS["search"]({"target": "VM_CONTEXT0_CNTL",
+                                  "max_hits": 3, "timeout": 300,
+                                  "probe_timeout": 60})
+_nt = len(_tope.get("results", []))
+v("el tope max_hits RECORTA los resultados de la etapa (3 pedidos, <= 3)",
+  1 <= _nt <= 3, _nt)
+v("y el recorte se DECLARA en limitations (un recorte en silencio es peor)",
+  any("se muestran" in l for l in (_tope.get("limitations") or [])),
+  _tope.get("limitations"))
+
 # Y para un nombre de FICHERO, la comprobacion es que el fichero existe, con la
 # via que corresponde. Un `empty` de `search` sobre un nombre de fichero no es un
 # fallo del extractor: es que se le pidio a una herramienta de texto que
