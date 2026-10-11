@@ -30,6 +30,7 @@ import io
 import json
 import os
 import shutil
+import signal
 import sys
 import tempfile
 from typing import Callable, Dict, List, Tuple
@@ -51,6 +52,53 @@ def _leer(p: str) -> str:
 def _escribir(p: str, t: str) -> None:
     with open(p, "w", encoding="utf-8") as fh:
         fh.write(t)
+
+
+# --- RXRE-1645: interrumpir a mitad de mutacion dejaba el fichero MUTADO.
+# El `finally` del bucle NO corre con SIGTERM (Python no instala handler para
+# esa senal) ni con SIGKILL. MEDIDO: un `test_mutations003` matado por timeout
+# dejo `commands/handlers.py` con la mutacion `m_limitations_str` aplicada; el
+# arbol quedo con codigo falso y CUALQUIER medicion posterior habria partido de
+# un estado invalido (§01: un error que invalida conocimiento).
+#
+# Mientras el bucle no corre, el fichero en curso vive en `_EN_CURSO`. Un
+# handler de SIGTERM/SIGINT restaura antes de morir. SIGKILL sigue siendo
+# imposible de interceptar: por eso el backup `.backup` y el propio git siguen
+# siendo la ultima red.
+_EN_CURSO: Dict[str, str] = {}
+
+
+def _restaurar_todo() -> List[str]:
+    restaurados = []
+    for p, orig in list(_EN_CURSO.items()):
+        try:
+            _escribir(p, orig)
+            restaurados.append(p)
+        except Exception:
+            pass
+    _EN_CURSO.clear()
+    return restaurados
+
+
+def _instalar_limpieza() -> None:
+    def _handler(signum, frame):
+        restaurados = _restaurar_todo()
+        sys.stdout.flush()
+        if restaurados:
+            sys.stderr.write(
+                "\nINTERRUMPIDO (senal %d): restaurado(s) %d fichero(s) "
+                "mutado(s)\n" % (signum, len(restaurados)))
+            for p in restaurados:
+                sys.stderr.write("   " + p + "\n")
+        sys.stderr.flush()
+        # 128+senal: distingue interrupcion de fallo real del contrato.
+        os._exit(128 + signum)
+
+    for s in (signal.SIGTERM, signal.SIGINT):
+        try:
+            signal.signal(s, _handler)
+        except (ValueError, OSError):
+            pass
 
 
 # --- Los mutadores. Cada uno recibe la ruta de un fichero y devuelve True si
@@ -802,6 +850,7 @@ MUTACIONES_CAMPO = [
 ]
 
 def main() -> int:
+    _instalar_limpieza()
     print("MUTACIONES CONTRACTUALES -- RXRE-003 + RXRE-004")
     print()
     sobrevividas = []
@@ -811,6 +860,7 @@ def main() -> int:
     for nombre, rel, mut, suite in entrada:
         ruta = os.path.join(PKG, rel)
         orig = _leer(ruta)
+        _EN_CURSO[ruta] = orig
         try:
             if not mut(ruta):
                 # §14: MUTATOR_INVALID no es supervivencia. Un mutador que no
@@ -828,6 +878,7 @@ def main() -> int:
                 sobrevividas.append(nombre)
         finally:
             _escribir(ruta, orig)
+            _EN_CURSO.pop(ruta, None)
 
     print()
     print("mutaciones aplicadas: %d de %d   invalidos: %d"

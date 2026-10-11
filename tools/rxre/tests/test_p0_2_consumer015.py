@@ -444,9 +444,13 @@ def main():
         rr = rxre(sym)
         cons = sorted(os.path.relpath(p, AMD) for p in tus
                       if sym in usa_por_tu[p])
+        # RXRE-1646: reg_resolve emite `conflict` (por desacuerdo de VALORES),
+        # NO `semantic_conflict` ni `value_disagreement`. Leer una clave que
+        # nunca existio hacia que la medicion fuese siempre False y la
+        # asercion de abajo IMPOSIBLE de pasar: este test nacio en rojo.
         row = {"rxre_verdict": rr.get("verdict"),
-               "rxre_value_disagreement": bool(rr.get("value_disagreement")),
-               "rxre_semantic_conflict": bool(rr.get("semantic_conflict")),
+               "rxre_conflict": bool(rr.get("conflict")),
+               "rxre_candidates": rr.get("candidates"),
                "rxre_definition_count": rr.get("definition_count"),
                "modelo_consumers": cons}
         delta[sym] = row
@@ -454,8 +458,11 @@ def main():
         for k, x in row.items():
             print("      %-24s %s" % (k, x))
     print()
+    # reg_resolve declara `conflict` por desacuerdo de VALORES, sin mirar
+    # consumer: por eso marca este caso, que el modelo consumer-aware NO
+    # considera conflicto semantico. La divergencia ES el objeto del test.
     v("reg_resolve declara conflicto en el caso que no lo es",
-      delta["mmMC_CG_DATAPORT"]["rxre_semantic_conflict"] is True)
+      delta["mmMC_CG_DATAPORT"]["rxre_conflict"] is True)
     v("y no ve el #define que la propia TU lleva para mmMP0PUB_IND_INDEX "
       "(2 definiciones reales,  contadas por el: 1)",
       delta["mmMP0PUB_IND_INDEX"]["rxre_definition_count"] == 1,
