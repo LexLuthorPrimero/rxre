@@ -16,8 +16,11 @@ import json
 import os
 import sys
 
-# Ensure tools/rxre is on the path
-RXRE_ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
+# Ensure tools/rxre is on the path.  RXRE-1645: `__file__` es
+# tools/rxre/tests/test_p004.py, asi que UN solo ".." da tools/rxre; con dos
+# daba tools/ y `from core...` moria con ModuleNotFoundError.  Coincide con el
+# idioma de test_p003/test_p005 y con la linea ~312 de este mismo fichero.
+RXRE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, RXRE_ROOT)
 
 from core.target import (
