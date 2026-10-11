@@ -270,7 +270,7 @@ def resolver(texto: str) -> Dict[str, Any]:
         if re.search(rx, t):
             punt.setdefault(cap, []).append(peso)
     if not punt:
-        return {"resolved": "cap.inventada", "candidates": [],
+        return {"resolved": None, "candidates": [],
                 "reason": "ninguna intencion del catalogo casa con el enunciado",
                 "options": [c["capability"] for c in disponibles()]}
     # El peso se SUMA por coincidencia, y la especificidad rompe el empate.

@@ -375,9 +375,14 @@ def provenance(args: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
             if k.endswith("_pct") and isinstance(vv, (int, float)):
                 filas.append({"clave": k[:-4], "pct": vv,
                               "sin": d.get(k[:-4] + "_sin")})
-        lim_pct = ("`prov.py --json` devuelve PORCENTAJES de claves que cumplen "
+        # RXRE-1644: `lim_pct` tiene que ser una LISTA. Estaba escrita como
+        # str y el envelope hace `list(limitations or [])`, que sobre un str
+        # da sus CARACTERES: la limitacion salia como 163 elementos de una
+        # letra, no como una frase. `limitations` es `List[str]` en el
+        # contrato del envelope; este camino lo violaba en silencio.
+        lim_pct = ["`prov.py --json` devuelve PORCENTAJES de claves que cumplen "
                    "el contrato, no un recuento de apariciones. Para el "
-                   "recuento, `rxre provenance` usa `prov.py --claves`.")
+                   "recuento, `rxre provenance` usa `prov.py --claves`."]
     else:
         for ln in r["stdout"].splitlines():
             pp = ln.split(None, 1)

@@ -344,13 +344,40 @@ if _cls and e_ev.get("results"):
 v("la clasificacion trae razones", bool((_cls or {}).get("reasons")),
   (_cls or {}).get("reasons"))
 
+# --- 15. `limitations` ES List[str], NO UN STRING TROCEADO --------------
+# MEDIDO (RXRE-1644): la rama JSON del handler de `provenance` puso la
+# limitacion en un `str` y el envelope hace `list(limitations or [])`. Sobre
+# un str eso da sus CARACTERES: la frase salia como 163 elementos de una
+# letra. El contrato del envelope dice `limitations: List[str]`, y ninguna
+# suite ejecutaba el op `provenance`, asi que el defecto paso inadvertido.
+#
+#     un str troceado en letras no es una lista de limitaciones
+#
+# El vector lo ata por la superficie publica (CLI -> envelope), que es donde
+# un consumidor lo veria.
+
+_rcp, e_prov = jrun(["provenance"])
+v("`provenance` responde con envelope",
+  _rcp == 0 and e_prov.get("status") in (E.ST_OK, E.ST_EMPTY),
+  (e_prov.get("status"), _rcp))
+_lp = e_prov.get("limitations")
+v("las limitations de `provenance` son frases, no caracteres sueltos",
+  all(isinstance(x, str) and len(x) > 1 for x in (_lp or [])), _lp)
+# Y el vector tiene que EJERCITAR la rama que fallaba: si `prov.py` cayera al
+# camino de texto, `limitations` seria [] y el vector de arriba pasaria sin
+# mirar nada. Aqui se exige que la limitacion exista (la rama JSON es la de
+# por defecto), para que el vector discriminante no sea vacuo.
+v("la rama JSON de `provenance` produce su limitacion (el vector no es vacuo)",
+  bool(_lp), _lp)
+
 if fails:
     print("self-test FALLA (%d)" % len(fails))
     for f in fails:
         print("   " + f)
     sys.exit(1)
-print("self-test OK (14 grupos: forma del envelope, verificacion por ejecucion, "
+print("self-test OK (15 grupos: forma del envelope, verificacion por ejecucion, "
       "empty != ausencia, blocked != empty, 4 codigos distintos, unidad del "
       "registro, herramientas reales detras, objetivo vacio, help/version, human, "
-      "envelope y capacity-no-disponible, estados invalidos, NO_ENCONTRADO no es resultado, universo declarado)")
+      "envelope y capacity-no-disponible, estados invalidos, NO_ENCONTRADO no es "
+      "resultado, universo declarado, limitations es List[str] no un str troceado)")
 sys.exit(0)

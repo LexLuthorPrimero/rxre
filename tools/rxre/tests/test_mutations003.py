@@ -62,6 +62,7 @@ M_SIN_NEXT_ACTION = "dejar next_actions vacio"
 M_ACTION_SIN_OP = "proponer una accion sin op"
 M_RESULT_ID = "alterar el result_id"
 M_SIN_PROVENANCE = "dejar provenance vacio"
+M_LIMITATIONS_STR = "las limitations de provenance vuelven a un str troceado"
 M_CAP_INVENTADA = "resolver a una capacidad que no existe"
 M_ARISTA = "borrar las aristas"
 M_CHAIN_VACIA = "dejar chain vacia en explain"
@@ -122,11 +123,49 @@ def m_result_id(p: str) -> bool:
 
 
 def m_sin_provenance(p: str) -> bool:
+    """Deja `provenance` VACIA.
+
+    RXRE-1644: el ancla original -- `provenance=[{"kind": "stage", ...} for e
+    in etapas]` -- dejo de existir cuando `engine.ejecutar_pipeline` paso a
+    acumular `provenencia` de cada etapa y deduplicarla con
+    `_dedup_por_clave`. El mutador reportaba INVALIDO porque no tocaba
+    codigo: eso no lo convierte en inocuo, solo en no medido. El ancla
+    vigente es la construccion del envelope, y el EFECTO buscado es el mismo
+    -- una respuesta sin provenance, que `test_rxre003` SI detecta (lineas
+    243-249: `bool(env["provenance"])` y `len(provenance) >= len(stages)`).
+    """
     t = _leer(p)
-    viejo = 'provenance=[{"kind": "stage", "op": e["op"], "step": e["step"],\n                     "status": e["status"]} for e in etapas],'
+    viejo = "        provenance=_dedup_por_clave(provenencia),"
     if viejo not in t:
         return False
-    _escribir(p, t.replace(viejo, "provenance=[],", 1))
+    _escribir(p, t.replace(viejo, "        provenance=[],", 1))
+    return True
+
+
+def m_limitations_str(p: str) -> bool:
+    """Reintroduce el defecto RXRE-1644: `lim_pct` como str, no como lista.
+
+    El envelope hace `list(limitations or [])`; sobre un str eso da sus
+    CARACTERES. La limitacion de `provenance` (rama JSON) salia como 163
+    elementos de una letra. Va contra la seccion 15 de `test_rxre.py`, que
+    exige que cada elemento sea una frase.
+    """
+    t = _leer(p)
+    viejo = ('        lim_pct = ["`prov.py --json` devuelve PORCENTAJES de '
+             'claves que cumplen "\n'
+             '                   "el contrato, no un recuento de apariciones. '
+             'Para el "\n'
+             '                   "recuento, `rxre provenance` usa '
+             '`prov.py --claves`."]')
+    nuevo = ('        lim_pct = ("`prov.py --json` devuelve PORCENTAJES de '
+             'claves que cumplen "\n'
+             '                   "el contrato, no un recuento de apariciones. '
+             'Para el "\n'
+             '                   "recuento, `rxre provenance` usa '
+             '`prov.py --claves`.")')
+    if viejo not in t:
+        return False
+    _escribir(p, t.replace(viejo, nuevo, 1))
     return True
 
 
@@ -211,6 +250,11 @@ MUTACIONES: List[Tuple[str, str, str, str]] = [
     (M_BLOQUEADO_A_EMPTY, "commands/query.py", m_blocked_empty,
      "test_rxre002.py"),
     (M_SIN_LIMITATION, "api/envelope.py", m_sin_limitation,
+     "test_rxre.py"),
+    # RXRE-1644: la seccion 15 de test_rxre.py ata el TIPO de `limitations`.
+    # El defecto real era un str donde el contrato pide List[str], y se
+    # reprodujo en el handler de `provenance` (rama JSON).
+    (M_LIMITATIONS_STR, "commands/handlers.py", m_limitations_str,
      "test_rxre.py"),
     (M_SIN_NEXT_ACTION, "api/request.py", m_sin_next,
      "test_rxre003.py"),

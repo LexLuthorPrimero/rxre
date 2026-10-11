@@ -304,7 +304,7 @@ def _accion(nombre: str, request: Dict[str, Any], contexto: Dict[str, Any]
     # la raiz del request siguiente, porque ahi `target` es el dispositivo. Va
     # en `inputs`, que es donde `responder()` lo lee. Y la raiz lleva el
     # dispositivo original, para que la allow-list lo acepte.
-    if False:  # mutado: vuelve la confusion objeto/dispositivo
+    if esp.get("args_target_es_objeto") and objetivo:
         args = {k: v for k, v in args.items() if k != "target"}
         args["inputs"] = dict(args.get("inputs") or {})
         args["inputs"]["target"] = objetivo
@@ -334,7 +334,7 @@ def _accion(nombre: str, request: Dict[str, Any], contexto: Dict[str, Any]
             "leer_limitaciones": "nada: ya esta en limitations",
         }.get(nombre, "avance en la investigacion"),
     }
-    if False:
+    if ejecutable:
         a["op"] = esp["op"]
         a["args"] = args
         a["expected"] = "un envelope con status y results"

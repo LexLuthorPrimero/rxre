@@ -212,7 +212,7 @@ def _relaciones_de_registro(target: str, hits: List[Dict[str, Any]],
         if not fn:
             continue
         pat = (r.get("raw") or {}).get("patron")
-        if False:
+        if pat == "escritura":
             aristas.append({"src": fn, "tipo": "WRITES", "dst": target,
                             "status": "observed", "tool": "evidence_search.py",
                             "evidence": {"patron": pat, "text": r.get("value")},
@@ -251,7 +251,7 @@ def responder(request: Dict[str, Any], db: Optional[Any] = None,
     if not target_permitido(req.get("target", "")):
         env = E.envelope(
             req.get("operation") or "query", target=req.get("target"),
-            status=E.ST_EMPTY,
+            status=E.ST_BLOCKED,
             limitations=[
                 "target fuera del alcance de RXRE-002: %s. La GPU integrada del "
                 "procesador queda fuera de TODA operacion (§32). No se ejecuta "
