@@ -1,0 +1,184 @@
+{
+  "case_id": "case_9e3e03e7778d44e4",
+  "target": "0000:01:00.0",
+  "original_question": "quien escribe VM_CONTEXT0_CNTL",
+  "current_state": {
+    "n_operations": 818,
+    "n_results": 93,
+    "n_edges": 65
+  },
+  "operations": [
+    {
+      "operation_id": "op_dfc4d2e135adff25",
+      "operacion": "register.writers",
+      "capability": "",
+      "status": "ok",
+      "n_results": 36
+    },
+    {
+      "operation_id": "op_40c870ccbb159a0a",
+      "operacion": "project.capabilities",
+      "capability": "project.capabilities",
+      "status": "ok",
+      "n_results": 9
+    },
+    {
+      "operation_id": "op_3df5a5ac95fa278c",
+      "operacion": "register.writers",
+      "capability": "register.writers",
+      "status": "ok",
+      "n_results": 36
+    },
+    {
+      "operation_id": "op_4c9683af536031db",
+      "operacion": "project.capabilities",
+      "capability": "project.capabilities",
+      "status": "ok",
+      "n_results": 9
+    },
+    {
+      "operation_id": "op_37d901c2be6e1c44",
+      "operacion": "register.writers",
+      "capability": "register.writers",
+      "status": "ok",
+      "n_results": 36
+    }
+  ],
+  "results": [
+    {
+      "result_id": "res_constante",
+      "type": "source_occurrence",
+      "tool": "evidence_search.py",
+      "file": "drivers/gpu/drm/amd/amdgpu/mmhub_v1_8.c",
+      "line": 340,
+      "status": "observed",
+      "scope": "linux-7.1.3"
+    },
+    {
+      "result_id": "res_register_608cb5f5d617",
+      "type": "register",
+      "tool": "reg_resolve.py",
+      "file": "drivers/gpu/drm/amd/amdgpu_reg_access.c",
+      "line": null,
+      "status": "resolved",
+      "scope": "linux-7.1.3"
+    },
+    {
+      "result_id": "res_register_94917b253a4c",
+      "type": "register",
+      "tool": "reg_resolve.py",
+      "file": "drivers/gpu/drm/amd/amdgpu_reg_access.c",
+      "line": null,
+      "status": "resolved",
+      "scope": "linux-7.1.3"
+    },
+    {
+      "result_id": "res_source_occurrence_4adf5a847e24",
+      "type": "source_occurrence",
+      "tool": "evidence_search.py",
+      "file": "drivers/gpu/drm/amd/amdgpu/amdgpu_csa.c",
+      "line": 60,
+      "status": "observed",
+      "scope": "linux-7.1.3"
+    },
+    {
+      "result_id": "res_source_occurrence_7e4ae52c4c0f",
+      "type": "source_occurrence",
+      "tool": "evidence_search.py",
+      "file": "drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c",
+      "line": 1475,
+      "status": "observed",
+      "scope": "linux-7.1.3"
+    },
+    {
+      "result_id": "res_source_occurrence_2685d4c40740",
+      "type": "source_occurrence",
+      "tool": "evidence_search.py",
+      "file": "drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c",
+      "line": 2584,
+      "status": "observed",
+      "scope": "linux-7.1.3"
+    }
+  ],
+  "edges": [
+    {
+      "src": "drivers/gpu/drm/amd/include/asic_reg/mmhub/mmhub_1_0_sh_mask.h:8070",
+      "tipo": "REFERENCES",
+      "dst": "VM_CONTEXT0_CNTL",
+      "status": "observed",
+      "tool": "evidence_search.py"
+    },
+    {
+      "src": "drivers/gpu/drm/amd/include/asic_reg/mmhub/mmhub_1_7_sh_mask.h:30223",
+      "tipo": "REFERENCES",
+      "dst": "VM_CONTEXT0_CNTL",
+      "status": "observed",
+      "tool": "evidence_search.py"
+    },
+    {
+      "src": "drivers/gpu/drm/amd/include/asic_reg/mmhub/mmhub_1_8_0_sh_mask.h:20199",
+      "tipo": "REFERENCES",
+      "dst": "VM_CONTEXT0_CNTL",
+      "status": "observed",
+      "tool": "evidence_search.py"
+    },
+    {
+      "src": "drivers/gpu/drm/amd/include/asic_reg/mmhub/mmhub_9_1_sh_mask.h:7733",
+      "tipo": "REFERENCES",
+      "dst": "VM_CONTEXT0_CNTL",
+      "status": "observed",
+      "tool": "evidence_search.py"
+    },
+    {
+      "src": "drivers/gpu/drm/amd/include/asic_reg/mmhub/mmhub_9_3_0_sh_mask.h:8160",
+      "tipo": "REFERENCES",
+      "dst": "VM_CONTEXT0_CNTL",
+      "status": "observed",
+      "tool": "evidence_search.py"
+    },
+    {
+      "src": "drivers/gpu/drm/amd/include/asic_reg/gc/gc_9_0_sh_mask.h:7017",
+      "tipo": "REFERENCES",
+      "dst": "VM_CONTEXT0_CNTL",
+      "status": "observed",
+      "tool": "evidence_search.py"
+    }
+  ],
+  "limitations": [
+    "los resultados y las aristas son REFERENCIAS por id, no copias: el detalle esta en explain. Un RE_CASE que copiara la evidencia la duplicaria y las dos copias se separarian",
+    "este caso no declara estado epistemico: es un conjunto de observaciones de herramientas. Convertirlo en conclusion es trabajo de quien lo lee, no de RXRE"
+  ],
+  "unresolved_questions": [
+    "la unicidad del escritor NO esta medida: los 24 candidatos vienen de patron de texto"
+  ],
+  "next_actions": [
+    {
+      "action": "explain",
+      "available": true,
+      "op": "explain",
+      "args": {
+        "result_id": "res_constante"
+      },
+      "why": "el detalle de cualquier resultado del caso",
+      "produces": "de donde salio cada dato"
+    },
+    {
+      "action": "relation",
+      "available": true,
+      "op": "relation",
+      "args": {
+        "clase": "writers",
+        "nodo": "drivers/gpu/drm/amd/include/asic_reg/mmhub/mmhub_1_0_sh_mask.h:8070"
+      },
+      "why": "las relaciones ya producidas, sin recalcularlas",
+      "produces": "aristas del dominio"
+    }
+  ],
+  "provenance": [
+    {
+      "kind": "consulta",
+      "op": "store.re_case",
+      "target": "0000:01:00.0"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "corpus": "tools/rxre/tests/fixtures/lachesis/corpus-small",
+  "corpus_sha256": "28b43a989e2a87f6c33c10821febf63af6e0b98021eb0652125ecf1236731ef8",
+  "lachesis_version": "lachesis 0.5.3 (native-kernel: bundled)",
+  "build_timeout": 1800,
+  "build_argv": [
+    "lachesis",
+    "build",
+    "--timeout",
+    "1800",
+    "tools/rxre/tests/fixtures/lachesis/corpus-small",
+    "tools/rxre/tests/fixtures/lachesis/lachesis-defuse.kuzu"
+  ],
+  "enriched": true
+}
