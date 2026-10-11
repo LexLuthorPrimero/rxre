@@ -1,0 +1,194 @@
+{
+  "binarios_runtime": {
+    "rabin2": {
+      "disponible": true,
+      "flag": "-v",
+      "ruta": "/usr/bin/rabin2",
+      "sha256_del_binario": "75c1107612c11df0e475754e97b7670a20b45885f6265b4e44da832a8641d604",
+      "tool_version": "rabin2 5.9.8 0 @ linux-x86-64",
+      "verificada": true
+    },
+    "radare2": {
+      "disponible": true,
+      "flag": "-v",
+      "ruta": "/usr/bin/radare2",
+      "sha256_del_binario": "1e172ff98f8b5e4220c3f6aea7d92c895e6bca3706876ca89c2fc470419b7332",
+      "tool_version": "radare2 5.9.8 0 @ linux-x86-64",
+      "verificada": true
+    },
+    "rizin": {
+      "disponible": true,
+      "flag": "-v",
+      "ruta": "/usr/bin/rizin",
+      "sha256_del_binario": "807a24dfbd1b0fc328841bead7aaaba9df7b9c743d138e4941ff794ee4f26e5c",
+      "tool_version": "rizin 0.7.4 @ linux-x86-64, package: 0.7.4-9.fc43 (Fedora)",
+      "verificada": true
+    },
+    "rz-bin": {
+      "disponible": true,
+      "flag": "-v",
+      "ruta": "/usr/bin/rz-bin",
+      "sha256_del_binario": "bb4c8bdce2a522424e105776130f8b4c1d69fc299a62fce69510bb77c81707e3",
+      "tool_version": "rz-bin 0.7.4 @ linux-x86-64, package: 0.7.4-9.fc43 (Fedora)",
+      "verificada": true
+    }
+  },
+  "corpus": {
+    "kernelbuild": {
+      "mtime_mas_reciente": 1791037011,
+      "n_ficheros": 103705,
+      "presente": true,
+      "ruta": "RESEARCH/kernelbuild/linux-7.1.3"
+    },
+    "working": {
+      "mtime_mas_reciente": 1790872067,
+      "n_ficheros": 2787,
+      "presente": true,
+      "ruta": "RESEARCH/working/linux-7.1.3"
+    }
+  },
+  "entorno": {
+    "arch": "x86_64",
+    "implementacion": "CPython",
+    "os": "Linux 7.2.9-200.nobara.fc44.x86_64",
+    "python": "3.14.7"
+  },
+  "ficheros_faltantes": [],
+  "ficheros_rxre": {
+    "api/envelope.py": {
+      "bytes": 5585,
+      "sha256": "b54fa9acec0ca535fd12d81729a348a369dfb4dfda539c4c061b8226968c1fcd"
+    },
+    "api/machine.py": {
+      "bytes": 26856,
+      "sha256": "a512fceb71ed191d6785d32d6ab526c06542c979c6de256763f9315a03d7c996"
+    },
+    "api/request.py": {
+      "bytes": 19127,
+      "sha256": "1b7054e4b7e269d98c9c7cae94f9cc8e76f11a107a55e446127d5968ddf3dac5"
+    },
+    "backends/adapters/rz_inspect.py": {
+      "bytes": 21094,
+      "sha256": "32e8d86c87d1455f869e6dcc329115606ee3b606ad3481d11159ad0ca2e586ee"
+    },
+    "backends/contract.py": {
+      "bytes": 13140,
+      "sha256": "defdf05b77f50fe213938f2e53a197b6322c63e283829a8128ee9d3f12ecc044"
+    },
+    "backends/decision.json": {
+      "bytes": 3528,
+      "sha256": "46fcc81d4015362a3bab96ec9efeb5fb048e5d7ef4a9f2e1f8f07a6bb1939334"
+    },
+    "backends/dispatch.py": {
+      "bytes": 17722,
+      "sha256": "1eee9a2a2b47a3ff631a885821be6e7961ae81ed85e84bc4cbeca1fc2f2d1b2c"
+    },
+    "backends/registry.py": {
+      "bytes": 13799,
+      "sha256": "05aab7006985712bffe97f4f5f81e127dc0366df0f2f78e8c97ac5ba3e1af7e9"
+    },
+    "commands/handlers.py": {
+      "bytes": 17999,
+      "sha256": "a273083e237909c86e50d1f9c05bac4a693a756faecf651ca758fb6a96d1c333"
+    },
+    "commands/query.py": {
+      "bytes": 24759,
+      "sha256": "7c85e97f68eda1594b43b1f00be293c7d53f0c921b64f6be86d17a73f4e79935"
+    },
+    "core/capabilities.py": {
+      "bytes": 12634,
+      "sha256": "008c02ed6212cb00724737660feebcd8fbdfebfe6b426cc2c3a1e73e54d463bc"
+    },
+    "core/engine.py": {
+      "bytes": 15645,
+      "sha256": "f5063f738a0cc9d229cc690e974c45d70ef0fc48b88f19225fa86c5c4445a886"
+    },
+    "core/normalize.py": {
+      "bytes": 9688,
+      "sha256": "7e87141e99a66ff899d9b03e4908812268728ac1b5a048cd4ac5f4be293d9664"
+    },
+    "core/store.py": {
+      "bytes": 30195,
+      "sha256": "9165ea8fc2026fa67b15e0f0415947a2d9857466168990e4996d6fc6f621a765"
+    },
+    "docs/AI_QUICKSTART.md": {
+      "bytes": 4411,
+      "sha256": "167e18e944b177ba648128db64fbbaa50583d91b791b759463fefb2471cda240"
+    },
+    "docs/RXRE_PUBLIC_CONTRACT.md": {
+      "bytes": 15531,
+      "sha256": "09174dd4a1a47a18249b75fe56b4bde3ef9b575ef0248de2ce8888f3b049efcb"
+    },
+    "fixtures/bin/MANIFEST.json": {
+      "bytes": 3764,
+      "sha256": "3c320f3a7a0bfd1809c2c109e516508b484ee028b80d0e927d26aca4a0d0064c"
+    },
+    "fixtures/bin/rxre_min.elf": {
+      "bytes": 4728,
+      "sha256": "a183f60d67ba1787bd217db2a7cd6609a214acde1f7e9c4a2403e3d40fdb700c"
+    }
+  },
+  "freeze_id": "a5654dbae6446e9ffb41c69813aacf8151a90aa8e88168d215bf1fae47d049eb",
+  "generado": "2026-10-06T06:24:38-0300",
+  "git": {
+    "aviso": "el arbol esta SUCIO y el codigo ejecutado NO esta en el commit. El commit NO identifica esta ejecucion; lo que la identifica son los hashes de FICHEROS de mas abajo. Los ficheros de otra sesion NO se tocan y NO forman parte de RXRE.",
+    "branch": "main",
+    "commit": "758471e26b4f3cfd8bb57917928f7cddb8b008e7",
+    "n_modificados": 140,
+    "n_modificados_de_otra_sesion": 115,
+    "n_modificados_de_rxre": 25,
+    "sucio": true
+  },
+  "hardware": {
+    "cpu": "Intel(R) Core(TM) i7-4790 CPU @ 3.60GHz",
+    "fb0_driver": "amdgpu",
+    "fb0_pci_slot_name": "0000:01:00.0",
+    "frontera_dura": "0000:00:02.0 (Intel iGPU): NUNCA se toca",
+    "nota": "RXRE-005 es SOFTWARE/ESTATICO. No hay MMIO, no hay escrituras PCI, no se toca 0000:00:02.0."
+  },
+  "hash_ficheros": "03a8b284f5bf6675fc7165980d4b3a187a57bcb6fbc2b43c1ff048c2f33eb884",
+  "hash_suites": "bc294c139d7a072c12e70a161e951c89d9909a848c48a03acba040e41f3c9af6",
+  "notas_de_lectura": [
+    "commit y hash de ficheros son cosas DISTINTAS: el arbol esta sucio y el commit no identifica lo ejecutado.",
+    "repository_commit y tool_version son cosas DISTINTAS: el repo de rizin es v0.10.0-dev y el binario en PATH es 0.7.4.",
+    "los ficheros modificados de otra sesion NO son parte de RXRE y no entran en hash_ficheros."
+  ],
+  "que_es": "Identidad de UNA ejecucion de RXRE. No es un numero de version: es el estado exacto del arbol y de los producers.",
+  "repos_adquiridos": {
+    "angr": {
+      "branch": "master",
+      "commit": "be995f52ee38a055d0f96d04f3e4d02192a3d743",
+      "dirty": false,
+      "presente": true
+    },
+    "radare2": {
+      "branch": "master",
+      "commit": "008a7a6cd2e5acb8268f65f486760d080f3b107b",
+      "dirty": false,
+      "presente": true
+    },
+    "rizin": {
+      "branch": "dev",
+      "commit": "d14c3fac4126bc5fbe66e7f3d1660aeab22b01d8",
+      "dirty": false,
+      "presente": true
+    },
+    "rz-ghidra": {
+      "branch": "dev",
+      "commit": "64ea54a51c7f87983c9eba9cef8ee0c8cf2ac811",
+      "dirty": false,
+      "presente": true
+    }
+  },
+  "suites": {
+    "test_backends004": "7f9d645b5fa7019d646799d6536cc24c5bd4398caa303d7c3752d2e2f394df85",
+    "test_dispatch004": "b9863d93082d973c906c378ee2ca6e46a77d34120e4ebaca00ad1595405f9b8c",
+    "test_field005": "debdc47255b375c9beb53c6c8b731e548158fcf9b0c693c47cd15537774822fc",
+    "test_fixture004": "3945c6fa8a0b9854ec236d89ee8415b4b124f4b69d7bc2c926e433142be6ce2f",
+    "test_fixtures": "c9be723b04d3679d7b8bfac8c1bd0e9f8668294fcce42f9b8625ab6f71efbd7b",
+    "test_mutations003": "64e4d30ad968afe586c6b5e4461a355004b6af6030126614c5b6df6404a753eb",
+    "test_rxre": "e2dabe0a5fcbde6d334d0bee243ad7a0a2ea7c04d8c551a2b313350bf3967aa6",
+    "test_rxre002": "725c339ceb7ed1a964f641be4453b100c8b4f9f2e8c69177a9ade62062f1e009",
+    "test_rxre003": "a69450b029185a30fcd9fa9c76b03d3eb74d60bedb5c08ba2a487bc67013c600"
+  }
+}

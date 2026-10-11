@@ -1,0 +1,299 @@
+{
+  "schema": "corpus-manifest/1",
+  "generated": "2026-09-29T06:26:26-0300",
+  "tool": "evidence_search.py",
+  "tool_version": "1.0.0",
+  "key_roots": [
+    "drivers/gpu/drm/amd/amdgpu",
+    "drivers/gpu/drm/amd/include",
+    "drivers/gpu/drm/scheduler",
+    "drivers/gpu/drm",
+    "include/uapi/drm",
+    "include/drm",
+    "include/linux"
+  ],
+  "sources": {
+    "working": {
+      "identity": {
+        "present": true,
+        "kind": "dir",
+        "path": "RESEARCH/working/linux-7.1.3",
+        "n_files": 2787,
+        "n_dirs": 371,
+        "size_bytes": 538470397
+      },
+      "covers": {
+        "drivers/gpu/drm/amd/amdgpu": {
+          "present": true,
+          "n_entries": 632,
+          "example": "RESEARCH/working/linux-7.1.3/drivers/gpu/drm/amd/amdgpu",
+          "reason": ""
+        },
+        "drivers/gpu/drm/amd/include": {
+          "present": true,
+          "n_entries": 52,
+          "example": "RESEARCH/working/linux-7.1.3/drivers/gpu/drm/amd/include",
+          "reason": ""
+        },
+        "drivers/gpu/drm/scheduler": {
+          "present": false,
+          "reason": "ruta ausente bajo la fuente"
+        },
+        "drivers/gpu/drm": {
+          "present": true,
+          "n_entries": 1,
+          "example": "RESEARCH/working/linux-7.1.3/drivers/gpu/drm",
+          "reason": ""
+        },
+        "include/uapi/drm": {
+          "present": false,
+          "reason": "ruta ausente bajo la fuente"
+        },
+        "include/drm": {
+          "present": false,
+          "reason": "ruta ausente bajo la fuente"
+        },
+        "include/linux": {
+          "present": true,
+          "n_entries": 1,
+          "example": "RESEARCH/working/linux-7.1.3/include/linux",
+          "reason": ""
+        }
+      },
+      "n_key_roots_present": 4,
+      "n_key_roots_absent": 3
+    },
+    "kernelbuild": {
+      "identity": {
+        "present": true,
+        "kind": "dir",
+        "path": "RESEARCH/kernelbuild/linux-7.1.3",
+        "n_files": 103704,
+        "n_dirs": 6164,
+        "size_bytes": 1603516478
+      },
+      "covers": {
+        "drivers/gpu/drm/amd/amdgpu": {
+          "present": true,
+          "n_entries": 638,
+          "example": "RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/amdgpu",
+          "reason": ""
+        },
+        "drivers/gpu/drm/amd/include": {
+          "present": true,
+          "n_entries": 52,
+          "example": "RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/include",
+          "reason": ""
+        },
+        "drivers/gpu/drm/scheduler": {
+          "present": true,
+          "n_entries": 8,
+          "example": "RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/scheduler",
+          "reason": ""
+        },
+        "drivers/gpu/drm": {
+          "present": true,
+          "n_entries": 178,
+          "example": "RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm",
+          "reason": ""
+        },
+        "include/uapi/drm": {
+          "present": true,
+          "n_entries": 34,
+          "example": "RESEARCH/kernelbuild/linux-7.1.3/include/uapi/drm",
+          "reason": ""
+        },
+        "include/drm": {
+          "present": true,
+          "n_entries": 106,
+          "example": "RESEARCH/kernelbuild/linux-7.1.3/include/drm",
+          "reason": ""
+        },
+        "include/linux": {
+          "present": true,
+          "n_entries": 1608,
+          "example": "RESEARCH/kernelbuild/linux-7.1.3/include/linux",
+          "reason": ""
+        }
+      },
+      "n_key_roots_present": 7,
+      "n_key_roots_absent": 0
+    },
+    "baseline": {
+      "identity": {
+        "present": true,
+        "kind": "dir",
+        "path": "RESEARCH/baseline/linux-7.1.3",
+        "n_files": 2787,
+        "n_dirs": 371,
+        "size_bytes": 538470397
+      },
+      "covers": {
+        "drivers/gpu/drm/amd/amdgpu": {
+          "present": true,
+          "n_entries": 632,
+          "example": "RESEARCH/baseline/linux-7.1.3/drivers/gpu/drm/amd/amdgpu",
+          "reason": ""
+        },
+        "drivers/gpu/drm/amd/include": {
+          "present": true,
+          "n_entries": 52,
+          "example": "RESEARCH/baseline/linux-7.1.3/drivers/gpu/drm/amd/include",
+          "reason": ""
+        },
+        "drivers/gpu/drm/scheduler": {
+          "present": false,
+          "reason": "ruta ausente bajo la fuente"
+        },
+        "drivers/gpu/drm": {
+          "present": true,
+          "n_entries": 1,
+          "example": "RESEARCH/baseline/linux-7.1.3/drivers/gpu/drm",
+          "reason": ""
+        },
+        "include/uapi/drm": {
+          "present": false,
+          "reason": "ruta ausente bajo la fuente"
+        },
+        "include/drm": {
+          "present": false,
+          "reason": "ruta ausente bajo la fuente"
+        },
+        "include/linux": {
+          "present": true,
+          "n_entries": 1,
+          "example": "RESEARCH/baseline/linux-7.1.3/include/linux",
+          "reason": ""
+        }
+      },
+      "n_key_roots_present": 4,
+      "n_key_roots_absent": 3
+    },
+    "tar713": {
+      "identity": {
+        "present": true,
+        "kind": "tarball",
+        "path": "RESEARCH/evidence/linux-7.1.3.tar.xz",
+        "size_bytes": 158335040,
+        "mtime": "2026-09-27T03:23:02-0300",
+        "sha256": "be41c068e88f5242a19bccdbffbe077b18c47b45f627e2325504b4fab79dd1dc"
+      },
+      "covers": {
+        "drivers/gpu/drm/amd/amdgpu": {
+          "present": true,
+          "n_entries": 633,
+          "example": "linux-7.1.3/drivers/gpu/drm/amd/amdgpu/",
+          "matched_form": "linux-7.1.3/drivers/gpu/drm/amd/amdgpu",
+          "reason": ""
+        },
+        "drivers/gpu/drm/amd/include": {
+          "present": true,
+          "n_entries": 608,
+          "example": "linux-7.1.3/drivers/gpu/drm/amd/include/",
+          "matched_form": "linux-7.1.3/drivers/gpu/drm/amd/include",
+          "reason": ""
+        },
+        "drivers/gpu/drm/scheduler": {
+          "present": true,
+          "n_entries": 13,
+          "example": "linux-7.1.3/drivers/gpu/drm/scheduler/",
+          "matched_form": "linux-7.1.3/drivers/gpu/drm/scheduler",
+          "reason": ""
+        },
+        "drivers/gpu/drm": {
+          "present": true,
+          "n_entries": 8467,
+          "example": "linux-7.1.3/drivers/gpu/drm/",
+          "matched_form": "linux-7.1.3/drivers/gpu/drm",
+          "reason": ""
+        },
+        "include/uapi/drm": {
+          "present": true,
+          "n_entries": 35,
+          "example": "linux-7.1.3/include/uapi/drm/",
+          "matched_form": "linux-7.1.3/include/uapi/drm",
+          "reason": ""
+        },
+        "include/drm": {
+          "present": true,
+          "n_entries": 166,
+          "example": "linux-7.1.3/include/drm/",
+          "matched_form": "linux-7.1.3/include/drm",
+          "reason": ""
+        },
+        "include/linux": {
+          "present": true,
+          "n_entries": 2954,
+          "example": "linux-7.1.3/include/linux/",
+          "matched_form": "linux-7.1.3/include/linux",
+          "reason": ""
+        }
+      },
+      "n_key_roots_present": 7,
+      "n_key_roots_absent": 0
+    },
+    "tar728": {
+      "identity": {
+        "present": true,
+        "kind": "tarball",
+        "path": "rx550-upstream-7.2.8/linux-7.2.8.tar.xz",
+        "size_bytes": 160371176,
+        "mtime": "2026-09-28T02:52:52-0300",
+        "sha256": "12e8d5a973d1ad7c5a5c69882e4022b131ed715db7003fdcd760ddf8c3e51941"
+      },
+      "covers": {
+        "drivers/gpu/drm/amd/amdgpu": {
+          "present": true,
+          "n_entries": 639,
+          "example": "linux-7.2.8/drivers/gpu/drm/amd/amdgpu/",
+          "matched_form": "linux-7.2.8/drivers/gpu/drm/amd/amdgpu",
+          "reason": ""
+        },
+        "drivers/gpu/drm/amd/include": {
+          "present": true,
+          "n_entries": 621,
+          "example": "linux-7.2.8/drivers/gpu/drm/amd/include/",
+          "matched_form": "linux-7.2.8/drivers/gpu/drm/amd/include",
+          "reason": ""
+        },
+        "drivers/gpu/drm/scheduler": {
+          "present": true,
+          "n_entries": 15,
+          "example": "linux-7.2.8/drivers/gpu/drm/scheduler/",
+          "matched_form": "linux-7.2.8/drivers/gpu/drm/scheduler",
+          "reason": ""
+        },
+        "drivers/gpu/drm": {
+          "present": true,
+          "n_entries": 8579,
+          "example": "linux-7.2.8/drivers/gpu/drm/",
+          "matched_form": "linux-7.2.8/drivers/gpu/drm",
+          "reason": ""
+        },
+        "include/uapi/drm": {
+          "present": true,
+          "n_entries": 35,
+          "example": "linux-7.2.8/include/uapi/drm/",
+          "matched_form": "linux-7.2.8/include/uapi/drm",
+          "reason": ""
+        },
+        "include/drm": {
+          "present": true,
+          "n_entries": 169,
+          "example": "linux-7.2.8/include/drm/",
+          "matched_form": "linux-7.2.8/include/drm",
+          "reason": ""
+        },
+        "include/linux": {
+          "present": true,
+          "n_entries": 3003,
+          "example": "linux-7.2.8/include/linux/",
+          "matched_form": "linux-7.2.8/include/linux",
+          "reason": ""
+        }
+      },
+      "n_key_roots_present": 7,
+      "n_key_roots_absent": 0
+    }
+  }
+}

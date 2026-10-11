@@ -1,0 +1,78 @@
+{
+  "_contrato": "Cada artefacto aqui tiene que poder reconstruirse con el comando de `build` y ningun otro. Un fixture que no se puede reproducir no es un fixture: es un binario suelto que explica su propia procedencia porque el unico testigo es el fichero. Si `sha256` no coincide al reconstruir, el artefacto esta COMPROMETIDO y el test que lo use tiene que fallar en vez de continuar.",
+  "_por_que_no_es_un_mock": [
+    "Un mock de backend devuelve lo que uno quiere que devuelva: {'functions': []} o {'functions': [N]}. Eso verifica el NORMALIZADOR, no el producer.",
+    "Este fixture pasa por el camino real: gcc -> ld.bfd -> ELF -> rz-bin -I -j -> json.loads -> _normalizar(). Si el backend cambia de contrato, el fixture lo detecta.",
+    "Y lo que hace mas util: sus simbolos son CONOCIDOS por construccion, porque estan en el fuente. Un backend que encuentre 5 simbolos cuando el fuente declara 5 funciones esta MEDIDO; uno que encuentre 5 sobre un binario ajeno, no."
+  ],
+  "_hardware_scope": "NINGUNO. Este artefacto no abre, no escribe y no observa la RX550 ni la iGPU. El fixture contiene la CONSTANTE 0xD0000000 y los offsets 0x0000/0x0001 como DATOS, para que un analista tenga un patron de acceso a registro que abrir. RXRE NO debe derivar de aqui ninguna afirmacion sobre el hardware: son constantes escritas por una persona, no medidas por un sensor.",
+  "artefactos": [
+    {
+      "id": "rxre_min",
+      "path": "rxre_min.elf",
+      "sha256": "a183f60d67ba1787bd217db2a7cd6609a214acde1f7e9c4a2403e3d40fdb700c",
+      "size": 4728,
+      "format": "ELF64",
+      "architecture": "x86",
+      "bits": 64,
+      "endian": "LE",
+      "os": "linux",
+      "source": "../rxre_min.c",
+      "linker_script": "../rxre_min.ld",
+      "build": [
+        "gcc -Os -fno-pie -no-pie -nostdlib -ffreestanding -c rxre_min.c -o rxre_min.o",
+        "gcc -Os -fno-pie -no-pie -nostdlib -ffreestanding -Wl,--build-id=none -Wl,-T,rxre_min.ld rxre_min.o -o rxre_min.elf"
+      ],
+      "compiler": "gcc (GCC) 16.2.1 20260819 (Red Hat 16.2.1-2)",
+      "flags": {
+        "optim": "-Os",
+        "pie": "off (-fno-pie -no-pie)",
+        "nostdlib": true,
+        "freestanding": true,
+        "build_id": "none (-Wl,--build-id=none)"
+      },
+      "reproducible": {
+        "estado": "PROVEN",
+        "metodo": "dos compilaciones consecutivas con un `touch` de diferencia entre medias",
+        "resultado": "a183f60d... == a183f60d... (byte-identicos)"
+      },
+      "static": true,
+      "funciones_conocidas": [
+        {
+          "name": "mmio",
+          "vaddr": "0x400000",
+          "rol": "puntero al MMIO"
+        },
+        {
+          "name": "escribir_registro",
+          "vaddr": "0x400007",
+          "rol": "escritura directa"
+        },
+        {
+          "name": "leer_registro",
+          "vaddr": "0x40000f",
+          "rol": "lectura directa"
+        },
+        {
+          "name": "campo",
+          "vaddr": "0x400017",
+          "rol": "read-modify-write de un campo"
+        }
+      ],
+      "por_que_estas_funciones": "Una IA que abra este fixture tiene que poder distinguir `escribir_registro` (store) de `campo` (load + ALU + store). Es el patron que el proyecto busca en el driver real: cual de las 24 aristas WRITES candidatas es de hecho una escritura. Aqui el ground truth lo dice el fuente, y ningun backend lo puede adivinar: por eso el fixture discrimina y no solo ejecuta.",
+      "verificado_por": [
+        {
+          "producer": "rz-bin -I -j",
+          "esperado": "arch=x86 bits=64 static=true stripped=false",
+          "medido": true
+        },
+        {
+          "producer": "rz-bin -sj",
+          "esperado": "5 simbolos",
+          "medido": true
+        }
+      ],
+      "stripped": false
+    }
+  ]
+}
