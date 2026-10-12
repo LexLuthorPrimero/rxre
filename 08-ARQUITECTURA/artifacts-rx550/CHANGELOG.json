@@ -1,9 +1,0 @@
-{
-  "eventos": [
-    "AGENTS.md 1550 -> 961 lineas (condensado por el usuario)",
-    "perdida en /tmp (corr 75); RE-INDEX zero-filled (corr 77)",
-    "reconstruido: RE-INDEX (87 corr) + regctx 2.0 (27 asserts) + crosscheck 1.0 (11 asserts)",
-    "descubierto: GFX8 tiene dos espacios de offset (plano y SOC15)"
-  ],
-  "generado_por": "post-reinicio 2026-10-02"
-}

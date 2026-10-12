@@ -1,4 +1,0 @@
-Failed to create /root/.cache/mesa_shader_cache for shader cache (Permission denied)---disabling.
-Failed to create /root/.cache/radv_builtin_shaders for shader cache (Permission denied)---disabling.
-Failed to create /root/.cache/mesa_shader_cache for shader cache (Permission denied)---disabling.
-Failed to create /root/.cache/radv_builtin_shaders for shader cache (Permission denied)---disabling.

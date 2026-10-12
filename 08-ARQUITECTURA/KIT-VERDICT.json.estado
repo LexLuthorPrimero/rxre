@@ -1,1 +1,0 @@
-alcance=PASS:49|bits=PASS:21|callgraph=PASS:12|ciclo=PASS:22|conflicto=PASS:30|contract=PASS:38|crosscheck=PASS:14|funcspan=PASS:25|mandato-parche-real=PASS:PARCHE|mandato-parche-sandbox=PASS:PARCHE|paths=PASS:10|pisa=PASS:18|regctx=PASS:27|regla=FAIL:14|report=PASS:17|revierte=PASS:18|transiciones=PASS:22

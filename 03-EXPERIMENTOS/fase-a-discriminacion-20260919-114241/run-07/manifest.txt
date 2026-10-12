@@ -1,5 +1,0 @@
-run=VK-shading-default-640-r1
-t0=1789829290.679233682
-t1=1789829300.976567330
-status=0
-abort=no

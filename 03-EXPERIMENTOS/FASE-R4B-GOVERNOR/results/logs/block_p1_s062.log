@@ -1,4 +1,0 @@
-[EXP-F4-A] device=AMD Radeon RX 550 / 550 Series (RADV POLARIS12) vendor=0x1002 dev=0x699f mode=0 scale_start=1.000 duration=20 warm=5 size=1920x1080
-[EXP-F4-A] warm-up 5 s
-[EXP-F4-A] medindo 20 s (m0_mono_us=415537573838)
-[EXP-F4-A] done frames=3848 final_scale=0.620

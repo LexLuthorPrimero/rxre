@@ -1,5 +1,0 @@
-#version 450
-layout(local_size_x = 64) in;
-layout(constant_id = 0) const uint ITERS = 1u;
-layout(std430, binding = 0) buffer B { uint d[]; };
-void main() { uint i = gl_GlobalInvocationID.x; d[i] = 0xA5A50000u + i; }

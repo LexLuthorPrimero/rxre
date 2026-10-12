@@ -67,6 +67,9 @@ _ANALYSIS = "aa"
 _BACKENDS: Dict[str, Dict[str, Any]] = {}
 
 
+_BACKENDS: Dict[str, Dict[str, Any]] = {}
+
+
 def _reg(b: Backend, *,
          caps: Dict[str, str],             # capacidad -> estado medido
          notas: List[str],
@@ -190,6 +193,162 @@ _reg(
                 "escrituras sale VACIO para una funcion con store probable "
                 "(medido en B5)"],
 )
+
+
+
+# --- Lote RXRE-BULK-2026-10-12. Solo lo MEDIDO en runtime. ---
+#
+# Estos NO estaban. Entran porque el binario esta, se pudo EJECUTAR, y la
+# capacidad se midio sobre entradas reales. Un binario instalado sin
+# producer medido no entra: entraria por su nombre.
+#
+# MEDIDO 2026-10-12, host Fedora 44 / x86-64:
+#   ghidra      12.1.4, /usr/lib64/ghidra, headless OK, JDK 25.0.4.1
+#   coccinelle  spatch 1.3.1, /usr/bin/spatch, OK
+
+_reg(
+    Backend("ghidra", "analyzeHeadless", [], timeout=1800,
+            repo="https://github.com/NationalSecurityAgency/ghidra.git",
+            commit="local:rpm-ghidra-12.1.4",
+            env_extra={"GHIDRA_INSTALL_DIR": "/usr/lib64/ghidra"}),
+    caps={
+        "binary.decompile": "PARTIAL",
+    },
+    notas=[
+        "MEDIDO: decompila. `/usr/bin/ls` (ET_DYN) -> 5 funciones, las 5 "
+        "con `decompiled: true` y C real en el campo `c`. Producer real y "
+        "verificado. Es la ruta de DECOMPILACION, y con esto `binary."
+        "decompile` deja de ser `UNAVAILABLE` en todos los backends medidos.",
+        "POR QUE ES `PARTIAL` Y NO `AVAILABLE`: el loader ELF de Ghidra 12.1.4 "
+        "NO produce funciones para un ELF ET_REL. MEDIDO en dos entradas: "
+        "`small.ko` (11 KB, 23 secciones segun readelf) y `amdgpu.ko` (37 MB) "
+        "dan ambos 0 funciones, y el segundo ademas lanza `ElfException: "
+        "Unable to read past EOF`. Ghidra imprime `REPORT: Import succeeded` "
+        "en el caso pequeno. La capacidad existe y funciona; no cubre la "
+        "clase de entrada ET_REL, que es exactamente la del driver del "
+        "proyecto.",
+        "MEDIDO y CLASIFICADO: para ET_REL con 0 funciones el estado es "
+        "`unsupported`, NO `empty`. El producer se ejecuto, asi que no es "
+        "un fallo; y no hay nada que mirar, porque readelf ve el fichero. "
+        "Colapsar los dos diria que el driver no tiene funciones. Es la clase "
+        "de error de los hallazgos 1569 y 1571.",
+        "MEDIDO: el arranque headless cuesta MINUTOS. `amdgpu.ko`: 8m47s de "
+        "reloj, 29m46s de CPU. El timeout del backend es 1800s por eso, no "
+        "los 900s de los CLI. No es una herramienta de bucle cerrado: sirve "
+        "para una decompilacion medida, no para un barrido.",
+        "MEDIDO: Ghidra 12 NO compila scripts `.java` en caliente; sin "
+        "`.class` precompilado da `ClassNotFoundException`. El clase esta "
+        "en `backends/scripts/build/DumpDecomp.class` y el adaptador lo "
+        "recompila si falta (`javac -cp <los 202 jars>`).",
+        "IDENTIDAD: se verifica por BINARIO y por `Ghidra/"
+        "application.properties`, no por import. No tiene el problema que "
+        "tiene angr (hallazgo 1573).",
+        "LIMITACION DE ALCANCE: Ghidra infiere tipos, parametros y control "
+        "de flujo. Los nombres son heuristicos (`FUN_00100360` no es un "
+        "nombre real) y su salida es DECOMPILATION, no VALIDATED_SEMANTICS "
+        "sobre el hardware.",
+        "rz-ghidra sigue NO_VERIFICABLE y sin cambiar: con Ghidra instalado "
+        "el plugin de rizin es redundante para decompilar (el motor de Ghidra "
+        "ya esta). Ver `RXRE-BULK-2026-10-12` en docs/ para la poda "
+        "propuesta.",
+    ],
+    no_medidas=["strings, xrefs, callgraph de Ghidra (no se midieron: el "
+                "script solo vuelca decompilacion)"],
+    unsuitable=["binary.decompile sobre ELF ET_REL (MEDIDO: 0 funciones "
+                "para modulos de kernel, con `Import succeeded`)"],
+)
+
+
+# Capstone: desensamblado con SEMANTICA de operando. MEDIDO 2026-10-12.
+#
+# Es el unico producer del catalogo que NO es un subproceso: se importa y
+# se usa en el proceso del adapter. Por eso `exe` no es un binario externo
+# sino el propio modulo, y `version_cmd` no aplica.
+#
+# Se registro porque cierra una capacidad que rizin y radare2 tienen
+# declarada pero NO pueden cumplir: MEDIDO 2026-10-12,
+#   rizin `aa; pdfj @ main`  -> NO emite JSON
+#   r2    `agC` / `agf`      -> NO emiten JSON utilizable
+# Capstone desensambla la funcion entera y da operandos CON TIPO, que es
+# lo que permite construir un CFG sin depender de esos comandos.
+_reg(
+    Backend("capstone", None, None, timeout=0, modulo="capstone",
+            repo="https://github.com/capstone-engine/capstone",
+            commit="local:pip-capstone-5.0.7"),
+    caps={
+        "binary.disassemble": "AVAILABLE",
+        "binary.disassemble_func": "AVAILABLE",
+    },
+    notas=[
+        "MEDIDO 2026-10-12: version 5.0.7 (cs_version 5.0.1280), ya "
+        "INSTALADO en /home/lucas/.local/lib/python3.14/site-packages/"
+        "capstone. Adquirir esta capacidad costo cero: no hubo descarga ni "
+        "compilacion. Se anota porque distinguir 'instalado' de 'integrado' "
+        "importa: hasta este registro era un checkout de facto invisible.",
+        "MEDIDO: ~158000 instrucciones/s en x86-64 con detail=True. En "
+        "proceso, asi que no hay coste de arranque de subproceso.",
+        "LA COBERTURA ES EL DATO, NO EL RECUENTO. MEDIDO: Capstone se "
+        "DETIENE en el primer byte que no decodifica y no dice cual es. "
+        "Sobre una funcion `sym` de 909 bytes cubre el 100 % (228 "
+        "instrucciones); sobre una entrada con `type:'fcn'` y size 137 "
+        "cubrío el 9,5 %. Por eso el adapter devuelve `huecos` y "
+        "`primer_hueco`, y la limitacion viaja en cada respuesta: un "
+        "recuento de instrucciones sin cobertura no es un resultado.",
+        "ALCANCE: x86, x86_64 y arm64. NO cubre GFX8. Para el driver de la "
+        "GPU haria falta otro producer: Capstone no sirve para el ISA de la "
+        "GPU, aunque si para el modulo de kernel, que es x86-64 ET_REL.",
+        "NO descubre funciones: el rango lo elige quien llama. Combinar con "
+        "`binary.functions` (aflj) para los offsets.",
+        "Un desensamblado NO es un descompilado. `DISASSEMBLY` queda por "
+        "debajo de `FUNCTION_CANDIDATE` en la escalera y `puede_declarar` "
+        "no lo deja ascender.",
+    ],
+    no_medidas=["GFX8 / AMDGPU (Capstone 5.0.7 no lo soporta: no es una "
+                "limitacion del adaptador sino del producer)",
+                "cobertura medida en binarios con datos intercalados "
+                "dentro de una funcion (solo se midio en /bin/ls y "
+                "/usr/bin/rizin)"],
+    unsuitable=["cualquier pregunta sobre el ISA de la GPU (GFX8): Capstone "
+                "no lo cubre"],
+)
+
+
+# Coccinelle: busqueda SEMANTICA sobre fuente. Namespace `source.` porque
+# no opera sobre binario: necesita el texto, no el ELF.
+_reg(
+    Backend("coccinelle", "spatch", ["--version"], timeout=600,
+            repo="https://github.com/coccinelle/coccinelle.git",
+            commit="local:rpm-coccinelle-1.3.1"),
+    caps={
+        "source.semantic_search": "AVAILABLE",
+    },
+    notas=[
+        "MEDIDO: aplica. `spatch --sp-file p.cocci f.c` reescribe la linea "
+        "que casa con el patron. CONTROL NEGATIVO: el mismo patron sobre un "
+        "fichero sin esa linea NO produce diff. El `empty` del producer es "
+        "discriminante, no un fallo silencioso.",
+        "MEDIDO: `spatch --spool` NO EXISTE en 1.3.1 (`unknown option`). La "
+        "forma correcta es `--sp-file`.",
+        "MEDIDO Y CLASIFICADO: `spatch` responde `No rules apply` con rc 255 "
+        "tanto si el parche no aplica como si esta mal invocado. El adaptador "
+        "comprueba ese texto y clasifica `invalid_input`, no `empty`: no es "
+        "que no coincida, es que el parche no es usable sobre esa entrada. "
+        "Sin esa comprobacion, un error de invocacion se lee como un "
+        "resultado negativo del codigo examinado.",
+        "ALCANCE: `source.` y no `binary.`. Coccinelle necesita FUENTES; no "
+        "sirve sobre un `.ko` compilado. Es la capacidad para la pregunta "
+        "que un grep no responde: 'todos los sitios donde se escribe un "
+        "registro sin pasar por el helper'.",
+        "LIMITE DE CORPUS: solo cubre lo que este en el corpus de fuente. "
+        "El hallazgo 1556 midio que el corpus es una sola rama y hay 134 "
+        "cabeceras fuera. Un `empty` aqui significa 'no coincide en ESTA "
+        "rama', no 'no coincide en el driver'.",
+    ],
+    no_medidas=["Coccinelle sobre el corpus del kernel (requiere las fuentes "
+                "completas; solo se midio sobre codigo sintetico)"],
+    unsuitable=["cualquier pregunta sobre un binario (.ko): necesita fuente"],
+)
+
 
 
 def backends() -> Dict[str, Dict[str, Any]]:

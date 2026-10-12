@@ -1,6 +1,0 @@
-/home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-R4C-JITTER-OBSERVABILITY/harness/build/CMakeFiles/shaders.dir
-/home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-R4C-JITTER-OBSERVABILITY/harness/build/CMakeFiles/jitter_layer.dir
-/home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-R4C-JITTER-OBSERVABILITY/harness/build/CMakeFiles/jitter_harness.dir
-/home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-R4C-JITTER-OBSERVABILITY/harness/build/CMakeFiles/test.dir
-/home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-R4C-JITTER-OBSERVABILITY/harness/build/CMakeFiles/edit_cache.dir
-/home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-R4C-JITTER-OBSERVABILITY/harness/build/CMakeFiles/rebuild_cache.dir

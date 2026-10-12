@@ -1,4 +1,0 @@
-== PID 799468 libs Mesa/vulkan/rgx cargadas ==
-/home/lucas/.cache/mesa_shader_cache/index
-/usr/lib64/libgallium-26.2.2.so
-/usr/lib64/libGLX_mesa.so.0.0.0

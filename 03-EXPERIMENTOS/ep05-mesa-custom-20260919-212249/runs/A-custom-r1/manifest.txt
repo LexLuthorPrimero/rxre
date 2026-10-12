@@ -1,3 +1,0 @@
-run=A-custom-r1
-date=2026-09-19T21:24:46-0300
-cmd=env MESA_CUSTOM=/opt/mesa-26.2.2-rx550-haswell LD_LIBRARY_PATH=/opt/mesa-26.2.2-rx550-haswell/lib64 LIBGL_DRIVERS_PATH=/opt/mesa-26.2.2-rx550-haswell/lib64/dri DRI_PRIME=1 glmark2 --fullscreen --reuse-context -s 1920x1080 -b desktop:duration=15

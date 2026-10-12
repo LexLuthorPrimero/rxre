@@ -1,7 +1,0 @@
-[run_all_v23] build ok
-[run_all_v23] pre_flight ok
-[run_all_v23] Fase 1 (15 bloques + 2 cooldowns v2.2)…
-[run_all_v23] COOLDOWN p1->p2 INICIO (esperando temp<=50C ∧ SCLK nv0 ∧ P<4W)
-[run_all_v23] COOLDOWN p1->p2 FIN en 345s (T=49000 sclk_nivel=0 P=3367000uW) -> /home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-R4B-GOVERNOR/results/v23/session2/fase1/cooldown1.tsv
-[run_all_v23] COOLDOWN p2->p3 INICIO (esperando temp<=50C ∧ SCLK nv0 ∧ P<4W)
-[run_all_v23] COOLDOWN p2->p3 TIMEOUT 3600s sin retorno (T=49000 sclk=7 P=6395000uW) — PARADA D

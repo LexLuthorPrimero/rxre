@@ -1,1 +1,0 @@
-[phase1] PARADA D: histéresis asc<->desc >15 % (§14-D) -> {"monotonic": true, "steps_ge3pct": true, "best_consecutive_steps": 4, "range_5_200ms": true, "hysteresis_max": 0.5832, "hysteresis_le15pct": false}

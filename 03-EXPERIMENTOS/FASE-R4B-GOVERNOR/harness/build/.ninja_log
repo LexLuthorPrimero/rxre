@@ -1,7 +1,0 @@
-# ninja log v7
-1	119	1790130465695350970	_gen/triangle.frag.spv	4bdb929ec81a129
-1	119	1790130465695350970	/home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-R4B-GOVERNOR/harness/build/_gen/triangle.frag.spv	4bdb929ec81a129
-1	437	1790130228353135979	_gen/triangle.vert.spv	7217b1fcc4a3e04f
-1	437	1790130228353135979	/home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-R4B-GOVERNOR/harness/build/_gen/triangle.vert.spv	7217b1fcc4a3e04f
-1	103	1790130334855988791	CMakeFiles/governor_harness.dir/app_vulkan.c.o	d6fadf501f81b790
-103	126	1790130334957986734	governor_harness	fff2f83a3e3aa887

@@ -1,7 +1,0 @@
-REP=2
-t_load_start=1790132364
-t_load_end=1790132506
-t_cond=1790132761
-ret_T=50000
-ret_sclk_nivel=0
-ret_P=3422000
