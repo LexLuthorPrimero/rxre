@@ -46,39 +46,77 @@ def _ejecutar_comando(backend_id: str, nivel_analisis: str, archivo: str, timeou
 def persistir(env: Dict[str, Any]) -> Dict[str, Any]:
     """Persistir el resultado del producer para reproducibilidad.
 
-    Medido 2026-10-12: rizin/radare2 usan la misma transacción determinista:
-    archivo temporal + comando. Registrar el hash del input y el hash del output.
+    Usar la capa centralizada core.store para todos los adapters.
     """
-    input_hash = env.get("input_hash")
-    if not input_hash and env.get("artefacto"):
-        if isinstance(env["artefacto"], (str, bytes)):
-            data = env["artefacto"].encode() if isinstance(env["artefacto"], str) else env["artefacto"]
-            input_hash = hashlib.sha256(data).hexdigest()
+    from core import store as S
 
-    output_hash = hashlib.sha256(
-        f"{input_hash or 'none'}{env.get('backend_id')}{env.get('nivel_analisis')}"
-        f"{env.get('inicio')}{env.get('longitud')}".encode()
-    ).hexdigest()
+    db = env.get("db")
+    abierta_por_nosotros = db is None
+    c = db or S.conectar()
+
+    capability = env.get("capability", "binary.xrefs")
+    target = env.get("target", "")
+    question = env.get("question", "")
+    import hashlib as _hash
+    op_seed = f"{capability}|{target}|{question}"
+    op_id = "op_" + _hash.sha256(op_seed.encode()).hexdigest()[:16]
+
+    # Eliminar operaciones previas con el mismo op_id para evitar duplicados
+    c.execute("DELETE FROM operations WHERE op_id=?", (op_id,))
+    c.execute("DELETE FROM results WHERE op_id=?", (op_id,))
+    c.execute("DELETE FROM raw_output WHERE op_id=?", (op_id,))
+    c.commit()
+
+    request = {
+        "request_id": "",
+        "question": question or f"inspeccionar {target or 'artefacto'}",
+        "capability": capability,
+        "scope": "binary",
+        "target": target,
+    }
+    operation = {
+        "operation": capability,
+        "status": env.get("status", "ok"),
+        "backend": env.get("backend"),
+        "ejecucion": env.get("ejecucion"),
+        "provenance": env.get("provenance"),
+        "precheck": env.get("precheck"),
+        "cadena_backend": env.get("cadena_backend"),
+        "results": env.get("results") or [],
+    }
+    duracion = (env.get("ejecucion") or {}).get("duration_s", 0)
+    resultado_op_id = S.registro(c, request, operation, duracion)
+
+    if abierta_por_nosotros:
+        c.close()
 
     return {
         "producer": "rz_xrefs",
         "contract_version": "2026-10-12",
-        "input_hash": input_hash,
-        "output_hash": output_hash,
+        "input_hash": env.get("input_hash"),
+        "output_hash": env.get("output_hash"),
         "reproducible": True,
         "backend_id": env.get("backend_id"),
         "nivel_analisis": env.get("nivel_analisis"),
         "metadata": {"found": True},
+        "operation_id": resultado_op_id if resultado_op_id else None,
+        "persistido": bool(resultado_op_id and not str(resultado_op_id).startswith("COLISION"))
     }
+
+
+def _ts():
+    """Timestamp simple para usar en los results."""
+    import datetime
+    return datetime.datetime.now().isoformat()
 
 
 def xrefs(artefacto: Any, **kwargs) -> Dict[str, Any]:
     """Implementacion de `binary.xrefs`. RXRE-1635.
-
+    
     Contrato:
     - inputs: artefacto binario, inicio (offset), longitud (bytes), backend_id,
       nivel_analisis ("aaa" o "aa"), timeout, fixture_json opcional.
-    - outputs: {"status": "ok" | "empty" | "error", "xrefs": <int>, "metadata": ...}
+    - outputs: {"status": "ok" | "empty" | "error", "xrefs": <int>, "results": [...], "metadata": ...}
     - evidencia requerida: JSON valido con discriminante nivel_analisis.
     """
     # Validar backend_id
@@ -140,9 +178,35 @@ def xrefs(artefacto: Any, **kwargs) -> Dict[str, Any]:
             else:
                 status = "ok"
 
+            # Construir resultados con result_id para persistencia
+            results = []
+            for i, xref in enumerate(data):
+                # Cada xref es una referencia a una función o símbolo
+                # Usar hash determinista basado en el contenido del xref
+                xref_str = json.dumps(xref, sort_keys=True, default=str)
+                result_id = "xref_" + hashlib.sha256(f"{i}_{xref_str}".encode()).hexdigest()[:12]
+                result = {
+                    "result_id": result_id,
+                    "type": "xref",
+                    "value": xref,
+                    "source": "binary.xrefs",
+                    "location": {"file": str(artefacto), "offset": kwargs.get("inicio", 0)},
+                    "scope": "binary",
+                    "tool": backend_id,
+                    "tool_version": "",
+                    "input": {"path": str(artefacto), "sha256": ""},
+                    "timestamp": _ts(),
+                    "artifact": str(artefacto),
+                    "artifact_hash": "",
+                    "status": "declared",
+                    "limitations": ["xref requiere análisis de funciones"]
+                }
+                results.append(result)
+
             return {
                 "status": status,
                 "xrefs": xrefs_count,
+                "results": results,  # <-- This is the key addition
                 "backend": backend_id,
                 "nivel_analisis": nivel_analisis,
                 "metadata": {
