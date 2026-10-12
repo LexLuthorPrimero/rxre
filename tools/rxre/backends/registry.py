@@ -350,6 +350,52 @@ _reg(
 )
 
 
+# --- RXRE-1641. Knowledge backend: rxre.create_finding, rxre.get_finding,
+# --- rxre.list_finding_relations, rxre.create_finding_relation.
+#
+# ESTA NO ES UNA CAPACIDAD DE PRODUCER EXTERNO. Es un adapter que CREA y
+# RECUPERA hallazgos usando la capa centralizada core.store. La
+# "existencia" del backend se verifica por la importabilidad del modulo
+# y la version de core.store, NO por un binario en PATH.
+#
+# RXRE-1641 integra el modelo de conocimiento de RXRE-1640 en el dispatch
+# publico. Un agente puede crear findings a traves de `rxre.create_finding`
+# SIN importar core.store ni escribir directamente a la base de datos.
+#
+# La clave de diseño: el estado epistemico de un finding NO se reclama,
+# se DERIVA de la evidencia. Un finding con epistemic=PROVEN pero evidencia
+# vacia o de estado error se guarda como NOT_DETERMINED o PARTIAL.
+_reg(
+    Backend("knowledge", "python3", [], timeout=60,
+            repo="https://github.com/lucas/rxre.git",
+            commit="rxre-1641:knowledge-backend"),
+    caps={
+        "rxre.create_finding": "AVAILABLE",
+        "rxre.get_finding": "AVAILABLE",
+        "rxre.list_finding_relations": "AVAILABLE",
+        "rxre.create_finding_relation": "AVAILABLE",
+    },
+    notas=[
+        "MEDIDO: el backend 'knowledge' existe y es importable. Sus "
+        "capacidades (rxre.create_finding, rxre.get_finding, etc.) están "
+        "implementadas en backends.adapters.rz_findings.",
+        "NO es un producer externo: no ejecuta un binario. Crea y recupera "
+        "hallazgos usando core.store. La 'existencia' se verifica por "
+        "importabilidad del modulo y version de core.store.",
+        "REGLA DE ESTADOS: un finding con epistemic=PROVEN pero evidencia "
+        "vacia o de estado error se guarda con estado REAL derivado de la "
+        "evidencia (NOT_DETERMINED o PARTIAL), no PROVEN.",
+        "REGLA DE EVIDENCIA: el result_id de evidencia debe existir en la "
+        "base de datos. Se valida antes de crear el finding.",
+        "REGLA DE PROVENIENCIA: cada finding requiere producer, tool_version "
+        "y method. Sin estos, el estado es NOT_DETERMINED.",
+        "REGLA DE RELACIONES: una relacion requiere dos hallazgos validos "
+        "(existen) y evidencia con 'what', 'how' y 'references'.",
+    ],
+    no_medidas=[],
+    unsuitable=[],
+)
+
 
 def backends() -> Dict[str, Dict[str, Any]]:
     return _BACKENDS

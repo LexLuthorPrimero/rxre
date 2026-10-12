@@ -246,6 +246,41 @@ ADAPTERS = {
                        "limite", "fixture_json"],
         "obligatorio": ["artefacto"],
     },
+    # RXRE-1641: capacidades de hallazgo
+    "rxre.create_finding": {
+        "modulo": "backends.adapters.rz_findings",
+        "funcion": "persistir",
+        "backend_por_defecto": "knowledge",
+        "parametros": ["capability", "claim", "evidence_ids", "epistemic",
+                       "provenance", "limitations", "op_id", "target"],
+        "obligatorio": ["capability", "claim", "evidence_ids", "epistemic",
+                        "provenance", "limitations"],
+    },
+    "rxre.get_finding": {
+        "modulo": "backends.adapters.rz_findings",
+        "funcion": "persistir",
+        "backend_por_defecto": "knowledge",
+        "parametros": ["capability", "finding_id", "epistemic", "provenance",
+                       "limitations"],
+        "obligatorio": ["capability", "finding_id"],
+    },
+    "rxre.list_finding_relations": {
+        "modulo": "backends.adapters.rz_findings",
+        "funcion": "persistir",
+        "backend_por_defecto": "knowledge",
+        "parametros": ["capability", "finding_id", "epistemic", "provenance",
+                       "limitations"],
+        "obligatorio": ["capability", "finding_id"],
+    },
+    "rxre.create_finding_relation": {
+        "modulo": "backends.adapters.rz_findings",
+        "funcion": "persistir",
+        "backend_por_defecto": "knowledge",
+        "parametros": ["capability", "source_finding_id", "target_finding_id",
+                       "relation", "evidence", "confidence"],
+        "obligatorio": ["capability", "source_finding_id", "target_finding_id",
+                        "relation", "evidence"],
+    },
 }
 
 #: Estados que permiten EJECUTAR. `PARTIAL` entra con su limitacion; los otros
@@ -256,22 +291,26 @@ EJECUTABLES = ("AVAILABLE", "PARTIAL")
 def _persistir(env: Dict[str, Any]) -> Any:
     """La persistencia de envelopes, que es de RXRE y no de un backend.
 
-    MEDIDO (lote 2026-10-12): al generalizar el dispatch a varios adapters,
-    la llamada quedo como `mod.persistir(env)`, o sea `gh_decompile.persistir`
-    o `cocci_search.persistir`. Ninguno de los dos la define: la unica que
-    existe es `rz_inspect.persistir`, y con razon es suya -- resuelve el
-    id determinista, detecta `COLISION` y escribe el envelope con la cadena
-    del backend.
-
-    Duplicarla en cada adapter nuevo seria copiar la parte mas delicate del
-    sistema cuatro veces. Se resuelve UNA vez aqui. El nombre de la funcion
-    sigue diciendo de quien es la logica: `persistir` es de `rz_inspect`.
-
-    Import perezoso a proposito: un fallo al importar un adapter NO puede
-    dejar sin persistencia a los demas.
+    Cada adapter debe definir su propia funcion `persistir(env)` que devuelve
+    un identificador de operacion (string) o None si no se pudo persistir.
+    Esta funcion delega al adapter correspondiente.
     """
-    from backends.adapters import rz_inspect
-    return rz_inspect.persistir(env)
+    capability = env.get("capability")
+    if not capability or capability not in ADAPTERS:
+        # No hay adapter registrado, no se puede persistir
+        return None
+
+    adapter_info = ADAPTERS[capability]
+    try:
+        mod = importlib.import_module(adapter_info["modulo"])
+        persistir_fn = getattr(mod, "persistir", None)
+        if persistir_fn is None:
+            # El adapter no tiene persistir definida
+            return None
+        return persistir_fn(env)
+    except (ImportError, AttributeError):
+        # Error al importar el adapter o al obtener persistir
+        return None
 
 #: Los PLANES. Que capacidades componen el camino hacia un objetivo.
 #:
