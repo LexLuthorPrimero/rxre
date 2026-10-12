@@ -281,6 +281,28 @@ ADAPTERS = {
         "obligatorio": ["capability", "source_finding_id", "target_finding_id",
                         "relation", "evidence"],
     },
+    # RXRE-1643: knowledge reuse capabilities
+    "rxre.list_findings": {
+        "modulo": "backends.adapters.rz_findings",
+        "funcion": "persistir",
+        "backend_por_defecto": "knowledge",
+        "parametros": ["capability", "finding_id", "epistemic", "limit"],
+        "obligatorio": ["capability"],
+    },
+    "rxre.search_findings": {
+        "modulo": "backends.adapters.rz_findings",
+        "funcion": "persistir",
+        "backend_por_defecto": "knowledge",
+        "parametros": ["capability", "artifact", "architecture", "tool", "tool_settings", "question", "limit"],
+        "obligatorio": ["capability"],
+    },
+    "rxre.evaluate_applicability": {
+        "modulo": "backends.adapters.rz_findings",
+        "funcion": "persistir",
+        "backend_por_defecto": "knowledge",
+        "parametros": ["capability", "finding_id", "artifact", "architecture", "tool", "tool_settings", "question"],
+        "obligatorio": ["capability"],
+    },
 }
 
 #: Estados que permiten EJECUTAR. `PARTIAL` entra con su limitacion; los otros
