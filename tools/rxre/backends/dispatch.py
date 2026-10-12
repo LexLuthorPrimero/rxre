@@ -205,6 +205,25 @@ ADAPTERS = {
                        "timeout", "fixture_bin", "backend_id"],
         "obligatorio": ["artefacto"],
     },
+    # MEDIDO 2026-10-12 (RXRE-1635): `binary.xrefs` la cerraba un
+    # adapter nuevo (`rz_xrefs`). MEDIDO: `axtj` y `axfj` responden JSON
+    # en rizin y radare2. El registro ya documentaba la trampa: "los xrefs
+    # exigen `aaa`, no `aa`. MEDIDO: `aa; axtj` -> [] y `aaa; axtj` -> 3".
+    # Por eso el adapter toma `nivel_analisis` como parametro y declara la
+    # dependencia en cada respuesta: un `empty` sin contexto es un error,
+    # porque `aa` da empty sin que falte nada.
+    #
+    # Capstone NO cubre xrefs: no hace analisis de funciones. Esta
+    # capacidad usa rizin/radare2, y no se puede cerrar con un producer
+    # que no existe.
+    "binary.xrefs": {
+        "modulo": "backends.adapters.rz_xrefs",
+        "funcion": "xrefs",
+        "backend_por_defecto": "rizin",
+        "parametros": ["artefacto", "inicio", "longitud", "backend_id",
+                       "nivel_analisis", "timeout", "fixture_json"],
+        "obligatorio": ["artefacto"],
+    },
     "binary.functions": {
         "modulo": "backends.adapters.rz_functions",
         "funcion": "functions",

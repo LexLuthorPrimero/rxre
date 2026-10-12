@@ -1,0 +1,58 @@
+{
+  "ghidra_version": "12.1.4",
+  "program": "ls",
+  "language": "x86:LE:64:default",
+  "functions": [
+    {
+      "name": "_init",
+      "address": "0010033c",
+      "size": 27,
+      "nparams": 1,
+      "calling_convention": "__stdcall",
+      "decompiled": true,
+      "c": "\nint _init(EVP_PKEY_CTX *ctx)\n\n{\n  int iVar1;\n  \n  iVar1 = 0;\n  if (PTR___gmon_start___00124fb8 != (undefined *)0x0) {\n    iVar1 = (*(code *)PTR___gmon_start___00124fb8)();\n  }\n  return iVar1;\n}\n\n"
+    }
+,
+    {
+      "name": "FUN_00100360",
+      "address": "00100360",
+      "size": 12,
+      "nparams": 0,
+      "calling_convention": "unknown",
+      "decompiled": true,
+      "c": "\nvoid FUN_00100360(void)\n\n{\n  (*(code *)PTR_00124c18)();\n  return;\n}\n\n"
+    }
+,
+    {
+      "name": "__ctype_toupper_loc",
+      "address": "00100a00",
+      "size": 10,
+      "nparams": 0,
+      "calling_convention": "unknown",
+      "decompiled": true,
+      "c": "\n/* WARNING: Unknown calling convention -- yet parameter storage is locked */\n\n__int32_t ** __ctype_toupper_loc(void)\n\n{\n  __int32_t **pp_Var1;\n  \n  pp_Var1 = (__int32_t **)(*(code *)PTR___ctype_toupper_loc_00124c20)();\n  return pp_Var1;\n}\n\n"
+    }
+,
+    {
+      "name": "getenv",
+      "address": "00100a10",
+      "size": 10,
+      "nparams": 1,
+      "calling_convention": "unknown",
+      "decompiled": true,
+      "c": "\n/* WARNING: Unknown calling convention -- yet parameter storage is locked */\n\nchar * getenv(char *__name)\n\n{\n  char *pcVar1;\n  \n  pcVar1 = (char *)(*(code *)PTR_getenv_00124c28)();\n  return pcVar1;\n}\n\n"
+    }
+,
+    {
+      "name": "cap_to_text",
+      "address": "00100a20",
+      "size": 10,
+      "nparams": 0,
+      "calling_convention": "unknown",
+      "decompiled": true,
+      "c": "\nvoid cap_to_text(void)\n\n{\n  (*(code *)PTR_cap_to_text_00124c30)();\n  return;\n}\n\n"
+    }
+
+  ],
+  "n_functions_dumped": 5
+}
