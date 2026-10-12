@@ -1,0 +1,9 @@
+{
+  "ghidra_version": "12.1.4",
+  "program": "amdgpu.ko",
+  "language": "x86:LE:64:default",
+  "functions": [
+
+  ],
+  "n_functions_dumped": 0
+}

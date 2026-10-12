@@ -188,7 +188,7 @@ casos = [
     # que `run` lo ejecuta. El ejemplo se cambia por uno que SI sigue
     # sin producer, que es lo que este bloque tiene que comprobar.
     ("capacidad sin producer verificable",
-     "binary.disassemble_func", "adapter"),
+     "binary.sin_producer", "producer"),
     ("identificador cerrado: ruta", "../../etc/passwd", "identificador cerrado"),
     ("identificador cerrado: comando", "rizin --version", "identificador cerrado"),
     ("nombre de shell", "shell", "no hay ninguna capacidad registrada"),
