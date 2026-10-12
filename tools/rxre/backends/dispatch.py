@@ -224,6 +224,20 @@ ADAPTERS = {
                        "nivel_analisis", "timeout", "fixture_json"],
         "obligatorio": ["artefacto"],
     },
+    # MEDIDO 2026-10-12 (RXRE-1636): `binary.callgraph` cerraba un
+    # adapter nuevo (`rz_callgraph`). MEDIDO: radare2 `agCj` produce JSON
+    # con funciones y aristas (funciones -> imports). rizin `agCj` no
+    # funciona (produce ASCII). El adapter usa `aa; agCj` para asegurar
+    # analisis previo. Esta es la diferencia clave vs xrefs: callgraph
+    # captura relaciones interfuncionales, xrefs solo referencias directas.
+    "binary.callgraph": {
+        "modulo": "backends.adapters.rz_callgraph",
+        "funcion": "callgraph",
+        "backend_por_defecto": "radare2",
+        "parametros": ["artefacto", "inicio", "longitud", "backend_id",
+                       "timeout", "fixture_json"],
+        "obligatorio": ["artefacto"],
+    },
     "binary.functions": {
         "modulo": "backends.adapters.rz_functions",
         "funcion": "functions",
@@ -274,6 +288,7 @@ PLANES: Dict[str, List[str]] = {
     "binary.functions": ["binary.inspect", "binary.functions"],
     "binary.disassemble": ["binary.inspect", "binary.disassemble"],
     "binary.xrefs": ["binary.inspect", "binary.functions", "binary.xrefs"],
+    "binary.callgraph": ["binary.inspect", "binary.functions", "binary.callgraph"],
     "binary.cfg": ["binary.inspect", "binary.functions", "binary.cfg"],
     "binary.dataflow": ["binary.inspect", "binary.functions", "binary.dataflow"],
     "binary.decompile": ["binary.inspect", "binary.functions",
