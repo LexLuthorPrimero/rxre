@@ -702,6 +702,313 @@ def crear_relacion(
         }
 
 
+def listar_hallazgos(finding_id: Optional[str] = None,
+                     epistemic: Optional[str] = None,
+                     limit: Optional[int] = None) -> Dict[str, Any]:
+    """Listar hallazgos. Si finding_id se da, filtra por ese hallazgo.
+    
+    Devuelve:
+        {
+            "status": "ok",
+            "hallazgos": [{finding_id, claim, epistemic, evidence_ids,
+                           provenance, limitations, created_at}],
+            "total": <número total>
+        }
+    """
+    try:
+        from core import store as S
+        c = S.conectar()
+        try:
+            if finding_id:
+                f = S.recuperar_finding(c, finding_id)
+                if f is None:
+                    return {"status": RESULT_ERROR, "hallazgos": [], "total": 0,
+                            "motivo": "hallazgo no encontrado"}
+                hallazgos = [f]
+            else:
+                rows = c.execute("SELECT finding_id FROM findings").fetchall()
+                hallazgos = []
+                for row in rows:
+                    f = S.recuperar_finding(c, row["finding_id"])
+                    if f is None:
+                        continue
+                    if epistemic and f.get("epistemic") != epistemic:
+                        continue
+                    hallazgos.append(f)
+                    if limit and len(hallazgos) >= limit:
+                        break
+            return {
+                "status": RESULT_OK,
+                "hallazgos": hallazgos,
+                "total": len(hallazgos),
+            }
+        finally:
+            c.close()
+    except Exception as e:
+        return {
+            "status": RESULT_ERROR,
+            "hallazgos": [],
+            "total": 0,
+            "motivo": "error listando hallazgos: %s" % str(e),
+        }
+
+
+def evaluar_aplicabilidad(finding_id: Optional[str],
+                          artifact: Optional[str],
+                          architecture: Optional[str],
+                          tool: Optional[str],
+                          tool_settings: Optional[str],
+                          question: Optional[str]) -> Dict[str, Any]:
+    """Evaluar si un hallazgo se aplica a un nuevo artefacto o cuestion.
+    
+    La evaluacion se basa en el contrato de conocimiento del hallazgo:
+    - artifact: el artefacto al que se refiere el hallazgo (ej: reg_resolve.py)
+    - architecture: la arquitectura a la que se refiere (ej: GFX8, x86_64)
+    - tool: la herramienta con la que se obtuvo el hallazgo (ej: rizin, radare2)
+    - tool_settings: el modo de uso de la herramienta (ej: aaa; axtj)
+    - question: la cuestion que queremos responder
+    
+    Devuelve:
+        {
+            "status": "ok",
+            "aplicable": True/False,
+            "nivel": "PRECISO" | "PARCIAL" | "IRRELEVANTE",
+            "motivo": explicacion,
+            "contrato": {knowledge contract data} o None,
+            "encontrado": True/False
+        }
+    """
+    try:
+        from core import store as S
+        from knowledge_ingestion.contracts import KnowledgeContract
+        import json
+        c = S.conectar()
+        try:
+            found = False
+            contrato_data = None
+            
+            # Buscar el hallazgo
+            if finding_id:
+                f = S.recuperar_finding(c, finding_id)
+                if f is not None:
+                    found = True
+                    for lim in f.get("limitations", []):
+                        if isinstance(lim, str) and lim.startswith("knowledge_contract:"):
+                            try:
+                                contrato_data = json.loads(lim.split(":", 1)[1])
+                                break
+                            except Exception:
+                                pass
+            
+            if not found:
+                return {
+                    "status": RESULT_OK,
+                    "aplicable": False,
+                    "nivel": "IRRELEVANTE",
+                    "motivo": "hallazgo no encontrado",
+                    "contrato": None,
+                    "encontrado": False,
+                }
+            
+            if not contrato_data:
+                return {
+                    "status": RESULT_OK,
+                    "aplicable": False,
+                    "nivel": "IRRELEVANTE",
+                    "motivo": ("el hallazgo no tiene un contrato de conocimiento "
+                               "asociado"),
+                    "contrato": None,
+                    "encontrado": True,
+                }
+            
+            # Reconstruir el contrato
+            contrato = KnowledgeContract.from_dict(contrato_data)
+            
+            # --- Evaluar aplicabilidad ---
+            # 1. Arquitectura
+            contract_arch = contrato.applicability.get("architecture")
+            arch_match = False
+            if not architecture:
+                arch_match = True
+            elif not contract_arch:
+                arch_match = False
+            elif contract_arch == architecture:
+                arch_match = True
+            elif contract_arch == "GFX8" and architecture in ("GFX8", "gfx8", "amdgpu", "amd"):
+                # Regla semantica: GFX8 es AMDGPU, no coincide con x86_64 user-space
+                if architecture.startswith("x86") or architecture == "amd64":
+                    arch_match = False
+                else:
+                    arch_match = True
+            else:
+                arch_match = contract_arch.lower() == architecture.lower()
+            
+            # 2. Herramienta
+            contract_tool = contrato.applicability.get("tool")
+            tool_match = False
+            if not tool:
+                tool_match = True
+            elif not contract_tool:
+                tool_match = False
+            else:
+                tool_match = contract_tool.lower() == tool.lower()
+            
+            # 3. Configuracion de herramienta
+            contract_tool_settings = contrato.applicability.get("tool_settings") or ""
+            tool_settings_match = False
+            if not tool_settings:
+                tool_settings_match = True
+            elif contract_tool_settings:
+                # Coincidencia parcial por subcadena
+                tool_settings_match = (
+                    tool_settings in contract_tool_settings or
+                    contract_tool_settings in tool_settings
+                )
+            else:
+                tool_settings_match = False
+            
+            # 4. Artefacto
+            contract_artifact = contrato.applicability.get("artifact")
+            artifact_match = False
+            if not artifact:
+                artifact_match = True
+            elif not contract_artifact:
+                artifact_match = False
+            elif artifact in contract_artifact or contract_artifact in artifact:
+                artifact_match = True
+            else:
+                artifact_match = (
+                    artifact.replace("/", "").replace(".py", "")
+                    in contract_artifact.replace("/", "").replace(".py", "")
+                )
+            
+            # Determinar nivel de aplicabilidad
+            if not (arch_match and tool_match):
+                nivel = "IRRELEVANTE"
+                motivo = (
+                    "el hallazgo no se aplica: arquitectura (%s) y/o herramienta (%s) "
+                    "no coinciden" % (
+                        "arch_ok" if arch_match else "arch=%s" % contract_arch,
+                        "tool_ok" if tool_match else "tool=%s" % contract_tool,
+                    )
+                )
+            elif not tool_settings_match:
+                nivel = "PARCIAL"
+                motivo = (
+                    "el hallazgo se aplica a la misma arquitectura/herramienta "
+                    "pero con configuracion diferente (%s vs %s)" % (
+                        contract_tool_settings, tool_settings
+                    )
+                )
+            elif artifact_match:
+                nivel = "PRECISO"
+                motivo = (
+                    "el hallazgo se aplica directamente: misma arquitectura, "
+                    "herramienta y artefacto"
+                )
+            else:
+                nivel = "PARCIAL"
+                motivo = (
+                    "el hallazgo se aplica a la misma arquitectura y herramienta "
+                    "pero en un artefacto diferente (%s)" % artifact
+                )
+            
+            return {
+                "status": RESULT_OK,
+                "aplicable": nivel != "IRRELEVANTE",
+                "nivel": nivel,
+                "motivo": motivo,
+                "contrato": contrato.to_dict(),
+                "encontrado": True,
+                "criterios_evaluados": {
+                    "architecture": {"expectado": architecture, "contrato": contract_arch, "coincide": arch_match},
+                    "tool": {"expectado": tool, "contrato": contract_tool, "coincide": tool_match},
+                    "tool_settings": {"expectado": tool_settings, "contrato": contract_tool_settings, "coincide": tool_settings_match},
+                    "artifact": {"expectado": artifact, "contrato": contract_artifact, "coincide": artifact_match},
+                },
+            }
+        finally:
+            c.close()
+    except Exception as e:
+        import traceback
+        return {
+            "status": RESULT_ERROR,
+            "aplicable": False,
+            "nivel": "IRRELEVANTE",
+            "motivo": "error evaluando aplicabilidad: %s" % str(e),
+            "contrato": None,
+            "encontrado": False,
+            "trazas": traceback.format_exc(),
+        }
+
+
+def buscar_hallazgos(artifact: Optional[str] = None,
+                     architecture: Optional[str] = None,
+                     tool: Optional[str] = None,
+                     tool_settings: Optional[str] = None,
+                     question: Optional[str] = None,
+                     limit: Optional[int] = None) -> Dict[str, Any]:
+    """Buscar hallazgos relevantes por criterios de aplicabilidad.
+    
+    Para cada hallazgo, evalua si el conocimiento es aplicable al nuevo
+    artefacto/cuestion. Devuelve hallazgos ordenados por nivel de
+    aplicabilidad (PRECISO > PARCIAL > IRRELEVANTE) y con su contrato.
+    
+    Devuelve:
+        {
+            "status": "ok",
+            "resultados": [{finding, aplicabilidad: {...}, score: <float>}],
+            "total": <número total>
+        }
+    """
+    try:
+        from core import store as S
+        c = S.conectar()
+        try:
+            rows = c.execute("SELECT finding_id FROM findings").fetchall()
+            resultados = []
+            for row in rows:
+                f = S.recuperar_finding(c, row["finding_id"])
+                if f is None:
+                    continue
+                r = evaluar_aplicabilidad(
+                    finding_id=f["finding_id"],
+                    artifact=artifact,
+                    architecture=architecture,
+                    tool=tool,
+                    tool_settings=tool_settings,
+                    question=question,
+                )
+                if r.get("status") != RESULT_OK:
+                    continue
+                # Ordenar: PRECISO > PARCIAL > IRRELEVANTE
+                nivel_order = {"PRECISO": 3, "PARCIAL": 2, "IRRELEVANTE": 1}
+                nivel = r.get("nivel", "IRRELEVANTE")
+                resultados.append({
+                    "finding": f,
+                    "aplicabilidad": r,
+                    "score": nivel_order.get(nivel, 0),
+                })
+            # Ordenar por score descendente
+            resultados.sort(key=lambda x: x["score"], reverse=True)
+            if limit:
+                resultados = resultados[:limit]
+            return {
+                "status": RESULT_OK,
+                "resultados": resultados,
+                "total": len(resultados),
+            }
+        finally:
+            c.close()
+    except Exception as e:
+        return {
+            "status": RESULT_ERROR,
+            "resultados": [],
+            "total": 0,
+            "motivo": "error buscando hallazgos: %s" % str(e),
+        }
+
+
 def persistir(env: Dict[str, Any]) -> Any:
     """Persistir un hallazgo o relacion usando la capa centralizada.
     
@@ -750,5 +1057,32 @@ def persistir(env: Dict[str, Any]) -> Any:
         # Extraer solo los parametros que necesita listar_relaciones
         return listar_relaciones(
             finding_id=env.get("finding_id")
+        )
+    if capability == "rxre.list_findings":
+        # Listar todos los hallazgos (con opcion de limitacion)
+        return listar_hallazgos(
+            finding_id=env.get("finding_id"),
+            epistemic=env.get("epistemic"),
+            limit=env.get("limit", None),
+        )
+    if capability == "rxre.search_findings":
+        # Buscar hallazgos por criterios de aplicabilidad
+        return buscar_hallazgos(
+            artifact=env.get("artifact"),
+            architecture=env.get("architecture"),
+            tool=env.get("tool"),
+            tool_settings=env.get("tool_settings"),
+            question=env.get("question"),
+            limit=env.get("limit", None),
+        )
+    if capability == "rxre.evaluate_applicability":
+        # Evaluar si un hallazgo se aplica a un nuevo artefacto/cuestion
+        return evaluar_aplicabilidad(
+            finding_id=env.get("finding_id"),
+            artifact=env.get("artifact"),
+            architecture=env.get("architecture"),
+            tool=env.get("tool"),
+            tool_settings=env.get("tool_settings"),
+            question=env.get("question"),
         )
     return None
