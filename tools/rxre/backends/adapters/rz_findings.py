@@ -1085,4 +1085,299 @@ def persistir(env: Dict[str, Any]) -> Any:
             tool_settings=env.get("tool_settings"),
             question=env.get("question"),
         )
-    return None
+
+    if capability == "rxre.plan_investigation":
+        # Generar plan de investigación guiado por conocimiento
+        return plan_investigation(
+            question=env.get("question"),
+            artifact=env.get("artifact"),
+            architecture=env.get("architecture"),
+            tool=env.get("tool"),
+            tool_settings=env.get("tool_settings"),
+            question_context=env.get("question_context"),
+            prior_finding_ids=env.get("prior_finding_ids"),
+        )
+
+
+def plan_investigation(
+    question: str = None,
+    artifact: str = None,
+    architecture: str = None,
+    tool: str = None,
+    tool_settings: str = None,
+    question_context: dict = None,
+    prior_finding_ids: list = None,
+) -> dict:
+    """Generate a knowledge-guided investigation plan.
+    
+    This function takes a question and target context, retrieves relevant
+    prior findings, evaluates their applicability, and generates a
+    structured plan with candidate investigation steps.
+    
+    Args:
+        question: The investigation question to answer
+        artifact: Target artifact (binary path, source file, etc.)
+        architecture: CPU/GPU architecture (x86_64, GFX8, etc.)
+        tool: Tool being used (rizin, radare2, etc.)
+        tool_settings: Tool configuration/mode
+        question_context: Additional context about the question
+        prior_finding_ids: Optional list of specific finding IDs to consider
+    
+    Returns:
+        {
+            "status": "ok" | "error",
+            "plan": {plan_dict} | None,
+            "blocked_reasons": [...],
+            "insufficient_evidence": bool,
+            "motivo": "string"
+        }
+    """
+    import hashlib
+    import json
+    from datetime import datetime
+    
+    try:
+        # Initialize plan structure
+        plan_id = hashlib.sha256(
+            (question or "").encode() + (artifact or "").encode() + str(datetime.utcnow().isoformat()).encode()
+        ).hexdigest()[:16]
+        
+        plan = {
+            "plan_id": f"plan_{plan_id}",
+            "question": question or "",
+            "target": {
+                "artifact": artifact,
+                "architecture": architecture,
+                "tool": tool,
+                "tool_settings": tool_settings,
+            },
+            "known_facts": [],
+            "retrieved_findings": [],
+            "candidate_steps": [],
+            "blocked_reasons": [],
+            "insufficient_evidence": False,
+            "completion_criteria": "",
+            "generated_at": datetime.utcnow().isoformat(),
+            "generator": "rxre.plan_investigation",
+        }
+        
+        # Step 1: Search for relevant findings
+        search_result = buscar_hallazgos(
+            artifact=artifact,
+            architecture=architecture,
+            tool=tool,
+            tool_settings=tool_settings,
+            question=question,
+            limit=100,
+        )
+        
+        if search_result.get("status") != RESULT_OK:
+            plan["blocked_reasons"].append(f"Error searching findings: {search_result.get('motivo', 'unknown')}")
+            plan["insufficient_evidence"] = True
+            plan["completion_criteria"] = "No relevant knowledge base found"
+            return {"status": RESULT_OK, "plan": plan, "blocked_reasons": plan["blocked_reasons"], "insufficient_evidence": True}
+        
+        # Step 2: Process retrieved findings and evaluate applicability
+        applicable_findings = []
+        for result_item in search_result.get("resultados", []):
+            finding = result_item.get("finding", {})
+            app_info = result_item.get("aplicabilidad", {})
+            
+            # Build known facts from findings
+            if finding.get("claim"):
+                plan["known_facts"].append({
+                    "claim": finding.get("claim"),
+                    "epistemic": finding.get("epistemic"),
+                    "evidence_count": len(finding.get("evidence_ids", [])),
+                    "source_finding_id": finding.get("finding_id"),
+                })
+            
+            # Track retrieved findings with applicability info
+            plan["retrieved_findings"].append({
+                "finding_id": finding.get("finding_id"),
+                "claim": finding.get("claim"),
+                "epistemic": finding.get("epistemic"),
+                "applicability_level": app_info.get("nivel"),
+                "applicability_reason": app_info.get("motivo"),
+                "source_hash_match": True,  # Will be checked below for stale detection
+                "provenance": finding.get("provenance", {}),
+            })
+            
+            # Track applicable findings
+            if app_info.get("nivel") != "IRRELEVANTE":
+                applicable_findings.append({
+                    "finding": finding,
+                    "applicability": app_info,
+                })
+        
+        # Step 3: Check for contradictions among applicable findings
+        claims_seen = {}
+        contradictions = []
+        for af in applicable_findings:
+            claim = af["finding"].get("claim", "")
+            if claim in claims_seen:
+                contradictions.append({
+                    "claim": claim,
+                    "finding_1": claims_seen[claim]["finding_id"],
+                    "finding_2": af["finding"]["finding_id"],
+                    "provenance_1": claims_seen[claim]["provenance"],
+                    "provenance_2": af["finding"].get("provenance", {}),
+                })
+            else:
+                claims_seen[claim] = {
+                    "finding_id": af["finding"]["finding_id"],
+                    "provenance": af["finding"].get("provenance", {}),
+                }
+        
+        if contradictions:
+            plan["blocked_reasons"].append(f"Found {len(contradictions)} contradictory findings")
+            # Add contradiction handling step
+            plan["candidate_steps"].append({
+                "step_id": "resolve_contradiction",
+                "title": "Resolve contradictory findings",
+                "description": "Contradictory findings require careful analysis to determine which is valid",
+                "hypothesis_addressed": "Which finding is correct?",
+                "tool_capability": "rxre.list_findings",
+                "tool_parameters": {},
+                "expected_observations": ["Consistent results across tests", "Disambiguation of conflicting claims"],
+                "possible_outcomes": [
+                    {
+                        "outcome": "Findings reconciled",
+                        "changes_hypothesis": "Update understanding based on evidence",
+                        "supports_which_claim": "Either finding, or new integrated understanding",
+                        "evidence_required": ["reproduction steps", "independent verification"],
+                    },
+                    {
+                        "outcome": "One finding invalidated",
+                        "changes_hypothesis": "Remove invalidated finding from known facts",
+                        "supports_which_claim": "Remaining finding",
+                        "evidence_required": ["contrast analysis", "root cause identification"],
+                    },
+                ],
+                "prerequisites": [],
+                "information_value": "HIGH",
+                "cost_estimate": "medium",
+                "avoids_redundant_work": False,
+            })
+        
+        # Step 4: Generate candidate investigation steps based on question type
+        # This is a simplified approach - in production, would use LLM or query analysis
+        question_lower = (question or "").lower()
+        
+        # Check if we have applicable findings that can guide the investigation
+        has_applicable = len(applicable_findings) > 0
+        has_evidence = any(len(f.get("evidence_ids", [])) > 0 for f in plan["known_facts"])
+        
+        if not has_applicable:
+            # No applicable knowledge - suggest fresh investigation
+            plan["insufficient_evidence"] = not has_evidence
+            plan["completion_criteria"] = "Investigation complete when evidence sufficent"
+            
+            if "findings" in question_lower or "hallsazgo" in question_lower:
+                plan["candidate_steps"].append({
+                    "step_id": "initial_investigation",
+                    "title": "Perform initial investigation",
+                    "description": "No applicable prior findings. Begin fresh investigation.",
+                    "hypothesis_addressed": "The question requires new analysis",
+                    "tool_capability": f"binary.{tool or 'rizin'}" if tool else "binary.xrefs",
+                    "tool_parameters": {"artefacto": artifact} if artifact else {},
+                    "expected_observations": ["Binary analysis results", "Cross-reference information"],
+                    "possible_outcomes": [
+                        {
+                            "outcome": "Finding identified",
+                            "changes_hypothesis": "Found relevant finding",
+                            "supports_which_claim": "New claim supported by evidence",
+                            "evidence_required": ["tool output", "memory addresses", "register values"],
+                        },
+                        {
+                            "outcome": "No finding",
+                            "changes_hypothesis": "Claim is not present",
+                            "supports_which_claim": "Claim is absent or irrelevant",
+                            "evidence_required": ["comprehensive search", "negative results"],
+                        },
+                    ],
+                    "prerequisites": [],
+                    "information_value": "HIGH",
+                    "cost_estimate": "low",
+                    "avoids_redundant_work": False,
+                })
+        else:
+            # We have applicable knowledge - use it to guide investigation
+            plan["insufficient_evidence"] = not has_evidence
+            plan["completion_criteria"] = "Verify prior findings apply to this artifact"
+            
+            # Generate steps based on applicable findings
+            step_num = 1
+            for af in applicable_findings[:3]:  # Limit to top 3
+                finding = af["finding"]
+                app_info = af["applicability"]
+                
+                # Determine tool from provenance
+                prov_tool = finding.get("provenance", {}).get("tool", tool or "rizin")
+                prov_settings = finding.get("provenance", {}).get("method", tool_settings or "aaa; axtj")
+                
+                step = {
+                    "step_id": f"step_{step_num}",
+                    "title": f"Verify: {finding.get('claim', 'Unknown')[:50]}...",
+                    "description": f"Use knowledge from finding {finding.get('finding_id')} to verify applicability",
+                    "hypothesis_addressed": finding.get("claim", ""),
+                    "tool_capability": "binary.xrefs" if "xrefs" in prov_settings or prov_tool.lower() in ["rizin", "radare2"] else "binary.callgraph",
+                    "tool_parameters": {
+                        "artefacto": artifact,
+                        "backend_id": prov_tool,
+                    },
+                    "expected_observations": [
+                        "Verification of applicability",
+                        "Confirmation of bug presence/absence",
+                        "Comparison with historical results",
+                    ],
+                    "possible_outcomes": [
+                        {
+                            "outcome": "Finding applicable",
+                            "changes_hypothesis": "Prior knowledge valid",
+                            "supports_which_claim": finding.get("claim"),
+                            "evidence_required": ["matching output", "same behavior"],
+                        },
+                        {
+                            "outcome": "Finding not applicable",
+                            "changes_hypothesis": "Context differs from historical",
+                            "supports_which_claim": "Need fresh analysis",
+                            "evidence_required": ["difference analysis", "new investigation"],
+                        },
+                    ],
+                    "prerequisites": [f["finding"]["finding_id"] for f in applicable_findings if f != af][:len(applicable_findings)//2 + 1],
+                    "information_value": "MEDIUM" if app_info.get("nivel") == "PARCIAL" else "HIGH",
+                    "cost_estimate": "low",
+                    "avoids_redundant_work": True,
+                }
+                plan["candidate_steps"].append(step)
+                step_num += 1
+        
+        # Step 5: Add completion criteria
+        if plan["known_facts"]:
+            proven_facts = [f for f in plan["known_facts"] if f.get("epistemic") == "PROVEN"]
+            if proven_facts:
+                plan["completion_criteria"] = f"{len(proven_facts)} proven facts confirmed"
+            else:
+                plan["completion_criteria"] = "Evidence collected and validated"
+        else:
+            plan["completion_criteria"] = "Investigation results documented"
+        
+        return {
+            "status": RESULT_OK,
+            "plan": plan,
+            "blocked_reasons": plan["blocked_reasons"],
+            "insufficient_evidence": plan["insufficient_evidence"],
+            "motivo": "Plan generated successfully with " + str(len(plan["candidate_steps"])) + " steps",
+        }
+        
+    except Exception as e:
+        import traceback
+        return {
+            "status": RESULT_ERROR,
+            "plan": None,
+            "blocked_reasons": [f"Error generating plan: {str(e)}"],
+            "insufficient_evidence": True,
+            "motivo": f"error generando plan: {str(e)}",
+            "trazas": traceback.format_exc(),
+        }

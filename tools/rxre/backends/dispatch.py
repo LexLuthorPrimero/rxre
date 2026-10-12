@@ -303,6 +303,15 @@ ADAPTERS = {
         "parametros": ["capability", "finding_id", "artifact", "architecture", "tool", "tool_settings", "question"],
         "obligatorio": ["capability"],
     },
+    # RXRE-1644: Investigation planner
+    "rxre.plan_investigation": {
+        "modulo": "backends.adapters.rz_findings",
+        "funcion": "persistir",
+        "backend_por_defecto": "knowledge",
+        "parametros": ["capability", "question", "artifact", "architecture", "tool", "tool_settings", "question_context", "prior_finding_ids"],
+        "obligatorio": ["capability"],
+    },
+
 }
 
 #: Estados que permiten EJECUTAR. `PARTIAL` entra con su limitacion; los otros
