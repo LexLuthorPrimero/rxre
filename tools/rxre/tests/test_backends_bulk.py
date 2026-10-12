@@ -362,8 +362,8 @@ def t_dispatch_generico():
     # RXRE-1632 (las cinco de contenedor). El bucle de abajo es el que de
     # verdad prueba que cada uno existe; este numero solo avisa si se
     # OLVIDO registrar alguno.
-    chk("los 13 adapters son importables",
-        len(dispatch.ADAPTERS), 13)
+    chk("los 14 adapters son importables",
+        len(dispatch.ADAPTERS), 14)
     for cap, a in sorted(dispatch.ADAPTERS.items()):
         import importlib
         m = importlib.import_module(a["modulo"])
@@ -431,13 +431,13 @@ def t_plan_decompile_ya_no_es_callejon():
             dispatch.esta_permitida(cap)["permitida"], True)
 
     # El conjunto GLOBAL de capacidades declaradas sin adapter. MEDIDO
-    # 2026-10-12 tras RXRE-1631 + RXRE-1632: quedan 3, todas las
+    # 2026-10-12 tras RXRE-1631 + RXRE-1632: quedan 2, todas las
     # dependen del analisis de funciones. El conjunto exacto se comprueba
-    # porque un `>= 4` dejaria pasar una capacidad inventada.
+    # porque un `>= 3` dejaria pasar una capacidad inventada.
     fichas = dispatch._todas_las_fichas()
-    chk("las 3 sin adapter son las que dependen de `aa`/agC/agf",
+    chk("las 2 sin adapter son las que dependen de `aa`/agC/agf",
         sorted(c for c in fichas if c not in dispatch.ADAPTERS),
-        ["binary.callgraph", "binary.cfg", "binary.dataflow"])
+        ["binary.cfg", "binary.dataflow"])
     chk("binary.functions ya NO esta bloqueada (tiene adapter)",
         [x for x in p["plan"]
          if x["operation"] == "binary.functions"][0]["available"], True)
