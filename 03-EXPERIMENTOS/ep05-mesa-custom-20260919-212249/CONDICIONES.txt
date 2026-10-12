@@ -1,6 +1,0 @@
-EP-05 condiciones autorizadas (resumen)
-- Mesa CUSTOM: /opt/mesa-26.2.2-rx550-haswell (GL: MESA_CUSTOM+LD_LIBRARY_PATH+LIBGL_DRIVERS_PATH; VK: VK_ICD_FILENAMES=.../radeon_icd.x86_64.json)
-- Display: Intel HD 4600 (card0); RX550 (card1) solo experimental. No se toca DRM/KMS/compositor/kalm.
-- Sin writes a cap/DPM/clocks/voltajes/pp_table. cap fijo 35W (default). Selección por proceso (DRI_PRIME=1 GL; VK por ICD).
-- Trabajo: réplica línea E5 1080p, escenas desktop/jellyfish (GL) + shading (VK), fullscreen+--reuse-context (GL), -p immediate (VK), N=2, brazos CUSTOM vs STOCK intercalados.
-- Objetivo: ¿CUSTOM reproduce 25-31W / MCLK ~1250-1500 (vs stock 10-14W / MCLK 300-625) a 1080p?

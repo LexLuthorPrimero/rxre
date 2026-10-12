@@ -1,9 +1,0 @@
-{
-  "retirada": "regIH_RB_BASE 0x0081 y '42 conflictos' -> 0x0083 y 0",
-  "sobrevive": "mmGRBM_STATUS2 = 0x2002 plano, confirmado por via independiente",
-  "refutada": "'amdgpu_vm_map_gart() inalcanzable' -> alcanzable desde amdgpu_vm_sdma.c:278",
-  "refutada_por_test": "'los 8.1-exclusive no se usan en ningun .c' -> solo en la ruta GFX8",
-  "confusion_propia": "dos espacios de offset NO es una retirada; la herramienta lo confunjo (corr 87)",
-  "generado_por": "post-reinicio 2026-10-02",
-  "retirada_100": "'srbm_mutex serializa mmSRBM_SOFT_RESET' -> NO: 12 escrituras, 0 dentro de mutex (comprobado por funcion, no por fichero)"
-}

@@ -40,6 +40,7 @@ cambia una lista copiada no.
 """
 from __future__ import annotations
 
+import importlib
 import os
 import sys
 from typing import Any, Dict, List, Optional
@@ -52,7 +53,6 @@ if PKG not in sys.path:
     sys.path.insert(0, PKG)
 
 from backends import registry  # noqa: E402
-from backends.adapters import rz_inspect  # noqa: E402
 from backends.contract import BACKEND_RC  # noqa: E402
 
 #: Los unicos adapters que existen. Una capacidad sin entrada aqui NO se
@@ -70,11 +70,175 @@ ADAPTERS = {
         "parametros": ["artefacto", "backend_id", "timeout"],
         "obligatorio": ["artefacto"],
     },
+    # --- Lote RXRE-BULK-2026-10-12. -------------------------------------
+    # MEDIDO: Ghidra 12.1.4 decompila `/usr/bin/ls` (5/5 funciones). Es
+    # `PARTIAL` porque su loader ELF no produce funciones para ET_REL, que
+    # es justo la clase del driver del proyecto; la limitacion viaja con la
+    # capacidad y el adaptador la clasifica como `unsupported`, no `empty`.
+    "binary.decompile": {
+        "modulo": "backends.adapters.gh_decompile",
+        "funcion": "decompile",
+        "backend_por_defecto": "ghidra",
+        "parametros": ["artefacto", "backend_id", "timeout", "max_funcs",
+                       "filtro_nombre", "project_dir", "fixture_json"],
+        "obligatorio": ["artefacto"],
+    },
+    # MEDIDO: spatch 1.3.1 aplica el patron y el control negativo no
+    # produce diff. Namespace `source.` porque Coccinelle necesita FUENTES.
+    "source.semantic_search": {
+        "modulo": "backends.adapters.cocci_search",
+        "funcion": "buscar",
+        "backend_por_defecto": "coccinelle",
+        "parametros": ["artefacto", "patron", "backend_id", "timeout",
+                       "include_dirs", "fixture_diff"],
+        "obligatorio": ["artefacto", "patron"],
+    },
+    # MEDIDO 2026-10-12: rizin `aa; aflj` -> 202 funciones sobre
+    # /usr/bin/ls; radare2 -> 201. La diferencia es de COBERTURA de
+    # simbolos (200 comunes con offsets IDENTICOS), no de formato. Por eso
+    # esta capacidad NO declara un backend como autoridad: ejecuta el que
+    # se le pida y declara cual fue.
+    #
+    # Es la PRIMERA de la brecha de 12: desbloquea basic_blocks,
+    # disassemble, xrefs y dataflow, que dependen del mismo discovery.
+    # MEDIDO 2026-10-12: las cinco de CONTENEDOR responden SIN `aa`, con
+    # la misma forma de invocacion y sin dependencia entre si (iSj 32, iij
+    # 121, iEj 16, izj 639, isj 323 sobre /bin/ls). Por eso comparten UN
+    # adapter: cerrarlas por separado serian cinco copias del mismo
+    # esqueleto invocando cinco veces al mismo producer.
+    #
+    # El grafo de dependencias medido queda partido aqui: estas cinco no
+    # pagan analisis de funciones; basic_blocks, cfg, xrefs, callgraph,
+    # dataflow y disassemble_func si, y dependen de `binary.functions`.
+    "binary.sections": {
+        "modulo": "backends.adapters.rz_container",
+        "funcion": "secciones",
+        "backend_por_defecto": "rizin",
+        "parametros": ["artefacto", "backend_id", "timeout", "limite",
+                       "fixture_json"],
+        "obligatorio": ["artefacto"],
+    },
+    "binary.imports": {
+        "modulo": "backends.adapters.rz_container",
+        "funcion": "imports",
+        "backend_por_defecto": "rizin",
+        "parametros": ["artefacto", "backend_id", "timeout", "limite",
+                       "fixture_json"],
+        "obligatorio": ["artefacto"],
+    },
+    "binary.exports": {
+        "modulo": "backends.adapters.rz_container",
+        "funcion": "exports",
+        "backend_por_defecto": "rizin",
+        "parametros": ["artefacto", "backend_id", "timeout", "limite",
+                       "fixture_json"],
+        "obligatorio": ["artefacto"],
+    },
+    "binary.strings": {
+        "modulo": "backends.adapters.rz_container",
+        "funcion": "strings",
+        "backend_por_defecto": "rizin",
+        "parametros": ["artefacto", "backend_id", "timeout", "limite",
+                       "fixture_json"],
+        "obligatorio": ["artefacto"],
+    },
+    "binary.symbols": {
+        "modulo": "backends.adapters.rz_container",
+        "funcion": "symbols",
+        "backend_por_defecto": "rizin",
+        "parametros": ["artefacto", "backend_id", "timeout", "limite",
+                       "fixture_json"],
+        "obligatorio": ["artefacto"],
+    },
+    # MEDIDO 2026-10-12: `afbj` responde como JSON en los DOS producers
+    # (rizin 388 bloques, radare2 386 sobre /bin/ls). Va en
+    # `rz_functions` y no en `rz_container` porque MEDIDO necesita `aa`:
+    # ahi viven las capacidades que NO lo necesitan.
+    #
+    # Lo que NO se puede cerrar todavia, con la medicion al lado:
+    #   cfg, dataflow, disassemble_func -> `agCj`, `agfj` y `pdfj` NO
+    #     producen JSON en rizin NI en radare2 (salida ASCII o malformada).
+    #     Cerrarlas exigiria un parser de ASCII, que es otra capacidad y
+    #     otro riesgo. Se declaran, no se disimulan.
+    #   callgraph -> solo radare2 `agj` responde JSON; rizin `agCj` no.
+    #     Cerrarla exigiria declarar la asimetria por producer.
+    "binary.basic_blocks": {
+        "modulo": "backends.adapters.rz_functions",
+        "funcion": "basic_blocks",
+        "backend_por_defecto": "rizin",
+        # MEDIDO 2026-10-12: `funcion` NO es opcional en la practica. Sin
+        # el, `afbj` da los bloques de la funcion en la posicion actual (el
+        # entrypoint), que no es lo que el nombre de la capacidad sugiere.
+        # Se declara como parametro para que quien llame tenga que decidir.
+        "parametros": ["artefacto", "funcion", "backend_id", "timeout",
+                       "verb", "limite", "fixture_json"],
+        "obligatorio": ["artefacto"],
+    },
+    # MEDIDO 2026-10-12 (RXRE-1634): `binary.disassemble` y
+    # `binary.disassemble_func` las cerraba Capstone, un producer de
+    # MODULO en proceso (no subproceso). Se registra aqui y no en
+    # `rz_container`/`rz_functions` porque ahi viven las que operatesn
+    # sobre rangos de un fichero que otro producer ya delimito.
+    #
+    # MEDIDO, esto es lo que NO pueden cumplir los producers que ya
+    # estaban: rizin `aa; pdfj @ main` no emite JSON, y radare2
+    # `agC`/`agf` tampoco. El JSON existe para un rango corto (`pdj 8`) y
+    # no para una funcion entera, que es justo el caso de uso.
+    "binary.disassemble": {
+        "modulo": "backends.adapters.cs_disasm",
+        "funcion": "desensamblar",
+        "backend_por_defecto": "capstone",
+        # `backend_id` va DECLARADO y no por defecto: el dispatch filtra
+        # por esta lista. MEDIDO: sin declararlo aqui, un
+        # `backend_id="rizin"` se descartaba en silencio y el adapter
+        # recibia "capstone" - la comprobacion no podia dispararse y el
+        # etiqueta habria mentido.
+        "parametros": ["artefacto", "inicio", "longitud", "arquitectura",
+                       "timeout", "fixture_bin", "backend_id"],
+        "obligatorio": ["artefacto"],
+    },
+    "binary.disassemble_func": {
+        "modulo": "backends.adapters.cs_disasm",
+        "funcion": "desensamblar",
+        "backend_por_defecto": "capstone",
+        "parametros": ["artefacto", "inicio", "longitud", "arquitectura",
+                       "timeout", "fixture_bin", "backend_id"],
+        "obligatorio": ["artefacto"],
+    },
+    "binary.functions": {
+        "modulo": "backends.adapters.rz_functions",
+        "funcion": "functions",
+        "backend_por_defecto": "rizin",
+        "parametros": ["artefacto", "backend_id", "timeout", "verb",
+                       "limite", "fixture_json"],
+        "obligatorio": ["artefacto"],
+    },
 }
 
 #: Estados que permiten EJECUTAR. `PARTIAL` entra con su limitacion; los otros
 #: dos no entran.
 EJECUTABLES = ("AVAILABLE", "PARTIAL")
+
+
+def _persistir(env: Dict[str, Any]) -> Any:
+    """La persistencia de envelopes, que es de RXRE y no de un backend.
+
+    MEDIDO (lote 2026-10-12): al generalizar el dispatch a varios adapters,
+    la llamada quedo como `mod.persistir(env)`, o sea `gh_decompile.persistir`
+    o `cocci_search.persistir`. Ninguno de los dos la define: la unica que
+    existe es `rz_inspect.persistir`, y con razon es suya -- resuelve el
+    id determinista, detecta `COLISION` y escribe el envelope con la cadena
+    del backend.
+
+    Duplicarla en cada adapter nuevo seria copiar la parte mas delicate del
+    sistema cuatro veces. Se resuelve UNA vez aqui. El nombre de la funcion
+    sigue diciendo de quien es la logica: `persistir` es de `rz_inspect`.
+
+    Import perezoso a proposito: un fallo al importar un adapter NO puede
+    dejar sin persistencia a los demas.
+    """
+    from backends.adapters import rz_inspect
+    return rz_inspect.persistir(env)
 
 #: Los PLANES. Que capacidades componen el camino hacia un objetivo.
 #:
@@ -337,7 +501,26 @@ def ejecutar(capability: str, params: Dict[str, Any]) -> Dict[str, Any]:
                           % ", ".join(faltan),
                 "parametros": a["parametros"],
                 "results": [], "next_actions": []}
-    fn = getattr(rz_inspect, a["funcion"], None)
+    # MEDIDO: antes esto era `getattr(rz_inspect, ...)` con el modulo
+    # IMPORTADO arriba. Eso hacia que el dispatch solo pudiera despachar a
+    # UN adapter, y el registro de la tabla `ADAPTERS` fuera decorativo
+    # para todo lo demas: se podia declarar una capacidad con backend y
+    # producer, y la ejecucion fallaba con AttributeError.
+    #
+    # Ahora se resuelve por el `modulo` que la propia tabla declara. La
+    # tabla es la autoridad, y el dispatch la consulta: la misma regla que
+    # ya valia para la allow-list de capacidades.
+    mod = None
+    try:
+        mod = importlib.import_module(a["modulo"])
+    except ImportError as exc:
+        return {"status": "blocked", "capability": capability,
+                "ejecutada": False,
+                "motivo": "el adapter declarado no se pudo importar: %s (%s)"
+                          % (a["modulo"], exc),
+                "regla": "sin adapter importable no hay producer",
+                "results": [], "next_actions": []}
+    fn = getattr(mod, a["funcion"], None)
     if fn is None:
         # No deberia pasar: ADAPTERS y el modulo estan juntos. Pero si pasara,
         # se DICE en vez de devolver un traceback.
@@ -352,7 +535,31 @@ def ejecutar(capability: str, params: Dict[str, Any]) -> Dict[str, Any]:
     env = fn(**kwargs)
     env["capability"] = capability
     env["ejecutada"] = True
+    # MEDIDO 2026-10-12 (RXRE-1632): `ejecutada` dice si se INVOCO al
+    # adapter, que no es lo mismo que si se ARRANCO el producer. Un
+    # `invalid_input` sale con `ejecutada: True` y con el producer sin
+    # tocar: se cayo en el precheck. Es el mismo patron que "exit 0 no es
+    # resultado valido", un nivel mas arriba.
+    #
+    # El nombre solo inducia a error, asi que se hace explicito lo que ya
+    # se sabe: `ejecucion` existe en el envelope solo cuando hubo una
+    # invocacion real (argv, exit_status, duracion). El campo no cambia
+    # `ejecutada` porque un test lo protege con el otro sentido.
+    env["producer_ejecutado"] = bool(env.get("ejecucion"))
     env["rc"] = BACKEND_RC.get(env.get("status"), 1)
+    # MEDIDO 2026-10-12 (RXRE-1631): el contrato declara `limitations` como
+    # campo del envelope, pero los adapters lo dejaban a veces SOLO dentro
+    # de `ejecucion`. Un consumidor que lea `env["limitations"]` recibia
+    # KeyError en las rutas de error, justo donde mas lo necesita: es ahi
+    # donde el motivo es lo unico que dice por que no se pudo.
+    #
+    # El fallo aparecio en las pruebas de `binary.functions` con la salida
+    # mal formada. Se arregla AQUI y no en cada adapter porque es una
+    # propiedad del ENVELOPE, no de un producer: cualquier adapter nuevo
+    # la tiene gratis y no puede olvidarla.
+    if not env.get("limitations"):
+        env["limitations"] = (env.get("ejecucion", {}) or {}).get(
+            "limitations", [])
     # MEDIDO (B4): sin esto, `explain <result_id>` devolvia `empty` después de
     # un `run` que habia funcionado. El resultado existia y no estaba
     # registrado: la cadena de §9 se rompia en el ultimo eslabon, justo el que
@@ -364,7 +571,7 @@ def ejecutar(capability: str, params: Dict[str, Any]) -> Dict[str, Any]:
     # resultados no tiene nada que reconstruir, y registrarlo llenaria la base
     # de filas que no explican nada.
     if env.get("results"):
-        op_id = rz_inspect.persistir(env)
+        op_id = _persistir(env)
         env["operation_id"] = op_id
         # MEDIDO (B4): `result_id` es determinista, así que pedir DOS VECES la
         # misma inspeccion da siempre `COLISION`. Eso NO es un fallo: es que la

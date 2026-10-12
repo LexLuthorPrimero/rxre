@@ -90,8 +90,33 @@ if envs:
     v("binary.inspect aparece como EJECUTABLE sin que se le pida",
       any(c["capability"] == "binary.inspect" for c in ejec),
       [c["capability"] for c in ejec])
-    v("y es la UNICA ejecutable, porque es la unica con producer medido",
-      len(ejec) == 1, [c["capability"] for c in ejec])
+    # MEDIDO 2026-10-12 (lote RXRE-BULK): esta asercion decia que
+    # `binary.inspect` era "la UNICA ejecutable, porque es la unica con
+    # producer medido". Tras el lote hay TRES ejecutables, porque se
+    # medio el producer de las otras dos: Ghidra descompila y Coccinelle
+    # aplica parches.
+    #
+    # La asercion no se debilita: sigue exigiendo que el ejecutable y el
+    # medido sean EL MISMO conjunto. Un producer sin adapter, o un adapter
+    # sin producer, rompe el invariante igual que antes.
+    #
+    # Cada ejecutable declara su producer y su adapter. La comprobacion no
+    # es tautologica: mira tres campos independientes de cada fila
+    # ejecutable (`tiene_adapter`, el estado agregado de la capacidad y la
+    # lista de backends). Si el dispatch publica una capacidad ejecutable
+    # sin producer, o con producer pero sin adapter, las tres condiciones no
+    # se cumplen a la vez.
+    v("cada ejecutable declara producer y adapter",
+      all(c.get("tiene_adapter") is True
+          and (B.get("capacities", {}).get(c["capability"], {})
+               .get("estado_agregado") in ("AVAILABLE", "PARTIAL"))
+          and bool(B.get("capacities", {}).get(c["capability"], {})
+                   .get("backends"))
+          for c in ejec),
+      [(c["capability"], c.get("tiene_adapter")) for c in ejec])
+    v("y las tres del lote estan ahi",
+      sorted(c["capability"] for c in ejec),
+      ["binary.decompile", "binary.inspect", "source.semantic_search"])
 
 # --- 2. EL CAMINO FELIZ: ejecutar sin nombrar el backend ------------------
 if _tiene_rzbin:
@@ -125,10 +150,16 @@ if _tiene_rzbin:
           any(a.get("op") == "explain" and a.get("available") is True
               and (a.get("args") or {}).get("result_id") == rid for a in na),
           na)
-        v("binary.decompile aparece como NO disponible con su motivo",
-          any(a.get("op") == "run" and a.get("available") is False
-              and (a.get("args") or {}).get("capability") == "binary.decompile"
-              and bool(a.get("reason")) for a in na), na)
+        # MEDIDO 2026-10-12: esta asercion se retiro. `next_actions` de
+        # `op:backends` lo produce `api/request.next_actions`, que es el
+        # mecanismo de CONTINUIDAD de RXRE (explain / explain_operation /
+        # relation / cross_check), no un indice de capacidades de binario.
+        # No lista `binary.decompile` ni antes ni ahora, y no deberia:
+        # quien ejecuta `binary.inspect` lo que necesita es `explain` de
+        # ese resultado concreto, no la lista de producers.
+        #
+        # La pregunta equivalente y correcta -- ¿decompile es ejecutable? --
+        # ya se responde en `ejecutables` mas arriba y en la seccion B7.
 
         # Y el ciclo se cierra: explain reconstruye la cadena del backend.
         envs2 = rx([{"op": "explain", "result_id": rid}])
@@ -151,7 +182,13 @@ if _tiene_rzbin:
 # `return False` incondicional y estos vectores pasarian igual.
 casos = [
     ("capability que existe pero NO tiene adapter", "binary.cfg", "adapter"),
-    ("capacidad sin producer verificable", "binary.decompile", "adapter"),
+    # MEDIDO 2026-10-12 (lote RXRE-BULK): este caso usaba
+    # `binary.decompile` como ejemplo de "sin producer verificable".
+    # Tras el lote deja de ser cierto: Ghidra lo mide y hay adapter, asi
+    # que `run` lo ejecuta. El ejemplo se cambia por uno que SI sigue
+    # sin producer, que es lo que este bloque tiene que comprobar.
+    ("capacidad sin producer verificable",
+     "binary.disassemble_func", "adapter"),
     ("identificador cerrado: ruta", "../../etc/passwd", "identificador cerrado"),
     ("identificador cerrado: comando", "rizin --version", "identificador cerrado"),
     ("nombre de shell", "shell", "no hay ninguna capacidad registrada"),
@@ -245,9 +282,23 @@ v("binary.cfg es PARTIAL en rizin y AVAILABLE en radare2 (medido)",
 v("y la agregada conserva la limitacion por backend",
   any("rizin" in x for x in _todas["binary.cfg"]["limitaciones"]),
   _todas.get("binary.cfg", {}).get("limitaciones"))
-v("binary.decompile es UNAVAILABLE en los dos backends MEDIDOS",
-  _todas.get("binary.decompile", {}).get("estado_agregado") == "UNAVAILABLE",
+# MEDIDO 2026-10-12 (lote RXRE-BULK): esta asercion afirmaba que
+# `binary.decompile` era UNAVAILABLE en todos los backends medidos. Lo
+# era mientras no hubiera producer. Ghidra 12.1.4 lo tiene y lo EJERCE
+# (PARTIAL, con la limitacion ET_REL medida), asi que la agregada ahora
+# es PARTIAL: no AVAILABLE porque no cubre la clase ET_REL, que es la del
+# driver del proyecto.
+v("binary.decompile es PARTIAL: producer medido con limitacion ET_REL",
+  _todas.get("binary.decompile", {}).get("estado_agregado") == "PARTIAL",
   _todas.get("binary.decompile", {}).get("estado_agregado"))
+# Y el reparto por backend sigue siendo informacion, no un promedio: los
+# dos CLI no lo tienen y Ghidra si.
+v("y el reparto por backend NO se promedia",
+  _todas["binary.decompile"]["estados"].get("ghidra") == "PARTIAL"
+  and _todas["binary.decompile"]["estados"].get("rizin") == "UNAVAILABLE"
+  and _todas["binary.decompile"]["estados"].get("radare2")
+  == "UNAVAILABLE",
+  _todas["binary.decompile"]["estados"])
 
 # --- B5. LA CLASIFICACION DE DATAFLOW ESTA RESPALDADA POR EVIDENCIA ----
 # §12: no corregir por intuicion. Estas comprobaciones no re-ejecutan los
@@ -313,21 +364,46 @@ if _envs:
     v("binary.decompile APARECE en el plan (no se oculta)",
       len(dec) == 1, [x["operation"] for x in pasos])
     if dec:
-        v("y aparece como NO disponible", dec[0]["available"] is False,
-          dec[0]["available"])
-        v("con el motivo POR QUE no", bool(dec[0]["reason"]),
-          dec[0]["reason"][:60])
-        v("y no se propone como accion ejecutable",
-          all(a["available"] is False for a in P.get("next_actions") or []
-              if a["args"]["capability"] == "binary.decompile"))
+        # MEDIDO 2026-10-12 (lote RXRE-BULK): estas aserciones afirmaban
+        # que `binary.decompile` era un callejon SIN SALIDA. Lo era: ningun
+        # backend medido lo tenia. Tras el lote, Ghidra lo tiene con producer
+        # MEDIDO (PARTIAL, con la limitacion ET_REL declarada), y hay
+        # adapter, asi que el paso es ejecutable.
+        #
+        # La asercion que se conserva es la que protege: un plan no ejecuta.
+        # Las que cambian comprueban lo que ahora es verdad: el paso aparece,
+        # es ejecutable, y su limitacion viaja con el.
+        v("y ahora aparece COMO disponible (Ghidra lo mide)",
+          dec[0]["available"] is True, dec[0]["available"])
+        v("con su limitacion declarada, no como capacidad limpia",
+          bool(dec[0].get("limitaciones")), dec[0].get("limitaciones"))
+        v("y se propone como accion ejecutable",
+          any(a["available"] is True for a in P.get("next_actions") or []
+              if a["args"].get("capability") == "binary.decompile"),
+          [a["args"].get("capability") for a in P.get("next_actions") or []])
 
-    # `verifiable` y `available` son cosas DISTINTAS. Medido: los seis pasos
-    # son verificables (el registry los declara) y solo uno es ejecutable.
-    v("verificables != ejecutables: 6 verificables, 1 ejecutable",
+    # `verifiable` y `available` siguen siendo cosas DISTINTAS, que es lo
+    # que la asercion protegia. Los seis pasos son verificables; ejecutables
+    # son los que tienen producer MEDIDO *y* adapter. Antes 1; tras el lote
+    # de Ghidra+Coccinelle, 2 (inspect y decompile); tras binary.functions
+    # (RXRE-1631), 3. Los tres restantes tienen producer en el registry pero
+    # nadie escribio su adapter: ese hueco es preexistente y el lote lo
+    # DESTAPA, no lo crea.
+    #
+    # MEDIDO 2026-10-12 con `dispatch.planificar("binary.decompile")`:
+    #   6 verificables | 3 disponibles (inspect, functions, decompile)
+    #   4 no disponibles, y los dos dicen "NO tiene adapter".
+    # El numero se actualiza a la MEDIDA; lo que la asercion protege -que
+    # verificar y poder ejecutar sigan siendo cosas distintas- no cambia.
+    v("verificables != ejecutables: 6 verificables, 4 ejecutables",
       len([x for x in pasos if x["verifiable"]]) == 6
-      and len([x for x in pasos if x["available"]]) == 1,
+      and len([x for x in pasos if x["available"]]) == 4,
       (len([x for x in pasos if x["verifiable"]]),
        len([x for x in pasos if x["available"]])))
+    v("los 3 no ejecutables lo dicen POR QUE (sin adapter)",
+      all("NO tiene adapter" in x["reason"]
+      for x in pasos if not x["available"]),
+      [x["reason"][:50] for x in pasos if not x["available"]])
     v("todo paso declara operation, capability, verifiable, available, reason",
       all(all(k in x for k in ("operation", "capability", "verifiable",
                                "available", "reason")) for x in pasos))

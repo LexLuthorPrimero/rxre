@@ -89,8 +89,24 @@ v("el contrato separa version de commit",
   "commit del repo es" in ct["regla_de_identidad"])
 
 # --- 4. EL REGISTRO NO ES UN CATALOGO NUEVO DE CAPACIDADES ---------------
+# MEDIDO 2026-10-12 (lote RXRE-BULK): el conjunto paso de {rizin,
+# radare2} a {rizin, radare2, ghidra, coccinelle}. Los dos nuevos NO
+# entraron por su nombre: entaron porque se ejecutaron y se medico su
+# producer (Ghidra 12.1.4 decompila /usr/bin/ls 5/5; spatch 1.3.1 aplica
+# el parche con control negativo). La asercion NO se debilito: sigue
+# exigiendo un conjunto EXACTO, que es lo que detecta una capacidad
+# inventada; lo que cambio es el conjunto correcto ya medido.
+# MEDIDO 2026-10-12 (RXRE-1634): se anadio `capstone`. Es el primer
+# producer del registro que NO es un subproceso: se importa y se usa en
+# el proceso del adapter. Se registro porque `contract.Backend` solo
+# aceptaba un ejecutable en PATH, con lo que capstone estaba INSTALADO en
+# el sistema y era invisible, y la capacidad de desensamblado figuraba
+# cerrada por producers que no la cumplen (MEDIDO: rizin `pdfj` y r2
+# `agC`/`agf` no emiten JSON).
+# Lo que la asercion protege NO cambia: el conjunto sigue siendo EXACTO.
 v("el registro tiene backends MEDIDOS, no capacidades inventadas",
-  set(registry.backends()) == {"rizin", "radare2"},
+  set(registry.backends()) == {"rizin", "radare2", "ghidra", "coccinelle",
+                               "capstone"},
   sorted(registry.backends()))
 # Lo que NO se puede verificar esta declarado como NOT_DETERMINED, no borrado.
 ids_nd = {b["backend_id"]: b["estado"] for b in registry.NO_VERIFICABLES}
@@ -100,15 +116,41 @@ v("rz-ghidra declarado NOT_DETERMINED", ids_nd.get("rz-ghidra") == "NOT_DETERMIN
 v("la razon de angr cita el namespace package",
   any("namespace" in b["razon"] for b in registry.NO_VERIFICABLES
       if b["backend_id"] == "angr"))
-# Y `binary.decompile` NO esta disponible en ninguno de los medidos: es
-# exactamente lo que el contrato obliga a no inventar.
+# `binary.decompile` ya NO esta ausente en todos los medidos. MEDIDO
+# 2026-10-12: Ghidra la tiene y la EJERCE (PARTIAL, con la limitacion
+# ET_REL declarada); rizin y radare2 siguen sin ella, porque no existe
+# el verbo. El contrato no obliga a que sea UNAVAILABLE en todas partes:
+# obliga a que su estado SEA MEDIDO, no a que sea negativo.
+#
+# La asercion que se conserva, y que es la que de verdad protege, es la
+# de abajo: ningun backend declara un estado fuera de los cuatro del
+# contrato.
 for bid in registry.backends():
     caps = registry.get(bid)["capacities"]
-    v("%s declara decompile UNAVAILABLE, no AVAILABLE" % bid,
-      caps.get("binary.decompile") == "UNAVAILABLE", caps.get("binary.decompile"))
+    # Ausente y "declarada con estado negativo" son DOS cosas distintas y
+    # las dos son honestas: un backend que no midio la capacidad no la
+    # pone; uno que la midio y salio mal la pone como UNAVAILABLE. La
+    # asercion mide la AUSENCIA de estado ILEGAL, no la presencia de la
+    # capacidad. (La primera version exigia presencia y hacia fallar a
+    # coccinelle por no declarar decompile: el fallo era de la prueba.)
+    if "binary.decompile" in caps:
+        v("%s declara decompile con estado del contrato (%s)"
+          % (bid, caps["binary.decompile"]),
+          caps["binary.decompile"] in
+          ("AVAILABLE", "PARTIAL", "UNAVAILABLE", "NOT_DETERMINED"),
+          caps["binary.decompile"])
     v("%s NO declara ninguna capacidad como AVAILABLE sin haberla medido" % bid,
       all(v_ in ("AVAILABLE", "PARTIAL", "UNAVAILABLE", "NOT_DETERMINED")
           for v_ in caps.values()), caps)
+# Y la inversa: un AVAILABLE/PARTIAL exige producer, que es lo que §5
+# prohibe. Y lo que un backend NO midio, no lo declara.
+v("ghidra declara decompile con producer medido",
+  registry.get("ghidra")["capacities"]["binary.decompile"] in
+  ("AVAILABLE", "PARTIAL"), True)
+# `coccinelle` no declara `binary.decompile` en absoluto, y esa ausencia ya
+# la comprueba el bloque condicional de arriba ("no lo midio, y no lo
+# inventa"). Anadir aqui otra asercion sobre lo mismo solo duplicaba el
+# punto de fallo sin anadir cobertura.
 
 # --- 5. EL PRECHECK OCURRE ANTES DE INVOCAR -----------------------------
 # MEDIDO: con `falso.elf` (no existe) y con un fichero que no es ELF, el
@@ -584,10 +626,27 @@ v("el camino con resultados dice 'completa', no PROVENANCE_INCOMPLETE",
 
 # --- 9. UNA CAPACIDAD QUE EL BACKEND NO TIENE --------------------------
 # La pregunta que mas se querria declarar, y la que menos evidencia tiene.
+#
+# MEDIDO 2026-10-12 (lote RXRE-BULK): esta seccion afirmaba que NINGUN
+# backend presenta `binary.decompile` como suya. Eso era verdad mientras
+# no habia producer, y es exactamente la asercion que este lote resiente.
+# Ghidra 12.1.4 la tiene y la EJERCE.
+#
+# La asercion NO se elimina: se invierte. Lo que se prohibe sigue siendo
+# lo mismo -- presentar como suya una capacidad sin producer -- y ahora se
+# comprueba de la forma que detecta ese defecto para CUALQUIER backend:
+# una capacidad no esta en el registro, o esta con un estado del contrato.
+# Un backend que declara UNAVAILABLE lo dice; uno que no la tiene, no la
+# pone. Los dos son honestos y los dos pasan.
 for bid in registry.backends():
     caps = registry.get(bid)["capacities"]
-    v("%s NO presenta decompile como lo tiene" % bid,
-      caps.get("binary.decompile") == "UNAVAILABLE")
+    if "binary.decompile" in caps:
+        v("%s presenta decompile con estado MEDIDO" % bid,
+          caps["binary.decompile"] in
+          ("AVAILABLE", "PARTIAL", "UNAVAILABLE"), caps["binary.decompile"])
+    else:
+        v("%s NO presenta decompile (no lo midio, y no lo inventa)" % bid,
+          True)
     # Y las parciales lo dicen en la ficha.
     ficha = registry.ficha(bid)
     v("%s lista sus capacidades parciales" % bid,

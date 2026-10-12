@@ -1,5 +1,0 @@
-run=GL-jellyfish-640-dur15-r1
-t0=1789829123.673327642
-t1=1789829179.925108210
-status=0
-abort=no

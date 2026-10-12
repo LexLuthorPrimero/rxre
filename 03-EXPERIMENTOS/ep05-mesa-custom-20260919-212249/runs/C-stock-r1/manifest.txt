@@ -1,3 +1,0 @@
-run=C-stock-r1
-date=2026-09-19T21:28:41-0300
-cmd=env VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/radeon_icd.x86_64.json vkmark -p immediate -s 1920x1080 -b shading:duration=15

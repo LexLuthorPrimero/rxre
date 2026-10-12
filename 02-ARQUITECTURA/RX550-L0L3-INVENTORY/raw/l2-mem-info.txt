@@ -1,6 +1,0 @@
-mem_info_vram_total=2147483648
-mem_info_vram_used=5439488
-mem_info_vis_vram_total=268435456
-mem_info_vis_vram_used=5439488
-mem_info_gtt_total=6194638848
-mem_info_gtt_used=12222464

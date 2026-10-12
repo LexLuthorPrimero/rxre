@@ -66,6 +66,7 @@ lleve `commit` no dice que version se ejecuto.
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import os
 import subprocess
@@ -147,12 +148,36 @@ def sha256_texto(s: str) -> str:
 class Backend:
     """Un backend ejecutable, con su identidad verificada en runtime."""
 
-    def __init__(self, backend_id: str, exe: str, argv: List[str],
+    def __init__(self, backend_id: str, exe: Optional[str], argv: Optional[List[str]],
                  timeout: int = 900, repo: str = "",
                  commit: str = "", env_extra: Optional[Dict[str, str]] = None,
-                 cwd: str = "") -> None:
+                 cwd: str = "", modulo: str = "") -> None:
+        """`exe` es un binario en PATH; `modulo` es una libreria EN PROCESO.
+
+        MEDIDO 2026-10-12: `capstone` es el primer producer del catalogo que
+        no es un subproceso. Se importa y se desensambla dentro del proceso
+        del adapter. MEDIDO tambien que es mas rapido por eso (~158000
+        instr/s, sin coste de arranque) y que da algo que rizin y radare2 no
+        dan: operandos con TIPO, y por tanto la posibilidad de construir un
+        CFG, cuando `pdfj`, `agCj` y `agf` no emiten JSON.
+
+        Antes de este campo no habia forma de registrarlo: `Backend` era un
+        ejecutable o nada. La consecuencia era concreta: capstone estaba
+        INSTALADO en el sistema y era invisible para RXRE, y la capacidad
+        "desensamblar con semantica" figuraba como cerrada por producers que
+        no la pueden cumplir.
+
+        La identidad se sigue VERIFICANDO en runtime en los dos casos: por
+        binario en PATH para `exe`, por `find_spec` + `__version__` para
+        `modulo`. Un modulo que no se puede importar NO cuenta como
+        existente, que es el mismo criterio que aplica a un binario que no
+        esta en PATH.
+        """
         self.backend_id = backend_id
         self.exe = exe
+        self.modulo = modulo
+        if argv is None:
+            argv = []
         self.argv_template = list(argv)
         self.timeout = timeout
         self.repo = repo
@@ -168,15 +193,51 @@ class Backend:
 
         MEDIDO: `angr` esta "importable" dentro del arbol porque el directorio
         clonado se llama `angr` y Python lo toma como namespace package. Por eso
-        la identidad se verifica por BINARIO, no por import.
+        la identidad de un BINARIO se verifica por el binario, no por import.
+
+        Para un backend de MODULO se devuelve el `__file__` real, y
+        `None` si no se puede localizar el paquete: mismo criterio, misma
+        exigencia.
         """
+        if self.modulo:
+            spec = self._spec()
+            if spec is None:
+                return None
+            origin = getattr(spec, "origin", None) or ""
+            if origin and origin != "namespace":
+                return origin
+            # namespace package: se acepta solo si trae un submodule real
+            return "" or None
+        if not self.exe:
+            return None
         for d in os.environ.get("PATH", "").split(os.pathsep):
             cand = os.path.join(d, self.exe)
             if os.path.isfile(cand) and os.access(cand, os.X_OK):
                 return cand
         return None
 
+    def _spec(self):
+        """`ModuleSpec` del modulo, o None. Cacheado."""
+        if getattr(self, "_spec_cache", "?") != "?":
+            return self._spec_cache
+        spec = None
+        try:
+            import importlib.util
+            spec = importlib.util.find_spec(self.modulo)
+        except (ImportError, ValueError, ModuleNotFoundError):
+            spec = None
+        self._spec_cache = spec
+        return spec
+
     def existe(self) -> bool:
+        if self.modulo:
+            # MEDIDO: un paquete que se puede localizar Y tiene submodulos
+            # reales. Un directorio vacio con el nombre justo no cuenta: por
+            # eso se exige que el spec no sea `namespace` sin contenido, ni
+            # un `origin` que sea None.
+            spec = self._spec()
+            return spec is not None and getattr(spec, "origin", None) not in (
+                None, "namespace")
         return self.path() is not None
 
     def version(self) -> Dict[str, Any]:
@@ -184,6 +245,29 @@ class Backend:
         if self._version_checked:
             return self._version or {}
         self._version_checked = True
+        if self.modulo:
+            if not self.existe():
+                self._version = {"error": "modulo no localizable: %s"
+                                 % self.modulo, "verificada": False}
+                return self._version
+            try:
+                mod = importlib.import_module(self.modulo)
+                ver = getattr(mod, "__version__", "")
+            except Exception as exc:
+                self._version = {"error": "import fallo: %s" % exc,
+                                 "verificada": False}
+                return self._version
+            cs = ""
+            fn = getattr(mod, "cs_version", None)
+            if callable(fn):
+                try:
+                    cs = ".".join(str(x) for x in fn())
+                except Exception:
+                    cs = ""
+            self._version = {"primera_linea": ver, "cs_version": cs,
+                             "verificada": bool(ver or cs),
+                             "tipo": "modulo en proceso"}
+            return self._version
         exe = self.path()
         if not exe:
             self._version = {"error": "no encontrado en PATH"}

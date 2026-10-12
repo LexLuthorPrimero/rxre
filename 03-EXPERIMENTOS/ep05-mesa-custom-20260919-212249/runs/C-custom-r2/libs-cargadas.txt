@@ -1,5 +1,0 @@
-== PID 842997 libs Mesa/vulkan/rgx cargadas ==
-/home/lucas/.cache/mesa_shader_cache/index
-/home/lucas/.cache/radv_builtin_shaders/index
-/opt/mesa-26.2.2-rx550-haswell/lib64/libvulkan_radeon.so
-/usr/lib64/libvulkan.so.1.4.341

@@ -5,37 +5,50 @@
   "secondary": "radare2",
   "analytical": "NOT_DETERMINED",
   "basis": {
-    "primary": "rizin cierra 14 capacidades medidas con producer; radare2 cierra 8. Ademas es el unico medido con `rz-bin`, que da inspeccion ESTATICA sin analysis (info/sections/symbols/imports/exports), que es la entrada de la cadena sin depender del estado del analisis.",
+    "primary": "rizin cierra 14 capacidades medidas con producer; radare2 cierra 8; ghidra cierra 1 y coccinelle cierra 1. Ademas rizin es el unico medido con `rz-bin`, que da inspeccion ESTATICA sin analysis (info/sections/symbols/imports/exports), que es la entrada de la cadena sin depender del estado del analisis.",
     "secondary": "radare2 es el unico backend MEDIDO que da `binary.cfg` y `binary.callgraph` en JSON (`agfj`, `agCj` -> 84 nodos). rizin 0.7.4 emite ASCII visual en ambos. Ese es su unico motivo para existir aqui.",
-    "analytical": "NOT_DETERMINED, y no `UNAVAILABLE`. No se compilo ni se instalo angr ni rz-ghidra. `import angr` funciona DENTRO del arbol del proyecto porque el directorio clonado se llama `angr` y Python lo toma como namespace package (`angr.__file__` es None); fuera da ModuleNotFoundError. No se comprobo que angr no sirva: se comprobo que no se puede VERIFICAR aqui."
+    "analytical": "NOT_DETERMINED, y no `UNAVAILABLE`. No se compilo ni se instalo angr ni rz-ghidra. `import angr` funciona DENTRO del arbol del proyecto porque el directorio clonado se llama `angr` y Python lo toma como namespace package (`angr.__file__` es None); fuera da ModuleNotFoundError. No se comprobo que angr no sirva: se comprobo que no se puede VERIFICAR aqui.",
+    "_decompilacion": "MEDIDO 2026-10-12 (lote RXRE-BULK): Ghidra 12.1.4 esta INSTALADO y DECOMPILE MEDIDO (/usr/bin/ls -> 5/5 funciones con C real). Pasa a ser el producer de `binary.decompile`, como PARTIAL y no AVAILABLE: su loader ELF produce 0 funciones para ELF ET_REL, que es la clase del modulo del kernel. Es el UNICO medido en esa capacidad, asi que no compete por PRIMARY (1 fila contra 14) pero es el unico camino a la decompilacion. rz-ghidra sigue NOT_DETERMINED y ahora es, ademas, redundante para decompilar: con Ghidra instalado, el motor de decompilacion ya esta."
   },
   "medido": {
     "fecha": "2026-10-06",
+    "fecha_lote_bulk": "2026-10-12",
     "runtime_rizin": "0.7.4 (Fedora 43)",
     "runtime_radare2": "5.9.8",
+    "runtime_ghidra": "12.1.4 (/usr/lib64/ghidra, OpenJDK 25.0.4.1)",
+    "runtime_coccinelle": "spatch 1.3.1 (OCaml 5.4.0)",
     "repo_rizin": "d14c3fac4126bc5fbe66e7f3d1660aeab22b01d8 (v0.10.0-dev, branch dev)",
     "repo_radare2": "008a7a6cd2e5acb8268f65f486760d080f3b107b (master)",
     "matriz": "tools/rxre/docs/RXRE-004-BACKEND-MATRIX.md"
   },
   "capacidades_cerradas_por_backend": {
     "rizin": 14,
-    "radare2": 8
+    "radare2": 8,
+    "ghidra": 1,
+    "capstone": 2,
+    "coccinelle": 1
   },
   "recuento_desde_la_matriz_al_principio": {
     "rizin": 11,
     "radare2": 7,
-    "por_que_cambio": "La matriz se escribio antes de la medicion de B5. B5 anadio `binary.dataflow` a radare2 como AVAILABLE (su `afvxj` emite JSON VALIDO) y corrigio la razon de rizin a PARTIAL por FORMATO. Los numeros de la prosa se habian quedado viejos y el vector que compara contra el registro los delato. La ETIQUETA de primary no cambio: rizin sigue cerrando mas. Eso es lo que importa de un recuento: si hubiera cambiado el ORDEN, habria que revisar la decision entera.",
+    "ghidra": 0,
+    "coccinelle": 0,
+    "por_que_cambio": "Dos motivos. (1) B5 anadio `binary.dataflow` a radare2 como AVAILABLE (su `afvxj` emite JSON VALIDO) y corrigio la razon de rizin a PARTIAL por FORMATO. (2) Lote RXRE-BULK del 2026-10-12: se ejecutaron y se MEDIERON dos producers mas (Ghidra 12.1.4 y spatch 1.3.1), con 1 capacidad cada uno. El vector B7 que compara contra el registro los delato al no coincidir.",
+    "por_que_no_cambio_primary": "Ni el primer caso ni este cambian el ORDEN: rizin sigue cerrando 14 contra 8. Eso es lo que importa de un recuento. Si el ORDEN hubiera cambiado, habria que revisar la decision entera, no solo los numeros. Y `ghidra`/`coccinelle` no compiten por PRIMARY: cada uno abre una capacidad que no existia (decompilacion, busqueda semantica), no una que ya se cubria.",
     "estado": "CORREGIDO contra el registro"
   },
   "revisado_por_mutacion": "tools/rxre/tests/test_mutations003.py (M_PRIMARY_CAMBIA)",
   "revisado_por_vector": "tools/rxre/tests/test_dispatch004.py (seccion B7)",
   "limitaciones": [
     "El recuento `capacidades_cerradas_por_backend` se compara contra el registro REAL en el vector. Si alguien anade una capacidad a un backend sin actualizar el numero, el vector falla: ese es el punto de que exista.",
-    "Esta decision es sobre lo MEDIDO en esta maquina con estos binarios. No es sobre lo que un backend podria hacer con otro build. `tool_version` y `repository_commit` estan separados por eso."
+    "Esta decision es sobre lo MEDIDO en esta maquina con estos binarios. No es sobre lo que un backend podria hacer con otro build. `tool_version` y `repository_commit` estan separados por eso.",
+    "Ghidra abre `binary.decompile` pero NO cubre ELF ET_REL (MEDIDO: 0 funciones sobre amdgpu.ko y sobre un .ko de 11 KB, con `Import succeeded`). Para la clase de entrada del driver hay que seguir usando rizin/radare2 y el BTF de /sys/kernel/btf.",
+    "El recuento de ghidra y coccinelle (1 cada uno) NO es comparable con el de rizin: son producers de capacidades DISTINTAS, no producers alternativos de las mismas. Sumarlos para elegir un primario habria comparado cosas que no compiten.",
+    "MEDIDO 2026-10-12 (RXRE-1634): se anadio `capstone` como backend de MODULO en proceso. No es un subproceso como los otros cuatro: se importa y se usa dentro del adapter. Se registra porque `Backend` solo aceptaba un ejecutable en PATH, con lo que capstone estaba INSTALADO en el sistema y era invisible para RXRE, y la capacidad de desensamblado figuraba cerrada por productors que no la cumplen (MEDIDO: rizin `pdfj` y radare2 `agC`/`agf` no emiten JSON). `contract.Backend` ahora acepta `modulo=` y verifica la identidad por `find_spec` + `__version__`, con el mismo criterio que exige un binario en PATH."
   ],
   "no_decidido": [
     "compilar rizin 0.10-dev: diferido hasta que exista una pregunta que lo exija (§20)",
-    "instalar angr: NO instalado globalmente",
-    "instalar Ghidra + rz-ghidra: NO instalado; es la ruta de decompilacion y por eso `binary.decompile` sigue sin declararse en ningun backend medido"
+    "instalar angr: NO instalado globalmente; sigue sin poder verificarse aqui",
+    "rz-ghidra: ya no es necesario para decompilar (Ghidra esta instalado y medido). Se mantiene como checkout sin compilar hasta que una pregunta exija el plugin de rizin, no el motor."
   ]
 }

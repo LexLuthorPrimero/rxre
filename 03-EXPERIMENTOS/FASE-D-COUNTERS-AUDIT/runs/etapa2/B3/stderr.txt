@@ -1,1 +1,0 @@
-MESA-INTEL: warning: Haswell Vulkan support is incomplete

@@ -1,5 +1,0 @@
-/home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-R4B-GOVERNOR/harness/build/CMakeFiles/shaders.dir
-/home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-R4B-GOVERNOR/harness/build/CMakeFiles/governor_harness.dir
-/home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-R4B-GOVERNOR/harness/build/CMakeFiles/test.dir
-/home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-R4B-GOVERNOR/harness/build/CMakeFiles/edit_cache.dir
-/home/lucas/Escritorio/RX550_Iterative_Research/experiments/FASE-R4B-GOVERNOR/harness/build/CMakeFiles/rebuild_cache.dir

@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-# rx550-torneo — ejecutable Fase 1 (read-only).
-set -euo pipefail
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export PYTHONPATH="$HERE/src${PYTHONPATH:+:$PYTHONPATH}"
-exec python3 -m rx550_torneo.cli "$@"

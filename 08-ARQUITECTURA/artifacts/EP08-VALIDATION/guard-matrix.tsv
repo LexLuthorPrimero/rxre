@@ -1,5 +1,0 @@
-# MATRIZ DEL OFFSET GUARD de ep08. producer=guard_matrix.sh
-# offset real=381969  offset simulado=381977 (+8). La simulacion es del GUARD, no del hardware.
-guard	struct_intacto	struct_desplazado_8	distingue_los_dos
-ORIGINAL	INVALID_PRECONDITION — offset de no_hw_access cambió a '1' | EXIT_P8=1	INVALID_PRECONDITION — offset de no_hw_access cambió a '1' | EXIT_P8=1	NO
-REPARADO	P8 identidad:    cadena completa verificada (5 campos) — OK | EXIT_P8=0	INVALID_PRECONDITION — offset de no_hw_access cambió a '381977' | EXIT_P8=1	SI
