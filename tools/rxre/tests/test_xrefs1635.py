@@ -124,16 +124,22 @@ def t_xrefs_no_es_callgraph():
 
 
 def t_xrefs_fixture_json():
-    """El fixture JSON debe permitir testing sin rizin en CI."""
-    print("\n== fixture JSON: testing sin backend real ==")
-    # Un fixture minimal: bytes hex de /bin/ls
+    """El fixture JSON debe permitir testing sin rizin en CI.
+
+    Usa los bytes COMPLETOS de /bin/ls (no truncados) para que rizin
+    pueda analizar el binario completo y producir xrefs reales.
+    MEDIDO 2026-10-05: `data[:1024]` producia `empty` porque el binario
+    truncado no tenia suficiente codigo para analizar. Usar el binario
+    completo produce 74 xrefs.
+    """
+    print("\n== fixture JSON: testing con binario completo ==")
     with open("/bin/ls", "rb") as f:
         data = f.read()
-    fixture_hex = data[:1024].hex()
+    fixture_hex = data.hex()
     r = X.xrefs(b"placeholder", fixture_json=json.dumps(fixture_hex),
-                backend_id="rizin", nivel_analisis="aaa", timeout=20)
-    # El fixture usa bytes reales, deberia producir xrefs reales
-    chk("status ok (fixture usa hex real de /bin/ls[:1024])", r["status"], "ok")
+                backend_id="rizin", nivel_analisis="aaa", timeout=30)
+    # El fixture usa bytes reales completos, debe producir xrefs reales
+    chk("status ok (fixture usa hex completo de /bin/ls)", r["status"], "ok")
     chk("n_xrefs >= 1", r["xrefs"] >= 1, True)
 
 

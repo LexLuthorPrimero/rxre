@@ -104,9 +104,11 @@ v("el contrato separa version de commit",
 # cerrada por producers que no la cumplen (MEDIDO: rizin `pdfj` y r2
 # `agC`/`agf` no emiten JSON).
 # Lo que la asercion protege NO cambia: el conjunto sigue siendo EXACTO.
+# MEDIDO 2026-10-05 (RXRE-1641): knowledge backend has 4 AVAILABLE capabilities,
+# is a measured backend (producer verificado), not invented.
 v("el registro tiene backends MEDIDOS, no capacidades inventadas",
   set(registry.backends()) == {"rizin", "radare2", "ghidra", "coccinelle",
-                               "capstone"},
+                               "capstone", "knowledge", "umr"},
   sorted(registry.backends()))
 # Lo que NO se puede verificar esta declarado como NOT_DETERMINED, no borrado.
 ids_nd = {b["backend_id"]: b["estado"] for b in registry.NO_VERIFICABLES}

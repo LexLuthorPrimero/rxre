@@ -84,6 +84,51 @@ CLASE = "DumpDecomp.class"
 FUENTE = os.path.join(SCRIPTS, "DumpDecomp.java")
 BUILD = os.path.join(SCRIPTS, "build")
 
+# MEDIDO 2026-10-14 (RXRE-BMS-EXT-003): el nombre que se pasa a
+# `-postScript` NO es `DumpDecomp.class`. Es `DumpDecomp.java`.
+#
+# Leido del bytecode de `HeadlessAnalyzer.checkScript` (Ghidra 12.1.4,
+# Base.jar), no de documentacion:
+#
+#     if (nombre.endsWith(".class")) {
+#         className = nombre - ".class";
+#         urls   = GhidraScriptUtil.getScriptSourceDirectories() -> toURL();
+#         loader = URLClassLoader.newInstance(urls);
+#         try { ClassSearcher.forNameSafe(className, GhidraScript.class, loader);
+#               return null; }
+#         catch ClassNotFound -> "java class not found for '<className>'";
+#         throw new IllegalArgumentException("Invalid script: " + nombre);
+#     }
+#     rf = findScript(nombre);              // <- SI usa los -scriptPath
+#     ...
+#
+# Es decir: para un nombre `.class` el classloader se construye SOLO con
+# `getScriptSourceDirectories()`, y `-scriptPath` NO participa. Por eso
+# `-scriptPath SCRIPTS:BUILD` con `-postScript DumpDecomp.class` fallaba
+# siempre con "java class not found for 'DumpDecomp'", aunque la clase
+# existiera y `-scriptPath` apuntara a su directorio. No era un problema de
+# layout: es que ese loader nunca mira ahi.
+#
+# La rama que SI usa `-scriptPath` es la del script por NOMBRE DE FICHERO.
+# MEDIDO: `-postScript DumpDecomp.java` funciona, y Ghidra compila el fuente
+# el mismo:
+#     n_functions_total: 190   decompiladas: 2   (sobre /bin/ls)
+#     pseudocodigo real de Ghidra: 1680 lineas de C para
+#     `__strftime_internal.isra.0`, con los nombres `uVar*`/`iVar*` que
+#     solo produce el decompilador de Ghidra.
+#
+# POR QUE SE SIGUE COMPILANDO AQUÍ ADEMAS
+# ---------------------------------------
+# Aunque Ghidra compile el fuente al ejecutarlo, `compilar()` sigue siendo
+# el chequeo de contrato mas barato que hay: verifica en segundos, sin
+# arrancar la JVM, que el fuente compila contra los JARs REALES de esta
+# instalacion. Si Ghidra esta roto o ausente, el fallo sale aqui y con el
+# motivo del compilador, no despues de minutos con un error de script.
+#
+# `CLASE` sigue siendo el nombre del ARTEFACTO que produce `compilar()`; lo
+# que cambia es lo que se le pasa a `-postScript`, que es `POSTSCRIPT`.
+POSTSCRIPT = os.path.basename(FUENTE)
+
 #: Donde vive Ghidra. No se deduce del PATH: `ghidra` es un symlink a
 #: `ghidraRun`, que es un launcher, y el launcher NO es el motor. El motor
 #: headless vive en `$GHIDRA_INSTALL_DIR/support/analyzeHeadless`.
@@ -359,8 +404,23 @@ def decompile(artefacto: str, backend_id: str = "ghidra",
         argv = [os.path.join(GHIDRA_HOME, "support", "analyzeHeadless"),
                 proj, "rxre_gh",
                 "-import", artefacto,
-                "-scriptPath", SCRIPTS + os.pathsep + BUILD,
-                "-postScript", CLASE, out_json, str(int(max_funcs)),
+                # MEDIDO 2026-10-14: UNA sola ruta, y solo SCRIPTS.
+                #
+                # Tres mediciones independientes sobre Ghidra 12.1.4:
+                #   -scriptPath SCRIPTS                     -> OK
+                #   -scriptPath SCRIPTS:<dir vacio>         -> "Script not found"
+                #   -scriptPath SCRIPTS -scriptPath <otro>  -> "Script not found"
+                # Un directorio VACIO tambien lo rompe, asi que no es que
+                # hubiera una colision de nombres: es que el descriptor no
+                # admite mas de una ruta, de ninguna de las dos formas.
+                #
+                # Y no hace falta `BUILD` en la ruta: Ghidra compila el
+                # FUENTE el mismo. `BUILD` sigue siendo donde este adapter
+                # deja el `.class` que produce `compilar()`, que es el
+                # chequeo de contrato barato (ver arriba), no parte de la
+                # invocacion.
+                "-scriptPath", SCRIPTS,
+                "-postScript", POSTSCRIPT, out_json, str(int(max_funcs)),
                 str(filtro_nombre or ""),
                 "-deleteProject"]
         env = dict(os.environ)
@@ -381,8 +441,9 @@ def decompile(artefacto: str, backend_id: str = "ghidra",
         "backend_id": ejec_backend,
         "operation": "binary.decompile",
         "command_or_api": "analyzeHeadless <proj> rxre_gh -import "
-                          "<artefacto> -postScript DumpDecomp.class "
-                          "<out.json> <max_funcs> <filtro>",
+                          "<artefacto> -scriptPath %s -postScript %s "
+                          "<out.json> <max_funcs> <filtro>"
+                          % (os.path.basename(POSTSCRIPT), POSTSCRIPT),
         "argv": argv,
         "exit_status": rc,
         # MEDIDO 2026-10-12 (RXRE-1634): se recorta por la COLA.
@@ -551,3 +612,74 @@ def decompile(artefacto: str, backend_id: str = "ghidra",
         "limitations": lim_base,
         "provenance": "completa",
     }
+
+
+# ====================================================================
+# RXRE-BMS-EXT-003. Persistencia.
+#
+# MEDIDO 2026-10-14: este adapter NO tenia `persistir`. Consecuencia medida:
+# `binary.decompile` devolvia `status: ok` con pseudocodigo real y
+# `persistido: false`, `operation_id: None`, y la base de destino se
+# quedaba en cero filas. Es decir: la capacidad estaba CERRADA y verificada,
+# producia la mejor evidencia del proyecto, y esa evidencia no se guardaba.
+#
+# Un producer que no persiste no es un producer: es una lectura de pantalla.
+# Sin `persistir`, `explain` no puede reconstruir nada y el pseudocodigo
+# desaparece en cuanto termina el proceso.
+#
+# Sigue el mismo patron que `rz_inspect.persistir`: se comprueban las
+# colisiones de `result_id` ANTES de insertar (si no, `INSERT OR REPLACE`
+# pisa la fila anterior y la evidencia previa desaparece sin avisar), y la
+# conexion solo se cierra si la abrimos nosotros.
+# ====================================================================
+
+def persistir(env: Dict[str, Any], db: Optional[Any] = None,
+              question: str = "") -> Optional[str]:
+    from core import store as S
+    _abierta_por_nosotros = db is None
+    c = db or S.conectar()
+
+    ids = [r["result_id"] for r in env.get("results") or []
+           if isinstance(r, dict) and r.get("result_id")]
+    existentes = [i for i in ids
+                  if c.execute("SELECT 1 FROM results WHERE result_id=?",
+                               (i,)).fetchone()]
+    if existentes:
+        if _abierta_por_nosotros:
+            c.close()
+        return "COLISION:%s" % ",".join(existentes)
+
+    pre = env.get("precheck") or {}
+    res0 = (env.get("results") or [{}])[0] if env.get("results") else {}
+    artefacto = res0.get("source") or ""
+    elf = pre.get("elf_clase") or {}
+
+    op_id = S.registrar(
+        c,
+        {"request_id": "",
+         "question": question or ("descompilar %s" % (artefacto or "artefacto")),
+         "capability": "binary.decompile",
+         "scope": "funcion",
+         "target": "binary:%s@%s" % (os.path.basename(artefacto),
+                                      pre.get("input_hash", "")),
+         },
+        {"operation": "binary.decompile",
+         "status": env.get("status"),
+         "backend": env.get("backend"),
+         "ejecucion": env.get("ejecucion"),
+         "provenance": env.get("provenance"),
+         "precheck": pre,
+         # El numero de funciones del binario y el de las que SI se
+         # descompilaron son la medida que distingue "no hay nada" de
+         # "hay y no se pudo". Sin ella en el envelope, un `empty` y un
+         # `unsupported` se leen igual a posteriori.
+         "n_functions": env.get("n_functions"),
+         "n_decompiladas": env.get("n_decompiladas"),
+         "clase_elf": "%s %s" % (elf.get("e_type_nombre", "?"),
+                                 elf.get("ei_class", "?")),
+         "cadena_backend": env.get("cadena_backend", []),
+         "results": env.get("results") or []},
+        duracion=(env.get("ejecucion") or {}).get("duration_s", 0))
+    if _abierta_por_nosotros:
+        c.close()
+    return op_id

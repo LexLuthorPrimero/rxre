@@ -42,7 +42,10 @@ from __future__ import annotations
 
 import importlib
 import os
+import signal
 import sys
+import threading
+import time
 from typing import Any, Dict, List, Optional
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -62,6 +65,13 @@ from backends.contract import BACKEND_RC  # noqa: E402
 #: MEDIDO: hoy hay UNA capacidad con producer. Registrarla aqui no es
 #: infraestructura por adelantado: es la lista de lo que existe, y growea
 #: cuando growe.
+#:
+#: ARCH-EXEC-002: dispatch-level timeout. El adapter llama a
+#: Backend.ejecutar() que tiene su propio timeout (900s default), pero el
+#: adapter tambien hace parsing, cleanup, DB, etc. que no estan cubiertos.
+#: Este es un safety net via signal.SIGALRM (Linux-only). NO cancela el
+#: trabajo subyacente; impide que el dispatch bloquee indefinidamente.
+DISPATCH_TIMEOUT = 600  # 10 minutos: safety net, no el timeout primario.
 ADAPTERS = {
     "binary.inspect": {
         "modulo": "backends.adapters.rz_inspect",
@@ -238,6 +248,25 @@ ADAPTERS = {
                        "timeout", "fixture_json"],
         "obligatorio": ["artefacto"],
     },
+
+    # ARCH-EXEC-002: binary.cfg y binary.dataflow ahora tienen adapter.
+    # Antes estaban como AVAILABLE en registry pero SIN adapter → NO ejecutables.
+    "binary.cfg": {
+        "modulo": "backends.adapters.rz_cfg",
+        "funcion": "cfg",
+        "backend_por_defecto": "radare2",
+        "parametros": ["artefacto", "backend_id", "timeout", "verb",
+                       "fixture_json"],
+        "obligatorio": ["artefacto"],
+    },
+    "binary.dataflow": {
+        "modulo": "backends.adapters.rz_cfg",
+        "funcion": "dataflow",
+        "backend_por_defecto": "radare2",
+        "parametros": ["artefacto", "backend_id", "timeout", "verb",
+                       "fixture_json"],
+        "obligatorio": ["artefacto"],
+    },
     "binary.functions": {
         "modulo": "backends.adapters.rz_functions",
         "funcion": "functions",
@@ -253,7 +282,7 @@ ADAPTERS = {
         "backend_por_defecto": "knowledge",
         "parametros": ["capability", "claim", "evidence_ids", "epistemic",
                        "provenance", "limitations", "op_id", "target"],
-        "obligatorio": ["capability", "claim", "evidence_ids", "epistemic",
+        "obligatorio": ["claim", "evidence_ids", "epistemic",
                         "provenance", "limitations"],
     },
     "rxre.get_finding": {
@@ -262,7 +291,7 @@ ADAPTERS = {
         "backend_por_defecto": "knowledge",
         "parametros": ["capability", "finding_id", "epistemic", "provenance",
                        "limitations"],
-        "obligatorio": ["capability", "finding_id"],
+        "obligatorio": ["finding_id"],
     },
     "rxre.list_finding_relations": {
         "modulo": "backends.adapters.rz_findings",
@@ -270,7 +299,7 @@ ADAPTERS = {
         "backend_por_defecto": "knowledge",
         "parametros": ["capability", "finding_id", "epistemic", "provenance",
                        "limitations"],
-        "obligatorio": ["capability", "finding_id"],
+        "obligatorio": ["finding_id"],
     },
     "rxre.create_finding_relation": {
         "modulo": "backends.adapters.rz_findings",
@@ -278,7 +307,7 @@ ADAPTERS = {
         "backend_por_defecto": "knowledge",
         "parametros": ["capability", "source_finding_id", "target_finding_id",
                        "relation", "evidence", "confidence"],
-        "obligatorio": ["capability", "source_finding_id", "target_finding_id",
+        "obligatorio": ["source_finding_id", "target_finding_id",
                         "relation", "evidence"],
     },
     # RXRE-1643: knowledge reuse capabilities
@@ -287,21 +316,21 @@ ADAPTERS = {
         "funcion": "persistir",
         "backend_por_defecto": "knowledge",
         "parametros": ["capability", "finding_id", "epistemic", "limit"],
-        "obligatorio": ["capability"],
+        "obligatorio": [],
     },
     "rxre.search_findings": {
         "modulo": "backends.adapters.rz_findings",
         "funcion": "persistir",
         "backend_por_defecto": "knowledge",
         "parametros": ["capability", "artifact", "architecture", "tool", "tool_settings", "question", "limit"],
-        "obligatorio": ["capability"],
+        "obligatorio": [],
     },
     "rxre.evaluate_applicability": {
         "modulo": "backends.adapters.rz_findings",
         "funcion": "persistir",
         "backend_por_defecto": "knowledge",
         "parametros": ["capability", "finding_id", "artifact", "architecture", "tool", "tool_settings", "question"],
-        "obligatorio": ["capability"],
+        "obligatorio": [],
     },
     # RXRE-1644: Investigation planner
     "rxre.plan_investigation": {
@@ -309,7 +338,21 @@ ADAPTERS = {
         "funcion": "persistir",
         "backend_por_defecto": "knowledge",
         "parametros": ["capability", "question", "artifact", "architecture", "tool", "tool_settings", "question_context", "prior_finding_ids"],
-        "obligatorio": ["capability"],
+        "obligatorio": [],
+    },
+    # BMS-EXT-002. UMR backend for GPU register observation.
+    # NOT_DETERMINED: UMR exists and version is verifiable, but register
+    # reading requires root (geteuid()==0). The adapter handles this by
+    # returning `blocked` when not root. The capability is NOT executable
+    # (NOT_DETERMINED is not in EJECUTABLES), but the adapter is registered
+    # so that when permissions are available, it works.
+    "gpu.register_read": {
+        "modulo": "backends.adapters.umr_read",
+        "funcion": "register_read",
+        "backend_por_defecto": "umr",
+        "parametros": ["pci_address", "register_name", "backend_id",
+                       "timeout"],
+        "obligatorio": ["pci_address", "register_name"],
     },
 
 }
@@ -324,6 +367,8 @@ def _persistir(env: Dict[str, Any]) -> Any:
 
     Cada adapter debe definir su propia funcion `persistir(env)` que devuelve
     un identificador de operacion (string) o None si no se pudo persistir.
+    Si el adapter devuelve un dict con `operation_id` (patron de rz_xrefs y
+    rz_callgraph), se extrae el string y se preserva la metadata en env.
     Esta funcion delega al adapter correspondiente.
     """
     capability = env.get("capability")
@@ -338,9 +383,28 @@ def _persistir(env: Dict[str, Any]) -> Any:
         if persistir_fn is None:
             # El adapter no tiene persistir definida
             return None
-        return persistir_fn(env)
+        result = persistir_fn(env)
+
+        # MEDIDO BMS-008: los adapters pueden devolver str (operation_id)
+        # o dict con operation_id (rz_xrefs, rz_callgraph). Normalizar a str
+        # y preservar metadata para que machine.py pueda exponerla.
+        if isinstance(result, dict):
+            op_id = result.get("operation_id") or result.get("op_id")
+            for key in ("producer", "backend_id", "nivel_analisis", "metadata",
+                        "contract_version", "input_hash", "output_hash",
+                        "reproducible", "persistido"):
+                if key in result and key not in env:
+                    env[key] = result[key]
+            return op_id
+        return result
     except (ImportError, AttributeError):
         # Error al importar el adapter o al obtener persistir
+        return None
+    except Exception as e:
+        # BMS-008: capturar errores de persistencia (sqlite3.OperationalError, etc.)
+        # para que no crashee ejecutar(), pero registrar el error para diagnostico.
+        env["motivo_persistencia"] = "error en persistir: %s: %s" % (
+            type(e).__name__, str(e))
         return None
 
 #: Los PLANES. Que capacidades componen el camino hacia un objetivo.
@@ -580,6 +644,54 @@ def listar() -> Dict[str, Any]:
     }
 
 
+def _run_adapter(fn, kwargs: Dict[str, Any],
+                 timeout: int = DISPATCH_TIMEOUT) -> Dict[str, Any]:
+    """Ejecuta un adapter con un safety net de timeout.
+
+    El adapter primario usa Backend.ejecutar() (subprocess.run con timeout).
+    Pero el adapter tambien hace parsing, cleanup, SQLite ops, etc. que no
+    están cubiertos por el timeout del backend. Este safety net via
+    signal.SIGALRM impide que el dispatch bloquee indefinidamente.
+
+    SEMÁNTICA DEL TIMEOUT:
+    - NO cancela el trabajo subyacente (Python no puede matar threads).
+    - NO persiste resultados parciales: si dispara, devolvemos `blocked`.
+    - El adapter puede estar en medio de un subprocess.run(); el child puede
+      quedar como zombie hasta que el padre termine o muera.
+    - Un timeout del dispatch ≠ timeout del backend: el primero es 10 min
+      (safety net), el segundo es configurable (default 900s).
+
+    SOLO funciona en el hilo principal (signal.SIGALRM). RXRE corre en
+    single-thread. Si se ejecuta en un thread secondario, el timeout se
+    desactiva silenciosamente (signal.SIGALRM no propagable a threads).
+    """
+    def _alarm_handler(signum, frame):
+        raise TimeoutError("dispatch timeout")
+    # signal.SIGALRM solo funciona en el hilo principal
+    is_main = threading.current_thread() is threading.main_thread()
+    if not is_main:
+        return fn(**kwargs)  # No safety net en threads secondarios
+    old = signal.signal(signal.SIGALRM, _alarm_handler)
+    signal.alarm(timeout)
+    try:
+        return fn(**kwargs)
+    except TimeoutError:
+        return {"status": "blocked", "ejecucion": {"timeout": True,
+                "stderr": "timeout a los %ds (dispatch-level)" % timeout},
+                "precheck": {"ok": False, "dispatch_timeout": timeout},
+                "limitations": [
+                    "el adapter no termino a los %ds. Este timeout es un "
+                    "safety net y NO cancelo el trabajo subyacente; el "
+                    "proceso hijo puede seguir activo." % timeout,
+                    "no se persistieron resultados parciales: el envelope "
+                    "no tiene `results`, por lo que _persistir no se llama.",
+                    "si el producer es un subproceso, verificar procesos "
+                    "huerfanos con `ps aux | grep <exe>`."]}
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old)
+
+
 def ejecutar(capability: str, params: Dict[str, Any]) -> Dict[str, Any]:
     """`op: run`. Devuelve SIEMPRE los seis canales, execution included.
 
@@ -636,7 +748,7 @@ def ejecutar(capability: str, params: Dict[str, Any]) -> Dict[str, Any]:
     kwargs = {k: params[k] for k in a["parametros"] if params.get(k) is not None}
     if "backend_id" not in kwargs:
         kwargs["backend_id"] = a["backend_por_defecto"]
-    env = fn(**kwargs)
+    env = _run_adapter(fn, kwargs)
     env["capability"] = capability
     env["ejecutada"] = True
     # MEDIDO 2026-10-12 (RXRE-1632): `ejecutada` dice si se INVOCO al
@@ -684,16 +796,27 @@ def ejecutar(capability: str, params: Dict[str, Any]) -> Dict[str, Any]:
         # guardada, y una IA leeria que su resultado se ha perdido.
         #
         #     una colision de un id determinista es la garantia funcionando
-        if str(op_id).startswith("COLISION:"):
+        if op_id and str(op_id).startswith("COLISION:"):
             env["persistido"] = True
             env["nota_persistencia"] = (
                 "el resultado ya estaba registrado con el MISMO result_id "
                 "(determinista). No se creo una fila nueva porque habria "
                 "pisado la anterior con el mismo contenido. La evidencia "
                 "sigue disponible con `explain` por ese result_id.")
-        else:
+        elif op_id:
             env["persistido"] = True
+        else:
+            # BMS-008: _persistir devolvio None → la persistencia fallo o no
+            # se intento. No reportar `persistido: True` falsamente.
+            env["persistido"] = False
     else:
         env["operation_id"] = None
-        env["persistido"] = False
+        # BMS-009: las capabilities de conocimiento (rxre.create_finding,
+        # rxre.create_finding_relation) persisten directamente a findings /
+        # finding_relations y no setean 'results'. El adapter puede setear
+        # env["persistido"] = True tras una escritura exitosa. Solo asignar
+        # False si el adapter no definio persistido — no sobreescribir el
+        # juicio del adapter sobre su propia persistencia.
+        if "persistido" not in env:
+            env["persistido"] = False
     return env

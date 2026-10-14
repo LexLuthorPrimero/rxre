@@ -1,0 +1,53 @@
+# RXRE — reglas de versionado
+#
+# MEDIDO 2026-10-14: este repositorio NO tenia .gitignore. Nada estaba
+# "ignorado": `tools/rxre/core/` (8 ficheros, incluidos store.py y
+# machine.py, los dos ficheros que sostienen todo) simplemente nunca se
+# añadieron. `git diff` no los mostraba, y eso se leyo como "el nucleo no
+# existe" cuando la realidad era "el nucleo existe y no esta seguido".
+#
+# Cada regla de aqui corresponde a algo que se ha COMPROBADO en el arbol,
+# no a una convencion inventada.
+
+# --- Python: byte-compilado ---
+__pycache__/
+*.py[cod]
+
+# --- Estado local: bases de datos ---
+# MEDIDO: tools/rxre/storage/rxre.sqlite3 (372 KB) y
+# tools/rxre/core/data/rxre_results.sqlite3 (2.5 MB) son estado de ESTE
+# host: operaciones, resultados, reflexiones y hallazgos. Son evidencia,
+# pero evidencia de UNA EJECUCION, no fuente. Versionar una base de datos
+# da diffs ilegibles y merge conflicts garantizados.
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+*.db
+
+# --- Repositorios externos vendorizados: 680 MB ---
+# MEDIDO: `du -sh tools/rxre/github` = 680 MB, 11635 ficheros. Son clones
+# de rizin, radare2, Ghidra y otros, con su propio .git dentro. Meterlos
+# en este repositorio lo volveria inutilizable y no aporta nada: su
+# procedencia esta en el registro de backends (registry.py -> repo/commit).
+tools/rxre/github/
+
+# --- Artefactos generados y respaldos obsoletos ---
+# MEDIDO: tools/rxre/core/store.py.backup son 60 lineas de un fragmento de
+# RXRE-1640, no un respaldo del store.py actual (2859 lineas). Mantenerlo
+# en control de versiones perpetuaria un archivo que no significa nada.
+*.backup
+*.bak
+*.orig
+*.rej
+
+# --- Compilados de Ghidra ---
+# MEDIDO: tools/rxre/backends/scripts/build/DumpDecomp.class se genera con
+# javac contra los JARs de ESTA instalacion. Es binario y es especifico de
+# esta maquina. El FUENTE (DumpDecomp.java) si se versiona: es codigo.
+tools/rxre/backends/scripts/build/
+*.class
+
+# --- Salidas de experimentacion ---
+.work/
+*.log
+__pycache__/

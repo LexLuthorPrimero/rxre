@@ -19,27 +19,31 @@
     "runtime_coccinelle": "spatch 1.3.1 (OCaml 5.4.0)",
     "repo_rizin": "d14c3fac4126bc5fbe66e7f3d1660aeab22b01d8 (v0.10.0-dev, branch dev)",
     "repo_radare2": "008a7a6cd2e5acb8268f65f486760d080f3b107b (master)",
-    "matriz": "tools/rxre/docs/RXRE-004-BACKEND-MATRIX.md"
+    "matriz": "tools/rxre/docs/RXRE-004-BACKEND-MATRIX.md",
+    "fecha_umr_hw": "2026-10-14"
   },
   "capacidades_cerradas_por_backend": {
     "rizin": 14,
     "radare2": 8,
     "ghidra": 1,
     "capstone": 2,
-    "coccinelle": 1
+    "coccinelle": 1,
+    "knowledge": 8,
+    "umr": 1
   },
   "recuento_desde_la_matriz_al_principio": {
-    "rizin": 11,
-    "radare2": 7,
-    "ghidra": 0,
-    "coccinelle": 0,
-    "por_que_cambio": "Dos motivos. (1) B5 anadio `binary.dataflow` a radare2 como AVAILABLE (su `afvxj` emite JSON VALIDO) y corrigio la razon de rizin a PARTIAL por FORMATO. (2) Lote RXRE-BULK del 2026-10-12: se ejecutaron y se MEDIERON dos producers mas (Ghidra 12.1.4 y spatch 1.3.1), con 1 capacidad cada uno. El vector B7 que compara contra el registro los delato al no coincidir.",
-    "por_que_no_cambio_primary": "Ni el primer caso ni este cambian el ORDEN: rizin sigue cerrando 14 contra 8. Eso es lo que importa de un recuento. Si el ORDEN hubiera cambiado, habria que revisar la decision entera, no solo los numeros. Y `ghidra`/`coccinelle` no compiten por PRIMARY: cada uno abre una capacidad que no existia (decompilacion, busqueda semantica), no una que ya se cubria.",
+    "fecha": "2026-10-12",
+    "fecha_umr_hw": "2026-10-14",
+    "umr": 1,
+    "por_que_cambio": "RXRE-BMS-EXT-002-A, 2026-10-14. `gpu.register_read` paso de NOT_DETERMINED a AVAILABLE porque su lectura se ha MEDIDO contra el ASIC de esta RX550, no porque el registro se haya editado: `umr -dbp <db> -g =0000:01:00.0 -r polaris12.gfx800.mmGRBM_STATUS` devuelve `gfx800.mmGRBM_STATUS => 0x00003028` con rc=0. Antes valia 0 porque una capability en NOT_DETERMINED no cuenta como cerrada. El vector B7 lo detecto: el registro decia 0 y la realidad era 1. Eso es para lo que existe este fichero.",
+    "por_que_no_cambio_primary": "umr cierra 1 capacidad y ademas una que no compite con ninguna: leer un registro MMIO del ASIC no es alternativa a desensamblar un ELF. rizin sigue cerrando 14. Un recuento que no cambia el ORDEN no obliga a revisar la decision entera.",
     "estado": "CORREGIDO contra el registro"
   },
   "revisado_por_mutacion": "tools/rxre/tests/test_mutations003.py (M_PRIMARY_CAMBIA)",
   "revisado_por_vector": "tools/rxre/tests/test_dispatch004.py (seccion B7)",
   "limitaciones": [
+    "MEDIDO 2026-10-14: `gpu.register_read` (umr) necesita privilegios. Sin ellos el adapter se declara BLOCKED diciendo el prerrequisito exacto, en vez de ejecutar y devolver basura. AVAILABLE significa 'ejecuta y su bloqueo esta declarado', no 'siempre funciona'. Y su valor es RAW_BINARY: `mmGRBM_STATUS` se ha MEDIDO que cambia (GUI_ACTIVE, bit 31), asi que el numero solo es un hecho junto con la ventana y el numero de muestras.",
+    "MEDIDO 2026-10-14: `sudo` arranca con `env_reset` y no reenvia `RXRE_DB`. Un productor que escala y otro que no escriben en bases distintas sin avisar, y los dos responden `persistido: true`. El adapter reenvia ahora la config de RXRE de forma explicita, pero el aviso general sigue valiendo para cualquier escalada futura: cruzar un limite de privilegios no es transparente.",
     "El recuento `capacidades_cerradas_por_backend` se compara contra el registro REAL en el vector. Si alguien anade una capacidad a un backend sin actualizar el numero, el vector falla: ese es el punto de que exista.",
     "Esta decision es sobre lo MEDIDO en esta maquina con estos binarios. No es sobre lo que un backend podria hacer con otro build. `tool_version` y `repository_commit` estan separados por eso.",
     "Ghidra abre `binary.decompile` pero NO cubre ELF ET_REL (MEDIDO: 0 funciones sobre amdgpu.ko y sobre un .ko de 11 KB, con `Import succeeded`). Para la clase de entrada del driver hay que seguir usando rizin/radare2 y el BTF de /sys/kernel/btf.",
