@@ -112,11 +112,10 @@ def t_callgraph_plan_decompile():
         chk("callgraph disponible en plan", callgraph_step[0]["available"], True)
     else:
         chk("callgraph NO es paso del plan de decompile", True, True)
-    # El plan de decompile siguente tiene 2 bloqueos: cfg, dataflow
+    # RXRE-AUTONOMY-002: binary.cfg y binary.dataflow ahora TIENEN adapter
+    # (rz_cfg.py), asi que el plan de decompile ya no tiene bloqueos.
     bloq = plan["resumen"]["bloqueos"]
-    chk("solo quedan 2 bloqueos", len(bloq), 2)
-    bloq_names = sorted(x["operation"] for x in bloq)
-    chk("bloqueos = cfg, dataflow", bloq_names, ["binary.cfg", "binary.dataflow"])
+    chk("0 bloqueos tras rz_cfg.py (cfg y dataflow ahora tienen adapter)", len(bloq), 0)
 
 
 def t_callgraph_small_binary_empty():

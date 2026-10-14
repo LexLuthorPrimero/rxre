@@ -374,6 +374,14 @@ _reg(
         "rxre.get_finding": "AVAILABLE",
         "rxre.list_finding_relations": "AVAILABLE",
         "rxre.create_finding_relation": "AVAILABLE",
+        # RXRE-1644: Knowledge reuse capabilities + investigation planner.
+        # Estan implementadas en backends.adapters.rz_findings y registradas
+        # en ADAPTERS (dispatch.py). Medición: importables y funcionales en
+        # tests de integración (BMS-005, BMS-006).
+        "rxre.list_findings": "AVAILABLE",
+        "rxre.search_findings": "AVAILABLE",
+        "rxre.evaluate_applicability": "AVAILABLE",
+        "rxre.plan_investigation": "AVAILABLE",
     },
     notas=[
         "MEDIDO: el backend 'knowledge' existe y es importable. Sus "
@@ -394,6 +402,95 @@ _reg(
     ],
     no_medidas=[],
     unsuitable=[],
+)
+
+
+# BMS-EXT-002. UMR (AMD Unified Module Reporter) backend.
+#
+# UMR es la unica herramienta disponible en este entorno para observar
+# registros GPU reales de la RX 550. La version (1.0.0) es verificable en
+# runtime.
+#
+# ESTADO: AVAILABLE. MEDIDO 2026-10-14 con privilegios, sobre el ASIC de
+# esta maquina, no sobre un binario:
+#
+#   $ umr -dbp /usr/share/umr/database -g =0000:01:00.0 \
+#         -r polaris12.gfx800.mmGRBM_STATUS
+#   gfx800.mmGRBM_STATUS    => 0x00003028
+#   gfx800.mmGRBM_STATUS2   => 0x00000008
+#   rc=0
+#
+#   $ umr -dbp /usr/share/umr/database -g =0000:01:00.0 \
+#         -r polaris12.gmc810.mmMC_VM_FB_LOCATION
+#   gmc810.mmMC_VM_FB_LOCATION => 0xf47ff400
+#
+# Antes era NOT_DETERMINED, y era lo correcto: la lectura no se habia
+# podido validar sin privilegios. Esa razon ya no se sostiene porque hay
+# lectura medida. AVAILABLE no significa "siempre funciona": significa
+# "funciona, y cuando le falta el privilegio se declara BLOCKED diciendo
+# cual es". Esa distincion la exige el contrato de estados (§10) y es la
+# que antes se estaba confundiendo con NOT_DETERMINED.
+_reg(
+    Backend("umr", "umr", ["--help"], timeout=30,
+            repo="https://github.com/RadeonOpenCompute/UMR.git",
+            commit="local:rpm-umr-1.0.0"),
+    caps={
+        "gpu.register_read": "AVAILABLE",
+    },
+    notas=[
+        "MEDIDO: UMR 1.0.0 instalado en /usr/bin/umr, version verificada via -h.",
+        "LICENCIA: MIT (Copyright 2017 AMD).",
+        "DATABASE: /usr/share/umr/database/polaris12.asic existe y se usa con -dbp.",
+        "EVIDENCIA 2026-10-14 (lectura real, con privilegios, sobre esta RX550):",
+        "  polaris12.gfx800.mmGRBM_STATUS        => 0x00003028   rc=0",
+        "  polaris12.gmc810.mmMC_VM_FB_LOCATION  => 0xf47ff400   rc=0",
+        "COMO SE SELECCIONA EL DEVICE (MEDIDO, y no es lo que decia antes):",
+        "  `umr -g polaris12@0`            -> [ERROR]: ASIC not found or compatible",
+        "                                          (instance=0, did=ffffffffffffffff) rc=1",
+        "  `umr -r <reg>` (auto-detect)    -> funciona, rc=0",
+        "  `umr -g =0000:01:00.0 -r <reg>` -> funciona, rc=0, MISMO valor",
+        "  Se usa la tercera. No por comodidad: con el auto-detect elige UMR;",
+        "  con `-g =<pci>` elige el device que la allow-list ya valido, y la",
+        "  restriccion de seguridad sobrevive hasta la invocacion.",
+        "OPCIONES: `-O no_colour` NO EXISTE en UMR v1.0.0 -> 'error: Unknown option",
+        "  [no_colour]', rc=1. La lista real incluye `use_colour` (activar). Sin TTY",
+        "  UMR no colorea, asi que la opcion no hace falta.",
+        "NOMBRES DE REGISTRO (MEDIDO leyendo la BD): llevan PREFIJO DE TIPO DE DOS",
+        "  CARACTERES: mm (memoria), ix (indirecto), dc, ad... Ejemplos reales de",
+        "  esta BD: polaris12.gfx800.mmGRBM_STATUS, polaris12.gmc810.mmMC_VM_FB_LOCATION.",
+        "  polaris12.smc.gpu_length NO existe: 'smc' no es un IP de polaris12 y",
+        "  'gpu_length' no lleva prefijo. Ese nombre era el ejemplo del docstring",
+        "  de este adapter y nunca funciono. El adapter ahora lo comprueba contra la",
+        "  BD antes de invocar UMR (precheck estatico, sin privilegios).",
+        "  polaris12 declara 8 IPs: bif510 dce1120 gfx800 gmc810 oss300 smu713 uvd600 vce300",
+        "PRIVILEGIOS: UMR exige euid==0. Sin root responde '[ERROR]: UMR was not invoked",
+        "  as root' y no lee nada, aunque el usuario tenga ACL rw en /dev/dri/card1:",
+        "  el acceso al device no basta, hace falta ioctl() con privilegios de kernel.",
+        "  El adapter NO automatiza la escalada. Exige que el operador la declare",
+        "  con RXRE_ESCALATE='sudo -n' (o ejecutar con euid=0), lo registra en el",
+        "  precheck, y si no esta declarado responde BLOCKED con el prerrequisito",
+        "  exacto. Ninguna contrasena se guarda en este arbol ni se pide por codigo.",
+        "CONTRADICCION REGISTRADA, NO RESUELTA: el espacio de nombres de la BD para",
+        "  esta GPU es polaris12.* y las lecturas funcionan, pero `-g polaris12@0` no",
+        "  resuelve el ASIC (did=ffffffffffffffff). El nombre con el que UMR nombra",
+        "  la BD y el nombre que UMR acepta para -g NO coinciden en esta maquina.",
+        "  Se registra como contradiccion; la via de trabajo es la seleccion por PCI,",
+        "  que si esta medida.",
+        "SOLO LECTURA: el flag -r (read) no escribe. Los flags -w/-wb escriben.",
+        "NO usar --option force_asic_file: sobreescribe el ASIC y puede leer",
+        "  registros de una GPU equivocada.",
+    ],
+    no_medidas=[
+        "semantica de los valores: se registra lo que UMR devuelve (RAW_BINARY);",
+        "  que significa cada bitfield NO esta verificado contra la hoja de datos.",
+        "  La BD de UMR trae definiciones de bitfield y UMR las puede imprimir,",
+        "  pero esa decodificacion no se ha integrado ni validado todavia.",
+    ],
+    unsuitable=[
+        "gpu.register_write / gpu.vm_write (UMR soporta -w pero es DESTRUCTIVO)",
+        "gpu.wave_dump, gpu.profiler (funcionalidades avanzadas no verificadas)",
+        "cualquier operacion que requiera debugfs (/sys/kernel/debug/dri/)",
+    ],
 )
 
 

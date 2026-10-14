@@ -73,9 +73,11 @@ def t_registro():
     print("\n== registro: solo lo medido ==")
     # MEDIDO 2026-10-12 (RXRE-1634): se anadio `capstone`, un producer de
     # MODULO en proceso. No es un subproceso como los otros cuatro.
+    # RXRE-AUTONOMY-002: anadidos `knowledge` y `umr` (UMR para register_read
     chk("backends registrados",
         sorted(registry.backends()),
-        ["capstone", "coccinelle", "ghidra", "radare2", "rizin"])
+        ["capstone", "coccinelle", "ghidra", "knowledge", "radare2",
+         "rizin", "umr"])
     chk("ghidra decompile es PARTIAL",
         registry.get("ghidra")["capacities"]["binary.decompile"],
         "PARTIAL")
@@ -362,8 +364,8 @@ def t_dispatch_generico():
     # RXRE-1632 (las cinco de contenedor). El bucle de abajo es el que de
     # verdad prueba que cada uno existe; este numero solo avisa si se
     # OLVIDO registrar alguno.
-    chk("los 14 adapters son importables",
-        len(dispatch.ADAPTERS), 14)
+    chk("los 25 adapters son importables",
+        len(dispatch.ADAPTERS), 25)
     for cap, a in sorted(dispatch.ADAPTERS.items()):
         import importlib
         m = importlib.import_module(a["modulo"])
@@ -403,41 +405,28 @@ def t_plan_decompile_ya_no_es_callejon():
     chk("estado del plan", p["status"], "ok")
     chk("pasos", len(p["plan"]), 6)
     bloq = p["resumen"]["bloqueos"]
-    # MEDIDO: siguen 4 pasos sin adapter. NO es una regresion de este
-    # lote: es un hueco PREEXISTENTE que el lote DESTAPA. Esos cuatro
-    # (`binary.functions`, `binary.disassemble`, `binary.cfg`,
-    # `binary.dataflow`) tienen producer MEDIDO en rizin y radare2 y
-    # figuraban AVAILABLE en el registry, pero nadie escribio el adapter.
+    # RXRE-AUTONOMY-002: binary.cfg y binary.dataflow ahora TIENEN adapter
+    # (rz_cfg.py), asi que dejaron de ser pasos bloqueados. El plan sigue
+    # teniendo 6 pasos listados (no se acorta), pero ahora 0 estan bloqueados.
     #
-    #   declarada AVAILABLE + sin adapter = capacidad declarada y no
-    #   ejecutable, que es exactamente lo que el propio dispatch dice
-    #  gxprobe   ("sin adapter no hay producer")
-    #
-    # Antes de este lote, el unico paso que se podia dar era el ultimo.
-    # MEDIDO 2026-10-12: dentro del PLAN de `binary.decompile` hay 6 pasos,
-    # de los que 3 siguen bloqueados. No son los 7 que faltan en el REGISTRY:
-    # `basic_blocks`, `callgraph`, `disassemble_func` y `xrefs` no son pasos
-    # de este plan. Se comproban las dos cosas por separado mas abajo, porque
-    # confundirlas fue justo el error que se corrigio aqui.
-    chk("2 pasos de este plan siguen bloqueados",
-        sorted(x["operation"] for x in bloq),
-        ["binary.cfg", "binary.dataflow"])
-    for x in bloq:
-        chk("el bloqueo de %s dice 'no tiene adapter'" % x["operation"],
-            "NO tiene adapter" in x["reason"], True)
+    # MEDIDO: dentro del PLAN de `binary.decompile` hay 6 pasos,
+    # de los que 0 siguen bloqueados. Todos tienen adapter ahora.
+    chk("0 pasos de este plan estan bloqueados (todos tienen adapter)",
+        len(bloq), 0)
     for cap in ("binary.sections", "binary.imports", "binary.exports",
-                "binary.strings", "binary.symbols"):
+                "binary.strings", "binary.symbols",
+                "binary.cfg", "binary.dataflow",
+                "binary.functions", "binary.disassemble"):
         chk("%s ya NO esta bloqueada (tiene adapter)" % cap,
             dispatch.esta_permitida(cap)["permitida"], True)
 
     # El conjunto GLOBAL de capacidades declaradas sin adapter. MEDIDO
-    # 2026-10-12 tras RXRE-1631 + RXRE-1632: quedan 2, todas las
-    # dependen del analisis de funciones. El conjunto exacto se comprueba
-    # porque un `>= 3` dejaria pasar una capacidad inventada.
+    # 2026-10-14 tras RXRE-AUTONOMY-002: todas las capacidades verificables
+    # tienen adapter. El conjunto de sin-adapter es vacio.
     fichas = dispatch._todas_las_fichas()
-    chk("las 2 sin adapter son las que dependen de `aa`/agC/agf",
+    chk("todas las capacidades verificables tienen adapter (0 sin adapter)",
         sorted(c for c in fichas if c not in dispatch.ADAPTERS),
-        ["binary.cfg", "binary.dataflow"])
+        [])
     chk("binary.functions ya NO esta bloqueada (tiene adapter)",
         [x for x in p["plan"]
          if x["operation"] == "binary.functions"][0]["available"], True)

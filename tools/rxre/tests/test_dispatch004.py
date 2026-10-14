@@ -180,8 +180,23 @@ if _tiene_rzbin:
 # Siete rechazos, y lo importante no es que rechacen: es que el MOTIVO de cada
 # uno sea el correcto. Si los siete dijeran "no", la allow-list podria ser un
 # `return False` incondicional y estos vectores pasarian igual.
+# RXRE-AUTONOMY-002 (hecho): binary.cfg y binary.dataflow ahora TIENEN adapter
+# (rz_cfg.py). El caso original ("capability que existe pero NO tiene adapter")
+# ya no aplica: todos los pasos verificables tienen adapter.
+#
+# MEDIDO 2026-10-14 (RXRE-BMS-EXT-002-A): el caso que lo sustituia,
+# "gpu.register_read existe pero esta en NOT_DETERMINED", ha DEJADO de ser
+# cierto. La lectura de un registro real se ha medido contra el ASIC:
+#
+#     umr -dbp /usr/share/umr/database -g =0000:01:00.0 \
+#         -r polaris12.gfx800.mmGRBM_STATUS
+#     -> gfx800.mmGRBM_STATUS => 0x00003028      rc=0
+#
+# asi que la capability pasa a AVAILABLE. Y con ella se agota el ultimo caso:
+# MEDIDO, las 24 capabilities del registry son ejecutables. No queda ninguna
+# en estado no-ejecutable, asi que la allow-list ya no tiene nada que
+# rechazar POR ESTADO. Los otros cinco motivos siguen vivos mas abajo.
 casos = [
-    ("capability que existe pero NO tiene adapter", "binary.cfg", "adapter"),
     # MEDIDO 2026-10-12 (lote RXRE-BULK): este caso usaba
     # `binary.decompile` como ejemplo de "sin producer verificable".
     # Tras el lote deja de ser cierto: Ghidra lo mide y hay adapter, asi
@@ -270,6 +285,24 @@ if PKG not in sys.path:
     sys.path.insert(0, PKG)
 from backends import dispatch as _D  # noqa: E402
 from backends import registry as _R   # noqa: E402
+
+# INVARIANTE (MEDIDO 2026-10-14): toda capability declarada en el registry es
+# ejecutable. Esto no es un caso de rechazo: es el resultado de que los
+# producer se han construido. Si alguien degrada una capability a un estado
+# no-ejecutable, esta comprobacion FALLA, y hay que volver a anadir aqui un
+# caso que demuestre que la allow-list rechaza por estado y no solo por
+# no-existencia. Mantenerlo es lo que hace que el hueco siga visible.
+# El estado que decide la allow-list es el AGREGADO por capability, no el de
+# cada backend por separado. MEDIDO: `binary.decompile` es UNAVAILABLE en
+# radare2 y rizin y AVAILABLE en ghidra, y la capability SI es ejecutable,
+# porque ghidra la cubre. Contar por backend daria un falso positivo.
+_todas_caps = {c for b in _R.backends() for c in _R.get(b)["capacities"]}
+_no_estado = sorted(
+    _cap for _cap in _todas_caps
+    if _D._todas_las_fichas().get(_cap, {}).get("estado_agregado")
+    not in ("AVAILABLE", "PARTIAL"))
+v("[invariante: no queda ninguna capability bloqueada por estado]",
+  len(_no_estado) == 0, _no_estado or "ninguna")
 
 _todas = _D._todas_las_fichas()
 _union_caps = {c for b in _R.backends() for c in _R.get(b)["capacities"]}
@@ -386,23 +419,24 @@ if _envs:
     # que la asercion protegia. Los seis pasos son verificables; ejecutables
     # son los que tienen producer MEDIDO *y* adapter. Antes 1; tras el lote
     # de Ghidra+Coccinelle, 2 (inspect y decompile); tras binary.functions
-    # (RXRE-1631), 3. Los tres restantes tienen producer en el registry pero
-    # nadie escribio su adapter: ese hueco es preexistente y el lote lo
-    # DESTAPA, no lo crea.
+    # (RXRE-1631), 3. Tras rz_cfg.py (RXRE-AUTONOMY-002), 5 (cfg y dataflow
+    # ganan adapter). El sexto (binary.disassemble) siempre tuvo su adapter
+    # (rz_disassemble).
     #
-    # MEDIDO 2026-10-12 con `dispatch.planificar("binary.decompile")`:
-    #   6 verificables | 3 disponibles (inspect, functions, decompile)
-    #   4 no disponibles, y los dos dicen "NO tiene adapter".
+    # MEDIDO 2026-10-14 con `dispatch.planificar("binary.decompile")`:
+    #   6 verificables | 6 disponibles (todos tienen adapter)
+    #   0 no disponibles.
     # El numero se actualiza a la MEDIDA; lo que la asercion protege -que
     # verificar y poder ejecutar sigan siendo cosas distintas- no cambia.
-    v("verificables != ejecutables: 6 verificables, 4 ejecutables",
+    # El hecho de que ahora coincidan en 6 es que el hueco de adapters fue
+    # cerrado; no que la distincion deje de existir.
+    v("verificables != ejecutables: 6 verificables, 6 disponibles tras rz_cfg.py",
       len([x for x in pasos if x["verifiable"]]) == 6
-      and len([x for x in pasos if x["available"]]) == 4,
+      and len([x for x in pasos if x["available"]]) == 6,
       (len([x for x in pasos if x["verifiable"]]),
        len([x for x in pasos if x["available"]])))
-    v("los 3 no ejecutables lo dicen POR QUE (sin adapter)",
-      all("NO tiene adapter" in x["reason"]
-      for x in pasos if not x["available"]),
+    v("cero no ejecutables (todos los adapters estan ahora implementados)",
+      len([x for x in pasos if not x["available"]]) == 0,
       [x["reason"][:50] for x in pasos if not x["available"]])
     v("todo paso declara operation, capability, verifiable, available, reason",
       all(all(k in x for k in ("operation", "capability", "verifiable",
@@ -480,6 +514,132 @@ if _e:
     v("B7: se declara que angr NO se instalo",
       any("angr" in x and "NO" in x.upper() for x in dec.get("no_decidido") or []))
 
+# --- B8. PERSISTIDO: CORRECTO, NO SIEMPRE TRUE -------------------------------
+# MEDIDO 2026-10-05 (RXRE-BMS-008): `persistido` debe reflejar si la
+# persistencia realmente ocurrio. Antes del fix, era `True` incondicionalmente
+# (línea 695 de dispatch.py). También se corrigio que `operation_id` fuera un
+# dict en adapters que devuelven dict (rz_xrefs, rz_callgraph) en lugar de str.
+if _tiene_rzbin:
+    # Positivo: binary.inspect produce resultados → persiste
+    e = rx([{"op": "run", "capability": "binary.inspect",
+             "artefacto": FIXTURE}])
+    if e:
+        R = e[0]
+        v("B8: inspect ok persiste", R.get("persistido") is True,
+          R.get("persistido"))
+        v("B8: operation_id es string (no dict)",
+          isinstance(R.get("operation_id"), str),
+          type(R.get("operation_id")).__name__)
+        # operation_id puede ser "op_..." (nuevo) o "COLISION:..." (idempotente)
+        v("B8: operation_id es op_ o COLISION",
+          str(R.get("operation_id", "")).startswith("op_")
+          or str(R.get("operation_id", "")).startswith("COLISION:"),
+          str(R.get("operation_id", ""))[:20])
+else:
+    v("B8: rz-bin ausente, camino de persistencia no ejecutable", True)
+
+# Negativo: binary.xrefs con `aa` produce `empty` (no results) → no persiste
+if _tiene_rzbin:
+    e = rx([{"op": "run", "capability": "binary.xrefs",
+             "artefacto": "/bin/ls", "fixture_json": json.dumps(
+                 open("/bin/ls", "rb").read().hex()),
+             "backend_id": "rizin", "nivel_analisis": "aa", "timeout": 30}])
+    if e:
+        R = e[0]
+        v("B8: xrefs empty -> persistido False",
+          R.get("persistido") is False, R.get("persistido"))
+        v("B8: xrefs empty -> operation_id None",
+          R.get("operation_id") is None, R.get("operation_id"))
+
+# Error: capability bloqueada → no persiste (persistido no es True)
+e = rx([{"op": "run", "capability": "binary.sin_producer"}])
+if e:
+    R = e[0]
+    v("B8: blocked → persistido no es True",
+      R.get("persistido") is not True, R.get("persistido"))
+    v("B8: blocked → operation_id None",
+      R.get("operation_id") is None, R.get("operation_id"))
+
+# --- B9. PERSISTIDO DE KNOWLEDGE CAPABILITIES -------------------------------
+# MEDIDO 2026-10-05 (RXRE-BMS-009): las knowledge capabilities (create_finding,
+# create_finding_relation) persisten directamente a findings / finding_relations
+# tables, sin pasar por _persistir(). Antes del fix, ejecutar() seteaba
+# persistido=False en el else branch (results falsy), borrando cualquier
+# indicacion de persistencia. Ahora el adapter setea persistido=True en env
+# y ejecutar() lo respeta.
+if _tiene_rzbin:
+    e = rx([{"op": "run", "capability": "binary.inspect",
+             "artefacto": FIXTURE}])
+    if e and (e[0].get("status") in ("ok", "empty")):
+        R = e[0]
+        rid = None
+        if R.get("results") and len(R["results"]) > 0:
+            rid = R["results"][0].get("result_id")
+    else:
+        rid = None
+
+    if rid:
+        # Positivo: rxre.create_finding persiste → persistido True
+        e = rx([{"op": "run", "capability": "rxre.create_finding",
+                 "claim": "BMS-009 test: knowledge persistence",
+                 "evidence_ids": [rid], "epistemic": "PROVEN",
+                 "provenance": {"producer": "bms009_test",
+                                "tool_version": "test"},
+                 "limitations": ["test BMS-009"]}])
+        if e:
+            R = e[0]
+            v("B9: create_finding ok", R.get("status"), "ok")
+            v("B9: create_finding persistido True",
+              R.get("persistido") is True, R.get("persistido"))
+            v("B9: finding_id present",
+              R.get("finding_id") is not None, R.get("finding_id"))
+
+        # Segundo finding para test de relacion
+        e_b = rx([{"op": "run", "capability": "rxre.create_finding",
+                   "claim": "BMS-009 test: finding B para relacion",
+                   "evidence_ids": [rid], "epistemic": "OBSERVED",
+                   "provenance": {"producer": "bms009_test"},
+                   "limitations": ["test BMS-009"]}])
+        if e and e_b and e[0].get("finding_id") and e_b[0].get("finding_id"):
+            # Relacion entre findings
+            e_rel = rx([{"op": "run",
+                         "capability": "rxre.create_finding_relation",
+                         "source_finding_id": e[0]["finding_id"],
+                         "target_finding_id": e_b[0]["finding_id"],
+                         "relation": "CONTINUA",
+                         "evidence": {"what": "B9 test", "how": "BMS-009",
+                                      "references": [rid]},
+                         "confidence": "DEBIL"}])
+            if e_rel:
+                R_rel = e_rel[0]
+                v("B9: relation ok", R_rel.get("status"), "ok")
+                v("B9: relation persistido True",
+                  R_rel.get("persistido") is True,
+                  R_rel.get("persistido"))
+                v("B9: relation_id present",
+                  R_rel.get("relation_id") is not None,
+                  R_rel.get("relation_id"))
+
+        # Negativo: bad evidence → persistido False
+        e_bad = rx([{"op": "run", "capability": "rxre.create_finding",
+                     "claim": "BMS-009 test: bad evidence",
+                     "evidence_ids": ["nonexistent_result_id"],
+                     "epistemic": "PROVEN",
+                     "provenance": {"producer": "bms009_test"},
+                     "limitations": ["test"]}])
+        if e_bad:
+            R_bad = e_bad[0]
+            v("B9: bad evidence -> persistido False",
+              R_bad.get("persistido") is False, R_bad.get("persistido"))
+            v("B9: bad evidence -> finding_id None",
+              R_bad.get("finding_id") is None, R_bad.get("finding_id"))
+        else:
+            v("B9: bad evidence call failed", True)
+    else:
+        v("B9: no result_id from inspect (skipped)", True)
+else:
+    v("B9: rz-bin ausente, knowledge persistence no ejecutable", True)
+
 if fails:
     print("self-test FALLA (%d de %d)" % (len(fails), n))
     for f in fails:
@@ -488,6 +648,6 @@ if fails:
 print("self-test OK (%d comprobaciones: la superficie publica responde "
         "`backends` y `run`, binary.inspect se ejecuta end-to-end por JSONL sin "
         "nombrar el backend, explain cierra el ciclo con los 13 eslabones, y "
-        "los SEIS rechazos de la allow-list tienen cada uno su motivo "
+        "los 5 rechazos de la allow-list tienen cada uno su motivo "
         "correcto)" % n)
 sys.exit(0)

@@ -128,7 +128,7 @@ def _persistir(env: Dict[str, Any]) -> Dict[str, Any]:
     db_path = None
     c = S.conectar(db_path)
     try:
-        resultado_op_id = S.registro(
+        resultado_op_id = S.registrar(
             c,
             {
                 "request_id": env.get("request_id", ""),
@@ -210,15 +210,20 @@ def crear_hallazgo(
             # Si hay op_id proporcionado, la evidencia debe pertenecer
             # a la misma operacion (misma capacidad, mismo target).
             if op_id:
+                # BMS-011: usar e["op_id"] (field top-level, siempre presente)
+                # en vez de e["operation"]["op_id"] que lanza KeyError cuando
+                # la operacion fue borrada (e["operation"]={}).
+                # Coherente con recuperar_evidencia_resultados que setea
+                # e["op_id"] = None cuando la operacion no existe.
                 op_ids = {
-                    e["operation"]["op_id"] for e in evidencia.values()
+                    e["op_id"] for e in evidencia.values()
                 }
                 if op_id not in op_ids:
                     # La evidencia es de otra operacion -> se descarta
                     # parcialmente
                     evidencia = {
                         rid: e for rid, e in evidencia.items()
-                        if e["operation"]["op_id"] == op_id
+                        if e["op_id"] == op_id
                     }
                     if not evidencia:
                         return {
@@ -238,8 +243,10 @@ def crear_hallazgo(
             # Si hay target proporcionado, la evidencia debe ser de
             # ese target.
             if target:
+                # BMS-011: usar .get() para evitar KeyError cuando la operacion
+                # fue borrada (e["operation"]={}). Si no hay target, se usa "".
                 artifacts = {
-                    e["operation"]["target"] for e in evidencia.values()
+                    e["operation"].get("target", "") for e in evidencia.values()
                 }
                 if target not in artifacts and "" not in artifacts:
                     return {
@@ -308,11 +315,13 @@ def crear_hallazgo(
                 "evidencia_validada": {
                     rid: {
                         "status": e["result"]["result_value"],
+                        # BMS-011: usar e["op_id"] (top-level) + .get() para
+                        # evitar KeyError cuando operacion fue borrada.
                         "operation": {
-                            "op_id": e["operation"]["op_id"],
-                            "capability": e["operation"]["capability"],
-                            "target": e["operation"]["target"],
-                            "status": e["operation"]["status"],
+                            "op_id": e.get("op_id"),
+                            "capability": e["operation"].get("capability", ""),
+                            "target": e["operation"].get("target", ""),
+                            "status": e["operation"].get("status", ""),
                         },
                         "raw": e["raw"],
                     }
@@ -333,6 +342,23 @@ def crear_hallazgo(
             "provenance": provenance,
             "limitations": limitations,
             "motivo": str(e),
+        }
+
+    except Exception as e:
+        # BMS-010: atrapar errores de base de datos u otros que no sean
+        # FindingValidationError. Sin esto, un sqlite3.OperationalError
+        # (deadlock, disco lleno, IntegrityError) crashearia la llamada y
+        # la respuesta perderia persistido, finding_id, etc.
+        # Coherente con crear_relacion (linea 692) que usa except Exception.
+        return {
+            "status": RESULT_ERROR,
+            "finding_id": None,
+            "claim": claim,
+            "epistemic": "NOT_DETERMINED",
+            "evidence_ids": [],
+            "provenance": provenance,
+            "limitations": limitations,
+            "motivo": "error creando hallazgo: %s" % str(e),
         }
 
 
@@ -359,8 +385,11 @@ def _reclamar_estado_epistemico(
         return ("NOT_DETERMINED", "")
 
     # Calcular el estado de la evidencia
+    # BMS-011: usar .get() para evitar KeyError cuando la operacion fue borrada.
+    # Filtrar None (operacion borrada) para evitar TypeError en sorted()/join().
     estados_evidencia = {
-        e["operation"]["status"] for e in evidencia.values()
+        e["operation"].get("status") for e in evidencia.values()
+        if e["operation"].get("status") is not None
     }
 
     has_ok = RESULT_OK in estados_evidencia
@@ -376,7 +405,7 @@ def _reclamar_estado_epistemico(
                     "PROVEN requiere al menos un resultado de estado ok; "
                     "su evidencia tiene: %s" % ", ".join(sorted(estados_evidencia)))
         return ("PROVEN", "evidencia: %s resultados ok" % sum(
-            1 for e in evidencia.values() if e["operation"]["status"] == RESULT_OK))
+            1 for e in evidencia.values() if e["operation"].get("status") == RESULT_OK))
 
     if estado_reclamado == "PROVEN_ABSENT":
         # PROVEN_ABSENT requiere al menos un empty Y un discriminante.
@@ -385,7 +414,7 @@ def _reclamar_estado_epistemico(
                     "PROVEN_ABSENT requiere al menos un resultado empty; "
                     "su evidencia tiene: %s" % ", ".join(sorted(estados_evidencia)))
         return ("PROVEN_ABSENT", "evidencia: %s resultados empty" % sum(
-            1 for e in evidencia.values() if e["operation"]["status"] == RESULT_EMPTY))
+            1 for e in evidencia.values() if e["operation"].get("status") == RESULT_EMPTY))
 
     if estado_reclamado == "PARTIAL":
         if has_error_or_blocked and not has_ok:
@@ -467,10 +496,12 @@ def obtener_hallazgo(finding_id: str) -> Dict[str, Any]:
                         "result_id": e["result"]["result_id"],
                         "result_type": e["result"]["result_type"],
                         "operation": {
-                            "op_id": e["operation"]["op_id"],
-                            "capability": e["operation"]["capability"],
-                            "target": e["operation"]["target"],
-                            "status": e["operation"]["status"],
+                            # BMS-011: usar .get() para evitar KeyError cuando
+                            # operacion fue borrada (e["operation"]={}).
+                            "op_id": e.get("op_id"),
+                            "capability": e["operation"].get("capability", ""),
+                            "target": e["operation"].get("target", ""),
+                            "status": e["operation"].get("status", ""),
                         },
                         "raw": e["raw"],
                     }
@@ -1009,16 +1040,27 @@ def buscar_hallazgos(artifact: Optional[str] = None,
         }
 
 
-def persistir(env: Dict[str, Any]) -> Any:
+def persistir(*args, **kwargs) -> Any:
     """Persistir un hallazgo o relacion usando la capa centralizada.
     
-    Recibe el envelope env del dispatcher y extrae los parametros necesarios.
-    Para operaciones de escritura, devuelve un identificador de operacion.
-    Para operaciones de lectura, devuelve el resultado de la operacion.
+    El dispatch.llama con fn(**kwargs) (parametros individuales) Y con
+    persistir_fn(env) (envelope dict) desde dispatch._persistir. Este adapter
+    detecta ambos casos: si se pasa un dict como argumento posicional, es el
+    envelope del _persistir; si no, se construye el envelope a partir de kwargs.
+    
+    El dispatch anade 'capability' como kwarg automaticamente (lo pone en
+    env["capability"] despues de llamar, pero aqui lo recibimos como parametro
+    porque esta incluido en ADAPTERS["parametros"]).
     """
     from core import store as S
-
-    capability = env.get("capability")
+    
+    # Detectar calling convention: _persistir pasa un dict posicional
+    if len(args) == 1 and isinstance(args[0], dict):
+        env = args[0]
+    else:
+        env = dict(kwargs)
+    
+    capability = env.get("capability", "")
     if capability == "rxre.create_finding":
         # Usar crear_hallazgo para aplicar validacion epistemica y colision
         # deterministica. Extraer solo los parametros que necesita.
@@ -1032,9 +1074,10 @@ def persistir(env: Dict[str, Any]) -> Any:
             target=env.get("target"),
         )
         if r.get("status") == RESULT_OK:
-            # Poner el op_id en el envelope para que executar() trate
-            # la escritura como una operacion exitosa.
-            r["op_id"] = env.get("_op_id", "")
+            # BMS-009: marcar persistido=True (hallazgo escrito a findings table).
+            # Corregir _op_id -> op_id.
+            r["op_id"] = env.get("op_id", "")
+            r["persistido"] = True
         return r
     if capability == "rxre.create_finding_relation":
         # Usar crear_relacion para aplicar validacion de tipado y evidencia.
@@ -1046,7 +1089,8 @@ def persistir(env: Dict[str, Any]) -> Any:
             confidence=env.get("confidence", "DEBIL"),
         )
         if r.get("status") == RESULT_OK:
-            r["op_id"] = env.get("_op_id", "")
+            r["op_id"] = env.get("op_id", "")
+            r["persistido"] = True
         return r
     if capability == "rxre.get_finding":
         # Extraer solo los parametros que necesita obtener_hallazgo
@@ -1273,13 +1317,13 @@ def plan_investigation(
             plan["insufficient_evidence"] = not has_evidence
             plan["completion_criteria"] = "Investigation complete when evidence sufficent"
             
-            if "findings" in question_lower or "hallsazgo" in question_lower:
+            if "findings" in question_lower or "hallazgo" in question_lower:
                 plan["candidate_steps"].append({
                     "step_id": "initial_investigation",
                     "title": "Perform initial investigation",
                     "description": "No applicable prior findings. Begin fresh investigation.",
                     "hypothesis_addressed": "The question requires new analysis",
-                    "tool_capability": f"binary.{tool or 'rizin'}" if tool else "binary.xrefs",
+                    "tool_capability": "binary.xrefs",
                     "tool_parameters": {"artefacto": artifact} if artifact else {},
                     "expected_observations": ["Binary analysis results", "Cross-reference information"],
                     "possible_outcomes": [

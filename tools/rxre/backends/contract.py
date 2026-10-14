@@ -69,6 +69,7 @@ import hashlib
 import importlib
 import json
 import os
+import re
 import subprocess
 import time
 from typing import Any, Dict, List, Optional
@@ -273,19 +274,79 @@ class Backend:
             self._version = {"error": "no encontrado en PATH"}
             return self._version
         # `X -v` no es universal: rizin usa -v, radare2 usa -v, otros -V.
-        for flag in ("-v", "-V", "--version"):
+        # Ademas, algunos tools usan -v para verbosidad (no version), y producen
+        # errores o usage messages. Validar que la salida se parezca a una version:
+        # debe contener un patron numerico como 1.0 o 1.0.0, y no empezar con [ERROR]
+        # o Usage. Si ningun flag produce una version valida, se marca como
+        # NO verificada con el ultimo output capturado (para diagnostico).
+        _version_pat = re.compile(r'\d+\.\d+(?:\.\d+)?')
+        _last_output: Dict[str, Any] = {"primera_linea": "", "flag": ""}
+        # MEDIDO 2026-10-14: esta lista estaba FIJA y el `argv_template` que
+        # el registry declara para cada backend se ignoraba. Eso produce
+        # versiones FALSAS NEGATIVAS en herramientas que no usan -v/-V/--version.
+        #
+        # UMR en esta maquina:
+        #     umr -v         -> [ERROR]: ASIC not found or compatible ...  (rechazado)
+        #     umr -V         -> [ERROR]: ...                                 (rechazado)
+        #     umr --version  -> [ERROR]: ...                                 (rechazado)
+        #     umr --help     -> "User Mode Register debugger v1.0.0 ..."     rc=0
+        #
+        # O sea: el registry DECLARABA ["--help"], que es la unica sonda que
+        # funciona, y el codigo no la llegaba a probar. `version_verificada`
+        # salia False para una herramienta cuya version se lee sin problema.
+        #
+        # El backend sabe como se consulta SU version; se pregunta primero a
+        # quien lo declara, y solo si no hay declaracion se prueban las
+        # banderas genericas. Se conservan los dos rechazos de la version
+        # anterior (error/usage no son versiones), que ya estaban bien.
+        # Primero lo que declara el registry; despues, si no sale nada, las
+        # banderas genericas. El fallback es lo que evita REGRESION: rizin y
+        # radare2 se verificaban con `-v` antes de este cambio, y su argv
+        # declarado no lo lleva. Sin el fallback, arreglar UMR habria roto
+        # dos herramientas que funcionaban.
+        _declarados = [f for f in (self.argv_template or []) if isinstance(f, str)]
+        _genericos = ["-v", "-V", "--version"]
+        _flags = _declarados + [f for f in _genericos if f not in _declarados]
+        for flag in _flags:
+            # El argv lo declara el registry, asi que se acota igual que se
+            # acota `register_name` en los adapters: sin separadores de shell,
+            # sin espacios, sin bytes de control. `subprocess.run` con argv
+            # list ya evita la shell; esto evita que el argv contenga algo
+            # que no sea un flag.
+            if not isinstance(flag, str) or not flag:
+                continue
+            if re.search(r"[\s;&|`$<>\"']", flag) or \
+                    any(ord(c) < 32 for c in flag):
+                continue
             try:
                 p = subprocess.run([exe, flag], capture_output=True, text=True,
                                    timeout=30)
             except (OSError, subprocess.TimeoutExpired):
                 continue
             txt = (p.stdout or "") + (p.stderr or "")
-            if txt.strip():
-                self._version = {"flag": flag, "primera_linea": txt.strip()
-                                 .splitlines()[0][:120], "verificada": True}
+            if not txt.strip():
+                continue
+            first = txt.strip().splitlines()[0][:120]
+            _last_output = {"primera_linea": first, "flag": flag}
+            # Rechazar errores y usage messages (no son versiones)
+            if (first.startswith("[ERROR]") or first.startswith("[WARN]") or
+                    first.lower().startswith("usage:") or
+                    "unknown option" in first.lower() or
+                    first.lower().startswith("error")):
+                continue  # intentar siguiente flag
+            # Aceptar solo si la primera linea contiene un patron de version
+            if _version_pat.search(first):
+                self._version = {"flag": flag, "primera_linea": first,
+                                 "verificada": True, "rc": p.returncode}
                 return self._version
-        self._version = {"error": "ningun flag de version respondio",
-                         "verificada": False}
+        # Ningun flag produjo una version valida
+        self._version = {"error": "ningun flag produjo una version "
+                         "reconocible; se rechazaron errores/usage messages "
+                         "(ultima salida con flag %s: %s)"
+                         % (_last_output["flag"], _last_output["primera_linea"]),
+                         "verificada": False,
+                         "ultima_salida": _last_output["primera_linea"],
+                         "ultimo_flag": _last_output["flag"]}
         return self._version
 
     def identidad(self) -> Dict[str, Any]:

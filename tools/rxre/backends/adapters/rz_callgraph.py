@@ -63,10 +63,10 @@ def persistir(env: Dict[str, Any]) -> Dict[str, Any]:
     op_seed = f"{capability}|{target}|{question}"
     op_id = "op_" + _hash.sha256(op_seed.encode()).hexdigest()[:16]
 
-    # Eliminar operaciones previas con el mismo op_id para evitar duplicados
-    c.execute("DELETE FROM operations WHERE op_id=?", (op_id,))
-    c.execute("DELETE FROM results WHERE op_id=?", (op_id,))
-    c.execute("DELETE FROM raw_output WHERE op_id=?", (op_id,))
+    # Eliminar operaciones previas con el mismo op_id para evitar duplicados.
+    # El column name en el esquema es operation_id, no op_id.
+    c.execute("DELETE FROM operations WHERE operation_id=?", (op_id,))
+    c.execute("DELETE FROM results WHERE operation_id=?", (op_id,))
     c.commit()
 
     request = {
@@ -87,7 +87,7 @@ def persistir(env: Dict[str, Any]) -> Dict[str, Any]:
         "results": env.get("results") or [],
     }
     duracion = (env.get("ejecucion") or {}).get("duration_s", 0)
-    resultado_op_id = S.registro(c, request, operation, duracion)
+    resultado_op_id = S.registrar(c, request, operation, duracion)
 
     if abierta_por_nosotros:
         c.close()
