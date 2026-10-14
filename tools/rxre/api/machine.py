@@ -73,6 +73,33 @@ def _handle_run(params: dict) -> dict:
     # Extraer parametros para la capability (todo menos 'op')
     # 'capability' se mantiene porque algunos adapters lo necesitan como parametro
     run_params = {k: v for k, v in params.items() if k != "op"}
+
+    # MEDIDO 2026-10-14 (RXRE-CORE-CAUSAL-002): antes de ejecutar, consultar
+    # si esta capability tiene lecciones de FALLO registradas. La ruta de
+    # op: run no las consultaba; solo op:plan lo hacía. Esa es la brecha de
+    # WATER: una leccion que dice "no hagas X de nuevo" llegaba al plan, pero
+    # al ejecutar no se exponia, así que no podía influir en la acción real.
+    # Aquí se consulta ANTES de ejecutar y se expone después, SIN alterar los
+    # argumentos: la IA decide si las sigue. No se hace gating: una leccion
+    # de fallo no autoriza al sistema a negar un reintento deliberado al que
+    # la IA aplica la estrategia.
+    lecciones = []
+    try:
+        _c = store.conectar(params.get("db_path", ""))
+        _rep = store.consultar_reflexiones_para_capability(
+            _c, capability, outcome_filter="failure", limite=10)
+        if _rep.get("estado") == "ok":
+            for r in _rep.get("reflexiones", []):
+                estr = r.get("strategy") or r.get("reflection") or ""
+                if estr:
+                    lecciones.append({"strategy": estr,
+                                      "reflexion_id": r.get("reflexion_id"),
+                                      "feedback": r.get("feedback")})
+    except Exception:
+        # una leccion no debe hundir una ejecucion. Si la BD no responde, se
+        # sigue sin ella, y se reporta como limitation.
+        pass
+
     env = dispatch.ejecutar(capability, run_params)
     
     # Transformar la respuesta para la API publica
@@ -139,6 +166,10 @@ def _handle_run(params: dict) -> dict:
         "persistido": env.get("persistido"),
         "limitations": limitations,
         "precheck": env.get("precheck"),
+        # las lecciones de fallo de esta capability, consultadas antes de
+        # ejecutar. Lista vacia si ninguna: no es "no disponible", es
+        # "no hay historial de fallo sobre esto".
+        "lecciones_previas": lecciones,
         "ejecucion": env.get("ejecucion"),
         "backend": env.get("backend"),
         "provenance": env.get("provenance"),
