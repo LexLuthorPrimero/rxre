@@ -191,6 +191,28 @@ print("   readelf (idiomatica) : %s  <-- no decide, solo contrasta"
       % ("confirma ELF64" if tiene_clase else "no se pudo leer el campo"))
 ok_step7 = coincide
 
+# MEDIDO 2026-10-14: cierre del cuello "no hay registro durable". Ahora SI
+# hay uno: execution_events. Se lee DIRECTAMENTE de la BD, no de la salida
+# del proceso: la durabilidad significa que un proceso distinto puede leer
+# lo que este escribio.
+import sqlite3 as _sqlite3
+_db_con = _sqlite3.connect(env["RXRE_DB"])
+_db_con.row_factory = _sqlite3.Row
+_eventos = _db_con.execute(
+    "SELECT op, capability, exit_status, persistido FROM execution_events "
+    "ORDER BY timestamp").fetchall()
+_db_con.close()
+print()
+print("=" * 74)
+print("8) EL EVENTO QUEDA DURABLE EN LA BD (readable by a different process)")
+print("=" * 74)
+print("   eventos en execution_events : %d" % len(_eventos))
+for _e in _eventos:
+    print("     op=%-4s cap=%-22s exit=%s persistido=%s"
+          % (_e["op"], _e["capability"], _e["exit_status"], bool(_e["persistido"])))
+ok_step8 = len(_eventos) >= 1 and any(e["op"] == "run" for e in _eventos)
+print("   durable y legible            : %s" % ok_step8)
+
 print()
 print("=" * 74)
 print("RESUMEN DE LA CADENA")
@@ -201,7 +223,8 @@ for nombre, cond in (("1 OpenCode decide", True),
                      ("4 explain reconstruye", ok_step4),
                      ("5 OpenCode consume la evidencia", ok_step5),
                      ("6 la evidencia cambia la decision", ok_step6),
-                     ("7 verificacion independiente", ok_step7)):
+                     ("7 verificacion independiente", ok_step7),
+                     ("8 registro durable legible post-ejecucion", ok_step8)):
     print("  %-52s %s" % (nombre, "VERIFICADO" if cond else "NO VERIFICADO"))
 
 print()
@@ -216,13 +239,15 @@ for lim in [
     "El paso 6 demuestra que la evidencia SE USO. No demuestra que cambiar "
     "la eleccion mejore el resultado: eso necesitaria comparar dos ramas "
     "completas, y aqui solo se ejecuta la buena.",
-    "No hay registro durable de esta cadena: es una traza impresa. "
-    "Persistirla exigiria un esquema de eventos que no existe todavia.",
+    "El evento queda DURABLE ahi, pero sigue sin capturar la decision de "
+    "OpenCode en si (paso 1): no hay interfaz instalada que exponga un tool call "
+    "a un script. El evento registra lo que RXRE ejecuto y con que resultado, "
+    "no el razonamiento previo que lo motivo.",
 ]:
     print("  - " + lim)
 
 shutil.rmtree(dbdir, ignore_errors=True)
-todos = [ok_step2, ok_step3, ok_step4, ok_step5, ok_step6, ok_step7]
+todos = [ok_step2, ok_step3, ok_step4, ok_step5, ok_step6, ok_step7, ok_step8]
 print()
 print("  %d/%6d enlaces verificados" % (sum(1 for x in todos if x), len(todos)))
 sys.exit(0 if all(todos) else 1)
