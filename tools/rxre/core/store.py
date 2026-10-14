@@ -443,6 +443,39 @@ CREATE TABLE IF NOT EXISTS reflexiones (
 CREATE INDEX IF NOT EXISTS ix_reflexiones_hypothesis ON reflexiones(hypothesis_id);
 CREATE INDEX IF NOT EXISTS ix_reflexiones_attempt    ON reflexiones(attempt_id);
 CREATE INDEX IF NOT EXISTS ix_reflexiones_outcome    ON reflexiones(outcome);
+
+-- RXRE-CORE-CAUSAL-002. Event-log ejecutable: el registro DURABLE de la
+-- cadena OpenCode -> terminal -> RXRE. MEDIDO: antes de esto, la cadena
+-- solo se imprimia en una traza efimera (test_fase5_trace); nada sobre lo
+-- que ejecuto hoy quedaba grabado para mañana. Ese es el cuello de
+-- §6 (durable record) que queda sin cerrar.
+--
+-- Por que una tabla NUEVA y no reusar `operations`: `operations` guarda el
+-- REQUEST y RESPONSE INTEGROS de cada adapter (lo que un producer emitió).
+-- Un evento de ejecución es lo que la ORQUESTACION observó: qué se ejecutó,
+-- cuándo, con qué salida del proceso, si se persistió, y cuántas lecciones
+-- previas pesaban sobre la decisión. Esa es interpretación del orchestrator,
+-- no evidencia del producer: §10 exige separarlas.
+--
+-- Se registra en op:run y op:plan. Nunca falla la ejecución por esto: el
+-- evento se escribe en best-effort y cualquier error se reporta como
+-- limitation, no como abort.
+CREATE TABLE IF NOT EXISTS execution_events (
+    evento_id      TEXT PRIMARY KEY,
+    op             TEXT NOT NULL,          -- run | plan
+    capability     TEXT,
+    backend_id     TEXT,
+    exit_status    INTEGER,                -- del proceso real, no del adapter
+    operation_id   TEXT,                   -- ref a operations(operation_id)
+    result_id      TEXT,                   -- ref a results(result_id)
+    persistido     INTEGER,                -- 1/0, no bool
+    n_lessons      INTEGER,                -- lecciones de fallo consultadas antes
+    limitations    TEXT,                   -- JSON
+    timestamp      TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_exec_op        ON execution_events(op);
+CREATE INDEX IF NOT EXISTS ix_exec_cap       ON execution_events(capability);
+CREATE INDEX IF NOT EXISTS ix_exec_op_id     ON execution_events(operation_id);
 """
 
 #: Estados epistemicos que una entrada de research puede llevar. Deliberadamente
@@ -511,6 +544,41 @@ def conectar(ruta: Optional[str] = None) -> sqlite3.Connection:
 
 def _sha(txt: str) -> str:
     return hashlib.sha256(txt.encode("utf-8")).hexdigest()[:16]
+
+
+def registrar_evento(c: sqlite3.Connection, op: str, capability: str,
+                     env: Dict[str, Any], lecciones: List[Any]) -> str:
+    """Registra un evento de ejecucion orquestada (op:run / op:plan).
+
+    MEDIDO 2026-10-14: el event-log DURABLE que cierra el cuello §6
+    (durable record of the chain). op:run consulta lecciones antes de
+    ejecutar y ahora tambien LO QUE EJECUTO y CON QUE RESULTADO, con
+    timestamp real. Best-effort: si falla, el llamador catcha y lo reporta
+    como limitation, no como abort.
+    """
+    op_id = env.get("operation_id") or ""
+    rs = env.get("results") or []
+    rid = (rs[0].get("result_id", "") if rs and isinstance(rs[0], dict) else "")
+    be = env.get("backend")
+    beid = be.get("backend_id") if isinstance(be, dict) else be
+    evento_id = "ev_" + _sha(json.dumps(env.get("ejecucion") or {},
+                                       sort_keys=True, default=str)
+                             + op + capability + str(op_id))
+    try:
+        c.execute(
+            "INSERT OR REPLACE INTO execution_events(evento_id, op, capability, "
+            "backend_id, exit_status, operation_id, result_id, persistido, "
+            "n_lessons, limitations, timestamp) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            (evento_id, op, capability, beid,
+             (env.get("ejecucion") or {}).get("exit_status"),
+             op_id, rid, int(bool(env.get("persistido"))),
+             len(lecciones or []),
+             json.dumps(env.get("limitations") or [], default=str),
+             time.strftime("%Y-%m-%dT%H:%M:%S%z")))
+        c.commit()
+    except sqlite3.IntegrityError:
+        pass
+    return evento_id
 
 
 def registrar(c: sqlite3.Connection, request: Dict[str, Any], env: Dict[str, Any],

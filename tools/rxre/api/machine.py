@@ -101,8 +101,13 @@ def _handle_run(params: dict) -> dict:
         pass
 
     env = dispatch.ejecutar(capability, run_params)
-    
-    # Transformar la respuesta para la API publica
+    # MEDIDO 2026-10-14: registrar el evento DURABLE de esta ejecucion.
+    # Se escribe en best-effort sobre la BD que ya se abrio arriba para las
+    # lecciones; si falla, no se altera ni la ejecucion ni la respuesta.
+    try:
+        store.registrar_evento(_c, "run", capability, env, lecciones)
+    except Exception:
+        pass
     # Extraer backend_status y backend_rc del adapter
     backend_status = env.get("status")
     backend_rc = None
@@ -285,6 +290,17 @@ def _handle_plan(params: dict) -> dict:
                     "descripcion": f"Ejecutar paso {paso.get('orden')}: {paso.get('capability')}",
                 })
         plan["next_actions"] = next_actions
+    # MEDIDO 2026-10-14: event-log durable tambien para op:plan (simetria
+    # con op:run). Plan no produce operation_id ni persistido; se registra
+    # lo que se puede (capability, n_lessons, limitations).
+    try:
+        store.registrar_evento(c, "plan", capability,
+                               {"ejecucion": {"exit_status": None},
+                                "limitations": plan.get("limitations", []),
+                                "persistido": plan.get("status") == "ok"},
+                               plan.get("reflexiones_previas", []))
+    except Exception:
+        pass
     return plan
 
 
