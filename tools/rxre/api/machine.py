@@ -326,6 +326,8 @@ def _handle_reflect(params: dict) -> dict:
             strategy=params.get("strategy"),
             refs=params.get("refs", []),
             check_ejecutable=params.get("check_ejecutable", ""),
+            target=params.get("target", ""),
+            capability=params.get("capability", ""),
         )
     finally:
         c.close()

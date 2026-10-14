@@ -425,7 +425,19 @@ CREATE TABLE IF NOT EXISTS reflexiones (
     -- con un CHECK EJECUTABLE: si alguien vuelve a escribir el error, el
     -- check falla en vez de que el error vuelva a pasar inadvertido.
     check_ejecutable TEXT DEFAULT '',        -- fichero:test que la vigila
-    verificada_en    TEXT DEFAULT ''         -- ultima vez que el check corrio
+    verificada_en    TEXT DEFAULT '' ,       -- ultima vez que el check corrio
+    -- MEDIDO 2026-10-14 (RXRE-CORE-CAUSAL-002): sin estas dos columnas una
+    -- leccion NO PUEDE influenciar ninguna decision. Las 11 lecciones que
+    -- tenia RXRE estaban todas con `attempt_id` nulo, o sea huerfanas: se
+    -- guardaban, se ejecutaba su check, y no las leia nadie para decidir
+    -- nada. Memoria vigilada y memoria inerte son la misma cosa si nadie la
+    -- consulta.
+    --
+    -- `target` y `capability` son el enlace. Se derivan de la operacion
+    -- cuando existe, y se pueden declarar cuando la leccion sale de otra
+    -- cosa (leer un bytecode, mirar un manual, comparar dos arboles).
+    target     TEXT DEFAULT '',
+    capability TEXT DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS ix_reflexiones_hypothesis ON reflexiones(hypothesis_id);
@@ -1547,6 +1559,16 @@ def _componente(valor: Optional[float], fuente: str,
             "conocido": valor is not None}
 
 
+def _observados_de(observados: set, target: str) -> int:
+    """Cuantas claves observadas corresponden a `target`.
+
+    Existe solo para el texto de la fuente del componente. El numero REAL
+    esta en la consulta SQL; esto evita meterla en el mensaje y que el
+    mensaje y el dato puedan divergir.
+    """
+    return 1 if target in observados else 0
+
+
 def _contiene(texto: str, aguja: str) -> bool:
     if not texto or not aguja:
         return False
@@ -1575,14 +1597,28 @@ def valorar_tareas(c: sqlite3.Connection, mission_id: str) -> Dict[str, Any]:
         if (r["status"] or "") in ESTADOS_ABIERTOS and r["target"]:
             abiertas_por_target[r["target"]] = abiertas_por_target.get(r["target"], 0) + 1
 
+    # MEDIDO 2026-10-14: esto buscaba el target en `operations`, uniendolas
+    # por `attempt_id`. Con las 11 lecciones reales — todas con
+    # `attempt_id` nulo — devolvia CERO para cualquier target, y el
+    # componente `reincidencia` era siempre "desconocido". Es decir: la
+    # memoria existia y no influia en nada.
+    #
+    # Ahora se lee la columna propia. Y si la reflexion no la trae, se
+    # recurre a la operacion, para que las antiguas sigan contando.
     fallos_por_target: Dict[str, int] = {}
+    observados: set = set()
+    _args = OUTCOMES_FALLO
     for r in c.execute(
-            "SELECT o.target AS t, COUNT(*) AS n FROM reflexiones f "
-            "JOIN operations o ON f.attempt_id = o.operation_id "
-            "WHERE f.outcome IN (%s) GROUP BY o.target"
-            % ",".join("?" * len(OUTCOMES_FALLO)), OUTCOMES_FALLO):
-        if r["t"]:
-            fallos_por_target[r["t"]] = fallos_por_target.get(r["t"], 0) + r["n"]
+            "SELECT COALESCE(NULLIF(f.target,''), o.target) AS t, "
+            "       COALESCE(NULLIF(f.capability,''), o.capability) AS c, "
+            "       SUM(CASE WHEN f.outcome IN (%s) THEN 1 ELSE 0 END) AS n "
+            "FROM reflexiones f LEFT JOIN operations o "
+            "  ON f.attempt_id = o.operation_id "
+            "GROUP BY t, c" % ",".join("?" * len(_args)), _args):
+        for clave in (r["t"], r["c"]):
+            if clave:
+                observados.add(clave)
+                fallos_por_target[clave] = fallos_por_target.get(clave, 0) + (r["n"] or 0)
 
     # MEDIDO 2026-10-14 (bug propio, cazado por el test): esto iteraba
     # `for t in abiertas_por_target`, es decir, SOLO sobre targets que ya
@@ -1644,11 +1680,35 @@ def valorar_tareas(c: sqlite3.Connection, mission_id: str) -> Dict[str, Any]:
                                "asumido")
 
         # --- COMPONENTE: reincidencia ---------------------------------
+        # MEDIDO 2026-10-14 (replay FASE 4): esto devolvia 0.0 cuando no
+        # habia ninguna reflexion sobre el target. Y eso es WRONG de una
+        # forma que importa: `0.0` dice "lo observe y no fallo", cuando en
+        # realidad no se ha observado NADA. Con las dos tareas empatadas a
+        # 0.0, el replay dio el MISMO resultado con y sin leccion, y no
+        # habia forma de distinguir el efecto del azar.
+        #
+        # La distincion correcta:
+        #   - hay AL MENOS UNA reflexion sobre el target y ninguna es de
+        #     fallo  -> 0.0 MEDIDO. Se observo y no se rompio.
+        #   - no hay ninguna reflexion sobre el target -> DESCONOCIDO. No
+        #     se ha mirado, y "no se ha mirado" no es "no pasa".
         fallos = fallos_por_target.get(target, 0) if target else None
-        c_reinc = _componente(
-            float(min(fallos, 3)) / 3.0 if fallos is not None else None,
-            "reflexiones con fallo sobre target=%r: %d" % (target or "", fallos or 0),
-            "observado" if target else "asumido")
+        if not target:
+            c_reinc = _componente(None, "la tarea no nombra un target reconocible",
+                                  "asumido")
+        elif target in observados:
+            c_reinc = _componente(
+                float(min(fallos, 3)) / 3.0,
+                "reflexiones de fallo sobre target=%r: %d de %d reflexiones "
+                "observadas" % (target, fallos, sum(
+                    1 for _ in [1]) and _observados_de(observados, target)),
+                "observado")
+        else:
+            c_reinc = _componente(
+                None,
+                "no hay NINGUNA reflexion sobre target=%r: no se ha medido si "
+                "se rompe, que no es lo mismo que medir que no se rompe"
+                % (target,), "desconocido")
 
         # --- COMPONENTE: alineacion -----------------------------------
         alineada = bool(target and _contiene(textos_criterio, target))
@@ -1678,10 +1738,27 @@ def valorar_tareas(c: sqlite3.Connection, mission_id: str) -> Dict[str, Any]:
                  "evidencia_ausente": c_ev, "reincidencia": c_reinc,
                  "alineacion": c_ali, "coste": c_coste}
 
-        # --- AGREGADO, renormalizando sobre lo conocido ----------------
+        # --- AGREGADO --------------------------------------------------
+        # MEDIDO 2026-10-14 (replay FASE 4): el denominador era la suma de
+        # los pesos CONOCIDOS, y eso premia la ignorancia. Una tarea sin
+        # ningun componente medido salia con valor 0 sobre una base de 5; la
+        # misma tarea con un solo componente conocido a 1.0 salia 1.0 sobre
+        # base 2. Es decir: cuanto menos se sabe de una tarea, mas alto
+        # puntua. Para priorizar eso esta al reves.
+        #
+        # El denominador es ahora FIJO (la suma de todos los pesos). Un
+        # componente desconocido aporta 0, que NO es lo mismo que aportar un
+        # cero medido: significa "no hay senal positiva aqui". La fraccion
+        # que si falta se declara en `cobertura`, que es donde se lee si la
+        # puntuacion se apoya en datos o en suposiciones.
+        #
+        # El componente con valor 0 MEDIDO (por ejemplo: se observo y no
+        # fallo) sigue aportando 0 al numerador y 0 a la cobertura, asi que
+        # los dos casos se distinguen en el reporte aunque puntuen igual.
+        base = sum(PESOS_SOUL.values()) or 1
         conocidos = {k: v for k, v in comps.items() if v["conocido"]}
-        base = sum(PESOS_SOUL[k] for k in conocidos) or 1
-        valor = sum(PESOS_SOUL[k] * v["valor"] for k, v in conocidos.items()) / base
+        valor = sum(PESOS_SOUL[k] * (v["valor"] or 0.0)
+                    for k, v in comps.items()) / base
         cobertura = len(conocidos) / float(len(comps))
 
         if bloqueada:
@@ -1691,8 +1768,12 @@ def valorar_tareas(c: sqlite3.Connection, mission_id: str) -> Dict[str, Any]:
         else:
             piezas = ["%s=%.2f" % (k, v["valor"]) for k, v in
                       sorted(conocidos.items(), key=lambda kv: -PESOS_SOUL[kv[0]])[:3]]
-            porque = ("valor %.3f sobre cobertura %.0f%% (peso %d) con %s"
-                      % (valor, cobertura * 100, base, ", ".join(piezas) or "sin datos"))
+            porque = ("valor %.3f = %.3f/%d sobre cobertura %.0f%% con %s"
+                      % (valor,
+                         sum(PESOS_SOUL[k] * (v["valor"] or 0.0)
+                             for k, v in comps.items()),
+                         base, cobertura * 100,
+                         ", ".join(piezas) or "ningun componente medido"))
 
         salida.append({
             "task_id": tid, "title": t.get("title"), "valor": round(valor, 4),
@@ -2184,7 +2265,9 @@ def _asegurar_columnas_reflexiones(c: sqlite3.Connection) -> None:
     except sqlite3.Error:
         return
     for nombre, tipo in (("check_ejecutable", "TEXT DEFAULT ''"),
-                         ("verificada_en", "TEXT DEFAULT ''")):
+                         ("verificada_en", "TEXT DEFAULT ''"),
+                         ("target", "TEXT DEFAULT ''"),
+                         ("capability", "TEXT DEFAULT ''")):
         if nombre not in cols:
             try:
                 c.execute("ALTER TABLE reflexiones ADD COLUMN %s %s"
@@ -2208,6 +2291,8 @@ def registrar_reflexion(
     strategy: Optional[str] = None,
     refs: Optional[List[str]] = None,
     check_ejecutable: str = "",
+    target: str = "",
+    capability: str = "",
 ) -> Dict[str, Any]:
     """Registra una reflexion tras un intento (Reflexion-style feedback loop).
 
@@ -2239,8 +2324,21 @@ def registrar_reflexion(
                 "regla": "un ref debe existir en results (res_*) o operations (op_*)",
                 "refs_rechazados": malos}
 
-    seed = "%s|%s|%s|%s" % (attempt_id or "", feedback.strip(),
-                            reflection.strip(), outcome)
+    # El enlace se deriva si no se declara. MEDIDO: antes no existia, y por
+    # eso una leccion aprendida de una operacion no acababa enlazada a su
+    # capability aunque `attempt_id` la apuntase: el que decide no consultaba
+    # por `attempt_id`, consultaba por `target`.
+    if not target and attempt_id:
+        _op = c.execute("SELECT target, capability FROM operations "
+                        "WHERE operation_id=?", (attempt_id,)).fetchone()
+        if _op is not None:
+            target = target or (_op["target"] or "")
+            capability = capability or (_op["capability"] or "")
+    target = (target or "").strip()
+    capability = (capability or "").strip()
+
+    seed = "%s|%s|%s|%s|%s" % (attempt_id or "", feedback.strip(),
+                              reflection.strip(), outcome, target)
     reflexion_id = "reflexion_" + hashlib.sha256(seed.encode()).hexdigest()[:16]
 
     existing = c.execute(
@@ -2255,21 +2353,24 @@ def registrar_reflexion(
     c.execute(
         "INSERT INTO reflexiones(reflexion_id, hypothesis_id, attempt_id, "
         " feedback, reflection, outcome, strategy, refs_json, timestamp, "
-        " check_ejecutable, verificada_en) "
-        " VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+        " check_ejecutable, verificada_en, target, capability) "
+        " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (reflexion_id, hypothesis_id, attempt_id, feedback.strip(),
          reflection.strip(), outcome, strategy,
-         json.dumps(refs), ts, (check_ejecutable or "").strip(), ""))
+         json.dumps(refs), ts, (check_ejecutable or "").strip(), "",
+         target, capability))
     c.commit()
     registrar_audit_log(c, "create_reflection", "reflexion", reflexion_id,
                         actor="rxre.reflect",
                         details={"outcome": outcome,
                                  "attempt_id": attempt_id,
                                  "hypothesis_id": hypothesis_id,
-                                 "check_ejecutable": (check_ejecutable or "").strip()})
+                                 "check_ejecutable": (check_ejecutable or "").strip(),
+                                 "target": target, "capability": capability})
     _check = (check_ejecutable or "").strip()
     return {"estado": "ok", "reflexion_id": reflexion_id, "timestamp": ts,
-            "check_ejecutable": _check,
+            "check_ejecutable": _check, "target": target,
+            "capability": capability,
             "vigilada": bool(_check),
             "nota": ("la leccion queda enlazada a un check ejecutable"
                      if _check else
