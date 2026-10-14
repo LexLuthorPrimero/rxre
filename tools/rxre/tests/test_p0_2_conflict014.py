@@ -276,19 +276,45 @@ def main():
           delta["mmMC_CG_DATAPORT"]["rxre_chosen"] is None,
           delta["mmMC_CG_DATAPORT"]["rxre_chosen"])
     else:
-        # Sin reparacion,  se exige que el delta sea EXACTAMENTE el medido.
-        # Si el mundo cambia sin que se repare,  esto falla.
-        # NOTA: la reparacion separa CONFLICT -> value_disagreement + semantic_conflict
+        # MEDIDO 2026-10-14 (RXRE-CORE-CAUSAL-002): el delta cambio, y no
+        # porque el test se hubiera quedado viejo por descuido: porque la
+        # REPARACION que este bloque esperaba ya esta hecha en
+        # `reg_resolve.py`. Antes, `mmBCI_DEBUG_READ` salia con
+        # `chosen=None, value=None`; hoy sale con
+        # `chosen=gca/gfx_8_0_d.h, value=0x24eb`.
+        #
+        # COMO SE SABE QUE ESTA REPARADO, Y NO QUE SE ESTA ADAPTANDO AL
+        # CODIGO: el bloque `--conformance` de este mismo fichero declaro,
+        # antes que esta correccion, el estado objetivo. Ese bloque se
+        # ejecuta con `python3 test_p0_2_conflict014.py --conformance` y
+        # pasa 27/27: `semantic_conflict=False`, `chosen=DICC_REL`,
+        # `value=0x24eb` para mmBCI_DEBUG_READ, y el conflicto REAL de
+        # mmMC_CG_DATAPORT conservado. Los valores de aqui son los de ahi,
+        # no los que salen hoy de ejecutar.
+        #
+        # `mmMC_CG_DATAPORT` NO se toca: su conflicto sigue abierto, y el
+        # objetivo (`chosen=None`) sigue sin cumplirse. Cambiarlo seria
+        # tapar un hallazgo, no cerrar una reparacion.
+        #
+        # NOTA: la reparacion separa CONFLICT -> value_disagreement +
+        # semantic_conflict.
         PENDIENTE = {
-            "mmBCI_DEBUG_READ": {"rxre_value_disagreement": True, "rxre_semantic_conflict": False,
-                                 "rxre_chosen": None, "rxre_value": None},
-            "mmMC_CG_DATAPORT": {"rxre_value_disagreement": True, "rxre_semantic_conflict": True,
+            "mmBCI_DEBUG_READ": {"rxre_value_disagreement": True,
+                                 "rxre_semantic_conflict": False,
+                                 # reparacion HECHA: coincide con el objetivo
+                                 # declarado en --conformance
+                                 "rxre_chosen": DICC_REL,
+                                 "rxre_value": "0x24eb"},
+            "mmMC_CG_DATAPORT": {"rxre_value_disagreement": True,
+                                 "rxre_semantic_conflict": True,
                                  "rxre_chosen": None, "rxre_value": None},
         }
+        ETIQUETA = {"mmBCI_DEBUG_READ": "reparacion HECHA (ver --conformance)",
+                    "mmMC_CG_DATAPORT": "reparacion pendiente"}
         for sym, exp in PENDIENTE.items():
             for k, x in exp.items():
-                v("[DELTA MEDIDO] %s.%s == %s  (reparacion pendiente)"
-                  % (sym, k, x), delta[sym][k] == x, delta[sym][k])
+                v("[DELTA MEDIDO] %s.%s == %s  (%s)"
+                  % (sym, k, x, ETIQUETA[sym]), delta[sym][k] == x, delta[sym][k])
         v("el numero de simbolos en conflicto del modelo es estable",
           st3["CONFLICT"] == 6, st3["CONFLICT"])
         v("y TODOS son inter-TU:  el preprocesador no los puede resolver",
