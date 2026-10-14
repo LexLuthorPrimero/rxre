@@ -31,7 +31,64 @@ from typing import Any, Dict, List, Optional
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 REG_RESOLVE = os.path.join(ROOT, "tools", "reg_resolve.py")
-KERNELBUILD = os.path.join(ROOT, "RESEARCH", "kernelbuild", "linux-7.1.3")
+
+# --- CORRECCION MEDIDA 2026-10-14 (RXRE-CORE-CAUSAL-002) ------------------
+#
+# QUE PASABA
+# ----------
+# `KERNELBUILD` apuntaba a `RESEARCH/kernelbuild/linux-7.1.3`, y ese arbol
+# NO tiene `drivers/gpu/drm/amd/include/`. MEDIDO: `asic_reg` no existe ahi
+# (0 ficheros). Por eso las 21 comprobaciones de esta suite fallaban: el
+# oraculo devolvia `None` y el productor responderia
+# `PROVEN_ABSENT_EN_ASIC_REG` para cualquier simbolo. No era un fallo del
+# productor ni del oraculo: era que se les estaba mirando en un sitio donde
+# no hay nada.
+#
+# QUE HAY, MEDIDO
+# ---------------
+#   arbol         asic_reg/   gfx_8_0_d.h   mmMC_CG_DATAPORT   mmCB_BLEND0_CONTROL
+#   kernelbuild   NO          NO            0 definiciones     None
+#   working       SI          SI            5 definiciones     0xa1e0
+#   baseline      SI          SI            5 definiciones     0xa1e0
+#
+# `baseline` y `working` tienen `asic_reg/` IDENTICO byte a byte. Se
+# diferencian en UN solo fichero del arbol completo:
+# `drivers/gpu/drm/amd/pm/powerplay/hwmgr/smu7_hwmgr.c`, que no es una
+# definicion de registro.
+#
+# POR QUE SE PREFIERE `baseline`
+# ------------------------------
+# Este fichero usa el arbol del kernel como ORACULO: la verdad externa
+# contra la que se audita `reg_resolve.py`. Un oraculo tiene que ser lo que
+# es, no lo que RXRE creo. Si el arbol de referencia fuera el mismo que
+# RXRE puede editar, el criterio seria circular: cualquier cambio erroneo
+# en el arbol haria que el productor pareciese correcto. `baseline` es el
+# arbol sin modificar; `working` es el arbol de trabajo.
+#
+# Y COMO SE RESUELVE
+# ------------------
+# Por declaracion y busqueda, no por constante escrita a mano. Un test que
+# depende de una ruta fija depende de una suposicion sobre como esta
+# montado el arbol; esta la resuelve y la DECLARA. Si ninguno de los
+# candidatos tiene el corpus, se cae a la ruta original y las
+# comprobaciones siguen fallando: no se fabrica un verde.
+_ARBOLES_CANDIDATOS = ("baseline", "working", "kernelbuild")
+
+
+def _resolver_arbol_oraculo() -> str:
+    """Primer arbol que tenga realmente `asic_reg/gca/gfx_8_0_d.h`."""
+    for nombre in _ARBOLES_CANDIDATOS:
+        raiz = os.path.join(ROOT, "RESEARCH", nombre, "linux-7.1.3")
+        if os.path.isfile(os.path.join(raiz, "drivers", "gpu", "drm", "amd",
+                                       "include", "asic_reg", "gca",
+                                       "gfx_8_0_d.h")):
+            return raiz
+    # Ninguno sirve. Se devuelve la ruta original para que los fallos sigan
+    # siendo visibles y diagnosticos, en vez de un verde que miente.
+    return os.path.join(ROOT, "RESEARCH", "kernelbuild", "linux-7.1.3")
+
+
+KERNELBUILD = _resolver_arbol_oraculo()
 ASIC_REG = os.path.join(KERNELBUILD, "drivers", "gpu", "drm", "amd", "include", "asic_reg")
 
 fails: List[str] = []

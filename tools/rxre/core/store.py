@@ -1703,11 +1703,25 @@ def valorar_tareas(c: sqlite3.Connection, mission_id: str) -> Dict[str, Any]:
         })
 
     # --- desempate DETERMINISTA --------------------------------------
-    # El valor manda; a igualdad, la que mas desbloquea; luego el task_id,
-    # que es estable y no depende del orden de inserccion. Sin esto, dos
-    # llamadas con la misma base podrian devolver tareas distintas.
+    # El valor manda; a igualdad, la que mas desbloquea; a igualdad, la
+    # `priority` escrita a mano; y solo al final el task_id.
+    #
+    # MEDIDO 2026-10-14: antes de este cambio el desempate final era el
+    # `task_id`, y eso ROMPIO `test_mission001.test_resume_after_restart`.
+    # No por casualidad: con dos tareas que no nombran target, no tienen
+    # dependencias y no tocan ningun criterio, la funcion de valor no tiene
+    # NADA que distinguirlas. Las dos vale 0.0 y el orden salia del hash del
+    # id, que es arbitrario. Un desempate arbitrario es peor que no tener
+    # ninguno: pierde una senal que el operador si declaro.
+    #
+    # Por eso `priority` se usa como ultimo recurso, NO como criterio
+    # principal. Sigue siendo lo que es: un entero escrito a mano. Pero
+    # cuando el sistema no puede distinguir, es mejor la senal declarada
+    # que un hash. La funcion degrada con elegancia al comportamiento
+    # anterior en vez de perderlo, y solo cuando hay senal manda ella.
     salida.sort(key=lambda x: (-(0 if x["bloqueada"] else 1), -x["valor"],
                                -x["componentes"]["desbloquea"]["valor"],
+                               -int(x["priority_manuscrita"] or 0),
                                x["task_id"]))
     return {"mission_id": mission_id, "tareas": salida,
             "pesos": PESOS_SOUL,
