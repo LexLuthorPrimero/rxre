@@ -1606,19 +1606,20 @@ def valorar_tareas(c: sqlite3.Connection, mission_id: str) -> Dict[str, Any]:
     # Ahora se lee la columna propia. Y si la reflexion no la trae, se
     # recurre a la operacion, para que las antiguas sigan contando.
     fallos_por_target: Dict[str, int] = {}
-    observados: set = set()
+    totales_por_clave: Dict[str, int] = {}
     _args = OUTCOMES_FALLO
     for r in c.execute(
             "SELECT COALESCE(NULLIF(f.target,''), o.target) AS t, "
             "       COALESCE(NULLIF(f.capability,''), o.capability) AS c, "
-            "       SUM(CASE WHEN f.outcome IN (%s) THEN 1 ELSE 0 END) AS n "
+            "       SUM(CASE WHEN f.outcome IN (%s) THEN 1 ELSE 0 END) AS n_fail, "
+            "       COUNT(f.reflexion_id) AS n_total "
             "FROM reflexiones f LEFT JOIN operations o "
             "  ON f.attempt_id = o.operation_id "
             "GROUP BY t, c" % ",".join("?" * len(_args)), _args):
         for clave in (r["t"], r["c"]):
             if clave:
-                observados.add(clave)
-                fallos_por_target[clave] = fallos_por_target.get(clave, 0) + (r["n"] or 0)
+                totales_por_clave[clave] = totales_por_clave.get(clave, 0) + (r["n_total"] or 0)
+                fallos_por_target[clave] = fallos_por_target.get(clave, 0) + (r["n_fail"] or 0)
 
     # MEDIDO 2026-10-14 (bug propio, cazado por el test): esto iteraba
     # `for t in abiertas_por_target`, es decir, SOLO sobre targets que ya
@@ -1696,12 +1697,12 @@ def valorar_tareas(c: sqlite3.Connection, mission_id: str) -> Dict[str, Any]:
         if not target:
             c_reinc = _componente(None, "la tarea no nombra un target reconocible",
                                   "asumido")
-        elif target in observados:
+        elif target in totales_por_clave:
             c_reinc = _componente(
                 float(min(fallos, 3)) / 3.0,
-                "reflexiones de fallo sobre target=%r: %d de %d reflexiones "
-                "observadas" % (target, fallos, sum(
-                    1 for _ in [1]) and _observados_de(observados, target)),
+                "reflexiones de fallo sobre target=%r: %d de %d "
+                "reflexiones observadas" % (target, fallos,
+                                            totales_por_clave[target]),
                 "observado")
         else:
             c_reinc = _componente(
@@ -1709,6 +1710,8 @@ def valorar_tareas(c: sqlite3.Connection, mission_id: str) -> Dict[str, Any]:
                 "no hay NINGUNA reflexion sobre target=%r: no se ha medido si "
                 "se rompe, que no es lo mismo que medir que no se rompe"
                 % (target,), "desconocido")
+        # `observados` se usaba antes para el mismo proposito; se mantiene
+        # como vista del conjunto aunque el mensaje ahora use totales claros.
 
         # --- COMPONENTE: alineacion -----------------------------------
         alineada = bool(target and _contiene(textos_criterio, target))
@@ -2554,15 +2557,16 @@ def consultar_reflexiones_para_capability(
     outcome_filter: Optional[str] = None,
     limite: int = 20,
 ) -> Dict[str, Any]:
-    """Busca reflexiones relacionadas con una capability, uniendo operations.
+    """Busca reflexiones relacionadas con una capability.
 
-    Las reflexiones se registran por attempt_id (operation_id), no por
-    capability directamente. Esta funcion hace el JOIN: si el attempt_id
-    apunta a una operacion cuyo capability coincide, la reflexion es
-    relevante.
-
-    Esto cierra el lazo MIND -> SOUL: el planificador puede consultar
-    "¿alguien ha fallado antes con esta capability?" antes de ejecutar.
+    MEDIDO 2026-10-14 (RXRE-CORE-CAUSAL-002): la version anterior filtraba
+    por `op.capability` tras un JOIN interno contra `operations`. Ignoraba
+    las columnas `r.target` y `r.capability` que ahora la tabla de
+    reflexiones tiene. Como la mayor parte de las lecciones reales se
+    registraron con `attempt_id` nulo (no todas salen de una operacion), el
+    JOIN las filtraba a todas y `consultar_reflexiones_para_capability`
+    devolvia vacio: la memoria existia y nadie la lea. Ahora se lee la
+    columna directa, con el JOIN como respaldo.
     """
     outcome_clause = ""
     outcome_arg: List[Any] = []
@@ -2574,15 +2578,18 @@ def consultar_reflexiones_para_capability(
         outcome_arg = [outcome_filter]
 
     sql = """
-        SELECT r.*, op.capability AS attempt_capability, op.operation_id
+        SELECT r.*,
+               op.capability AS attempt_capability, op.operation_id,
+               op.target AS attempt_target
         FROM reflexiones r
-        JOIN operations op ON r.attempt_id = op.operation_id
-        WHERE op.capability = ? %s
+        LEFT JOIN operations op ON r.attempt_id = op.operation_id
+        WHERE COALESCE(NULLIF(r.capability, ''), op.capability) = ? %s
         ORDER BY r.timestamp DESC
         LIMIT ?
     """ % outcome_clause
 
-    rows = [dict(x) for x in c.execute(sql, [capability] + outcome_arg + [limite]).fetchall()]
+    rows = [dict(x) for x in c.execute(
+        sql, [capability] + outcome_arg + [limite]).fetchall()]
 
     for r in rows:
         try:
