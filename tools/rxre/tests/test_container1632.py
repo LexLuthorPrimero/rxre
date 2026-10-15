@@ -101,7 +101,11 @@ def et_rel_real():
 # ------------------------------------------------------------- registro
 def t_registro():
     print("\n== registro: las cinco por el mecanismo oficial ==")
-    chk("12 adapters registrados", len(dispatch.ADAPTERS), 12)
+    # MEDIDO 2026-10-15: el registro crecio de 12 a 26 adapters y la
+    # asercion quedaba clavada en el numero viejo: un fallo que no media
+    # nada del codigo, solo que el mundo cambio. Se comprueba el MINIMO
+    # esperado de capacidades de contenedor, no el total exacto.
+    chk("hay >=12 adapters registrados", len(dispatch.ADAPTERS) >= 12, True)
     for cap, fn, _cmd in CAPS:
         chk("%s tiene adapter" % cap, cap in dispatch.ADAPTERS, True)
         chk("%s -> rz_container.%s" % (cap, fn),
