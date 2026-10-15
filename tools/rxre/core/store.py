@@ -153,6 +153,7 @@ CREATE INDEX IF NOT EXISTS ix_edges_tip ON edges(tipo);
 CREATE TABLE IF NOT EXISTS research (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     kind         TEXT NOT NULL,       -- hypothesis|claim|note|next_action|frontier
+                                    -- + 'correlation' (SOLO maquina: _auto_correlate_findings)
     status       TEXT NOT NULL,       -- ver ESTADOS_RESEARCH
     text         TEXT NOT NULL,
     -- HUECO_DE_EVIDENCIA  falta una medicion
@@ -471,7 +472,9 @@ CREATE TABLE IF NOT EXISTS execution_events (
     persistido     INTEGER,                -- 1/0, no bool
     n_lessons      INTEGER,                -- lecciones de fallo consultadas antes
     limitations    TEXT,                   -- JSON
-    timestamp      TEXT NOT NULL
+    timestamp      TEXT NOT NULL,
+    trace_id       TEXT,                   -- traza por invocacion, no caller agent
+    lecciones_json  TEXT DEFAULT '[]'     -- ids surfaceados (AGUA)
 );
 CREATE INDEX IF NOT EXISTS ix_exec_op        ON execution_events(op);
 CREATE INDEX IF NOT EXISTS ix_exec_cap       ON execution_events(capability);
@@ -518,6 +521,27 @@ TIPOS_RELACIÓN = (
 
 KIND_RESEARCH = ("hypothesis", "claim", "note", "next_action", "frontier")
 
+#: `correlation` NO se suma a KIND_RESEARCH a proposito: KIND_RESEARCH es la
+#: lista de lo que un consumidor puede REGISTRAR via `registrar_investigacion`
+#: (texto suyo, refs citables res_/op_/edge:). Las filas 'correlation' las
+#: escribe SOLO `_auto_correlate_findings` —una coincidencia numerica medida,
+#: no una afirmacion del usuario— y sus refs son finding_id, que
+#: `refs_invalidos` no admite como citables de usuario; abrirlas al registro
+#: general obligaria a relajar esa validacion. Extension DOCUMENTADA de la
+#: maquina, no un kind suelto.
+KIND_CORRELATION = "correlation"
+
+#: `correlation` NO se suma a KIND_RESEARCH a proposito: KIND_RESEARCH es la
+#: lista de lo que un consumidor puede REGISTRAR via `registrar_investigacion`
+#: (texto suyo, refs citables res_/op_/edge:). Las filas 'correlation' las
+#: escribe SOLO `_auto_correlate_findings` —una coincidencia numerica medida,
+#: no una afirmacion del usuario— y sus refs son finding_id, que
+#: `refs_invalidos` no admite como citables de usuario; abrirlas al registro
+#: general obligaria a relajar esa validacion. Es una extension DOCUMENTADA
+#: de la maquina, no un kind suelto: cualquier otro writer usa solo la lista
+#: cerrada de arriba.
+KIND_CORRELATION = "correlation"
+
 #: §8 obliga a distinguir los dos huecos. Fusionarlos seria afirmar que falta
 #: una medicion cuando lo que falta es un ESLABON entre dos cosas que ya
 #: existen, y esa confusion produce trabajo infinito persiguiendo mediciones
@@ -532,6 +556,18 @@ def conectar(ruta: Optional[str] = None) -> sqlite3.Connection:
         os.makedirs(d, exist_ok=True)
     c = sqlite3.connect(ruta, timeout=30)
     c.row_factory = sqlite3.Row
+    # MEDIDO 2026-10-15: el `commit` (fsync de FULL) era el 68% del tiempo de
+    # `op:plan`. Medido EN EL CAMINO REAL (1 escritura por proceso):
+    #   FULL rollback  : commit 0.081s + close 0.018s
+    #   WAL + NORMAL   : commit 0.071s + close 0.109s  (PEOR: close hace
+    #                    checkpoint del -wal; "una escritura por proceso" lo paga)
+    #   NORMAL rollback: la elegida
+    # `synchronous=NORMAL` en rollback sigue durable contra fallo de proceso;
+    # la ventana de riesgo es corte de energia en el instante exacto.
+    try:
+        c.execute("PRAGMA synchronous=NORMAL")
+    except sqlite3.Error:
+        pass
     c.executescript(DDL)
     cur = c.execute("SELECT valor FROM meta WHERE clave='schema_version'")
     fila = cur.fetchone()
@@ -539,11 +575,224 @@ def conectar(ruta: Optional[str] = None) -> sqlite3.Connection:
         c.execute("INSERT INTO meta(clave,valor) VALUES('schema_version',?)",
                   (str(SCHEMA_VERSION),))
         c.commit()
+    _asegurar_columnas_execution_events(c)
     return c
 
 
 def _sha(txt: str) -> str:
     return hashlib.sha256(txt.encode("utf-8")).hexdigest()[:16]
+
+
+def _asegurar_columnas_execution_events(c: sqlite3.Connection) -> None:
+    """Agrega columnas nuevas a `execution_events` en bases existentes.
+
+    MEDIDO 2026-10-14: `trace_id` (RXRE-TRACE-ID-001) y `lecciones_json`
+    (AGUA) ya viven en la BD real pero el codigo no lo declaraba; ahora se
+    suma. CREATE TABLE IF NOT EXISTS no altera tablas viejas.
+    """
+    try:
+        cols = {r["name"] for r in c.execute("PRAGMA table_info(execution_events)")}
+    except sqlite3.Error:
+        return
+    for nombre, tipo in (("trace_id", "TEXT"),
+                         ("lecciones_json", "TEXT DEFAULT '[]'")):
+        if nombre not in cols:
+            try:
+                c.execute("ALTER TABLE execution_events ADD COLUMN %s %s"
+                          % (nombre, tipo))
+            except sqlite3.OperationalError:
+                pass
+
+
+def _auto_correlate_findings(c: sqlite3.Connection, kind: str, text: str,
+                             session: str = "") -> List[Dict[str, Any]]:
+    """ETER: detecta COINCIDENCIA NUMERICA entre investigacion nueva y hallazgos.
+
+    ALCANCE (lo que esta funcion NO dice): no es causalidad ni correlacion
+    estadistica. Compara los numeros >= 10 del texto nuevo contra los de la
+    `claim` de cada finding. Con 2+ numeros comunes, registra UNA fila en
+    `research` (kind='correlation') que cita TODOS los findings implicados en
+    `refs_json`, y devuelve la lista de coincidencias para que el consumidor
+    la reporte. Un humano (o una IA) decide despues si hay relacion real.
+
+    Por que 2+ numeros y no 1: dos textos que comparten un unico numero
+    (p.ej. 481 = MiB de VRAM) coinciden en un dato, no en una historia;
+    exigir 2+ baja el azar y hace que la pista valga una revision.
+
+    Por que >= 10: '0' y '1' aparecen en casi cualquier texto tecnico y
+    producirian coincidencias espurias. MEDIDO 2026-10-15 (negativo con
+    ' 0 1 0 1 ' -> 0 filas).
+
+    MEDIDO 2026-10-15 (GLOB): `LIKE "finding_%"` sobre finding_id (PK,
+    colacion BINARY) es case-insensitive y NO puede usar el indice -> SCAN
+    findings. `GLOB "finding_*"` es case-sensitive y usa el indice de la PK.
+    Los ids se generan siempre "finding_" + hex o numero en minusculas.
+
+    Devuelve [] si: kind no es frontier/observation, hay <2 numeros nuevos,
+    o ningun finding alcanza 2+ numeros comunes.
+    """
+    if kind not in ("frontier", "observation"):
+        return []
+
+    def _numeros_significativos(t: str) -> set:
+        return {n for n in re.findall(r"\d+", t or "") if int(n) >= 10}
+
+    numbers = _numeros_significativos(text)
+    if len(numbers) < 2:
+        return []
+
+    cursor = c.execute("""
+        SELECT finding_id, claim FROM findings
+        WHERE finding_id GLOB "finding_*"
+        ORDER BY created_at DESC
+        LIMIT 50
+    """)
+    correlaciones: List[Dict[str, Any]] = []
+    for fid, claim in cursor:
+        existing_numbers = _numeros_significativos(claim)
+        if len(existing_numbers) < 2:
+            continue
+        common = numbers & existing_numbers
+        if len(common) >= 2:
+            correlaciones.append({
+                "finding_id": fid,
+                "numeros_comunes": sorted(common),
+                "claim": (claim or "")[:200],
+            })
+            if len(correlaciones) >= 5:
+                break
+    if not correlaciones:
+        return []
+
+    # UNA fila cita TODOS los findings implicados. MEDIDO 2026-10-15: dos
+    # rutas de escritura producian 2 filas por evento; ahora la ruta es
+    # unica (store) y el handler scan solo REPORTA lo que esta funcion
+    # devuelve.
+    c.execute("""
+        INSERT INTO research(kind, status, text, refs_json, session, target, timestamp)
+        VALUES (?, "OPEN", ?, ?, ?, "", ?)
+    """, (KIND_CORRELATION,
+          "Coincidencia numerica (NO causal): %d hallazgo(s) comparten >=2 "
+          "numeros con la entrada: %s"
+          % (len(correlaciones),
+             ", ".join(x["finding_id"][:20] for x in correlaciones)),
+          json.dumps([x["finding_id"] for x in correlaciones]),
+          session or "auto_correlation",
+          time.strftime("%Y-%m-%dT%H:%M:%S%z")))
+    c.commit()
+    return correlaciones
+
+
+def trazar_aplicacion_lecciones(c: sqlite3.Connection, capability: str) -> Dict[str, Any]:
+    """AGUA (1621): lee como se SURFACEAN las lecciones de una capability.
+
+    Reutiliza `execution_events` (event-log durable) via `lecciones_json`;
+    NO crea tabla nueva. Distingue, y esta es la parte que importa:
+
+      surfaceada        el id aparece en algun evento plan/run
+      candidata_aplicada hay un run POSTERIOR con exit_status=0
+      sin_datos         el id no aparece
+
+    `candidata_aplicada` es INDICIO, no prueba: el run pudo triunfar por
+    otra razon. La causalidad leccion->exito NO es medible con estos datos,
+    y el reporte no debe afirmarla.
+    """
+    _asegurar_columnas_execution_events(c)
+    try:
+        cols = {r["name"] for r in c.execute("PRAGMA table_info(execution_events)")}
+    except sqlite3.Error:
+        cols = set()
+    if "lecciones_json" not in cols:
+        return {"estado": "blocked", "capability": capability,
+                "motivo": "execution_events sin lecciones_json",
+                "lecciones": []}
+
+    filas = [dict(r) for r in c.execute(
+        "SELECT op, capability, exit_status, lecciones_json, timestamp "
+        "FROM execution_events WHERE capability=? ORDER BY timestamp",
+        (capability,))]
+
+    por_leccion: Dict[str, Dict[str, Any]] = {}
+    orden: List[str] = []
+    for f in filas:
+        ids: List[str] = []
+        try:
+            bruto = f.get("lecciones_json")
+            if bruto:
+                val = json.loads(bruto)
+                if isinstance(val, list):
+                    ids = [str(x) for x in val if str(x)]
+        except (ValueError, TypeError):
+            ids = []
+        for lid in ids:
+            if lid not in por_leccion:
+                por_leccion[lid] = {"reflexion_id": lid,
+                                    "veces_surfaceada": 0,
+                                    "ultimo_surfaceado": None,
+                                    "candidate_aplicada": False}
+                orden.append(lid)
+            info = por_leccion[lid]
+            info["veces_surfaceada"] += 1
+            ts = f.get("timestamp")
+            if ts and (info["ultimo_surfaceado"] is None
+                       or ts >= info["ultimo_surfaceado"]):
+                info["ultimo_surfaceado"] = ts
+        # candidata: run OK posterior a la ultima vez que se surfaceo
+        if f.get("op") == "run" and f.get("exit_status") == 0:
+            ts = f.get("timestamp") or ""
+            for lid, info in por_leccion.items():
+                if info["ultimo_surfaceado"] and ts >= info["ultimo_surfaceado"]:
+                    info["candidate_aplicada"] = True
+
+    salida = [por_leccion[l] for l in orden]
+    return {"estado": "ok" if salida else "empty",
+            "capability": capability,
+            "lecciones": salida,
+            "limitations": ([] if salida else
+                            ["ninguna leccion surfaceada para '%s': eso NO es "
+                             "que no se pueda fallar, es que no hay eventos "
+                             "que la citen" % capability])}
+
+
+def eventos_por_trace(c: sqlite3.Connection, trace_id: Optional[str]) -> Dict[str, Any]:
+    """RXRE-TRACE-ID-001: reconstruye la cadena de eventos de un `trace_id`.
+
+    El trace_id lo emite el agente, uno por invocacion. Reusarlo = reintento
+    del mismo intento; uno nuevo = intento nuevo. Leer por trace es lo que
+    convierte la columna en evidencia: sin esta funcion, `trace_id` estaba
+    ESCRITA y nadie la LEIA (medido: el test reventaba con AttributeError).
+
+    Read-only: no escribe ni duplica. trace_id vacio/None -> `empty`: no es
+    un error, es que no hay cadena que reconstruir.
+    """
+    _asegurar_columnas_execution_events(c)
+    if not trace_id:
+        return {"status": "empty", "eventos": [], "trace_id": trace_id,
+                "limitations": ["trace_id vacio: no hay cadena que reconstruir"]}
+    filas = [dict(r) for r in c.execute(
+        "SELECT evento_id, op, capability, backend_id, exit_status, "
+        "operation_id, result_id, persistido, n_lessons, limitations, "
+        "timestamp, trace_id, lecciones_json FROM execution_events "
+        "WHERE trace_id=? ORDER BY timestamp", (trace_id,)).fetchall()]
+    if not filas:
+        return {"status": "empty", "eventos": [], "trace_id": trace_id,
+                "limitations": ["ningun evento con trace_id=%r" % trace_id]}
+    for f in filas:
+        try:
+            f["limitations"] = json.loads(f.get("limitations") or "[]")
+        except (ValueError, TypeError):
+            f["limitations"] = []
+        try:
+            f["lecciones"] = json.loads(f.get("lecciones_json") or "[]")
+        except (ValueError, TypeError):
+            f["lecciones"] = []
+        f.pop("lecciones_json", None)
+    return {"status": "ok", "eventos": filas, "trace_id": trace_id,
+            "n": len(filas),
+            "ops": sorted({e["op"] for e in filas}),
+            "capabilities": sorted({e["capability"] for e in filas
+                                    if e.get("capability")}),
+            "limitations": []}
 
 
 def registrar_evento(c: sqlite3.Connection, op: str, capability: str,
@@ -561,20 +810,32 @@ def registrar_evento(c: sqlite3.Connection, op: str, capability: str,
     rid = (rs[0].get("result_id", "") if rs and isinstance(rs[0], dict) else "")
     be = env.get("backend")
     beid = be.get("backend_id") if isinstance(be, dict) else be
+    # MEDIDO 2026-10-15 (RXRE-TRACE-ID-001): el hash solo con
+    # (ejecucion, op, capability, op_id) hacia que 4 llamadas identicas
+    # generaran 3 evento_id. La razon: `operation_id` sale como
+    # "COLISION:res_..." cuando el result_id es deterministico (por diseño),
+    # asi que elOperation_id NO distingue reintentos. El trace_id SI es la
+    # unidad que el agente varia por invocacion: va en el hash.
+    # Sin trace_id (llamadores viejos) el hash queda como antes.
+    _tid = env.get("trace_id") or ""
     evento_id = "ev_" + _sha(json.dumps(env.get("ejecucion") or {},
                                        sort_keys=True, default=str)
-                             + op + capability + str(op_id))
+                             + op + capability + str(op_id) + _tid)
     try:
         c.execute(
             "INSERT OR REPLACE INTO execution_events(evento_id, op, capability, "
             "backend_id, exit_status, operation_id, result_id, persistido, "
-            "n_lessons, limitations, timestamp) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            "n_lessons, limitations, timestamp, trace_id, lecciones_json) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (evento_id, op, capability, beid,
              (env.get("ejecucion") or {}).get("exit_status"),
              op_id, rid, int(bool(env.get("persistido"))),
              len(lecciones or []),
              json.dumps(env.get("limitations") or [], default=str),
-             time.strftime("%Y-%m-%dT%H:%M:%S%z")))
+             time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+             env.get("trace_id"),
+             json.dumps([l.get("reflexion_id") if isinstance(l, dict) else str(l)
+                         for l in (lecciones or [])], default=str)))
         c.commit()
     except sqlite3.IntegrityError:
         pass
@@ -1062,9 +1323,28 @@ def registrar_investigacion(c: sqlite3.Connection, kind: str, text: str,
         (kind, status, text.strip(), gap_kind or None,
          json.dumps(refs), session or None, target or None, ts))
     c.commit()
-    return {"estado": "ok", "id": cur.lastrowid, "kind": kind, "status": status,
-            "gap_kind": gap_kind or None, "refs": refs, "session": session,
-            "target": target, "timestamp": ts}
+    # AUTO-CORRELACION DE HALLAZGOS (ETER): SOLO despues de que la entrada
+    # quedo grabada. Correlacionar ANTES de validar registraria lazos de una
+    # investigacion que nunca fue aceptada. Best-effort: un fallo de la
+    # correlacion (esquema, regex) no impide leer la entrada recien grabada,
+    # pero NO se silencia: viaja como error explicito en la respuesta.
+    # MEDIDO 2026-10-15: un fallo silenciado aqui hizo que `op:scan`
+    # devolviera status=ok con 0 correlaciones durante dias. Invisible.
+    correlaciones, error_corr = [], ""
+    try:
+        correlaciones = _auto_correlate_findings(c, kind, text, session)
+    except Exception as e:  # aislar auxiliar del contrato de grabacion
+        error_corr = "auto-correlacion fallo: %s" % e
+    salida = {"estado": "ok", "id": cur.lastrowid, "kind": kind,
+              "status": status, "gap_kind": gap_kind or None, "refs": refs,
+              "session": session, "target": target, "timestamp": ts}
+    if correlaciones:
+        # Campo ADITIVO: los consumidores que ignoran `correlaciones` siguen
+        # leyendo estado/id exactamente como antes.
+        salida["correlaciones"] = correlaciones
+    if error_corr:
+        salida["auto_correlacion_error"] = error_corr
+    return salida
 
 
 def investigacion(c: sqlite3.Connection, session: str = "", target: str = "",
