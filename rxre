@@ -1,0 +1,1114 @@
+#!/usr/bin/env python3
+# RXRE CLI — punto de entrada operativa unificada.
+#
+# Cualquier IA compatible con ejecución de comandos puede usar RXRE sin
+# conocer rutas internas ni scripts individuales. Lee JSONL de stdin,
+# escribe JSONL a stdout, y expone subcomandos operativos.
+#
+#   ./rxre help                         esta ayuda
+#   ./rxre ops                          lista las 10 operaciones del engine
+#   ./rxre capabilities                 lista las 25 capabilities con estado
+#   ./rxre backends                     alias de capabilities
+#   ./rxre run binary.inspect --artefacto /bin/ls        ejecuta una capability
+#   ./rxre plan binary.decompile --question "..."        planifica sin ejecutar
+#   ./rxre explain res_abc123                             reconstruye evidencia
+#   ./rxre experiment ...                                 experimento baseline vs modified
+#   ./rxre reflect --feedback "..." --outcome failure     registra una reflexión
+#   ./rxre research --kind frontier --text "..."          registra hipótesis/frontier
+#   ./rxre saturate --target binary.cfg                   evalua saturación de fronteras
+#   ./rxre lessons                                         lista lecciones registradas
+#
+#   ./rxre selftest                                        ejecuta baseline de pruebas
+#   ./rxre inventory                                       inventario de herramientas (rxre_boot)
+#   ./rxre verify                                          ejecuta las 5 herramientas FASE 0
+#   ./rxre workscan                                        cuenta hallazgos, repeticiones, authorship
+#   ./rxre mutate                                          mutation testing en tools/
+#
+# JSONL passthrough (modo compatible):
+#   echo '{"op":"ops"}' | ./rxre
+#
+# Códigos de salida:
+#   0  ok o empty   (vacío NO es fallo: mira `status` en el JSON)
+#   1  error
+#   2  blocked     (la precondición no se cumple; NO se ejecutó)
+#
+# El motor es tools/rxre/api/machine.py. Las herramientas auxiliares se
+# invocan por ruta desde el registro autoritativo (toolreg.py). Nada se
+# importa: se ejecuta por subprocess para mantener independencia.
+
+import json
+import os
+import re
+import subprocess
+import sys
+from collections import Counter
+
+# ===========================================================================
+# PATH RESOLUTION — desde la ubicación del script, NUNCA del cwd
+# ===========================================================================
+RAIZ = os.path.dirname(os.path.abspath(__file__))
+MACHINE = os.path.join(RAIZ, "tools", "rxre", "api", "machine.py")
+RXRE_TOOLS = os.path.join(RAIZ, "tools")
+RXRE_PKG = os.path.join(RAIZ, "tools", "rxre")
+FASE0_DIR = os.path.join(RAIZ, "RXRE", "tools")
+
+def preparar_entorno_subproceso():
+    """Entorno robusto para subprocess: PYTHONPATH + TMPDIR con reserva mínima.
+
+    MEDIDO 2026-10-15: el disco /tmp (tmpfs) quedó a 100%
+    (5.9G usados) por una copia de trabajo de 5.2G de otro proceso,
+    dejando a cualquier tool sensible al directorio temporal sin espacio
+    (Ghidra, JVM hsperfdata, SQLite temp). Siempre hacer caer el TMPDIR a
+    /var/tmp (parte del fs raíz, con espacio) antes de invocar subprocess.
+    """
+    env = dict(os.environ)
+    env["PYTHONPATH"] = ":".join(
+        p for p in [RXRE_TOOLS, RXRE_PKG, env.get("PYTHONPATH", "")] if p
+    )
+    tmp = env.get("TMPDIR") or env.get("TMP") or env.get("TEMP") or ""
+    if not tmp or not os.path.isdir(tmp):
+        tmp = "/var/tmp" if os.path.isdir("/var/tmp") else "/tmp"
+    try:
+        import shutil as _sh
+        free = _sh.disk_usage(tmp).free
+    except Exception:
+        free = 2 ** 63
+    # umbral mínimo: 512 MB
+    if free < 512 * 1024 * 1024 and os.path.isdir("/var/tmp"):
+        tmp = "/var/tmp"
+    env.setdefault("TMPDIR", tmp)
+    env.setdefault("TMP", tmp)
+    env.setdefault("TEMP", tmp)
+    # Java/Ghidra: evita hsperfdata en /tmp lleno, y pone tmpdir seguro
+    env.setdefault(
+        "JAVA_TOOL_OPTIONS",
+        "-Djava.io.tmpdir=%s -XX:-UsePerfData" % tmp,
+    )
+    return env
+
+
+# Subcomandos del engine → machine.py ops
+ENGINE_OPS = {
+    "ops", "capabilities", "backends", "run", "plan", "reflect",
+    "explain", "experiment", "lessons", "research", "saturate",
+}
+
+# Subcomandos de herramientas integradas
+INTEGRATED_TOOLS = {
+    "selftest", "inventory", "verify", "workscan", "mutate", "audit", "vendors",
+}
+
+ALL_SUBCOMMANDS = ENGINE_OPS | INTEGRATED_TOOLS | {"help"}
+
+
+# ===========================================================================
+# PRE_EXECUTION_CONTRACT_CHECK
+# ===========================================================================
+def verify_artifacts():
+    """Confirma que los artefactos productores existen antes de ejecutar."""
+    missing = []
+    if not os.path.isfile(MACHINE):
+        missing.append("tools/rxre/api/machine.py")
+    if not os.path.isdir(RXRE_PKG):
+        missing.append("tools/rxre/")
+    if not os.path.isdir(FASE0_DIR):
+        missing.append("RXRE/tools/ (FASE 0)")
+    if missing:
+        for m in missing:
+            print("rxre: artefacto faltante: %s" % m, file=sys.stderr)
+        return False
+    return True
+
+
+# ===========================================================================
+# MODO DE DETECCION: CLI vs JSONL passthrough
+#
+# Regla:
+#   1. Si el primer argumento posicional (no flag) es un subcomando conocido
+#      → CLI mode (el stdin se ignora en este caso).
+#   2. Si no es conocido y stdin tiene datos (no TTY) → JSONL passthrough.
+#   3. Si no es conocido, stdin está vacío, y hay un arg → error: unknown.
+#   4. Si no hay args y stdin está vacío → help.
+#
+# IMPORTANTE: no se usa select.select para detectar datos en stdin porque
+# reporta EOF como "readable", lo que causa falsos positivos de JSONL.
+# En su lugar se lee stdin realmente; si hay datos, se envían a machine.py.
+#
+# Esto preserva consumidores existentes que hacen:
+#   echo '{"op":"ops"}' | ./rxre
+#   echo '{"op":"run","capability":"..."}' | ./rxre
+# ===========================================================================
+def detect_mode(argv):
+    """Devuelve (mode, subcommand, stdin_data).
+
+    mode ∈ {'cli', 'jsonl', 'help', 'unknown'}
+    stdin_data es str (datos leídos) o None.
+    """
+    positionals = [a for a in argv if not a.startswith("-")]
+    first = positionals[0] if positionals else ""
+
+    if first in ALL_SUBCOMMANDS:
+        return ("cli", first, None)
+
+    # No es un subcomando conocido → comprobar datos en stdin
+    stdin_data = None
+    if not sys.stdin.isatty():
+        try:
+            stdin_data = sys.stdin.read()
+        except (OSError, ValueError):
+            stdin_data = ""
+        if stdin_data and stdin_data.strip():
+            return ("jsonl", None, stdin_data)
+
+    # No hay datos en stdin
+    if first:
+        return ("unknown", first, None)
+    return ("help", None, None)
+
+
+# ===========================================================================
+# MOTOR: reenviar JSONL a machine.py
+# ===========================================================================
+def send_to_machine(request_dict):
+    """Construye una petición JSON, se la envía a machine.py y devuelve
+    (response_dict, rc). Nunca consume stdin del proceso padre."""
+    payload = json.dumps(request_dict, ensure_ascii=False)
+    env = preparar_entorno_subproceso()
+    try:
+        p = subprocess.run(
+            [sys.executable, "-B", MACHINE],
+            input=payload,
+            capture_output=True,
+            text=True,
+            timeout=300,
+            env=env,
+        )
+    except subprocess.TimeoutExpired:
+        return ({"status": "error", "motivo": "timeout",
+                 "limitations": ["la operación excedió 300s"]}, 1)
+    except FileNotFoundError:
+        return ({"status": "error",
+                 "motivo": "machine.py no encontrado en %s" % MACHINE}, 1)
+
+    # machine.py devuelve JSONL (una línea por petición). Enviamos una
+    # sola petición, tomamos la primera línea no vacía.
+    lines = [ln.strip() for ln in p.stdout.strip().split("\n") if ln.strip()]
+    if not lines:
+        return ({"status": "error",
+                 "motivo": "machine.py produjo stdout vacío",
+                 "stderr_snippet": p.stderr[-500:]}, p.returncode)
+    try:
+        resp = json.loads(lines[0])
+    except json.JSONDecodeError as e:
+        return ({"status": "error",
+                 "motivo": "respuesta no JSON: %s" % e,
+                 "raw_stdout": lines[0][:200],
+                 "stderr_snippet": p.stderr[-500:]}, 1)
+
+    if p.stderr:
+        sys.stderr.write(p.stderr)
+
+    return resp, p.returncode
+
+
+def fmt_human(resp):
+    """Formatea una respuesta del engine como texto legible para humanos.
+
+    Devuelve (texto, exit_code). El exit_code refleja el `status` de la
+    respuesta, no el rc de machine.py.
+    """
+    status = resp.get("status", "unknown")
+
+    if status == "blocked":
+        lines = ["BLOQUEADO: %s" % (resp.get("motivo") or "precondicion no cumplida")]
+        for lim in resp.get("limitations", []):
+            lines.append("  - %s" % lim)
+        return "\n".join(lines), 2
+
+    if status == "error":
+        lines = ["ERROR: %s" % (resp.get("motivo") or "sin detalle")]
+        for lim in resp.get("limitations", []):
+            lines.append("  - %s" % lim)
+        return "\n".join(lines), 1
+
+    if status == "unsupported":
+        lines = ["NO SOPORTADO: %s" % (resp.get("motivo") or "backend no disponible")]
+        for lim in resp.get("limitations", []):
+            lines.append("  - %s" % lim)
+        return "\n".join(lines), 0
+
+    if status == "invalid_input":
+        lines = ["ENTRADA INVÁLIDA: %s" % (resp.get("motivo") or "parametro incorrecto")]
+        if resp.get("capability"):
+            lines.append("  capability: %s" % resp["capability"])
+        for lim in resp.get("limitations", []):
+            lines.append("  - %s" % lim)
+        return "\n".join(lines), 1
+
+    if status in ("ok", "empty"):
+        results = resp.get("results", [])
+        cap = resp.get("capability", resp.get("operation", ""))
+        lines = []
+        if cap:
+            lines.append("=== %s === [%s]" % (cap, status))
+
+        if not results and not resp.get("capacities"):
+            if resp.get("limitations"):
+                lines.append("SIN RESULTADOS (%s)" % status)
+                for lim in resp.get("limitations", []):
+                    lines.append("  - %s" % lim)
+            else:
+                lines.append("OK (%s)" % status)
+            return "\n".join(lines), 0
+
+        # Capacidades como dict (backends/capabilities op)
+        capacities = resp.get("capacities", resp.get("capacidades", {}))
+        if capacities and isinstance(capacities, dict) and not results:
+            lines.append("=== %d capabilities ===" % len(capacities))
+            for name in sorted(capacities.keys()):
+                detail = capacities[name]
+                if isinstance(detail, dict):
+                    estado = detail.get("estado_agregado", detail.get("estado", "?"))
+                    backends = detail.get("backends", [])
+                    lines.append("  %-40s %-12s backends: %s" %
+                                 (name, estado, ", ".join(backends)))
+                else:
+                    lines.append("  %s" % name)
+            return "\n".join(lines), 0
+
+        # Results como lista de dicts
+        if results:
+            lines.append("=== %d resultado(s) ===" % len(results))
+            for i, r in enumerate(results):
+                lines.append("")
+                label = r.get("type", r.get("kind", r.get("title",
+                          r.get("result_id", "resultado"))))
+                sub = r.get("status", r.get("verdict", ""))
+                lines.append("%d. %s %s" % (i + 1, label,
+                          ("[%s]" % sub if sub else "")))
+
+                # Campos conocidos en orden de importancia
+                known_fields = [
+                    "value", "value_hex", "kind", "title", "source",
+                    "artifact", "tool", "scope", "unit", "offset", "symbol",
+                    "description", "verdict", "backend_id", "backend_rc",
+                    "operation", "operation_id", "timestamp", "result_id",
+                    "input_hash", "artifact_hash", "estado",
+                    # Engine op descriptors (from ops/backends)
+                    "op", "descripcion", "ejemplo", "campos",
+                    # Backend info
+                    "backend", "backend_identity", "ejecucion", "provenance",
+                    "precheck", "trace_id", "operation_id", "persistido",
+                    "regla", "motivo", "backend_status", "limitaciones",
+                ]
+                for k in known_fields:
+                    if k in r and r[k] is not None:
+                        v = r[k]
+                        if isinstance(v, dict):
+                            lines.append("   %s:" % k)
+                            for kk, vv in _flatten_dict(v):
+                                lines.append("     %s: %s" % (kk, vv))
+                        elif isinstance(v, list):
+                            lines.append("   %s: %s" % (k, json.dumps(v, ensure_ascii=False)))
+                        else:
+                            lines.append("   %s: %s" % (k, v))
+
+                # Limitations dentro del resultado
+                if r.get("limitations"):
+                    lines.append("   limitaciones:")
+                    for lim in r["limitations"][:5]:
+                        lines.append("     - %s" % lim)
+
+                # Next actions dentro del resultado
+                if r.get("next_actions"):
+                    lines.append("   siguiente:")
+                    for na in r["next_actions"][:5]:
+                        lines.append("     -> %s: %s" % (na.get("op", "?"),
+                                                         na.get("descripcion", "")))
+
+                # Fallback: cualquier campo no mostrado
+                shown = set(known_fields) | {"limitations", "next_actions",
+                                             "result_id", "status", "type"}
+                extra = {k: v for k, v in r.items() if k not in shown and v}
+                if extra:
+                    lines.append("   extra:")
+                    for k, v in extra.items():
+                        lines.append("     %s: %s" % (k, json.dumps(v, ensure_ascii=False)[:120]))
+
+        return "\n".join(lines), 0
+
+    # Status desconocido → dump JSON
+    return json.dumps(resp, indent=2, ensure_ascii=False), 0
+
+
+def _flatten_dict(d, prefix=""):
+    """Achata un dict anidado para salida legible."""
+    out = []
+    for k, v in d.items():
+        key = "%s.%s" % (prefix, k) if prefix else k
+        if isinstance(v, dict):
+            out.extend(_flatten_dict(v, key))
+        elif isinstance(v, list):
+            out.append((key, json.dumps(v, ensure_ascii=False)))
+        else:
+            out.append((key, v))
+    return out
+
+
+# ===========================================================================
+# PARSEO DE ARGUMENTOS
+# ===========================================================================
+def parse_kv_args(rest):
+    """Parsea pares --key value restantes en un dict.
+
+    Los flags booleanos (--flag sin valor siguiente) se convierten en True.
+    Intenta inferir tipos: int, float, bool, str.
+    """
+    params = {}
+    i = 0
+    while i < len(rest):
+        arg = rest[i]
+        if arg.startswith("--"):
+            key = arg[2:].replace("-", "_")
+            if i + 1 < len(rest) and not rest[i + 1].startswith("--"):
+                val = rest[i + 1]
+                # Inferir tipo
+                if val.lower() in ("true", "false"):
+                    val = val.lower() == "true"
+                else:
+                    try:
+                        if "." in val:
+                            val = float(val)
+                        else:
+                            val = int(val)
+                    except ValueError:
+                        pass
+                params[key] = val
+                i += 2
+            else:
+                params[key] = True
+                i += 1
+        else:
+            # Argumento posicional no flag → lo ignorimos (la capability ya se parseo)
+            i += 1
+    return params
+
+
+def extract_flags(argv, flags):
+    """Extrae flags booleanos de una lista de argv, devuelve (limpio, flags_dict)."""
+    result = {}
+    cleaned = []
+    for f in flags:
+        if f in argv:
+            result[f] = True
+            argv = [a for a in argv if a != f]
+        else:
+            result[f] = False
+        # Also handle --flag=value
+    return argv, result
+
+
+# ===========================================================================
+# SUBCOMANDOS: ENGINE OPS (reenvían a machine.py como JSONL)
+# ===========================================================================
+def cmd_ops(args):
+    resp, rc = send_to_machine({"op": "ops"})
+    return _emit(resp, rc, args)
+
+
+def cmd_capabilities(args):
+    resp, rc = send_to_machine({"op": "backends"})
+    return _emit(resp, rc, args)
+
+
+def cmd_run(args):
+    argv_clean, flags = extract_flags(args.argv_after, ["--json", "--human"])
+    if not argv_clean:
+        print("rxre run: falta capability. Usa ./rxre ops para listar.",
+              file=sys.stderr)
+        return 2
+    capability = argv_clean[0]
+    kv = parse_kv_args(argv_clean[1:])
+    req = {"op": "run", "capability": capability}
+    req.update(kv)
+    resp, rc = send_to_machine(req)
+    return _emit(resp, rc, args)
+
+
+def cmd_plan(args):
+    argv_clean, _ = extract_flags(args.argv_after, ["--json", "--human"])
+    if not argv_clean:
+        print("rxre plan: falta capability.", file=sys.stderr)
+        return 2
+    capability = argv_clean[0]
+    kv = parse_kv_args(argv_clean[1:])
+    req = {"op": "plan", "capability": capability}
+    req.update(kv)
+    resp, rc = send_to_machine(req)
+    return _emit(resp, rc, args)
+
+
+def cmd_explain(args):
+    """RXRE-AUTO-003. Reconstruye la evidencia (TIERRA+MENTE) Y aplica el gate
+    de los ocho principios (RXRE-AUTO-003).
+
+    Antes, `explain` devolvia la cadena de evidencia pero NO el veredicto de
+    los ocho principios. Eso forzaba a correr `rxre audit` como un paso
+    manual adicional: la misma operacion, otra invocacion, otro script.
+
+    Ahora el gate se incluye automaticamente: `rxre explain <id>` da la
+    trazabilidad AND el veredicto de los 8 principios en una sola respuesta.
+    La automatizacion es la point: no se pide al usuario que recuerde el
+    flag, se incluye por defecto y se puede apagar con --no-gate.
+    """
+    argv_clean, flags = extract_flags(args.argv_after, ["--json", "--human",
+                                                         "--no-gate"])
+    result_id = argv_clean[0] if argv_clean else None
+    if not result_id:
+        print("rxre explain: falta result_id.", file=sys.stderr)
+        return 2
+    req = {"op": "explain", "result_id": result_id, "audit": not flags.get("--no-gate")}
+    resp, rc = send_to_machine(req)
+    return _emit(resp, rc, args)
+
+
+def cmd_reflect(args):
+    kwargs = parse_kv_args(args.argv_after)
+    resp, rc = send_to_machine({"op": "reflect", **kwargs})
+    return _emit(resp, rc, args)
+
+
+def cmd_experiment(args):
+    kwargs = parse_kv_args(args.argv_after)
+    resp, rc = send_to_machine({"op": "experiment", **kwargs})
+    return _emit(resp, rc, args)
+
+
+def cmd_research(args):
+    kwargs = parse_kv_args(args.argv_after)
+    resp, rc = send_to_machine({"op": "research", **kwargs})
+    return _emit(resp, rc, args)
+
+
+def cmd_saturate(args):
+    kwargs = parse_kv_args(args.argv_after)
+    resp, rc = send_to_machine({"op": "saturate", **kwargs})
+    return _emit(resp, rc, args)
+
+
+def cmd_lessons(args):
+    kwargs = parse_kv_args(args.argv_after)
+    resp, rc = send_to_machine({"op": "lessons", **kwargs})
+    return _emit(resp, rc, args)
+
+
+def _emit(resp, rc, args):
+    """Emite la respuesta según modo (json/human) y devuelve exit code."""
+    if args.json:
+        print(json.dumps(resp, indent=2, ensure_ascii=False))
+        return rc
+    else:
+        out, code = fmt_human(resp)
+        print(out)
+        return code
+
+
+# ===========================================================================
+# SUBCOMANDOS: HERRAMIENTAS INTEGRADAS
+# ===========================================================================
+def _run_script(script_path, args_list, human=True):
+    """Ejecuta un script por subprocess.
+
+    En modo human: hereda stdout/stderr del proceso hijo.
+    En modo json: captura y reemite como JSON.
+    """
+    cmd = [sys.executable, "-B", script_path]
+    if args_list:
+        cmd.extend(args_list)
+    env = preparar_entorno_subproceso()
+    try:
+        p = subprocess.run(cmd, capture_output=not human, text=True,
+                           timeout=300, env=env)
+    except subprocess.TimeoutExpired:
+        print("rxre: timeout ejecutando %s" % os.path.basename(script_path),
+              file=sys.stderr)
+        return 1
+    except FileNotFoundError:
+        print("rxre: script no encontrado: %s" % script_path, file=sys.stderr)
+        return 2
+
+    if human:
+        if p.stdout:
+            sys.stdout.write(p.stdout)
+        if p.stderr:
+            sys.stderr.write(p.stderr)
+    else:
+        if p.stdout.strip():
+            try:
+                data = json.loads(p.stdout)
+                print(json.dumps(data, indent=2, ensure_ascii=False))
+            except json.JSONDecodeError:
+                sys.stdout.write(p.stdout)
+        if p.stderr:
+            sys.stderr.write(p.stderr)
+    return p.returncode
+
+
+def cmd_selftest(args):
+    """Ejecuta la suite baseline de pruebas (run_baseline.py)."""
+    script = os.path.join(RXRE_PKG, "tests", "run_baseline.py")
+    if not os.path.isfile(script):
+        print("rxre selftest: no encuentro %s" % script, file=sys.stderr)
+        return 2
+    return _run_script(script, [], human=not args.json)
+
+
+def cmd_inventory(args):
+    """Ejecuta rxre_boot.py — inventario MEDIDO del tooling.
+
+    CONTRACT verificado: READONLY=yes, WRITES_FILES=only_with_--out,
+    WRITES_GPU=no, TOUCHES_INTEGRATED=no.
+    """
+    script = os.path.join(FASE0_DIR, "rxre_boot.py")
+    if not os.path.isfile(script):
+        print("rxre inventory: no encuentro %s" % script, file=sys.stderr)
+        return 2
+    # rxre_boot.py soporta --json y --selftest
+    argv_clean, flags = extract_flags(args.argv_after,
+                                       ["--selftest", "--json", "--human"])
+    if flags.get("--selftest"):
+        params = ["--selftest"]
+    elif not args.json:
+        # Modo human: deja que la herramienta produzca salida legible
+        params = []
+    else:
+        params = ["--json"]
+    return _run_script(script, params, human=not args.json)
+
+
+def cmd_verify(args):
+    """Ejecuta las 5 herramientas FASE 0 para verificar frontera y contratos.
+
+    Todas declaran: READONLY=yes, WRITES_GPU=no, TOUCHES_INTEGRATED=no.
+
+    En modo --json: captura la salida de cada herramienta, la parsea y
+    produce un único objeto JSON resumen en stdout. Nada de la salida
+    individual de las herramientas ensucia stdout.
+
+    En modo --human: imprime una línea de status por herramienta.
+    """
+    tools = [
+        ("rxre_boot", os.path.join(FASE0_DIR, "rxre_boot.py")),
+        ("rxre_frontier", os.path.join(FASE0_DIR, "rxre_frontier.py")),
+        ("rxre_contracts", os.path.join(FASE0_DIR, "rxre_contracts.py")),
+        ("rxre_deleg", os.path.join(FASE0_DIR, "rxre_deleg.py")),
+        ("rxre_touch", os.path.join(FASE0_DIR, "rxre_touch.py")),
+    ]
+    env = preparar_entorno_subproceso()
+    all_ok = True
+    results = {}
+    for name, path in tools:
+        if not os.path.isfile(path):
+            if args.human:
+                print("  %s: script no encontrado en %s" % (name, path))
+            results[name] = {"status": "error", "motivo": "script no encontrado"}
+            all_ok = False
+            continue
+        cmd_list = [sys.executable, "-B", path, "--json"]
+        try:
+            p = subprocess.run(cmd_list, capture_output=True, text=True,
+                               timeout=120, env=env)
+        except subprocess.TimeoutExpired:
+            results[name] = {"rc": -1, "status": "timeout"}
+            all_ok = False
+            if args.human:
+                print("  %s TIMEOUT" % name)
+            continue
+        except FileNotFoundError:
+            results[name] = {"rc": -1, "status": "error",
+                             "motivo": "python executable no encontrado"}
+            all_ok = False
+            continue
+
+        # Parsear la salida JSON de la herramienta (puede ser single-line
+        # o pretty-printed multi-line). Intentar first_line, luego full output.
+        tool_data = {}
+        stdout_stripped = p.stdout.strip()
+        if stdout_stripped:
+            first_line = stdout_stripped.split("\n")[0]
+            try:
+                tool_data = json.loads(first_line)
+            except json.JSONDecodeError:
+                try:
+                    tool_data = json.loads(stdout_stripped)
+                except json.JSONDecodeError:
+                    tool_data = {"raw": stdout_stripped[:200]}
+
+        # Extraer estado clave
+        estado = (tool_data.get("estado") or
+                  tool_data.get("status") or "unknown")
+        errores = tool_data.get("errores",
+                  tool_data.get("error", []))
+
+        results[name] = {
+            "rc": p.returncode,
+            "estado": estado,
+        }
+        if errores:
+            results[name]["errores"] = errores
+            all_ok = False
+        if p.returncode != 0:
+            all_ok = False
+            if args.human:
+                err_summary = p.stderr.strip()[:200] if p.stderr else ""
+                print("  %s FALLO (rc=%d)%s" % (name, p.returncode,
+                          (" " + err_summary if err_summary else "")))
+        elif args.human:
+            print("  %s OK (%s)" % (name, estado))
+
+    if args.json:
+        print(json.dumps({"status": "ok" if all_ok else "error",
+                          "tools": results}, indent=2, ensure_ascii=False))
+        return 0 if all_ok else 1
+    else:
+        return 0 if all_ok else 1
+
+
+def _discover_findings_dirs():
+    """Localiza TODOS los directorios de hallazgos del arbol.
+
+    MEDIDO: el arbol tiene al menos dos (findings/ y
+    06-INGENIERIA-INVERSA/findings/). Escanear solo el primero subreporta el
+    contador: se midio 1615 en findings/ cuando el maximo real de la union
+    era 1623. Por eso esto descubre en vez de hardcodear.
+    """
+    found = []
+    for base, dirs, files in os.walk(RAIZ):
+        dirs[:] = [d for d in dirs
+                   if d not in (".git", "__pycache__", "node_modules",
+                                ".work", "KytyPS5-Source")]
+        if os.path.basename(base) == "findings":
+            found.append(base)
+            dirs[:] = []          # no descender dentro de findings
+    return sorted(found)
+
+
+def _read_reservations():
+    """Lee el ledger de reservas y devuelve (max_reservado, n_reservas).
+
+    El ledger mide TRABAJO GASTADO (numeros tomados), que es una magnitud
+    distinta del numero de hallazgos escritos. Confundirlas overestimate el
+    progreso, asi que se reportan por separado.
+    """
+    best, n = 0, 0
+    for base, dirs, files in os.walk(RAIZ):
+        dirs[:] = [d for d in dirs
+                   if d not in (".git", "__pycache__", "node_modules",
+                                ".work", "KytyPS5-Source")]
+        if "RESERVAS.ledger" in files:
+            try:
+                with open(os.path.join(base, "RESERVAS.ledger"),
+                          encoding="utf-8", errors="replace") as fh:
+                    for line in fh:
+                        tok = line.strip().split("\t")[0]
+                        if tok.isdigit():
+                            best = max(best, int(tok))
+                            n += 1
+            except OSError:
+                pass
+            dirs[:] = []
+    return best, n
+
+
+def cmd_workscan(args):
+    """Cuenta hallazgos, repeticiones y authorship sobre TODOS los
+    directorios de hallazgos del arbol.
+
+    READONLY: solo list directories, read files, write nothing.
+
+    Distingue dos magnitudes que NO son la misma:
+      - hallazgos escritos   : ficheros .md numerados que existen
+      - trabajo gastado      : maximo numero reservado en el ledger
+    """
+    findings_dirs = _discover_findings_dirs()
+    if not findings_dirs:
+        result = {"status": "blocked",
+                  "motivo": "no se encuentra ningun directorio findings/"}
+        print(json.dumps(result, indent=2, ensure_ascii=False)
+              if args.json else "BLOQUEADO: %s" % result["motivo"])
+        return 2
+
+    nums, autores = [], {}
+    sin_autor = 0
+    ficheros_md = 0
+    por_dir = {}
+
+    for fdir in findings_dirs:
+        rel = os.path.relpath(fdir, RAIZ)
+        d_md = 0
+        d_nums = []
+        try:
+            entries = sorted(os.listdir(fdir))
+        except OSError:
+            por_dir[rel] = {"ficheros_md": 0, "numerados": 0,
+                            "max": 0, "legible": False}
+            continue
+        for f in entries:
+            if not f.endswith(".md"):
+                continue
+            d_md += 1
+            ficheros_md += 1
+            cab = f.split("-", 1)[0]
+            if not cab.isdigit():
+                continue
+            n = int(cab)
+            nums.append(n)
+            d_nums.append(n)
+            try:
+                with open(os.path.join(fdir, f), encoding="utf-8",
+                          errors="replace") as fh:
+                    txt = fh.read(2000)
+            except OSError:
+                sin_autor += 1
+                continue
+            m = re.search(r"^AUTOR=(.+)$", txt, re.M)
+            if m:
+                who = m.group(1).strip()
+                autores[who] = autores.get(who, 0) + 1
+            else:
+                sin_autor += 1
+        por_dir[rel] = {"ficheros_md": d_md, "numerados": len(d_nums),
+                        "max": max(d_nums) if d_nums else 0,
+                        "legible": True}
+
+    c = Counter(nums)
+    max_reservado, n_reservas = _read_reservations()
+
+    result = {
+        "status": "ok",
+        "dirs_escaneados": len(findings_dirs),
+        "ficheros_md": ficheros_md,
+        "hallazgos_numerados": len(nums),
+        "numeros_distintos": len(set(nums)),
+        "repeticiones": len(nums) - len(set(nums)),
+        "ficheros_de_mas": sum(v for v in c.values() if v > 1),
+        "numero_mas_alto": max(nums) if nums else 0,
+        "trabajo_gastado_max": max_reservado,
+        "reservas_en_ledger": n_reservas,
+        "por_autor": autores,
+        "sin_autor": sin_autor,
+        "por_dir": por_dir,
+        "findings_dirs": [os.path.relpath(d, RAIZ) for d in findings_dirs],
+    }
+
+    if args.json:
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    else:
+        print("=== WORKSCAN (%d directorios) ===" % len(findings_dirs))
+        for rel in sorted(por_dir):
+            d = por_dir[rel]
+            if not d.get("legible"):
+                print("  %-34s ILEGIBLE" % rel)
+                continue
+            print("  %-34s md=%-4d numerados=%-4d max=%d"
+                  % (rel, d["ficheros_md"], d["numerados"], d["max"]))
+        print()
+        print("  ficheros .md (union):    %d" % result["ficheros_md"])
+        print("  hallazgos numerados:      %d" % result["hallazgos_numerados"])
+        print("  numeros distintos:        %d" % result["numeros_distintos"])
+        print("  repeticiones:             %d" % result["repeticiones"])
+        print("  ficheros de mas:          %d" % result["ficheros_de_mas"])
+        print("  MAXIMO ESCRITO:           %d" % result["numero_mas_alto"])
+        print("  MAXIMO RESERVADO:         %d  (trabajo gastado, %d reservas)"
+              % (result["trabajo_gastado_max"], result["reservas_en_ledger"]))
+        if result["por_autor"]:
+            print("  por autor:")
+            for who, cnt in sorted(result["por_autor"].items()):
+                print("    %s: %d" % (who, cnt))
+        print("  sin autor:               %d" % result["sin_autor"])
+        escrito = result["numero_mas_alto"]
+        reservado = result["trabajo_gastado_max"]
+        if reservado > 0 and escrito > reservado:
+            print()
+            print("  NOTA: escrito(%d) > reservado(%d): hay %d numeros"
+                  % (escrito, reservado, escrito - reservado))
+            print("  ESCRITOS sin pasar por el ledger. El ledger de este")
+            print("  arbol no cubre toda la actividad, o los numeros se")
+            print("  tomaron sin registrarse. No concluyas de esta cifra.")
+        elif reservado > escrito:
+            print()
+            print("  NOTA: escrito(%d) < reservado(%d): %d numeros"
+                  % (escrito, reservado, reservado - escrito))
+            print("  reservados SIN fichero detras. Reservar no es escribir.")
+    return 0
+
+
+def cmd_vendors(args):
+    """RXRE-ECO-001. El registro canonico de repos externos.
+
+    Muestra URL, commit, licencia, categoria y estado REAL en disco de cada
+    repositorio vendorizado en `tools/rxre/github/`.
+
+    Es una operacion de la CLI y no un fichero suelto porque el registro tiene
+    que poder consultarse SIN saber que existe un `vendor_manifest.py`: una
+    IA que llega al arbol pregunta `./rxre vendors`, no adivina el modulo.
+    """
+    script = os.path.join(RAIZ, "tools", "rxre", "vendor_manifest.py")
+    if not os.path.isfile(script):
+        print("rxre vendors: no encuentro %s" % script, file=sys.stderr)
+        return 2
+    argv_clean, flags = extract_flags(args.argv_after, ["--verify", "--json", "--human"])
+    cmd_args = ["--verify"] if flags.get("--verify") else []
+    if args.json:
+        cmd_args.append("--json")
+    return _run_script(script, cmd_args, human=not args.json)
+
+
+def cmd_audit(args):
+    """RXRE-ECO-001. Auditoria de una operacion con los ocho principios.
+
+    `status: ok` del producer NO es lo mismo que operacion cerrada. Este
+    subcomando dice si una operacion que ya se ejecuto se puede dar por
+    cerrada, y si no, que principio lo impide.
+    """
+    script = os.path.join(RAIZ, "tools", "rxre", "audit_operacion.py")
+    if not os.path.isfile(script):
+        print("rxre audit: no encuentro %s" % script, file=sys.stderr)
+        return 2
+    argv_clean, _ = extract_flags(args.argv_after, ["--json", "--human"])
+    env = preparar_entorno_subproceso()
+    try:
+        p = subprocess.run([sys.executable, "-B", script] + argv_clean,
+                           capture_output=not args.json, text=True,
+                           timeout=300, env=env)
+    except subprocess.TimeoutExpired:
+        print("rxre audit: timeout", file=sys.stderr)
+        return 1
+    if args.json:
+        if p.stdout.strip():
+            sys.stdout.write(p.stdout)
+    else:
+        if p.stdout:
+            sys.stdout.write(p.stdout)
+    if p.stderr:
+        sys.stderr.write(p.stderr)
+    return p.returncode
+
+
+def cmd_mutate(args):
+    """Ejecuta los scripts de mutation testing.
+
+    CONTRACT verificado:
+    - mutate_reg_resolve.py: copia a /tmp/opencode/ scratch, READONLY sobre el repo
+    - mutate_relations.py:  copia a /tmp/opencode/ scratch, READONLY sobre el repo
+    - mutate_target.py:     copia target.py a scratch, backup/restore (modifica
+      target.py en el repo pero restaura). RAIZ corregido de hardcodeado a __file__.
+    Todos: WRITES_GPU=no, TOUCHES_INTEGRATED=no
+    """
+    mutate_tools = [
+        ("mutate_reg_resolve", os.path.join(RXRE_TOOLS, "mutate_reg_resolve.py")),
+        ("mutate_relations", os.path.join(RXRE_TOOLS, "mutate_relations.py")),
+        ("mutate_target", os.path.join(RXRE_TOOLS, "mutate_target.py")),
+    ]
+
+    # PRE-CHECK: verificar que los scripts existen
+    missing = [name for name, path in mutate_tools if not os.path.isfile(path)]
+    if missing:
+        print("rxre mutate: scripts faltantes: %s" % ", ".join(missing),
+              file=sys.stderr)
+        return 2
+
+    # PRE-CHECK: git status de target.py (mutate_target.py hace backup/restore)
+    target_path = os.path.join(RXRE_PKG, "core", "target.py")
+    if os.path.isfile(target_path):
+        check = subprocess.run(
+            ["git", "-C", RAIZ, "status", "--porcelain", target_path],
+            capture_output=True, text=True
+        )
+        if check.stdout.strip():
+            print("rxre mutate: ADVERTENCIA — target.py tiene cambios no staged.",
+                  file=sys.stderr)
+            print("  mutate_target.py hace backup/restore, pero verifique antes.",
+                  file=sys.stderr)
+
+    all_ok = True
+    for name, path in mutate_tools:
+        if args.human:
+            # flush=True: el hijo escribe directo a stdout (heredado), asi que
+            # sin flush el header del padre se bufferiza y aparece DESPUES de
+            # la salida del hijo. Flushear preserva el orden causal.
+            print("=== %s ===" % name, flush=True)
+        rc = _run_script(path, [], human=args.human)
+        if rc != 0:
+            all_ok = False
+            if args.human:
+                print("  FALLO (rc=%d)" % rc, flush=True)
+    return 0 if all_ok else 1
+
+
+# ===========================================================================
+# HELP
+# ===========================================================================
+def print_help():
+    """Ayuda legible para humanos, con estado de cada comando."""
+    out = []
+    out.append("RXRE — RX550 Reverse Engineering Engine")
+    out.append("Punto de entrada unico. Lee JSONL de stdin, escribe JSONL a stdout.")
+    out.append("")
+    out.append("SUBCOMANDOS DE MOTOR (reenvian a machine.py como JSONL):")
+    out.append("  help                  esta ayuda")
+    out.append("  ops                   lista las 10 operaciones del engine")
+    out.append("  capabilities          lista las 25 capabilities con estado en vivo")
+    out.append("  backends              alias de capabilities")
+    out.append("  run <cap> [--key v]    ejecuta una capability")
+    out.append("  plan <cap> --question  planifica sin ejecutar")
+    out.append("  explain <result_id>    reconstruye la cadena de evidencia")
+    out.append("  experiment             experimento baseline vs modified")
+    out.append("  reflect --feedback     registra una reflexion")
+    out.append("  research --kind        registra hipotesis/frontier")
+    out.append("  saturate               evalua saturacion de fronteras")
+    out.append("  lessons                lista lecciones registradas")
+    out.append("")
+    out.append("SUBCOMANDOS DE INTEGRACION (invocan scripts existentes):")
+    out.append("  selftest               ejecuta la suite baseline de pruebas")
+    out.append("  inventory              inventario de herramientas (rxre_boot)")
+    out.append("  verify                 ejecuta las 5 herramientas FASE 0")
+    out.append("  workscan               cuenta hallazgos, repeticiones, authorship")
+    out.append("  mutate                 mutation testing en tools/")
+    out.append("  audit                  los 8 principios sobre una operacion real")
+    out.append("  vendors                registro canonico de repos externos")
+    out.append("")
+    out.append("MODOS DE SALIDA:")
+    out.append("  (por defecto)          legible para humanos")
+    out.append("  --json                 JSON estructurado")
+    out.append("  --human                texto legible (explicito)")
+    out.append("")
+    out.append("MODO JSONL COMPATIBLE:")
+    out.append("  echo '{\"op\":\"ops\"}' | ./rxre")
+    out.append("")
+    out.append("CODIGOS DE SALIDA:")
+    out.append("  0  ok o empty")
+    out.append("  1  error")
+    out.append("  2  blocked     (la precondicion no se cumple; NO se ejecuto)")
+    out.append("")
+
+    # Obtener capabilities en vivo (best-effort)
+    try:
+        resp, _ = send_to_machine({"op": "backends"})
+        caps = resp.get("capacities", resp.get("capacidades", {}))
+        if isinstance(caps, dict):
+            cap_names = sorted(caps.keys())
+        elif isinstance(caps, list):
+            cap_names = sorted(c.get("capability", c.get("name", "")) for c in caps)
+        else:
+            cap_names = []
+    except Exception:
+        cap_names = []
+
+    if cap_names:
+        out.append("CAPABILITIES DISPONIBLES (%d):" % len(cap_names))
+        for c in cap_names:
+            out.append("  %s" % c)
+    else:
+        out.append("CAPABILITIES: consulta ./rxre capabilities")
+    out.append("")
+    out.append("EJEMPLOS:")
+    out.append("  ./rxre run binary.inspect --artefacto /bin/ls")
+    out.append("  ./rxre run binary.inspect --artefacto /bin/ls --json")
+    out.append("  echo '{\"op\":\"ops\"}' | ./rxre")
+    out.append("  echo '{\"op\":\"run\",\"capability\":\"binary.inspect\",\"artefacto\":\"/bin/ls\"}' | ./rxre")
+    out.append("")
+    print("\n".join(out))
+    return 0
+
+
+# ===========================================================================
+# MAIN
+# ===========================================================================
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv[1:]
+
+    # --- Pre-check de artefactos ---
+    if not verify_artifacts():
+        print("rxre: artefactos del motor faltantes. Verifica el workspace.",
+              file=sys.stderr)
+        return 2
+
+    # --- Detección de modo ---
+    mode, subcommand, stdin_data = detect_mode(argv)
+
+    if mode == "jsonl":
+        # Passthrough JSONL: enviar datos leídos a machine.py
+        cmd = [sys.executable, "-B", MACHINE]
+        env = preparar_entorno_subproceso()
+        try:
+            result = subprocess.run(cmd, input=stdin_data, text=True, env=env)
+            return result.returncode
+        except Exception as e:
+            print("rxre: error en passthrough JSONL: %s" % e, file=sys.stderr)
+            return 1
+
+    if mode == "unknown":
+        print("rxre: subcomando desconocido: %s" % subcommand, file=sys.stderr)
+        print("Usa ./rxre help para ver las opciones.", file=sys.stderr)
+        return 2
+
+    if mode == "help" or subcommand == "help" or "-h" in argv or "--help" in argv:
+        return print_help()
+
+    if mode == "cli":
+        dispatch = {
+            "ops": cmd_ops,
+            "capabilities": cmd_capabilities,
+            "backends": cmd_capabilities,
+            "run": cmd_run,
+            "plan": cmd_plan,
+            "explain": cmd_explain,
+            "experiment": cmd_experiment,
+            "reflect": cmd_reflect,
+            "research": cmd_research,
+            "saturate": cmd_saturate,
+            "lessons": cmd_lessons,
+            "selftest": cmd_selftest,
+            "inventory": cmd_inventory,
+            "verify": cmd_verify,
+            "workscan": cmd_workscan,
+            "mutate": cmd_mutate,
+            "audit": cmd_audit,
+            "vendors": cmd_vendors,
+        }
+
+        handler = dispatch.get(subcommand)
+        if not handler:
+            print("rxre: subcomando desconocido: %s" % subcommand, file=sys.stderr)
+            print("Usa ./rxre help para ver las opciones.", file=sys.stderr)
+            return 2
+
+        # Parsear flags globales --json y --human
+        has_json = "--json" in argv
+        has_human = "--human" in argv
+        # Extraer argv después del subcommand
+        subcommand_idx = next(
+            (i for i, a in enumerate(argv) if a == subcommand), -1
+        )
+        if subcommand_idx >= 0:
+            argv_after = argv[subcommand_idx + 1:]
+        else:
+            argv_after = []
+
+        class Args:
+            pass
+        args = Args()
+        args.json = has_json
+        args.human = has_human or (not has_json)
+        args.argv_after = argv_after
+
+        return handler(args)
+
+    # No subcommand, no stdin → help
+    return print_help()
+
+
+if __name__ == "__main__":
+    sys.exit(main())
