@@ -53,3 +53,4 @@
 "MENTE-1","D","mentista 1: hipótesis rivales","proponer_hipotesis -> >=2 rivales, predicciones distintas, falsificador","test adversarial: 3/3 PASS","VERIFIED","módulo core/mente.py + integración"
 "MENTE-2","D","mentista 2: prueba discriminante","disenar_prueba -> predicciones distintas; evaluar_prueba -> sobrev/referenz","test adversarial: 3/3 PASS","VERIFIED","módulo core/mente.py + integración"
 "MENTE-4","D","mentista 4: falsificador obligatorio","cada hipótesis declara falsificador; evaluar prueba -> refutada","test adversarial: 6/6 PASS","VERIFIED","módulo core/mente.py + integración"
+"MENTE-3","D","mente 3: CFG","core/mente_cfg.py creado; alcanzable + caminos + dispatcher","4/4 PASS adversarial","VERIFIED","requiere dispatcher (ROUTER) para construir()"
