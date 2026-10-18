@@ -675,6 +675,7 @@ def conectar(ruta: Optional[str] = None) -> sqlite3.Connection:
     _asegurar_columnas_reevaluacion(c)
     _asegurar_columnas_version(c)
     _asegurar_columnas_results(c)
+    _asegurar_columnas_findings_contrato(c)
     return c
 
 
@@ -727,6 +728,43 @@ def _asegurar_columnas_reevaluacion(c: sqlite3.Connection) -> None:
             c.execute("ALTER TABLE findings ADD COLUMN reevaluation_id TEXT")
         except sqlite3.OperationalError:
             pass
+
+
+def _asegurar_columnas_findings_contrato(c: sqlite3.Connection) -> None:
+    """[v3] Agrega los 5 campos del contrato TIERRA-1 a `findings`.
+
+    Mismo patron que `_asegurar_columnas_execution_events`: `CREATE TABLE IF
+    NOT EXISTS` no altera tablas viejas, y `ALTER TABLE ADD COLUMN` lanza si
+    la columna ya existe.
+
+    Los 5 campos son NULLABLE a proposito: los 12 findings existentes no
+    tienen estos datos. Hacerlos NOT NULL romperia la migracion. Se vuelven
+    NOT NULL cuando haya backfill (fuera de este paso).
+
+    Campos:
+      object_hash         TEXT   hash del objeto que el finding describe
+      scope               TEXT   binary/source/runtime/formal
+      derivation_refs     TEXT   JSON array, default '[]'
+      contradiction_refs  TEXT   JSON array, default '[]'
+      falsification_test  TEXT   prueba que tumbaria el finding
+    """
+    try:
+        cols = {r["name"] for r in c.execute("PRAGMA table_info(findings)")}
+    except sqlite3.Error:
+        return
+    migraciones = [
+        ("object_hash", "TEXT"),
+        ("scope", "TEXT"),
+        ("derivation_refs", "TEXT DEFAULT '[]'"),
+        ("contradiction_refs", "TEXT DEFAULT '[]'"),
+        ("falsification_test", "TEXT"),
+    ]
+    for col, tipo in migraciones:
+        if col not in cols:
+            try:
+                c.execute("ALTER TABLE findings ADD COLUMN %s %s" % (col, tipo))
+            except sqlite3.OperationalError:
+                pass
 
 
 def _asegurar_columnas_results(c: sqlite3.Connection) -> None:
@@ -2661,8 +2699,11 @@ def guardar_finding(c: sqlite3.Connection, finding_dict: Dict[str, Any]) -> str:
     c.execute(
         "INSERT INTO findings "
         "(finding_id, op_id, claim, epistemic, evidence_ids, "
-        " provenance, limitations, created_at, version) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), 0)",
+        " provenance, limitations, created_at, version, "
+        " object_hash, scope, derivation_refs, contradiction_refs, "
+        " falsification_test) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), 0, "
+        " ?, ?, ?, ?, ?)",
         (
             finding_id,
             finding_dict.get("op_id") or None,  # NULL when no op_id (FK)
@@ -2671,6 +2712,17 @@ def guardar_finding(c: sqlite3.Connection, finding_dict: Dict[str, Any]) -> str:
             json.dumps(evidence_ids) if evidence_ids else "[]",
             json.dumps(provenance) if provenance else "{}",
             json.dumps(limitations) if limitations else "[]",
+            finding_dict.get("object_hash"),
+            finding_dict.get("scope"),
+            json.dumps(finding_dict.get("derivation_refs", []))
+            if finding_dict.get("derivation_refs") is not None
+            and not isinstance(finding_dict.get("derivation_refs"), str)
+            else (finding_dict.get("derivation_refs") or "[]"),
+            json.dumps(finding_dict.get("contradiction_refs", []))
+            if finding_dict.get("contradiction_refs") is not None
+            and not isinstance(finding_dict.get("contradiction_refs"), str)
+            else (finding_dict.get("contradiction_refs") or "[]"),
+            finding_dict.get("falsification_test"),
         )
     )
     c.commit()
@@ -2725,7 +2777,9 @@ def recuperar_finding(c: sqlite3.Connection, finding_id: str) -> Optional[Dict[s
     """
     row = c.execute(
         "SELECT finding_id, op_id, claim, epistemic, evidence_ids, "
-        " provenance, limitations, created_at, reevaluation_id, version "
+        " provenance, limitations, created_at, reevaluation_id, version, "
+        " object_hash, scope, derivation_refs, contradiction_refs, "
+        " falsification_test "
         "FROM findings WHERE finding_id=?",
         (finding_id,)
     ).fetchone()
@@ -2735,7 +2789,10 @@ def recuperar_finding(c: sqlite3.Connection, finding_id: str) -> Optional[Dict[s
     f = dict(row)
     # Parsear campos JSON
     if f.get("evidence_ids"):
-        f["evidence_ids"] = json.loads(f["evidence_ids"])
+        try:
+            f["evidence_ids"] = json.loads(f["evidence_ids"])
+        except (ValueError, TypeError):
+            pass
     else:
         f["evidence_ids"] = []
     if f.get("provenance"):
@@ -2752,6 +2809,16 @@ def recuperar_finding(c: sqlite3.Connection, finding_id: str) -> Optional[Dict[s
             f["limitations"] = []
     else:
         f["limitations"] = []
+    # Los 5 campos nuevos del contrato TIERRA-1. Se parsean si son JSON,
+    # se dejan como string si son texto (object_hash, scope, falsification_test).
+    for campo in ("derivation_refs", "contradiction_refs"):
+        if f.get(campo):
+            try:
+                f[campo] = json.loads(f[campo])
+            except (ValueError, TypeError):
+                pass
+        else:
+            f[campo] = []
     return f
 
 
