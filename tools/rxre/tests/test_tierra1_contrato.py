@@ -122,9 +122,9 @@ for row in src.execute("SELECT finding_id, op_id, claim, epistemic, "
             "INSERT INTO findings (finding_id, op_id, claim, epistemic, "
             "evidence_ids, provenance, limitations, created_at, version) "
             "VALUES (?,?,?,?,?,?,?,?,'0')",
-            (row["finding_id"], row["op_id"], row["claim"], row["epistemic"],
-             row["evidence_ids"], row["provenance"], row["limitations"],
-             row["created_at"]))
+            ("F-LEGACY-" + row["finding_id"], row["op_id"], row["claim"],
+             row["epistemic"], row["evidence_ids"], row["provenance"],
+             row["limitations"], row["created_at"]))
     except sqlite3.IntegrityError as e:
         invalidos += 1
 src.close()
