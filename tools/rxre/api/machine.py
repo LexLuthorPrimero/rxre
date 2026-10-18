@@ -53,6 +53,39 @@ import rxre.backends.dispatch as dispatch  # noqa: E402
 import rxre.core.store as store  # noqa: E402
 from rxre.core.store import REFLEXION_OUTCOMES  # noqa: E402
 
+# ÉTER: hub async con write-ahead. Se instancia de forma lazy en
+# `_eter()` para no abrir la base de eventos en cada import del modulo
+# (los tests importan `api.machine` sin querer crear ficheros).
+try:
+    import rxre.core.eter as _eter_mod  # noqa: E402
+except Exception:                                          # pragma: no cover
+    _eter_mod = None
+_ETER = None
+
+
+def _eter():
+    """Instancia lazy de ÉTER. Una por proceso, como pide el diagrama.
+
+    La ruta sale de `$RXRE_DB` (si está seteado) reemplazando el nombre del
+    fichero, o de `.rxre/eter.sqlite3` por defecto. Reutilizar la misma
+    instancia es lo que hace que la cola tenga estado entre llamadas: si se
+    creara una por `emit`, cada evento tendría su propia cola y nadie vería
+    los pendientes de nadie.
+    """
+    global _ETER
+    if _ETER is None:
+        if _eter_mod is None:
+            raise RuntimeError("core.eter no importable: ÉTER no disponible")
+        ruta = os.environ.get("RXRE_DB", "")
+        if ruta:
+            ruta = ruta.replace("rxre.db", "eter.sqlite3")
+            if ruta == os.environ.get("RXRE_DB", ""):
+                ruta = os.path.join(os.path.dirname(ruta), "eter.sqlite3")
+        else:
+            ruta = os.path.join(".rxre", "eter.sqlite3")
+        _ETER = _eter_mod.Eter(ruta)
+    return _ETER
+
 
 def _trace_id_actual(params: Optional[dict] = None) -> Optional[str]:
     """El trace_id de ESTA invocacion.
@@ -2639,6 +2672,57 @@ def _handle_principios(params: dict) -> dict:
     }
 
 
+def _handle_eter(params: dict) -> dict:
+    """op: eter — hub async con write-ahead, 3 modos de fallo, idempotencia.
+
+    Suboperaciones (en `params["subop"]`):
+        emit     -> encola un evento; devuelve `event_id`
+        recover  -> devuelve los eventos pendientes del journal
+        drain    -> entrega lo encolado a un consumidor interno
+        stats    -> contadores (descarte contado, fsync, perdidos)
+
+    ÉTER NO MEDIA DE FORMA SINCRONA. `emit` devuelve tan pronto como el
+    evento esta en disco (fsync), no cuando alguien lo consume. Quien consume
+    es `drain`, y nadie esta obligado a llamarlo: un evento puede quedar
+    encolado y sobrevivir al proceso, que es justamente el punto del modo
+    de fallo REINICIO.
+    """
+    subop = params.get("subop") or "stats"
+    e = _eter()
+
+    if subop == "emit":
+        tipo = params.get("tipo") or "evento"
+        carga = params.get("carga")
+        if carga is None:
+            return {"status": "invalid_input", "motivo": "falta 'carga'",
+                    "results": []}
+        critico = bool(params.get("critico", True))
+        eid = e.emit(tipo, carga, critico)
+        return {"status": "ok", "subop": "emit", "event_id": eid,
+                "results": [{"event_id": eid, "tipo": tipo,
+                             "critico": critico}]}
+
+    if subop == "recover":
+        pendientes = e.recover()
+        return {"status": "ok", "subop": "recover",
+                "n": len(pendientes),
+                "recovered": [{"event_id": ev.event_id, "tipo": ev.tipo,
+                               "critico": ev.critico} for ev in pendientes],
+                "results": []}
+
+    if subop == "drain":
+        entregados = e.drain(lambda ev: None)
+        return {"status": "ok", "subop": "drain", "entregados": entregados,
+                "results": []}
+
+    if subop == "stats":
+        return {"status": "ok", "subop": "stats",
+                "estadisticas": e.estadisticas(), "results": []}
+
+    return {"status": "invalid_input", "motivo": "subop desconocida: %r"
+            % (subop,), "results": []}
+
+
 def _handle_fuego(params: dict) -> dict:
     """op: fuego - verifica las 6 garantias de seguridad (FUEGO) antes de auto-ejecucion."""
     import shutil as _shutil
@@ -3151,6 +3235,7 @@ HANDLERS = {
     "scan": _handle_scan,
     "principios": _handle_principios,
     "fuego": _handle_fuego,
+    "eter": _handle_eter,
     "application": _handle_application,
 }
 
