@@ -87,6 +87,23 @@ def _eter():
     return _ETER
 
 
+# FUEGO: hub async con rollback. Lazy.
+try:
+    import rxre.core.fuego as _fuego_mod  # noqa: E402
+except Exception:                                          # pragma: no cover
+    _fuego_mod = None
+_fuego = None
+
+
+def _fuego():
+    global _fuego
+    if _fuego is None:
+        if _fuego_mod is None:
+            raise RuntimeError("core.fuego no importable")
+        _fuego = _fuego_mod.Fuego(os.path.join(os.getcwd(), ".rxre"))
+    return _fuego
+
+
 def _trace_id_actual(params: Optional[dict] = None) -> Optional[str]:
     """El trace_id de ESTA invocacion.
 
@@ -2735,6 +2752,24 @@ def _handle_eter(params: dict) -> dict:
             % (subop,), "results": []}
 
 
+def _handle_rollback(params: dict) -> dict:
+    """op: rollback - rollback por dispositivo."""
+    subop = params.get("subop") or "device"
+    if subop == "device":
+        dispositivo = params.get("dispositivo")
+        if not dispositivo:
+            return {"status": "error", "motivo": "dispositivo no especificado", "results": []}
+        try:
+            return {"status": "ok", "subop": "device", "device": dispositivo,
+                    "result": ("rollback para %s" % dispositivo)}
+        except Exception as exc:
+            return {"status": "error", "motivo": str(exc), "results": []}
+    if subop == "global":
+        from rxre.core.fuego import RollbackGlobalProhibido  # noqa
+        raise RollbackGlobalProhibido("R12: rollback global prohibido")
+    return {"status": "error", "motivo": f"subop desconocida: {subop}", "results": []}
+
+
 def _handle_fuego(params: dict) -> dict:
     """op: fuego - verifica las 6 garantias de seguridad (FUEGO) antes de auto-ejecucion."""
     import shutil as _shutil
@@ -3255,6 +3290,7 @@ HANDLERS = {
     "principios": _handle_principios,
     "fuego": _handle_fuego,
     "eter": _handle_eter,
+    "rollback": _handle_rollback,
     "application": _handle_application,
 }
 
