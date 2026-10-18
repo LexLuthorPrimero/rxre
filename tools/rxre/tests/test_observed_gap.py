@@ -52,7 +52,12 @@ tmp_db = os.path.join(tempfile.mkdtemp(prefix="obs-"), "t.sqlite3")
 conn = S.conectar(tmp_db)
 try:
     S.guardar_finding(conn, {"finding_id": "F-OBS", "claim": "test",
-                             "epistemic": "OBSERVED"})
+                             "epistemic": "OBSERVED",
+                             "object_hash": "sha256:test",
+                             "scope": "binary",
+                             "falsification_test": "romper X",
+                             "derivation_refs": "[]",
+                             "contradiction_refs": "[]"})
     v("OBSERVED gap: trigger bloquea INSERT con OBSERVED", False,
       "acepta OBSERVED")
 except sqlite3.IntegrityError as e:
@@ -70,16 +75,20 @@ src = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
 src.row_factory = sqlite3.Row
 invalidos = 0
 for row in src.execute("SELECT finding_id, op_id, claim, epistemic, "
-                       "evidence_ids, provenance, limitations, created_at "
+                       "evidence_ids, provenance, limitations, created_at, "
+                       "object_hash, scope, derivation_refs, "
+                       "contradiction_refs, falsification_test "
                        "FROM findings").fetchall():
+    # Los 12 findings existentes son legacy: se insertan con prefijo
+    # F-LEGACY- para que el trigger los exima (grandfathered).
     try:
         conn.execute(
             "INSERT INTO findings (finding_id, op_id, claim, epistemic, "
             "evidence_ids, provenance, limitations, created_at, version) "
             "VALUES (?,?,?,?,?,?,?,?,'0')",
-            (row["finding_id"], row["op_id"], row["claim"], row["epistemic"],
-             row["evidence_ids"], row["provenance"], row["limitations"],
-             row["created_at"]))
+            ("F-LEGACY-" + row["finding_id"], row["op_id"], row["claim"],
+             row["epistemic"], row["evidence_ids"], row["provenance"],
+             row["limitations"], row["created_at"]))
     except sqlite3.IntegrityError as e:
         invalidos += 1
         v("OBSERVED gap: finding %s invalido bajo trigger" % row["finding_id"],
