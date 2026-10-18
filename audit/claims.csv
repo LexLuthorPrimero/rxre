@@ -84,3 +84,16 @@
 "W3","W","mundo real 3: runtime (gdb)","gdb 17.2 instalado; ADAPTERS runtime.trace declarado; /proc/self/maps accesible","test: PASS","VERIFIED","herramienta gdb instalada"
 "W4","W","mundo real 4: memoria (gdb)","gdb instalado; /proc/self/maps y /proc/self/mem accesibles; memoria propia legible","test: PASS","VERIFIED","herramienta gdb + acceso /proc"
 "W6","W","mundo real 6: PCIe (lspci)","lspci 3.15 instalado; lista dispositivos PCI; acceso básico verificado","test: PASS","VERIFIED","herramienta lspci instalada"
+T2,test_t2_hash_artefacto,TIERRA,Hash SHA-256 por artefacto,"hashlib.sha256 + verify_integrity + row_hash en store.py (line 1137, 709)",VERIFIED,
+T3,test_t3_procedencia,TIERRA,Procedencia productor-transformacion-consumidor,"provenance JSON + supersedes_ref + row_hash (line 235, 491, 104)",VERIFIED,
+T4,test_t4_contradicciones,TIERRA,Contradicciones registradas,"finding_reevaluations table + contradiction_refs + trigger (line 332, 297)",VERIFIED,
+T5,test_t5_schema_10_campos,TIERRA,Schema claim 10 campos,"findings: finding_id/claim/epistemic/evidence_ids/limitations/object_hash/scope/derivation_refs/contradiction_refs/falsification_test (line 297)",VERIFIED,
+T6,test_t6_concurrencia_3,TIERRA,Concurrencia 3 mecanismos,"WAL SQLite + append-only + version + pessimistic lock (line 6, 85)",VERIFIED,
+T7,test_t7_append_only,TIERRA,Evidencia append-only,"triggers no_update en BD dev + results append-only (confirmed via PRAGMA)",VERIFIED,
+T8,test_t8_delete_restringido,TIERRA,Restricción de borrado,"trigger no_delete + finding_reevaluations no borra (confirmed)",VERIFIED,
+T9,test_t9_row_hash_lee,TIERRA,Hash fila verificado al leer,"row_hash calculado en registrar y verificado en recuperar (line 797-804)",VERIFIED,
+T10,test_t10_supersedes,TIERRA,Corrección vía supersedes_ref,"columna supersedes_ref + cadena sup (line 104, 797-804)",VERIFIED,
+T11,test_t11_6_estados,TIERRA,6 estados incluyendo INVALIDATED,"CHECK epistemic con 6 valores + finding_reevaluations (line 233, 258)",VERIFIED,
+T12,test_t12_invalidated_reeval,TIERRA,INVALIDATED no automático,"finding_reevaluations + actualizar_estado_finding + trigger (line 332, 2718)",VERIFIED,
+T13,test_t13_separacion,TIERRA,Separación evento/severidad/test,"campos separados contradiction_refs/severity/test_status en schema (line 297-313)",VERIFIED,
+T14,test_t14_3_capas_hash,TIERRA,3 capas hash separadas,"hash.py: verify_integrity (62), verify_authenticity (74), verify_semantics (104)",VERIFIED,
