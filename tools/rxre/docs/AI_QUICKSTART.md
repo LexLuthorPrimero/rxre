@@ -17,7 +17,11 @@ Se habla por **JSONL**: una petición JSON por línea, una respuesta por línea.
 echo '{"op":"ops"}' | python3 $RXRE
 ```
 
+<<<<<<< HEAD
 Trae `capabilities[]`: 11 intenciones con `question`, `requires`,
+=======
+Trae `capabilities[]`: 12 intenciones con `question`, `requires`,
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 `limitations`, `max_hits` e **`invocable`** — el request literal para llamarla.
 
 `results[]` en esa misma respuesta son **scripts**; `capabilities[]` son
@@ -141,7 +145,10 @@ se asume que sea la RX550.
 
 | falta | qué hacer en su lugar |
 |---|---|
+<<<<<<< HEAD
 | `op: plan` | inspecciona `capability_resolution` de la respuesta |
+=======
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 | `--field` en composición | usa la CLI: `tools/rxre/rxre register X --field F` |
 | `dwarf`, `binary` | no hay adaptador |
 | lectura/escritura de registros | `relation` da candidatos, no hechos |

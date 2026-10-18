@@ -30,6 +30,7 @@ PKG = os.path.abspath(os.path.join(HERE, ".."))
 MAQUINA = os.path.join(PKG, "api", "machine.py")
 FIXTURE = os.path.join(PKG, "fixtures", "bin", "rxre_min.elf")
 
+<<<<<<< HEAD
 # AISLAMIENTO: este test invoca machine.py por subprocess, y `_get_db()` usa
 # `RXRE_DB` si esta seteado o, si no, la BD de DESARROLLO. Sin esto, cada
 # `op:run` de este test escribia filas de `operations`/`results` en
@@ -44,6 +45,8 @@ _DBDIR = tempfile.mkdtemp(prefix="rxre_dispatch004_db_")
 _ENV = dict(os.environ)
 _ENV["RXRE_DB"] = os.path.join(_DBDIR, "dispatch004.sqlite3")
 
+=======
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 fails = []
 n = 0
 
@@ -59,8 +62,12 @@ def rx(requests):
     """Habla JSONL con RXRE por stdin/stdout. BLACK BOX."""
     entrada = "\n".join(json.dumps(r) for r in requests) + "\n"
     p = subprocess.run([sys.executable, MAQUINA], input=entrada,
+<<<<<<< HEAD
                        capture_output=True, text=True, timeout=1200,
                        env=_ENV)
+=======
+                       capture_output=True, text=True, timeout=1200)
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
     lineas = []
     for l in (p.stdout or "").splitlines():
         l = l.strip()
@@ -105,6 +112,7 @@ if envs:
     v("binary.inspect aparece como EJECUTABLE sin que se le pida",
       any(c["capability"] == "binary.inspect" for c in ejec),
       [c["capability"] for c in ejec])
+<<<<<<< HEAD
     # MEDIDO 2026-10-12 (lote RXRE-BULK): esta asercion decia que
     # `binary.inspect` era "la UNICA ejecutable, porque es la unica con
     # producer medido". Tras el lote hay TRES ejecutables, porque se
@@ -132,6 +140,10 @@ if envs:
     v("y las tres del lote estan ahi",
       sorted(c["capability"] for c in ejec),
       ["binary.decompile", "binary.inspect", "source.semantic_search"])
+=======
+    v("y es la UNICA ejecutable, porque es la unica con producer medido",
+      len(ejec) == 1, [c["capability"] for c in ejec])
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 
 # --- 2. EL CAMINO FELIZ: ejecutar sin nombrar el backend ------------------
 if _tiene_rzbin:
@@ -165,6 +177,7 @@ if _tiene_rzbin:
           any(a.get("op") == "explain" and a.get("available") is True
               and (a.get("args") or {}).get("result_id") == rid for a in na),
           na)
+<<<<<<< HEAD
         # MEDIDO 2026-10-12: esta asercion se retiro. `next_actions` de
         # `op:backends` lo produce `api/request.next_actions`, que es el
         # mecanismo de CONTINUIDAD de RXRE (explain / explain_operation /
@@ -175,6 +188,12 @@ if _tiene_rzbin:
         #
         # La pregunta equivalente y correcta -- ¿decompile es ejecutable? --
         # ya se responde en `ejecutables` mas arriba y en la seccion B7.
+=======
+        v("binary.decompile aparece como NO disponible con su motivo",
+          any(a.get("op") == "run" and a.get("available") is False
+              and (a.get("args") or {}).get("capability") == "binary.decompile"
+              and bool(a.get("reason")) for a in na), na)
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 
         # Y el ciclo se cierra: explain reconstruye la cadena del backend.
         envs2 = rx([{"op": "explain", "result_id": rid}])
@@ -195,6 +214,7 @@ if _tiene_rzbin:
 # Siete rechazos, y lo importante no es que rechacen: es que el MOTIVO de cada
 # uno sea el correcto. Si los siete dijeran "no", la allow-list podria ser un
 # `return False` incondicional y estos vectores pasarian igual.
+<<<<<<< HEAD
 # RXRE-AUTONOMY-002 (hecho): binary.cfg y binary.dataflow ahora TIENEN adapter
 # (rz_cfg.py). El caso original ("capability que existe pero NO tiene adapter")
 # ya no aplica: todos los pasos verificables tienen adapter.
@@ -219,6 +239,11 @@ casos = [
     # sin producer, que es lo que este bloque tiene que comprobar.
     ("capacidad sin producer verificable",
      "binary.sin_producer", "producer"),
+=======
+casos = [
+    ("capability que existe pero NO tiene adapter", "binary.cfg", "adapter"),
+    ("capacidad sin producer verificable", "binary.decompile", "adapter"),
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
     ("identificador cerrado: ruta", "../../etc/passwd", "identificador cerrado"),
     ("identificador cerrado: comando", "rizin --version", "identificador cerrado"),
     ("nombre de shell", "shell", "no hay ninguna capacidad registrada"),
@@ -301,6 +326,7 @@ if PKG not in sys.path:
 from backends import dispatch as _D  # noqa: E402
 from backends import registry as _R   # noqa: E402
 
+<<<<<<< HEAD
 # INVARIANTE (MEDIDO 2026-10-14): toda capability declarada en el registry es
 # ejecutable. Esto no es un caso de rechazo: es el resultado de que los
 # producer se han construido. Si alguien degrada una capability a un estado
@@ -319,6 +345,8 @@ _no_estado = sorted(
 v("[invariante: no queda ninguna capability bloqueada por estado]",
   len(_no_estado) == 0, _no_estado or "ninguna")
 
+=======
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 _todas = _D._todas_las_fichas()
 _union_caps = {c for b in _R.backends() for c in _R.get(b)["capacities"]}
 v("la capa de dispatch PREGUNTA al registry (mismas capacidades)",
@@ -330,6 +358,7 @@ v("binary.cfg es PARTIAL en rizin y AVAILABLE en radare2 (medido)",
 v("y la agregada conserva la limitacion por backend",
   any("rizin" in x for x in _todas["binary.cfg"]["limitaciones"]),
   _todas.get("binary.cfg", {}).get("limitaciones"))
+<<<<<<< HEAD
 # MEDIDO 2026-10-12 (lote RXRE-BULK): esta asercion afirmaba que
 # `binary.decompile` era UNAVAILABLE en todos los backends medidos. Lo
 # era mientras no hubiera producer. Ghidra 12.1.4 lo tiene y lo EJERCE
@@ -347,6 +376,11 @@ v("y el reparto por backend NO se promedia",
   and _todas["binary.decompile"]["estados"].get("radare2")
   == "UNAVAILABLE",
   _todas["binary.decompile"]["estados"])
+=======
+v("binary.decompile es UNAVAILABLE en los dos backends MEDIDOS",
+  _todas.get("binary.decompile", {}).get("estado_agregado") == "UNAVAILABLE",
+  _todas.get("binary.decompile", {}).get("estado_agregado"))
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 
 # --- B5. LA CLASIFICACION DE DATAFLOW ESTA RESPALDADA POR EVIDENCIA ----
 # §12: no corregir por intuicion. Estas comprobaciones no re-ejecutan los
@@ -412,6 +446,7 @@ if _envs:
     v("binary.decompile APARECE en el plan (no se oculta)",
       len(dec) == 1, [x["operation"] for x in pasos])
     if dec:
+<<<<<<< HEAD
         # MEDIDO 2026-10-12 (lote RXRE-BULK): estas aserciones afirmaban
         # que `binary.decompile` era un callejon SIN SALIDA. Lo era: ningun
         # backend medido lo tenia. Tras el lote, Ghidra lo tiene con producer
@@ -453,6 +488,23 @@ if _envs:
     v("cero no ejecutables (todos los adapters estan ahora implementados)",
       len([x for x in pasos if not x["available"]]) == 0,
       [x["reason"][:50] for x in pasos if not x["available"]])
+=======
+        v("y aparece como NO disponible", dec[0]["available"] is False,
+          dec[0]["available"])
+        v("con el motivo POR QUE no", bool(dec[0]["reason"]),
+          dec[0]["reason"][:60])
+        v("y no se propone como accion ejecutable",
+          all(a["available"] is False for a in P.get("next_actions") or []
+              if a["args"]["capability"] == "binary.decompile"))
+
+    # `verifiable` y `available` son cosas DISTINTAS. Medido: los seis pasos
+    # son verificables (el registry los declara) y solo uno es ejecutable.
+    v("verificables != ejecutables: 6 verificables, 1 ejecutable",
+      len([x for x in pasos if x["verifiable"]]) == 6
+      and len([x for x in pasos if x["available"]]) == 1,
+      (len([x for x in pasos if x["verifiable"]]),
+       len([x for x in pasos if x["available"]])))
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
     v("todo paso declara operation, capability, verifiable, available, reason",
       all(all(k in x for k in ("operation", "capability", "verifiable",
                                "available", "reason")) for x in pasos))
@@ -529,6 +581,7 @@ if _e:
     v("B7: se declara que angr NO se instalo",
       any("angr" in x and "NO" in x.upper() for x in dec.get("no_decidido") or []))
 
+<<<<<<< HEAD
 # --- B8. PERSISTIDO: CORRECTO, NO SIEMPRE TRUE -------------------------------
 # MEDIDO 2026-10-05 (RXRE-BMS-008): `persistido` debe reflejar si la
 # persistencia realmente ocurrio. Antes del fix, era `True` incondicionalmente
@@ -655,6 +708,8 @@ if _tiene_rzbin:
 else:
     v("B9: rz-bin ausente, knowledge persistence no ejecutable", True)
 
+=======
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 if fails:
     print("self-test FALLA (%d de %d)" % (len(fails), n))
     for f in fails:
@@ -663,6 +718,10 @@ if fails:
 print("self-test OK (%d comprobaciones: la superficie publica responde "
         "`backends` y `run`, binary.inspect se ejecuta end-to-end por JSONL sin "
         "nombrar el backend, explain cierra el ciclo con los 13 eslabones, y "
+<<<<<<< HEAD
         "los 5 rechazos de la allow-list tienen cada uno su motivo "
+=======
+        "los SEIS rechazos de la allow-list tienen cada uno su motivo "
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
         "correcto)" % n)
 sys.exit(0)

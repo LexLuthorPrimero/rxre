@@ -1,0 +1,1735 @@
+{
+  "rc": 0,
+  "wall_s": 61.3,
+  "sujeto": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+  "contrato": {
+    "tool": "lachesis_defuse.py",
+    "version": "1.0.0",
+    "operation": "defuse",
+    "intent": "value-history",
+    "subject": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+    "layers": {
+      "identity": {
+        "producer": null,
+        "status": "not-applicable",
+        "reason": "el sujeto es un nodo, no un nombre de registro: la capa nativa no aplica"
+      },
+      "provider": {
+        "producer": "lachesis",
+        "status": "value-history",
+        "question": "value-history",
+        "criteria": {
+          "id": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "kind": "parameter",
+          "label": "adev",
+          "locator": {
+            "tier": "T4",
+            "artifact": "t4_proof.json",
+            "kind": "parameter",
+            "label": "adev",
+            "owner_chain": [
+              {
+                "kind": "project",
+                "id": "layered-project:6356078454f6f1d9ab2d",
+                "label": "project"
+              },
+              {
+                "kind": "file",
+                "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+                "label": "amdgpu/gmc_v8_0.c"
+              },
+              {
+                "kind": "function",
+                "id": "v2:frontend:clang-c:function:5f92173ad523fa446e5d",
+                "label": "gmc_v8_0_gart_enable"
+              },
+              {
+                "kind": "expression",
+                "id": "v2:frontend:clang-c:body:182641d6d2beec2c66f9",
+                "label": "adev"
+              }
+            ],
+            "location": {
+              "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+              "start_line": 829,
+              "start_column": 33,
+              "end_line": 829,
+              "end_column": 59
+            }
+          },
+          "location": {
+            "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 829,
+            "start_column": 33,
+            "end_line": 829,
+            "end_column": 59
+          },
+          "origin": "compiler",
+          "confidence": "exact"
+        },
+        "summary": {
+          "related_value_count": 101,
+          "transition_count": 220
+        },
+        "budget": {
+          "requested_tokens": 12000,
+          "truncated": true,
+          "omitted": {
+            "history": 63,
+            "transitions": 220,
+            "evidence": 102
+          },
+          "estimator": "serialized-characters/4",
+          "estimated_tokens": 11737
+        },
+        "match_count": 0
+      },
+      "dataflow": {
+        "producer": "lachesis",
+        "status": "value-history",
+        "question": "value-history",
+        "criteria": {
+          "id": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "kind": "parameter",
+          "label": "adev",
+          "locator": {
+            "tier": "T4",
+            "artifact": "t4_proof.json",
+            "kind": "parameter",
+            "label": "adev",
+            "owner_chain": [
+              {
+                "kind": "project",
+                "id": "layered-project:6356078454f6f1d9ab2d",
+                "label": "project"
+              },
+              {
+                "kind": "file",
+                "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+                "label": "amdgpu/gmc_v8_0.c"
+              },
+              {
+                "kind": "function",
+                "id": "v2:frontend:clang-c:function:5f92173ad523fa446e5d",
+                "label": "gmc_v8_0_gart_enable"
+              },
+              {
+                "kind": "expression",
+                "id": "v2:frontend:clang-c:body:182641d6d2beec2c66f9",
+                "label": "adev"
+              }
+            ],
+            "location": {
+              "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+              "start_line": 829,
+              "start_column": 33,
+              "end_line": 829,
+              "end_column": 59
+            }
+          },
+          "location": {
+            "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+            "start_line": 829,
+            "start_column": 33,
+            "end_line": 829,
+            "end_column": 59
+          },
+          "origin": "compiler",
+          "confidence": "exact"
+        },
+        "summary": {
+          "related_value_count": 101,
+          "transition_count": 220
+        },
+        "budget": {
+          "requested_tokens": 12000,
+          "truncated": true,
+          "omitted": {
+            "history": 63,
+            "transitions": 220,
+            "evidence": 102
+          },
+          "estimator": "serialized-characters/4",
+          "estimated_tokens": 11737
+        },
+        "match_count": 0
+      }
+    },
+    "results": [
+      {
+        "state": "PARTIAL",
+        "kind": "expression",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:body:182641d6d2beec2c66f9",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 1228,
+          "start_column": 27,
+          "end_line": 1228,
+          "end_column": 31
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:184dd93649a323967bda",
+            "label": "gmc_v8_0_hw_init"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T3",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "expression",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:body:14c1ec16a938fedb2574",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/amdgpu.h",
+          "start_line": 1295,
+          "start_column": 43,
+          "end_line": 1295,
+          "end_column": 43
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:b5144d85c541c32de3c9",
+            "label": "amdgpu/amdgpu.h"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:28426af180c6d20c2cfe",
+            "label": "gmc_v8_0_mc_stop"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T3",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "expression",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:body:1b6c4e3ca5b9f6861260",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 888,
+          "start_column": 44,
+          "end_line": 888,
+          "end_column": 48
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:5f92173ad523fa446e5d",
+            "label": "gmc_v8_0_gart_enable"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T3",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "expression",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:body:42ad53973fceef0dff5a",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 939,
+          "start_column": 37,
+          "end_line": 939,
+          "end_column": 41
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:5f92173ad523fa446e5d",
+            "label": "gmc_v8_0_gart_enable"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T3",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "expression",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:body:48e4fc9c4fbfe7b39bf4",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 941,
+          "start_column": 25,
+          "end_line": 941,
+          "end_column": 29
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:5f92173ad523fa446e5d",
+            "label": "gmc_v8_0_gart_enable"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T3",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "expression",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:body:56d3a7d526180f870042",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 909,
+          "start_column": 44,
+          "end_line": 909,
+          "end_column": 48
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:5f92173ad523fa446e5d",
+            "label": "gmc_v8_0_gart_enable"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T3",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "expression",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:body:61e118506937fef39f1c",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 887,
+          "start_column": 46,
+          "end_line": 887,
+          "end_column": 50
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:5f92173ad523fa446e5d",
+            "label": "gmc_v8_0_gart_enable"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T3",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "expression",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:body:775f2f69b8ed9f730cc9",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 943,
+          "start_column": 19,
+          "end_line": 943,
+          "end_column": 23
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:5f92173ad523fa446e5d",
+            "label": "gmc_v8_0_gart_enable"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T3",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "expression",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:body:b747cd0758a8b8d35a2d",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 942,
+          "start_column": 23,
+          "end_line": 942,
+          "end_column": 27
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:5f92173ad523fa446e5d",
+            "label": "gmc_v8_0_gart_enable"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T3",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "expression",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:body:c5ea401707b799024076",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 839,
+          "start_column": 26,
+          "end_line": 839,
+          "end_column": 30
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:5f92173ad523fa446e5d",
+            "label": "gmc_v8_0_gart_enable"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T3",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "expression",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:body:e23198c5cda40d0b2c41",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 937,
+          "start_column": 37,
+          "end_line": 937,
+          "end_column": 41
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:5f92173ad523fa446e5d",
+            "label": "gmc_v8_0_gart_enable"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T3",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "expression",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:body:fbe3d9a8acf2cdcc4e3f",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 836,
+          "start_column": 11,
+          "end_line": 836,
+          "end_column": 15
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:5f92173ad523fa446e5d",
+            "label": "gmc_v8_0_gart_enable"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T3",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "parameter",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:parameter:0c69aa5eb8559e236bd2",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 1385,
+          "start_column": 46,
+          "end_line": 1385,
+          "end_column": 72
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:6da4a179519fe22cfcbe",
+            "label": "gmc_v8_0_vm_fault_interrupt_state"
+          },
+          {
+            "kind": "expression",
+            "id": "v2:frontend:clang-c:body:14c1ec16a938fedb2574",
+            "label": "adev"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T4",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "parameter",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:parameter:34ce2d732d4943ab6e39",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 194,
+          "start_column": 32,
+          "end_line": 194,
+          "end_column": 58
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:23258df95bceea8fe6ba",
+            "label": "gmc_v8_0_mc_resume"
+          },
+          {
+            "kind": "expression",
+            "id": "v2:frontend:clang-c:body:8cc4b0347aebb48e88ff",
+            "label": "adev"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T4",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "parameter",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:parameter:45285be0a15eb6cd9ea1",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 1507,
+          "start_column": 54,
+          "end_line": 1507,
+          "end_column": 80
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:29d188365a953d5ba403",
+            "label": "fiji_update_mc_medium_grain_clock_gating"
+          },
+          {
+            "kind": "expression",
+            "id": "v2:frontend:clang-c:body:14c1ec16a938fedb2574",
+            "label": "adev"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T4",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "parameter",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:parameter:559c1e25ee2399a95f6d",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 1587,
+          "start_column": 40,
+          "end_line": 1587,
+          "end_column": 66
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:83400df6d161846e0bea",
+            "label": "fiji_update_mc_light_sleep"
+          },
+          {
+            "kind": "expression",
+            "id": "v2:frontend:clang-c:body:14c1ec16a938fedb2574",
+            "label": "adev"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T4",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "parameter",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:parameter:59e9f7f8155da124ff60",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 433,
+          "start_column": 33,
+          "end_line": 433,
+          "end_column": 59
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:9d868bcf5b3349f1c99e",
+            "label": "gmc_v8_0_mc_program"
+          },
+          {
+            "kind": "expression",
+            "id": "v2:frontend:clang-c:body:f014eabc8c42e81bd605",
+            "label": "adev"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T4",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "parameter",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:parameter:648730d8bc1bc0ca9d4a",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 625,
+          "start_column": 42,
+          "end_line": 625,
+          "end_column": 68
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:54bc6ec48c4fcfc5edcf",
+            "label": "gmc_v8_0_flush_gpu_tlb_pasid"
+          },
+          {
+            "kind": "expression",
+            "id": "v2:frontend:clang-c:body:114dcb3bf04815a83dfe",
+            "label": "adev"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T4",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "parameter",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:parameter:89ccbfad11316af2a9e4",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 737,
+          "start_column": 47,
+          "end_line": 737,
+          "end_column": 73
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:554bc2179bd0452874bb",
+            "label": "gmc_v8_0_set_fault_enable_default"
+          },
+          {
+            "kind": "expression",
+            "id": "v2:frontend:clang-c:body:14c1ec16a938fedb2574",
+            "label": "adev"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T4",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "parameter",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:parameter:9565bd19a8338e1d6861",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 766,
+          "start_column": 30,
+          "end_line": 766,
+          "end_column": 56
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:654d38e6dbabc87e91cd",
+            "label": "gmc_v8_0_set_prt"
+          },
+          {
+            "kind": "expression",
+            "id": "v2:frontend:clang-c:body:14c1ec16a938fedb2574",
+            "label": "adev"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T4",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "parameter",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:parameter:98c6ed28aeb1e87cb3e9",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 217,
+          "start_column": 36,
+          "end_line": 217,
+          "end_column": 62
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:445e9dff1948eecf83bb",
+            "label": "gmc_v8_0_init_microcode"
+          },
+          {
+            "kind": "expression",
+            "id": "v2:frontend:clang-c:body:36bd0bf978e96843c3bf",
+            "label": "adev"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T4",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "parameter",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:parameter:9b76748f8f8be8a37abd",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 661,
+          "start_column": 36,
+          "end_line": 661,
+          "end_column": 62
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:a82703c2044a52a911e3",
+            "label": "gmc_v8_0_flush_gpu_tlb"
+          },
+          {
+            "kind": "expression",
+            "id": "v2:frontend:clang-c:body:14c1ec16a938fedb2574",
+            "label": "adev"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T4",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "parameter",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:parameter:a6bda0c5c75acae9d134",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 348,
+          "start_column": 47,
+          "end_line": 348,
+          "end_column": 73
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:3feb48fa4b6083bd7661",
+            "label": "gmc_v8_0_polaris_mc_load_microcode"
+          },
+          {
+            "kind": "expression",
+            "id": "v2:frontend:clang-c:body:d11cd5f50161f3182270",
+            "label": "adev"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T4",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "parameter",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:parameter:b0d7e7e7905c1ed8def0",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 170,
+          "start_column": 30,
+          "end_line": 170,
+          "end_column": 56
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:28426af180c6d20c2cfe",
+            "label": "gmc_v8_0_mc_stop"
+          },
+          {
+            "kind": "expression",
+            "id": "v2:frontend:clang-c:body:0c6afbdf4eac165cca4c",
+            "label": "adev"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T4",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "parameter",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:parameter:b3e2483677f157d3f4e0",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 972,
+          "start_column": 35,
+          "end_line": 972,
+          "end_column": 61
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:aca8ed096a3d17285ee4",
+            "label": "gmc_v8_0_gart_disable"
+          },
+          {
+            "kind": "expression",
+            "id": "v2:frontend:clang-c:body:e12f4d38b45e654f414f",
+            "label": "adev"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T4",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "parameter",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:parameter:ed8bd64cabc5b725244e",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 1427,
+          "start_column": 39,
+          "end_line": 1427,
+          "end_column": 65
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:ca7d266e337618b9de83",
+            "label": "gmc_v8_0_process_interrupt"
+          },
+          {
+            "kind": "expression",
+            "id": "v2:frontend:clang-c:body:0ed4cea1300ba1d02879",
+            "label": "adev"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T4",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "parameter",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:parameter:fe16bc094593b4d63b51",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 279,
+          "start_column": 45,
+          "end_line": 279,
+          "end_column": 71
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:9a23e40ae265929181f8",
+            "label": "gmc_v8_0_tonga_mc_load_microcode"
+          },
+          {
+            "kind": "expression",
+            "id": "v2:frontend:clang-c:body:4078dd87bd98edbcf35e",
+            "label": "adev"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T4",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "variable",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:value:8a22a9423776a5f6a90f",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 1345,
+          "start_column": 2,
+          "end_line": 1345,
+          "end_column": 45
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:86314dd72ccef54906dc",
+            "label": "gmc_v8_0_soft_reset"
+          },
+          {
+            "kind": "expression",
+            "id": "v2:frontend:clang-c:body:104c13e19ffb64927267",
+            "label": "ip_block->adev"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T4",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "expression",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:body:8cc4b0347aebb48e88ff",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 1381,
+          "start_column": 21,
+          "end_line": 1381,
+          "end_column": 25
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:dbb17ad4adfea3e83046",
+            "label": "gmc_v8_0_post_soft_reset"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T3",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "expression",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:body:b8e644b6553ef651f8cd",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 1512,
+          "start_column": 17,
+          "end_line": 1512,
+          "end_column": 21
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:29d188365a953d5ba403",
+            "label": "fiji_update_mc_medium_grain_clock_gating"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T3",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "expression",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:body:537e4f9e8eca47f836d2",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 1592,
+          "start_column": 17,
+          "end_line": 1592,
+          "end_column": 21
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:83400df6d161846e0bea",
+            "label": "fiji_update_mc_light_sleep"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T3",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "expression",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:body:f014eabc8c42e81bd605",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 1210,
+          "start_column": 22,
+          "end_line": 1210,
+          "end_column": 26
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:184dd93649a323967bda",
+            "label": "gmc_v8_0_hw_init"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T3",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "expression",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:body:22ea8ffd170c0e608509",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 486,
+          "start_column": 26,
+          "end_line": 486,
+          "end_column": 30
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:9d868bcf5b3349f1c99e",
+            "label": "gmc_v8_0_mc_program"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T3",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "expression",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:body:24bcf5b70aab61d07774",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 456,
+          "start_column": 6,
+          "end_line": 456,
+          "end_column": 10
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:9d868bcf5b3349f1c99e",
+            "label": "gmc_v8_0_mc_program"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T3",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "expression",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:body:2569468784cc532c2d5b",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 475,
+          "start_column": 22,
+          "end_line": 475,
+          "end_column": 26
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:9d868bcf5b3349f1c99e",
+            "label": "gmc_v8_0_mc_program"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T3",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "expression",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:body:2be587bf09e2cf0f8b0b",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 487,
+          "start_column": 26,
+          "end_line": 487,
+          "end_column": 30
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:9d868bcf5b3349f1c99e",
+            "label": "gmc_v8_0_mc_program"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T3",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "expression",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:body:2faddad866ed365726a4",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 449,
+          "start_column": 43,
+          "end_line": 449,
+          "end_column": 47
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:9d868bcf5b3349f1c99e",
+            "label": "gmc_v8_0_mc_program"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T3",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      },
+      {
+        "state": "PARTIAL",
+        "kind": "expression",
+        "label": "adev",
+        "node_id": "v2:frontend:clang-c:body:57d4f53cb7b7a56f5de3",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 454,
+          "start_column": 12,
+          "end_line": 454,
+          "end_column": 16
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "id": "layered-project:6356078454f6f1d9ab2d",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "id": "v2:frontend:clang-c:file:2fc3825078734449b483",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "id": "v2:frontend:clang-c:function:9d868bcf5b3349f1c99e",
+            "label": "gmc_v8_0_mc_program"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "value-history",
+          "focus_node": "v2:frontend:clang-c:parameter:d6bcdc93f2ea1b1b361f",
+          "locator_tier": "T3",
+          "owner_chain_es_la_cadena_de_procedencia": true
+        }
+      }
+    ],
+    "limitations": [
+      "el proveedor TRUNCA el historial por presupuesto de respuesta: 38 de 101 valores relacionados (63 omitidos); 220 transiciones y 102 evidencias omitidas (presupuesto 12000 tokens, estimador serialized-characters/4). El truncamiento se declara con numeros: un historial truncado no es un historial completo.",
+      "limites autodeclarados por el frontend C de lachesis: direct_data_flow: partial, context_sensitivity: none, branch_histories: none. El historial es una cadena de def-use SIN sensibilidad de contexto: una rama no tomada no se distingue de una tomada."
+    ],
+    "tools_used": [
+      {
+        "tool": "lachesis",
+        "question": "value-history",
+        "rc": 0
+      }
+    ]
+  },
+  "stderr": ""
+}

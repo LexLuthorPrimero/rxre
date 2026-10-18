@@ -31,9 +31,13 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+<<<<<<< HEAD
 import re
 import sqlite3
 import sys
+=======
+import sqlite3
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 import time
 from typing import Any, Dict, List, Optional
 
@@ -93,6 +97,7 @@ CREATE INDEX IF NOT EXISTS ix_results_op   ON results(operation_id);
 CREATE INDEX IF NOT EXISTS ix_results_type ON results(type);
 CREATE INDEX IF NOT EXISTS ix_results_file ON results(file);
 
+<<<<<<< HEAD
 -- =====================================================================
 -- [v3] Append-only en results: triggers + columnas nuevas.
 --
@@ -116,6 +121,8 @@ BEGIN
   SELECT RAISE(ABORT, 'RESULTS_APPEND_ONLY: DELETE prohibido sobre results');
 END;
 
+=======
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 -- Aristas de la composicion: que operacion vino de cual.
 CREATE TABLE IF NOT EXISTS relations (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -176,7 +183,10 @@ CREATE INDEX IF NOT EXISTS ix_edges_tip ON edges(tipo);
 CREATE TABLE IF NOT EXISTS research (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     kind         TEXT NOT NULL,       -- hypothesis|claim|note|next_action|frontier
+<<<<<<< HEAD
                                     -- + 'correlation' (SOLO maquina: _auto_correlate_findings)
+=======
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
     status       TEXT NOT NULL,       -- ver ESTADOS_RESEARCH
     text         TEXT NOT NULL,
     -- HUECO_DE_EVIDENCIA  falta una medicion
@@ -223,6 +233,7 @@ CREATE TABLE IF NOT EXISTS conflicts (
 );
 
 CREATE INDEX IF NOT EXISTS ix_conflicts_target ON conflicts(target);
+<<<<<<< HEAD
 
 -- RXRE-1640. Findings table for knowledge graph.
 -- Stores technical claims with epistemic state and evidence provenance.
@@ -460,6 +471,8 @@ CREATE TABLE IF NOT EXISTS mission_tasks (
     completed_at   TEXT
 );
 
+=======
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 CREATE INDEX IF NOT EXISTS ix_conflicts_offset ON conflicts(offset);
 CREATE INDEX IF NOT EXISTS ix_conflicts_estado ON conflicts(conflicto_estado);
 CREATE INDEX IF NOT EXISTS ix_conflicts_tipo   ON conflicts(conflicto_tipo);
@@ -504,6 +517,7 @@ CREATE INDEX IF NOT EXISTS ix_relation_chains_consumer    ON relation_chains(con
 CREATE INDEX IF NOT EXISTS ix_relation_chains_type        ON relation_chains(relation_type);
 CREATE INDEX IF NOT EXISTS ix_relation_chains_state       ON relation_chains(epistemic_state);
 CREATE INDEX IF NOT EXISTS ix_relation_chains_target      ON relation_chains(target);
+<<<<<<< HEAD
 
 -- RXRE-AUTONOMY-002. Tabla de reflexiones: el lazo de retroalimentacion
 -- que Reflexion/Recuris/MemSkill llaman "aprender de los resultados".
@@ -601,6 +615,8 @@ CREATE TABLE IF NOT EXISTS execution_events (
 CREATE INDEX IF NOT EXISTS ix_exec_op        ON execution_events(op);
 CREATE INDEX IF NOT EXISTS ix_exec_cap       ON execution_events(capability);
 CREATE INDEX IF NOT EXISTS ix_exec_op_id     ON execution_events(operation_id);
+=======
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 """
 
 #: Estados epistemicos que una entrada de research puede llevar. Deliberadamente
@@ -615,10 +631,13 @@ ESTADOS_RESEARCH = (
     "PARTIAL",       # claim a medias: NInguna parte es "completa"
     "NOT_DETERMINED",
     "BLOCKED",
+<<<<<<< HEAD
     # AETHER: SATURATED es un estado terminal para frontier entries.
     # Se asigna solo si evaluar_saturacion_frontier() confirma condiciones
     # observables (no por un label arbitrario). Ver §100 FRONTIER SATURATION.
     "SATURATED",
+=======
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 )
 
 #: Estados epistemicos para cadenas de relación. Cada relación debe poder
@@ -641,6 +660,7 @@ TIPOS_RELACIÓN = (
     "AFFECTS",     # efecto en registro/estado de hardware
 )
 
+<<<<<<< HEAD
 KIND_RESEARCH = ("hypothesis", "claim", "note", "next_action", "frontier", "performance")
 
 #: `correlation` NO se suma a KIND_RESEARCH a proposito: KIND_RESEARCH es la
@@ -663,6 +683,9 @@ KIND_CORRELATION = "correlation"
 #: de la maquina, no un kind suelto: cualquier otro writer usa solo la lista
 #: cerrada de arriba.
 KIND_CORRELATION = "correlation"
+=======
+KIND_RESEARCH = ("hypothesis", "claim", "note", "next_action", "frontier")
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 
 #: §8 obliga a distinguir los dos huecos. Fusionarlos seria afirmar que falta
 #: una medicion cuando lo que falta es un ESLABON entre dos cosas que ya
@@ -678,6 +701,7 @@ def conectar(ruta: Optional[str] = None) -> sqlite3.Connection:
         os.makedirs(d, exist_ok=True)
     c = sqlite3.connect(ruta, timeout=30)
     c.row_factory = sqlite3.Row
+<<<<<<< HEAD
     # MEDIDO 2026-10-15: el `commit` (fsync de FULL) era el 68% del tiempo de
     # `op:plan`. Medido EN EL CAMINO REAL (1 escritura por proceso):
     #   FULL rollback  : commit 0.081s + close 0.018s
@@ -690,6 +714,8 @@ def conectar(ruta: Optional[str] = None) -> sqlite3.Connection:
         c.execute("PRAGMA synchronous=NORMAL")
     except sqlite3.Error:
         pass
+=======
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
     c.executescript(DDL)
     cur = c.execute("SELECT valor FROM meta WHERE clave='schema_version'")
     fila = cur.fetchone()
@@ -697,11 +723,14 @@ def conectar(ruta: Optional[str] = None) -> sqlite3.Connection:
         c.execute("INSERT INTO meta(clave,valor) VALUES('schema_version',?)",
                   (str(SCHEMA_VERSION),))
         c.commit()
+<<<<<<< HEAD
     _asegurar_columnas_execution_events(c)
     _asegurar_columnas_reevaluacion(c)
     _asegurar_columnas_version(c)
     _asegurar_columnas_results(c)
     _asegurar_columnas_findings_contrato(c)
+=======
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
     return c
 
 
@@ -709,6 +738,7 @@ def _sha(txt: str) -> str:
     return hashlib.sha256(txt.encode("utf-8")).hexdigest()[:16]
 
 
+<<<<<<< HEAD
 def _asegurar_columnas_version(c: sqlite3.Connection) -> None:
     """[v3-4] Agrega `findings.version` para optimistic locking.
 
@@ -1076,15 +1106,20 @@ def registrar_evento(c: sqlite3.Connection, op: str, capability: str,
     return evento_id
 
 
+=======
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 def registrar(c: sqlite3.Connection, request: Dict[str, Any], env: Dict[str, Any],
               duracion: float = 0.0) -> str:
     """Guarda una operacion completa. Devuelve su `operation_id`."""
     op_json = json.dumps(request, sort_keys=True, default=str)
+<<<<<<< HEAD
     # RXRE-AUTO-003: S.registrar persiste una operacion; si llegamos aqui,
     # persistido=True es intrinsecamente verdadero. Setearlo aqui garantiza
     # que response_json tenga el flag para el gate de AGUA, sin requerir
     # que cada adapter lo incluya en su dict de respuesta.
     env.setdefault("persistido", True)
+=======
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
     resp_json = json.dumps(env, sort_keys=True, default=str)
     op_id = "op_" + _sha(op_json + str(env.get("status")) + str(time.time()))
     c.execute(
@@ -1103,6 +1138,7 @@ def registrar(c: sqlite3.Connection, request: Dict[str, Any], env: Dict[str, Any
         if not isinstance(r, dict) or "result_id" not in r:
             continue          # resultados de RXRE-001 sin normalizar: no se indexan
         loc = r.get("location") or {}
+<<<<<<< HEAD
         # [v3-5] Append-only: si el result_id ya existe, se devuelve sin
         # sobrescribir. La colision se registra en el audit_log para que quede
         # traza del intento, pero la fila anterior no se toca.
@@ -1142,11 +1178,18 @@ def registrar(c: sqlite3.Connection, request: Dict[str, Any], env: Dict[str, Any
             "source,file,line,scope,tool,tool_version,status,raw_json,timestamp,"
             "row_hash) "
             "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+=======
+        c.execute(
+            "INSERT OR REPLACE INTO results(result_id,operation_id,type,value,"
+            "source,file,line,scope,tool,tool_version,status,raw_json,timestamp) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
             (r["result_id"], op_id, r.get("type", ""),
              str(r.get("value", ""))[:4000], r.get("source", ""),
              loc.get("file") or loc.get("loc") or "", loc.get("line"),
              r.get("scope", ""), r.get("tool", ""), r.get("tool_version", ""),
              r.get("status", ""), json.dumps(r, sort_keys=True, default=str),
+<<<<<<< HEAD
              r.get("timestamp", time.strftime("%Y-%m-%dT%H:%M:%S%z")),
              row_hash))
     c.commit()
@@ -1156,6 +1199,10 @@ def registrar(c: sqlite3.Connection, request: Dict[str, Any], env: Dict[str, Any
                         actor=request.get("capability", "unknown"),
                         details={"n_results": len(env.get("results") or []),
                                  "status": env.get("status", "")})
+=======
+             r.get("timestamp", time.strftime("%Y-%m-%dT%H:%M:%S%z"))))
+    c.commit()
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
     return op_id
 
 
@@ -1183,6 +1230,7 @@ def explicar_operacion(c: sqlite3.Connection,
     filas = [dict(x) for x in c.execute(
         "SELECT result_id, type, tool, file, line, status, scope FROM results "
         "WHERE operation_id=? ORDER BY result_id", (operation_id,)).fetchall()]
+<<<<<<< HEAD
     # F1/F4-C2: `n_results` es el CONTADOR que se escribio al insertar
     # (`len(env["results"])`, store.py:862) y que NUNCA se recalcula. Antes de
     # esta linea, un contador que no cuadraba con las filas se callaba: la
@@ -1210,6 +1258,8 @@ def explicar_operacion(c: sqlite3.Connection,
             "`result_id`, un `result_id` reescrito, o una fila eliminada. La "
             "ausencia de filas NO prueba que se perdiera nada."
             % (_declarado, _real))
+=======
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
     etapas: List[Dict[str, Any]] = []
     backend: Dict[str, Any] = {}
     try:
@@ -1230,7 +1280,11 @@ def explicar_operacion(c: sqlite3.Connection,
             "backend": backend,
             "chain": ["question", "capability", "pipeline", "tool_run",
                       "input", "result"],
+<<<<<<< HEAD
             "limitations": _limitaciones}
+=======
+            "limitations": []}
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 
 
 def explicar(c: sqlite3.Connection, result_id: str) -> Dict[str, Any]:
@@ -1270,6 +1324,7 @@ def explicar(c: sqlite3.Connection, result_id: str) -> Dict[str, Any]:
             "limitations": []}
 
 
+<<<<<<< HEAD
 def recuperar_evidencia_resultados(c: sqlite3.Connection,
                                    result_ids: List[str]) -> Dict[str, Any]:
     """Recupera evidencia para un conjunto de result_id.
@@ -1351,6 +1406,8 @@ def recuperar_evidencia_resultados(c: sqlite3.Connection,
     return evidencia
 
 
+=======
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 def buscar(c: sqlite3.Connection, tipo: Optional[str] = None,
            archivo: Optional[str] = None, texto: Optional[str] = None,
            limite: int = 50) -> Dict[str, Any]:
@@ -1656,6 +1713,7 @@ def registrar_investigacion(c: sqlite3.Connection, kind: str, text: str,
         (kind, status, text.strip(), gap_kind or None,
          json.dumps(refs), session or None, target or None, ts))
     c.commit()
+<<<<<<< HEAD
     # AUTO-CORRELACION DE HALLAZGOS (ETER): SOLO despues de que la entrada
     # quedo grabada. Correlacionar ANTES de validar registraria lazos de una
     # investigacion que nunca fue aceptada. Best-effort: un fallo de la
@@ -1678,6 +1736,11 @@ def registrar_investigacion(c: sqlite3.Connection, kind: str, text: str,
     if error_corr:
         salida["auto_correlacion_error"] = error_corr
     return salida
+=======
+    return {"estado": "ok", "id": cur.lastrowid, "kind": kind, "status": status,
+            "gap_kind": gap_kind or None, "refs": refs, "session": session,
+            "target": target, "timestamp": ts}
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 
 
 def investigacion(c: sqlite3.Connection, session: str = "", target: str = "",
@@ -1747,6 +1810,30 @@ def checkpoint(c: sqlite3.Connection, session: str = "",
     res = c.execute("SELECT COUNT(*) FROM results").fetchone()[0]
     eds = c.execute("SELECT COUNT(*) FROM edges").fetchone()[0]
     nxt = [f for f in filas if f["kind"] == "next_action"]
+<<<<<<< HEAD
+=======
+    # RXRE-1648. `investigacion()` devuelve `limitations` NO VACIO si y solo si
+    # el filtro (session/target) no trajo filas. La version anterior combinaba
+    #     inv["limitations"] or [<frase de sesion vacia>]
+    # y el `or` INVERTIA la polaridad: la frase "sesion VACIA de razonamiento"
+    # salia EXACTAMENTE cuando SI habia hipotesis/notas (porque entonces
+    # inv["limitations"] es []). MEDIDO: con una hipotesis OPEN en la sesion, el
+    # checkpoint la listaba en `hipotesis_abiertas` y a la vez afirmaba que no
+    # habia ninguna entrada de research.
+    #
+    # La frase de vacio es cierta solo si el filtro no trajo filas Y hay
+    # evidencia en la base, porque la propia frase afirma "la evidencia existe"
+    # (imprime sus recuentos). Con la tabla sin evidencia no se anade: ahi
+    # `investigacion()` ya dijo que la tabla esta VACIA o que el filtro no
+    # coincide, que es el motivo real.
+    lims = list(inv["limitations"])
+    if not filas and (ops or res):
+        lims.append(
+            "no hay ninguna entrada de research para esta sesion: el "
+            "checkpoint esta VACIO de razonamiento, no de evidencia. Hay %d "
+            "operations y %d results en la base: la evidencia existe y el "
+            "razonamiento sobre ella no se ha escrito." % (ops, res))
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
     return {
         "estado": "ok" if filas else "empty",
         "session": session,
@@ -1763,6 +1850,7 @@ def checkpoint(c: sqlite3.Connection, session: str = "",
         "siguiente_accion": nxt[0] if nxt else None,
         "n_acciones_registradas": len(nxt),
         "evidencia_en_base": {"operations": ops, "results": res, "edges": eds},
+<<<<<<< HEAD
         "limitations": inv["limitations"] or [
             "no hay ninguna entrada de research para esta sesion: el "
             "checkpoint esta VACIO de razonamiento, no de evidencia. Hay %d "
@@ -3933,3 +4021,7 @@ def reabrir_frontier(c: sqlite3.Connection, frontier_id: str,
             "nota_id": rid, "target": fila["target"],
             "motivo": "reabierta porque hay evidencia nueva que puede "
                       "invalidar lo que la sostenia"}
+=======
+        "limitations": lims,
+    }
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db

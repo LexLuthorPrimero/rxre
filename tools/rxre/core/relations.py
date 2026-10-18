@@ -472,6 +472,7 @@ def _self_test() -> int:
         return 0
 
 
+<<<<<<< HEAD
 # ---------------------------------------------------------------------------
 # Vertical Slice: QUESTION → EVIDENCE → RELATION → CLAIM → NEXT ACTION
 # ---------------------------------------------------------------------------
@@ -607,5 +608,7 @@ def obtener_vertical_slice(c: sqlite3.Connection, session: str = "") -> Dict[str
     }
 
 
+=======
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 if __name__ == "__main__":
     exit(_self_test())

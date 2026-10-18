@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+<<<<<<< HEAD
 # CONTRACT: name=trace_path
 # CONTRACT: READONLY=yes
 # CONTRACT: WRITES_FILES=no
@@ -21,6 +22,8 @@
 # Sobre la frontera: TOUCHES_INTEGRATED=no, y el campo se declara aunque
 # toolkit.py no lo conozca -- la frontera que no se puede declarar es la que no
 # se puede hacer cumplir (hallazgo 1487).
+=======
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 """trace_path.py — la cadena de llamadas de un símbolo, con el nodo vivo/muerto.
     WORK_CLASS=READ_ONLY · WRITE_EXECUTION=NONE
     No abre /sys, no escribe ficheros, no toca la GPU ni el arbol.
@@ -589,13 +592,18 @@ class Index:
 
 
 def render_tree(roots: Sequence[Dict[str, object]], enum: Dict[str, int],
+<<<<<<< HEAD
                 chip: str, chip_val: int,
                 n_fich: Optional[int] = None,
                 root: Optional[str] = None) -> str:
+=======
+                chip: str, chip_val: int) -> str:
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
     L = [f"{NAME} {VERSION} · chip={chip} valor={chip_val}"]
     L.append("  DIRECTA=llamada a funcion   VTABLE=puntero a funcion   MACRO=indireccion")
     L.append("  VIVA / MUERTA / PARCIAL se refiere a las comparaciones chip_id del cuerpo,")
     L.append("  NO a si la funcion se ejecuta. NO_CONDICIONAL = sin comparacion contra CHIP_*.")
+<<<<<<< HEAD
     # MEDIDO 2026-10-04: el denominador va ANTES del primer veredicto, no
     # despues. Estaba en la ultima linea y era la UNICA diferencia entre una
     # salida buena y la de un corpus que no se ha leido: si el tamano de la
@@ -608,6 +616,8 @@ def render_tree(roots: Sequence[Dict[str, object]], enum: Dict[str, int],
         L.append("  Los veredictos de abajo son sobre ESA poblacion y sobre")
         L.append("  ningun otro corpus. Leer un veredicto sin este numero es")
         L.append("  leerlo sin denominador.")
+=======
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
     L.append("")
     for r in roots:
         L.extend(_render_node(r, 0, enum, chip_val))
@@ -693,6 +703,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 2
 
     idx = Index(root, [os.path.join(kernel, "include")])
+<<<<<<< HEAD
 
     # MEDIDO 2026-10-04 (nodo FILTROS-REPARO-2, sobre el censo
     # 08-ARQUITECTURA/FILTROS-MAL-FORMADOS.md:133-176, que lo llama "el mas
@@ -746,6 +757,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print("  medicion. La ruta existe, y aun asi no hay nada que leer.", file=sys.stderr)
         return 2
 
+=======
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
     results: List[Dict[str, object]] = []
 
     for sym in args.sym:
@@ -884,6 +897,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     if args.json:
         print(json.dumps({"tool": NAME, "version": VERSION, "chip": args.chip,
+<<<<<<< HEAD
                           "chip_value": chip_val, "root": root,
                           # El denominador viaja con los datos. Un consumidor que
                           # lee results sin esto no puede distinguir "nadie llama
@@ -896,11 +910,21 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     print(render_tree(results, enum, args.chip, chip_val, n_fich, root))
     print()
     print(f"  ficheros .c indexados: {n_fich}")
+=======
+                          "chip_value": chip_val, "results": results},
+                         indent=2, ensure_ascii=False))
+        return 0
+
+    print(render_tree(results, enum, args.chip, chip_val))
+    print()
+    print(f"  ficheros .c indexados: {idx.files_scanned()}")
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
     return 0
 
 
 def selftest() -> int:
     failures: List[str] = []
+<<<<<<< HEAD
     vectores = 0
 
     def check(name: str, got, want) -> None:
@@ -970,6 +994,13 @@ def selftest() -> int:
                    "poblacion indexada" in render_tree([], {}, "C", 17, 0, vacio)
                    and "poblacion indexada" in render_tree([], {}, "C", 17, 1, buen))
 
+=======
+
+    def check(name: str, got, want) -> None:
+        if got != want:
+            failures.append(f"{name}: obtuve {got!r}, esperaba {want!r}")
+
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
     # enum
     import tempfile
     with tempfile.TemporaryDirectory() as td:
@@ -1156,6 +1187,7 @@ def selftest() -> int:
               ("enum" in reported) and ("asic_type" in reported), True)
 
     print(f"{NAME} {VERSION} · self-test")
+<<<<<<< HEAD
     # El numero de vectores se imprime siempre: sin el, "RESULTADO OK" no dice
     # si se han comprobado 12 cosas o 12000, y no se puede comparar con el de
     # antes de un arreglo para ver si la red ha crecido.
@@ -1166,6 +1198,14 @@ def selftest() -> int:
             print(f"    - {f}")
         return 1
     print(f"  RESULTADO OK · {vectores} vectores conocidos reproducidos")
+=======
+    if failures:
+        print(f"  RESULTADO FALLIDO ({len(failures)}):")
+        for f in failures:
+            print(f"    - {f}")
+        return 1
+    print("  RESULTADO OK · vectores conocidos reproducidos")
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
     print("  NOTA: veredicto por rama declarada. NO prueba ejecucion real.")
     return 0
 

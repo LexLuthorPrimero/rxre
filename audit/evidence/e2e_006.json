@@ -1,0 +1,23 @@
+{
+  "e2e_id": "e2e_006",
+  "objetivo": "validaci\u00f3n cruzada: segundo artefacto independiente (rxre_min.elf) usando flujo RXRE completo",
+  "artefacto_path": "/home/lucas/Escritorio/rxre/tools/rxre/fixtures/bin/rxre_min.elf",
+  "artefacto_size_bytes": 4728,
+  "artefacto_hash_sha256": "a183f60d67ba1787bd217db2a7cd6609a214acde1f7e9c4a2403e3d40fdb700c",
+  "backend_resuelto": "rizin",
+  "backend_nombre": "rizin",
+  "ejecucion_estado": "ok",
+  "procedencia": "rxre/e2e/2026-10-18",
+  "epistemic": "VALID",
+  "limitaciones": [
+    "Estructura est\u00e1tica verificada; comportamiento din\u00e1mico no confirmado (F2 PARTIAL pendiente); artefacto es fixture de referencia, no hardware real"
+  ],
+  "contra_probar": "No confundir con amdgpu.ko (e2e_001/002/003/004/005); hash distinto; artefacto distinto; conclusi\u00f3n independiente.",
+  "observaciones": {
+    "tipo_artefacto": "ELF64 de referencia RXRE",
+    "status_resultado": "declared",
+    "reproducible": true,
+    "hash_coincide": true
+  },
+  "tipo_evidencia": "validacion_cruzada_artefacto"
+}

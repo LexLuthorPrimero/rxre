@@ -1,0 +1,39 @@
+{
+  "e2e_id": "e2e_009",
+  "objetivo": "validacion semantica de referencia DATA hacia simbolo main en /bin/ls (contraste xrefs + iS + objdump)",
+  "artefacto_path": "/bin/ls",
+  "artefacto_size_bytes": 153400,
+  "artefacto_hash_sha256": "54e936d37decdad9ecaf189b1de347605a0a99037ec87bd17679b6cbde871a0c",
+  "tipo_evidencia": "relacion_semantica_estructural",
+  "procedencia": "rxre/e2e/2026-10-18",
+  "epistemic": "PARTIAL",
+  "observaciones": {
+    "primaria": {
+      "herramienta": "binary.xrefs (funcion=main, backend=rizin)",
+      "resultado": "observed; 74 referencias DATA; from 15940 to 16384",
+      "tipo_referencia": "DATA",
+      "resultado_id": "res_xref_d684f9cac34ede50"
+    },
+    "contraste_1": {
+      "herramienta": "rizin iS (simbolo main .rodata)",
+      "resultado": "simbolo main confirmado en .rodata (ascii)",
+      "limitacion": "No confirma que main sea entrypoint dinamico"
+    },
+    "contraste_2": {
+      "herramienta": "python3 (referencia literal 'main' en datos)",
+      "resultado": "3 ocurrencias literales en archivo; no confirma semantica de llamada",
+      "limitacion": "Referencia literal no equivale a relaci\u00f3n estructural confirmada"
+    },
+    "hipotesis_rival": {
+      "H1": "referencia DATA confirmada entre main y datos en .rodata (74 nodos)",
+      "H0": "referencia DATA podr\u00eda ser referencia a datos sin relaci\u00f3n de llamada con main; no confirma dinamica"
+    },
+    "limitacion": "DATA no confirma CALL; no afirma que /bin/ls ejecute main como entrypoint dinamico; no confirma hardware RX 550"
+  },
+  "limitaciones": [
+    "Referencia DATA (74 nodos) verificada por xrefs + iS; no confirma llamada dinamica (CALL) ni comportamiento de driver",
+    "No afirma que main sea entrypoint de /bin/ls; objdump -t no confirma en este artefacto por limitaciones del entorno",
+    "Evidencia estructural, no din\u00e1mica (F2 PARTIAL pendiente)"
+  ],
+  "contra_probar": "No confundir con referencias de amdgpu.ko (e2e_001 a e2e_007); artefacto /bin/ls independiente; conclusi\u00f3n PARTIAL, no PROVEN"
+}

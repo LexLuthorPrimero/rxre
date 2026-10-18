@@ -27,7 +27,12 @@ import re
 import subprocess
 import sys
 
+<<<<<<< HEAD
 RAIZ = "/home/lucas/Escritorio/rxre"
+=======
+RAIZ = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                     "..", "..", ".."))
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 KERN = os.path.join(RAIZ, "RESEARCH/working/linux-7.1.3")
 AMD = os.path.join(KERN, "drivers/gpu/drm/amd")
 DICC = os.path.join(AMD, "include/asic_reg/gca/gfx_8_0_d.h")

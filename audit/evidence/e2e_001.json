@@ -1,0 +1,13 @@
+{
+  "e2e_id": "e2e-001",
+  "objetivo": "Investigar driver RX 550",
+  "artefacto_path": "amdgpu.ko",
+  "artefacto_size_bytes": 34017534,
+  "artefacto_hash_sha256": "53f55bd240b9cc523ec4e92c40d8c60227d91b572d0833d4c0a85e98bcc2c637",
+  "backend_resuelto": "binary.inspect",
+  "backend_nombre": null,
+  "ejecucion_estado": "blocked",
+  "procedencia": "rxre/e2e/2026-10-18",
+  "epistemic": "PROVEN",
+  "limitaciones": "No captura MMIO f\u00edsico (F2 PARTIAL); artefacto es archivo de driver"
+}

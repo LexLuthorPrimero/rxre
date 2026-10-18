@@ -53,7 +53,10 @@ from backends import registry  # noqa: E402
 from backends.contract import (  # noqa: E402
     BK_BLOCKED, BK_EMPTY, BK_ERROR, BK_INVALID, BK_OK, BK_UNSUPPORTED,
     RAW_BINARY, Backend, sha256_de,
+<<<<<<< HEAD
     estado_firma,
+=======
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 )
 
 
@@ -73,6 +76,19 @@ def _exe_de(backend_id: str, nombre: str) -> Optional[str]:
     return shutil.which(nombre)
 
 
+<<<<<<< HEAD
+=======
+def _es_elf(p: str) -> bool:
+    """Comprobacion minima de la firma. MEDIDO: `rz-bin` acepta cualquier cosa
+    y devuelve `info: []`, que es indistinguible de un binario sin secciones."""
+    try:
+        with open(p, "rb") as fh:
+            m = fh.read(4)
+    except OSError:
+        return False
+    return m[:4] == b"\x7fELF"
+
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 
 def _id_resultado(artefacto: str, backend: str, valor: Any,
                   donde: Optional[Dict[str, Any]] = None) -> str:
@@ -162,7 +178,10 @@ def inspect(artefacto: str, backend_id: str = "rizin",
 
     # --- PRE-EXECUTION CONTRACT CHECK (§15). Antes de invocar. -----------
     pre = {"input_existe": os.path.isfile(artefacto),
+<<<<<<< HEAD
            "input_legible": None,
+=======
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
            "input_es_elf": False, "input_hash": "",
            "backend_existe": b.existe(),
            "entrypoint_existe": bool(b.path()),
@@ -172,6 +191,7 @@ def inspect(artefacto: str, backend_id: str = "rizin",
     if not pre["input_existe"]:
         return {"status": BK_INVALID, "precheck": pre,
                 "limitations": ["la entrada no existe: %s" % artefacto]}
+<<<<<<< HEAD
     firma = estado_firma(artefacto)
     if firma == "no_legible":
         # MEDIDO 2026-10-15 (chmod 000): aqui antes se respondia lo mismo que
@@ -188,6 +208,9 @@ def inspect(artefacto: str, backend_id: str = "rizin",
                                 "no se invoco al backend"]}
     pre["input_legible"] = True
     if firma == "no_elf":
+=======
+    if not _es_elf(artefacto):
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
         # No se invoca al backend. `rz-bin` sobre un no-ELF devuelve `info: []`,
         # que es indistinguible de un ELF sin secciones.
         return {"status": BK_INVALID, "precheck": pre,
@@ -397,6 +420,7 @@ def cadena_backend(env: Dict[str, Any]) -> Dict[str, Any]:
     probaria que la funcion de lectura funciona, no que la evidencia existe.
     """
     ej = env.get("ejecucion") or {}
+<<<<<<< HEAD
     be = env.get("backend") or {}
     # MEDIDO 2026-10-12 (RXRE-1632): `env["provenance"]` es POLIMORFICO.
     # Este mismo modulo pone las dos formas - `{"artefacto": ...}` en las
@@ -419,6 +443,10 @@ def cadena_backend(env: Dict[str, Any]) -> Dict[str, Any]:
     # Cuando `provenance` es una cadena, su contenido es el ESTADO. No se
     # pierde: sale por `provenance_estado`, que es donde lo lee el resto.
     estado_prov = (prov.get("estado") if prov else None) or crudo_prov or ""
+=======
+    prov = env.get("provenance") or {}
+    be = env.get("backend") or {}
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
     return {
         "backend_id": be.get("backend_id") or prov.get("backend_id", ""),
         "tool_version": be.get("tool_version", ""),
@@ -437,7 +465,13 @@ def cadena_backend(env: Dict[str, Any]) -> Dict[str, Any]:
         "transformacion": prov.get("transformacion", ""),
         "normalizador": prov.get("normalizador", ""),
         "limitaciones": prov.get("limitaciones") or ej.get("limitations") or [],
+<<<<<<< HEAD
         "provenance_estado": (estado_prov or "PROVENANCE_INCOMPLETE"),
+=======
+        "provenance_estado": (prov.get("estado")
+                              or env.get("provenance")
+                              or "PROVENANCE_INCOMPLETE"),
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
         "chain": ["result_id", "operation_id", "backend", "tool_version",
                   "repository_commit", "input_artifact", "input_hash",
                   "command_or_api", "argv", "raw_output", "transformacion",

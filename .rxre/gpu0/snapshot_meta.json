@@ -1,0 +1,9 @@
+{
+  "device_id": "gpu0",
+  "fixture": true,
+  "source": "test_fixture_not_hardware",
+  "bytes": 4096,
+  "hash_sha256": "3f1321ef3538ee07ea0f3882614506748a3af2f9badb8e9748066427db64ff16",
+  "created": "2026-10-18T15:08:54.241999",
+  "note": "Fixture de prueba \u2014 NO captura MMIO real. Requiere autorizaci\u00f3n root + /dev/mem para snapshot f\u00edsico."
+}

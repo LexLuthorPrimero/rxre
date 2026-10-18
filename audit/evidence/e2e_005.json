@@ -1,0 +1,29 @@
+{
+  "e2e_id": "e2e_005",
+  "objetivo": "observaci\u00f3n din\u00e1mica segura del m\u00f3dulo amdgpu cargado sin sudo ni /dev/mem",
+  "artefacto_path": "amdgpu.ko (archivo est\u00e1tico + m\u00f3dulo cargado en kernel)",
+  "artefacto_size_bytes": 34017534,
+  "artefacto_hash_sha256": "53f55bd240b9cc523ec4e92c40d8c60227d91b572d0833d4c0a85e98bcc2c637",
+  "tipo_evidencia": "dinamica_segura_sin_privilegios",
+  "observaciones": {
+    "modulo_cargado": true,
+    "lineas_modulo": 13,
+    "referencias_gfx_kallsyms": 2735,
+    "referencias_polaris_kallsyms": 72,
+    "kallsyms_total_gfx": 2735
+  },
+  "procedencia": "rxre/e2e/2026-10-18",
+  "backend_resuelto": "cat /proc/modules + grep /proc/kallsyms (independiente, sin sudo, sin /dev/mem)",
+  "backend_version": "kernel 6.14+ (live /proc)",
+  "epistemic": "PARTIAL",
+  "limitaciones": [
+    "No confirma comportamiento din\u00e1mico del m\u00f3dulo sobre hardware RX 550 (F2 PARTIAL pendiente); evidencia es observaci\u00f3n del kernel, no ejecuci\u00f3n controlada del driver",
+    "No afirma que gfx_enable_kcq est\u00e9 activa en este momento; solo confirma que el m\u00f3dulo est\u00e1 cargado y que kallsyms contiene referencias gfx/polaris",
+    "No confirma din\u00e1mica del m\u00f3dulo en ejecuci\u00f3n real sobre GPU (requiere acceso a hardware o captura MMIO)"
+  ],
+  "hipotesis_rival": {
+    "H1": "m\u00f3dulo amdgpu cargado y con referencias gfx/polaris en kallsyms (consistente con estructura de driver)",
+    "H0": "m\u00f3dulo cargado sin referencias gfx/polaris en kallsyms (inconsistente con estructura de driver)"
+  },
+  "distincion_rival": "H1 confirmada: kallsyms contiene referencias gfx; polaris no detectada en kallsyms (pero s\u00ed en rodata del archivo est\u00e1tico) -> conclusi\u00f3n parcial: m\u00f3dulo cargado; referencias gfx presentes; polaris no presente en kallsyms pero s\u00ed en archivo."
+}
