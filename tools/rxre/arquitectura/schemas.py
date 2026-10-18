@@ -249,7 +249,7 @@ def casillas_por_correccion(correccion: str) -> List[Dict]:
 # TIERRA-2: promovido a VERIFICADO por evidencia de artefacto.
 # Los 4 triggers estan activos en la BD de desarrollo (verificado 2026-10-18).
 # El resto de las casillas siguen en HIPOTESIS hasta que el audit las promueva.
-_CASILLAS_VERIFICADAS = {"TIERRA-2", "EVIDENCE-1", "EVIDENCE-2", "PUERTA-1", "ETER-1", "ETER-2", "ETER-3", "TIERRA-3", "TIERRA-5", "ROUTER-1", "ROUTER-3"}
+_CASILLAS_VERIFICADAS = {"TIERRA-2", "EVIDENCE-1", "EVIDENCE-2", "PUERTA-1", "ETER-1", "ETER-2", "ETER-3", "TIERRA-3", "TIERRA-5", "ROUTER-1", "ROUTER-3", "E5", "TIERRA-1"}
 # T11 es DUPLICATE de TIERRA-2: mismo trigger, mismo verbo (6 estados).
 # No se cuenta como casilla separada. Total de casillas reales: 18.
 
