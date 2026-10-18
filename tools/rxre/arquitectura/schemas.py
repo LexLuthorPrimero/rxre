@@ -250,6 +250,8 @@ def casillas_por_correccion(correccion: str) -> List[Dict]:
 # Los 4 triggers estan activos en la BD de desarrollo (verificado 2026-10-18).
 # El resto de las casillas siguen en HIPOTESIS hasta que el audit las promueva.
 _CASILLAS_VERIFICADAS = {"TIERRA-2", "EVIDENCE-1", "PUERTA-1", "ETER-1"}
+# T11 es DUPLICATE de TIERRA-2: mismo trigger, mismo verbo (6 estados).
+# No se cuenta como casilla separada. Total de casillas reales: 18.
 
 
 def auditoria_de_diseno() -> Dict[str, Any]:
