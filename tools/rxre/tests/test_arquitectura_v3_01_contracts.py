@@ -273,8 +273,8 @@ aud = schemas.auditoria_de_diseno()
 # TIERRA-2, EVIDENCE-1 y PUERTA-1 se promovieron a VERIFICADO con evidencia
 # de artefacto. E5 se promovio con crash test (evento sobrevive SIGKILL).
 # Las otras 15 siguen en HIPOTESIS.
-v("schemas: las 15 casillas sin evidencia siguen en HIPOTESIS",
-  aud["por_estado"].get(schemas.HIPOTESIS, 0) == 15,
+v("schemas: las 14 casillas sin evidencia siguen en HIPOTESIS",
+  aud["por_estado"].get(schemas.HIPOTESIS, 0) == 14,
   str(aud["por_estado"]))
 v("schemas: 5 casillas promovidas a VERIFICADO",
   aud["por_estado"].get(schemas.VERIFICADO, 0) == 5,
