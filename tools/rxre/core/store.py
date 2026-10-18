@@ -1116,16 +1116,39 @@ def registrar(c: sqlite3.Connection, request: Dict[str, Any], env: Dict[str, Any
                                          "motivo": "result_id ya existia; "
                                                    "no se sobrescribe"})
             continue
+        # [v3] row_hash: SHA-256 de los campos del result (sin row_hash ni
+        # supersedes_ref). Se calcula aqui, al escribir, y se verifica al
+        # leer en recuperar_evidencia_resultados.
+        campos_result = {
+            "result_id": r["result_id"],
+            "operation_id": op_id,
+            "type": r.get("type", ""),
+            "value": str(r.get("value", ""))[:4000],
+            "source": r.get("source", ""),
+            "file": loc.get("file") or loc.get("loc") or "",
+            "line": loc.get("line"),
+            "scope": r.get("scope", ""),
+            "tool": r.get("tool", ""),
+            "tool_version": r.get("tool_version", ""),
+            "status": r.get("status", ""),
+            "raw_json": json.dumps(r, sort_keys=True, default=str),
+            "timestamp": r.get("timestamp", time.strftime("%Y-%m-%dT%H:%M:%S%z")),
+        }
+        row_hash = hashlib.sha256(
+            json.dumps(campos_result, sort_keys=True, default=str).encode()
+        ).hexdigest()
         c.execute(
             "INSERT INTO results(result_id,operation_id,type,value,"
-            "source,file,line,scope,tool,tool_version,status,raw_json,timestamp) "
-            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "source,file,line,scope,tool,tool_version,status,raw_json,timestamp,"
+            "row_hash) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (r["result_id"], op_id, r.get("type", ""),
              str(r.get("value", ""))[:4000], r.get("source", ""),
              loc.get("file") or loc.get("loc") or "", loc.get("line"),
              r.get("scope", ""), r.get("tool", ""), r.get("tool_version", ""),
              r.get("status", ""), json.dumps(r, sort_keys=True, default=str),
-             r.get("timestamp", time.strftime("%Y-%m-%dT%H:%M:%S%z"))))
+             r.get("timestamp", time.strftime("%Y-%m-%dT%H:%M:%S%z")),
+             row_hash))
     c.commit()
     # BMS-EXT-001: audit log entry for operation registration
     # Usar request["capability"] (no env["capability"], que se setea DESPUES)
@@ -1270,6 +1293,37 @@ def recuperar_evidencia_resultados(c: sqlite3.Connection,
         r = dict(row)
         r["result_value"] = r.get("value")
         r["result_type"] = r.get("type")
+        # [v3] Verificar row_hash al leer. Si el hash no coincide, la fila fue
+        # alterada por una via que el trigger no cubre. Se lanza IntegrityError
+        # en vez de devolver una bandera: un registro alterado no es "un poco
+        # raro", no es fiable, y el llamador no deberia poder seguir.
+        row_hash = r.get("row_hash")
+        if row_hash:
+            campos = {
+                "result_id": r.get("result_id"),
+                "operation_id": r.get("operation_id"),
+                "type": r.get("type"),
+                "value": r.get("value"),
+                "source": r.get("source"),
+                "file": r.get("file"),
+                "line": r.get("line"),
+                "scope": r.get("scope"),
+                "tool": r.get("tool"),
+                "tool_version": r.get("tool_version"),
+                "status": r.get("status"),
+                "raw_json": r.get("raw_json"),
+                "timestamp": r.get("timestamp"),
+            }
+            recalculado = hashlib.sha256(
+                json.dumps(campos, sort_keys=True, default=str).encode()
+            ).hexdigest()
+            if recalculado != row_hash:
+                raise IntegrityError(
+                    "row_hash de %s no coincide: almacenado=%s "
+                    "recalculado=%s. La fila fue alterada por una via que "
+                    "el trigger no cubre." % (
+                        r.get("result_id"), row_hash[:16],
+                        recalculado[:16]))
         op = c.execute(
             "SELECT * FROM operations WHERE operation_id=?",
             (r.get("operation_id"),)
@@ -2643,6 +2697,15 @@ def capturar_evidencia_desde_ejecucion(c: sqlite3.Connection, execution_result: 
 # =========================================================================
 # [v3-4] Optimistic locking: errores tipados y funcion publica.
 # =========================================================================
+class IntegrityError(RuntimeError):
+    """El `row_hash` recalculado no coincide con el almacenado.
+
+    No es un error de base de datos: la base esta bien. Lo que esta mal es
+    que la fila fue alterada por una via que el trigger no cubre. Se distingue
+    para que el llamador no la confunda con un fallo de disco y reintente.
+    """
+
+
 class StaleVersionError(RuntimeError):
     """El `version` cambio entre la lectura y el UPDATE.
 
