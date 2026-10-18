@@ -50,3 +50,4 @@
 "DISCIPLINA-1","D","disciplina 6 pasos","core/disciplina.py creado; máquina de estados","D1 orden completo pasa","VERIFIED","6 pasos EVIDENCE→VALIDATION"
 "DISCIPLINA-2","D","disciplina salto detectado","avanzar() detecta salto; abort automático; estado refleja","D2 salto detectado pasa","VERIFIED","abort irreducible"
 "DISCIPLINA-3","D","disciplina reconstrucción","historial() reconstruye transición con payload","D3 historial completo pasa","VERIFIED","5 transiciones en orden"
+MENTE-1,MENTE-2,MENTE-4

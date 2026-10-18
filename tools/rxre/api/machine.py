@@ -76,14 +76,15 @@ _AGUA = None
 
 try:
     import rxre.core.disciplina as _disciplina_mod  # noqa: E402
+except Exception:  # pragma: no cover
+    _disciplina_mod = None
+_DISCIPLINA = None
+
 try:
     import rxre.core.mente as _mente_mod  # noqa: E402
 except Exception:  # pragma: no cover
     _mente_mod = None
 _MENTE = None
-except Exception:  # pragma: no cover
-    _disciplina_mod = None
-_DISCIPLINA = None
 
 def _disciplina():
     global _DISCIPLINA
