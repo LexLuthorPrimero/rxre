@@ -249,7 +249,7 @@ def casillas_por_correccion(correccion: str) -> List[Dict]:
 # TIERRA-2: promovido a VERIFICADO por evidencia de artefacto.
 # Los 4 triggers estan activos en la BD de desarrollo (verificado 2026-10-18).
 # El resto de las casillas siguen en HIPOTESIS hasta que el audit las promueva.
-_CASILLAS_VERIFICADAS = {"TIERRA-2"}
+_CASILLAS_VERIFICADAS = {"TIERRA-2", "EVIDENCE-1"}
 
 
 def auditoria_de_diseno() -> Dict[str, Any]:
