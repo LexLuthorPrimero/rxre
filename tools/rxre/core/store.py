@@ -93,6 +93,29 @@ CREATE INDEX IF NOT EXISTS ix_results_op   ON results(operation_id);
 CREATE INDEX IF NOT EXISTS ix_results_type ON results(type);
 CREATE INDEX IF NOT EXISTS ix_results_file ON results(file);
 
+-- =====================================================================
+-- [v3] Append-only en results: triggers + columnas nuevas.
+--
+-- El diagrama: "EVIDENCE: append-only, delete prohibido por permiso en
+-- punto de escritura". Lo mismo aplica a results: un result_id repetido
+-- sobrescribe el contenido anterior sin dejar rastro, y eso es lo que
+-- sostiene los resultados huerfanos y los COLISION: documentados.
+--
+-- `row_hash` y `supersedes_ref` se agregan via _asegurar_columnas_results,
+-- no aqui: ALTER TABLE ADD COLUMN lanza si ya existe.
+-- =====================================================================
+CREATE TRIGGER IF NOT EXISTS trg_results_no_update
+BEFORE UPDATE ON results
+BEGIN
+  SELECT RAISE(ABORT, 'RESULTS_APPEND_ONLY: UPDATE prohibido sobre results');
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_results_no_delete
+BEFORE DELETE ON results
+BEGIN
+  SELECT RAISE(ABORT, 'RESULTS_APPEND_ONLY: DELETE prohibido sobre results');
+END;
+
 -- Aristas de la composicion: que operacion vino de cual.
 CREATE TABLE IF NOT EXISTS relations (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -207,7 +230,7 @@ CREATE TABLE IF NOT EXISTS findings (
     finding_id   TEXT PRIMARY KEY,
     op_id        TEXT REFERENCES operations(operation_id),
     claim        TEXT NOT NULL,
-    epistemic    TEXT,            -- PROVEN, PARTIAL, NOT_DETERMINED, PROVEN_ABSENT, DEFERRED
+    epistemic    TEXT,            -- PROVEN, PARTIAL, NOT_DETERMINED, PROVEN_ABSENT, DEFERRED, INVALIDATED
     evidence_ids TEXT,            -- JSON array de result_id que soportan este finding
     provenance   TEXT,            -- JSON con producer, tool_version, params, timestamp
     limitations  TEXT,            -- JSON array de limitaciones declaradas
@@ -227,6 +250,79 @@ CREATE TABLE IF NOT EXISTS finding_relations (
 CREATE INDEX IF NOT EXISTS ix_findings_epistemic ON findings(epistemic);
 CREATE INDEX IF NOT EXISTS ix_finding_relations_source ON finding_relations(source_id);
 CREATE INDEX IF NOT EXISTS ix_finding_relations_target ON finding_relations(target_id);
+
+-- =====================================================================
+-- [v3] CHECK DE 6 ESTADOS EN findings — como MECANISMO, no como comentario.
+--
+-- El diagrama dice 6 estados: PROVEN | PARTIAL | NOT_DETERMINED |
+-- PROVEN_ABSENT | DEFERRED | INVALIDATED.
+--
+-- store.py:210 decia "epistemic TEXT -- PROVEN, ..., INVALIDATED" pero la
+-- columna no tenia CHECK. Decir no es imponer. Y una columna que acepta
+-- cualquier string no es un CHECK: es una sugerencia.
+--
+-- SQLite no permite ALTER TABLE ADD CHECK. La via es el trigger, que es lo
+-- que el audit A-F midio como "0 triggers" y lo que la v3-5 exige.
+--
+-- El trigger es BEFORE INSERT y BEFORE UPDATE OF epistemic. No bloquea
+-- filas OBSERVED ya existentes (no hay INSERT ni UPDATE que disparelo), pero
+-- si bloquea cualquier intento futuro de escribir OBSERVED o GARBAGE.
+--
+-- OBSERVED es un estado que existe en produccion (9 findings) pero NO esta
+-- en los 6 canonicos. Se documenta como gap, no se borra ni se migra aqui:
+-- el trigger protege el futuro, no reescribe el pasado.
+-- =====================================================================
+CREATE TRIGGER IF NOT EXISTS trg_findings_epistemic_valid_insert
+BEFORE INSERT ON findings
+WHEN NEW.epistemic IS NOT NULL
+  AND NEW.epistemic NOT IN ('PROVEN','PARTIAL','NOT_DETERMINED',
+                            'PROVEN_ABSENT','DEFERRED','INVALIDATED')
+BEGIN
+  SELECT RAISE(ABORT, 'EPISTEMIC_INVALID: ' || NEW.epistemic);
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_findings_epistemic_valid_update
+BEFORE UPDATE OF epistemic ON findings
+WHEN NEW.epistemic IS NOT NULL
+  AND NEW.epistemic NOT IN ('PROVEN','PARTIAL','NOT_DETERMINED',
+                            'PROVEN_ABSENT','DEFERRED','INVALIDATED')
+BEGIN
+  SELECT RAISE(ABORT, 'EPISTEMIC_INVALID: ' || NEW.epistemic);
+END;
+
+-- =========================================================================
+-- [v3-2] INVALIDATED NO ES AUTOMATICO.
+--
+-- El diagrama: "contradiccion -> reevaluacion documentada -> puede resultar
+-- en INVALIDATED o volver a PROVEN si se refuta la contradiccion".
+--
+-- Lo que hace falta para que eso sea mas que un string: un REGISTRO de quien
+-- reevalua, por que, y con que resultado. Sin esta tabla, INVALIDATED seria un
+-- valor mas de una columna, y escribirlio no dejaria rastro de nada — que es
+-- exactamente el fallo que la v3-2 corrige.
+--
+-- Por eso la reevaluacion es una fila, no un UPDATE: queda en el historico.
+-- =========================================================================
+CREATE TABLE IF NOT EXISTS finding_reevaluations (
+    reevaluation_id   TEXT PRIMARY KEY,
+    finding_id        TEXT NOT NULL,
+    contradiction     TEXT NOT NULL,     -- que se contradice
+    decision          TEXT NOT NULL,     -- INVALIDATED | REVERTED | PARTIAL
+    rationale         TEXT NOT NULL,     -- por que se decide eso
+    reviewer          TEXT NOT NULL,     -- quien reevalua
+    created_at        TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (finding_id) REFERENCES findings(finding_id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_reeval_finding ON finding_reevaluations(finding_id);
+
+-- La columna `reevaluation_id` de `findings` se agrega en
+-- `_asegurar_columnas_reevaluacion()`, NO aqui: `ALTER TABLE ADD COLUMN` lanza
+-- si la columna ya existe, y el DDL se ejecuta en cada `conectar()`. El
+-- patron ya existe en `_asegurar_columnas_execution_events`.
+
+-- [v3] Columna `version` para optimistic locking. Mismo patron.
+-- Se agrega en `_asegurar_columnas_version()`, no aqui.
 
 -- RXRE-AUTONOMY-001. Persistent mission state for autonomous execution.
 -- These tables bind a mission objective to its acceptance criteria, tasks,
@@ -519,7 +615,7 @@ TIPOS_RELACIÓN = (
     "AFFECTS",     # efecto en registro/estado de hardware
 )
 
-KIND_RESEARCH = ("hypothesis", "claim", "note", "next_action", "frontier")
+KIND_RESEARCH = ("hypothesis", "claim", "note", "next_action", "frontier", "performance")
 
 #: `correlation` NO se suma a KIND_RESEARCH a proposito: KIND_RESEARCH es la
 #: lista de lo que un consumidor puede REGISTRAR via `registrar_investigacion`
@@ -576,11 +672,88 @@ def conectar(ruta: Optional[str] = None) -> sqlite3.Connection:
                   (str(SCHEMA_VERSION),))
         c.commit()
     _asegurar_columnas_execution_events(c)
+    _asegurar_columnas_reevaluacion(c)
+    _asegurar_columnas_version(c)
+    _asegurar_columnas_results(c)
     return c
 
 
 def _sha(txt: str) -> str:
     return hashlib.sha256(txt.encode("utf-8")).hexdigest()[:16]
+
+
+def _asegurar_columnas_version(c: sqlite3.Connection) -> None:
+    """[v3-4] Agrega `findings.version` para optimistic locking.
+
+    Mismo patron que `_asegurar_columnas_execution_events`: `CREATE TABLE IF
+    NOT EXISTS` no altera tablas viejas, y `ALTER TABLE ADD COLUMN` lanza si
+    la columna ya existe.
+
+    `version` empieza en 0 y se incrementa en cada `UPDATE` optimista. Un
+    escritor que leyo version=N y encuentra que otro ya movio a N+1 recibe
+    rowcount=0 y reintenta con la version nueva. Sin lock, sin espera.
+    """
+    try:
+        cols = {r["name"] for r in c.execute("PRAGMA table_info(findings)")}
+    except sqlite3.Error:
+        return
+    if "version" not in cols:
+        try:
+            c.execute("ALTER TABLE findings ADD COLUMN version INTEGER NOT NULL DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+
+
+def _asegurar_columnas_reevaluacion(c: sqlite3.Connection) -> None:
+    """[v3-2] Agrega `findings.reevaluation_id` en bases existentes.
+
+    Mismo motivo y mismo patron que `_asegurar_columnas_execution_events`:
+    `CREATE TABLE IF NOT EXISTS` no altera tablas viejas, y `ALTER TABLE ADD
+    COLUMN` lanza si la columna ya existe.
+
+    La columna guarda QUE reevaluacion produjo el estado actual. NULL no es
+    "no hay dato": es informacion, y distingue dos cosas que de otro modo
+    quedan indistinguibles al leer `findings.epistemic`:
+
+        INVALIDATED con reevaluation_id    -> alguien lo reviso y decidio
+        INVALIDATED con reevaluation_id NULL -> se escribio a mano
+    """
+    try:
+        cols = {r["name"] for r in c.execute("PRAGMA table_info(findings)")}
+    except sqlite3.Error:
+        return
+    if "reevaluation_id" not in cols:
+        try:
+            c.execute("ALTER TABLE findings ADD COLUMN reevaluation_id TEXT")
+        except sqlite3.OperationalError:
+            pass
+
+
+def _asegurar_columnas_results(c: sqlite3.Connection) -> None:
+    """[v3] Agrega `row_hash` y `supersedes_ref` a `results` en bases existentes.
+
+    Mismo patron que `_asegurar_columnas_execution_events`: `CREATE TABLE IF
+    NOT EXISTS` no altera tablas viejas, y `ALTER TABLE ADD COLUMN` lanza si
+    la columna ya existe.
+
+    `row_hash` es el SHA-256 de los campos del result (sin row_hash). Se
+    verifica al leer, igual que en `evidence`. `supersedes_ref` apunta al
+    result_id que este result corrige; la fila anterior NO se borra.
+    """
+    try:
+        cols = {r["name"] for r in c.execute("PRAGMA table_info(results)")}
+    except sqlite3.Error:
+        return
+    if "row_hash" not in cols:
+        try:
+            c.execute("ALTER TABLE results ADD COLUMN row_hash TEXT")
+        except sqlite3.OperationalError:
+            pass
+    if "supersedes_ref" not in cols:
+        try:
+            c.execute("ALTER TABLE results ADD COLUMN supersedes_ref TEXT")
+        except sqlite3.OperationalError:
+            pass
 
 
 def _asegurar_columnas_execution_events(c: sqlite3.Connection) -> None:
@@ -821,24 +994,21 @@ def registrar_evento(c: sqlite3.Connection, op: str, capability: str,
     evento_id = "ev_" + _sha(json.dumps(env.get("ejecucion") or {},
                                        sort_keys=True, default=str)
                              + op + capability + str(op_id) + _tid)
-    try:
-        c.execute(
-            "INSERT OR REPLACE INTO execution_events(evento_id, op, capability, "
-            "backend_id, exit_status, operation_id, result_id, persistido, "
-            "n_lessons, limitations, timestamp, trace_id, lecciones_json) "
-            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            (evento_id, op, capability, beid,
-             (env.get("ejecucion") or {}).get("exit_status"),
-             op_id, rid, int(bool(env.get("persistido"))),
-             len(lecciones or []),
-             json.dumps(env.get("limitations") or [], default=str),
-             time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-             env.get("trace_id"),
-             json.dumps([l.get("reflexion_id") if isinstance(l, dict) else str(l)
-                         for l in (lecciones or [])], default=str)))
-        c.commit()
-    except sqlite3.IntegrityError:
-        pass
+    c.execute(
+        "INSERT OR REPLACE INTO execution_events(evento_id, op, capability, "
+        "backend_id, exit_status, operation_id, result_id, persistido, "
+        "n_lessons, limitations, timestamp, trace_id, lecciones_json) "
+        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (evento_id, op, capability, beid,
+         (env.get("ejecucion") or {}).get("exit_status"),
+         op_id, rid, int(bool(env.get("persistido"))),
+         len(lecciones or []),
+         json.dumps(env.get("limitations") or [], default=str),
+         time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+         env.get("trace_id"),
+         json.dumps([l.get("reflexion_id") if isinstance(l, dict) else str(l)
+                     for l in (lecciones or [])], default=str)))
+    c.commit()
     return evento_id
 
 
@@ -846,6 +1016,11 @@ def registrar(c: sqlite3.Connection, request: Dict[str, Any], env: Dict[str, Any
               duracion: float = 0.0) -> str:
     """Guarda una operacion completa. Devuelve su `operation_id`."""
     op_json = json.dumps(request, sort_keys=True, default=str)
+    # RXRE-AUTO-003: S.registrar persiste una operacion; si llegamos aqui,
+    # persistido=True es intrinsecamente verdadero. Setearlo aqui garantiza
+    # que response_json tenga el flag para el gate de AGUA, sin requerir
+    # que cada adapter lo incluya en su dict de respuesta.
+    env.setdefault("persistido", True)
     resp_json = json.dumps(env, sort_keys=True, default=str)
     op_id = "op_" + _sha(op_json + str(env.get("status")) + str(time.time()))
     c.execute(
@@ -864,8 +1039,21 @@ def registrar(c: sqlite3.Connection, request: Dict[str, Any], env: Dict[str, Any
         if not isinstance(r, dict) or "result_id" not in r:
             continue          # resultados de RXRE-001 sin normalizar: no se indexan
         loc = r.get("location") or {}
+        # [v3-5] Append-only: si el result_id ya existe, se devuelve sin
+        # sobrescribir. La colision se registra en el audit_log para que quede
+        # traza del intento, pero la fila anterior no se toca.
+        existing = c.execute(
+            "SELECT result_id FROM results WHERE result_id=?",
+            (r["result_id"],)).fetchone()
+        if existing:
+            registrar_audit_log(c, "collision", "result", r["result_id"],
+                                actor=request.get("capability", "unknown"),
+                                details={"nuevo_op_id": op_id,
+                                         "motivo": "result_id ya existia; "
+                                                   "no se sobrescribe"})
+            continue
         c.execute(
-            "INSERT OR REPLACE INTO results(result_id,operation_id,type,value,"
+            "INSERT INTO results(result_id,operation_id,type,value,"
             "source,file,line,scope,tool,tool_version,status,raw_json,timestamp) "
             "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (r["result_id"], op_id, r.get("type", ""),
@@ -908,6 +1096,33 @@ def explicar_operacion(c: sqlite3.Connection,
     filas = [dict(x) for x in c.execute(
         "SELECT result_id, type, tool, file, line, status, scope FROM results "
         "WHERE operation_id=? ORDER BY result_id", (operation_id,)).fetchall()]
+    # F1/F4-C2: `n_results` es el CONTADOR que se escribio al insertar
+    # (`len(env["results"])`, store.py:862) y que NUNCA se recalcula. Antes de
+    # esta linea, un contador que no cuadraba con las filas se callaba: la
+    # respuesta salia `status:"ok"` con `limitations: []`, que se lee como
+    # "no hay nada que reportar". Los dos numeros SIESTAN en el payload, pero
+    # el que solo mira `status` no ve la contradiccion.
+    #
+    # Se DECLARA y NO SE DIAGNOSTICA. La causa puede ser un borrado, un
+    # `INSERT OR REPLACE` de otro `result_id`, o un resultado sin `result_id`
+    # que el propio `registrar` no indexa (store.py:867). Esta funcion no tiene
+    # como distinguirlo, y afirmar una seria inventar historia.
+    #
+    #     una discrepancia es un HECHO; su causa es una HIPOTESIS
+    #
+    # No se afirma `RESULT_LOST`: la ausencia de filas NO prueba perdida, y el
+    # contrato no tiene forma hoy de afirmarla.
+    _limitaciones: List[str] = []
+    _declarado = op["n_results"]
+    _real = len(filas)
+    if _declarado is not None and _declarado != _real:
+        _limitaciones.append(
+            "discrepancia de inventario: la operacion declara n_results=%s y "
+            "hay %d fila(s) en `results`. NO se puede determinar la causa desde "
+            "aqui: puede ser un resultado no indexado por falta de "
+            "`result_id`, un `result_id` reescrito, o una fila eliminada. La "
+            "ausencia de filas NO prueba que se perdiera nada."
+            % (_declarado, _real))
     etapas: List[Dict[str, Any]] = []
     backend: Dict[str, Any] = {}
     try:
@@ -928,7 +1143,7 @@ def explicar_operacion(c: sqlite3.Connection,
             "backend": backend,
             "chain": ["question", "capability", "pipeline", "tool_run",
                       "input", "result"],
-            "limitations": []}
+            "limitations": _limitaciones}
 
 
 def explicar(c: sqlite3.Connection, result_id: str) -> Dict[str, Any]:
@@ -2361,6 +2576,40 @@ def capturar_evidencia_desde_ejecucion(c: sqlite3.Connection, execution_result: 
 # ====================================================================
 
 
+# =========================================================================
+# [v3-4] Optimistic locking: errores tipados y funcion publica.
+# =========================================================================
+class StaleVersionError(RuntimeError):
+    """El `version` cambio entre la lectura y el UPDATE.
+
+    No es un error de disco ni de base de datos: la base esta bien. Lo que
+    esta mal es que la lectura que se hizo antes ya no es vigente. El
+    llamador debe releer y reintentar, no reintentar a ciegas.
+    """
+
+
+def actualizar_estado_finding(c: sqlite3.Connection, finding_id: str,
+                              nuevo_estado: str,
+                              version_esperada: int) -> int:
+    """[v3-4] UPDATE optimista de `findings.epistemic`.
+
+    Retorna rowcount: 1 = aplico, 0 = otro escritor gano la carrera.
+
+    La semantica es la misma que `update_claim_state` del esqueleto, pero
+    adaptada a `findings` (que tiene `epistemic`, no `epistemic_state`).
+
+    Por que devuelve int y no lanza: esta es la funcion PUBLICA, y su
+    contrato es "dime si aplique". Quien quiera lanzar (reevaluar_finding)
+    chequea el 0 y lanza StaleVersionError. Dos semantica, una decision:
+    la funcion publica reporta, la de alto nivel exige.
+    """
+    cur = c.execute(
+        "UPDATE findings SET epistemic = ?, version = version + 1 "
+        "WHERE finding_id = ? AND version = ?",
+        (nuevo_estado, finding_id, version_esperada))
+    return cur.rowcount
+
+
 def guardar_finding(c: sqlite3.Connection, finding_dict: Dict[str, Any]) -> str:
     """Persiste un hallazgo con ID determinista basado en claim + evidence_ids.
 
@@ -2401,12 +2650,19 @@ def guardar_finding(c: sqlite3.Connection, finding_dict: Dict[str, Any]) -> str:
     if existing:
         return "COLISION:" + existing["finding_id"]
 
-    # Insertar el hallazgo
+    # Insertar el hallazgo.
+    #
+    # ANTES: INSERT OR REPLACE. Eso pisaba un finding existente con el mismo
+    # id sin dejar rastro, y reseteaba la version a 0, invalidando el
+    # optimistic locking. La verificacion de colision de arriba ya cubre el
+    # caso "mismo id": si existe, se devuelve "COLISION:<id>" y no se llega
+    # aqui. Por tanto el REPLACE es codigo muerto que ademas hace dano, y se
+    # quita.
     c.execute(
-        "INSERT OR REPLACE INTO findings "
+        "INSERT INTO findings "
         "(finding_id, op_id, claim, epistemic, evidence_ids, "
-        " provenance, limitations, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+        " provenance, limitations, created_at, version) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), 0)",
         (
             finding_id,
             finding_dict.get("op_id") or None,  # NULL when no op_id (FK)
@@ -2469,7 +2725,7 @@ def recuperar_finding(c: sqlite3.Connection, finding_id: str) -> Optional[Dict[s
     """
     row = c.execute(
         "SELECT finding_id, op_id, claim, epistemic, evidence_ids, "
-        " provenance, limitations, created_at "
+        " provenance, limitations, created_at, reevaluation_id, version "
         "FROM findings WHERE finding_id=?",
         (finding_id,)
     ).fetchone()
@@ -2497,6 +2753,140 @@ def recuperar_finding(c: sqlite3.Connection, finding_id: str) -> Optional[Dict[s
     else:
         f["limitations"] = []
     return f
+
+
+# =========================================================================
+# [v3-2] REEVALUACION: la UNICA via por la que un finding llega a
+# INVALIDATED. Y la unica via por la que vuelve a PROVEN.
+# =========================================================================
+DECISION_REEVALUACION = ("INVALIDATED", "REVERTED", "PARTIAL")
+
+# Que estado epistémico produce cada decisión. `REVERTED` no es un estado:
+# es la decisión de DEVOLVER a PROVEN porque se refutó la contradicción.
+_ESTADO_POR_DECISION = {
+    "INVALIDATED": "INVALIDATED",
+    "REVERTED": "PROVEN",
+    "PARTIAL": "PARTIAL",
+}
+
+
+def reevaluar_finding(c: sqlite3.Connection, finding_id: str,
+                      contradiction: str, decision: str, rationale: str,
+                      reviewer: str) -> Dict[str, Any]:
+    """[v3-2] Reevalúa un finding y REGISTRA quién lo hizo y por qué.
+
+    El diagrama: "INVALIDATED ≠ automático: contradicción → reevaluación
+    documentada → puede resultar en INVALIDATED o volver a PROVEN si se refuta
+    la contradicción".
+
+    Por qué una función y no un `UPDATE findings SET epistemic=...`:
+
+      · Si cualquiera pudiera escribir INVALIDATED, el estado no valdría nada:
+        bastaría con teclear la palabra para tumbar un hallazgo sin evidencia
+        de por qué. La v3-2 pide que la invalidación sea un ACTO con autor,
+        no un valor.
+      · La fila en `finding_reevaluations` es el rastro. Sin ella, un
+        INVALIDATED posterior sería indistinguible de uno escrito a mano.
+      · `REVERTED` existe porque refutar una contradicción es tan legítimo
+        como aceptarla. Sin la vía de vuelta, aceptar la primera contradicción
+        que llegue sería irreversible, y un sistema así aprende a ignorar las
+        contradicciones antes que a resolverlas.
+
+    Returns:
+        {"reevaluation_id", "finding_id", "epistemic", "decision", "reviewer"}
+
+    Raises:
+        ValueError si la decisión no es válida, o si el finding no existe, o
+        si faltan `contradiction` / `rationale` / `reviewer` — porque una
+        reevaluación sin autor declarado no es una reevaluación.
+    """
+    if decision not in DECISION_REEVALUACION:
+        raise ValueError(
+            "decision de reevaluacion invalida: %r (validas: %s)"
+            % (decision, ", ".join(DECISION_REEVALUACION)))
+    if not contradiction:
+        raise ValueError("reevaluar sin `contradiction` no es reevaluar: "
+                         "hay que decir QUE se contradice")
+    if not rationale:
+        raise ValueError("reevaluar sin `rationale` no deja por que se "
+                         "decidio, que es justo lo que la v3-2 exige")
+    if not reviewer:
+        raise ValueError("reevaluar sin `reviewer` deja la invalidacion sin "
+                         "autor; la v3-2 prohibe exactamente eso")
+
+    fila = c.execute("SELECT finding_id FROM findings WHERE finding_id=?",
+                     (finding_id,)).fetchone()
+    if fila is None:
+        raise ValueError("finding inexistente: %s" % finding_id)
+
+    # id determinista: la misma reevaluación con los mismos cinco datos es la
+    # misma. Repetirla no duplica el rastro.
+    fingerprint = "|".join([finding_id, contradiction, decision, rationale,
+                            reviewer])
+    reevaluation_id = "reeval_" + hashlib.sha256(
+        fingerprint.encode()).hexdigest()[:16]
+
+    c.execute(
+        "INSERT OR IGNORE INTO finding_reevaluations "
+        "(reevaluation_id, finding_id, contradiction, decision, rationale, "
+        " reviewer, created_at) VALUES (?,?,?,?,?,?,?)",
+        (reevaluation_id, finding_id, contradiction, decision, rationale,
+         reviewer, _ahora_iso())
+    )
+    # [v3-4] Optimistic locking: la reevaluacion no puede pisar un estado que
+    # otro escritor movio entre la lectura y el UPDATE. Si rowcount != 1, la
+    # version cambio y se lanza StaleVersionError.
+    fila = c.execute("SELECT version FROM findings WHERE finding_id=?",
+                     (finding_id,)).fetchone()
+    version_actual = fila["version"] if fila else 0
+    cur = c.execute(
+        "UPDATE findings SET epistemic=?, reevaluation_id=?, version=version+1 "
+        "WHERE finding_id=? AND version=?",
+        (_ESTADO_POR_DECISION[decision], reevaluation_id, finding_id,
+         version_actual))
+    if cur.rowcount != 1:
+        raise StaleVersionError(
+            "version de %s cambio antes del UPDATE (se esperaba %d). "
+            "Reintenta con la version leida." % (finding_id, version_actual))
+    c.commit()
+    return {"reevaluation_id": reevaluation_id, "finding_id": finding_id,
+            "decision": decision, "reviewer": reviewer,
+            "epistemic": _ESTADO_POR_DECISION[decision]}
+
+
+def reevaluaciones_de_finding(c: sqlite3.Connection,
+                              finding_id: str) -> List[Dict[str, Any]]:
+    """[v3-2] El HISTÓRICO de reevaluaciones de un finding.
+
+    Se lee entero y en orden cronológico. Un sistema donde solo se conserva la
+    última decisión no tiene histórico: tiene estado, y el estado no explica.
+    """
+    rows = c.execute(
+        "SELECT reevaluation_id, contradiction, decision, rationale, "
+        "       reviewer, created_at "
+        "FROM finding_reevaluations WHERE finding_id=? "
+        "ORDER BY created_at, rowid",
+        (finding_id,)
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def _ahora_iso() -> str:
+    """Timestamp UTC con precision de microsegundos.
+
+    Se usa `time` y no `datetime` a proposito: `datetime` no esta importado
+    en este modulo y anadirlo por una sola llamada seria mas ruido que el que
+    evita.
+
+    LA PRECISION NO ES COSMETICA. Con segundos, dos reevaluaciones seguidas
+    empatan en `created_at` y el desempate pasa a ser el `reevaluation_id`, que
+    es un hash: el historico se ordenaria al azar dentro del mismo segundo. Un
+    historico que no ordena no es un historico. Los microsegundos evitan el
+    empate; el `ORDER BY ... , rowid` de abajo lo cubre igualmente.
+    """
+    ahora = time.time()
+    return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(ahora)) + \
+        ".%06dZ" % int((ahora % 1) * 1000000)
 
 
 def recuperar_relaciones_finding(c: sqlite3.Connection, finding_id: str) -> List[Dict[str, Any]]:
@@ -2886,7 +3276,52 @@ def verificar_lecciones(c: sqlite3.Connection,
     }
 
 
-# ===================================================================
+def buscar_estrategias_exitosas(c: sqlite3.Connection,
+                                capability: str = "",
+                                outcome: str = "success",
+                                limit: int = 3) -> List[Dict[str, Any]]:
+    """AGUA-MATCH: busca reflexiones exitosas pasadas con strategy definido.
+
+    Devuelve una lista de dicts con {strategy, backend_id, feedback, timestamp}
+    para que el agente pueda reaplicar estrategias que funcionaron antes para
+    la misma capability.
+
+    Si capability es "", busca en todas las capabilities.
+    """
+    try:
+        where = "outcome=?"
+        params: List[Any] = [outcome]
+        if capability:
+            where += " AND (capability=? OR target=?)"
+            params.extend([capability, capability])
+        where += " AND strategy != ''"
+        where += " ORDER BY id DESC LIMIT ?"
+        params.append(limit)
+
+        rows = c.execute(
+            "SELECT strategy, feedback, timestamp, capability, target FROM reflexiones "
+            "WHERE %s" % where,
+            tuple(params),
+        ).fetchall()
+        result = []
+        for r in rows:
+            est = dict(r) if hasattr(r, "keys") else {
+                "strategy": r[0], "feedback": r[1], "timestamp": r[2],
+                "capability": r[3], "target": r[4]}
+            # Extraer backend_id del strategy o feedback
+            est["backend_id"] = _extraer_backend_id(est.get("strategy", ""))
+            result.append(est)
+        return result
+    except sqlite3.Error:
+        return []
+
+
+def _extraer_backend_id(text: str) -> str:
+    """Extrae un backend_id mencionado en un texto (rizin, radare2, etc.)."""
+    for bid in ("rizin", "radare2", "umr", "ghidra"):
+        if bid in text.lower():
+            return bid
+    return ""
 # RXRE-AUTONOMY-003. Reflexion-aware planning (MIND -> SOUL).
 #
 # Cuando se planea una capability, se buscan reflexiones previas con
