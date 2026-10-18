@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: rxre
+Version: 0.0.1
+Summary: Esqueleto de RXRE. TIERRA funcional, 7 planos en stub.
+Requires-Python: >=3.11
+Requires-Dist: typer>=0.12
+Requires-Dist: rich>=13
+Requires-Dist: pydantic>=2
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"
