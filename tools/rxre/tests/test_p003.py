@@ -31,6 +31,7 @@ from typing import Any, Dict, List, Optional
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 REG_RESOLVE = os.path.join(ROOT, "tools", "reg_resolve.py")
+<<<<<<< HEAD
 
 # --- CORRECCION MEDIDA 2026-10-14 (RXRE-CORE-CAUSAL-002) ------------------
 #
@@ -89,6 +90,9 @@ def _resolver_arbol_oraculo() -> str:
 
 
 KERNELBUILD = _resolver_arbol_oraculo()
+=======
+KERNELBUILD = os.path.join(ROOT, "RESEARCH", "kernelbuild", "linux-7.1.3")
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 ASIC_REG = os.path.join(KERNELBUILD, "drivers", "gpu", "drm", "amd", "include", "asic_reg")
 
 fails: List[str] = []
@@ -362,6 +366,7 @@ def test_0302_conflict_declaration():
         chosen_null = chosen is None  # CHOSEN debe ser null (None)
         has_candidates = "candidates" in r
 
+<<<<<<< HEAD
         # Nuevo modelo semantico (T0302 reparado):
         # value_disagreement: mismo simbolo, valores distintos en corpus general
         # semantic_conflict: valores incompatibles dentro del contexto applicable objetivo
@@ -418,6 +423,22 @@ def test_0302_conflict_declaration():
             # inconsistente con la semantica actual del driver.
             # El test espera CHOSEN=null cuando hay conflicto semantico.
             pass
+=======
+        # CONDICION A (sin regla de seleccion demostrable):
+        # CONFLICT = true AND CHOSEN = null Y CANDIDATES listados
+        condition_a = has_conflict and chosen_null and has_candidates
+
+        # CONDICION B (con regla de seleccion demostrable):
+        # CONFLICT = true Y CHOSEN = X Y exista SELECTION_RULE/SELECTION_EVIDENCE
+        condition_b = (has_conflict and not chosen_null and
+                       "selection_rule" in r and "selection_evidence" in r)
+
+        # DESPUES DE LA REPARACION: CONFLICT debe estar declarado.
+        # El test PASSA cuando conflict=true (reparacion aplicada).
+        v("T0302 CONFLICT declarado correctamente",
+          has_conflict,  # el test PASSA si CONFLICT es true
+          "conflict=%s chosen_null=%s has_candidates=%s" % (has_conflict, chosen_null, has_candidates))
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 
         # El test debe pasar cuando CONFLICT=true (reparacion aplicada)
         # Ya sea con CHOSEN=null (cond_a) o con CHOSEN=X + regla (cond_b)
@@ -455,7 +476,11 @@ def test_0302_conflict_declaration():
             v("T0302 sin regla declarada no se expone 'value' como hecho",
               r.get("value") is None, "value = %r" % r.get("value"))
             v("T0302 los candidatos siguen enumerados",
+<<<<<<< HEAD
               set(r.get("candidates") or []) == set(hex(v) for v in expected_values),
+=======
+              set(r.get("candidates") or []) == {"0x%04X" % v for v in expected_values},
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
               "candidates = %r" % r.get("candidates"))
 
     v("T0302 se encontro al menos un resultado para mmMC_CG_DATAPORT",

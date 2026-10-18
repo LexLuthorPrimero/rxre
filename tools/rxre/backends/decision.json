@@ -5,6 +5,7 @@
   "secondary": "radare2",
   "analytical": "NOT_DETERMINED",
   "basis": {
+<<<<<<< HEAD
     "primary": "rizin cierra 14 capacidades medidas con producer; radare2 cierra 8; ghidra cierra 1 y coccinelle cierra 1. Ademas rizin es el unico medido con `rz-bin`, que da inspeccion ESTATICA sin analysis (info/sections/symbols/imports/exports), que es la entrada de la cadena sin depender del estado del analisis.",
     "secondary": "radare2 es el unico backend MEDIDO que da `binary.cfg` y `binary.callgraph` en JSON (`agfj`, `agCj` -> 84 nodos). rizin 0.7.4 emite ASCII visual en ambos. Ese es su unico motivo para existir aqui.",
     "analytical": "NOT_DETERMINED, y no `UNAVAILABLE`. No se compilo ni se instalo angr ni rz-ghidra. `import angr` funciona DENTRO del arbol del proyecto porque el directorio clonado se llama `angr` y Python lo toma como namespace package (`angr.__file__` es None); fuera da ModuleNotFoundError. No se comprobo que angr no sirva: se comprobo que no se puede VERIFICAR aqui.",
@@ -38,11 +39,34 @@
     "umr": 1,
     "por_que_cambio": "RXRE-BMS-EXT-002-A, 2026-10-14. `gpu.register_read` paso de NOT_DETERMINED a AVAILABLE porque su lectura se ha MEDIDO contra el ASIC de esta RX550, no porque el registro se haya editado: `umr -dbp <db> -g =0000:01:00.0 -r polaris12.gfx800.mmGRBM_STATUS` devuelve `gfx800.mmGRBM_STATUS => 0x00003028` con rc=0. Antes valia 0 porque una capability en NOT_DETERMINED no cuenta como cerrada. El vector B7 lo detecto: el registro decia 0 y la realidad era 1. Eso es para lo que existe este fichero.",
     "por_que_no_cambio_primary": "umr cierra 1 capacidad y ademas una que no compite con ninguna: leer un registro MMIO del ASIC no es alternativa a desensamblar un ELF. rizin sigue cerrando 14. Un recuento que no cambia el ORDEN no obliga a revisar la decision entera.",
+=======
+    "primary": "rizin cierra 14 capacidades medidas con producer; radare2 cierra 8. Ademas es el unico medido con `rz-bin`, que da inspeccion ESTATICA sin analysis (info/sections/symbols/imports/exports), que es la entrada de la cadena sin depender del estado del analisis.",
+    "secondary": "radare2 es el unico backend MEDIDO que da `binary.cfg` y `binary.callgraph` en JSON (`agfj`, `agCj` -> 84 nodos). rizin 0.7.4 emite ASCII visual en ambos. Ese es su unico motivo para existir aqui.",
+    "analytical": "NOT_DETERMINED, y no `UNAVAILABLE`. No se compilo ni se instalo angr ni rz-ghidra. `import angr` funciona DENTRO del arbol del proyecto porque el directorio clonado se llama `angr` y Python lo toma como namespace package (`angr.__file__` es None); fuera da ModuleNotFoundError. No se comprobo que angr no sirva: se comprobo que no se puede VERIFICAR aqui."
+  },
+  "medido": {
+    "fecha": "2026-10-06",
+    "runtime_rizin": "0.7.4 (Fedora 43)",
+    "runtime_radare2": "5.9.8",
+    "repo_rizin": "d14c3fac4126bc5fbe66e7f3d1660aeab22b01d8 (v0.10.0-dev, branch dev)",
+    "repo_radare2": "008a7a6cd2e5acb8268f65f486760d080f3b107b (master)",
+    "matriz": "tools/rxre/docs/RXRE-004-BACKEND-MATRIX.md"
+  },
+  "capacidades_cerradas_por_backend": {
+    "rizin": 14,
+    "radare2": 8
+  },
+  "recuento_desde_la_matriz_al_principio": {
+    "rizin": 11,
+    "radare2": 7,
+    "por_que_cambio": "La matriz se escribio antes de la medicion de B5. B5 anadio `binary.dataflow` a radare2 como AVAILABLE (su `afvxj` emite JSON VALIDO) y corrigio la razon de rizin a PARTIAL por FORMATO. Los numeros de la prosa se habian quedado viejos y el vector que compara contra el registro los delato. La ETIQUETA de primary no cambio: rizin sigue cerrando mas. Eso es lo que importa de un recuento: si hubiera cambiado el ORDEN, habria que revisar la decision entera.",
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
     "estado": "CORREGIDO contra el registro"
   },
   "revisado_por_mutacion": "tools/rxre/tests/test_mutations003.py (M_PRIMARY_CAMBIA)",
   "revisado_por_vector": "tools/rxre/tests/test_dispatch004.py (seccion B7)",
   "limitaciones": [
+<<<<<<< HEAD
     "MEDIDO 2026-10-14: `gpu.register_read` (umr) necesita privilegios. Sin ellos el adapter se declara BLOCKED diciendo el prerrequisito exacto, en vez de ejecutar y devolver basura. AVAILABLE significa 'ejecuta y su bloqueo esta declarado', no 'siempre funciona'. Y su valor es RAW_BINARY: `mmGRBM_STATUS` se ha MEDIDO que cambia (GUI_ACTIVE, bit 31), asi que el numero solo es un hecho junto con la ventana y el numero de muestras.",
     "MEDIDO 2026-10-14: `sudo` arranca con `env_reset` y no reenvia `RXRE_DB`. Un productor que escala y otro que no escriben en bases distintas sin avisar, y los dos responden `persistido: true`. El adapter reenvia ahora la config de RXRE de forma explicita, pero el aviso general sigue valiendo para cualquier escalada futura: cruzar un limite de privilegios no es transparente.",
     "El recuento `capacidades_cerradas_por_backend` se compara contra el registro REAL en el vector. Si alguien anade una capacidad a un backend sin actualizar el numero, el vector falla: ese es el punto de que exista.",
@@ -58,3 +82,14 @@
   ],
   "_nota_tree_sitter": "RXRE-ECO-001 (2026-10-15): tree-sitter cierra 1 capacidad (source.ast_parse), MEDIDA sobre amdgpu.h -> 7066 nodos AST. NO cambia primary ni secondary: son sobre binarios, y tree-sitter es un backend de FUENTE. El recuento se actualiza porque §18 exige que lo declarado coincida con el real del registro."
 }
+=======
+    "El recuento `capacidades_cerradas_por_backend` se compara contra el registro REAL en el vector. Si alguien anade una capacidad a un backend sin actualizar el numero, el vector falla: ese es el punto de que exista.",
+    "Esta decision es sobre lo MEDIDO en esta maquina con estos binarios. No es sobre lo que un backend podria hacer con otro build. `tool_version` y `repository_commit` estan separados por eso."
+  ],
+  "no_decidido": [
+    "compilar rizin 0.10-dev: diferido hasta que exista una pregunta que lo exija (§20)",
+    "instalar angr: NO instalado globalmente",
+    "instalar Ghidra + rz-ghidra: NO instalado; es la ruta de decompilacion y por eso `binary.decompile` sigue sin declararse en ningun backend medido"
+  ]
+}
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db

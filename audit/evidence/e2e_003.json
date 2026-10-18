@@ -1,0 +1,24 @@
+{
+  "e2e_id": "e2e_003",
+  "objetivo": "investigar s\u00edmbolo gfx_enable_kcq y referencias polaris en amdgpu.ko",
+  "artefacto_path": "amdgpu.ko",
+  "artefacto_size_bytes": 34017534,
+  "artefacto_hash_sha256": "53f55bd240b9cc523ec4e92c40d8c60227d91b572d0833d4c0a85e98bcc2c637",
+  "backend_resuelto": "rizin + grep (independiente)",
+  "backend_nombre": "rizin + python3_oracle",
+  "ejecucion_estado": "ok",
+  "procedencia": "rxre/e2e/2026-10-18",
+  "epistemic": "PARTIAL",
+  "limitaciones": [
+    "No confirma comportamiento din\u00e1mico del m\u00f3dulo (F2 PARTIAL pendiente); evidencia es declaraci\u00f3n est\u00e1tica (s\u00edmbolo + referencia en rodata)",
+    "No afirma que gfx_enable_kcq sea \u00fanico ni exclusivo de RX 550",
+    "S\u00edmbolo gfx_enable_kcq no detectado por rizin is en este artefacto; evidencia de existencia proviene de an\u00e1lisis estructural previo (e2e_002), no de esta ejecuci\u00f3n directa."
+  ],
+  "observaciones": {
+    "simbolo_gfx_enable_kcq": "no visible en is de esta versi\u00f3n del m\u00f3dulo (posible s\u00edmbolo interno / no exportado)",
+    "polaris_referencias": 210,
+    "rizin_version": "0.7.4",
+    "tipo_evidencia": "declaracion_estatica_simbolo",
+    "or\u00e1culo_independiente": "grep rodata polaris=210; rizin is gfx_enable_kcq=ausente; estructura previa e2e_002 confirma 317 gfx + gfx_enable_kcq"
+  }
+}

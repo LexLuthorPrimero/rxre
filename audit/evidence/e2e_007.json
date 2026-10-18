@@ -1,0 +1,24 @@
+{
+  "e2e_id": "e2e_007",
+  "objetivo": "validaci\u00f3n cruzada con ELF real independiente (no fixture, no amdgpu.ko): /bin/ls",
+  "artefacto_path": "/bin/ls",
+  "artefacto_size_bytes": 153400,
+  "artefacto_hash_sha256": "54e936d37decdad9ecaf189b1de347605a0a99037ec87bd17679b6cbde871a0c",
+  "backend_resuelto": "rizin",
+  "backend_nombre": "rizin",
+  "ejecucion_estado": "ok",
+  "procedencia": "rxre/e2e/2026-10-18",
+  "epistemic": "VALID",
+  "limitaciones": [
+    "Estructura est\u00e1tica verificada (ELF64); comportamiento din\u00e1mico del binario no confirmado (F2 PARTIAL pendiente); no afirma que /bin/ls sea hardware RX 550 ni relacionado con amdgpu.ko",
+    "No confundir con amdgpu.ko (e2e_001/002/003/004/005) ni con rxre_min.elf (e2e_006)"
+  ],
+  "contra_probar": "artefacto distinto, hash distinto, ruta distinta; conclusi\u00f3n independiente",
+  "observaciones": {
+    "tipo_artefacto": "ELF64 ejecutable sistema (/bin/ls)",
+    "status_resultado": "declared",
+    "reproducible": true,
+    "hash_coincide": true
+  },
+  "tipo_evidencia": "validacion_cruzada_artefacto_real"
+}

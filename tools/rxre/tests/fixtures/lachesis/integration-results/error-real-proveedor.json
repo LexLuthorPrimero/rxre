@@ -1,0 +1,21 @@
+{
+  "rc": 1,
+  "contrato": {
+    "tool": "lachesis_defuse.py",
+    "version": "1.0.0",
+    "operation": "defuse",
+    "intent": "symbol",
+    "subject": "gmc_v8_0_gart_enable",
+    "error": {
+      "kind": "error",
+      "class": "ErrorDeProveedor",
+      "detail": "externals/lachesis-runtime/bin/lachesis rc=1: {\"error\": \"tools/rxre/tests/fixtures/lachesis/integration-results/falso-grafo is not a Lachesis graph store; build one with `lachesis build <source_dir> tools/rxre/tests/fixtures/lachesis/integration-results/falso-grafo`\", \"query\": \"find-entity\"}"
+    },
+    "layers": {},
+    "results": [],
+    "limitations": [
+      "ErrorDeProveedor: externals/lachesis-runtime/bin/lachesis rc=1: {\"error\": \"tools/rxre/tests/fixtures/lachesis/integration-results/falso-grafo is not a Lachesis graph store; build one with `lachesis build <source_dir> tools/rxre/tests/fixtures/lachesis/integration-results/falso-grafo`\", \"query\": \"find-entity\"}"
+    ],
+    "tools_used": []
+  }
+}

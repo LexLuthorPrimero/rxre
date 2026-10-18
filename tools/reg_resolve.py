@@ -157,7 +157,11 @@ def find_define_all(amd_root: str, symbol: str) -> List[Dict[str, object]]:
                             val = scan_defines(p).get(symbol)
                             hits.append({
                                 "file": p,
+<<<<<<< HEAD
                                 "rel": os.path.relpath(p, base),
+=======
+                                "rel": os.path.relpath(p, amd_root),
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
                                 "line": n,
                                 "value": val,
                                 "text": line.strip()[:200],
@@ -243,11 +247,17 @@ def resolve_reg(amd_root: str, gfx: str, reg: str) -> Dict[str, object]:
     base_dir = os.path.join(amd_root, "include", "asic_reg")
     order = [os.path.join(base_dir, "gca", f"{gfx}_d.h"),
              os.path.join(base_dir, "gc", f"{gfx}_offset.h")]
+<<<<<<< HEAD
     # GFX8 borrows GMC 8.1 register definitions.
     # Para resolucion de prioridad: solo acepta un header GMC si el consumer lo incluye.
     # Para deteccion de conflictos: incluye TODOS los headers GMC GFX8 que existan.
     if gfx == "gfx_8_0":
         # Primero, agrega el header GMC que incluye el consumer (para resolucion)
+=======
+    # GFX8 borrows GMC 8.1 register definitions. Only accept a borrowed
+    # header when this target's consumer explicitly includes that file.
+    if gfx == "gfx_8_0":
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
         consumer = os.path.join(amd_root, "amdgpu", "gmc_v8_0.c")
         if os.path.isfile(consumer):
             with open(consumer, "r", encoding="utf-8", errors="replace") as fh:
@@ -255,6 +265,7 @@ def resolve_reg(amd_root: str, gfx: str, reg: str) -> Dict[str, object]:
             m = re.search(r'^#include "gmc/(gmc_8_[0-9]+_d\.h)"$', source, re.M)
             if m:
                 order.append(os.path.join(base_dir, "gmc", m.group(1)))
+<<<<<<< HEAD
 
         # Segundo, agrega TODOS los headers GMC GFX8 para deteccion de conflictos
         gmc_pattern = re.compile(r'^gmc_8_\d+_d\.h$')
@@ -265,6 +276,8 @@ def resolve_reg(amd_root: str, gfx: str, reg: str) -> Dict[str, object]:
                     order.append(p)
 
     # Fallback: si ninguno de los headers especificados existe, usa todos los que empiecen con gfx
+=======
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
     if not any(os.path.isfile(p) for p in order):
         order = [p for p in header_index(amd_root).values()
                  if os.path.basename(p).startswith(gfx)]
@@ -304,15 +317,22 @@ def resolve_reg(amd_root: str, gfx: str, reg: str) -> Dict[str, object]:
 
     # T0302: deteccion de conflicto cuando multiples definiciones tienen
     # valores distintos.  mmMC_CG_DATAPORT = 0xA21 en un fichero, 0xA32 en otro.
+<<<<<<< HEAD
     # El defecto actual trata TODO conflicto como semantico, creando 21985 falsos
     # positivos cuando la diferencia esta en otro lineage/generacion.
     # La reparacion: separar VALUE_DISAGREEMENT (mismo simbolo, valores distintos
     # en el corpus general) de SEMANTIC_CONFLICT (valores incompatibles en el
     # contexto applicable objetivo). Esto permite informar ambos separadamente.
+=======
+    # El defecto actual elige el primero por orden alfabetico sin declarar
+    # que hay una colision.  La reparacion minima: declarar CONFLICT=true,
+    # listar CANDIDATES, y dejar CHOSEN=null (no hay regla de seleccion).
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
     unique_values: set = set()
     for h in hits:
         if h["value"] is not None:
             unique_values.add(h["value"])
+<<<<<<< HEAD
     # Value disagreement: el mismo simbolo tiene valores distintos en el corpus
     value_disagreement = len(unique_values) > 1
 
@@ -373,6 +393,30 @@ def resolve_reg(amd_root: str, gfx: str, reg: str) -> Dict[str, object]:
         out["selection_rule"] = None
         out["selection_evidence"] = None
         out["excluded"] = [h for h in hits if h["value"] in unique_values and h not in applicable_candidates]
+=======
+    if len(unique_values) > 1:
+        out["conflict"] = True
+        out["candidates"] = sorted(hex(v) for v in unique_values)
+        if chosen and gfx == "gfx_8_0" and chosen["rel"].startswith("include/asic_reg/gmc/"):
+            consumer = os.path.join(amd_root, "amdgpu", "gmc_v8_0.c")
+            borrowed = os.path.basename(str(chosen["file"]))
+            with open(consumer, "r", encoding="utf-8", errors="replace") as fh:
+                lines = fh.readlines()
+            include = '#include "gmc/' + borrowed + '"'
+            matches = [i for i, line in enumerate(lines, 1) if line.strip() == include]
+            if matches:
+                out["selection_rule"] = "GFX8 GMC consumer includes the selected register header"
+                out["selection_evidence"] = {
+                    "file": consumer, "line": matches[0], "text": include,
+                    "definition": chosen,
+                }
+                out["excluded"] = other
+        if "selection_evidence" not in out:
+            out["chosen"] = None
+            out["value"] = None
+        out["conflict_note"] = ("different register definitions across lineages; "
+                                "selection is valid only with an explicit include edge")
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 
     if classify_symbol(reg) == "dword_index_de_mm":
         out["unit"] = "dword register index (GFX8 MMIO consumer)"

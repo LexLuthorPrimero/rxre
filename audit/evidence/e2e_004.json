@@ -1,0 +1,52 @@
+{
+  "e2e_id": "e2e_004",
+  "objetivo": "fronteras reales del analizador binary.inspect con artefactos l\u00edmite",
+  "artefacto_path": "/home/lucas/Escritorio/rxre/amdgpu.ko",
+  "epistemic": "PARTIAL",
+  "limitaciones": [
+    "empty produce invalid_input en lugar de BK_EMPTY (l\u00edmite del adaptador)",
+    "truncated es aceptado como ok pero con datos parciales; riesgo de falso PROVEN si no se documenta PARTIAL",
+    "no se afirma din\u00e1mica ni hardware para ning\u00fan caso"
+  ],
+  "observaciones_frontera": [
+    {
+      "fixture": "elf_ok",
+      "status": "ok",
+      "precheck": true,
+      "hash": "a183f60d67ba1787bd217db2a7cd6609a214acde1f7e9c4a2403e3d40fdb700c",
+      "size": 4728,
+      "epistemic": "PROVEN",
+      "nota": "ELF v\u00e1lido; an\u00e1lisis completo"
+    },
+    {
+      "fixture": "empty",
+      "status": "invalid_input",
+      "precheck": false,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "epistemic": "NOT_DETERMINED",
+      "nota": "Archivo vac\u00edo; adaptador rechaza como invalid_input (no BK_EMPTY) \u2014 l\u00edmite documentado"
+    },
+    {
+      "fixture": "truncated",
+      "status": "ok",
+      "precheck": true,
+      "hash": "407f035ea5c4f663b35566e90aa9ca0555abae522c5e020621a91a94a49e8d60",
+      "size": 100,
+      "epistemic": "PARTIAL",
+      "nota": "Binario truncado; rizin declara cabecera parcial; no afirma contenido completo"
+    },
+    {
+      "fixture": "text",
+      "status": "invalid_input",
+      "precheck": false,
+      "hash": "1d7f4b221a6ce9b8478d223e4ff3910fe27e8816bbedb266470142476e1aa7eb",
+      "size": 17,
+      "epistemic": "NOT_DETERMINED",
+      "nota": "No-ELF; adaptador rechaza sin an\u00e1lisis"
+    }
+  ],
+  "procedencia": "rxre/e2e/2026-10-18",
+  "backend_resuelto": "rizin (verificado: 0.7.4, repo d14c3f...)",
+  "tipo_evidencia": "frontera_analizador"
+}

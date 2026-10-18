@@ -1,0 +1,76 @@
+{
+  "casos": {
+    "caso1": {
+      "rc": 0,
+      "wall_s": 62.2263879776001,
+      "estados": [
+        "PROVEN",
+        "PROVEN",
+        "PROVEN"
+      ]
+    },
+    "caso2": {
+      "rc": 0,
+      "wall_s": 247.75021839141846,
+      "identidades": [
+        {
+          "bloque": "GC",
+          "direccion": "0x800",
+          "defs": 3,
+          "nodos": 3,
+          "dataflow": "NOT_DETERMINED"
+        },
+        {
+          "bloque": "GMC",
+          "direccion": "0xcd5",
+          "defs": 5,
+          "nodos": 5,
+          "dataflow": "NOT_DETERMINED"
+        },
+        {
+          "bloque": "MMHUB",
+          "direccion": "0x640",
+          "defs": 3,
+          "nodos": 1,
+          "dataflow": "NOT_DETERMINED"
+        }
+      ]
+    },
+    "caso3": {
+      "rc": 0,
+      "wall_s": 126.51231789588928,
+      "roles": [
+        "definition",
+        "parameter",
+        "outgoing_call",
+        "outgoing_call",
+        "outgoing_call",
+        "outgoing_call",
+        null,
+        null
+      ]
+    },
+    "caso4": {
+      "rc": 0,
+      "wall_s": 61.33965086936951,
+      "entries": 38
+    },
+    "caso5": {
+      "rc": 0,
+      "wall_s": 0.5196340084075928
+    },
+    "caso6": {
+      "rc": 0,
+      "wall_s": 63.28487586975098
+    }
+  },
+  "maquina": {
+    "status": "ok",
+    "wall_s": 245.87025666236877,
+    "resultados": 3
+  },
+  "errores_reales": {
+    "blocked": 2,
+    "proveedor": 1
+  }
+}

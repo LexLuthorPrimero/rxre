@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "query": "find-entity",
+  "criteria": {
+    "name": "mmZZZ_NO_EXISTE",
+    "kind": null,
+    "file": null
+  },
+  "status": "not-found",
+  "matches": []
+}

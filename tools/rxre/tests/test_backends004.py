@@ -89,6 +89,7 @@ v("el contrato separa version de commit",
   "commit del repo es" in ct["regla_de_identidad"])
 
 # --- 4. EL REGISTRO NO ES UN CATALOGO NUEVO DE CAPACIDADES ---------------
+<<<<<<< HEAD
 # MEDIDO 2026-10-12 (lote RXRE-BULK): el conjunto paso de {rizin,
 # radare2} a {rizin, radare2, ghidra, coccinelle}. Los dos nuevos NO
 # entraron por su nombre: entaron porque se ejecutaron y se medico su
@@ -120,6 +121,11 @@ v("tree-sitter cierra source.ast_parse con producer medido",
   registry.get("tree-sitter")["capacities"].get("source.ast_parse")
   in registry.ESTADOS_CON_PRODUCER,
   registry.get("tree-sitter")["capacities"])
+=======
+v("el registro tiene backends MEDIDOS, no capacidades inventadas",
+  set(registry.backends()) == {"rizin", "radare2"},
+  sorted(registry.backends()))
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 # Lo que NO se puede verificar esta declarado como NOT_DETERMINED, no borrado.
 ids_nd = {b["backend_id"]: b["estado"] for b in registry.NO_VERIFICABLES}
 v("angr declarado NOT_DETERMINED, no ausente", ids_nd.get("angr") == "NOT_DETERMINED",
@@ -128,6 +134,7 @@ v("rz-ghidra declarado NOT_DETERMINED", ids_nd.get("rz-ghidra") == "NOT_DETERMIN
 v("la razon de angr cita el namespace package",
   any("namespace" in b["razon"] for b in registry.NO_VERIFICABLES
       if b["backend_id"] == "angr"))
+<<<<<<< HEAD
 # `binary.decompile` ya NO esta ausente en todos los medidos. MEDIDO
 # 2026-10-12: Ghidra la tiene y la EJERCE (PARTIAL, con la limitacion
 # ET_REL declarada); rizin y radare2 siguen sin ella, porque no existe
@@ -163,6 +170,17 @@ v("ghidra declara decompile con producer medido",
 # la comprueba el bloque condicional de arriba ("no lo midio, y no lo
 # inventa"). Anadir aqui otra asercion sobre lo mismo solo duplicaba el
 # punto de fallo sin anadir cobertura.
+=======
+# Y `binary.decompile` NO esta disponible en ninguno de los medidos: es
+# exactamente lo que el contrato obliga a no inventar.
+for bid in registry.backends():
+    caps = registry.get(bid)["capacities"]
+    v("%s declara decompile UNAVAILABLE, no AVAILABLE" % bid,
+      caps.get("binary.decompile") == "UNAVAILABLE", caps.get("binary.decompile"))
+    v("%s NO declara ninguna capacidad como AVAILABLE sin haberla medido" % bid,
+      all(v_ in ("AVAILABLE", "PARTIAL", "UNAVAILABLE", "NOT_DETERMINED")
+          for v_ in caps.values()), caps)
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 
 # --- 5. EL PRECHECK OCURRE ANTES DE INVOCAR -----------------------------
 # MEDIDO: con `falso.elf` (no existe) y con un fichero que no es ELF, el
@@ -638,6 +656,7 @@ v("el camino con resultados dice 'completa', no PROVENANCE_INCOMPLETE",
 
 # --- 9. UNA CAPACIDAD QUE EL BACKEND NO TIENE --------------------------
 # La pregunta que mas se querria declarar, y la que menos evidencia tiene.
+<<<<<<< HEAD
 #
 # MEDIDO 2026-10-12 (lote RXRE-BULK): esta seccion afirmaba que NINGUN
 # backend presenta `binary.decompile` como suya. Eso era verdad mientras
@@ -659,6 +678,12 @@ for bid in registry.backends():
     else:
         v("%s NO presenta decompile (no lo midio, y no lo inventa)" % bid,
           True)
+=======
+for bid in registry.backends():
+    caps = registry.get(bid)["capacities"]
+    v("%s NO presenta decompile como lo tiene" % bid,
+      caps.get("binary.decompile") == "UNAVAILABLE")
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
     # Y las parciales lo dicen en la ficha.
     ficha = registry.ficha(bid)
     v("%s lista sus capacidades parciales" % bid,

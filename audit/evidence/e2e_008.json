@@ -1,0 +1,39 @@
+{
+  "e2e_id": "e2e_008",
+  "objetivo": "relacion estructural: referencias de datos (DATA) al simbolo main en /bin/ls",
+  "artefacto_path": "/bin/ls",
+  "artefacto_size_bytes": 153400,
+  "artefacto_hash_sha256": "54e936d37decdad9ecaf189b1de347605a0a99037ec87bd17679b6cbde871a0c",
+  "tipo_evidencia": "relacion_estructural_independiente",
+  "observaciones_primarias": {
+    "comando_primario": "binary.xrefs funcion=main (rizin)",
+    "resultado_primario": {
+      "status": "ok",
+      "artifact": "/bin/ls",
+      "count_refs": 74,
+      "tipo_refs": "DATA",
+      "from_offset": 15940,
+      "to_offset": 16384,
+      "backend": "rizin"
+    },
+    "observacion_secundaria": {
+      "comando": "iS~main (rizin)",
+      "resultado": "simbolo main detectado en .rodata (ascii)",
+      "tipo_simb": "ascii"
+    },
+    "distincion_independencia": "xrefs usa backend rizin (adaptador rz_cfg); iS usa adaptador rz_inspect; ambos comparten rizin pero operan sobre canales distintos (xrefs vs simbolos)"
+  },
+  "procedencia": "rxre/e2e/2026-10-18",
+  "epistemic": "PARTIAL",
+  "limitaciones": [
+    "Referencia DATA no confirma llamada dinamica (CALL); comportamiento dinamico del driver o del binario requiere ejecucion controlada o MMIO (F2 pendiente)",
+    "No afirma que /bin/ls sea hardware RX 550 ni que main sea el entrypoint dinamico del driver",
+    "No confirma que las referencias DATA correspondan a llamadas de funciones del driver amdgpu.ko"
+  ],
+  "hipotesis_rival": {
+    "H1": "simbolo main tiene referencias DATA verificables en rodata por xrefs (74 refs) y existe como simbolo por iS",
+    "H0": "simbolo main no tiene referencias DATA o estas son falsas; iS no detecta main en .rodata",
+    "discriminante": "xrefs muestra 74 refs DATA; iS confirma ascii main; H0 rechazada para esta observacion, pero no confirma dinamica."
+  },
+  "contra_probar": "No confundir con referencias de amdgpu.ko (e2e_001/002/003/004/005) ni con fixture rxre_min.elf (e2e_006); /bin/ls es independiente."
+}

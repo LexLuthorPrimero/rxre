@@ -3,6 +3,7 @@
 Punto de entrada único para que una IA investigue la AMD Radeon RX 550
 (Polaris12 / GFX8) sin saber qué script existe ni qué flags tiene cada uno.
 
+<<<<<<< HEAD
 **Entrada/salida:** `tools/rxre/api/machine.py` lee un request JSONL por `stdin`
 y devuelve un envelope JSONL por `stdout`. Las órdenes (`op`) son:
 `backends, experiment, explain, lessons, ops, plan, reflect, research, run, saturate`.
@@ -26,10 +27,20 @@ echo '{"op":"explain","result_id":"<result_id>"}' | python3 tools/rxre/api/machi
 > `op=backends` y en `RXRE-CORE-CAUSAL-002_REPORT.md`. Lo que no cambia es el
 > contrato (envelope de cuatro estados).
 
+=======
+```bash
+tools/rxre/rxre capabilities
+tools/rxre/rxre search "VM_CONTEXT0_CNTL"
+tools/rxre/rxre register VM_CONTEXT0_CNTL
+tools/rxre/rxre trace amdgpu_vm_init
+```
+
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 ## Qué es y qué no es
 
 **Es** una capa de despacho y normalización. **No** reescribe ninguna de las
 ~220 herramientas de `tools/`: las invoca, comprueba que responden y traduce su
+<<<<<<< HEAD
 salida a un formato único. El registro de herramientas es `tools/toolreg.py`,
 que ya existía y sigue siendo la fuente única. RXRE no añade un segundo catálogo.
 
@@ -68,6 +79,30 @@ cruzado `result_id`/`operation_id` son reconstruibles (test_r001_trace_id,
 **27/27**; test_opencode_trace007, **18/18**). El lote rápido de regresión
 (run_baseline.py, 13 suites) es **13/13 verde**. El conjunto: **26 suites
 verdes** sobre `main@53173f2`.
+=======
+salida a un formato único.
+
+El registro de herramientas es `tools/toolreg.py`, que ya existía y sigue siendo
+la fuente única. RXRE no añade un segundo catálogo.
+
+## Capacidades (9, todas verificadas por ejecución)
+
+| capacidad | herramienta de fondo | qué responde |
+|---|---|---|
+| `capabilities` | `toolreg.py` | qué sabe hacer, y si cada script responde de verdad |
+| `search` | `evidence_search.py` | búsqueda literal, con el universo como evidencia |
+| `symbol` | `evidence_search.py` | búsqueda de símbolo |
+| `register` | `reg_resolve.py` | offset y campos de ASIC, con unidad declarada |
+| `xref` | `xref.py` | referencias cruzadas por AST |
+| `trace` | `trace_path.py` | cadena de llamadas con nodo vivo por ASIC |
+| `pm4` | `pm4ops.py` | censo de opcodes PM4 |
+| `evidence` | `evidence_search.py` | búsqueda con la clasificación a la vista |
+| `provenance` | `prov.py` | claves de procedencia del árbol |
+
+`capabilities` **ejecuta** cada script. No comprueba que el fichero esté en el
+disco: comprueba que responde. Una capacidad listada pero rota es peor que una
+ausente, porque la IA la elige, falla y pierde el turno.
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 
 ## El contrato: un envelope, cuatro estados
 
@@ -85,10 +120,14 @@ verdes** sobre `main@53173f2`.
 }
 ```
 
+<<<<<<< HEAD
 Las nueve claves base existen **siempre**, incluso cuando `results` está vacío.
 Además, los adapters añaden `capability`, `ejecutada`, `producer_ejecutado`,
 `rc`, `operation_id`, `persistido`, `nota_persistencia` y `limitations` según el
 contrato de `backends/contract.py` y `backends/dispatch.py::ejecutar`.
+=======
+Las nueve claves existen **siempre**, incluso cuando `results` está vacío.
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 
 | `status` | significa | rc |
 |---|---|---|
@@ -104,10 +143,16 @@ proyecto cuenta siete veces, y el envelope la cierra por construcción: un `empt
 sale siempre con `limitations` explicando que la herramienta corrió y no
 encontró, y que eso **no** es que no exista.
 
+<<<<<<< HEAD
 `blocked` existe porque `empty` no alcanza. Y `blocked` **no** es
 `NOT_DETERMINED`: `blocked` significa "se comprobó la precondición y no se
 cumple" (p.ej. falta de root para MMIO de amdgpu); `NOT_DETERMINED` significa
 "no se pudo verificar".
+=======
+`blocked` existe porque `empty` no alcanza. `xref.py` sale con código 3 porque el
+AST del árbol está a medias y completarlo es una escritura. Si eso se tradujera
+a `empty`, una IA concluiría que `amdgpu_vm` no tiene referencias, que es falso.
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 
 Un `results` que contiene `verdict: NO_ENCONTRADO` **tampoco** cuenta como
 resultado: `trace` lo sube a `limitations` y devuelve `empty`.
@@ -123,6 +168,7 @@ resultado: `trace` lo sube a `limitations` y devuelve `empty`.
 ## Pruebas
 
 ```bash
+<<<<<<< HEAD
 python3 tools/rxre/tests/run_baseline.py                                  # 13 suites rápidas (sin HW ni Ghidra)
 python3 tools/rxre/tests/test_decomp003.py                                # Ghidra real /bin/ls: 23/23 (~20s)
 python3 tools/rxre/tests/test_umr_hardware002.py                          # GPU umr RX550: 11/11 (root)
@@ -326,11 +372,28 @@ supuesto: con `working`, `trace_path.py` falla con
 `CHIP_POLARIS12 no esta en include/drm/amd_asic_type.h`. (Nota: `RESEARCH/` y
 las herramientas legacy —`trace_path.py`, `xref.py`, `pm4ops.py`…— están fuera
 del árbol comiteado de `main`; el motor RXRE actual se describe en §3.)
+=======
+python3 tools/rxre/tests/test_rxre.py
+```
+
+14 grupos, todos contra el corpus real. Sin mocks: cada vector ejecuta `rxre` de
+verdad y comprueba el envelope que sale.
+
+## Dos corporos, y por qué
+
+`RESEARCH/working/linux-7.1.3` está **incompleto**: su `include/` solo contiene
+`linux/`, no `drm/`. Por eso `trace` y `xref` apuntan a
+`RESEARCH/kernelbuild/linux-7.1.3`, que sí tiene `include/drm/`.
+
+Medido, no supuesto: con `working`, `trace_path.py` falla con
+`CHIP_POLARIS12 no esta en include/drm/amd_asic_type.h`.
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 
 ## Limitaciones conocidas
 
 - **`xref` está bloqueada** en este árbol (`status: blocked`, rc=2). El AST está
   incompleto y `xref.py` no completa el build porque eso es una escritura. Es
+<<<<<<< HEAD
   correcto que lo diga, y no se intenta esquivarlo. **Nota distinta: `binary.xrefs`**
   (el adapter rizin/r2 `axtj`) **sí está operativo** vía CLI desde 2026-10-16.
 - **`binary.xrefs` y `binary.callgraph` estaban rotas por CLI** hasta 2026-10-16.
@@ -352,11 +415,18 @@ del árbol comiteado de `main`; el motor RXRE actual se describe en §3.)
   eso como `unsupported` (no `empty`): para `.ko` se usan `binary.functions` /
   `binary.inspect` (rizin/radare2 sí leen `ET_REL`) o el BTF de
   `/sys/kernel/btf/amdgpu`.
+=======
+  correcto que lo diga, y no se intenta esquivarlo.
+- **`pm4` devuelve texto, no JSON**, porque `pm4ops.py` imprime una tabla. Se
+  devuelve como un resultado de `kind: "texto"` y se dice que no es JSON, en vez
+  de fingir que sí.
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 - **RXRE no revalida las herramientas de fondo.** Cada una trae su propio
   self-test. Revalidar 220 aquí sería duplicar `toolreg.py` y mentir sobre quién
   es responsable de qué.
 - **No hay estado entre llamadas.** Sin sockets, sin demonios. El envelope lleva
   lo necesario para el siguiente paso.
+<<<<<<< HEAD
 - **Repositorio multi-worktree activo.** `main` es el baseline publicable
   (`53173f2`). Las ramas `capability/*`, `repair/*`, `migration/*` viven en
   worktrees separados y comparten la base de evidencia viva
@@ -410,3 +480,10 @@ prueba (31/32 baseline verdes; test_container1632 requiere zstd). El audit de
 los 8 principios (RXRE-ECO-001) aprobado para `binary.xrefs` y `binary.callgraph`
 vía CLI. La frontera de ingreso hardware verificada es `gpu.register_read` sobre Polaris12
 por `umr -r` (root): el camino de lectura real de registros de la GPU RX 550.
+=======
+
+## Estado
+
+RXRE-001. 9 capacidades operativas, 14 grupos de vectores, 8 mutaciones
+deliberadas probadas.
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0
+<<<<<<< HEAD
 # CONTRACT: name=toolreg
 # CONTRACT: READONLY=no
 # CONTRACT: WRITES_FILES=only_with_--register
@@ -22,6 +23,8 @@
 # este fichero sea especial es la contraria: es el REGISTRO, y si el contendio
 # una entrada falsa, todo lo que lea de el hereda el error (hallazgo 1481,
 # sobre `rxre.py` §4b y el `toolreg.py` pisado).  Ver 1487 sobre el campo.
+=======
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 """
 toolreg -- the registry for tools/, and the check that it stays true.
 

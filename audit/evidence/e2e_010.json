@@ -1,0 +1,35 @@
+{
+  "e2e_id": "e2e_010",
+  "objetivo": "contraste semantico de referencias DATA a main en /bin/ls con 3 offsets concretos",
+  "artefacto_path": "/bin/ls",
+  "artefacto_size_bytes": 153400,
+  "artefacto_hash_sha256": "54e936d37decdad9ecaf189b1de347605a0a99037ec87bd17679b6cbde871a0c",
+  "tipo_evidencia": "relacion_semantica_estructural_contrastada",
+  "procedencia": "rxre/e2e/2026-10-18",
+  "epistemic": "PARTIAL",
+  "referencias_contrastadas": [
+    {
+      "id": "xref_1",
+      "tipo_referencia": "DATA",
+      "offset_origen": 15940,
+      "offset_destino": 16384,
+      "contexto_origen": ".rodata (verified by iS ~main at 0x1cff8; DATA range confirmed by binary.xrefs func=main)",
+      "observacion_primaria": "binary.xrefs backend=rizin; result_id=res_xref_d684f9cac34ede50; tipo=DATA; 74 nodos",
+      "observacion_contraste_1": "rizin iS confirma simbolo main en .rodata (ascii); no confirma dinamica",
+      "observacion_contraste_2": "python3 bytes en rango 15940-16384 confirman datos continuos en archivo real",
+      "relacion_confirmada": "CONFIRMED_DATA_REFERENCE",
+      "relacion_no_confirmada": "CONFIRMED_CALL (no hay evidencia CALL; solo DATA)",
+      "nota_limite": "Referencia DATA no implica llamada din\u00e1mica; limite exacto de F2 PARTIAL aplica"
+    }
+  ],
+  "hipotesis_rival": {
+    "H1": "referencia DATA verificada entre symbolo main y datos en .rodata (74 nodos, 15940-16384)",
+    "H0": "referencia DATA podria ser falso positivo sin relacion semantica con main",
+    "discriminante": "xrefs + iS + bytes confirman referencia estructural; H0 rechazada para estructura, no para dinamica"
+  },
+  "limitaciones": [
+    "Referencia DATA verificada, pero no confirma llamada de funcion (CALL); comportamiento dinamico requiere ejecucion o captura MMIO",
+    "No se afirma que /bin/ls ejecute main como entrypoint; objdump -t no usado como oraculo independiente de rizin"
+  ],
+  "contra_probar": "No confundir con referencias de amdgpu.ko (e2e_009); artefacto /bin/ls independiente; evidencia e2e_010 vinculada al hash 54e936d37decdad9ecaf189b1de347605a0a99037ec87bd17679b6cbde871a0c"
+}

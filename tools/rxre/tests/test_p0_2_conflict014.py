@@ -243,6 +243,7 @@ def main():
         esperado_conflict = est == "CONFLICT"
         esperado_chosen = None if val is None else hex(val)
         got_chosen = rr.get("chosen")
+<<<<<<< HEAD
         got_value_disagreement = bool(rr.get("value_disagreement"))
         got_semantic_conflict = bool(rr.get("semantic_conflict"))
         fila = {"modelo_estado": est,
@@ -250,6 +251,13 @@ def main():
                 "modelo_chosen": esperado_chosen,
                 "rxre_value_disagreement": got_value_disagreement,
                 "rxre_semantic_conflict": got_semantic_conflict,
+=======
+        got_conflict = bool(rr.get("conflict"))
+        fila = {"modelo_estado": est,
+                "modelo_candidates": [hex(x) for x in cand],
+                "modelo_chosen": esperado_chosen,
+                "rxre_conflict": got_conflict,
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
                 "rxre_chosen": (got_chosen or {}).get("rel") if
                                isinstance(got_chosen, dict) else None,
                 "rxre_value": rr.get("value")}
@@ -262,8 +270,13 @@ def main():
     if "--conformance" in sys.argv:
         # El estado FINAL que la reparacion tiene que producir.
         v("CONFORMANCE A: sin conflicto artificial",
+<<<<<<< HEAD
           delta["mmBCI_DEBUG_READ"]["rxre_semantic_conflict"] is False,
           delta["mmBCI_DEBUG_READ"]["rxre_semantic_conflict"])
+=======
+          delta["mmBCI_DEBUG_READ"]["rxre_conflict"] is False,
+          delta["mmBCI_DEBUG_READ"]["rxre_conflict"])
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
         v("CONFORMANCE A: se elige la definicion aplicable",
           delta["mmBCI_DEBUG_READ"]["rxre_chosen"] == DICC_REL,
           delta["mmBCI_DEBUG_READ"]["rxre_chosen"])
@@ -271,11 +284,16 @@ def main():
           delta["mmBCI_DEBUG_READ"]["rxre_value"] == "0x24eb",
           delta["mmBCI_DEBUG_READ"]["rxre_value"])
         v("CONFORMANCE B: el conflicto REAL se conserva",
+<<<<<<< HEAD
           delta["mmMC_CG_DATAPORT"]["rxre_semantic_conflict"] is True)
+=======
+          delta["mmMC_CG_DATAPORT"]["rxre_conflict"] is True)
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
         v("CONFORMANCE B: CHOSEN=null  (la arista gmc_v8_0.c no basta)",
           delta["mmMC_CG_DATAPORT"]["rxre_chosen"] is None,
           delta["mmMC_CG_DATAPORT"]["rxre_chosen"])
     else:
+<<<<<<< HEAD
         # MEDIDO 2026-10-14 (RXRE-CORE-CAUSAL-002): el delta cambio, y no
         # porque el test se hubiera quedado viejo por descuido: porque la
         # REPARACION que este bloque esperaba ya esta hecha en
@@ -315,6 +333,21 @@ def main():
             for k, x in exp.items():
                 v("[DELTA MEDIDO] %s.%s == %s  (%s)"
                   % (sym, k, x, ETIQUETA[sym]), delta[sym][k] == x, delta[sym][k])
+=======
+        # Sin reparacion,  se exige que el delta sea EXACTAMENTE el medido.
+        # Si el mundo cambia sin que se repare,  esto falla.
+        PENDIENTE = {
+            "mmBCI_DEBUG_READ": {"rxre_conflict": True, "rxre_chosen": None,
+                                 "rxre_value": None},
+            "mmMC_CG_DATAPORT": {"rxre_conflict": True,
+                                 "rxre_chosen": "include/asic_reg/gmc/gmc_8_1_d.h",
+                                 "rxre_value": "0xa21"},
+        }
+        for sym, exp in PENDIENTE.items():
+            for k, x in exp.items():
+                v("[DELTA MEDIDO] %s.%s == %s  (reparacion pendiente)"
+                  % (sym, k, x), delta[sym][k] == x, delta[sym][k])
+>>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
         v("el numero de simbolos en conflicto del modelo es estable",
           st3["CONFLICT"] == 6, st3["CONFLICT"])
         v("y TODOS son inter-TU:  el preprocesador no los puede resolver",

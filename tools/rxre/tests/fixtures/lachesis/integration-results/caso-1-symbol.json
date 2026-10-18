@@ -1,0 +1,163 @@
+{
+  "rc": 0,
+  "wall_s": 62.2,
+  "contrato": {
+    "tool": "lachesis_defuse.py",
+    "version": "1.0.0",
+    "operation": "defuse",
+    "intent": "symbol",
+    "subject": "gmc_v8_0_gart_enable",
+    "layers": {
+      "identity": {
+        "producer": "reg_resolve.py",
+        "status": "absent",
+        "verdict": "PROVEN_ABSENT_EN_ASIC_REG",
+        "note": "busqueda exhaustiva sobre include/asic_reg. Es una ausencia de definicion de offset, no de hardware: el registro puede existir y no estar documentado aqui.",
+        "kernel": "RESEARCH/kernelbuild/linux-7.1.3",
+        "gfx": "gfx_8_0",
+        "unit_declaration": {
+          "file": "drivers/gpu/drm/amd/amdgpu_reg_access.c",
+          "symbol": "amdgpu_device_rreg",
+          "quote": "@reg: dword aligned register offset",
+          "operational_check": "reg * 4 en readl(((void __iomem *)adev->rmmio) + (reg * 4))",
+          "consequence": "los offsets mm* son indices dword; el byte offset es offset*4"
+        }
+      },
+      "provider": {
+        "producer": "lachesis",
+        "status": "ambiguous",
+        "question": "find-entity",
+        "criteria": {
+          "name": "gmc_v8_0_gart_enable",
+          "kind": null,
+          "file": null
+        },
+        "summary": null,
+        "budget": null,
+        "match_count": 3
+      }
+    },
+    "results": [
+      {
+        "state": "PROVEN",
+        "kind": "expression",
+        "label": "gmc_v8_0_gart_enable",
+        "role": "reference",
+        "node_id": "v2:frontend:clang-c:body:0bcb33ff0eb081b1b711",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 1228,
+          "end_line": 1228,
+          "start_column": 6,
+          "end_column": 26
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "label": "gmc_v8_0_hw_init"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "find-entity",
+          "locator_tier": "T3"
+        }
+      },
+      {
+        "state": "PROVEN",
+        "kind": "expression",
+        "label": "gmc_v8_0_gart_enable",
+        "role": "reference",
+        "node_id": "v2:frontend:clang-c:body:9c8216b9066bf03c3df3",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 1228,
+          "end_line": 1228,
+          "start_column": 6,
+          "end_column": 26
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "label": "gmc_v8_0_hw_init"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "find-entity",
+          "locator_tier": "T3"
+        }
+      },
+      {
+        "state": "PROVEN",
+        "kind": "function",
+        "label": "gmc_v8_0_gart_enable",
+        "role": "definition",
+        "node_id": "v2:frontend:clang-c:function:5f92173ad523fa446e5d",
+        "location": {
+          "file": "tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c",
+          "start_line": 829,
+          "end_line": 946,
+          "start_column": 1,
+          "end_column": 2
+        },
+        "origin": "compiler",
+        "confidence": "exact",
+        "owner_chain": [
+          {
+            "kind": "project",
+            "label": "project"
+          },
+          {
+            "kind": "file",
+            "label": "amdgpu/gmc_v8_0.c"
+          },
+          {
+            "kind": "function",
+            "label": "gmc_v8_0_gart_enable"
+          }
+        ],
+        "provenance": {
+          "producer": "lachesis",
+          "question": "find-entity",
+          "locator_tier": "T1"
+        }
+      }
+    ],
+    "limitations": [
+      "2 coincidencias comparten la misma localizacion tools/rxre/tests/fixtures/lachesis/corpus-small/amdgpu/gmc_v8_0.c:1228: son nodos de la MISMA sentencia, no 2 sitios distintos. Falso positivo de conteo medido en lachesis 0.5.3 (los dos operandos de una llamada se reportan como dos entidades)."
+    ],
+    "tools_used": [
+      {
+        "tool": "reg_resolve.py",
+        "rc": 0
+      },
+      {
+        "tool": "lachesis",
+        "question": "find-entity",
+        "rc": 0
+      }
+    ]
+  },
+  "stderr": ""
+}
