@@ -1,0 +1,26 @@
+[project]
+name = "rxre"
+version = "0.0.1"
+description = "Esqueleto de RXRE. TIERRA funcional, 7 planos en stub."
+requires-python = ">=3.11"
+dependencies = [
+    "typer>=0.12",
+    "rich>=13",
+    "pydantic>=2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+rxre = "rxre.cli:app"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["rxre*"]
+
+[tool.pytest.ini_options]
+testpaths = ["rxre/tests"]
