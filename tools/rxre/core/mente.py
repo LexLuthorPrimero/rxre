@@ -120,6 +120,11 @@ class Mente:
         return Prueba(id=pid, hip_a=hip_a_id, hip_b=hip_b_id,
                       procedimiento=proc, prediccion_a=pred_a[0], prediccion_b=pred_b[0])
 
+    def invocar_fuego(self, op: str, args: dict) -> dict:
+        """M6: interfaz síncrona MENTE → FUEGO."""
+        from rxre.api import machine
+        return machine.procesar_linea(json.dumps({"op": f"fuego.{op}", **args}))
+
     def evaluar_prueba(self, prueba_id: str, resultado: dict) -> dict:
         observado = resultado.get("observado", "")
         with sqlite3.connect(self.db_path) as c:

@@ -3370,7 +3370,20 @@ def _handle_mente(op: str, args: dict) -> dict:
         return m.evaluar_prueba(args["prueba_id"], args.get("resultado", {}))
     return {"status": "error", "motivo": "subop desconocida", "results": []}
 
-HANDLERS = {
+def _handle_cuerpo(params: dict) -> dict:
+    sub = params.get("op","").split(".")[-1]
+    from rxre.core.cuerpo import Cuerpo
+    c = Cuerpo(".rxre/cuerpo.sqlite3")
+    if sub == "observar":
+        return {"status":"ok","observacion": c.observar(params.get("artifact_path","/dev/null"))}
+    if sub == "recuperar":
+        return {"status":"ok","observacion": c.recuperar(params.get("obs_id"))}
+    if sub == "verificar":
+        return {"status":"ok","intacto": c.verificar_no_alterado(params.get("obs_id"))}
+    return {"status":"error","motivo":"subop desconocida"}
+
+HANDLERS = {    "cuerpo.observar": _handle_cuerpo,
+
     "backends": _handle_backends,
     "run": _handle_run,
     "plan": _handle_plan,
@@ -3391,6 +3404,7 @@ HANDLERS = {
     "scan": _handle_scan,
     "principios": _handle_principios,
     "fuego": _handle_fuego,
+    "fuego.rollback": _handle_rollback,
     "eter": _handle_eter,
     "aire.trace": _handle_aire,
     "aire.result": _handle_aire,
