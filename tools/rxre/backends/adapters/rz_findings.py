@@ -101,7 +101,7 @@ CONFIDENCE = ("FUERTE", "DEBIL", "INFERIDA")
 # --- Evidencias epistemicas permitidas ---
 EPISTEMIC_STATUS = (
     "PROVEN", "PARTIAL", "NOT_DETERMINED",
-    "PROVEN_ABSENT", "DEFERRED",
+    "PROVEN_ABSENT", "DEFERRED", "INVALIDATED",
 )
 
 # --- Constantes de estado de hallazgos ---
