@@ -290,6 +290,32 @@ BEGIN
   SELECT RAISE(ABORT, 'EPISTEMIC_INVALID: ' || NEW.epistemic);
 END;
 
+-- =====================================================================
+-- [v3] Trigger de validacion del CONTRATO para findings nuevos.
+--
+-- El diagrama define 10 campos obligatorios. Los 5 nuevos (object_hash,
+-- scope, derivation_refs, contradiction_refs, falsification_test) son
+-- nullable para no romper los 12 findings existentes. Pero un finding NUEVO
+-- que no tenga los 10 campos no cumple el contrato.
+--
+-- Solo INSERT, no UPDATE: los findings viejos siguen operables (grandfathered).
+-- Excepcion explicita con prefijo F-LEGACY-: nadie puede insertar un finding
+-- incompleto sin marcarlo como legacy a proposito.
+-- =====================================================================
+CREATE TRIGGER IF NOT EXISTS trg_findings_contrato_nuevo
+BEFORE INSERT ON findings
+WHEN NEW.finding_id NOT LIKE 'F-LEGACY-%'
+  AND (
+    NEW.object_hash IS NULL OR
+    NEW.scope IS NULL OR
+    NEW.falsification_test IS NULL OR
+    NEW.derivation_refs IS NULL OR
+    NEW.contradiction_refs IS NULL
+  )
+BEGIN
+  SELECT RAISE(ABORT, 'CONTRATO_INCOMPLETO: 10 campos obligatorios para findings nuevos');
+END;
+
 -- =========================================================================
 -- [v3-2] INVALIDATED NO ES AUTOMATICO.
 --
