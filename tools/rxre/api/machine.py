@@ -58,6 +58,11 @@ from rxre.core.store import REFLEXION_OUTCOMES  # noqa: E402
 # (los tests importan `api.machine` sin querer crear ficheros).
 try:
     import rxre.core.eter as _eter_mod  # noqa: E402
+try:
+    import rxre.core.aire as _aire_mod  # noqa: E402
+except Exception:  # pragma: no cover
+    _aire_mod = None
+_AIRE = None
 except Exception:                                          # pragma: no cover
     _eter_mod = None
 _ETER = None
@@ -86,6 +91,16 @@ def _eter():
         _ETER = _eter_mod.Eter(ruta)
     return _ETER
 
+
+_AIRE = None
+
+def _aire():
+    global _AIRE
+    if _AIRE is None:
+        if _aire_mod is None:
+            raise RuntimeError("core.aire no importable")
+        _AIRE = _aire_mod.Aire()
+    return _AIRE
 
 # FUEGO: hub async con rollback. Lazy.
 try:
@@ -2770,6 +2785,21 @@ def _handle_rollback(params: dict) -> dict:
     return {"status": "error", "motivo": f"subop desconocida: {subop}", "results": []}
 
 
+def _handle_aire(params: dict) -> dict:
+    """op: aire — traza, resultado, reconstruir."""
+    subop = params.get("op", "").split(".")[-1]
+    a = _aire()
+    if subop == "trace":
+        tid = a.trazar(params.get("decision", ""), params.get("herramienta", ""))
+        return {"status": "ok", "subop": "trace", "trace_id": tid, "results": []}
+    if subop == "result":
+        a.resultado(params.get("trace_id"), params.get("resultado"), params.get("error"))
+        return {"status": "ok", "subop": "result", "results": []}
+    if subop == "reconstruct":
+        return {"status": "ok", "subop": "reconstruct", "trace": a.reconstruir(params.get("trace_id")), "results": []}
+    return {"status": "error", "motivo": "subop desconocida", "results": []}
+
+
 def _handle_fuego(params: dict) -> dict:
     """op: fuego - verifica las 6 garantias de seguridad (FUEGO) antes de auto-ejecucion."""
     import shutil as _shutil
@@ -3301,6 +3331,9 @@ HANDLERS = {
     "principios": _handle_principios,
     "fuego": _handle_fuego,
     "eter": _handle_eter,
+    "aire.trace": _handle_aire,
+    "aire.result": _handle_aire,
+    "aire.reconstruct": _handle_aire,
     "rollback": _handle_rollback,
     "router": _handle_router,
     "application": _handle_application,
