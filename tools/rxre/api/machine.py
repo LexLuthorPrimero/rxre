@@ -3268,6 +3268,17 @@ def _handle_scan(params: dict) -> dict:
     finally:
         c.close()
 
+def _handle_router(params: dict) -> dict:
+    """op: router.resolve -- resuelve por capability (mapa estático ADAPTERS)."""
+    capability = params.get("capability")
+    if not capability:
+        return {"status": "error", "motivo": "falta capability", "results": []}
+    import rxre.backends.dispatch as d
+    if capability not in d.ADAPTERS:
+        return {"status": "error", "motivo": f"capability no registrada: {capability}", "results": []}
+    adapter = d.ADAPTERS[capability]
+    return {"status": "ok", "capability": capability, "backend": adapter.get("nombre", capability), "results": []}
+
 HANDLERS = {
     "backends": _handle_backends,
     "run": _handle_run,
@@ -3291,6 +3302,7 @@ HANDLERS = {
     "fuego": _handle_fuego,
     "eter": _handle_eter,
     "rollback": _handle_rollback,
+    "router": _handle_router,
     "application": _handle_application,
 }
 
