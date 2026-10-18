@@ -108,6 +108,8 @@ ADAPTERS = {
     # tree-sitter responde sobre la ESTRUCTURA. Ademas sus modos de fallo son
     # opuestos (spatch casa dentro de un string; tree-sitter no), asi que un
     # `empty` de uno es discriminante para el otro.
+    "runtime.trace": [],
+    "formal.check": [],
     "source.ast_parse": {
         "modulo": "backends.adapters.ts_ast",
         "funcion": "parsear",
