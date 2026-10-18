@@ -142,6 +142,12 @@ def _handle_verify(params: dict) -> dict:
         {"op":"verify","artefacto":"/bin/ls"}
         {"op":"verify","artefacto":"/bin/ls","capability":"binary.xrefs"}
     """
+    # ETER: emitir el evento ANTES de la logica del handler. Async y
+    # no-bloqueante (ver _handle_scan).
+    try:
+        _eter().emit("verify", {"op": "verify"}, critico=True)
+    except Exception:
+        pass
     import struct
     from rxre.backends import registry
     from rxre.backends.contract import sha256_de
@@ -1550,6 +1556,12 @@ def _capability_de(texto: str) -> str:
 
 def _handle_plan(params: dict) -> dict:
     """op: plan - Devuelve el plan de ejecucion SIN ejecutar."""
+    # ETER: emitir el evento ANTES de la logica del handler. Async y
+    # no-bloqueante (ver _handle_scan).
+    try:
+        _eter().emit("plan", {"op": "plan"}, critico=True)
+    except Exception:
+        pass
     capability = params.get("capability")
     question = params.get("question", "")
     if not capability:
@@ -3135,6 +3147,13 @@ def _handle_scan(params: dict) -> dict:
         Dict con investigacion_id y next_actions (saturate)
     """
     c = _get_db()
+    # ETER: emitir el evento ANTES de la logica del handler. El evento es
+    # async (write-ahead) y NO bloquea: si el hub esta lleno, el descarte se
+    # CUENTA en stats, no rompe el handler.
+    try:
+        _eter().emit("scan", {"op": "scan"}, critico=True)
+    except Exception:
+        pass
     try:
         # ETER: La correlacion corre en UNA sola ruta: `registrar_investigacion`
         # (store.py) ejecuta `_auto_correlate_findings` DESPUES de grabar la
