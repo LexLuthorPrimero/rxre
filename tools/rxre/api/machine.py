@@ -70,34 +70,23 @@ _AIRE = None
 
 try:
     import rxre.core.agua as _agua_mod  # noqa: E402
-except Exception:                                          # pragma: no cover
+except Exception:  # pragma: no cover
     _agua_mod = None
 _AGUA = None
-def _eter():
-    """Instancia lazy de ÉTER. Una por proceso, como pide el diagrama.
 
-    La ruta sale de `$RXRE_DB` (si está seteado) reemplazando el nombre del
-    fichero, o de `.rxre/eter.sqlite3` por defecto. Reutilizar la misma
-    instancia es lo que hace que la cola tenga estado entre llamadas: si se
-    creara una por `emit`, cada evento tendría su propia cola y nadie vería
-    los pendientes de nadie.
-    """
-    global _ETER
-    if _ETER is None:
-        if _eter_mod is None:
-            raise RuntimeError("core.eter no importable: ÉTER no disponible")
-        ruta = os.environ.get("RXRE_DB", "")
-        if ruta:
-            ruta = ruta.replace("rxre.db", "eter.sqlite3")
-            if ruta == os.environ.get("RXRE_DB", ""):
-                ruta = os.path.join(os.path.dirname(ruta), "eter.sqlite3")
-        else:
-            ruta = os.path.join(".rxre", "eter.sqlite3")
-        _ETER = _eter_mod.Eter(ruta)
-    return _ETER
+try:
+    import rxre.core.disciplina as _disciplina_mod  # noqa: E402
+except Exception:  # pragma: no cover
+    _disciplina_mod = None
+_DISCIPLINA = None
 
-
-_AIRE = None
+def _disciplina():
+    global _DISCIPLINA
+    if _DISCIPLINA is None:
+        if _disciplina_mod is None:
+            raise RuntimeError("core.disciplina no importable")
+        _DISCIPLINA = _disciplina_mod.Disciplina()
+    return _DISCIPLINA
 
 def _aire():
     global _AIRE
@@ -3336,6 +3325,20 @@ def _handle_router(params: dict) -> dict:
     adapter = d.ADAPTERS[capability]
     return {"status": "ok", "capability": capability, "backend": adapter.get("nombre", capability), "results": []}
 
+def _handle_disciplina(params: dict) -> dict:
+    sub = params.get("op", "").split(".")[-1]
+    d = _disciplina()
+    if sub == "iniciar":
+        return {"status": "ok", "invest_id": d.iniciar(params.get("objetivo", ""))}
+    if sub == "avanzar":
+        return d.avanzar(params.get("invest_id"), params.get("hacia"), params.get("payload"))
+    if sub == "estado":
+        r = d.estado(params.get("invest_id"))
+        return {"status": "ok", "estado": r}
+    if sub == "historial":
+        return {"status": "ok", "historial": d.historial(params.get("invest_id"))}
+    return {"status": "error", "motivo": "subop desconocida", "results": []}
+
 HANDLERS = {
     "backends": _handle_backends,
     "run": _handle_run,
@@ -3364,6 +3367,10 @@ HANDLERS = {
     "agua.guardar": _handle_agua,
     "agua.recuperar": _handle_agua,
     "agua.revalidar": _handle_agua,
+    "disciplina.iniciar": _handle_disciplina,
+    "disciplina.avanzar": _handle_disciplina,
+    "disciplina.estado": _handle_disciplina,
+    "disciplina.historial": _handle_disciplina,
     "rollback": _handle_rollback,
     "router": _handle_router,
     "application": _handle_application,
