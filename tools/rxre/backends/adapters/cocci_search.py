@@ -294,6 +294,7 @@ def buscar(artefacto: str, patron: str, backend_id: str = "coccinelle",
                 actual["hunks"].append(ln)
     n_hits = len([x for x in lineas_diff if x.startswith("+")
                   and not x.startswith("+++")])
+    n_lineas_original = len(lineas_diff)
 
     lim = [
         "una coincidencia de Coccinelle es una SEMANTIC_HYPOTHESIS sobre el "
@@ -322,6 +323,12 @@ def buscar(artefacto: str, patron: str, backend_id: str = "coccinelle",
              "diff": lineas_diff[:200],
              "patron": patron,
              "ficheros": sorted(set(_ficheros_de(lineas_diff)))}
+    completitud = {
+        "completo": n_lineas_original <= 200,
+        "omitidos": max(0, n_lineas_original - 200),
+        "limite": 200,
+        "elemento": "lineas_diff",
+    }
     res = {
         "result_id": rid,
         "type": SEMANTIC_HYPOTHESIS,
@@ -338,6 +345,7 @@ def buscar(artefacto: str, patron: str, backend_id: str = "coccinelle",
         "artifact_hash": pre.get("input_hash", ""),
         "status": "declared",
         "limitations": lim,
+        "completitud": completitud,
     }
     ejec.update({"status": BK_OK})
     return {"status": BK_OK, "precheck": pre, "ejecucion": ejec,

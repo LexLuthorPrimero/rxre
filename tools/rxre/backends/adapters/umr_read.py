@@ -313,7 +313,7 @@ def _id_resultado(pci: str, reg: str, backend: str, valor: Any) -> str:
 
 def register_read(pci_address: str, register_name: str,
                   backend_id: str = "umr", timeout: int = DEFAULT_TIMEOUT,
-                  **kwargs) -> Dict[str, Any]:
+                  decode: bool = False, **kwargs) -> Dict[str, Any]:
     """Lee un registro GPU mediante UMR.
 
     PRE-EXECUTION CONTRACT CHECK (§26):
@@ -353,7 +353,34 @@ def register_read(pci_address: str, register_name: str,
                     "no se invoco al backend: validacion fallida"
                 ]}
 
-    # 2. Validar register_name formato
+    # 2. Verificar backend existe — ANTES de validar register_name, para que
+    #    el precheck reporte backend_existe/entrypoint_existe con exactitud.
+    #    MEDIDO 2026-10-15: el defecto original inicializaba
+    #    `backend_existe: False` y lo early-returnaba (formato invalido,
+    #    registro no en BD) sin nunca llamar a b.existe(). El precheck decia
+    #    `backend_existe: false` para umr que EXISTE en /usr/bin/umr.
+    try:
+        ent = registry.get(backend_id)
+        b: Backend = ent["backend"]
+    except (KeyError, TypeError):
+        pre["backend_existe"] = False
+        pre["entrypoint_existe"] = False
+        return {"status": BK_INVALID, "precheck": pre,
+                "limitations": [
+                    "backend_id '%s' no esta en el registry. Backends: %s"
+                    % (backend_id, ", ".join(sorted(registry._BACKENDS))),
+                    "no se invoco al backend: backend desconocido"
+                ]}
+    pre["backend_existe"] = b.existe()
+    pre["entrypoint_existe"] = bool(b.path())
+    if not pre["entrypoint_existe"]:
+        return {"status": BK_BLOCKED, "precheck": pre,
+                "limitations": [
+                    "el backend %s no esta en PATH" % backend_id,
+                    "UMR necesita root para leer registros; verificar despues"
+                ]}
+
+    # 3. Validar register_name formato
     if not _es_registro_valido(register_name):
         pre["ok"] = False
         return {"status": BK_INVALID, "precheck": pre,
@@ -363,7 +390,7 @@ def register_read(pci_address: str, register_name: str,
                     "no se invoco al backend: validacion fallida"
                 ]}
 
-    # 2b. PRECHECK ESTATICO contra la BD de UMR: la forma no basta.
+    # 3b. PRECHECK ESTATICO contra la BD de UMR: la forma no basta.
     # MEDIDO: el ejemplo historico de este adapter,
     # `polaris12.smc.gpu_length`, pasaba la validacion de forma y NO
     # EXISTIA. La BD es un fichero: comprobarlo no cuesta root ni
@@ -381,18 +408,6 @@ def register_read(pci_address: str, register_name: str,
                     "los nombres de esta BD llevan prefijo de tipo de dos "
                     "caracteres (mm/ix/dc/ad); el namespace esta en "
                     "%s/<asic>.asic" % UMR_DATABASE
-                ]}
-
-    # 3. Verificar backend existe
-    ent = registry.get(backend_id)
-    b: Backend = ent["backend"]
-    pre["backend_existe"] = b.existe()
-    pre["entrypoint_existe"] = bool(b.path())
-    if not pre["entrypoint_existe"]:
-        return {"status": BK_BLOCKED, "precheck": pre,
-                "limitations": [
-                    "el backend %s no esta en PATH" % backend_id,
-                    "UMR necesita root para leer registros; verificar despues"
                 ]}
 
     # 4. Verificar root. MEDIDO 2026-10-14: con root, `umr -g =<pci> -r`
@@ -424,8 +439,15 @@ def register_read(pci_address: str, register_name: str,
     # v1.0.0 -> "error: Unknown option [no_colour]", rc=1) y
     # `-g polaris12@0` (no resuelve este device, did=ffffffffffffffff,
     # rc=1). Ver `_selector_device`.
+    # `decode=True` anula el flag literal `-O bits` sobre el argv: `umr -r` +
+    # `-O bits` decodifica los bitfields usando el regdb de UMR (solo lectura).
+    # El flag es un literal del adapter (no input del usuario), para evitar
+    # inyeccion de flags y para que `decode` no altere el comando sin root
+    # (el precheck lo bloquea con BK_BLOCKED antes de ejecutar umr).
     argv = ([*_prefijo_escalada(), b.path(), "-dbp", UMR_DATABASE]
-            + _selector_device(pci_address) + ["-r", register_name])
+            + _selector_device(pci_address)
+            + (["-O", "bits"] if decode else [])
+            + ["-r", register_name])
     ident = b.identidad()
     t0 = time.time()
     try:
@@ -542,11 +564,45 @@ def register_read(pci_address: str, register_name: str,
 
     # SUCCESS: valor parseable
     ejec["status"] = BK_OK
+
+    # DECODE (Fase D, MEDIDO 2026-10-13): si decode=True, umr corrio con -O bits
+    # y emitio lineas de bitfield `.FIELD[start:end] == value (0xhex)` agrupadas
+    # por registro. Parsearlas para exponer la descomposicion estructurada. El
+    # layout es autoridad del regdb de UMR (polaris12.gfx800), no inferencia;
+    # verificado contra el decode de umr mismo (oracle match, 0x3028).
+    bitfields_pedidos: Any = {}
+    if decode:
+        campos_por_reg: Dict[str, Dict[str, Any]] = {}
+        reg_activo = None
+        for linea_raw in limpio.splitlines():
+            s = linea_raw.strip()
+            if not s:
+                continue
+            # linea de registro: `NAME => 0xHEX` (grupo los fields que siguen)
+            if "=>" in s and "[" not in s.split("=>", 1)[0]:
+                nombre_reg, _, _ = s.partition("=>")
+                reg_activo = nombre_reg.strip()
+                campos_por_reg.setdefault(reg_activo, {})
+                continue
+            # linea de bitfield: `.FIELD[start:end] == value (0xhex)`
+            m = re.match(r"^\.(\w+)\[(\d+):(\d+)\]\s*==\s*(\d+)"
+                         r"\s*\(0x([0-9a-fA-F]+)\)$", s)
+            if m and reg_activo:
+                campos_por_reg[reg_activo][m.group(1)] = {
+                    "value": int(m.group(4)),
+                    "hex": "0x" + m.group(5),
+                    "bits": [int(m.group(2)), int(m.group(3))],
+                }
+        bitfields_pedidos = campos_por_reg.get(
+            "%s.%s" % (ip_pedido, reg_pedido), {})
+
     result = {
         "result_id": _id_resultado(pci_address, register_name, backend_id, valor),
         "type": RAW_BINARY,
         "value": valor,
         "value_hex": valor_hex,
+        "bitfields": bitfields_pedidos,
+        "decoded": bool(bitfields_pedidos),
         "registros_leidos": cascada,
         "source": pci_address,
         "location": {"pci_address": pci_address, "register": register_name},
@@ -570,6 +626,13 @@ def register_read(pci_address: str, register_name: str,
         "raw": so.strip()[:600],
         "raw_hex": valor_hex,
     }
+    if decode and bitfields_pedidos:
+        result["limitations"].append(
+            "bitfields: decodificacion de `umr -O bits` usando el regdb de UMR "
+            "(/usr/share/umr/database, polaris12.gfx800). El layout (nombres y "
+            "anchos de campos) es autoridad del regdb, no inferencia; la "
+            "interpretacion semantica de cada campo sigue siendo una hipotesis. "
+            "Solo lectura (-r + -O bits), nunca -w.")
     return {"status": BK_OK, "precheck": pre, "ejecucion": ejec,
             "backend": ident,
             "provenance": {

@@ -1,0 +1,30 @@
+=== vaddr 0x3910 -> file offset 0x3910 ===
+  0x3910:	endbr64	
+  0x3914:	xor	ebp, ebp
+  0x3916:	mov	r9, rdx
+  0x3919:	pop	rsi
+  0x391a:	mov	rdx, rsp
+  0x391d:	and	rsp, 0xfffffffffffffff0
+  0x3921:	push	rax
+  0x3922:	push	rsp
+  0x3923:	xor	r8d, r8d
+  0x3926:	xor	ecx, ecx
+  0x3928:	lea	rdi, [rip - 0x23ef]
+  0x392f:	call	qword ptr [rip + 0x2163b]
+  0x3935:	hlt	
+  0x3936:	nop	word ptr cs:[rax + rax]
+=== vaddr 0x1540 -> file offset 0x1540 ===
+  0x1540:	endbr64	
+  0x1544:	push	rbp
+  0x1545:	mov	rbp, rsp
+  0x1548:	push	r15
+  0x154a:	push	r14
+  0x154c:	push	r13
+  0x154e:	mov	r13d, edi
+  0x1551:	push	r12
+  0x1553:	push	rbx
+  0x1554:	sub	rsp, 0xe8
+  0x155b:	mov	rbx, qword ptr [rsi]
+  0x155e:	mov	r12, qword ptr fs:[0x28]
+  0x1567:	mov	qword ptr [rbp - 0x38], r12
+  0x156b:	mov	r12, rsi

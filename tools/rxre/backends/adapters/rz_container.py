@@ -90,8 +90,9 @@ if PKG not in sys.path:
 from backends import registry  # noqa: E402
 from backends.contract import (  # noqa: E402
     BK_BLOCKED, BK_EMPTY, BK_ERROR, BK_INVALID, BK_OK,
-    RAW_BINARY, Backend, sha256_de, sha256_texto,
+    RAW_BINARY, Backend, sha256_de, sha256_texto, estado_firma,
 )
+from . import provenance as _prov
 
 #: MEDIDO 2026-10-12: ~147 s para `isj` sobre un ET_REL de 37 MB, y los
 #: otros cuatro por debajo de ~120 s en la misma clase de entrada. Un
@@ -170,6 +171,18 @@ def _correr(capacidad: str, comando: str, etiqueta: str,
                     % (", ".join(_backends_de(capacidad)) or "?")]}
 
     b: Backend = ent["backend"]
+    if (not fixture_json and os.path.isfile(artefacto)
+            and estado_firma(artefacto) == "no_legible"):
+        return {"status": BK_INVALID,
+                "precheck": {"input_existe": True, "input_legible": False,
+                            "input_es_elf": None, "elf_tipo": "", "input_hash": "",
+                            "backend_existe": b.existe(), "backend_path": b.path() or "",
+                            "comando": comando, "usa_fixture": bool(fixture_json),
+                            "ok": False},
+                "limitations": ["la entrada EXISTE pero no es legible "
+                                "(permiso o E/S): %s" % artefacto,
+                                "no se pudo leer la firma: NO se sabe si "
+                                "es ELF"]}
     etipo = "" if fixture_json else _elf_tipo(artefacto)
     pre = {"input_existe": os.path.isfile(artefacto) or bool(fixture_json),
            "input_es_elf": bool(etipo), "elf_tipo": etipo,
@@ -237,7 +250,7 @@ def _correr(capacidad: str, comando: str, etiqueta: str,
         return {"status": BK_BLOCKED, "precheck": pre, "ejecucion": ejec,
                 "backend": ident,
                 "limitations": ejec["limitations"],
-                "provenance": "PROVENANCE_INCOMPLETE: no hay salida"}
+                "provenance": _prov.construir(estado=_prov.ESTADO_INCOMPLETA, motivo_incompleta='no hay salida', transformacion='rizin/r2 sobre el binario -> stdout crudo -> json.loads -> resultados de la capacidad', normalizador='backends.adapters.rz_container._correr')}
 
     if rc not in (0, None):
         ejec.update({"status": BK_ERROR,
@@ -246,7 +259,7 @@ def _correr(capacidad: str, comando: str, etiqueta: str,
                                         or salida.strip()[:300])]})
         return {"status": BK_ERROR, "precheck": pre, "ejecucion": ejec,
                 "backend": ident, "limitations": ejec["limitations"],
-                "provenance": "PROVENANCE_INCOMPLETE: producer fallo"}
+                "provenance": _prov.construir(estado=_prov.ESTADO_INCOMPLETA, motivo_incompleta='producer fallo', transformacion='rizin/r2 sobre el binario -> stdout crudo -> json.loads -> resultados de la capacidad', normalizador='backends.adapters.rz_container._correr')}
 
     # MEDIDO 2026-10-12 (RXRE-1632): los escapes ANSI CONTIENEN
     # `[` (`\x1b[0;32m`). Buscar la lista sobre texto crudo
@@ -265,7 +278,7 @@ def _correr(capacidad: str, comando: str, etiqueta: str,
             "stdout (primeros 200): %s" % ANSI.sub("", texto)[:200]]})
         return {"status": BK_ERROR, "precheck": pre, "ejecucion": ejec,
                 "backend": ident, "limitations": ejec["limitations"],
-                "provenance": "PROVENANCE_INCOMPLETE: salida no parseable"}
+                "provenance": _prov.construir(estado=_prov.ESTADO_INCOMPLETA, motivo_incompleta='salida no parseable', transformacion='rizin/r2 sobre el binario -> stdout crudo -> json.loads -> resultados de la capacidad', normalizador='backends.adapters.rz_container._correr')}
 
     try:
         crudos = json.loads(texto[ini:])
@@ -274,18 +287,20 @@ def _correr(capacidad: str, comando: str, etiqueta: str,
                      "limitations": ["JSON mal formado: %s" % exc]})
         return {"status": BK_ERROR, "precheck": pre, "ejecucion": ejec,
                 "backend": ident, "limitations": ejec["limitations"],
-                "provenance": "PROVENANCE_INCOMPLETE: JSON invalido"}
+                "provenance": _prov.construir(estado=_prov.ESTADO_INCOMPLETA, motivo_incompleta='JSON invalido', transformacion='rizin/r2 sobre el binario -> stdout crudo -> json.loads -> resultados de la capacidad', normalizador='backends.adapters.rz_container._correr')}
     if not isinstance(crudos, list):
         ejec.update({"status": BK_ERROR, "limitations": [
             "`%s` devolvio %s, no una lista"
             % (comando, type(crudos).__name__)]})
         return {"status": BK_ERROR, "precheck": pre, "ejecucion": ejec,
                 "backend": ident, "limitations": ejec["limitations"],
-                "provenance": "PROVENANCE_INCOMPLETE: forma inesperada"}
+                "provenance": _prov.construir(estado=_prov.ESTADO_INCOMPLETA, motivo_incompleta='forma inesperada', transformacion='rizin/r2 sobre el binario -> stdout crudo -> json.loads -> resultados de la capacidad', normalizador='backends.adapters.rz_container._correr')}
 
     elementos = [{"crudo": x} for x in crudos if isinstance(x, dict)]
+    total_elementos = len(elementos)
     if limite and limite > 0:
         elementos = elementos[:limite]
+    visibles = elementos[:2000]
 
     lim = list(aviso_extra)
     if etipo == "ET_REL":
@@ -306,7 +321,7 @@ def _correr(capacidad: str, comando: str, etiqueta: str,
         ejec.update({"status": BK_EMPTY, "limitations": lim})
         return {"status": BK_EMPTY, "precheck": pre, "ejecucion": ejec,
                 "backend": ident, "results": [], "n_elementos": 0,
-                "limitations": lim, "provenance": "completa",
+                "limitations": lim, "provenance": _prov.desde_precheck(pre, transformacion='rizin/r2 sobre el binario -> stdout crudo -> json.loads -> resultados de la capacidad', normalizador='backends.adapters.rz_container._correr'),
                 "recuento_medido": RECUENTO_ET_DYN}
 
     ref = fixture_json or artefacto
@@ -316,8 +331,12 @@ def _correr(capacidad: str, comando: str, etiqueta: str,
     res = {
         "result_id": rid,
         "type": RAW_BINARY,
-        "value": {"n_elementos": len(elementos), "comando": comando,
-                  "elementos": elementos[:2000]},
+        "value": {"n_elementos": total_elementos, "comando": comando,
+                  "elementos": visibles},
+        "completitud": {"completo": len(visibles) == total_elementos,
+                        "omitidos": max(0, total_elementos - len(visibles)),
+                        "limite": 2000,
+                        "elemento": "elementos"},
         "source": ref,
         "location": {"file": os.path.basename(ref)},
         "scope": "binary",
@@ -334,7 +353,7 @@ def _correr(capacidad: str, comando: str, etiqueta: str,
     ejec.update({"status": BK_OK})
     return {"status": BK_OK, "precheck": pre, "ejecucion": ejec,
             "backend": ident, "results": [res], "n_elementos": len(elementos),
-            "limitations": lim, "provenance": "completa",
+            "limitations": lim, "provenance": _prov.desde_precheck(pre, transformacion='rizin/r2 sobre el binario -> stdout crudo -> json.loads -> resultados de la capacidad', normalizador='backends.adapters.rz_container._correr'),
             "recuento_medido": RECUENTO_ET_DYN}
 
 

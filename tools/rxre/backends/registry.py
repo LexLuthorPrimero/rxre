@@ -350,6 +350,70 @@ _reg(
 )
 
 
+# --- RXRE-ECO-001. tree-sitter: source.ast_parse.
+#
+# POR QUE UN SEGUNDO BACKEND DE `source.` Y NO UNA SUSTITUCION DE COCCINELLE.
+#
+# MEDIDO 2026-10-15 sobre `amdgpu.h` (linux sparse, commit 0fcb05b723):
+#
+#     amdgpu.h parseado: 42872 bytes, 7066 nodos, root=translation_unit
+#     nodos ERROR/missing: 10
+#
+# 7066 nodos sobre el codigo del driver REAL del target. Coccinelle no puede
+# dar esto: `spatch` responde sobre un patch, no sobre la estructura. Un patch
+# que no aplica dice "no coincide"; un AST dice "hay N funciones, M while, y
+# el patron aparece en K hojas". Son preguntas distintas.
+#
+# Y hay una razon de ARQUITECTURA, no de comodidad: las dos herramientas
+# tienen MODOS DE FALLO OPUESTOS, y por eso es util tenerlas juntas.
+#
+#     coccinelle/spatch: casa dentro de un string? SI  -> falsos positivos
+#     tree-sitter:       casa dentro de un string? NO  -> sin falsos positivos
+#
+# La pregunta no es "cual es mejor". Es: si spatch dice que no coincide, puede
+# tree-sitter AFIRMAR si hay un nodo que lo contradiga. Un producer que calla
+# no es lo mismo que un producer que no encuentra.
+_reg(
+    Backend("tree-sitter", None, [], timeout=300,
+            repo="https://github.com/tree-sitter/tree-sitter.git",
+            commit="8ca548849fc8dbefd699edcec26546bb14112820"),
+    caps={
+        "source.ast_parse": "AVAILABLE",
+    },
+    notas=[
+        "MEDIDO: `amdgpu.h` -> 7066 nodos, 10 nodos ERROR/missing. El 0.14% de "
+        "invalidez se REPORTA en `limitations`, no se esconde. Un AST con "
+        "errores es un AST incompleto y el adaptador lo dice.",
+        "MEDIDO: los bindings son binarios nativos compilados para una version "
+        "de CPython concreta (3.14 en este host). Por eso el parser corre en un "
+        "SUBPROCESO del venv aislado `.venv/eco/` y no se importa: importarlos "
+        "ataria el dispatch entero a este host. Ausencia de venv = `blocked` con "
+        "la causa y el comando de instalacion, no ImportError.",
+        "LIMITE DEL ALCANCE: solo C tiene binding MEDIDO. El paquete "
+        "`tree_sitter_language_pack` trae ~150 gramaticas; declararlas sin "
+        "medirlas seria capacidad sin producer, que es lo que §5 prohibe.",
+        "LIMITE DE CONFIANZA: el resultado es `structural_facts`, un tipo QUE NO "
+        "ESTA en ORDEN_CONFIANZA del contrato. Es deliberado: esa escalera es "
+        "para productores de binario y hardware. Un `source.` afirma sobre el "
+        "TEXTO, y meterlo en la escalera de binarios permitiria declararlo "
+        "`validated_semantics` sin evidencia que lo sostenga.",
+    ],
+    no_medidas=[
+        "tree-sitter sobre los 641 ficheros de amdgpu/ del clon sparse: solo se "
+        "midio amdgpu.h. El resto es NOT_DETERMINED",
+        "bindings de C++ (tree_sitter_cpp): esta en LENGUAJES del adaptador pero "
+        "NO se instalo ni se midio en este host",
+        "el motor de consultas de tree-sitter (--query): el adaptador usa un "
+        "visitor recursivo, no el motor de query",
+    ],
+    unsuitable=[
+        "cualquier pregunta sobre un binario (.ko): necesita fuente",
+    ],
+)
+
+
+
+
 # --- RXRE-1641. Knowledge backend: rxre.create_finding, rxre.get_finding,
 # --- rxre.list_finding_relations, rxre.create_finding_relation.
 #
@@ -490,6 +554,57 @@ _reg(
         "gpu.register_write / gpu.vm_write (UMR soporta -w pero es DESTRUCTIVO)",
         "gpu.wave_dump, gpu.profiler (funcionalidades avanzadas no verificadas)",
         "cualquier operacion que requiera debugfs (/sys/kernel/debug/dri/)",
+    ],
+)
+# RXRE-REA-001: REA adapter for firmware/binary inspection.
+# NOT_DETERMINED: REA 6.5.0 is installed but heavy dependencies (pwntools,
+# pyelftools, unicorn) are not available. The adapter runs REA CLI and
+# returns `unsupported` for deep analysis, `ok` for basic raw-binary inspection.
+_reg(
+    Backend("rea", "rea", ["--version"], timeout=60,
+            repo="https://github.com/morluto/rea.git",
+            commit="local:npm-rea-6.5.0"),
+    caps={
+        "rea.inspect_firmware": "AVAILABLE",
+    },
+    notas=[
+        "MEDIDO 2026-10-15: REA 6.5.0 instalado en /home/lucas/.local/bin/rea "
+        "(symlink a /home/lucas/.local/lib/node_modules/rea-agents/scripts/rea.mjs).",
+        "VERSION: rea --version -> 6.5.0 (npm package rea-agents).",
+        "NODE: v22.23.1 (cumple requisito >=22.19).",
+        "DEPENDENCIAS PESADAS NO DISPONIBLES: pwntools>=4.15.0, pyelftools>=0.33, "
+        "unicorn>=2.1.2 NO estan instaladas. El adapter detecta esto y marca "
+        "limitacion en cada respuesta. REA puede ejecutar `inspect` con formato "
+        "raw-binary sin Ghidra (usando su propio motor de workflow), pero el "
+        "analisis completo requiere Ghidra + estas dependencias.",
+        "COMANDOS DE INTERES PARA POLARIS12:",
+        "  rea inspect <fichero> --target-format raw-binary --architecture x86 "
+        "--entry-point 0x0 --format json --full-output",
+        "  rea inspect-firmware-regions <fichero>",
+        "  rea extract-firmware <fichero> <outputDir>",
+        "LIMITE DE ALCANCE: REA analiza firmware como raw-binary de x86. "
+        "El firmware AMDGPU de Polaris12 es bytecode de la GPU (ISA GFX8), "
+        "no x86. El analisis de Ghidra sobre raw-binary x86 es VALIDO para "
+        "inspeccion estructural (size, segmentos, procedimientos) pero NO "
+        "produce significado semantico sobre el ISA de la GPU.",
+        "SOLO LECTURA: REA no ejecuta el firmware ni escribe en el hardware.",
+        "El adapter `backends.adapters.rea_inspect` es OPTIONAL: si REA no "
+        "esta instalado, la capacidad se declara BLOCKED con el prerrequisito "
+        "exacto, y RXRE funciona normalmente sin REA.",
+    ],
+    no_medidas=[
+        "analisis semantico del firmware AMDGPU (ISA GFX8): REA no conoce "
+        "el ISA de la GPU; analiza como x86 raw-binary y el resultado es "
+        "estructural, no semantico.",
+        "firmware extraido: `rea extract-firmware` requiere directorio de "
+        "salida y puede fallar si el firmware no es un formato reconocido "
+        "por REA (binwalk, etc.).",
+    ],
+    unsuitable=[
+        "analisis de firmware AMDGPU en formato .xz (requiere descompresion "
+        "previa: xz -dc > fichero.bin)",
+        "cualquier operacion que requiera escribir en el hardware o en "
+        "el firmware instalado del sistema",
     ],
 )
 

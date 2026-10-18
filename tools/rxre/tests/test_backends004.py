@@ -106,10 +106,20 @@ v("el contrato separa version de commit",
 # Lo que la asercion protege NO cambia: el conjunto sigue siendo EXACTO.
 # MEDIDO 2026-10-05 (RXRE-1641): knowledge backend has 4 AVAILABLE capabilities,
 # is a measured backend (producer verificado), not invented.
+# RXRE-ECO-001 (2026-10-15): se anadio `tree-sitter`. La asercion protege
+# contra backends INVENTADOS, y tree-sitter no lo es: MEDIDO sobre
+# `amdgpu.h` del clon sparse de linux -> 7066 nodos AST, 10 nodos ERROR,
+# 0.057s. El conjunto sigue siendo EXACTO, ahora con un elemento mas.
 v("el registro tiene backends MEDIDOS, no capacidades inventadas",
   set(registry.backends()) == {"rizin", "radare2", "ghidra", "coccinelle",
-                               "capstone", "knowledge", "umr"},
+                               "capstone", "knowledge", "umr", "tree-sitter"},
   sorted(registry.backends()))
+# Y que `tree-sitter` entre por MEDIR, no por declararse: su capacidad
+# tiene producer con estado AVAILABLE, no NOT_DETERMINED.
+v("tree-sitter cierra source.ast_parse con producer medido",
+  registry.get("tree-sitter")["capacities"].get("source.ast_parse")
+  in registry.ESTADOS_CON_PRODUCER,
+  registry.get("tree-sitter")["capacities"])
 # Lo que NO se puede verificar esta declarado como NOT_DETERMINED, no borrado.
 ids_nd = {b["backend_id"]: b["estado"] for b in registry.NO_VERIFICABLES}
 v("angr declarado NOT_DETERMINED, no ausente", ids_nd.get("angr") == "NOT_DETERMINED",

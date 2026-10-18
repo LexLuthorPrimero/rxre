@@ -1,0 +1,71 @@
+
+/usr/bin/ls:     formato del fichero elf64-x86-64
+
+
+Desensamblado de la sección .text:
+
+0000000000001540 <error_at_line@@Base+0x1e8>:
+    1540:	f3 0f 1e fa          	endbr64
+    1544:	55                   	push   %rbp
+    1545:	48 89 e5             	mov    %rsp,%rbp
+    1548:	41 57                	push   %r15
+    154a:	41 56                	push   %r14
+    154c:	41 55                	push   %r13
+    154e:	41 89 fd             	mov    %edi,%r13d
+    1551:	41 54                	push   %r12
+    1553:	53                   	push   %rbx
+    1554:	48 81 ec e8 00 00 00 	sub    $0xe8,%rsp
+    155b:	48 8b 1e             	mov    (%rsi),%rbx
+    155e:	64 4c 8b 24 25 28 00 	mov    %fs:0x28,%r12
+    1565:	00 00 
+    1567:	4c 89 65 c8          	mov    %r12,-0x38(%rbp)
+    156b:	49 89 f4             	mov    %rsi,%r12
+    156e:	be 2f 00 00 00       	mov    $0x2f,%esi
+    1573:	48 89 df             	mov    %rbx,%rdi
+    1576:	49 89 de             	mov    %rbx,%r14
+    1579:	e8 d2 f6 ff ff       	call   c50 <strrchr@plt>
+    157e:	48 85 c0             	test   %rax,%rax
+    1581:	74 30                	je     15b3 <error_at_line@@Base+0x25b>
+    1583:	4c 8d 70 01          	lea    0x1(%rax),%r14
+    1587:	49 89 c7             	mov    %rax,%r15
+    158a:	4c 89 f0             	mov    %r14,%rax
+    158d:	48 29 d8             	sub    %rbx,%rax
+    1590:	48 83 f8 06          	cmp    $0x6,%rax
+    1594:	7e 1d                	jle    15b3 <error_at_line@@Base+0x25b>
+    1596:	49 8d 7f fa          	lea    -0x6(%r15),%rdi
+    159a:	ba 07 00 00 00       	mov    $0x7,%edx
+    159f:	48 8d 35 52 be 01 00 	lea    0x1be52(%rip),%rsi        # 1d3f8 <_IO_stdin_used@@Base+0x2378>
+    15a6:	e8 65 f7 ff ff       	call   d10 <memcmp@plt>
+    15ab:	85 c0                	test   %eax,%eax
+    15ad:	0f 84 65 01 00 00    	je     1718 <error_at_line@@Base+0x3c0>
+    15b3:	48 8b 05 06 3a 02 00 	mov    0x23a06(%rip),%rax        # 24fc0 <program_invocation_name@GLIBC_2.2.5>
+    15ba:	bf 06 00 00 00       	mov    $0x6,%edi
+    15bf:	45 31 ff             	xor    %r15d,%r15d
+    15c2:	48 8d 35 5f ba 01 00 	lea    0x1ba5f(%rip),%rsi        # 1d028 <_IO_stdin_used@@Base+0x1fa8>
+    15c9:	48 89 1d 68 3e 02 00 	mov    %rbx,0x23e68(%rip)        # 25438 <error_print_progname@@Base+0x1b0>
+    15d0:	48 89 18             	mov    %rbx,(%rax)
+    15d3:	48 8b 05 06 3a 02 00 	mov    0x23a06(%rip),%rax        # 24fe0 <program_invocation_short_name@GLIBC_2.2.5>
+    15da:	48 8d 1d 33 9c 01 00 	lea    0x19c33(%rip),%rbx        # 1b214 <_IO_stdin_used@@Base+0x194>
+    15e1:	4c 89 30             	mov    %r14,(%rax)
+    15e4:	41 be ff ff ff ff    	mov    $0xffffffff,%r14d
+    15ea:	e8 01 f9 ff ff       	call   ef0 <setlocale@plt>
+    15ef:	48 8d 35 0e be 01 00 	lea    0x1be0e(%rip),%rsi        # 1d404 <_IO_stdin_used@@Base+0x2384>
+    15f6:	48 8d 3d c8 bb 01 00 	lea    0x1bbc8(%rip),%rdi        # 1d1c5 <_IO_stdin_used@@Base+0x2145>
+    15fd:	e8 9e f5 ff ff       	call   ba0 <bindtextdomain@plt>
+    1602:	48 8d 3d bc bb 01 00 	lea    0x1bbbc(%rip),%rdi        # 1d1c5 <_IO_stdin_used@@Base+0x2145>
+    1609:	e8 52 f5 ff ff       	call   b60 <textdomain@plt>
+    160e:	48 8d 3d cb b0 00 00 	lea    0xb0cb(%rip),%rdi        # c6e0 <error_at_line@@Base+0xb388>
+    1615:	c7 05 69 3a 02 00 02 	movl   $0x2,0x23a69(%rip)        # 25088 <_IO_stdin_used@@Base+0xa008>
+    161c:	00 00 00 
+    161f:	e8 9c 6b 01 00       	call   181c0 <error_at_line@@Base+0x16e68>
+    1624:	66 0f 6f 05 14 e7 01 	movdqa 0x1e714(%rip),%xmm0        # 1fd40 <_IO_stdin_used@@Base+0x4cc0>
+    162b:	00 
+    162c:	c7 05 36 41 02 00 00 	movl   $0x0,0x24136(%rip)        # 2576c <error_print_progname@@Base+0x4e4>
+    1633:	00 00 00 
+    1636:	c6 05 2b 41 02 00 01 	movb   $0x1,0x2412b(%rip)        # 25768 <error_print_progname@@Base+0x4e0>
+    163d:	48 c7 05 18 41 02 00 	movq   $0x0,0x24118(%rip)        # 25760 <error_print_progname@@Base+0x4d8>
+    1644:	00 00 00 00 
+    1648:	48 c7 85 08 ff ff ff 	movq   $0xffffffffffffffff,-0xf8(%rbp)
+    164f:	ff ff ff ff 
+    1653:	48 c7 85 f8 fe ff ff 	movq   $0xffffffffffffffff,-0x108(%rbp)
+    165a

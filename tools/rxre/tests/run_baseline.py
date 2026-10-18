@@ -21,15 +21,16 @@ RXRE = os.path.join(PKG, "rxre")
 env = {**os.environ, "PYTHONPATH": PKG + ":" + RXRE}
 tests = sorted(g for g in glob.glob(os.path.join(HERE, "test_*.py"))
                if not g.endswith(".backup"))
-db = tempfile.mktemp(suffix=".sqlite3")
-env["RXRE_DB"] = db
 passed = failed = errored = 0
 rows = []
 for t in tests:
+    db = tempfile.mktemp(suffix=".sqlite3")
+    test_env = dict(env)
+    test_env["RXRE_DB"] = db
     name = os.path.basename(t)
     try:
         p = subprocess.run([sys.executable, "-B", t], capture_output=True,
-                           text=True, timeout=300, env=env)
+                           text=True, timeout=300, env=test_env)
         ok = (p.returncode == 0)
         rows.append((name, ok, p.returncode))
         if ok: passed += 1
@@ -38,6 +39,12 @@ for t in tests:
         rows.append((name, False, "TIMEOUT")); errored += 1
     except Exception as ex:
         rows.append((name, False, "ERR:%s" % ex)); errored += 1
+    finally:
+        try:
+            if 'db' in locals() and os.path.exists(db):
+                os.unlink(db)
+        except Exception:
+            pass
 for name, ok, rc in rows:
     print(("PASS " if ok else "FAIL ") + name + (" rc=%s" % rc))
 print("\n=== BASELINE %d passed / %d failed / %d errored (of %d) ==="

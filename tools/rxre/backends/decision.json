@@ -23,12 +23,13 @@
     "fecha_umr_hw": "2026-10-14"
   },
   "capacidades_cerradas_por_backend": {
-    "rizin": 14,
-    "radare2": 8,
-    "ghidra": 1,
     "capstone": 2,
     "coccinelle": 1,
+    "ghidra": 1,
     "knowledge": 8,
+    "radare2": 8,
+    "rizin": 14,
+    "tree-sitter": 1,
     "umr": 1
   },
   "recuento_desde_la_matriz_al_principio": {
@@ -54,5 +55,6 @@
     "compilar rizin 0.10-dev: diferido hasta que exista una pregunta que lo exija (§20)",
     "instalar angr: NO instalado globalmente; sigue sin poder verificarse aqui",
     "rz-ghidra: ya no es necesario para decompilar (Ghidra esta instalado y medido). Se mantiene como checkout sin compilar hasta que una pregunta exija el plugin de rizin, no el motor."
-  ]
+  ],
+  "_nota_tree_sitter": "RXRE-ECO-001 (2026-10-15): tree-sitter cierra 1 capacidad (source.ast_parse), MEDIDA sobre amdgpu.h -> 7066 nodos AST. NO cambia primary ni secondary: son sobre binarios, y tree-sitter es un backend de FUENTE. El recuento se actualiza porque §18 exige que lo declarado coincida con el real del registro."
 }

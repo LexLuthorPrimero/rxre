@@ -76,8 +76,9 @@ if PKG not in sys.path:
 from backends import registry  # noqa: E402
 from backends.contract import (  # noqa: E402
     BK_BLOCKED, BK_EMPTY, BK_ERROR, BK_INVALID, BK_OK, BK_UNSUPPORTED,
-    DECOMPILATION, Backend, sha256_de, sha256_texto,
+    DECOMPILATION, Backend, sha256_de, sha256_texto, estado_firma,
 )
+from . import provenance as _prov
 
 SCRIPTS = os.path.join(PKG, "backends", "scripts")
 CLASE = "DumpDecomp.class"
@@ -253,7 +254,12 @@ def _elf_clase(artefacto: str) -> Dict[str, Any]:
         with open(artefacto, "rb") as fh:
             h = fh.read(64)
     except OSError as e:
-        return {"ok": False, "motivo": str(e)}
+        # MEDIDO 2026-10-15 (AIRE): antes esto solo traia `str(e)` y el sitio
+        # de llamada lo empaquetaba como "no es un ELF utilizable", mezclando
+        # ILEGIBLE con NO-ELF. El motivo decia "Permission denied" pero el
+        # encabezado afirmaba lo que no se midio. Se marca legible=False para
+        # que el llamador pueda distinguir.
+        return {"ok": False, "motivo": str(e), "legible": False}
     if len(h) < 20 or h[:4] != b"\x7fELF":
         return {"ok": False, "motivo": "no empieza por \\x7fELF"}
     ei_class = h[4]
@@ -304,6 +310,14 @@ def decompile(artefacto: str, backend_id: str = "ghidra",
            "java_presente": bool(_java_version()),
            "usa_fixture": bool(fixture_json),
            "ok": False}
+    # MEDIDO 2026-10-15 (RXRE-AUTO-002). En modo fixture no hay artefacto
+    # real que hashear, asi que `input_hash` sale vacio. Antes la provenance
+    # decia "completa" y el `precheck` decia "usa_fixture: True": el envelope
+    # se contradecia a si mismo. Ahora la provenance lo declara.
+    _extra_prov = ({"usa_fixture": True,
+                    "nota": "simulacion declarada: no hay artefacto real, "
+                            "por eso input_hash esta vacio"}
+                   if fixture_json else None)
     if fixture_json:
         # Modo fixture: el ARTEFACTO no tiene que existir (asi se pueden
         # probar rutas de fallo sin binario). Pero si existe, se CLASIFICA
@@ -322,6 +336,13 @@ def decompile(artefacto: str, backend_id: str = "ghidra",
                                     % fixture_json]}
         if pre["input_existe"]:
             pre["input_es_elf"] = os.path.isfile(artefacto)
+            if estado_firma(artefacto) == "no_legible":
+                return {"status": BK_INVALID, "precheck": pre,
+                        "limitations": [
+                            "la entrada EXISTE pero no es legible "
+                            "(permiso o E/S): %s" % artefacto,
+                            "no se pudo leer la firma: NO se sabe si es ELF",
+                            "no se llego a ejecutar el producer"]}
             pre["elf_clase"] = _elf_clase(artefacto)
             if not pre["elf_clase"].get("ok"):
                 return {"status": BK_INVALID, "precheck": pre,
@@ -348,6 +369,18 @@ def decompile(artefacto: str, backend_id: str = "ghidra",
         # exactamente eso: leer la cabecera y decir si es ELF. Acoplarlo a
         # `rz_inspect` habria metido una dependencia entre adapters que no
         # existe por ninguna otra razon.
+        # MEDIDO 2026-10-15 (AIRE): antes, un artefacto ILEGIBLE caia aqui y
+        # se reportaba "no es un ELF utilizable (Permission denied)". El
+        # motivo interno era honesto pero el encabezado afirmaba una medicion
+        # que no ocurrio: no se leyo la firma. Ahora se distingue.
+        if estado_firma(artefacto) == "no_legible":
+            return {"status": BK_INVALID, "precheck": pre,
+                    "limitations": [
+                        "la entrada EXISTE pero no es legible "
+                        "(permiso o E/S): %s" % artefacto,
+                        "no se pudo leer la firma: NO se sabe si es ELF "
+                        "(distinto de saber que no lo es)",
+                        "no se invoco a Ghidra: sin lectura no hay loader"]}
         _clase = _elf_clase(artefacto)
         if not _clase.get("ok"):
             return {"status": BK_INVALID, "precheck": pre,
@@ -425,6 +458,31 @@ def decompile(artefacto: str, backend_id: str = "ghidra",
                 "-deleteProject"]
         env = dict(os.environ)
         env.setdefault("GHIDRA_INSTALL_DIR", GHIDRA_HOME)
+
+        # MEDIDO 2026-10-15. Ghidra fallaba con
+        #
+        #     ERROR REPORT: No queda espacio en el dispositivo
+        #     java.io.IOException: No space left on device
+        #
+        # sobre un `/tmp` (tmpfs) lleno, y el fallo NO venia del artefacto ni
+        # del script: venia del JVM, que escribe su temp donde le dicen. Con
+        #
+        #     JAVA_TOOL_OPTIONS=-Djava.io.tmpdir=/var/tmp
+        #
+        # la misma invocacion sobre el mismo binario da `n_functions: 4` y
+        # escribe el JSON. Es decir: la capacidad SI funciona; lo que fallaba
+        # era el directorio temporal del proceso.
+        #
+        # Se usa el MISMO `tmpdir` que ya creo este adapter, porque ese ya
+        # se comprobo escribible. Y solo si el usuario no fijo ya uno: un
+        # `JAVA_TOOL_OPTIONS` del entorno gana, que es lo correcto (no se
+        # pisa lo que quien llama decidio).
+        if tmpdir and "-Djava.io.tmpdir" not in env.get("JAVA_TOOL_OPTIONS", ""):
+            previo = env.get("JAVA_TOOL_OPTIONS", "").strip()
+            env["JAVA_TOOL_OPTIONS"] = (
+                ("-Djava.io.tmpdir=%s" % tmpdir)
+                + ((" " + previo) if previo else ""))
+
         t0 = time.time()
         try:
             p = subprocess.run(argv, capture_output=True, text=True,
@@ -465,7 +523,7 @@ def decompile(artefacto: str, backend_id: str = "ghidra",
                                      "sobre amdgpu.ko)" % timeout]})
         return {"status": BK_BLOCKED, "precheck": pre, "ejecucion": ejec,
                 "backend": ident,
-                "provenance": "PROVENANCE_INCOMPLETE: no hay salida"}
+                "provenance": _prov.construir(estado=_prov.ESTADO_INCOMPLETA, motivo_incompleta='no hay salida', transformacion='ghidra headless -> C decompilado -> extraccion de firmas y cuenta de funciones', normalizador='backends.adapters.gh_decompile.decompile', extra=_extra_prov)}
 
     # --- ¿SALIO EL ARTEFACTO? Antes de parsearlo. (§27) -----------------
     if not os.path.isfile(out_json):
@@ -536,7 +594,7 @@ def decompile(artefacto: str, backend_id: str = "ghidra",
             return {"status": BK_UNSUPPORTED, "precheck": pre,
                     "ejecucion": ejec, "backend": ident,
                     "raw_output": d, "results": [],
-                    "n_functions": 0, "provenance": "completa"}
+                    "n_functions": 0, "provenance": _prov.desde_precheck(pre, transformacion='ghidra headless -> C decompilado -> extraccion de firmas y cuenta de funciones', normalizador='backends.adapters.gh_decompile.decompile', extra=_extra_prov)}
         ejec.update({"status": BK_EMPTY,
                      "limitations": lim_base + [
                          "0 funciones descomprimidas. Con entrada NO ET_REL "
@@ -544,7 +602,7 @@ def decompile(artefacto: str, backend_id: str = "ghidra",
                          "nada. No se confunde con el caso ET_REL de arriba."]})
         return {"status": BK_EMPTY, "precheck": pre, "ejecucion": ejec,
                 "backend": ident, "raw_output": d, "results": [],
-                "n_functions": 0, "provenance": "completa"}
+                "n_functions": 0, "provenance": _prov.desde_precheck(pre, transformacion='ghidra headless -> C decompilado -> extraccion de firmas y cuenta de funciones', normalizador='backends.adapters.gh_decompile.decompile', extra=_extra_prov)}
 
     if decl == 0:
         ejec.update({"status": BK_EMPTY,
@@ -557,10 +615,23 @@ def decompile(artefacto: str, backend_id: str = "ghidra",
         return {"status": BK_EMPTY, "precheck": pre, "ejecucion": ejec,
                 "backend": ident, "raw_output": d, "results": [],
                 "n_functions": n, "n_decompiladas": 0,
-                "provenance": "completa"}
+                "provenance": _prov.desde_precheck(pre, transformacion='ghidra headless -> C decompilado -> extraccion de firmas y cuenta de funciones', normalizador='backends.adapters.gh_decompile.decompile', extra=_extra_prov)}
 
     version = disp.get("version") or ""
     artefacto_ref = artefacto if not fixture_json else fixture_json
+    # MEDIDO 2026-10-17 (V4): Ghidra recibe `max_funcs` (default 5) y puede
+    # acotar la lista de funciones que lista. `n` es lo que Ghidra devolvio
+    # dentro de ese limite; `decl` es cuántas de ellas se descompilaron
+    # realmente. El marcador declara completitud sobre el conjunto que Ghidra
+    # LISTO, no sobre el total real del binario (que no se conoce sin un
+    # analisis independiente). Si `decl < n`, alguna funcion no se descompilo
+    # y el marcador dice `partial`.
+    completitud_funciones = {
+        "completo": decl == n,
+        "omitidos": max(0, n - decl),
+        "limite": max_funcs,
+        "elemento": "funciones",
+    }
     results = []
     for f in funcs:
         if not f.get("decompiled"):
@@ -597,6 +668,7 @@ def decompile(artefacto: str, backend_id: str = "ghidra",
             "artifact_hash": pre.get("input_hash", ""),
             "status": "declared",
             "limitations": lim_base,
+            "completitud": completitud_funciones,
         })
 
     ejec.update({"status": BK_OK})
@@ -610,7 +682,7 @@ def decompile(artefacto: str, backend_id: str = "ghidra",
         "n_functions": n,
         "n_decompiladas": decl,
         "limitations": lim_base,
-        "provenance": "completa",
+        "provenance": _prov.desde_precheck(pre, transformacion='ghidra headless -> C decompilado -> extraccion de firmas y cuenta de funciones', normalizador='backends.adapters.gh_decompile.decompile', extra=_extra_prov),
     }
 
 

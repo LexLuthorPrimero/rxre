@@ -1,0 +1,5 @@
+grep rc=1 (no match=1)
+grep rc=1
+/bin/ls: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=ae6605eeca6cc2f19d18fdd53a521e501df3456d, for GNU/Linux 3.2.0, stripped
+  [ 9] .dynsym           DYNSYM           0000000000019060  00019060
+  [30] .gnu_debugdata    PROGBITS         0000000000000000  00024280

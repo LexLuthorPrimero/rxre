@@ -1,0 +1,40 @@
+
+/usr/bin/ls:     formato del fichero elf64-x86-64
+
+
+Desensamblado de la sección .init:
+
+000000000000033c <.init>:
+ 33c:	f3 0f 1e fa          	endbr64
+ 340:	48 83 ec 08          	sub    $0x8,%rsp
+ 344:	48 8b 05 6d 4c 02 00 	mov    0x24c6d(%rip),%rax        # 24fb8 <__gmon_start__>
+ 34b:	48 85 c0             	test   %rax,%rax
+ 34e:	74 02                	je     352 <__ctype_toupper_loc@plt-0x6ae>
+ 350:	ff d0                	call   *%rax
+ 352:	48 83 c4 08          	add    $0x8,%rsp
+ 356:	c3                   	ret
+
+Desensamblado de la sección .plt:
+
+0000000000000360 <.plt>:
+ 360:	ff 35 aa 48 02 00    	push   0x248aa(%rip)        # 24c10 <_IO_stdin_used@@Base+0x9b90>
+ 366:	ff 25 ac 48 02 00    	jmp    *0x248ac(%rip)        # 24c18 <_IO_stdin_used@@Base+0x9b98>
+ 36c:	0f 1f 40 00          	nopl   0x0(%rax)
+ 370:	f3 0f 1e fa          	endbr64
+ 374:	68 00 00 00 00       	push   $0x0
+ 379:	e9 e2 ff ff ff       	jmp    360 <__ctype_toupper_loc@plt-0x6a0>
+ 37e:	66 90                	xchg   %ax,%ax
+ 380:	f3 0f 1e fa          	endbr64
+ 384:	68 01 00 00 00       	push   $0x1
+ 389:	e9 d2 ff ff ff       	jmp    360 <__ctype_toupper_loc@plt-0x6a0>
+ 38e:	66 90                	xchg   %ax,%ax
+ 390:	f3 0f 1e fa          	endbr64
+ 394:	68 02 00 00 00       	push   $0x2
+ 399:	e9 c2 ff ff ff       	jmp    360 <__ctype_toupper_loc@plt-0x6a0>
+ 39e:	66 90                	xchg   %ax,%ax
+ 3a0:	f3 0f 1e fa          	endbr64
+ 3a4:	68 03 00 00 00       	push   $0x3
+ 3a9:	e9 b2 ff ff ff       	jmp    360 <__ctype_toupper_loc@plt-0x6a0>
+ 3ae:	66 90                	xchg   %ax,%ax
+ 3b0:	f3 0f 1e fa          	endbr64
+ 3b4:	68 04 00 00 00       	push   $0x4

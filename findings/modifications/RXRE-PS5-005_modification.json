@@ -1,0 +1,40 @@
+{
+  "id": "RXRE-PS5-005-SADD-U32-TEST",
+  "claim_id": "RXRE-PS5-003-SADD-U32-SCC-GAP",
+  "purpose": "Add S_ADD_U32 SCC carry-out regression test",
+  "target_file": "KytePS5-Source/tests/ShaderRecompilerComputeTests.cpp",
+  "modification_type": "insert_test_cases",
+  "insert_position": "after append_case(true, EncodeSop2(0x03, 17, 15, 16), 25);",
+  "test_cases": [
+    {
+      "name": "S_ADD_U32 carry-out",
+      "instruction": "EncodeSop2(0x00, 34, 35, 36)",
+      "expected_result": "0x00000000",
+      "expected_scc": 1
+    },
+    {
+      "name": "S_ADD_U32 no-carry",
+      "instruction": "EncodeSop2(0x00, 37, 38, 39)",
+      "expected_result": "0xFFFFFFFF",
+      "expected_scc": 0
+    }
+  ],
+  "supporting_changes": {
+    "store_loop_limit": "8u -> 10u",
+    "expected_scc_values": "{1,0,1,0,1,0,1,0} -> {1,0,1,0,1,0,1,0,1,0}",
+    "opcode_list_additions": ["O::S_ADD_U32"]
+  },
+  "prerequisites": {
+    "filesystem_access": "KytePS5-Source/tests/ must be accessible",
+    "test_framework": "ShaderRecompiler test harness must support SOP2 execution"
+  },
+  "status": "APPLIED",
+  "created": "2026-10-13",
+  "applied": "2026-10-13",
+  "session_id": "<current-session>",
+  "rollback_steps": [
+    "Remove appended test cases after last S_SUB_I32 append_case call",
+    "Restore store loop to `for (u32 i = 0; i < 8u; i++)`",
+    "Restore expected values to `{1, 0, 1, 0, 1, 0, 1, 0}`"
+  ]
+}
