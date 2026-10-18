@@ -3382,7 +3382,21 @@ def _handle_cuerpo(params: dict) -> dict:
         return {"status":"ok","intacto": c.verificar_no_alterado(params.get("obs_id"))}
     return {"status":"error","motivo":"subop desconocida"}
 
+def _handle_cuerpo(params: dict) -> dict:
+    sub = params.get("op","").split(".")[-1]
+    from rxre.core.cuerpo import Cuerpo
+    c = Cuerpo(".rxre/cuerpo.sqlite3")
+    if sub == "observar":
+        return {"status": "ok", "observacion": c.observar(params.get("artifact_path","/dev/null"), params.get("condiciones"))}
+    if sub == "recuperar":
+        return {"status": "ok", "observacion": c.recuperar(params.get("obs_id"))}
+    if sub == "verificar":
+        return {"status": "ok", "intacto": c.verificar_no_alterado(params.get("obs_id"))}
+    return {"status": "error", "motivo": "subop desconocida"}
+
 HANDLERS = {    "cuerpo.observar": _handle_cuerpo,
+    "cuerpo.recuperar": _handle_cuerpo,
+    "cuerpo.verificar": _handle_cuerpo,
 
     "backends": _handle_backends,
     "run": _handle_run,

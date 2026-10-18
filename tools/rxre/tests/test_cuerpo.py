@@ -26,6 +26,19 @@ with tempfile.TemporaryDirectory() as td:
     open(f, "wb").write(b"ALTERADO")
     v("C4.2 verificar alterado", c.verificar_no_alterado(obs["obs_id"]) is False)
 
+    # C2: condiciones
+    obs_cond = c.observar(str(f), condiciones={"kernel": "6.8", "arch": "x86_64"})
+    v("C2.1 observar con condiciones", obs_cond.get("condiciones") == {"kernel": "6.8", "arch": "x86_64"})
+    v("C2.2 revalidar con mismas condiciones", c.revalidar(obs_cond["obs_id"], condiciones={"kernel": "6.8"}) is True)
+    v("C2.3 revalidar con distintas condiciones", c.revalidar(obs_cond["obs_id"], condiciones={"kernel": "5.4"}) is False)
+
+    # C6: sync con FUEGO (llama rollback controlado)
+    try:
+        r = c.invocar_fuego("rollback", {"subop": "global"})
+        v("C6.1 recibe respuesta FUEGO", "prohibido" in str(r) or r.get("ok") is not None)
+    except Exception as exc:
+        v("C6.1 recibe respuesta FUEGO", "global" in str(exc).lower() or "prohibido" in str(exc).lower(), str(exc)[:40])
+
     with tempfile.NamedTemporaryFile(suffix=".fake", delete=False) as tmp2:
         pass
     # El file ya fue borrado por NamedTemporaryFile; usar un path que no existe
