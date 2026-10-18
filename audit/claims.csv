@@ -61,3 +61,12 @@
 "CUERPO-3","W","cuerpo 3: verificar no alterado","verificar_no_alterado detecta cambio; hash cambia","6/6 PASS adversarial","VERIFIED","módulo completo"
 "CUERPO-4","W","cuerpo 4: observación con procedencia","recuperar observación; hash intacto; media_type","6/6 PASS adversarial","VERIFIED","módulo completo"
 + F2 sigue PARTIAL (hardware)
+"ALMA-1","W","alma 1: criterio evaluable","evaluar_criterio con estado; ok/false según campo","test: 2 PASS","VERIFIED","módulo completo"
+"ALMA-2","W","alma 2: propósito con criterios","definir propósito; criterios vinculados; proposito()","test: 4 PASS","VERIFIED","módulo completo"
+"ALMA-3","W","alma 3: no media sync","machine opera sin alma; sync independiente","test: 1 PASS","VERIFIED","módulo completo"
+"PUERTA-2","W","puerta 2: CONTESTED→CHALLENGED con evidencia","transicionar requiere evidencia_nueva no vacía","test: 2 PASS","VERIFIED","módulo completo"
+"PUERTA-3","W","puerta 3: ACCEPTED requiere artefactos íntegros","marcar artefactos_integros; puede_aceptar","test: 3 PASS","VERIFIED","módulo completo"
+"PUERTA-4","W","puerta 4: 0 refutaciones críticas","refutaciones_pendientes=False; falla si True","test: 2 PASS","VERIFIED","módulo completo"
+"PUERTA-5","W","puerta 5: revisor no participante","revisor_independiente=True; falla si False","test: 2 PASS","VERIFIED","módulo completo"
+"PUERTA-6","W","puerta 6: autoridad nombrada","autoridad_nombrada=True; falla si False","test: 2 PASS","VERIFIED","módulo completo"
+"PUERTA-7","W","puerta 7: etapa 1 bloqueada hasta ACCEPTED","etapa1_bloqueada() → False tras ACCEPTED","test: 2 PASS","VERIFIED","módulo completo"

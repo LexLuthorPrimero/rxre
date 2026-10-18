@@ -1,5 +1,5 @@
 """CUERPO: observación y medición de artefactos."""
-import hashlib, sqlite3, uuid
+import hashlib, sqlite3, uuid, json
 from datetime import datetime
 from pathlib import Path
 
@@ -20,11 +20,16 @@ class Cuerpo:
                     size_bytes INTEGER,
                     mtime TEXT,
                     media_type TEXT,
+                    condiciones TEXT DEFAULT '{}',
                     observado_en TEXT NOT NULL
                 )
             """)
+            # Migración: agregar condiciones si falta
+            cols = {r[1] for r in c.execute("PRAGMA table_info(cuerpo_observaciones)")}
+            if "condiciones" not in cols:
+                c.execute("ALTER TABLE cuerpo_observaciones ADD COLUMN condiciones TEXT DEFAULT '{}'")
 
-    def observar(self, artifact_path: str) -> dict:
+    def observar(self, artifact_path: str, condiciones: dict = None) -> dict:
         p = Path(artifact_path)
         if not p.exists():
             raise FileNotFoundError(f"artefacto no existe: {artifact_path}")
@@ -35,13 +40,14 @@ class Cuerpo:
         ahora = datetime.utcnow().isoformat()
         with sqlite3.connect(self.db_path) as c:
             c.execute(
-                "INSERT INTO cuerpo_observaciones (obs_id, artifact_path, artifact_hash, size_bytes, mtime, media_type, observado_en) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO cuerpo_observaciones (obs_id, artifact_path, artifact_hash, size_bytes, mtime, media_type, condiciones, observado_en) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (obs_id, str(p.absolute()), sha, stat.st_size,
-                 datetime.fromtimestamp(stat.st_mtime).isoformat(), media, ahora)
+                 datetime.fromtimestamp(stat.st_mtime).isoformat(), media,
+                 json.dumps(condiciones or {}), ahora)
             )
         return {"obs_id": obs_id, "artifact_path": str(p.absolute()),
                 "artifact_hash": sha, "size_bytes": stat.st_size,
-                "media_type": media}
+                "media_type": media, "condiciones": condiciones or {}}
 
     def recuperar(self, obs_id: str) -> dict:
         with sqlite3.connect(self.db_path) as c:
@@ -58,6 +64,22 @@ class Cuerpo:
             raise ValueError("observación no encontrada")
         actual = hashlib.sha256(Path(obs["artifact_path"]).read_bytes()).hexdigest()
         return actual == obs["artifact_hash"]
+
+    def revalidar(self, obs_id: str, condiciones: dict = None) -> bool:
+        obs = self.recuperar(obs_id)
+        if not obs: raise ValueError("observación no encontrada")
+        if condiciones is None: return True
+        import json
+        originales = json.loads(obs.get("condiciones") or "{}")
+        for k, v in condiciones.items():
+            if originales.get(k) != v:
+                return False
+        return True
+
+    def invocar_fuego(self, op: str, args: dict) -> dict:
+        """CUERPO-6: interfaz sincrona CUERPO -> FUEGO."""
+        from rxre.api import machine
+        return machine.procesar_linea(__import__("json").dumps({"op": f"fuego.{op}", **args}))
 
     def _media_type(self, p: Path) -> str:
         ext = p.suffix.lower()
