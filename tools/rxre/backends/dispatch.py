@@ -103,6 +103,19 @@ ADAPTERS = {
                        "include_dirs", "fixture_diff"],
         "obligatorio": ["artefacto", "patron"],
     },
+    # MEDIDO 2026-10-15: `amdgpu.h` -> 7066 nodos AST, 10 nodos ERROR.
+    # tree-sitter NO sustituye a spatch: spatch responde sobre un patch,
+    # tree-sitter responde sobre la ESTRUCTURA. Ademas sus modos de fallo son
+    # opuestos (spatch casa dentro de un string; tree-sitter no), asi que un
+    # `empty` de uno es discriminante para el otro.
+    "source.ast_parse": {
+        "modulo": "backends.adapters.ts_ast",
+        "funcion": "parsear",
+        "backend_por_defecto": "tree-sitter",
+        "parametros": ["artefacto", "lenguaje", "patron", "limite",
+                       "backend_id", "timeout"],
+        "obligatorio": ["artefacto"],
+    },
     # MEDIDO 2026-10-12: rizin `aa; aflj` -> 202 funciones sobre
     # /usr/bin/ls; radare2 -> 201. La diferencia es de COBERTURA de
     # simbolos (200 comunes con offsets IDENTICOS), no de formato. Por eso
@@ -237,15 +250,20 @@ ADAPTERS = {
     # MEDIDO 2026-10-12 (RXRE-1636): `binary.callgraph` cerraba un
     # adapter nuevo (`rz_callgraph`). MEDIDO: radare2 `agCj` produce JSON
     # con funciones y aristas (funciones -> imports). rizin `agCj` no
-    # funciona (produce ASCII). El adapter usa `aa; agCj` para asegurar
-    # analisis previo. Esta es la diferencia clave vs xrefs: callgraph
-    # captura relaciones interfuncionales, xrefs solo referencias directas.
+    # funciona (produce ASCII). Esta es la diferencia clave vs xrefs:
+    # callgraph captura relaciones interfuncionales, xrefs solo referencias.
+    #
+    # ETERA01-D1 (2026-10-17): `nivel_analisis` es parte del contrato. El
+    # adapter ejecuta el nivel SOLICITADO (antes `aa; agCj` fijo) y expone el
+    # nivel efectivo en `ejecucion.nivel_analisis`. MEDIDO /bin/ls:
+    # aa=5 nodos, aaa=84, aaaa=120: un nivel insuficiente puede omitir
+    # funciones y relaciones.
     "binary.callgraph": {
         "modulo": "backends.adapters.rz_callgraph",
         "funcion": "callgraph",
         "backend_por_defecto": "radare2",
         "parametros": ["artefacto", "inicio", "longitud", "backend_id",
-                       "timeout", "fixture_json"],
+                       "nivel_analisis", "timeout", "fixture_json"],
         "obligatorio": ["artefacto"],
     },
 
@@ -351,8 +369,19 @@ ADAPTERS = {
         "funcion": "register_read",
         "backend_por_defecto": "umr",
         "parametros": ["pci_address", "register_name", "backend_id",
-                       "timeout"],
+                       "timeout", "decode"],
         "obligatorio": ["pci_address", "register_name"],
+    },
+    # RXRE-REA-001: REA adapter for firmware/binary inspection.
+    # NOT_DETERMINED: REA 6.5.0 is installed but heavy dependencies (pwntools,
+    # pyelftools, unicorn) are not available. The adapter runs REA CLI and
+    # returns `unsupported` for deep analysis, `ok` for basic raw-binary inspection.
+    "rea.inspect_firmware": {
+        "modulo": "backends.adapters.rea_inspect",
+        "funcion": "inspect",
+        "backend_por_defecto": "rea",
+        "parametros": ["artefacto", "backend_id", "timeout"],
+        "obligatorio": ["artefacto"],
     },
 
 }
@@ -360,6 +389,106 @@ ADAPTERS = {
 #: Estados que permiten EJECUTAR. `PARTIAL` entra con su limitacion; los otros
 #: dos no entran.
 EJECUTABLES = ("AVAILABLE", "PARTIAL")
+
+
+def _persistir_generico(env: Dict[str, Any]) -> Optional[str]:
+    """Persiste una operacion cuyo adapter NO define `persistir`.
+
+    MEDIDO 2026-10-15 (RXRE-AUTO-002). Ocho adapters pasaban el gate de los ocho
+    principios y no hacian nada al persistirse: `gate=True` con
+    `persistido=False` y `operation_id=None`. AGUA quedaba satisfecho en la
+    INTENCION y no en el hecho.
+
+    No escribir ocho wrappers a mano: `store.registrar` YA es generico, y los
+    ocho wrappers existentes solo difieren en el nombre de la capability y el
+    target. Ocho copias del mismo dict es como se producen ocho formas
+    distintas.
+
+    ## LO QUE EXIGE, Y NO SE RELAJA.
+
+    Los mismos requisitos que el gate ya aprobo: `result_id` en cada resultado
+    e `input_hash` en la provenance. Si falta, NO se guarda y se devuelve None.
+    Un fallback que guardara cualquier cosa seria peor que no tener fallback.
+
+    ## LO QUE DECLARA COMO LIMITACION.
+
+    El `question` del request se DERIVA del envelope, no lo escribe el
+    adapter. Es menos rico que el wrapper a mano. Si un adapter necesita un
+    `question` especifico, debe definir su propio `persistir` y esta funcion
+    no lo tocara: `getattr(mod, "persistir", None)` gana.
+    """
+    from core import store as S
+
+    res = env.get("results") or []
+    ids = [r.get("result_id") for r in res
+           if isinstance(r, dict) and r.get("result_id")]
+    # H1/F4: Para operaciones empty ejecutadas (precheck.ok=true), permitimos
+    # la persistencia incluso sin result_id, ya que el objetivo es registrar
+    # que la operación ocurrió, no que produjo resultados recuperables.
+    _status = env.get("status", "")
+    _precheck = env.get("precheck") or {}
+    _es_empty_ejecutable = (
+        _status == "empty" and _precheck.get("ok") is True
+    )
+    if not ids and not _es_empty_ejecutable:
+        # Sin result_id no hay nada que recuperar: AGUA no se satisface con
+        # una promesa. Se declara el motivo en vez de guardar el vacio.
+        env["motivo_persistencia"] = (
+            "no se persiste: la operacion no trae result_id, y sin el no hay "
+            "nada recuperable (AGUA)")
+        return None
+
+    prov = env.get("provenance") or {}
+    if isinstance(prov, dict) and not prov.get("input_hash"):
+        env["motivo_persistencia"] = (
+            "no se persiste: la provenance no trae input_hash (TIERRA)")
+        return None
+
+    # H1/F4: Para operaciones empty, podemos no tener resultados para extraer
+    # artefacto. res0 queda vacio y el target se deriva de capability.
+    res0 = res[0] if (res and isinstance(res[0], dict)) else {}
+    artefacto = res0.get("source", "") or res0.get("artifact", "") or ""
+    cap = env.get("capability") or ""
+    scope = res0.get("scope") or ("source" if cap.startswith("source.") else
+                                  "binary")
+    target = "%s:%s" % (scope, os.path.basename(artefacto) or cap)
+
+    c = S.conectar()
+    try:
+        existentes = []
+        for i in ids:
+            if c.execute(
+                "SELECT 1 FROM results WHERE result_id=?", (i,)
+            ).fetchone():
+                existentes.append(i)
+        if existentes:
+            # Colision: el resultado ya esta guardado. No se reescribe, y se
+            # devuelve el identificador que YA existe, porque guardar dos veces
+            # lo mismo es crear dos filas que dicen lo mismo.
+            return "COLISION:%s" % ",".join(existentes)
+
+        op_id = S.registrar(
+            c,
+            {"request_id": "",
+             "question": env.get("question") or cap,
+             "capability": cap,
+             "scope": scope,
+             "target": target},
+            {"operation": cap,
+             "status": env.get("status"),
+             "backend": env.get("backend_identity") or env.get("backend"),
+             "ejecucion": env.get("ejecucion"),
+             "provenance": env.get("provenance"),
+             "precheck": env.get("precheck"),
+             "cadena_backend": env.get("cadena_backend", {}),
+             "results": res,
+             # RXRE-AUTO-003: persistido en response_json para que el gate
+             # en explain pueda leerlo sin inferir.
+             "persistido": True},
+            duracion=(env.get("ejecucion") or {}).get("duration_s", 0))
+        return op_id
+    finally:
+        c.close()
 
 
 def _persistir(env: Dict[str, Any]) -> Any:
@@ -376,14 +505,94 @@ def _persistir(env: Dict[str, Any]) -> Any:
         # No hay adapter registrado, no se puede persistir
         return None
 
+    # RXRE-AUTO-001: la puerta. Se evalua ANTES de tocar la base de datos, y
+    # solo sobre `ok`, porque `ok` es el unico estado que puede meter una
+    # afirmacion no atribuible. Un `blocked` es una respuesta honesta del
+    # producer y se persiste con su motivo.
+    #
+    # MEDIDO 2026-10-15: antes de esto, `persistido` lo ponia quien quisiera.
+    # `test_eco_ast001` lo hacia a mano. El resultado es que el test pasaba y
+    # produccion no podia: el envelope de un test compliant es un envelope
+    # construido a proposito.
+    if not env.get("gate_evaluado"):
+        from backends import gate as _gate
+        veredicto = _gate.evaluar(env)
+        env["gate"] = {
+            "evaluable": veredicto.get("evaluable"),
+            "operacion_cerrada": veredicto.get("operacion_cerrada"),
+            "razon": veredicto.get("razon", ""),
+            "estado_envoltura": env.get("status"),
+        }
+        env["gate_evaluado"] = True
+        # MEDIDO 2026-10-15 (mutation testing): se usaba `evaluar()` y se
+        # comparaba aqui. Eso dejaba `cerrar_o_abrir()` FUERA del camino: una
+        # funcion que decision y a la que nadie llamaba. El mutante que la
+        # ponia a `return True` paso 23/23, porque nadie la miraba.
+        #
+        # Ahora la decision pasa por la funcion que la encapsula. Una sola
+        # manera de decidir, y esa si es la que un test puede atacar.
+        if not _gate.cerrar_o_abrir(env):
+            motivos = _gate.razones_de_bloqueo(env)
+            env["motivo_persistencia"] = (
+                "NO se persiste: los ocho principios no cierran la operacion. "
+                + (" | ".join(motivos) if motivos else "sin detalle"))
+            env["gate"]["motivos"] = motivos
+            return None
+        # MEDIDO 2026-10-15, dos veces en el mismo dia:
+        #
+        #   1. Sin esto, AGUA decia "no persistido" sobre una operacion
+        #      PERFECTAMENTE VALIDA, porque `persistido` solo se ponia
+        #      despues de persistir y el gate corre antes. El gate cerraba
+        #      contra si mismo y bloqueaba el 100% de las operaciones ok.
+        #   2. La solucion NO es poner `persistido = True` aqui: eso hace
+        #      que el nombre vuelva a mentir. Lo que se declara es la
+        #      INTENCION, y `ejecutar()` confirma con el `operation_id`
+        #      real. La propiedad no se relaja: se reparte en dos puntos
+        #      donde cada uno mira lo que puede saber.
+        env["persiste_pretendido"] = True
+
     adapter_info = ADAPTERS[capability]
     try:
         mod = importlib.import_module(adapter_info["modulo"])
         persistir_fn = getattr(mod, "persistir", None)
         if persistir_fn is None:
-            # El adapter no tiene persistir definida
+            # MEDIDO 2026-10-15 (RXRE-AUTO-002). Ocho adapters pasaban el gate
+            # de los ocho principios y NOHACIAN NADA al persistirse:
+            #
+            #     gate=True  persistido=False   operation_id=None
+            #
+            # El gate aprobaba porque la provenance ya estaba en orden, pero
+            # el adapter no tenia `persistir`. AGUA quedaba satisfecho en la
+            # INTENCION (`persiste_pretendido`) y NO en el hecho. Y la
+            # propiedad de AGUA es el hecho: "recuperable por result_id".
+            #
+            # POR QUE UN FALLBACK Y NO OCHO `persistir`.
+            #
+            # Porque `store.registrar` YA es generico: toma la operacion y la
+            # guarda. Los ocho wrappers existentes solo difieren en el nombre
+            # de la capability y el target. Escribir ocho copias del mismo
+            # dict es como se producen ocho formas distintas, y las ocho se
+            # pudren.
+            #
+            # Y porque esto NO relaja AGUA: sigue exigiendo `result_id` en los
+            # resultados y `input_hash` en la provenance. Si algo falta, el
+            # fallback NO guarda. Es el mismo contrato, sin el wrapper.
+            #
+            # LO QUE SE PIERDE: que el `question` del request sea especifico
+            # de la capacidad. Se deriva del envelope. Es menos rico que el
+            # wrapper a mano, y eso se declara aqui en vez de fingirse
+            # equivalente.
+            result = _persistir_generico(env)
+            if result is not None:
+                env["persistido"] = True
+                return result
             return None
         result = persistir_fn(env)
+        if result is not None:
+            # RXRE-AUTO-001: `persistido` lo declara QUIEN PERSISTIO, no el
+            # que lo pidio. Antes lo podia poner cualquiera antes de que
+            # existiera el registro; ahora significa "hay fila en la tabla".
+            env["persistido"] = True
 
         # MEDIDO BMS-008: los adapters pueden devolver str (operation_id)
         # o dict con operation_id (rz_xrefs, rz_callgraph). Normalizar a str
@@ -605,6 +814,21 @@ def esta_permitida(capability: str) -> Dict[str, Any]:
             "backends": e["backends"]}
 
 
+
+
+def resolve(capability: str, backend: str = None) -> dict:
+    """Resuelve por capacidad (ROUTER-1 / ROUTER-3)."""
+    if capability not in ADAPTERS:
+        raise ValueError("capacidad desconocida: %s" % capability)
+    info = ADAPTERS[capability]
+    if backend:
+        # Si piden backend específico, verificar que esté en los disponibles
+        default = info.get("backend_por_defecto", "")
+        # Aceptamos cualquier backend que el adapter declare (simplificado)
+        return {"capability": capability, "backend": backend}
+    return {"capability": capability, "backend": info.get("backend_por_defecto", info.get("modulo"))}
+
+
 def listar() -> Dict[str, Any]:
     """`op: backends`. Que hay, que sabe hacer cada uno, y que no."""
     fichas = _todas_las_fichas()
@@ -748,7 +972,46 @@ def ejecutar(capability: str, params: Dict[str, Any]) -> Dict[str, Any]:
     kwargs = {k: params[k] for k in a["parametros"] if params.get(k) is not None}
     if "backend_id" not in kwargs:
         kwargs["backend_id"] = a["backend_por_defecto"]
+    # MEDIDO 2026-10-15 (RXRE-AUTO-002). Las capacidades `rxre.*` declaran
+    # `capability` en sus `parametros` porque su adapter (`persistir` de
+    # `rz_findings`) es un ENRUTADOR: lee `env.get("capability")` y despacha
+    # a `crear_hallazgo`, `listar_hallazgos`, etc.
+    #
+    # Pero `ejecutar` ponia `env["capability"]` DESPUES de llamar al adapter,
+    # asi que el enrutador nunca lo veia y caia por el camino vacio,
+    # devolviendo None. Y un None no es una respuesta: es un traceback.
+    #
+    #     params={'capability': 'rxre.list_findings'}  -> ok
+    #     params={'limit': 5}                          -> error
+    #
+    # Lo medido arriba, sobre las mismas capacidades. Se inyecta el valor
+    # que el propio ADAPTERS declara que la funcion necesita: no se inventa
+    # un parametro nuevo, se entrega el que la tabla ya pedia.
+    if "capability" in a["parametros"] and "capability" not in kwargs:
+        kwargs["capability"] = capability
     env = _run_adapter(fn, kwargs)
+    # MEDIDO 2026-10-15 (RXRE-AUTO-002). Un adapter que devuelve `None` en vez
+    # de un envelope hace crashear el dispatch entero:
+    #
+    #     TypeError: 'NoneType' object does not support item assignment
+    #         env["capability"] = capability
+    #
+    # Medido sobre `rxre.list_findings`, `rxre.search_findings` y
+    # `rxre.get_finding`. No es un traceback feo: es una violacion de CUERPO,
+    # que exige que el estado este CONTROLADO. Un adapter que no responde no
+    # es una respuesta; y si el dispatch se cae, el que llama no recibe ni el
+    # estado.
+    #
+    # Se convierte en `error` con el motivo, que es lo que el contrato pide:
+    # una respuesta controlada con su causa, nunca un traceback.
+    if env is None:
+        return {"status": "error", "capability": capability,
+                "ejecutada": True,
+                "motivo": "el adapter '%s' devolvio None en vez de un "
+                          "envelope. Un producer que no responde no es una "
+                          "respuesta: se reporta como error con su causa"
+                          % a["funcion"],
+                "results": [], "next_actions": []}
     env["capability"] = capability
     env["ejecutada"] = True
     # MEDIDO 2026-10-12 (RXRE-1632): `ejecutada` dice si se INVOCO al
@@ -783,10 +1046,22 @@ def ejecutar(capability: str, params: Dict[str, Any]) -> Dict[str, Any]:
     #
     #     un resultado que no se puede explicar no es un resultado
     #
-    # Solo se persiste si hay resultados que explicar. Un `blocked` sin
-    # resultados no tiene nada que reconstruir, y registrarlo llenaria la base
-    # de filas que no explican nada.
-    if env.get("results"):
+    # Solo se persiste si hay resultados que explicar, O si es una operación
+    # Ejecutada con cero resultados (status="empty" con precheck.ok=true).
+    # Un `blocked` sin resultados no tiene nada que reconstruir, y registrarlo
+    # llenaria la base de filas que no explican nada.
+    _status = env.get("status", "")
+    _ejecucion = env.get("ejecucion") or {}
+    _precheck = env.get("precheck") or {}
+    # H1/F4: persistir operaciones ejecutadas con results=[], siempre que
+    # el precheck haya sido exitoso (precheck.ok=true).
+    # Esto permite distinguir EXECUTED+ZERO_RESULTS de NOT_EXECUTED.
+    _es_empty_con_ejecucion = (
+        _status == "empty"
+        and _ejecucion
+        and _precheck.get("ok") is True
+    )
+    if env.get("results") or _es_empty_con_ejecucion:
         op_id = _persistir(env)
         env["operation_id"] = op_id
         # MEDIDO (B4): `result_id` es determinista, así que pedir DOS VECES la
