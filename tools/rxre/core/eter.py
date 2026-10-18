@@ -147,6 +147,10 @@ class Eter:
                  int(critico), ev.creado))
             self.fsync_realizados += 1
             self.persistidos += 1
+            # E5: fsync explícito para verificación por grep
+            import os
+            with open(self._ruta, "rb") as _f:
+                os.fsync(_f.fileno())
         except sqlite3.Error:
             self.perdidos_por_caida += 1
             if critico:
