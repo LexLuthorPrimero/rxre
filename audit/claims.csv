@@ -60,3 +60,4 @@
 "CUERPO-2","W","cuerpo 2: medir con condiciones","medir condiciones sobre archivo observado; estado de contexto","PARCIAL","requiere contexto de ejecución (no hardware)"
 "CUERPO-3","W","cuerpo 3: verificar no alterado","verificar_no_alterado detecta cambio; hash cambia","6/6 PASS adversarial","VERIFIED","módulo completo"
 "CUERPO-4","W","cuerpo 4: observación con procedencia","recuperar observación; hash intacto; media_type","6/6 PASS adversarial","VERIFIED","módulo completo"
++ F2 sigue PARTIAL (hardware)
