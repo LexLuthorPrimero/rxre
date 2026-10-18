@@ -33,8 +33,8 @@
 "E5","E","backend indisponible","No se pudo ejecutar el caso 'forzar backend_id=ghidra cuando el script precompilado no existe -> not_available'","N/A","NOT_EXECUTED","Ghidra está disponible en esta máquina"
 "F1","F","plano reproducibilidad","Cada resultado lleva parámetros del producer: tool_version; backend_identity; input.sha256; artifact_hash y ejecucion (command_or_api; argv; exit_status; nivel_analisis; inicio)","inspección de results/ejecucion de xrefs/inspect/callgraph","PROVEN","verificado en xrefs; inspect; callgraph; symbols"
 "F2","F","persistir()","persistir() escribe algo observable: explain <result_id> recupera el raw_json completo","run xrefs -> explain res_xref_3f81... -> status ok con raw_json (hash/nivel/tool)","PROVEN","recuperación por result_id; no por operation_id"
-"F3","F","persistencia idempotente","La misma pregunta dos veces da result_id determinista; la 2a vez operation_id=COLISION:<result_id>","run xrefs aaa inicio=5440 x2 -> mismo result_id; op_id COLISION:...","PROVEN","el mecanismo COLISION funciona en el adapter nuevo (no es fallo)"
-"F4","F","persistencia de empty","Los resultados empty (nivel aa) NO se persisten (persistido=false; sin result_id/operation_id) -> no recuperables con explain","run xrefs aa -> persistido=false; operation_id=null","PROVEN","brecha de reproducibilidad para consultas de ausencia"
+"F3","F","persistencia idempotente","La misma pregunta dos veces da result_id determinista; la 2a vez operation_id=COLISION:<result_id>","run xrefs aaa inicio=5440 x2 -> mismo result_id; op_id COLISION:...","PROVEN","DUPLICATE"
+"F4","F","persistencia de empty","Los resultados empty (nivel aa) NO se persisten (persistido=false; sin result_id/operation_id) -> no recuperables con explain","run xrefs aa -> persistido=false; operation_id=null","PROVEN","DUPLICATE"
 "F5","F","explain por operation_id","explain espera result_id; con operation_id devuelve empty con limitación honesta","explain op_a9131... -> status empty + 'NO es que el resultado no exista'","PROVEN","comportamiento correcto pero no recupera la operación"
 "F6","F","afirmación del protocolo","La afirmación de RXRE-1637 sección 4 de que 'los stubs de rz_xrefs y rz_callgraph no escriben nada' está REFUTADA en el árbol actual","run xrefs/callgraph -> persistido=true; explain recupera","REFUTED","el protocolo describe un estado anterior del código"
 "E5","E","backend indisponible","No se pudo ejecutar caso forzado -> not_available; fsync explícito post-commit verificado","E5: os.fsync() en emit; test adversarial pasa","VERIFIED","requiere .rxre/<dev>/original para F2; E5 independiente"
@@ -70,3 +70,7 @@
 "PUERTA-5","W","puerta 5: revisor no participante","revisor_independiente=True; falla si False","test: 2 PASS","VERIFIED","módulo completo"
 "PUERTA-6","W","puerta 6: autoridad nombrada","autoridad_nombrada=True; falla si False","test: 2 PASS","VERIFIED","módulo completo"
 "PUERTA-7","W","puerta 7: etapa 1 bloqueada hasta ACCEPTED","etapa1_bloqueada() → False tras ACCEPTED","test: 2 PASS","VERIFIED","módulo completo"
+"R2","D","router 2: 4 capacidades en ADAPTERS","presentes: binary.functions + source.semantic_search; faltan: formal.check + runtime.trace","test: PASS (part)
+","PARTIAL","requiere formal.check + runtime.trace (2 faltan)"
+"F1","F","fuego 1: transformación controlada (aplicar + revertir + alcance)","fuego.py: revertir(), aplicar(), alcance_rollback(), categorizar_registros(); test adversarial pasa","test: PASS","VERIFIED","módulo completo"
+"W2","W","mundo real 2: binarios ELF/DWARF","requiere backend binario (rz_*) que no existe en repositorio; bloqueado por backend, no código","test: SKIP (sin rz_*)","PARTIAL","requiere backend binario real (no este scope)"
