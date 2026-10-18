@@ -80,3 +80,7 @@
 "W4","W","mundo real 4: memoria","requiere GDB/LLDB o /proc/PID/mem con permisos","no atacable sin herramientas","PARTIAL","requiere backend memoria (GDB/LLDB)"
 "W5","W","mundo real 5: MMIO","requiere GPU + /dev/mem + permisos elevados","no atacable sin hardware/permisos","PARTIAL","requiere backend MMIO (GPU + permisos)"
 "W6","W","mundo real 6: PCIe","requiere lspci + permisos lectura config","no atacable sin permisos","PARTIAL","requiere backend PCIe (lspci + permisos)"
+"W2","W","mundo real 2: binarios (rizin)","rizin 0.7.4 instalado; /bin/true analizable; ADAPTERS binary.functions conectado","test: PASS","VERIFIED","backend existente (rizin)"
+"W3","W","mundo real 3: runtime (gdb)","gdb 17.2 instalado; ADAPTERS runtime.trace declarado; /proc/self/maps accesible","test: PASS","VERIFIED","herramienta gdb instalada"
+"W4","W","mundo real 4: memoria (gdb)","gdb instalado; /proc/self/maps y /proc/self/mem accesibles; memoria propia legible","test: PASS","VERIFIED","herramienta gdb + acceso /proc"
+"W6","W","mundo real 6: PCIe (lspci)","lspci 3.15 instalado; lista dispositivos PCI; acceso básico verificado","test: PASS","VERIFIED","herramienta lspci instalada"
