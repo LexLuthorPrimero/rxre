@@ -76,9 +76,27 @@ _AGUA = None
 
 try:
     import rxre.core.disciplina as _disciplina_mod  # noqa: E402
+try:
+    import rxre.core.mente as _mente_mod  # noqa: E402
+except Exception:  # pragma: no cover
+    _mente_mod = None
+_MENTE = None
 except Exception:  # pragma: no cover
     _disciplina_mod = None
 _DISCIPLINA = None
+
+def _disciplina():
+    global _DISCIPLINA
+
+_MENTE = None
+
+def _mente():
+    global _MENTE
+    if _MENTE is None:
+        if _mente_mod is None:
+            raise RuntimeError("core.mente no importable")
+        _MENTE = _mente_mod.Mente()
+    return _MENTE
 
 def _disciplina():
     global _DISCIPLINA
@@ -3339,6 +3357,18 @@ def _handle_disciplina(params: dict) -> dict:
         return {"status": "ok", "historial": d.historial(params.get("invest_id"))}
     return {"status": "error", "motivo": "subop desconocida", "results": []}
 
+def _handle_mente(op: str, args: dict) -> dict:
+    sub = op.split(".")[-1]
+    m = _mente()
+    if sub == "hipotesis":
+        return {"status": "ok", "hipotesis": [h.__dict__ for h in m.proponer_hipotesis(args.get("observacion", {}))]}
+    if sub == "prueba":
+        p = m.disenar_prueba(args["hip_a"], args["hip_b"])
+        return {"status": "ok", "prueba": p.__dict__}
+    if sub == "evaluar":
+        return m.evaluar_prueba(args["prueba_id"], args.get("resultado", {}))
+    return {"status": "error", "motivo": "subop desconocida", "results": []}
+
 HANDLERS = {
     "backends": _handle_backends,
     "run": _handle_run,
@@ -3367,6 +3397,9 @@ HANDLERS = {
     "agua.guardar": _handle_agua,
     "agua.recuperar": _handle_agua,
     "agua.revalidar": _handle_agua,
+    "mente.hipotesis": _handle_mente,
+    "mente.prueba": _handle_mente,
+    "mente.evaluar": _handle_mente,
     "disciplina.iniciar": _handle_disciplina,
     "disciplina.avanzar": _handle_disciplina,
     "disciplina.estado": _handle_disciplina,
