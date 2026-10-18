@@ -50,4 +50,6 @@
 "DISCIPLINA-1","D","disciplina 6 pasos","core/disciplina.py creado; máquina de estados","D1 orden completo pasa","VERIFIED","6 pasos EVIDENCE→VALIDATION"
 "DISCIPLINA-2","D","disciplina salto detectado","avanzar() detecta salto; abort automático; estado refleja","D2 salto detectado pasa","VERIFIED","abort irreducible"
 "DISCIPLINA-3","D","disciplina reconstrucción","historial() reconstruye transición con payload","D3 historial completo pasa","VERIFIED","5 transiciones en orden"
-MENTE-1,MENTE-2,MENTE-4
+"MENTE-1","D","mentista 1: hipótesis rivales","proponer_hipotesis -> >=2 rivales, predicciones distintas, falsificador","test adversarial: 3/3 PASS","VERIFIED","módulo core/mente.py + integración"
+"MENTE-2","D","mentista 2: prueba discriminante","disenar_prueba -> predicciones distintas; evaluar_prueba -> sobrev/referenz","test adversarial: 3/3 PASS","VERIFIED","módulo core/mente.py + integración"
+"MENTE-4","D","mentista 4: falsificador obligatorio","cada hipótesis declara falsificador; evaluar prueba -> refutada","test adversarial: 6/6 PASS","VERIFIED","módulo core/mente.py + integración"
