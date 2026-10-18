@@ -1,0 +1,43 @@
+{
+  "e99a0ad_trace_resolver_fix": {
+    "title": "fix: resolve trace enum definitions from corpus",
+    "origin": "REPO550-INVESTIGACION",
+    "origin_sha": "e99a0ad1fb92b97bec1615bbf650a0e88cdf7558",
+    "target_sha": "12a3462455fc9b6caa0b41a86ffa096047c22168",
+    "target_branch": "migration/validated-legacy-work",
+    "method": "cherry-pick",
+    "changes": [
+      "Added resolve_enum_definition() function with corpus-search fallback",
+      "Added _enum_candidates_in() for corpus-wide search",
+      "Added _ENUM_SYMBOL, _ENUM_DEF_LINE constants",
+      "Modified main() to use resolver instead of hardcoded path",
+      "Added provenance tracking (path, line, source: KNOWN_PATH/CORPUS_SEARCH)",
+      "Added 6 new self-test vectors (total 38)",
+      "Added DOGFOOD-002.md report (458 lines)",
+      "Added 3 replay artifacts showing trace resolution"
+    ],
+    "validation": {
+      "TRACE_RESOLUTION": "PASS",
+      "PROVENANCE": "PASS",
+      "RXRE_REGRESSION": "38/38 selftest vectors pass",
+      "DOGFOOD_REPLAY": "PASS - artifacts exist with correct output"
+    },
+    "status": "MIGRATED"
+  },
+  "97bae69_exact_word_fast_path": {
+    "title": "perf: add exact-word search fast path",
+    "origin": "RX550-INVESTIGACION",
+    "origin_sha": "97bae69440e32e56b34f23946e8a3fad12427284",
+    "target_sha": "9ce74c5...",
+    "target_branch": "migration/validated-legacy-work",
+    "method": "cherry-pick (conflict resolved)",
+    "conflict_resolutions": [
+      "Resolved merge conflict in tools/evidence_search.py",
+      "Removed conflict markers from HAND/BASE version"
+    ],
+    "changes": [
+      "Modified tools/evidence_search.py: added fast path for exact_word=True queries"
+    ],
+    "status": "MIGRATED"
+  }
+}

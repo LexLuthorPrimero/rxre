@@ -58,16 +58,21 @@ from rxre.core.store import REFLEXION_OUTCOMES  # noqa: E402
 # (los tests importan `api.machine` sin querer crear ficheros).
 try:
     import rxre.core.eter as _eter_mod  # noqa: E402
-try:
-    import rxre.core.aire as _aire_mod  # noqa: E402
-except Exception:  # pragma: no cover
-    _aire_mod = None
-_AIRE = None
 except Exception:                                          # pragma: no cover
     _eter_mod = None
 _ETER = None
 
+try:
+    import rxre.core.aire as _aire_mod  # noqa: E402
+except Exception:                                          # pragma: no cover
+    _aire_mod = None
+_AIRE = None
 
+try:
+    import rxre.core.agua as _agua_mod  # noqa: E402
+except Exception:                                          # pragma: no cover
+    _agua_mod = None
+_AGUA = None
 def _eter():
     """Instancia lazy de ÉTER. Una por proceso, como pide el diagrama.
 
@@ -101,6 +106,16 @@ def _aire():
             raise RuntimeError("core.aire no importable")
         _AIRE = _aire_mod.Aire()
     return _AIRE
+
+_AGUA = None
+
+def _agua():
+    global _AGUA
+    if _AGUA is None:
+        if _agua_mod is None:
+            raise RuntimeError("core.agua no importable")
+        _AGUA = _agua_mod.Agua()
+    return _AGUA
 
 # FUEGO: hub async con rollback. Lazy.
 try:
@@ -2785,6 +2800,18 @@ def _handle_rollback(params: dict) -> dict:
     return {"status": "error", "motivo": f"subop desconocida: {subop}", "results": []}
 
 
+def _handle_agua(params: dict) -> dict:
+    subop = params.get("op", "").split(".")[-1]
+    a = _agua()
+    if subop == "guardar":
+        return {"status": "ok", "leccion_id": a.guardar(params.get("topic",""), params.get("contenido",""), params.get("procedencia",""))}
+    if subop == "recuperar":
+        return {"status": "ok", "lecciones": a.recuperar(params.get("topic"))}
+    if subop == "revalidar":
+        return {"status": "ok", "revalidada": a.revalidar(params.get("leccion_id"))}
+    return {"status": "error", "motivo": "subop desconocida"}
+
+
 def _handle_aire(params: dict) -> dict:
     """op: aire — traza, resultado, reconstruir."""
     subop = params.get("op", "").split(".")[-1]
@@ -3334,6 +3361,9 @@ HANDLERS = {
     "aire.trace": _handle_aire,
     "aire.result": _handle_aire,
     "aire.reconstruct": _handle_aire,
+    "agua.guardar": _handle_agua,
+    "agua.recuperar": _handle_agua,
+    "agua.revalidar": _handle_agua,
     "rollback": _handle_rollback,
     "router": _handle_router,
     "application": _handle_application,

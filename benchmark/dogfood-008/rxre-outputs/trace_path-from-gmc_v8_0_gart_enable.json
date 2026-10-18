@@ -1,0 +1,677 @@
+{
+  "tool": "trace_path",
+  "version": "1.0.0",
+  "chip": "CHIP_POLARIS12",
+  "chip_value": 17,
+  "root": "/home/lucas/Escritorio/rxre/RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd",
+  "ficheros_indexados": 970,
+  "results": [
+    {
+      "kind": "DIRECTA",
+      "sym": "gmc_v8_0_gart_enable",
+      "verdict": "NO_CONDICIONAL",
+      "conds": [],
+      "loc": "gmc_v8_0.c:829",
+      "children": [
+        {
+          "kind": "DIRECTA",
+          "sym": "dev_err",
+          "verdict": "NO_CONDICIONAL",
+          "conds": [],
+          "loc": "kfd_device.c:750",
+          "children": [
+            {
+              "kind": "DIRECTA",
+              "sym": "container_of",
+              "verdict": "NO_CONDICIONAL",
+              "conds": [],
+              "loc": "amdgpu_ctx.c:33",
+              "children": [
+                {
+                  "kind": "DIRECTA",
+                  "sym": "LIST_HEAD",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "amdgpu_pmu.c:75",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "amdgpu_vm_assert_locked",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "amdgpu_vm.c:136",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "memset",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "kfd_events.c:80",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "list_for_each_entry",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "kfd_device_queue_manager.c:2204",
+                  "children": []
+                },
+                {
+                  "kind": "VTABLE",
+                  "sym": "prepare",
+                  "verdict": "RESOLVER",
+                  "conds": [],
+                  "loc": "via update_funcs",
+                  "note": "puntero a funcion: la vtable decide, siguiente paso es localizarla",
+                  "children": []
+                },
+                {
+                  "kind": "VTABLE",
+                  "sym": "show",
+                  "verdict": "RESOLVER",
+                  "conds": [],
+                  "loc": "via attribute",
+                  "note": "puntero a funcion: la vtable decide, siguiente paso es localizarla",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "memset",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "kfd_events.c:80",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "dc_wake_and_execute_dmub_cmd",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dc_dmub_srv.c:1717",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "memset",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "kfd_events.c:80",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "memset",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "kfd_events.c:80",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "mpc3_get_gamut_remap",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn30_mpc.c:1198",
+                  "children": []
+                },
+                {
+                  "kind": "VTABLE",
+                  "sym": "dpp_read_state",
+                  "verdict": "RESOLVER",
+                  "conds": [],
+                  "loc": "via funcs",
+                  "note": "puntero a funcion: la vtable decide, siguiente paso es localizarla",
+                  "children": []
+                },
+                {
+                  "kind": "VTABLE",
+                  "sym": "dpp_get_gamut_remap",
+                  "verdict": "RESOLVER",
+                  "conds": [],
+                  "loc": "via funcs",
+                  "note": "puntero a funcion: la vtable decide, siguiente paso es localizarla",
+                  "children": []
+                },
+                {
+                  "kind": "VTABLE",
+                  "sym": "read_mpcc_state",
+                  "verdict": "RESOLVER",
+                  "conds": [],
+                  "loc": "via funcs",
+                  "note": "puntero a funcion: la vtable decide, siguiente paso es localizarla",
+                  "children": []
+                },
+                {
+                  "kind": "VTABLE",
+                  "sym": "is_dig_enabled",
+                  "verdict": "RESOLVER",
+                  "conds": [],
+                  "loc": "via funcs",
+                  "note": "puntero a funcion: la vtable decide, siguiente paso es localizarla",
+                  "children": []
+                },
+                {
+                  "kind": "VTABLE",
+                  "sym": "is_dig_enabled",
+                  "verdict": "RESOLVER",
+                  "conds": [],
+                  "loc": "via funcs",
+                  "note": "puntero a funcion: la vtable decide, siguiente paso es localizarla",
+                  "children": []
+                },
+                {
+                  "kind": "VTABLE",
+                  "sym": "is_dig_enabled",
+                  "verdict": "RESOLVER",
+                  "conds": [],
+                  "loc": "via funcs",
+                  "note": "puntero a funcion: la vtable decide, siguiente paso es localizarla",
+                  "children": []
+                },
+                {
+                  "kind": "VTABLE",
+                  "sym": "is_dig_enabled",
+                  "verdict": "RESOLVER",
+                  "conds": [],
+                  "loc": "via funcs",
+                  "note": "puntero a funcion: la vtable decide, siguiente paso es localizarla",
+                  "children": []
+                },
+                {
+                  "kind": "VTABLE",
+                  "sym": "is_dig_enabled",
+                  "verdict": "RESOLVER",
+                  "conds": [],
+                  "loc": "via funcs",
+                  "note": "puntero a funcion: la vtable decide, siguiente paso es localizarla",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "ASSERT",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dml21_utils.c:467",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "ASSERT",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dml21_utils.c:467",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "ASSERT",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dml21_utils.c:467",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "ASSERT",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dml21_utils.c:467",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_UPDATE",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:239",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_SET",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:302",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "REG_SET",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dcn10_mpc.c:302",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "memset",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "kfd_events.c:80",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "dc_wake_and_execute_dmub_cmd",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dc_dmub_srv.c:1717",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "dc_get_edp_links",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dc_link_exports.c:47",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "kzalloc_obj",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dc.c:412",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "kind": "DIRECTA",
+              "sym": "smu_v14_0_2_is_od_feature_supported",
+              "verdict": "NO_CONDICIONAL",
+              "conds": [],
+              "loc": "smu_v14_0_2_ppt.c:925",
+              "children": [
+                {
+                  "kind": "DIRECTA",
+                  "sym": "smu_v14_0_2_get_od_setting_limits",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "smu_v14_0_2_ppt.c:59",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "smu_v14_0_2_get_od_setting_limits",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "smu_v14_0_2_ppt.c:59",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "kind": "DIRECTA",
+              "sym": "smu_v14_0_2_dump_od_table",
+              "verdict": "NO_CONDICIONAL",
+              "conds": [],
+              "loc": "smu_v14_0_2_ppt.c:2206",
+              "children": [
+                {
+                  "kind": "DIRECTA",
+                  "sym": "dev_dbg",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "kfd_chardev.c:3486",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "dev_dbg",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "kfd_chardev.c:3486",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "kind": "DIRECTA",
+              "sym": "memcpy",
+              "verdict": "NO_CONDICIONAL",
+              "conds": [],
+              "loc": "amdgpu_ras.c:2237",
+              "children": [
+                {
+                  "kind": "DIRECTA",
+                  "sym": "smu_cmn_get_metrics_table",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "smu_cmn.c:1161",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "kzalloc_obj",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "dc.c:412",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "smu_v11_0_init_smc_tables",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "smu_v11_0.c:291",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "DIRECTA",
+          "sym": "amdgpu_gtt_mgr_recover",
+          "verdict": "NO_CONDICIONAL",
+          "conds": [],
+          "loc": "amdgpu_gtt_mgr.c:242",
+          "children": [
+            {
+              "kind": "DIRECTA",
+              "sym": "amdgpu_ttm_recover_gart",
+              "verdict": "NO_CONDICIONAL",
+              "conds": [],
+              "loc": "amdgpu_ttm.c:1019",
+              "children": [
+                {
+                  "kind": "DIRECTA",
+                  "sym": "amdgpu_ttm_adev",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "amdgpu_dma_buf.c:64",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "amdgpu_ttm_tt_pte_flags",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "amdgpu_ttm.c:1444",
+                  "children": []
+                },
+                {
+                  "kind": "DIRECTA",
+                  "sym": "amdgpu_ttm_gart_bind",
+                  "verdict": "NO_CONDICIONAL",
+                  "conds": [],
+                  "loc": "amdgpu_ttm.c:876",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "DIRECTA",
+          "sym": "amdgpu_bo_gpu_offset",
+          "verdict": "NO_CONDICIONAL",
+          "conds": [],
+          "loc": "amdgpu_object.c:1474",
+          "children": [
+            {
+              "kind": "DIRECTA",
+              "sym": "amdgpu_bo_gpu_offset_no_check",
+              "verdict": "NO_CONDICIONAL",
+              "conds": [],
+              "loc": "amdgpu_object.c:1513",
+              "children": []
+            }
+          ]
+        },
+        {
+          "kind": "DIRECTA",
+          "sym": "gmc_v8_0_set_fault_enable_default",
+          "verdict": "NO_CONDICIONAL",
+          "conds": [],
+          "loc": "gmc_v8_0.c:737",
+          "children": []
+        },
+        {
+          "kind": "DIRECTA",
+          "sym": "gmc_v8_0_set_fault_enable_default",
+          "verdict": "NO_CONDICIONAL",
+          "conds": [],
+          "loc": "gmc_v8_0.c:737",
+          "children": []
+        },
+        {
+          "kind": "DIRECTA",
+          "sym": "gmc_v8_0_flush_gpu_tlb",
+          "verdict": "NO_CONDICIONAL",
+          "conds": [],
+          "loc": "gmc_v8_0.c:661",
+          "children": []
+        },
+        {
+          "kind": "MACRO",
+          "sym": "RREG32 -> amdgpu_device_rreg",
+          "verdict": "NO_CONDICIONAL",
+          "conds": [],
+          "loc": "amdgpu_reg_access.c:363",
+          "children": []
+        },
+        {
+          "kind": "MACRO",
+          "sym": "WREG32 -> amdgpu_device_wreg",
+          "verdict": "NO_CONDICIONAL",
+          "conds": [],
+          "loc": "amdgpu_reg_access.c:488",
+          "children": []
+        }
+      ]
+    }
+  ]
+}

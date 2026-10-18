@@ -1,0 +1,13 @@
+{
+ "total_scripts": 1749,
+ "doaction": 1680,
+ "doinitaction": 69,
+ "scripts_with_push": 2,
+ "push_count": 7,
+ "numeric_count": 0,
+ "int_count": 0,
+ "float_count": 0,
+ "string_count": 21,
+ "int_histogram": {},
+ "float_histogram": {}
+}

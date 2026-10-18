@@ -1,0 +1,29 @@
+{
+ "claim_id": "RXRE-SWF-047",
+ "taxonomy": "NEGATIVE_RESULT",
+ "state": "PROVEN",
+ "evidence_op": "op_91cfe09c75034f4b",
+ "result_id": "res_type6_refute_61_b14d78e866dd5704",
+ "rxre": {
+  "estado": "ok",
+  "id": 227,
+  "kind": "claim",
+  "status": "PROVEN",
+  "gap_kind": null,
+  "refs": [
+   "res_type6_refute_61_b14d78e866dd5704"
+  ],
+  "session": "swf-nexus",
+  "target": "Madness Project Nexus Classic.swf",
+  "timestamp": "2026-10-11T21:03:50-0300"
+ },
+ "counts": {
+  "distinct": 61,
+  "lo20": 27,
+  "flip19": 9,
+  "clear19": 8,
+  "clear16": 2,
+  "other": 6,
+  "no_inverse": 9
+ }
+}

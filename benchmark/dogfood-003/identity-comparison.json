@@ -1,0 +1,51 @@
+{
+  "repo_root": "/home/lucas/Escritorio/rxre",
+  "head": "9ce74c53ba5a356fed9893c5f62b32e01f9d883a",
+  "branch": "migration/validated-legacy-work",
+  "analysis_timestamp": "2026-10-08T14:08:02.143660Z",
+  "finding_identity": {
+    "total_findings": 516,
+    "unique_numbers": 416,
+    "total_numbered_findings": 516,
+    "ambiguous_numbers": 73,
+    "ambiguous_findings": 173,
+    "percentage_ambiguous": 17.548076923076923
+  },
+  "example_023": {
+    "number": "023",
+    "candidates": [
+      "023-pm4-count-convencion-medida.md",
+      "023-pte-productor-sdma-gfx8.md"
+    ],
+    "file_paths": [
+      "06-INGENIERIA-INVERSA/findings/023-pm4-count-convencion-medida.md",
+      "06-INGENIERIA-INVERSA/findings/023-pte-productor-sdma-gfx8.md"
+    ],
+    "count": 2,
+    "is_ambiguous": true
+  },
+  "relation_chain_analysis": {
+    "finding": "number \u2192 multiple files possible (AMBIGUOUS when >1 file)",
+    "claim": "line number within finding file (relative to finding)",
+    "relation": "verb + number \u2192 inherits finding ambiguity",
+    "evidence": "file:line citation (absolute, should be unique)",
+    "source": "file + line (absolute, should be unique)",
+    "critical_gaps": [
+      "FINDING: Number alone is not unique identifier (65/255 numbers ambiguous)",
+      "RELATION: Verb + number inherits finding ambiguity",
+      "Only EVIDENCE/SOURCE (file:line) provide absolute uniqueness"
+    ]
+  },
+  "bidirectional_test": {
+    "forward": "source \u2192 evidence \u2192 finding \u2192 claim \u2192 relation: breaks at finding when number ambiguous",
+    "backward": "relation \u2192 finding \u2192 claim \u2192 evidence \u2192 source: same finding ambiguity applies",
+    "conclusion": "Bidirectional traversal fails when finding number is ambiguous"
+  },
+  "evidence_of_gap": [
+    "Finding 035 has CORRECTS=023 (ambiguous: points to 2 findings)",
+    "Finding 035 has RETRACTED_BY=043 (ambiguous: points to 3 findings)",
+    "Finding 259 explicitly documents: 'La clave primaria de findings/ no es \u00fanica: 65 n\u00fameros con dos ficheros'",
+    "Tools/nextnum.py confirms no file-based locking (see tools/nextnum.py)"
+  ],
+  "conclusion": "RELATION_GAP_REPRODUCED"
+}

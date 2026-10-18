@@ -1,0 +1,20 @@
+
+/bin/ls:     formato del fichero elf64-x86-64
+
+
+Desensamblado de la sección .text:
+
+0000000000001540 <error_at_line@@Base+0x1e8>:
+    1540:	f3 0f 1e fa          	endbr64
+    1544:	55                   	push   %rbp
+    1545:	48 89 e5             	mov    %rsp,%rbp
+    1548:	41 57                	push   %r15
+    154a:	41 56                	push   %r14
+    154c:	41 55                	push   %r13
+    154e:	41 89 fd             	mov    %edi,%r13d
+    1551:	41 54                	push   %r12
+    1553:	53                   	push   %rbx
+    1554:	48 81 ec e8 00 00 00 	sub    $0xe8,%rsp
+    155b:	48 8b 1e             	mov    (%rsi),%rbx
+    155e:	64                   	fs
+    155f:	4c                   	rex.WR

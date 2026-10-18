@@ -1,0 +1,6 @@
+=== rizin aa; axtj @ 0x4000 ===
+n= 0 distinct to= {}
+=== rizin aa; axtj @ 0x1540 ===
+n= 1 distinct to= {5440: 1}
+=== rizin aa; axtj @ 0x1000 ===
+n= 1 distinct to= {4096: 1}

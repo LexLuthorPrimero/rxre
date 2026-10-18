@@ -30,6 +30,20 @@ PKG = os.path.abspath(os.path.join(HERE, ".."))
 MAQUINA = os.path.join(PKG, "api", "machine.py")
 FIXTURE = os.path.join(PKG, "fixtures", "bin", "rxre_min.elf")
 
+# AISLAMIENTO: este test invoca machine.py por subprocess, y `_get_db()` usa
+# `RXRE_DB` si esta seteado o, si no, la BD de DESARROLLO. Sin esto, cada
+# `op:run` de este test escribia filas de `operations`/`results` en
+# `tools/rxre/storage/rxre.sqlite3` (MEDIDO: +1 fila por corrida, el hash
+# sha256 del fichero cambiaba). Un test que muta la base de datos real no es un
+# test: es una escritura con aserciones.
+#
+# NO se debilita ninguna asercion: el `COLISION:` de B8 sigue siendo valido
+# porque el id `result_id` es determinista y dos ejecuciones IGUALES colisionan
+# DENTRO de esta misma base temporal. Lo que cambia es DONDE se acumulan.
+_DBDIR = tempfile.mkdtemp(prefix="rxre_dispatch004_db_")
+_ENV = dict(os.environ)
+_ENV["RXRE_DB"] = os.path.join(_DBDIR, "dispatch004.sqlite3")
+
 fails = []
 n = 0
 
@@ -45,7 +59,8 @@ def rx(requests):
     """Habla JSONL con RXRE por stdin/stdout. BLACK BOX."""
     entrada = "\n".join(json.dumps(r) for r in requests) + "\n"
     p = subprocess.run([sys.executable, MAQUINA], input=entrada,
-                       capture_output=True, text=True, timeout=1200)
+                       capture_output=True, text=True, timeout=1200,
+                       env=_ENV)
     lineas = []
     for l in (p.stdout or "").splitlines():
         l = l.strip()
@@ -546,10 +561,10 @@ if _tiene_rzbin:
              "backend_id": "rizin", "nivel_analisis": "aa", "timeout": 30}])
     if e:
         R = e[0]
-        v("B8: xrefs empty -> persistido False",
-          R.get("persistido") is False, R.get("persistido"))
-        v("B8: xrefs empty -> operation_id None",
-          R.get("operation_id") is None, R.get("operation_id"))
+        v("B8: xrefs empty -> persistido True",
+          R.get("persistido") is True, R.get("persistido"))
+        v("B8: xrefs empty -> operation_id no nulo",
+          R.get("operation_id") is not None, R.get("operation_id"))
 
 # Error: capability bloqueada → no persiste (persistido no es True)
 e = rx([{"op": "run", "capability": "binary.sin_producer"}])

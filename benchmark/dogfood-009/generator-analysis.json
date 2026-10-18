@@ -1,0 +1,7 @@
+{
+  "role": "READS FINDING_ID from frontmatter only; does not generate",
+  "regex": "re.compile(r'^FINDING_ID:\\s*([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-...)')",
+  "uses_uuid4": true,
+  "manual_insertion": true,
+  "notes": "uuid.uuid4() generates UUIDs that are inserted into frontmatter. relations.py only parses."
+}

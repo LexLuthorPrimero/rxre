@@ -53,6 +53,7 @@ from backends import registry  # noqa: E402
 from backends.contract import (  # noqa: E402
     BK_BLOCKED, BK_EMPTY, BK_ERROR, BK_INVALID, BK_OK, BK_UNSUPPORTED,
     RAW_BINARY, Backend, sha256_de,
+    estado_firma,
 )
 
 
@@ -71,16 +72,6 @@ def _exe_de(backend_id: str, nombre: str) -> Optional[str]:
     import shutil
     return shutil.which(nombre)
 
-
-def _es_elf(p: str) -> bool:
-    """Comprobacion minima de la firma. MEDIDO: `rz-bin` acepta cualquier cosa
-    y devuelve `info: []`, que es indistinguible de un binario sin secciones."""
-    try:
-        with open(p, "rb") as fh:
-            m = fh.read(4)
-    except OSError:
-        return False
-    return m[:4] == b"\x7fELF"
 
 
 def _id_resultado(artefacto: str, backend: str, valor: Any,
@@ -171,6 +162,7 @@ def inspect(artefacto: str, backend_id: str = "rizin",
 
     # --- PRE-EXECUTION CONTRACT CHECK (§15). Antes de invocar. -----------
     pre = {"input_existe": os.path.isfile(artefacto),
+           "input_legible": None,
            "input_es_elf": False, "input_hash": "",
            "backend_existe": b.existe(),
            "entrypoint_existe": bool(b.path()),
@@ -180,7 +172,22 @@ def inspect(artefacto: str, backend_id: str = "rizin",
     if not pre["input_existe"]:
         return {"status": BK_INVALID, "precheck": pre,
                 "limitations": ["la entrada no existe: %s" % artefacto]}
-    if not _es_elf(artefacto):
+    firma = estado_firma(artefacto)
+    if firma == "no_legible":
+        # MEDIDO 2026-10-15 (chmod 000): aqui antes se respondia lo mismo que
+        # para un no-ELF, pero la firma NUNCA se leyo. "Firma distinta de
+        # \x7fELF" sin haber leido la firma es afirmar una medicion que no
+        # ocurrio. No-saber se reporta como no-saber (input_es_elf=None).
+        pre["input_legible"] = False
+        pre["input_es_elf"] = None
+        return {"status": BK_INVALID, "precheck": pre,
+                "limitations": ["la entrada EXISTE pero no es legible "
+                                "(permiso o E/S): %s" % artefacto,
+                                "no se pudo leer la firma: NO se sabe si es "
+                                "ELF (distinto de saber que no lo es)",
+                                "no se invoco al backend"]}
+    pre["input_legible"] = True
+    if firma == "no_elf":
         # No se invoca al backend. `rz-bin` sobre un no-ELF devuelve `info: []`,
         # que es indistinguible de un ELF sin secciones.
         return {"status": BK_INVALID, "precheck": pre,

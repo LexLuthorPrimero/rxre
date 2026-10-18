@@ -1,0 +1,27 @@
+{
+ "claim_id": "RXRE-SWF-051",
+ "taxonomy": "MEASUREMENT",
+ "state": "PROVEN",
+ "evidence_op": "op_834604c233c77331",
+ "result_id": "res_dmg_rand_c062b74afeca0af1",
+ "rxre": {
+  "estado": "ok",
+  "id": 231,
+  "kind": "claim",
+  "status": "PROVEN",
+  "gap_kind": null,
+  "refs": [
+   "res_dmg_rand_c062b74afeca0af1"
+  ],
+  "session": "swf-nexus",
+  "target": "Madness Project Nexus Classic.swf",
+  "timestamp": "2026-10-12T00:56:34-0300"
+ },
+ "formulas": {
+  "bodyDamage": "Math.floor(SwainMath.randomNumber(totalFrameDamage,-2,2)/4)",
+  "headDamage": "Math.floor(SwainMath.randomNumber(totalFrameDamage,-2,2)/4)",
+  "headshot_crit": "if perkHeadshotCrits: damage=bodyDamage*SwainMath.randomNumber(200,120,2)/100 in [1.2,2.0]",
+  "bulletEater": "perk affects damage",
+  "totalFrameDamage": "= r3 (total damage, across branches)"
+ }
+}

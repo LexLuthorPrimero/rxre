@@ -1,0 +1,7 @@
+{
+  "test": "rename",
+  "pass": true,
+  "id_before": "768010c9-606d-4597-a257-11705f237167",
+  "id_after": "768010c9-606d-4597-a257-11705f237167",
+  "note": "UUID survives rename"
+}

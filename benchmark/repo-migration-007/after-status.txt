@@ -1,0 +1,12 @@
+# REPO-MIGRATION-007 — after-status.txt
+# Firmas del trabajo activo DESPUÉS de la promoción
+
+timestamp=2026-10-08T13:51:57Z
+repo=/home/lucas/Escritorio/rxre
+branch=migration/validated-legacy-work
+head=9ce74c53ba5a356fed9893c5f62b32e01f9d883a
+primary=9ce74c53ba5a356fed9893c5f62b32e01f9d883a
+dirty_modified=112
+dirty_untracked=98
+dirty_total=210
+promoted_to_main=YES; echo migration_same_as_primary=YES

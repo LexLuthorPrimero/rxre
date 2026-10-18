@@ -1,0 +1,13 @@
+# REPO-MIGRATION-007 — before-status.txt
+# Firmas del trabajo activo ANTES de la promoción
+
+timestamp=2026-10-08T13:51:39Z
+repo=/home/lucas/Escritorio/rxre
+branch=migration/validated-legacy-work
+head=9ce74c53ba5a356fed9893c5f62b32e01f9d883a
+primary=9ce74c53ba5a356fed9893c5f62b32e01f9d883a
+dirty_modified=112
+dirty_untracked=98
+dirty_total=210
+main_ancestors_ahead=0
+diff_files=

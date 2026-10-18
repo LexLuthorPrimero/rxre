@@ -1,0 +1,84 @@
+=== DIFFERENTIAL VERIFICATION REPORT ===
+
+Source: Madness Project Nexus Classic SWF (SHA256: 44584a02d85a883384bad34617eb800d79301a8daeabf20244f6b75755ff9342)
+Target: C Implementation (GCC 12.3)
+Verification Method: Evidence-based state transition testing
+
+PASS: Initialization
+    Evidence: DoAction_9779 | State: 0 | Cash: 1500 | Frames: 10
+
+PASS: Main Menu Entry
+    Evidence: DoAction_9779 | State: 1 | Cash: 1500 | Frames: 20
+
+PASS: World Map Entry
+    Evidence: DoAction_9779 | State: 2 | Cash: 1500 | Frames: 62
+
+PASS: Exit All to Menu
+    Evidence: DoAction_9779 | State: 1 | Cash: 1500 | Frames: 11
+
+PASS: Menu to World Map
+    Evidence: DoAction_9779 | State: 2 | Cash: 1500 | Frames: 61
+
+PASS: Hire Store
+    Evidence: DoAction_9779 | State: 3 | Cash: 1500 | Frames: 63
+
+PASS: Item Store
+    Evidence: DoAction_9779 | State: 4 | Cash: 1500 | Frames: 63
+
+PASS: Team Setup
+    Evidence: DoAction_9779 | State: 5 | Cash: 1500 | Frames: 63
+
+PASS: Character Creator
+    Evidence: DoAction_9779 | State: 6 | Cash: 1500 | Frames: 63
+
+PASS: Hire Store Exit
+    Evidence: DoAction_9779 | State: 2 | Cash: 1500 | Frames: 64
+
+PASS: Item Store Exit
+    Evidence: DoAction_9779 | State: 2 | Cash: 1500 | Frames: 64
+
+PASS: Character Creator Exit
+    Evidence: DoAction_9779 | State: 2 | Cash: 1500 | Frames: 64
+
+PASS: Character Creator to Cutscene
+    Evidence: DoAction_9779 | State: 7 | Cash: 1500 | Frames: 183
+
+PASS: Cutscene Entry
+    Evidence: DoAction_9779 | State: 7 | Cash: 1500 | Frames: 243
+
+PASS: Cutscene to Gameplay
+    Evidence: DoAction_9779 | State: 8 | Cash: 1500 | Frames: 303
+
+PASS: Gameplay Entry
+    Evidence: DoAction_9779 | State: 8 | Cash: 1500 | Frames: 304
+
+PASS: Pause Entry
+    Evidence: DoAction_9779 | State: 9 | Cash: 1500 | Frames: 248
+
+PASS: Resume Game
+    Evidence: DoAction_9779 | State: 8 | Cash: 1500 | Frames: 245
+
+PASS: Level Transition
+    Evidence: DoAction_9779 | State: 10 | Cash: 1500 | Frames: 545
+
+PASS: Exit Level Transition
+    Evidence: State_Strings | State: 8 | Cash: 1500 | Frames: 636
+
+PASS: Player Movement
+    Evidence: DoInitAction | State: 8 | Cash: 1500 | Frames: 304
+
+PASS: Pause Mechanism
+    Evidence: Menu_Strings | State: 9 | Cash: 1500 | Frames: 248
+
+PASS: Hire Store Purchase
+    Evidence: Store_Strings | State: 3 | Cash: 500 | Frames: 64
+
+PASS: Item Store Purchase
+    Evidence: Store_Strings | State: 4 | Cash: 1000 | Frames: 64
+
+=== SUMMARY ===
+Total Tests: 24
+Passed: 24/24 (100.0%)
+Failed: 0/24 (0.0%)
+
+VERDICT: All evidence-based claims validated ✓

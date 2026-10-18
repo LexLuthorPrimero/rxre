@@ -1,0 +1,37 @@
+{
+  "023-pm4-count-convencion-medida.md": {
+    "full_path": "06-INGENIERIA-INVERSA/findings/023-pm4-count-convencion-medida.md",
+    "finding_id": "768010c9-606d-4597-a257-11705f237167",
+    "sha256_path_16": "94929378a93a757f",
+    "matches_path_hash": false,
+    "is_uuid_instead": true
+  },
+  "023-pte-productor-sdma-gfx8.md": {
+    "full_path": "06-INGENIERIA-INVERSA/findings/023-pte-productor-sdma-gfx8.md",
+    "finding_id": "3bd5d4d1-65a8-462c-9445-71f6805936ff",
+    "sha256_path_16": "59d2582fcffa70b8",
+    "matches_path_hash": false,
+    "is_uuid_instead": true
+  },
+  "043-asercion-struct-mqd-contra-offsets.md": {
+    "full_path": "06-INGENIERIA-INVERSA/findings/043-asercion-struct-mqd-contra-offsets.md",
+    "finding_id": "83c56b38-9da4-4e0e-9940-72cdf4a285f8",
+    "sha256_path_16": "dab296d4eb72d972",
+    "matches_path_hash": false,
+    "is_uuid_instead": true
+  },
+  "043-pll-bsp-asi-pasi.md": {
+    "full_path": "06-INGENIERIA-INVERSA/findings/043-pll-bsp-asi-pasi.md",
+    "finding_id": "085e5602-0340-4afa-aeeb-e3df67810ef4",
+    "sha256_path_16": "4a01ac343ec6ba56",
+    "matches_path_hash": false,
+    "is_uuid_instead": true
+  },
+  "043-vuelta-atras-035-y-036-leian-el-asic-equivocado.md": {
+    "full_path": "06-INGENIERIA-INVERSA/findings/043-vuelta-atras-035-y-036-leian-el-asic-equivocado.md",
+    "finding_id": "9f26bc49-539b-4139-bb69-a68b17ead80c",
+    "sha256_path_16": "9fd3d6252e986fcb",
+    "matches_path_hash": false,
+    "is_uuid_instead": true
+  }
+}

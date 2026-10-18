@@ -1,0 +1,7 @@
+fuente      rx550_gl_load.c
+fuente_sha  1e20df0790c772dcc7ee4e87ea9b4b098f21fddbc5b10896320fea9a54e6f6cc
+binario     rx550_gl_load.bin
+binario_sha f3b8bec15f9c1c27b50f6a548ba941622a731407185f0179c1afa27a668238ff
+sin_ccache  f3b8bec15f9c1c27b50f6a548ba941622a731407185f0179c1afa27a668238ff
+compilador  gcc (GCC) 16.2.1 20260819 (Red Hat 16.2.1-2)
+flags       -O2 -Wall -Wextra -lEGL -lGL

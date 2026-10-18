@@ -1,0 +1,22 @@
+{
+ "claim_id": "RXRE-SWF-050",
+ "taxonomy": "MEASUREMENT",
+ "state": "PROVEN",
+ "evidence_op": "op_e775d6c2efbc8c5b",
+ "result_id": "res_damage_app_8059aa392cdc4c6d",
+ "rxre": {
+  "estado": "ok",
+  "id": 230,
+  "kind": "claim",
+  "status": "PROVEN",
+  "gap_kind": null,
+  "refs": [
+   "res_damage_app_8059aa392cdc4c6d"
+  ],
+  "session": "swf-nexus",
+  "target": "Madness Project Nexus Classic.swf",
+  "timestamp": "2026-10-11T22:40:08-0300"
+ },
+ "formula": null,
+ "bytecode_trace": []
+}

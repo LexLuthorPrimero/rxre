@@ -1,0 +1,37 @@
+{
+ "claim_id": "RXRE-SWF-049",
+ "taxonomy": "MEASUREMENT",
+ "state": "PROVEN",
+ "evidence_op": "op_59fd124a8ce59970",
+ "result_id": "res_sym_formulas_f8db79706010dbca",
+ "rxre": {
+  "estado": "ok",
+  "id": 229,
+  "kind": "claim",
+  "status": "PROVEN",
+  "gap_kind": null,
+  "refs": [
+   "res_sym_formulas_f8db79706010dbca"
+  ],
+  "session": "swf-nexus",
+  "target": "Madness Project Nexus Classic.swf",
+  "timestamp": "2026-10-11T22:25:42-0300"
+ },
+ "key_formulas": {
+  "modSpeed": "r1.modSpeed = (r1.statDEX/45)",
+  "modDmg": "r1.modDmg = (r1.statSTR/15)",
+  "modRecharge": "r1.modRecharge = (r1.statTAC/10)",
+  "modArmor": "r1.modArmor = (r1.statEND/15)",
+  "modAllySmart": "r1.modAllySmart = (r1.statLEAD/15)",
+  "modHurtTactics": "r1.modHurtTactics = (r1.statAWR/50)",
+  "myAccel": "r1.myAccel = (r1.mySpeed/4)",
+  "myDamage": "r1.myWeapons[(0.0,0)].myDamage = (r1.myWeapons[(0.0,0)].myDamage*3)",
+  "myHeadArmor": "r1.myHeadArmor = r1.myDataRef.myHat[(0.0,0)].myArmor",
+  "myBodyArmor": "r1.myBodyArmor = r1.myDataRef.myShirt[(0.0,0)].myArmor",
+  "myPrice": "r1.myPrice = (r1.myArmor*100)"
+ },
+ "counts": {
+  "total_writes": 8675,
+  "arithmetic": 599
+ }
+}

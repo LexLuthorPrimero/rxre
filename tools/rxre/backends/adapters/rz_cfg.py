@@ -57,8 +57,9 @@ for _p in (PKG_TOOLS, PKG_RXRE):
 from backends import registry                               # noqa: E402
 from backends.contract import (                              # noqa: E402
     BK_BLOCKED, BK_EMPTY, BK_ERROR, BK_INVALID, BK_OK,
-    BACKEND_RC, Backend, limpiar, sha256_de, sha256_texto,
+    BACKEND_RC, Backend, limpiar, sha256_de, sha256_texto, estado_firma,
 )
+from . import provenance as _prov
 
 ANSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b[@-Z\\-_]|\r|[\x00\x07\x08]")
 
@@ -130,6 +131,15 @@ def _ejecutar(backend_id: str, artefacto: str, salida_cmd: str,
         if not pre["input_existe"]:
             return {"status": BK_INVALID, "precheck": pre,
                     "limitations": ["la entrada no existe: %s" % artefacto]}
+        if os.path.isfile(artefacto) and estado_firma(artefacto) == "no_legible":
+            pre["elf_tipo"] = ""
+            return {"status": BK_INVALID, "precheck": pre,
+                    "limitations": [
+                        "la entrada EXISTE pero no es legible (permiso o E/S): %s"
+                        % artefacto,
+                        "no se pudo leer la firma: NO se sabe si es ELF",
+                        "no se invoco al producer: %s sobre artefacto ilegible "
+                        "no produce CFG" % salida_cmd]}
         pre["elf_tipo"] = _elf_tipo(artefacto)
         if not pre["elf_tipo"]:
             return {"status": BK_INVALID, "precheck": pre,
@@ -181,7 +191,7 @@ def _ejecutar(backend_id: str, artefacto: str, salida_cmd: str,
                                      % (timeout, salida_cmd)]})
         return {"status": BK_BLOCKED, "precheck": pre, "ejecucion": ejec,
                 "backend": ident or {}, "limitations": ejec.get("limitations", []),
-                "provenance": "PROVENANCE_INCOMPLETE: timeout"}
+                "provenance": _prov.construir(estado=_prov.ESTADO_INCOMPLETA, motivo_incompleta='timeout', transformacion="rizin -c 'af; agj' -> json.loads -> grafo de bloques con nodos y aristas", normalizador='backends.adapters.rz_cfg._ejecutar')}
 
     if rc not in (0, None):
         ejec.update({"status": BK_ERROR,
@@ -189,7 +199,7 @@ def _ejecutar(backend_id: str, artefacto: str, salida_cmd: str,
                                      % (rc, (se.strip() or so.strip())[:300])]})
         return {"status": BK_ERROR, "precheck": pre, "ejecucion": ejec,
                 "backend": ident or {}, "limitations": ejec.get("limitations", []),
-                "provenance": "PROVENANCE_INCOMPLETE: producer error"}
+                "provenance": _prov.construir(estado=_prov.ESTADO_INCOMPLETA, motivo_incompleta='producer error', transformacion="rizin -c 'af; agj' -> json.loads -> grafo de bloques con nodos y aristas", normalizador='backends.adapters.rz_cfg._ejecutar')}
 
     # Parsear JSON (limpiar ANSI primero)
     texto = ANSI.sub("", so)
@@ -202,7 +212,7 @@ def _ejecutar(backend_id: str, artefacto: str, salida_cmd: str,
                          % (salida_cmd, texto_stripped)]})
         return {"status": BK_ERROR, "precheck": pre, "ejecucion": ejec,
                 "backend": ident or {},
-                "provenance": "PROVENANCE_INCOMPLETE: no JSON"}
+                "provenance": _prov.construir(estado=_prov.ESTADO_INCOMPLETA, motivo_incompleta='no JSON', transformacion="rizin -c 'af; agj' -> json.loads -> grafo de bloques con nodos y aristas", normalizador='backends.adapters.rz_cfg._ejecutar')}
 
     try:
         parsed = json.loads(texto[inicio:])
@@ -212,12 +222,12 @@ def _ejecutar(backend_id: str, artefacto: str, salida_cmd: str,
                                      % (salida_cmd, exc)]})
         return {"status": BK_ERROR, "precheck": pre, "ejecucion": ejec,
                 "backend": ident or {},
-                "provenance": "PROVENANCE_INCOMPLETE: JSON invalido"}
+                "provenance": _prov.construir(estado=_prov.ESTADO_INCOMPLETA, motivo_incompleta='JSON invalido', transformacion="rizin -c 'af; agj' -> json.loads -> grafo de bloques con nodos y aristas", normalizador='backends.adapters.rz_cfg._ejecutar')}
 
     pre["ok"] = True
     return {"status": BK_OK, "precheck": pre, "ejecucion": ejec,
             "backend": ident or {}, "parsed": parsed,
-            "provenance": "completa"}
+            "provenance": _prov.desde_precheck(pre, transformacion="rizin -c 'af; agj' -> json.loads -> grafo de bloques con nodos y aristas", normalizador='backends.adapters.rz_cfg._ejecutar')}
 
 
 def _backends_disponibles() -> str:
@@ -263,6 +273,10 @@ def cfg(artefacto: str, backend_id: str = "radare2",
         "type": "control_flow",
         "value": {"n_funciones": n_funciones, "n_bloques": n_bloques,
                   "cfg": parsed[:500]},  # sample de los primeros grafos
+        "completitud": {"completo": len(parsed) <= 500,
+                        "omitidos": max(0, len(parsed) - 500),
+                        "limite": 500,
+                        "elemento": "cfg"},
         "source": artifact_ref,
         "location": {"file": os.path.basename(artifact_ref)},
         "scope": "binary",

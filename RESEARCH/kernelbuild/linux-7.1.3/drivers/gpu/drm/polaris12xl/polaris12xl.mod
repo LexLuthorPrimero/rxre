@@ -1,0 +1,16 @@
+drivers/gpu/drm/polaris12xl/core/p12xl_asic.o
+drivers/gpu/drm/polaris12xl/core/p12xl_evidence.o
+drivers/gpu/drm/polaris12xl/core/p12xl_hang.o
+drivers/gpu/drm/polaris12xl/core/p12xl_ih.o
+drivers/gpu/drm/polaris12xl/core/p12xl_ip.o
+drivers/gpu/drm/polaris12xl/core/p12xl_iv.o
+drivers/gpu/drm/polaris12xl/core/p12xl_know.o
+drivers/gpu/drm/polaris12xl/core/p12xl_mem.o
+drivers/gpu/drm/polaris12xl/core/p12xl_obs.o
+drivers/gpu/drm/polaris12xl/core/p12xl_part.o
+drivers/gpu/drm/polaris12xl/core/p12xl_pm.o
+drivers/gpu/drm/polaris12xl/core/p12xl_power.o
+drivers/gpu/drm/polaris12xl/core/p12xl_reset.o
+drivers/gpu/drm/polaris12xl/core/p12xl_ring.o
+drivers/gpu/drm/polaris12xl/core/p12xl_sched.o
+drivers/gpu/drm/polaris12xl/kernel/p12xl_main.o

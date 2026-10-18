@@ -1,0 +1,28 @@
+{
+  "e99a0ad1fb92b97bec1615bbf650a0e88cdf7558": {
+    "legacy_msg": "fix: resolve trace enum definitions from corpus",
+    "migrated_sha": "12a3462455fc9b6caa0b41a86ffa096047c22168",
+    "migrated_msg": "fix: resolve trace enum definitions from corpus",
+    "method": "cherry-pick",
+    "status": "MIGRATED",
+    "features": [
+      "resolve_enum_definition",
+      "KNOWN_PATH",
+      "CORPUS_SEARCH",
+      "AMBIGUOUS_SYMBOL",
+      "NOT_FOUND",
+      "provenance"
+    ]
+  },
+  "97bae69440e32e56b34f23946e8a3fad12427284": {
+    "legacy_msg": "perf: add exact-word search fast path",
+    "migrated_sha": "9ce74c5...",
+    "migrated_msg": "perf: add exact-word search fast path",
+    "method": "cherry-pick (with conflict resolution)",
+    "status": "MIGRATED",
+    "features": [
+      "exact-word search fast path"
+    ],
+    "related": "4b7d067 (earlier port attempt), merged as 9ce74c5"
+  }
+}

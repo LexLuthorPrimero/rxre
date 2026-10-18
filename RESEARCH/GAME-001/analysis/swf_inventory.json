@@ -1,0 +1,140 @@
+{
+  "action_script": {
+    "confidence": "HIGH",
+    "do_abc_tags": 0,
+    "do_action_tags": 6,
+    "do_init_action_tags": 69,
+    "evidence": [
+      "No DoABC tags",
+      "DoAction/DoInitAction tags exist"
+    ],
+    "symbol_class_tags": 0,
+    "version": "AS2/AVM1"
+  },
+  "artifact_identity": {
+    "file_bytes": 15612129,
+    "path": "/home/lucas/Escritorio/flash/Madness Project Nexus Classic.swf",
+    "sha256": "44584a02d85a883384bad34617eb800d79301a8daeabf20244f6b75755ff9342",
+    "signature": "CWS (compressed)"
+  },
+  "character_inventory": {
+    "DefineBits": {
+      "count": 108,
+      "tags": []
+    },
+    "DefineEditText": {
+      "count": 136,
+      "tags": []
+    },
+    "DefineShape": {
+      "count": 5202,
+      "tags": []
+    },
+    "DefineSound": {
+      "count": 138,
+      "tags": []
+    },
+    "DefineSprite": {
+      "count": 2448,
+      "tags": []
+    },
+    "DefineText": {
+      "count": 229,
+      "tags": []
+    }
+  },
+  "header": {
+    "actual_uncompressed": 20491352,
+    "compression": "zlib",
+    "declared_uncompressed": 20491352,
+    "frame_count": 30,
+    "frame_rate_fixed_point": 7680,
+    "frame_rate_fps": 30.0,
+    "rect_bits": 16,
+    "rect_bytes": 9,
+    "tag_stream_offset": 21,
+    "version": 10
+  },
+  "key_findings": [
+    "SWF version 10 with 9788 tags",
+    "Frame rate: 30.00 FPS, 30 frames",
+    "2448 sprites, 137 sounds",
+    "6 DoAction, 69 DoInitAction, 0 DoABC tags",
+    "ActionScript AS2/AVM1"
+  ],
+  "tag_stream": {
+    "tag_counts": {
+      "CSMTextSettings": 334,
+      "DefineBits": 2,
+      "DefineBitsJPEG2": 5,
+      "DefineBitsJPEG3": 4,
+      "DefineBitsLossless": 87,
+      "DefineBitsLossless2": 10,
+      "DefineButton2": 119,
+      "DefineEditText": 136,
+      "DefineFont3": 26,
+      "DefineFontAlignZones": 116,
+      "DefineFontName": 114,
+      "DefineMorphShape": 51,
+      "DefineMorphShape2": 49,
+      "DefineShape": 2386,
+      "DefineShape2": 188,
+      "DefineShape3": 241,
+      "DefineShape4": 2387,
+      "DefineSound": 137,
+      "DefineSprite": 2448,
+      "DefineText": 228,
+      "DefineText2": 1,
+      "DefineVideo": 1,
+      "DoAction": 6,
+      "DoInitAction": 69,
+      "End": 1,
+      "ExportAssets": 520,
+      "FileAttributes": 1,
+      "FrameLabel": 4,
+      "Metadata": 1,
+      "PlaceObject2": 83,
+      "PlaceObject3": 1,
+      "SetBackgroundColor": 1,
+      "ShowFrame": 30,
+      "SoundStreamHead": 1
+    },
+    "tag_payload_bytes": {
+      "CSMTextSettings": 4008,
+      "DefineBits": 93066,
+      "DefineBitsJPEG2": 650153,
+      "DefineBitsJPEG3": 1758796,
+      "DefineBitsLossless": 1743,
+      "DefineBitsLossless2": 19657,
+      "DefineButton2": 14467,
+      "DefineEditText": 20806,
+      "DefineFont3": 167270,
+      "DefineFontAlignZones": 56798,
+      "DefineFontName": 10685,
+      "DefineMorphShape": 5407,
+      "DefineMorphShape2": 7498,
+      "DefineShape": 3704587,
+      "DefineShape2": 1070863,
+      "DefineShape3": 239129,
+      "DefineShape4": 2852821,
+      "DefineSound": 6748475,
+      "DefineSprite": 2309341,
+      "DefineText": 11405,
+      "DefineText2": 150,
+      "DefineVideo": 0,
+      "DoAction": 4634,
+      "DoInitAction": 677148,
+      "End": 0,
+      "ExportAssets": 13576,
+      "FileAttributes": 4,
+      "FrameLabel": 31,
+      "Metadata": 1284,
+      "PlaceObject2": 166,
+      "PlaceObject3": 36,
+      "SetBackgroundColor": 3,
+      "ShowFrame": 0,
+      "SoundStreamHead": 4
+    },
+    "total_tags": 9788
+  }
+}

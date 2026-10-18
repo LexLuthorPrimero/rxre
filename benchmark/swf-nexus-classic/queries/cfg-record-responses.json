@@ -1,0 +1,89 @@
+[
+ {
+  "claim_id": "RXRE-SWF-042",
+  "taxonomy": "FACT",
+  "state": "PROVEN",
+  "kind": "claim",
+  "rxre": {
+   "estado": "ok",
+   "id": 222,
+   "kind": "claim",
+   "status": "PROVEN",
+   "gap_kind": null,
+   "refs": [
+    "res_jump_decode_7053_6bdaf554e42029bd"
+   ],
+   "session": "swf-nexus",
+   "target": "Madness Project Nexus Classic.swf",
+   "timestamp": "2026-10-11T19:17:57-0300"
+  }
+ },
+ {
+  "claim_id": "RXRE-SWF-043",
+  "taxonomy": "MEASUREMENT",
+  "state": "SUPPORTED",
+  "kind": "hypothesis",
+  "rxre": {
+   "estado": "ok",
+   "id": 223,
+   "kind": "hypothesis",
+   "status": "SUPPORTED",
+   "gap_kind": null,
+   "refs": [],
+   "session": "swf-nexus",
+   "target": "Madness Project Nexus Classic.swf",
+   "timestamp": "2026-10-11T19:17:57-0300"
+  }
+ },
+ {
+  "claim_id": "RXRE-SWF-044",
+  "taxonomy": "DERIVATION",
+  "state": "SUPPORTED",
+  "kind": "hypothesis",
+  "rxre": {
+   "estado": "ok",
+   "id": 224,
+   "kind": "hypothesis",
+   "status": "SUPPORTED",
+   "gap_kind": null,
+   "refs": [],
+   "session": "swf-nexus",
+   "target": "Madness Project Nexus Classic.swf",
+   "timestamp": "2026-10-11T19:17:57-0300"
+  }
+ },
+ {
+  "claim_id": "RXRE-SWF-045",
+  "taxonomy": "NEGATIVE_RESULT",
+  "state": "NOT_DETERMINED",
+  "kind": "hypothesis",
+  "rxre": {
+   "estado": "ok",
+   "id": 225,
+   "kind": "hypothesis",
+   "status": "NOT_DETERMINED",
+   "gap_kind": null,
+   "refs": [],
+   "session": "swf-nexus",
+   "target": "Madness Project Nexus Classic.swf",
+   "timestamp": "2026-10-11T19:17:57-0300"
+  }
+ },
+ {
+  "claim_id": "RXRE-SWF-046",
+  "taxonomy": "NEGATIVE_RESULT",
+  "state": "NOT_DETERMINED",
+  "kind": "note",
+  "rxre": {
+   "estado": "ok",
+   "id": 226,
+   "kind": "note",
+   "status": "NOT_DETERMINED",
+   "gap_kind": null,
+   "refs": [],
+   "session": "swf-nexus",
+   "target": "Madness Project Nexus Classic.swf",
+   "timestamp": "2026-10-11T19:17:57-0300"
+  }
+ }
+]

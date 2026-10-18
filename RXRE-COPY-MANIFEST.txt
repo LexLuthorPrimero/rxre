@@ -1,0 +1,49 @@
+RXRE-COPY-MANIFEST
+==================
+
+timestamp: 2026-10-07T04:30:00Z
+
+source_path: /home/lucas/Escritorio/RX550-INVESTIGACION
+destination_path: /home/lucas/Escritorio/rxre
+
+source_git_root: /home/lucas/Escritorio/RX550-INVESTIGACION
+source_HEAD: 3e2ef2c26b93efae1ac4c106f75368e2bc7ad97c
+source_git_status: 160 modified files, 50+ untracked files
+
+destination_HEAD: 3e2ef2c26b93efae1ac4c106f75368e2bc7ad97c
+destination_git_status: 160 modified files, 50+ untracked files (identical to source)
+
+file_count_source: 129610
+file_count_destination: 129610
+
+hidden_files_copied: 5 (.gitignore, .corpus_guard_state.json, .nextnum.lock, 07-DRIVER/.gitignore, revkit/.gitignore)
+symlinks_copied: 101
+permissions_preserved: yes
+timestamps_preserved: yes
+
+critical_file_hashes (SHA-256):
+  tools/rxre/core/target.py:       356c253b258736584145205452957b8a45d16be995b8e19438fa087bf14998c1
+  tools/rxre/core/conflicts.py:    6d3c65a1c8623bb68c3e53922aee32ba9757b9d3293c035cd4360f0ae097f237
+  tools/rxre/core/store.py:        fd12c4617bc365e57a74d5955a5f9532e2ae1736e8ef8f4249868c7b8cd8812f
+  tools/rxre/core/capabilities.py: 0eb8d3dcf777542b07b8f75e62ed566c45a75154660da51c8216165261bac60d
+  tools/rxre/core/normalize.py:    7e87141e99a66ff899d9b03e4908812268728ac1b5a048cd4ac5f4be293d9664
+  tools/reg_resolve.py:            55f08540a6a50aa47ab3e67461f12e90b848c291b95a001fd61e982a52c08543
+  tools/mutate_target.py:          02157464b638a963fc3b2e71a7e38fb044c887dc6c5634b5ac90cf61e0c2f5dc
+  tools/rxre/tests/test_p003.py:  f2c4e1d5b75de293bf5e37b0dc5ebe7a5ba608932ec60217141c688c1f1829d0
+  tools/rxre/tests/test_p004.py:  1e69d67ffa20a28c8fcf53f28f85baca857abea5b471b4a68baff3653d1f351f
+  docs/rxre-migration-design.md: 71afc3cf90c4b09fda0a07300fb534776b5c81d14fcc0dbfdaaad6adbc66cee9
+  findings/1593.md:              e8cda42fbe08007083edc52afecabc16bee3bb3bc0a422f8dfa28037a0ee3523
+  findings/1594.md:              1f78484133913969a98649a245ce00d6ec8b6d59d221f89ffa424616f9962f4f
+
+validation_result: PASS
+
+structure_match: YES
+git_match: YES
+permissions_match: YES
+symlinks_match: YES
+hidden_files_match: YES
+untracked_files_copied: YES
+tests_run_from_copy: PASS (P0.3: 23/23, P1: 58/58)
+
+method: rsync -aH (archive mode, hardlinks preserved)
+copy_complete: true

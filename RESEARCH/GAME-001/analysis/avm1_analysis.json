@@ -1,0 +1,256 @@
+{
+  "swf_info": {
+    "path": "/home/lucas/Escritorio/flash/Madness Project Nexus Classic.swf",
+    "sha256": "44584a02d85a883384bad34617eb800d79301a8daeabf20244f6b75755ff9342",
+    "version": 10,
+    "frame_rate": 30,
+    "total_tags": 9788,
+    "define_sprite_tags": 2448,
+    "define_sound_tags": 137,
+    "do_action_tags": 6,
+    "do_init_action_tags": 69,
+    "action_records": 130084
+  },
+  "opcode_interpretations": {
+    "0x88": "pushBigInteger - push 16-bit length data block",
+    "0x96": "branchIfLT - conditional jump based on comparison",
+    "0x1C": "previousFrame - check if previous frame exists",
+    "0x12": "nextFrame - advance to next frame",
+    "0x17": "setTarget - set target for subsequent operations",
+    "0x52": "setTarget - set target for subsequent operations",
+    "0x4F": "defineLocal2 - define local variable",
+    "0x9B": "getField - get dynamic field",
+    "0x3D": "do - code block start",
+    "0x87": "setLineTag - source line number",
+    "0x8E": "getLex - get lexical variable",
+    "0x40": "modulo - mathematical operation",
+    "0x3C": "hypot - mathematical operation"
+  },
+  "game_classes": {
+    "ItemGenerator": [
+      "weapons",
+      "armor",
+      "items",
+      "store items"
+    ],
+    "MadWorld": [
+      "world map",
+      "level generation",
+      "arena"
+    ],
+    "MadnessCharacter": [
+      "character creation",
+      "stats",
+      "equipment"
+    ],
+    "MadnessMenu": [
+      "menus",
+      "UI",
+      "navigation"
+    ],
+    "SwainAudioPlayer": [
+      "audio",
+      "sound management"
+    ],
+    "KeyManager": [
+      "input handling",
+      "key bindings"
+    ],
+    "MadnessRoster": [
+      "team management",
+      "character roster"
+    ],
+    "SaveGroup": [
+      "saving",
+      "loading",
+      "profiles"
+    ],
+    "SaveRating": [
+      "voting",
+      "ratings"
+    ],
+    "BitmapLoader": [
+      "icon loading"
+    ],
+    "ScoreBoard": [
+      "high scores"
+    ],
+    "MadnessTransition": [
+      "scene transitions"
+    ],
+    "MadnessLevel": [
+      "level progression",
+      "waves"
+    ],
+    "MadnessSpawner": [
+      "enemy spawning"
+    ],
+    "ImageScanner": [
+      "icon encoding"
+    ],
+    "API": [
+      "Newgrounds API",
+      "leaderboards",
+      "medals",
+      "ad integration"
+    ]
+  },
+  "game_states": [
+    "STATE_MENU",
+    "STATE_WORLD_MAP",
+    "STATE_HIRE_STORE",
+    "STATE_ITEM_STORE",
+    "STATE_TEAM_SETUP",
+    "STATE_CHARACTER_CREATOR",
+    "STATE_CUTSCENE",
+    "STATE_GAMEPLAY",
+    "STATE_PAUSED",
+    "STATE_TRANSITION",
+    "STATE_GAME_OVER"
+  ],
+  "game_flow": [
+    "exitAll",
+    "createMainMenu",
+    "createWorldMap",
+    "createHireStore",
+    "exitHireStore",
+    "createItemStore",
+    "exitItemStore",
+    "createTeamSetup",
+    "exitTeamSetup",
+    "createNewGuy",
+    "exitNewGuy",
+    "createCharacter",
+    "createCutscene",
+    "cutsceneDone",
+    "gameSelect",
+    "gameMode",
+    "generateLevel",
+    "generateArena",
+    "storeHire",
+    "storeItem",
+    "teamSetup",
+    "madness_world",
+    "madness_game_menu",
+    "madness_transition",
+    "madness_game_select"
+  ],
+  "sprite_init_tags": [
+    8387,
+    8388,
+    8389,
+    8390,
+    8391,
+    8392,
+    8393,
+    8394,
+    8395,
+    8396,
+    8397,
+    8398,
+    8399,
+    8400,
+    8401,
+    8402,
+    8403,
+    8404,
+    8405,
+    8406,
+    8407,
+    8408,
+    8409,
+    8410,
+    8411,
+    8412,
+    8413,
+    8414,
+    8415,
+    8416,
+    8417
+  ],
+  "data_strings": {
+    "audio_system": [
+      "SwainAudioPlayer",
+      "init",
+      "musicTrack1",
+      "stopTrack",
+      "musicTrack2",
+      "soundManager",
+      "onEnterFrame",
+      "playTrack"
+    ],
+    "input_system": [
+      "keyManger",
+      "keyManager",
+      "key_manager",
+      "attachMovie",
+      "key_action",
+      "KeyManager",
+      "addKey",
+      "key_guard",
+      "key_reload"
+    ],
+    "menu_system": [
+      "createMainMenu",
+      "exitMainMenu",
+      "gameSelect",
+      "madness_game_select",
+      "menuBar",
+      "madness_menu_top_bar",
+      "MadnessGameSelect"
+    ],
+    "world_system": [
+      "MadnessWorld",
+      "madness_world",
+      "worldMap",
+      "world_map",
+      "MadnessLevel",
+      "generateLevel",
+      "generateArena"
+    ],
+    "store_system": [
+      "createHireStore",
+      "exitHireStore",
+      "storeHire",
+      "createItemStore",
+      "exitItemStore",
+      "storeItem",
+      "store_items"
+    ],
+    "character_system": [
+      "MadnessCharacter",
+      "madness_character_creator",
+      "createCharacter",
+      "playerRoster",
+      "MadnessRoster"
+    ],
+    "cutscene_system": [
+      "MadnessCutscene",
+      "madness_cutscene",
+      "newCutscene",
+      "cutsceneDone"
+    ],
+    "transition_system": [
+      "MadnessTransition",
+      "madness_transition",
+      "transitionLock",
+      "createTransition"
+    ],
+    "save_system": [
+      "SaveGroup",
+      "SaveRating",
+      "SaveFile",
+      "SaveQuery",
+      "Medal",
+      "ScoreBoard",
+      "BitmapLoader"
+    ],
+    "newgrounds_api": [
+      "com.newgrounds",
+      "API",
+      "unlockMedal",
+      "getScoreBoard",
+      "postScore"
+    ]
+  }
+}

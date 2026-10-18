@@ -1,0 +1,1 @@
+cmd_/home/lucas/Escritorio/RX550-INVESTIGACION/RESEARCH/kernelbuild/linux-7.1.3/tools/objtool/fixdep-in.o :=  printf "/home/lucas/Escritorio/RX550-INVESTIGACION/RESEARCH/kernelbuild/linux-7.1.3/tools/objtool/%s " fixdep.o | xargs ld -r -o /home/lucas/Escritorio/RX550-INVESTIGACION/RESEARCH/kernelbuild/linux-7.1.3/tools/objtool/fixdep-in.o

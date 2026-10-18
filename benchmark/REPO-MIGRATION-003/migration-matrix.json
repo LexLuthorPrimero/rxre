@@ -1,0 +1,87 @@
+{
+  "MIGRATION_COMPLETE": true,
+  "migration/validated-legacy-work": {
+    "base": "7c2971e (migration/legacy-integration)",
+    "commits": 2,
+    "commits_detail": [
+      {
+        "sha": "12a3462455fc9b6caa0b41a86ffa096047c22168",
+        "msg": "fix: resolve trace enum definitions from corpus",
+        "origin": "legacy:e99a0ad",
+        "origin_repo": "REX550-INVESTIGACION",
+        "port_method": "cherry-pick",
+        "validation": [
+          "TRACE_RESOLUTION=PASS",
+          "PROVENANCE=PASS",
+          "RXRE_REGRESSION=PASS",
+          "DOGFOOD_REPLAY=PASS"
+        ]
+      },
+      {
+        "sha": "9ce74c5",
+        "msg": "perf: add exact-word search fast path",
+        "origin": "legacy:97bae69",
+        "origin_repo": "REX550-INVESTIGACION",
+        "port_method": "cherry-pick (conflict resolved)",
+        "validation": [
+          "FAST_PATH_A_VALIDATED",
+          "SEARCH-OPT-003"
+        ]
+      }
+    ],
+    "artifacts": [
+      "benchmark/REPO-MIGRATION-003/commit-map.json",
+      "benchmark/REPO-MIGRATION-003/file-map.json",
+      "benchmark/REPO-MIGRATION-003/patch-map.json",
+      "benchmark/REPO-MIGRATION-003/migration-matrix.json"
+    ]
+  },
+  "VALIDATED_WORK": {
+    "trace_resolver": {
+      "origin_commit": "e99a0ad1fb92b97bec1615bbf650a0e88cdf7558",
+      "origin_repo": "REX550-INVESTIGACION",
+      "ported_to": "migration/validated-legacy-work",
+      "ported_sha": "12a3462455fc9b6caa0b41a86ffa096047c22168",
+      "features_preserved": [
+        "resolve_enum_definition()",
+        "KNOWN_PATH fallback",
+        "CORPUS_SEARCH fallback",
+        "AMBIGUOUS_SYMBOL rejection",
+        "NOT_FOUND (corpus absence)",
+        "provenance tracking",
+        "38/38 selftest vectors",
+        "DOGFOOD-002 replay artifacts"
+      ],
+      "status": "FULLY_VALIDATED"
+    },
+    "fast_path": {
+      "origin_commit": "97bae69440e32e56b34f23946e8a3fad12427284",
+      "origin_repo": "REX550-INVESTIGACION",
+      "ported_to": "migration/validated-legacy-work",
+      "ported_sha": "9ce74c5",
+      "features_preserved": [
+        "exact-word search fast path",
+        "_fast_word_matcher() optimization"
+      ],
+      "validation": "SEARCH-OPT-003 validated",
+      "status": "VALIDATED"
+    }
+  },
+  "REJECTED_OR_EXCLUDED": [
+    "RELATION_GAP - not part of DOGFOOD-002 scope",
+    "P003 (dword_index) - not part of DOGFOOD-002 scope",
+    "Performance numbers without reproduction",
+    "Historical benchmarks not re-executed"
+  ],
+  "EXCLUDED_WORK_TREE": {
+    "REX550-INVESTIGACION": {
+      "status": "LEGACY_REFERENCE",
+      "reason": "Source of validated work; no longer active development",
+      "key_commits": [
+        "e99a0ad",
+        "97bae69"
+      ],
+      "note": "Left as historical reference; new work goes in rxre"
+    }
+  }
+}

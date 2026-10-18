@@ -1,0 +1,28 @@
+{
+ "claim_id": "RXRE-SWF-048",
+ "taxonomy": "NEGATIVE_RESULT",
+ "state": "PROVEN",
+ "evidence_op": "op_0017eddb2b6c93e4",
+ "result_id": "res_fn_native_token_9e93d267ac19523d",
+ "rxre": {
+  "estado": "ok",
+  "id": 228,
+  "kind": "claim",
+  "status": "PROVEN",
+  "gap_kind": null,
+  "refs": [
+   "res_fn_native_token_9e93d267ac19523d"
+  ],
+  "session": "swf-nexus",
+  "target": "Madness Project Nexus Classic.swf",
+  "timestamp": "2026-10-11T21:58:41-0300"
+ },
+ "counts": {
+  "total": 1342,
+  "all_2bytes": true,
+  "native_token(>=0x80)": 322,
+  "no_end": 306,
+  "std_actions": 839,
+  "unique_names": 73
+ }
+}

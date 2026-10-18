@@ -1,0 +1,19 @@
+{
+  "findings": {
+    "023-pm4-count-convencion-medida.md": {
+      "FINDING_ID": "94929378a93a757f",
+      "generated_by_code": false,
+      "inserted_as_literal": true
+    }
+  },
+  "manual": true,
+  "mechanism": "SHA256(full_relative_path)[:16]",
+  "notes": "El valor se calcul\u00f3 fuera del c\u00f3digo y se insert\u00f3 como literal. relations.py solo lo lee (READ_ONLY). No existe c\u00f3digo que genere o regenere FINDING_ID.",
+  "relations.py": {
+    "FINDING_ID_RX": "re.compile(r'^FINDING_ID:\\\\s*([0-9a-fA-F]{16})\\\\s*$')",
+    "generates_Finding_ID": false,
+    "role": "READ_ONLY - parses FINDING_ID from frontmatter only",
+    "uses_hashlib": false,
+    "uses_sha256": false
+  }
+}

@@ -1,0 +1,20 @@
+
+/bin/ls:     formato del fichero elf64-x86-64
+
+
+Desensamblado de la sección .text:
+
+0000000000003910 <error_at_line@@Base+0x25b8>:
+    3910:	f3 0f 1e fa          	endbr64
+    3914:	31 ed                	xor    %ebp,%ebp
+    3916:	49 89 d1             	mov    %rdx,%r9
+    3919:	5e                   	pop    %rsi
+    391a:	48 89 e2             	mov    %rsp,%rdx
+    391d:	48 83 e4 f0          	and    $0xfffffffffffffff0,%rsp
+    3921:	50                   	push   %rax
+    3922:	54                   	push   %rsp
+    3923:	45 31 c0             	xor    %r8d,%r8d
+    3926:	31 c9                	xor    %ecx,%ecx
+    3928:	48 8d 3d 11 dc ff ff 	lea    -0x23ef(%rip),%rdi        # 1540 <error_at_line@@Base+0x1e8>
+    392f:	ff 15 3b 16 02 00    	call   *0x2163b(%rip)        # 24f70 <__libc_start_main@GLIBC_2.34>
+    3935:	f4                   	hlt

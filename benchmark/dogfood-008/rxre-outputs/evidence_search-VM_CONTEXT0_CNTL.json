@@ -1,0 +1,230 @@
+{
+  "query": "VM_CONTEXT0_CNTL",
+  "classification": "PROVEN",
+  "reasons": [
+    "universo exhaustivo y con hits"
+  ],
+  "notes": [],
+  "manifest": null,
+  "universe": {
+    "amd": {
+      "present": true,
+      "spec": "RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd",
+      "tarball": null,
+      "reason": ""
+    }
+  },
+  "universe_fingerprint": "767972e3f0ec9c53",
+  "hits": [
+    {
+      "root": "amd",
+      "file": "include/asic_reg/mmhub/mmhub_1_0_sh_mask.h",
+      "line": 8070,
+      "text": "//VM_CONTEXT0_CNTL"
+    },
+    {
+      "root": "amd",
+      "file": "include/asic_reg/mmhub/mmhub_1_7_sh_mask.h",
+      "line": 30223,
+      "text": "//VM_CONTEXT0_CNTL"
+    },
+    {
+      "root": "amd",
+      "file": "include/asic_reg/mmhub/mmhub_1_8_0_sh_mask.h",
+      "line": 20199,
+      "text": "//VM_CONTEXT0_CNTL"
+    },
+    {
+      "root": "amd",
+      "file": "include/asic_reg/mmhub/mmhub_9_1_sh_mask.h",
+      "line": 7733,
+      "text": "//VM_CONTEXT0_CNTL"
+    },
+    {
+      "root": "amd",
+      "file": "include/asic_reg/mmhub/mmhub_9_3_0_sh_mask.h",
+      "line": 8160,
+      "text": "//VM_CONTEXT0_CNTL"
+    },
+    {
+      "root": "amd",
+      "file": "include/asic_reg/gc/gc_9_0_sh_mask.h",
+      "line": 7017,
+      "text": "//VM_CONTEXT0_CNTL"
+    },
+    {
+      "root": "amd",
+      "file": "include/asic_reg/gc/gc_9_1_sh_mask.h",
+      "line": 6812,
+      "text": "//VM_CONTEXT0_CNTL"
+    },
+    {
+      "root": "amd",
+      "file": "include/asic_reg/gc/gc_9_2_1_sh_mask.h",
+      "line": 6635,
+      "text": "//VM_CONTEXT0_CNTL"
+    },
+    {
+      "root": "amd",
+      "file": "include/asic_reg/gc/gc_9_4_2_sh_mask.h",
+      "line": 29741,
+      "text": "//VM_CONTEXT0_CNTL"
+    },
+    {
+      "root": "amd",
+      "file": "include/asic_reg/gc/gc_9_4_3_sh_mask.h",
+      "line": 9550,
+      "text": "//VM_CONTEXT0_CNTL"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gfxhub_v1_0.c",
+      "line": 223,
+      "text": "tmp = REG_SET_FIELD(tmp, VM_CONTEXT0_CNTL, ENABLE_CONTEXT, 1);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gfxhub_v1_0.c",
+      "line": 224,
+      "text": "tmp = REG_SET_FIELD(tmp, VM_CONTEXT0_CNTL, PAGE_TABLE_DEPTH,"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gfxhub_v1_0.c",
+      "line": 226,
+      "text": "tmp = REG_SET_FIELD(tmp, VM_CONTEXT0_CNTL, PAGE_TABLE_BLOCK_SIZE,"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gfxhub_v1_0.c",
+      "line": 228,
+      "text": "tmp = REG_SET_FIELD(tmp, VM_CONTEXT0_CNTL,"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gfxhub_v1_2.c",
+      "line": 279,
+      "text": "tmp = REG_SET_FIELD(tmp, VM_CONTEXT0_CNTL, ENABLE_CONTEXT, 1);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gfxhub_v1_2.c",
+      "line": 280,
+      "text": "tmp = REG_SET_FIELD(tmp, VM_CONTEXT0_CNTL, PAGE_TABLE_DEPTH,"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gfxhub_v1_2.c",
+      "line": 282,
+      "text": "tmp = REG_SET_FIELD(tmp, VM_CONTEXT0_CNTL, PAGE_TABLE_BLOCK_SIZE,"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gfxhub_v1_2.c",
+      "line": 284,
+      "text": "tmp = REG_SET_FIELD(tmp, VM_CONTEXT0_CNTL,"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v7_0.c",
+      "line": 661,
+      "text": "tmp = REG_SET_FIELD(tmp, VM_CONTEXT0_CNTL, ENABLE_CONTEXT, 1);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v7_0.c",
+      "line": 662,
+      "text": "tmp = REG_SET_FIELD(tmp, VM_CONTEXT0_CNTL, PAGE_TABLE_DEPTH, 0);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v7_0.c",
+      "line": 663,
+      "text": "tmp = REG_SET_FIELD(tmp, VM_CONTEXT0_CNTL, RANGE_PROTECTION_FAULT_ENABLE_DEFAULT, 1);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v8_0.c",
+      "line": 894,
+      "text": "tmp = REG_SET_FIELD(tmp, VM_CONTEXT0_CNTL, ENABLE_CONTEXT, 1);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v8_0.c",
+      "line": 895,
+      "text": "tmp = REG_SET_FIELD(tmp, VM_CONTEXT0_CNTL, PAGE_TABLE_DEPTH, 0);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v8_0.c",
+      "line": 896,
+      "text": "tmp = REG_SET_FIELD(tmp, VM_CONTEXT0_CNTL, RANGE_PROTECTION_FAULT_ENABLE_DEFAULT, 1);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/mmhub_v1_0.c",
+      "line": 204,
+      "text": "tmp = REG_SET_FIELD(tmp, VM_CONTEXT0_CNTL, ENABLE_CONTEXT, 1);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/mmhub_v1_0.c",
+      "line": 205,
+      "text": "tmp = REG_SET_FIELD(tmp, VM_CONTEXT0_CNTL, PAGE_TABLE_DEPTH, 0);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/mmhub_v1_0.c",
+      "line": 206,
+      "text": "tmp = REG_SET_FIELD(tmp, VM_CONTEXT0_CNTL,"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/mmhub_v1_7.c",
+      "line": 255,
+      "text": "tmp = REG_SET_FIELD(tmp, VM_CONTEXT0_CNTL, ENABLE_CONTEXT, 1);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/mmhub_v1_7.c",
+      "line": 256,
+      "text": "tmp = REG_SET_FIELD(tmp, VM_CONTEXT0_CNTL, PAGE_TABLE_DEPTH,"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/mmhub_v1_7.c",
+      "line": 258,
+      "text": "tmp = REG_SET_FIELD(tmp, VM_CONTEXT0_CNTL, PAGE_TABLE_BLOCK_SIZE,"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/mmhub_v1_7.c",
+      "line": 260,
+      "text": "tmp = REG_SET_FIELD(tmp, VM_CONTEXT0_CNTL,"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/mmhub_v1_8.c",
+      "line": 334,
+      "text": "tmp = REG_SET_FIELD(tmp, VM_CONTEXT0_CNTL, ENABLE_CONTEXT, 1);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/mmhub_v1_8.c",
+      "line": 335,
+      "text": "tmp = REG_SET_FIELD(tmp, VM_CONTEXT0_CNTL, PAGE_TABLE_DEPTH,"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/mmhub_v1_8.c",
+      "line": 338,
+      "text": "VM_CONTEXT0_CNTL, PAGE_TABLE_BLOCK_SIZE,"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/mmhub_v1_8.c",
+      "line": 340,
+      "text": "tmp = REG_SET_FIELD(tmp, VM_CONTEXT0_CNTL,"
+    }
+  ]
+}

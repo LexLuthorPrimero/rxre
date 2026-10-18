@@ -754,7 +754,8 @@ def cmd_workscan(args):
                             "max": 0, "legible": False}
             continue
         for f in entries:
-            if not f.endswith(".md"):
+            if not (f.endswith(".md") or f.endswith(".py") or f.endswith(".c")
+                    or f.endswith(".h") or f.endswith(".sh") or f.endswith(".rs")):
                 continue
             d_md += 1
             ficheros_md += 1

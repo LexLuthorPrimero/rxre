@@ -1,0 +1,272 @@
+{
+  "query": "mmVM_CONTEXT0_CNTL",
+  "classification": "PROVEN",
+  "reasons": [
+    "universo exhaustivo y con hits"
+  ],
+  "notes": [],
+  "manifest": null,
+  "universe": {
+    "amd": {
+      "present": true,
+      "spec": "RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd",
+      "tarball": null,
+      "reason": ""
+    }
+  },
+  "universe_fingerprint": "767972e3f0ec9c53",
+  "hits": [
+    {
+      "root": "amd",
+      "file": "include/asic_reg/mmhub/mmhub_1_0_offset.h",
+      "line": 1347,
+      "text": "#define mmVM_CONTEXT0_CNTL                                                                             0x06c0"
+    },
+    {
+      "root": "amd",
+      "file": "include/asic_reg/mmhub/mmhub_9_1_offset.h",
+      "line": 1356,
+      "text": "#define mmVM_CONTEXT0_CNTL                                                                             0x06c0"
+    },
+    {
+      "root": "amd",
+      "file": "include/asic_reg/mmhub/mmhub_9_3_0_offset.h",
+      "line": 1340,
+      "text": "#define mmVM_CONTEXT0_CNTL                                                                             0x06c0"
+    },
+    {
+      "root": "amd",
+      "file": "include/asic_reg/gc/gc_9_0_offset.h",
+      "line": 1232,
+      "text": "#define mmVM_CONTEXT0_CNTL                                                                             0x0880"
+    },
+    {
+      "root": "amd",
+      "file": "include/asic_reg/gc/gc_9_1_offset.h",
+      "line": 1251,
+      "text": "#define mmVM_CONTEXT0_CNTL                                                                             0x0880"
+    },
+    {
+      "root": "amd",
+      "file": "include/asic_reg/gc/gc_9_2_1_offset.h",
+      "line": 1189,
+      "text": "#define mmVM_CONTEXT0_CNTL                                                                             0x0880"
+    },
+    {
+      "root": "amd",
+      "file": "include/asic_reg/gmc/gmc_6_0_d.h",
+      "line": 1217,
+      "text": "#define mmVM_CONTEXT0_CNTL 0x0504"
+    },
+    {
+      "root": "amd",
+      "file": "include/asic_reg/gmc/gmc_7_0_d.h",
+      "line": 545,
+      "text": "#define mmVM_CONTEXT0_CNTL                                                      0x504"
+    },
+    {
+      "root": "amd",
+      "file": "include/asic_reg/gmc/gmc_7_1_d.h",
+      "line": 578,
+      "text": "#define mmVM_CONTEXT0_CNTL                                                      0x504"
+    },
+    {
+      "root": "amd",
+      "file": "include/asic_reg/gmc/gmc_8_1_d.h",
+      "line": 601,
+      "text": "#define mmVM_CONTEXT0_CNTL                                                      0x504"
+    },
+    {
+      "root": "amd",
+      "file": "include/asic_reg/gmc/gmc_8_2_d.h",
+      "line": 603,
+      "text": "#define mmVM_CONTEXT0_CNTL                                                      0x504"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gfxhub_v1_0.c",
+      "line": 222,
+      "text": "tmp = RREG32_SOC15(GC, 0, mmVM_CONTEXT0_CNTL);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gfxhub_v1_0.c",
+      "line": 230,
+      "text": "WREG32_SOC15(GC, 0, mmVM_CONTEXT0_CNTL, tmp);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gfxhub_v1_0.c",
+      "line": 349,
+      "text": "WREG32_SOC15_OFFSET(GC, 0, mmVM_CONTEXT0_CNTL,"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gfxhub_v1_0.c",
+      "line": 430,
+      "text": "SOC15_REG_OFFSET(GC, 0, mmVM_CONTEXT0_CNTL);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gfxhub_v1_0.c",
+      "line": 436,
+      "text": "hub->ctx_distance = mmVM_CONTEXT1_CNTL - mmVM_CONTEXT0_CNTL;"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v6_0.c",
+      "line": 517,
+      "text": "WREG32(mmVM_CONTEXT0_CNTL,"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v6_0.c",
+      "line": 594,
+      "text": "WREG32(mmVM_CONTEXT0_CNTL, 0);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v6_0.c",
+      "line": 1044,
+      "text": "tmp = RREG32(mmVM_CONTEXT0_CNTL);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v6_0.c",
+      "line": 1046,
+      "text": "WREG32(mmVM_CONTEXT0_CNTL, tmp);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v6_0.c",
+      "line": 1052,
+      "text": "tmp = RREG32(mmVM_CONTEXT0_CNTL);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v6_0.c",
+      "line": 1054,
+      "text": "WREG32(mmVM_CONTEXT0_CNTL, tmp);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v7_0.c",
+      "line": 660,
+      "text": "tmp = RREG32(mmVM_CONTEXT0_CNTL);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v7_0.c",
+      "line": 664,
+      "text": "WREG32(mmVM_CONTEXT0_CNTL, tmp);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v7_0.c",
+      "line": 743,
+      "text": "WREG32(mmVM_CONTEXT0_CNTL, 0);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v7_0.c",
+      "line": 1231,
+      "text": "tmp = RREG32(mmVM_CONTEXT0_CNTL);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v7_0.c",
+      "line": 1233,
+      "text": "WREG32(mmVM_CONTEXT0_CNTL, tmp);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v7_0.c",
+      "line": 1241,
+      "text": "tmp = RREG32(mmVM_CONTEXT0_CNTL);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v7_0.c",
+      "line": 1243,
+      "text": "WREG32(mmVM_CONTEXT0_CNTL, tmp);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v8_0.c",
+      "line": 893,
+      "text": "tmp = RREG32(mmVM_CONTEXT0_CNTL);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v8_0.c",
+      "line": 897,
+      "text": "WREG32(mmVM_CONTEXT0_CNTL, tmp);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v8_0.c",
+      "line": 977,
+      "text": "WREG32(mmVM_CONTEXT0_CNTL, 0);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v8_0.c",
+      "line": 1402,
+      "text": "tmp = RREG32(mmVM_CONTEXT0_CNTL);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v8_0.c",
+      "line": 1404,
+      "text": "WREG32(mmVM_CONTEXT0_CNTL, tmp);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v8_0.c",
+      "line": 1412,
+      "text": "tmp = RREG32(mmVM_CONTEXT0_CNTL);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/gmc_v8_0.c",
+      "line": 1414,
+      "text": "WREG32(mmVM_CONTEXT0_CNTL, tmp);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/mmhub_v1_0.c",
+      "line": 203,
+      "text": "tmp = RREG32_SOC15(MMHUB, 0, mmVM_CONTEXT0_CNTL);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/mmhub_v1_0.c",
+      "line": 208,
+      "text": "WREG32_SOC15(MMHUB, 0, mmVM_CONTEXT0_CNTL, tmp);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/mmhub_v1_0.c",
+      "line": 398,
+      "text": "WREG32_SOC15_OFFSET(MMHUB, 0, mmVM_CONTEXT0_CNTL,"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/mmhub_v1_0.c",
+      "line": 484,
+      "text": "SOC15_REG_OFFSET(MMHUB, 0, mmVM_CONTEXT0_CNTL);"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/mmhub_v1_0.c",
+      "line": 490,
+      "text": "hub->ctx_distance = mmVM_CONTEXT1_CNTL - mmVM_CONTEXT0_CNTL;"
+    },
+    {
+      "root": "amd",
+      "file": "amdgpu/si.c",
+      "line": 106,
+      "text": "mmVM_CONTEXT0_CNTL, 0x20000000, 0x20fffed8,"
+    }
+  ]
+}

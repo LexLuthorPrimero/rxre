@@ -1,0 +1,32 @@
+{
+  "023-pm4-count-convencion-medida.md": {
+    "length": 36,
+    "hex_and_dashes": true,
+    "is_36char_uuid_format": true,
+    "uuid_version": 4
+  },
+  "023-pte-productor-sdma-gfx8.md": {
+    "length": 36,
+    "hex_and_dashes": true,
+    "is_36char_uuid_format": true,
+    "uuid_version": 4
+  },
+  "043-asercion-struct-mqd-contra-offsets.md": {
+    "length": 36,
+    "hex_and_dashes": true,
+    "is_36char_uuid_format": true,
+    "uuid_version": 4
+  },
+  "043-pll-bsp-asi-pasi.md": {
+    "length": 36,
+    "hex_and_dashes": true,
+    "is_36char_uuid_format": true,
+    "uuid_version": 4
+  },
+  "043-vuelta-atras-035-y-036-leian-el-asic-equivocado.md": {
+    "length": 36,
+    "hex_and_dashes": true,
+    "is_36char_uuid_format": true,
+    "uuid_version": 4
+  }
+}

@@ -1,0 +1,100 @@
+{
+  "tool": "reg_resolve",
+  "version": "1.0.0",
+  "gfx": "gfx_8_0",
+  "amd_root": "/home/lucas/Escritorio/rxre/RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd",
+  "unit_declaration": {
+    "file": "drivers/gpu/drm/amd/amdgpu_reg_access.c",
+    "symbol": "amdgpu_device_rreg",
+    "quote": "@reg: dword aligned register offset",
+    "operational_check": "reg * 4 en readl(((void __iomem *)adev->rmmio) + (reg * 4))",
+    "consequence": "los offsets mm* son indices dword; el byte offset es offset*4"
+  },
+  "results": [
+    {
+      "kind": "across",
+      "symbol": "mmVM_CONTEXT0_CNTL",
+      "symbol_class": "dword_index_de_mm",
+      "definitions": [
+        {
+          "file": "/home/lucas/Escritorio/rxre/RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/include/asic_reg/gc/gc_9_0_offset.h",
+          "rel": "gc/gc_9_0_offset.h",
+          "line": 1232,
+          "value": 2176,
+          "text": "#define mmVM_CONTEXT0_CNTL                                                                             0x0880"
+        },
+        {
+          "file": "/home/lucas/Escritorio/rxre/RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/include/asic_reg/gc/gc_9_1_offset.h",
+          "rel": "gc/gc_9_1_offset.h",
+          "line": 1251,
+          "value": 2176,
+          "text": "#define mmVM_CONTEXT0_CNTL                                                                             0x0880"
+        },
+        {
+          "file": "/home/lucas/Escritorio/rxre/RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/include/asic_reg/gc/gc_9_2_1_offset.h",
+          "rel": "gc/gc_9_2_1_offset.h",
+          "line": 1189,
+          "value": 2176,
+          "text": "#define mmVM_CONTEXT0_CNTL                                                                             0x0880"
+        },
+        {
+          "file": "/home/lucas/Escritorio/rxre/RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/include/asic_reg/gmc/gmc_6_0_d.h",
+          "rel": "gmc/gmc_6_0_d.h",
+          "line": 1217,
+          "value": 1284,
+          "text": "#define mmVM_CONTEXT0_CNTL 0x0504"
+        },
+        {
+          "file": "/home/lucas/Escritorio/rxre/RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/include/asic_reg/gmc/gmc_7_0_d.h",
+          "rel": "gmc/gmc_7_0_d.h",
+          "line": 545,
+          "value": 1284,
+          "text": "#define mmVM_CONTEXT0_CNTL                                                      0x504"
+        },
+        {
+          "file": "/home/lucas/Escritorio/rxre/RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/include/asic_reg/gmc/gmc_7_1_d.h",
+          "rel": "gmc/gmc_7_1_d.h",
+          "line": 578,
+          "value": 1284,
+          "text": "#define mmVM_CONTEXT0_CNTL                                                      0x504"
+        },
+        {
+          "file": "/home/lucas/Escritorio/rxre/RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/include/asic_reg/gmc/gmc_8_1_d.h",
+          "rel": "gmc/gmc_8_1_d.h",
+          "line": 601,
+          "value": 1284,
+          "text": "#define mmVM_CONTEXT0_CNTL                                                      0x504"
+        },
+        {
+          "file": "/home/lucas/Escritorio/rxre/RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/include/asic_reg/gmc/gmc_8_2_d.h",
+          "rel": "gmc/gmc_8_2_d.h",
+          "line": 603,
+          "value": 1284,
+          "text": "#define mmVM_CONTEXT0_CNTL                                                      0x504"
+        },
+        {
+          "file": "/home/lucas/Escritorio/rxre/RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/include/asic_reg/mmhub/mmhub_1_0_offset.h",
+          "rel": "mmhub/mmhub_1_0_offset.h",
+          "line": 1347,
+          "value": 1728,
+          "text": "#define mmVM_CONTEXT0_CNTL                                                                             0x06c0"
+        },
+        {
+          "file": "/home/lucas/Escritorio/rxre/RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/include/asic_reg/mmhub/mmhub_9_1_offset.h",
+          "rel": "mmhub/mmhub_9_1_offset.h",
+          "line": 1356,
+          "value": 1728,
+          "text": "#define mmVM_CONTEXT0_CNTL                                                                             0x06c0"
+        },
+        {
+          "file": "/home/lucas/Escritorio/rxre/RESEARCH/kernelbuild/linux-7.1.3/drivers/gpu/drm/amd/include/asic_reg/mmhub/mmhub_9_3_0_offset.h",
+          "rel": "mmhub/mmhub_9_3_0_offset.h",
+          "line": 1340,
+          "value": 1728,
+          "text": "#define mmVM_CONTEXT0_CNTL                                                                             0x06c0"
+        }
+      ],
+      "definition_count": 11
+    }
+  ]
+}

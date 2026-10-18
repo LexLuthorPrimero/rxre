@@ -1,0 +1,42 @@
+{
+ "claim_id": "RXRE-SWF-052",
+ "taxonomy": "MEASUREMENT",
+ "state": "PROVEN",
+ "evidence_op": "op_61d6df8660c5af0d",
+ "result_id": "res_swm_rand_379cdee0a924762a",
+ "rxre": {
+  "estado": "ok",
+  "id": 232,
+  "kind": "claim",
+  "status": "PROVEN",
+  "gap_kind": null,
+  "refs": [
+   "res_swm_rand_379cdee0a924762a"
+  ],
+  "session": "swf-nexus",
+  "target": "Madness Project Nexus Classic.swf",
+  "timestamp": "2026-10-12T01:03:47-0300"
+ },
+ "convention": "randomNumber(precision, lo, hi) -> [lo,hi], precision decimals",
+ "n_calls": 418,
+ "n_signatures": 179,
+ "violations": 0,
+ "corrects": "RXRE-SWF-051 (damage range)",
+ "top_signatures": [
+  "randomNumber(('2', '0')) x66",
+  "randomNumber(('2',)) x20",
+  "randomNumber(('2', '0', '1')) x15",
+  "randomNumber(('2', '0', '2')) x10",
+  "randomNumber(('2', '-800', '800')) x9",
+  "randomNumber(('2', '-180', '180')) x7",
+  "randomNumber(('2', '0', '3')) x6",
+  "randomNumber(('2', '-300', '300')) x6",
+  "randomNumber(('2', '-15', '15')) x6",
+  "randomNumber(('2', 'r6', 'r4', 'r3')) x6",
+  "randomNumber(('2', '0', '5')) x5",
+  "randomNumber(('2', '-5', '5')) x5",
+  "randomNumber(('2', '1', '2', 'stun_parry', 'myStatus', 'r1')) x5",
+  "randomNumber(('2', '-100', '100')) x5",
+  "randomNumber(('2', '1', '6', 'melee_better', 'myStatus', 'r1')) x5"
+ ]
+}

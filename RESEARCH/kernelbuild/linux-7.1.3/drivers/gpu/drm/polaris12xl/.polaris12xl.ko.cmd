@@ -1,0 +1,1 @@
+savedcmd_drivers/gpu/drm/polaris12xl/polaris12xl.ko := ld -r -m elf_x86_64 -z noexecstack --no-warn-rwx-segments --build-id=sha1  -T ./scripts/module.lds -o drivers/gpu/drm/polaris12xl/polaris12xl.ko drivers/gpu/drm/polaris12xl/polaris12xl.o drivers/gpu/drm/polaris12xl/polaris12xl.mod.o .module-common.o

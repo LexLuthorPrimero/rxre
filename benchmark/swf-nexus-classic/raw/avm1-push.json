@@ -1,0 +1,151 @@
+{
+ "script_count": 75,
+ "push_count": 7,
+ "numeric_constant_count": 0,
+ "int_constant_count": 0,
+ "float_constant_count": 0,
+ "string_constant_count": 21,
+ "int_histogram": {},
+ "pushes": [
+  {
+   "offset": 7414,
+   "length": 6,
+   "constants": [
+    {
+     "type": 0,
+     "value": ""
+    },
+    {
+     "type": 0,
+     "value": ""
+    },
+    {
+     "type": 0,
+     "value": ""
+    }
+   ],
+   "tag": "DoInitAction",
+   "tag_offset": 19403337
+  },
+  {
+   "offset": 7459,
+   "length": 6,
+   "constants": [
+    {
+     "type": 0,
+     "value": ""
+    },
+    {
+     "type": 0,
+     "value": ""
+    },
+    {
+     "type": 0,
+     "value": ""
+    }
+   ],
+   "tag": "DoInitAction",
+   "tag_offset": 19403337
+  },
+  {
+   "offset": 8612,
+   "length": 6,
+   "constants": [
+    {
+     "type": 0,
+     "value": ""
+    },
+    {
+     "type": 0,
+     "value": ""
+    },
+    {
+     "type": 0,
+     "value": ""
+    }
+   ],
+   "tag": "DoInitAction",
+   "tag_offset": 19828788
+  },
+  {
+   "offset": 8868,
+   "length": 6,
+   "constants": [
+    {
+     "type": 0,
+     "value": ""
+    },
+    {
+     "type": 0,
+     "value": ""
+    },
+    {
+     "type": 0,
+     "value": ""
+    }
+   ],
+   "tag": "DoInitAction",
+   "tag_offset": 19828788
+  },
+  {
+   "offset": 9081,
+   "length": 6,
+   "constants": [
+    {
+     "type": 0,
+     "value": ""
+    },
+    {
+     "type": 0,
+     "value": ""
+    },
+    {
+     "type": 0,
+     "value": ""
+    }
+   ],
+   "tag": "DoInitAction",
+   "tag_offset": 19828788
+  },
+  {
+   "offset": 9294,
+   "length": 6,
+   "constants": [
+    {
+     "type": 0,
+     "value": ""
+    },
+    {
+     "type": 0,
+     "value": ""
+    },
+    {
+     "type": 0,
+     "value": ""
+    }
+   ],
+   "tag": "DoInitAction",
+   "tag_offset": 19828788
+  },
+  {
+   "offset": 9507,
+   "length": 6,
+   "constants": [
+    {
+     "type": 0,
+     "value": ""
+    },
+    {
+     "type": 0,
+     "value": ""
+    },
+    {
+     "type": 0,
+     "value": ""
+    }
+   ],
+   "tag": "DoInitAction",
+   "tag_offset": 19828788
+  }
+ ]
+}

@@ -46,7 +46,12 @@ print("\n=== CORRECCIÓN 1: CHECK 6 estados en findings ===")
 c = conn_bd(tempfile.mkdtemp(prefix="c1-"))
 try:
     S.guardar_finding(c, {"finding_id": "F-GARBAGE", "claim": "test",
-                          "epistemic": "GARBAGE"})
+                          "epistemic": "GARBAGE",
+                          "object_hash": "sha256:test",
+                          "scope": "binary",
+                          "falsification_test": "romper X",
+                          "derivation_refs": "[]",
+                          "contradiction_refs": "[]"})
     v("C1.1 (ANTES) acepta 'GARBAGE' → debe fallar tras el fix",
       False, "acepta GARBAGE")
 except sqlite3.IntegrityError as e:
@@ -58,7 +63,10 @@ except Exception as e:
 # Test de regresión: estado válido sigue funcionando
 try:
     fid = S.guardar_finding(c, {"finding_id": "F-VALID", "claim": "test-valido",
-                                "epistemic": "NOT_DETERMINED"})
+                                "epistemic": "NOT_DETERMINED",
+                                "object_hash": "sha256:test",
+                                "scope": "binary",
+                                "falsification_test": "romper X"})
     assert fid.startswith("finding_") or fid.startswith("COLISION:")
     v("C1.2 estado válido aceptado tras el fix", True)
 except Exception as e:
@@ -132,7 +140,10 @@ print("\n=== CORRECCIÓN 3: INVALIDATED con reevaluación ===")
 
 c = conn_bd(tempfile.mkdtemp(prefix="c3-"))
 fid = S.guardar_finding(c, {"finding_id": "F-C3", "claim": "test",
-                           "epistemic": "NOT_DETERMINED"})
+                           "epistemic": "NOT_DETERMINED",
+                           "object_hash": "sha256:test",
+                           "scope": "binary",
+                           "falsification_test": "romper X"})
 
 # INVALIDATED sin reevaluación → debe fallar
 try:
@@ -169,7 +180,10 @@ print("\n=== CORRECCIÓN 4: Concurrencia por operación ===")
 
 c = conn_bd(tempfile.mkdtemp(prefix="c4-"))
 fid = S.guardar_finding(c, {"finding_id": "F-C4", "claim": "test",
-                           "epistemic": "NOT_DETERMINED"})
+                           "epistemic": "NOT_DETERMINED",
+                           "object_hash": "sha256:test",
+                           "scope": "binary",
+                           "falsification_test": "romper X"})
 
 # Columna version existe
 try:
@@ -200,16 +214,28 @@ except Exception as e:
 
 # Regresión: crear finding nuevo sigue funcionando
 fid2 = S.guardar_finding(c, {"finding_id": "F-NEW", "claim": "nuevo-unico",
-                             "epistemic": "NOT_DETERMINED"})
+                             "epistemic": "NOT_DETERMINED",
+                             "object_hash": "sha256:test",
+                             "scope": "binary",
+                             "falsification_test": "romper X",
+                             "derivation_refs": "[]",
+                             "contradiction_refs": "[]"})
 row = S.recuperar_finding(c, fid2)
 v("C4.4 (regresión) crear finding nuevo funciona",
   fid2.startswith("finding_") and row is not None
   and row.get("version") == 0)
 
 # Nueva semántica: id existente no sobrescribe
-fid3 = S.guardar_finding(c, {"claim": "duplicado-test", "epistemic": "NOT_DETERMINED"})
+fid3 = S.guardar_finding(c, {"claim": "duplicado-test", "epistemic": "NOT_DETERMINED",
+                             "object_hash": "sha256:test", "scope": "binary",
+                             "falsification_test": "romper X",
+                             "derivation_refs": "[]", "contradiction_refs": "[]"})
 assert fid3.startswith("finding_")
-fid4 = S.guardar_finding(c, {"claim": "duplicado-test", "epistemic": "PROVEN"})
+fid4 = S.guardar_finding(c, {"claim": "duplicado-test", "epistemic": "PROVEN",
+                             "object_hash": "sha256:test", "scope": "binary",
+                             "falsification_test": "romper X",
+                             "derivation_refs": "[]", "contradiction_refs": "[]"})
+
 v("C4.5 (nueva semántica) id existente → COLISION, no sobrescribe",
   fid4.startswith("COLISION:") and fid4.endswith(fid3),
   "fid4=%s" % fid4)

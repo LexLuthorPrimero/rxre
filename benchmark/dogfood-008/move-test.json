@@ -1,0 +1,7 @@
+{
+  "test": "move",
+  "id_before": "94929378a93a757f",
+  "id_after": "94929378a93a757f",
+  "pass": true,
+  "note": "literal text survives move"
+}

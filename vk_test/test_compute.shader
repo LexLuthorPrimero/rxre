@@ -1,0 +1,49 @@
+                                  OpCapability Shader
+                               %1 = OpExtInstImport "GLSL.std.450"
+                            OpMemoryModel Logical GLSL450
+                            OpEntryPoint GLCompute %main "main" %input_buffer %output_buffer
+                            OpSource GLSL 450
+                            OpSourceExtension "GL_GOOGLE_cpp_style_line_directive"
+                            OpSourceExtension "GL_GOOGLE_include_directive"
+                         OpDecorate %input_buffer Set 0
+                         OpDecorate %input_buffer Binding 0
+                          OpDecorate %output_buffer Set 0
+                          OpDecorate %output_buffer Binding 1
+             %float = OpTypeFloat 32
+               %uint = OpTypeInt 32 0
+               %void = OpTypeVoid
+                 %v4 = OpTypeVector %uint 4
+                 %ptr = OpTypePointer StorageBuffer %v4
+         %input_buffer = OpVariable %ptr StorageBuffer
+        %output_buffer = OpVariable %ptr StorageBuffer
+                %int_1 = OpConstant %uint 1
+                %int_2 = OpConstant %uint 2
+                %int_3 = OpConstant %uint 3
+                %int_4 = OpConstant %uint 4
+                %int_0 = OpConstant %uint 0
+                 %zero = OpConstantComposite %v4 %int_0 %int_0 %int_0 %int_0
+           %compute_type = OpTypeFunction %void
+                 %main = OpFunction %void None %compute_type
+            %main_args = OpFunctionParameter %v4
+               OpFunctionStart
+
+; Initialize output buffer with 0
+                OpStore %output_buffer %zero
+
+; Compute sum of four elements
+   %elem1_load = OpLoad %uint %input_buffer
+   %elem2_load = OpLoad %uint %input_buffer
+   %elem3_load = OpLoad %uint %input_buffer
+   %elem4_load = OpLoad %uint %input_buffer
+
+; Compute sum = 1 + 2 + 3 + 4 = 10
+     %sum_calc = OpIAdd %uint %int_1 %int_2
+                 %sum_calc = OpIAdd %uint %sum_calc %int_3
+                 %sum_calc = OpIAdd %uint %sum_calc %int_4
+
+; Write sum back to output buffer
+   %output_load = OpLoad %v4 %output_buffer
+   %new_output = OpCompositeConstruct %v4 %sum_calc %int_0 %int_0 %int_0
+               OpStore %output_buffer %new_output
+                OpReturn
+                 OpFunctionEnd

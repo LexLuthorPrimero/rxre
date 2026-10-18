@@ -1,0 +1,44 @@
+{
+  "per_query": {
+    "AMDGPU_HW_IP_COMPUTE": {
+      "fast_median_ms": 2.71,
+      "regex_median_ms": 2.495,
+      "speedup": 0.92,
+      "hits_fast": 0,
+      "hits_regex": 1000
+    },
+    "gmc_v8_1": {
+      "fast_median_ms": 2.883,
+      "regex_median_ms": 2.869,
+      "speedup": 1.0,
+      "hits_fast": 0,
+      "hits_regex": 1000
+    },
+    "amdgpu_ring": {
+      "fast_median_ms": 2.943,
+      "regex_median_ms": 2.231,
+      "speedup": 0.76,
+      "hits_fast": 1000,
+      "hits_regex": 1000
+    },
+    "GFX8": {
+      "fast_median_ms": 2.324,
+      "regex_median_ms": 1.809,
+      "speedup": 0.78,
+      "hits_fast": 0,
+      "hits_regex": 0
+    },
+    "scheduler": {
+      "fast_median_ms": 2.381,
+      "regex_median_ms": 1.956,
+      "speedup": 0.82,
+      "hits_fast": 0,
+      "hits_regex": 0
+    }
+  },
+  "overall_median_ms": 13.241,
+  "overall_regex_median_ms": 11.36,
+  "overall_speedup": 0.86,
+  "corpus_files": 100,
+  "reps": 5
+}

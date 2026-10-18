@@ -1,0 +1,22 @@
+{
+  "023-pm4-count-convencion-medida.md": {
+    "finding_id": "768010c9-606d-4597-a257-11705f237167",
+    "display_number": "023"
+  },
+  "023-pte-productor-sdma-gfx8.md": {
+    "finding_id": "3bd5d4d1-65a8-462c-9445-71f6805936ff",
+    "display_number": "023"
+  },
+  "043-asercion-struct-mqd-contra-offsets.md": {
+    "finding_id": "83c56b38-9da4-4e0e-9940-72cdf4a285f8",
+    "display_number": "043"
+  },
+  "043-pll-bsp-asi-pasi.md": {
+    "finding_id": "085e5602-0340-4afa-aeeb-e3df67810ef4",
+    "display_number": "043"
+  },
+  "043-vuelta-atras-035-y-036-leian-el-asic-equivocado.md": {
+    "finding_id": "9f26bc49-539b-4139-bb69-a68b17ead80c",
+    "display_number": "043"
+  }
+}

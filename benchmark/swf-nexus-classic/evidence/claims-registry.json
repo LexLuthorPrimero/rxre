@@ -1,0 +1,476 @@
+{
+ "artifact": "Madness Project Nexus Classic.swf",
+ "session": "swf-nexus",
+ "claims": [
+  {
+   "claim_id": "RXRE-SWF-001",
+   "taxonomy": "FACT",
+   "state": "PROVEN",
+   "statement": "SWF con firma CWS (zlib-comprimido), version 10, longitud 15612129 bytes, SHA-256 44584a02d85a883384bad34617eb800d79301a8daeabf20244f6b75755ff9342.",
+   "evidence": "raw/original.swf; sha256sum",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 176
+  },
+  {
+   "claim_id": "RXRE-SWF-002",
+   "taxonomy": "FACT",
+   "state": "PROVEN",
+   "statement": "SWF descomprimido (FWS) = 20491352 bytes, SHA-256 bb0a9475eb9d0a4cc882a7d6f5d38cb8679b6157a04489fc404b289d9cda1ef2.",
+   "evidence": "raw/uncompressed.swf; swfparse.py",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 177
+  },
+  {
+   "claim_id": "RXRE-SWF-003",
+   "taxonomy": "FACT",
+   "state": "PROVEN",
+   "statement": "Bytecode AS2/AVM1, NO AS3: DoABC=0, DoAction=6, DoInitAction=69. FileAttributes presente.",
+   "evidence": "raw/swf-structure.json histograma de tags",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 178
+  },
+  {
+   "claim_id": "RXRE-SWF-004",
+   "taxonomy": "MEASUREMENT",
+   "state": "PROVEN",
+   "statement": "Escenario 850x530 px (RECT 0,17000,0,10600 twips), 30 fps, 30 fotogramas (FrameCount=30 == ShowFrame=30).",
+   "evidence": "raw/swf-structure.json",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 179
+  },
+  {
+   "claim_id": "RXRE-SWF-005",
+   "taxonomy": "FACT",
+   "state": "PROVEN",
+   "statement": "Creado con Adobe Flash CS4 Professional; CreateDate 2012-05-10T21:02:22-04:00; ModifyDate 2014-09-09T01:10:29-04:00.",
+   "evidence": "XMP en payload de tag SymbolClass(77)",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 180
+  },
+  {
+   "claim_id": "RXRE-SWF-006",
+   "taxonomy": "FACT",
+   "state": "PROVEN",
+   "statement": "520 assets exportados (ExportAssets), incluyendo 26 clases Madness* (MadnessAI, MadnessCharacter, MadnessLevel, MadnessSpawner, MadnessDoors, MadnessObstacle, MadnessStoreHire, MadnessTeamSetup, MadnessWorldMap, MadnessSaveData, MadnessMedals, ...).",
+   "evidence": "raw/extracted.json export_assets",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 181
+  },
+  {
+   "claim_id": "RXRE-SWF-007",
+   "taxonomy": "FACT",
+   "state": "PROVEN",
+   "statement": "4 etiquetas de fotograma: preoader, sound, menu, gameScreen (estructura de escena: preloader -> sonido -> menu -> juego).",
+   "evidence": "raw/extracted.json frame_labels",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 182
+  },
+  {
+   "claim_id": "RXRE-SWF-008",
+   "taxonomy": "MEASUREMENT",
+   "state": "PROVEN",
+   "statement": "137 DefineSound, ~29257171 samples (~22 min a 22kHz), mayoritariamente formato MP3 (132), mas Nellymoser (3) y ADPCM (2); todos mono.",
+   "evidence": "raw/extracted.json define_sound",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 183
+  },
+  {
+   "claim_id": "RXRE-SWF-009",
+   "taxonomy": "DERIVATION",
+   "state": "CORROBORATED",
+   "statement": "El juego es un shooter tactico con sistema TAC-BAR (barra de evasion), armaduras light/medium/heavy, clases de arma (pistol/SMG/rifle/shotgun/melee/unarmed/thrown), perks, y sistema de tienda/contratacion. Las descripciones de perks y armas estan recuperadas; los valores numericos de balance NO lo estan (ver RXRE-SWF-015).",
+   "evidence": "raw/avm1-vocab.json",
+   "rxre_kind": "hypothesis",
+   "rxre_recorded_id": 184
+  },
+  {
+   "claim_id": "RXRE-SWF-010",
+   "taxonomy": "FACT",
+   "state": "PROVEN",
+   "statement": "Personajes referenciados: Sanford, Deimos, Hank, Dr. Christoff.",
+   "evidence": "raw/avm1-vocab.json",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 185
+  },
+  {
+   "claim_id": "RXRE-SWF-011",
+   "taxonomy": "FACT",
+   "state": "PROVEN",
+   "statement": "Misiones/ubicaciones referenciadas: Nexus Stronghold, Armory, Recon Hut/Com-Tower, Barracks, Communication Tower.",
+   "evidence": "raw/avm1-vocab.json",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 186
+  },
+  {
+   "claim_id": "RXRE-SWF-012",
+   "taxonomy": "MEASUREMENT",
+   "state": "PROVEN",
+   "statement": "Formato AVM1 ConstantPool (estandar): 0x88, u16 ActionLength, u16 Count, luego Count cadenas NUL-terminadas. El Count es el SEGUNDO u16; el primero es ActionLength (mal etiquetado 'campoA' en avm1_strings.py). El ConstantPool ES accion autonoma real: 456 acciones 0x88 standalone (walk_actions), 456 scripts con pool valido, 9801 cadenas. DoAction[0] count=23 (rightClick, ContextMenu, hideBuiltInItems, _root, menu, MadnessWorldMap, world_map, Object...).",
+   "evidence": "tools/avm1_disasm.py walk_actions; 456 acciones 0x88",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 187
+  },
+  {
+   "claim_id": "RXRE-SWF-023",
+   "taxonomy": "HYPOTHESIS",
+   "state": "REFUTED",
+   "statement": "REFUTADA: la hipotesis de 'multiplicadores de dano en 2 grupos de pool compartido' es contradicha por la resolucion de propiedades (RXRE-SWF-031/040). Los float32 NO son 'multiplicadores de dano' en 2 grupos; son multiplicadores de propiedad repartidos entre muchas mecanicas (damage, armor, dash, speed, scale, volume, stairs, rotation, price). El 'Grupo A dominante en 1.75' es myArmor=1.75, volumeMusic=1.75, etc.",
+   "evidence": "tools/avm1_disasm.py; correlacion pool->multiplicador",
+   "rxre_kind": "hypothesis",
+   "rxre_recorded_id": 214
+  },
+  {
+   "claim_id": "RXRE-SWF-024",
+   "taxonomy": "MEASUREMENT",
+   "state": "PROVEN",
+   "statement": "Las acciones CORTAS (0x00-0x33) son AVM1 estandar: 0x0B Restar(711), 0x0C Multiplicar(669), 0x0D Dividir(455), 0x12 Not(6178), 0x17 Pop(10082), 0x1C GetVariable(7728), 0x1D SetVariable(316), 0x07 Stop(521), 0x06 Play(24). Frecuencias sensibles (Pop/GetVariable tras Push). Las acciones LARGAS (>=0x80) son la parte NO estandar (Push=0x96).",
+   "evidence": "tools/avm1_disasm.py; histograma de opcodes",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 189
+  },
+  {
+   "claim_id": "RXRE-SWF-025",
+   "taxonomy": "NEGATIVE_RESULT",
+   "state": "PROVEN_ABSENT",
+   "statement": "Las constantes de combate NO se asignan via SetVariable a variables con nombre. El trace de pila de SetVariable(0x1D) resuelve 307 asignaciones, todas de framework/UI: onEnterFrame(275), cacheAsBitmap(4), myPhase(4), _redirect(2), mouseChildren(2), _listItems(2), i(2), _loading(2), debugMode(1)... Ninguna variable de combate. Las constantes de combate fluyen a llamadas a funcion/metodo (0x4E=24316, 0x4F=8359, 0x52=7699, 0x9D=5443, 0x49=2497) cuyos opcodes NO estan identificados (sin tabla de referencia para este dialecto no estandar). Mapeo constante->mecanica: NOT_DETERMINED (bloqueado por tabla de opcodes de llamadas).",
+   "evidence": "tools/avm1_disasm.py; simulador de pila SetVariable",
+   "rxre_kind": "note",
+   "rxre_recorded_id": 190
+  },
+  {
+   "claim_id": "RXRE-SWF-026",
+   "taxonomy": "MEASUREMENT",
+   "state": "REFUTED",
+   "statement": "CORREGIDO por RXRE-SWF-028: 0x4E es GetMember (LEER propiedad), NO SetMember. Los '100 pares (clave,valor)' eran pares (objeto,clave) de LECTURA. El simulador de pila anterior no tenia rama else para opcodes desconocidos, corrompiendo la pila.",
+   "evidence": "tools/avm1_trace.py; simulador de pila 0x4E",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 191
+  },
+  {
+   "claim_id": "RXRE-SWF-027",
+   "taxonomy": "NEGATIVE_RESULT",
+   "state": "PARTIAL",
+   "statement": "CORREGIDO por RXRE-SWF-040: la frontera NO estaba saturada. Las constantes de combate NO fluyen a opcodes de llamada no identificados; fluyen a SetMember(0x4F) y GetMember(0x4E), YA identificados. El mapeo propiedad<-multiplicador esta RESUELTO (RXRE-SWF-040). Queda NOT_DETERMINED: la formula exacta y el flujo de control (RXRE-SWF-039).",
+   "evidence": "tools/avm1_trace.py; trace 0x4E + histograma",
+   "rxre_kind": "note",
+   "rxre_recorded_id": 192
+  },
+  {
+   "claim_id": "RXRE-SWF-013",
+   "taxonomy": "NEGATIVE_RESULT",
+   "state": "PROVEN_ABSENT",
+   "statement": "RXRE NO puede ingerir el binario SWF. search/evidence buscan el corpus del kernel (NOT_FOUND para identificadores del SWF); register interpreta el path como nombre de registro ASIC (PROVEN_ABSENT_EN_ASIC_REG). Ruta verificada mas estrecha: extraer con herramientas externas y registrar via op:record (kind cerrado: hypothesis|claim|note|next_action|frontier).",
+   "evidence": "tools/rxre/cli.py ops; respuestas search/register/evidence",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 193
+  },
+  {
+   "claim_id": "RXRE-SWF-014",
+   "taxonomy": "NEGATIVE_RESULT",
+   "state": "PROVEN_ABSENT",
+   "statement": "No hay runtime Flash disponible (no ruffle, no swftools, no flasm; wine sin plugin Flash). La validacion diferencial contra el original NO es posible; se usa evidencia estatica independiente.",
+   "evidence": "inventario de herramientas (seccion 1 del benchmark)",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 194
+  },
+  {
+   "claim_id": "RXRE-SWF-015",
+   "taxonomy": "NEGATIVE_RESULT",
+   "state": "PARTIAL",
+   "statement": "AVANCE (RXRE-SWF-040): los VALORES estan OBSERVED y el mapeo propiedad<-multiplicador esta RECUPERADO (myDamage, myArmor, myDash, myScale, mySpeed, volumeMusic, etc.). Queda NOT_DETERMINED: la formula exacta (valor base, orden de operaciones, efecto del uint32 del tipo 6, flujo de control de tick/createWound), que requiere simulacion de pila con flujo de control completo.",
+   "evidence": "tools/avm1_disasm.py; raw/avm1-constants.json",
+   "rxre_kind": "note",
+   "rxre_recorded_id": 195
+  },
+  {
+   "claim_id": "RXRE-SWF-019",
+   "taxonomy": "MEASUREMENT",
+   "state": "PROVEN",
+   "statement": "Regla de longitud de accion AVM1 verificada: ActionCode u8; si code>=0x80 sigue u16 ActionLength + Data[ActionLength]; si code<0x80 es corta (1 byte, sin longitud ni datos). Los 1749 scripts parsean limpio a End(0x00) sin desbordamiento (100%).",
+   "evidence": "tools/avm1_disasm.py walk_actions; parse 100% limpio",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 196
+  },
+  {
+   "claim_id": "RXRE-SWF-020",
+   "taxonomy": "FACT",
+   "state": "PROVEN",
+   "statement": "La accion Push en este SWF es el opcode 0x96, NO el estandar 0x9C. 0x96 es la accion mas comun (11347 en el script mayor; 54187 con datos en total); 0x9C aparece 0 veces como codigo de accion. Los datos de 0x96 parsean como constantes Push tipadas. NO ESTANDAR: este SWF usa 0x96 para Push.",
+   "evidence": "tools/avm1_disasm.py; histograma de opcodes",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 197
+  },
+  {
+   "claim_id": "RXRE-SWF-021",
+   "taxonomy": "FACT",
+   "state": "PROVEN",
+   "statement": "Tipo 9 de Push = Const16 (indice de pool de 2 bytes, rango 256-907, confirmando Lookup16 para pools >256 entradas). Con tipo9=2 bytes, las 54187 acciones Push parsean 100% limpio. NO ESTANDAR: el estandar solo tiene tipo 8 Lookup (1 byte).",
+   "evidence": "tools/avm1_disasm.py parse_push_data; rango 256-907",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 198
+  },
+  {
+   "claim_id": "RXRE-SWF-022",
+   "taxonomy": "NEGATIVE_RESULT",
+   "state": "REFUTED",
+   "statement": "Tipo 6 de Push NO es Double (refutado). Los 8 bytes NO decodifican como double en ningun orden de bytes (1.75 como double seria 3F FC 00 00 00 00 00 00, no 00 00 e0 3f ...). Estructura real: 8 bytes = float32_LE[0:4] + uint32_LE[4:8]. El float32 es un multiplicador de juego (rango 1.45-2.06, mas comun 1.75; tambien negativos -1.5..-2.4 y valores grandes 3.0-1031.5). El uint32 para pares multiplicador es un conjunto pequeno {0x00000000,0x33333333,0x66666666,0x9999999a,0xcccccccd} = fraccion fija 0.32 {0.0,0.2,0.4,0.6,0.8}.",
+   "evidence": "tools/avm1_disasm.py; volcado de bytes raw tipo 6",
+   "rxre_kind": "note",
+   "rxre_recorded_id": 199
+  },
+  {
+   "claim_id": "RXRE-SWF-016",
+   "taxonomy": "HYPOTHESIS",
+   "state": "OPEN",
+   "statement": "El tag SymbolClass(77) contiene los metadatos XMP (ubicacion no estandar; normalmente el tag Metadata(78) los contiene).",
+   "evidence": "payload de SymbolClass empieza con <rdf:RDF",
+   "rxre_kind": "hypothesis",
+   "rxre_recorded_id": 200
+  },
+  {
+   "claim_id": "RXRE-SWF-017",
+   "taxonomy": "HYPOTHESIS",
+   "state": "OPEN",
+   "statement": "El tag 24 (31 B) contiene la cadena $1$Xg$7P2RjvftDquRuFo.lqa8W/ (formato MD5-crypt); proposito desconocido.",
+   "evidence": "raw/swf-structure.json tag Unknown(24)",
+   "rxre_kind": "hypothesis",
+   "rxre_recorded_id": 201
+  },
+  {
+   "claim_id": "RXRE-SWF-018",
+   "taxonomy": "HYPOTHESIS",
+   "state": "OPEN",
+   "statement": "Los DoInitAction posteriores a [0] (68 scripts) NO empiezan con ConstantPool: empiezan con codigos de accion 0xC4-0xD9, 0x90-0x9C, 0xA0-0xA9, 0xE0-0xE1. Si son definiciones de clase que referencian el pool de [0] o tienen pools propios mas adelante es NOT_DETERMINED (60 de 75 scripts tienen pool localizable).",
+   "evidence": "tools/avm1_strings.py",
+   "rxre_kind": "hypothesis",
+   "rxre_recorded_id": 202
+  },
+  {
+   "claim_id": "RXRE-SWF-028",
+   "taxonomy": "MEASUREMENT",
+   "state": "PROVEN",
+   "statement": "Accion 0x4E = GetMember (LEER propiedad). PRUEBA por balance de pila: Push[objeto,clave]->0x4E lee objeto[clave] (pop2,push1). Patron RMW: Push[R1,197,R1,197]->0x4E->Push[1.9125]->Multiply->0x4F = R1[197]=R1[197]*1.9125. Patron READ: Push[R1,374]->0x4E->Push[R1,376]->0x4E->Push[2]->Divide->Multiply = R1[374]*(R1[376]/2).",
+   "evidence": "tools/avm1_disasm.py; balance de pila; dump de script",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 207
+  },
+  {
+   "claim_id": "RXRE-SWF-029",
+   "taxonomy": "MEASUREMENT",
+   "state": "PROVEN",
+   "statement": "Accion 0x4F = SetMember (ESCRIBIR propiedad). PRUEBA por balance de pila: Push[objeto,clave,valor]->0x4F escribe objeto[clave]=valor (pop3). Patron: Push[R1,374,3]->0x4F almacena R1[374]=3. CORRIGE la sesion anterior, que trato 0x4F como 'opcode de llamada no identificado'.",
+   "evidence": "tools/avm1_disasm.py; balance de pila",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 208
+  },
+  {
+   "claim_id": "RXRE-SWF-030",
+   "taxonomy": "MEASUREMENT",
+   "state": "PROVEN",
+   "statement": "Formato ConstantPool(0x88) corregido: data[0:2]=u16 Count, luego Count cadenas NUL-terminadas. El offset de walk_actions YA esta pasado ActionLength, por lo que Count es el PRIMER u16 de data (no el segundo, como afirmaba RXRE-SWF-012). Verificado: 02 00 5f706172656e7400 72656d6f76654d6f766965436c697000 = Count=2, '_parent', 'removeMovieClip'.",
+   "evidence": "dump de bytes brutos de 0x88",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 209
+  },
+  {
+   "claim_id": "RXRE-SWF-031",
+   "taxonomy": "MEASUREMENT",
+   "state": "PROVEN",
+   "statement": "Resolucion de propiedades via ConstantPool FUNCIONA: lookup:N->pool[N] (N<256), const16:N->pool[N]. El pool principal del juego tiene 908 entradas (_global, MadnessCharacter, targetsHit, targetsTac, ... ASSetPropFlags). Los multiplicadores se resuelven a propiedades reales.",
+   "evidence": "tools/avm1_disasm.py; parse_constant_pool; pool de 908",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 210
+  },
+  {
+   "claim_id": "RXRE-SWF-032",
+   "taxonomy": "MEASUREMENT",
+   "state": "PARTIAL",
+   "statement": "Constante Push tipo-6 = float32 (valor de juego) + uint32 (fraccion 0.32 fixed-point, VALOR SEPARADO). El uint32 NO es Double (RXRE-SWF-022): es una fraccion 0.32 (0.0,0.2,0.4,0.6,0.8,0.28...). La afirmacion 'funcion determinista del float32' queda REFUTADA por RXRE-SWF-047: la formula u=((b&0xFFFFF)*0x100001+128)>>8 es exacta solo 27/61 y para 9 pares u ni es de esa forma. El papel del uint32 (probabilidad/peso) es NOT_DETERMINED (requiere runtime).",
+   "evidence": "evidence/type6-uint32-analysis.md; inversion de formula sobre 61 pares",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 211
+  },
+  {
+   "claim_id": "RXRE-SWF-033",
+   "taxonomy": "MEASUREMENT",
+   "state": "PROVEN",
+   "statement": "DefineFunction(0x9B)=289, DefineFunction2(0x8E)=1053. Nombres recuperados: tick(196), createWound(8), arenaTick, enterFrameHandler, onPlayClick, initPlayButton, onMedalUnlocked, showNextUnlock, medalPopupEnterFrame, _apiConnect, _onConnected, forceAlwaysOnTop. Los PARAMS correctos (decodificacion corregida) y el modelo de datos estan en RXRE-SWF-048 / evidence/function-signatures.md.",
+   "evidence": "tools/avm1_disasm.py; decode_define_function(data, opcode) corregido; evidence/function-signatures.md",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 212
+  },
+  {
+   "claim_id": "RXRE-SWF-034",
+   "taxonomy": "MEASUREMENT",
+   "state": "PROVEN",
+   "statement": "Mapeo propiedad<-multiplicador (SUPERSEDADO por RXRE-SWF-040): primer mapeo via heuristico de 'propiedad mas cercana'. CONTIENE ASOCIACIONES FALSAS (myGameSpeed, smgAimTimer, intendedRot, myCat, myDataRef, slowmoSpeedMod) porque el multiplicador era consumido por opcodes intermedios antes del SetMember mas cercano. Ver RXRE-SWF-040 para el mapeo exacto.",
+   "evidence": "tools/avm1_disasm.py; asociacion de propiedad mas cercana",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 213
+  },
+  {
+   "claim_id": "RXRE-SWF-035",
+   "taxonomy": "HYPOTHESIS",
+   "state": "SUPPORTED",
+   "statement": "0x52 = CallMethod. Patron: Push[...]; GetVariable; Push[nombre_metodo]; 0x52. Consistente con CallMethod estandar AVM1. NO probado por balance de pila (aparece en contextos agrupados). Discriminante: simulacion de pila con flujo de control completo.",
+   "evidence": "patron Push->GetVariable->Push->0x52",
+   "rxre_kind": "hypothesis",
+   "rxre_recorded_id": 215
+  },
+  {
+   "claim_id": "RXRE-SWF-036",
+   "taxonomy": "HYPOTHESIS",
+   "state": "SUPPORTED",
+   "statement": "0x99 y 0x9D = salto/branch (data 2 bytes = offset/etiqueta). Patron: comparacion->Not->0x9D (branch condicional). 0x99 efecto neto 0 (salto incondicional).",
+   "evidence": "patron comp->Not->0x9D; inferencia de efecto neto",
+   "rxre_kind": "hypothesis",
+   "rxre_recorded_id": 216
+  },
+  {
+   "claim_id": "RXRE-SWF-037",
+   "taxonomy": "HYPOTHESIS",
+   "state": "SUPPORTED",
+   "statement": "0x87 = almacenar tope de pila en registro N (data 1 byte = indice de registro). Patron: Push[valor]; 0x87(N); Pop.",
+   "evidence": "patron Push->0x87->Pop",
+   "rxre_kind": "hypothesis",
+   "rxre_recorded_id": 217
+  },
+  {
+   "claim_id": "RXRE-SWF-038",
+   "taxonomy": "HYPOTHESIS",
+   "state": "SUPPORTED",
+   "statement": "0x67 = comparacion unaria (pop1, push1). Patron: Push[valor]; 0x67; Not; 0x9D.",
+   "evidence": "patron Push->0x67->Not->0x9D",
+   "rxre_kind": "hypothesis",
+   "rxre_recorded_id": 218
+  },
+  {
+   "claim_id": "RXRE-SWF-039",
+   "taxonomy": "HYPOTHESIS",
+   "state": "NOT_DETERMINED",
+   "statement": "Opcodes cortos personalizados restantes 0x3D,0x3E,0x40,0x42,0x47,0x48,0x49,0x4C,0x50,0x51: semantica exacta NOT_DETERMINED. Requieren simulacion de pila con flujo de control completo; la inferencia por ocurrencia aislada es escasa porque aparecen agrupados.",
+   "evidence": "inferencia por ocurrencia aislada (escasa)",
+   "rxre_kind": "hypothesis",
+   "rxre_recorded_id": 219
+  },
+  {
+   "claim_id": "RXRE-SWF-040",
+   "taxonomy": "MEASUREMENT",
+   "state": "PROVEN",
+   "statement": "Mapeo propiedad<-multiplicador EXACTO (corrige RXRE-SWF-034). Patrones STORE: Push[...,clave,mult]->SetMember(0x4F) y RMW: Push[o,k,o,k]->GetMember(0x4E)->Push[mult]->Multiply(0x0C)->SetMember(0x4F). 32 propiedades con multiplicador no-cero: myDamage=[0,2.0625,2.34375,2.40625,2.46875,2.515625], myArmor=[0,1.75,1.825,1.9,2.15,2.578125], myDash=[1.90625,1.9125,1.925], myScale=[1.9,1.90625,1.925,1.9375,2.0625], mySpeed=[2.28125,2.3], volumeMusic=[1.75,1.8125], stairsAdjustMove=[1.625,1.7875], damageDifficultyMod=[1.65,1.75], myHealth=[0,1031.525269], myPrice=[0,1.9125,32.6566,45.8208]. RMW: mySpeedRight,mySpeedDown,bulletRotation,xSpeed,recoilTimer,rotSpeed,myRotSpeed,mySpread,myRange,myHireCost. Nuevas: gravity,volumeSound,doorLockBoost,heavySpeedMod,myVersion,myHeadStartX,WORK_INTERVAL,reduceSize,_x,_y.",
+   "evidence": "tools/avm1_disasm.py; patrones STORE/RMW exactos",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 220
+  },
+  {
+   "claim_id": "RXRE-SWF-041",
+   "taxonomy": "NEGATIVE_RESULT",
+   "state": "REFUTED",
+   "statement": "REFUTADAS las asociaciones falsas del heuristico 'propiedad mas cercana' (RXRE-SWF-034): myGameSpeed, smgAimTimer, intendedRot, myCat, myDataRef, slowmoSpeedMod NO son multiplicadores de esas propiedades. El multiplicador era consumido por opcodes intermedios (0x67 comparacion, 0x87 store-a-registro, 0x52 CallMethod, aritmetica 0x0C/0x0A/0x0B) antes de alcanzar el SetMember mas cercano. myGameSpeed solo tiene 0.0 (inicializacion). Discriminante: patron EXACTO STORE/RMW vs heuristico de proximidad.",
+   "evidence": "comparacion heuristico-vs-exacto",
+   "rxre_kind": "hypothesis",
+   "rxre_recorded_id": 221
+  },
+  {
+   "claim_id": "RXRE-SWF-042",
+   "taxonomy": "FACT",
+   "state": "PROVEN",
+   "statement": "Decodificacion de salto AVM1 PROBADA: 0x99=salto incondicional (1 sucesor); 0x9D=branch condicional (2 sucesores). destino = pos_campo_offset + 2 + int16_con_signo. 7053/7053 saltos (100%) caen en limites de instruccion.",
+   "evidence": "tools/avm1_cfg.py jump_target; res_jump_decode_7053",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 222
+  },
+  {
+   "claim_id": "RXRE-SWF-043",
+   "taxonomy": "MEASUREMENT",
+   "state": "SUPPORTED",
+   "statement": "Simulador de pila con CFG (consenso por script): resuelve cada script por separado y agrega el consenso unanime entre scripts consistentes. VALIDADO: recupera 0x4E=GetMember como neto -1 en 24/25 scripts. 187 scripts consistentes, 35 inconsistentes.",
+   "evidence": "tools/avm1_cfg.py; auto-test 0x4E",
+   "rxre_kind": "hypothesis",
+   "rxre_recorded_id": 223
+  },
+  {
+   "claim_id": "RXRE-SWF-044",
+   "taxonomy": "DERIVATION",
+   "state": "SUPPORTED",
+   "statement": "Efectos netos (push-pop) DETERMINADOS por consenso unanime: 0x9D BranchIf=-1 (consume la condicion, 4 scripts); 0x40=-1 (16); 0x49=-1 (6); 0x3E=-1 (2); 0x9F=-1 (18); 0x42=0 (2); 0x81=0 (2); 0x8C=0 (2).",
+   "evidence": "tools/avm1_cfg.py per_script_consensus",
+   "rxre_kind": "hypothesis",
+   "rxre_recorded_id": 224
+  },
+  {
+   "claim_id": "RXRE-SWF-045",
+   "taxonomy": "NEGATIVE_RESULT",
+   "state": "NOT_DETERMINED",
+   "statement": "0x52 CallMethod y 0x87 StoreRegister son dependientes del valor: su efecto de pila depende de valores en la pila (# de args de CallMethod: -2/-3/-4; StoreRegister: dominante 0 en 6/7 con discordancia -1). NO determinables por analisis de profundidad.",
+   "evidence": "tools/avm1_cfg.py; distribucion de efectos",
+   "rxre_kind": "note",
+   "rxre_recorded_id": 225
+  },
+  {
+   "claim_id": "RXRE-SWF-046",
+   "taxonomy": "NEGATIVE_RESULT",
+   "state": "NOT_DETERMINED",
+   "statement": "Opcodes 0x3D,0x43,0x47,0x50,0x53 con consenso discordante (no unanime) y 0x48,0x51 sin datos (nunca en ecuaciones consistentes): efecto NOT_DETERMINED.",
+   "evidence": "tools/avm1_cfg.py; distribucion de efectos",
+   "rxre_kind": "note",
+   "rxre_recorded_id": 226
+  },
+  {
+   "claim_id": "RXRE-SWF-047",
+   "taxonomy": "NEGATIVE_RESULT",
+   "state": "PROVEN",
+   "statement": "REFUTACION: el uint32 tipo-6 NO es funcion determinista del float32. Invirtiendo u=(M*0x100001+128)>>8 (biyeccion para M de 20 bits) se recupera el M' efectivo de cada u. M'==lo20 en 27/61; M'==lo20^0x80000 en 9; M'==lo20&0x1FFFF en 8; M'==lo20&0xFFFF en 2; OTHER en 6; y 9 pares NO tienen inversa (u no es de la forma formula(M)). El mismo u aparece con f de lo20 distinto (u=0.4 para f=1.8,1.8625,1.89375,1.925,2.0375,2.1,3.77822). La formula es coincidencia: vale cuando lo20==round(u*2^20). El uint32 es un valor separado (peso/probabilidad).",
+   "evidence": "evidence/type6-uint32-analysis.md; raw/avm1-constants.json type6_pairs (61 pares)",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 227
+  },
+  {
+   "claim_id": "RXRE-SWF-048",
+   "taxonomy": "NEGATIVE_RESULT",
+   "state": "PROVEN",
+   "statement": "Los cuerpos de DefineFunction(0x9B)/DefineFunction2(0x8E) son tokens nativos de 2 bytes, NO secuencias de acciones AVM1: 1342/1342 cuerpos=2B; 322 empiezan con opcode>=0x80 (imposible para accion larga en 2B); 306 no terminan en End; solo 839 son acciones estandar. tick()=token 0x44. La formula exacta de combate NO esta en los cuerpos. Las firmas revelan el modelo: combate (inDamage, inArmor, inWeapon, inAttacker, inRange, inHeadshot, inKnockback, inBlock, inKillShot), stats (inStr, inDex, inTac, inEnd, inLead, inAwr + 8 armas), fisica (inX, inY, inXSpeed, inYSpeed, inRot, inRotSpeed, inBounce, inFloor, inAlpha, inScale).",
+   "evidence": "evidence/function-signatures.md; tools/extract_signatures.py; tools/register_signatures.py; op_0017eddb2b6c93e4",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 228
+  },
+  {
+   "claim_id": "RXRE-SWF-049",
+   "taxonomy": "MEASUREMENT",
+   "state": "PROVEN",
+   "statement": "Ejecutor simbolico lineal (avm1_sym.py) recupera formulas del stream principal. 0x47=NIP (elimina el elemento debajo del tope; balance neto 0 por sentencia de modificador). FORMULAS (pool-resueltas): modSpeed=statDEX/45, modDmg=statSTR/15, modRecharge=statTAC/10, modArmor=statEND/15, modAllySmart=statLEAD/15, modHurtTactics=statAWR/50, myAccel=mySpeed/4, myDamage*=3, myHeadArmor=myHat.myArmor, myBodyArmor=myShirt.myArmor, myPrice=myArmor*100. La MITIGACION de armadura (danos=f(myDamage,myArmor)) NO se recupera: esta en la rutina nativa (token, RXRE-SWF-048). 0x47 es globalmente dependiente del valor (RXRE-SWF-046); NIP es hipotesis local validada por balance.",
+   "evidence": "evidence/symbolic-formulas.md; tools/avm1_sym.py; tools/extract_formulas.py; tools/register_formulas.py; op_59fd124a8ce59970",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 229
+  },
+  {
+   "claim_id": "RXRE-SWF-050",
+   "taxonomy": "MEASUREMENT",
+   "state": "PROVEN",
+   "statement": "La APLICACION de danio de combate ESTA en el stream principal: myAttackTarget.myHealth = myAttackTarget.myHealth - (myDataRef.myUnarmed.myDamage/4). El objetivo pierde salud = danio desarmado / 4.  Confirmado por traza de bytecode (script 1627, acciones 31869-31884) + resolucion de pool (LK:203=myAttackTarget, LK:62=myHealth, LK:12=myDataRef, C16:546=myUnarmed, C16:481=myDamage) + balance de pila neto 0.  Formulas relacionadas: recoilTimer=weapon.myDamage*weapon.myShots; skillPoints=myLevel*3; myDataRef.myHealth=myHealthMax/2; myGun.myHealth-=2; targetHealthY=5*(myHealth/myHealthMax).  La MITIGACION de armadura (como myArmor reduce el danio entrante) NO se recupera: esta en la rutina nativa inDamage/inArmor (token, RXRE-SWF-048).",
+   "evidence": "evidence/symbolic-formulas.md; tools/avm1_sym.py; tools/register_damage.py; queries/damage-response.json; op_e775d6c2efbc8c5b",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 230
+  },
+  {
+   "claim_id": "RXRE-SWF-051",
+   "taxonomy": "MEASUREMENT",
+   "state": "PARTIAL",
+   "statement": "Aleatorizacion del danio y critico de headshot (PARCIALMENTE CORREGIDO por RXRE-SWF-052). PROVEN: el danio se aleatoriza con SwainMath.randomNumber; el critico de headshot esta gated por perkHeadshotCrits y multiplica por r18=randomNumber(2,120,200)/100 = [1.20,2.00] (120-200%). Para amSpecial&&myCat==melee: r18=1. Perk bulletEater afecta el danio. totalFrameDamage=r3 (danio total del frame). CORREGIDO: el rango del danio es [-2,totalFrameDamage] (no [TFD-2,TFD+2]). La MITIGACION de armadura esta en la rutina nativa inDamage/inArmor (RXRE-SWF-048), NO recuperada.",
+   "evidence": "evidence/symbolic-formulas.md; tools/trace_headshot.py; tools/trace_total.py; tools/register_damage2.py; queries/damage-rand-response.json; op_834604c233c77331",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 231,
+   "superseded_by": "RXRE-SWF-052",
+   "correction_note": "CORREGIDO por RXRE-SWF-052: el rango del danio NO es [totalFrameDamage-2,totalFrameDamage+2] sino [-2, totalFrameDamage].  Los args se empujan en orden INVERSO (Push[R3,-2,2,SwainMath] declara randomNumber(2,-2,R3)).  El critico de headshot [1.20,2.00] SE CONFIRMA."
+  },
+  {
+   "claim_id": "RXRE-SWF-052",
+   "taxonomy": "MEASUREMENT",
+   "state": "PROVEN",
+   "statement": "Convencion de SwainMath.randomNumber(precision, lo, hi) -> valor en [lo, hi] redondeado a precision decimales. PROVEN: 418 sitios de llamada en 1749 scripts, 179 firmas distintas, 101 llamadas con los 3 args enteros comparables, 0 violaciones de lo<=hi. Patron dominante randomNumber(2,-N,N) -> [-N,N] simetrico. CORRIGE RXRE-SWF-051: los args se empujan en orden INVERSO (convencion AVM1), asi que Push[R3,-2,2,SwainMath] declara randomNumber(2,-2,R3) -> rango [-2,R3], NO [R3-2,R3+2]. Formula corregida del danio: damage=Math.floor(randomNumber(2,-2,totalFrameDamage)/4) -> [0,TFD/4]. Critico headshot CONFIRMADO: randomNumber(2,120,200)/100 = [1.20,2.00]. LIMITACION: el modo de redondeo exacto (floor vs round) NO se determina (cuerpo nativo).",
+   "evidence": "evidence/swfmath-rand.md; tools/register_swm.py; queries/swm-response.json; op_61d6df8660c5af0d",
+   "rxre_kind": "claim",
+   "rxre_recorded_id": 232
+  }
+ ]
+}

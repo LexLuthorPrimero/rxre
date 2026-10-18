@@ -63,8 +63,9 @@ if PKG not in sys.path:
 
 from backends.contract import (  # noqa: E402
     BK_BLOCKED, BK_EMPTY, BK_ERROR, BK_INVALID, BK_OK, BK_UNSUPPORTED,
-    DISASSEMBLY, sha256_de, sha256_texto,
+    DISASSEMBLY, sha256_de, sha256_texto, estado_firma,
 )
+from . import provenance as _prov
 
 #: MEDIDO 2026-10-12 en este host.
 CAPSTONE_MEDIDO = {
@@ -207,6 +208,15 @@ def desensamblar(artefacto: str, inicio: int = 0, longitud: int = 0,
         return {"status": BK_INVALID, "precheck": pre,
                 "limitations": ["la entrada no existe: %s" % ruta]}
     if not fixture_bin:
+        if os.path.isfile(artefacto) and estado_firma(artefacto) == "no_legible":
+            pre["elf_tipo"] = ""
+            return {"status": BK_INVALID, "precheck": pre,
+                    "limitations": [
+                        "la entrada EXISTE pero no es legible "
+                        "(permiso o E/S): %s" % artefacto,
+                        "no se pudo leer la firma: NO se sabe si es ELF",
+                        "no se desensamblo: se leen bytes, pero el rango "
+                        "que se pide debe viene de un analisis previo"]}
         pre["elf_tipo"] = _elf_tipo(artefacto)
         if not pre["elf_tipo"]:
             return {"status": BK_INVALID, "precheck": pre,
@@ -319,7 +329,7 @@ def desensamblar(artefacto: str, inicio: int = 0, longitud: int = 0,
                     "bytes_declarados": declarados, "bytes_descubiertos": 0,
                     "cobertura_pct": 0.0, "huecos": huecos,
                     "primer_hueco": inicio},
-                "limitations": lim, "provenance": "completa",
+                "limitations": lim, "provenance": _prov.desde_precheck(pre, transformacion='capstone -> desensamblado lineal; bytes_descubiertos contra bytes_declarados -> cobertura_pct', normalizador='backends.adapters.cs_disasm.desensamblar'),
                 "capstone_medido": CAPSTONE_MEDIDO}
 
     ref = ruta
@@ -335,6 +345,13 @@ def desensamblar(artefacto: str, inicio: int = 0, longitud: int = 0,
                                 "huecos": huecos[:200],
                                 "primer_hueco": primer_hueco},
                   "instrucciones": instr[:4000]},
+        "completitud": {"completo": len(instr) <= 4000,
+                        "omitidos": max(0, len(instr) - 4000),
+                        "limite": 4000,
+                        "elemento": "instrucciones"},
+        "completitud_anidada": {"huecos": {"completo": len(huecos) <= 200,
+                                           "omitidos": max(0, len(huecos) - 200),
+                                           "limite": 200}},
         "source": ref, "location": {"file": os.path.basename(ref)},
         "scope": "binary", "tool": "capstone",
         "tool_version": d["version"],
@@ -352,5 +369,5 @@ def desensamblar(artefacto: str, inicio: int = 0, longitud: int = 0,
     return {"status": BK_OK, "precheck": pre, "ejecucion": ejec,
             "results": [res], "n_instrucciones": n,
             "cobertura": res["value"]["cobertura"],
-            "limitations": lim, "provenance": "completa",
+            "limitations": lim, "provenance": _prov.desde_precheck(pre, transformacion='capstone -> desensamblado lineal; bytes_descubiertos contra bytes_declarados -> cobertura_pct', normalizador='backends.adapters.cs_disasm.desensamblar'),
             "capstone_medido": CAPSTONE_MEDIDO}

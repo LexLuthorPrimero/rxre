@@ -1,0 +1,6 @@
+=== indegree>1 for r2 aa; agCj ===
+nodes 5 targets_with_indegree>1 4
+sample: {'sym.imp.__fprintf_chk': 3, 'sym.imp.__stack_chk_fail': 3, 'sym.flush_stdout': 2, 'sym.error_tail': 2}
+=== indegree>1 for r2 aaa; agCj ===
+nodes 84 targets_with_indegree>1 101
+sample: {'sym.imp.__stack_chk_fail': 37, 'sym.imp.strlen': 27, 'sym.imp.__errno_location': 23, 'sym.imp.malloc': 21, 'sym.imp.free': 16, 'sym.xalloc_die': 16}

@@ -1,0 +1,6 @@
+
+/usr/bin/ls:     formato del fichero elf64-x86-64
+arquitectura: i386:x86-64, opciones 0x00000150:
+HAS_SYMS, DYNAMIC, D_PAGED
+dirección de inicio 0x0000000000003910
+

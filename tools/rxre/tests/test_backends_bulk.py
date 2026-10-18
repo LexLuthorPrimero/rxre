@@ -74,10 +74,12 @@ def t_registro():
     # MEDIDO 2026-10-12 (RXRE-1634): se anadio `capstone`, un producer de
     # MODULO en proceso. No es un subproceso como los otros cuatro.
     # RXRE-AUTONOMY-002: anadidos `knowledge` y `umr` (UMR para register_read
+    # RXRE-ECO-001 (2026-10-15): anadido `tree-sitter`, MEDIDO sobre
+    # `amdgpu.h` -> 7066 nodos AST. El conjunto sigue siendo EXACTO.
     chk("backends registrados",
         sorted(registry.backends()),
         ["capstone", "coccinelle", "ghidra", "knowledge", "radare2",
-         "rizin", "umr"])
+         "rizin", "tree-sitter", "umr"])
     chk("ghidra decompile es PARTIAL",
         registry.get("ghidra")["capacities"]["binary.decompile"],
         "PARTIAL")
@@ -142,7 +144,34 @@ def t_ghidra_ok():
     chk("trae direccion", bool(r0["location"]["direccion"]), True)
     chk("version en el resultado", r0["tool_version"].startswith("Ghidra "),
         True)
-    chk("provenance completa", env["provenance"], "completa")
+    # MEDIDO 2026-10-15 (RXRE-AUTO-002). Este check decia
+    #
+    #     chk("provenance completa", env["provenance"], "completa")
+    #
+    # Afirmaba que la provenance ES la cadena "completa". Era un test que
+    # CODIFICABA EL DEFECTO: comprobaba que el envelope llevara una palabra
+    # donde el contrato (TIERRA/FUEGO) pide la evidencia.
+    #
+    # El nombre queria decir "la provenance esta completa". Ahora lo afirma
+    # de verdad, y MAS FUERTE que antes: no basta con la palabra, hace falta
+    # el `estado` y el `input_hash` que permiten reejecutar la operacion.
+    # El check viejo no podia distinguir "completa" de "completa pero sin
+    # hash"; este si.
+    prov = env["provenance"]
+    chk("provenance completa", isinstance(prov, dict)
+        and prov.get("estado") == "completa", True)
+    # MEDIDO 2026-10-15. El fixture NO tiene hash de entrada: en modo
+    # fixture "el ARTEFACTO no tiene que existir", asi que `input_hash` sale
+    # vacio. Eso NO es una provenance mentirosa, es una simulacion declarada
+    # (`usa_fixture: True`, `extra.nota`). Exigir el hash aqui seria exigir
+    # un artefacto que el propio contrato dice que no tiene que existir.
+    #
+    # La distincion es la que importa: hash vacio CON simulacion declarada
+    # es honesto; hash vacio SIN declarar es una mentira. Por eso la
+    # condicion mira las dos cosas.
+    extra = prov.get("extra") or {}
+    chk("provenance con input_hash o simulacion declarada",
+        bool(prov.get("input_hash")) or extra.get("usa_fixture") is True, True)
     # La regla del contrato: una decompilacion NO declara semantica.
     # OJO con la direccion: `puede_declarar(producer, consumidor)` pregunta
     # si un consumidor que pide `consumidor` puede aceptar evidencia
@@ -364,8 +393,11 @@ def t_dispatch_generico():
     # RXRE-1632 (las cinco de contenedor). El bucle de abajo es el que de
     # verdad prueba que cada uno existe; este numero solo avisa si se
     # OLVIDO registrar alguno.
-    chk("los 25 adapters son importables",
-        len(dispatch.ADAPTERS), 25)
+    # RXRE-ECO-001 (2026-10-15): +1 adapter, `source.ast_parse` (tree-sitter).
+    # MEDIDO: amdgpu.h -> 7066 nodos AST. El numero sigue siendo EXACTO a
+    # proposito:_relajar a >=25 haria invisible un adapter olvidado.
+    chk("los 26 adapters son importables",
+        len(dispatch.ADAPTERS), 26)
     for cap, a in sorted(dispatch.ADAPTERS.items()):
         import importlib
         m = importlib.import_module(a["modulo"])

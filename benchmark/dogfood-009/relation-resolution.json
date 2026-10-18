@@ -1,0 +1,10 @@
+{
+  "por_id_entries": 5,
+  "can_resolve_023_A": true,
+  "can_resolve_023_B": true,
+  "can_resolve_043_A": true,
+  "can_resolve_043_B": true,
+  "can_resolve_043_C": true,
+  "legacy_023_ambiguous": "023",
+  "legacy_043_ambiguous": "043"
+}

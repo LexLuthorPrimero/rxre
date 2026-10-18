@@ -86,7 +86,9 @@ from backends import registry  # noqa: E402
 from backends.contract import (  # noqa: E402
     BK_BLOCKED, BK_EMPTY, BK_ERROR, BK_INVALID, BK_OK, BK_UNSUPPORTED,
     BASIC_BLOCK, FUNCTION_CANDIDATE, Backend, sha256_de, sha256_texto,
+    estado_firma,
 )
+from . import provenance as _prov
 
 #: Los CLIs meten secuencias ANSI; sus `[` falsean la puerta de
 #: busqueda de la lista JSON (MEDIDO 2026-10-12).
@@ -248,6 +250,16 @@ def functions(artefacto: str, backend_id: str = "rizin",
         if not pre["input_existe"]:
             return {"status": BK_INVALID, "precheck": pre,
                     "limitations": ["la entrada no existe: %s" % artefacto]}
+        if os.path.isfile(artefacto) and estado_firma(artefacto) == "no_legible":
+            pre["elf_tipo"] = ""
+            return {"status": BK_INVALID, "precheck": pre,
+                    "limitations": ["la entrada EXISTE pero no es legible "
+                                    "(permiso o E/S): %s" % artefacto,
+                                    "no se pudo leer la firma: NO se sabe si "
+                                    "es ELF (distinto de saber que no lo es)",
+                                    "no se invoco al producer: `aflj` sobre "
+                                    "un artefacto ilegible no puede "
+                                    "discoverir funciones"]}
         pre["elf_tipo"] = _elf_tipo(artefacto)
         if not pre["elf_tipo"]:
             return {"status": BK_INVALID, "precheck": pre,
@@ -308,7 +320,7 @@ def functions(artefacto: str, backend_id: str = "rizin",
         return {"status": BK_BLOCKED, "precheck": pre, "ejecucion": ejec,
                 "backend": ident,
                 "limitations": ejec.get("limitations", []),
-                "provenance": "PROVENANCE_INCOMPLETE: no hay salida"}
+                "provenance": _prov.construir(estado=_prov.ESTADO_INCOMPLETA, motivo_incompleta='no hay salida', transformacion="rizin -c 'aa; aflj' -> json.loads -> candidatos a funcion con rango y tamano", normalizador='backends.adapters.rz_functions.functions')}
 
     if rc not in (0, None):
         ejec.update({"status": BK_ERROR,
@@ -317,7 +329,7 @@ def functions(artefacto: str, backend_id: str = "rizin",
         return {"status": BK_ERROR, "precheck": pre, "ejecucion": ejec,
                 "backend": ident,
                 "limitations": ejec.get("limitations", []),
-                "provenance": "PROVENANCE_INCOMPLETE: producer fallo"}
+                "provenance": _prov.construir(estado=_prov.ESTADO_INCOMPLETA, motivo_incompleta='producer fallo', transformacion="rizin -c 'aa; aflj' -> json.loads -> candidatos a funcion con rango y tamano", normalizador='backends.adapters.rz_functions.functions')}
 
     # --- PARSEO ---------------------------------------------------------
     # MEDIDO 2026-10-12 (RXRE-1632): los escapes ANSI CONTIENEN `[`
@@ -425,7 +437,7 @@ def functions(artefacto: str, backend_id: str = "rizin",
                 "backend": ident, "results": [], "n_functions": 0,
                 "cobertura": cobertura, "limitations": lim,
                 "diferencia_medida": DIFERENCIA_MEDIDA,
-                "provenance": "completa"}
+                "provenance": _prov.desde_precheck(pre, transformacion="rizin -c 'aa; aflj' -> json.loads -> candidatos a funcion con rango y tamano", normalizador='backends.adapters.rz_functions.functions')}
 
     version = b.identidad().get("tool_version", "")
     artefacto_ref = artefacto if not fixture_json else fixture_json
@@ -435,6 +447,10 @@ def functions(artefacto: str, backend_id: str = "rizin",
         "%s|%s|%s|%d" % (artefacto_ref, backend_id, verb,
                          len(crudas)))[:12]
     res = {
+        "completitud": {"completo": len(funciones) <= 2000,
+                        "omitidos": max(0, len(funciones) - 2000),
+                        "limite": 2000,
+                        "elemento": "funciones"},
         "result_id": rid,
         "type": FUNCTION_CANDIDATE,
         "value": valor,
@@ -456,7 +472,7 @@ def functions(artefacto: str, backend_id: str = "rizin",
             "backend": ident, "results": [res], "n_functions": len(funciones),
             "cobertura": cobertura, "limitations": lim,
             "diferencia_medida": DIFERENCIA_MEDIDA,
-            "provenance": "completa"}
+            "provenance": _prov.desde_precheck(pre, transformacion="rizin -c 'aa; aflj' -> json.loads -> candidatos a funcion con rango y tamano", normalizador='backends.adapters.rz_functions.functions')}
 
 # ---------------------------------------------------------------------------
 # `binary.basic_blocks`. RXRE-1633.
@@ -526,6 +542,17 @@ def basic_blocks(artefacto: str, funcion: str = "",
                        or "?")]}
     b: Backend = ent["backend"]
 
+    if (not fixture_json and os.path.isfile(artefacto)
+            and estado_firma(artefacto) == "no_legible"):
+        return {"status": BK_INVALID, "precheck": {"input_existe": True,
+                "input_legible": False, "input_es_elf": None,
+                "elf_tipo": "", "input_hash": "",
+                "backend_existe": b.existe(), "backend_path": b.path() or "",
+                "usa_fixture": bool(fixture_json), "ok": False},
+                "limitations": ["la entrada EXISTE pero no es legible "
+                                "(permiso o E/S): %s" % artefacto,
+                                "no se pudo leer la firma: NO se sabe si "
+                                "es ELF (distinto de saber que no lo es)"]}
     etipo = "" if fixture_json else _elf_tipo(artefacto)
     pre = {"input_existe": os.path.isfile(artefacto) or bool(fixture_json),
            "input_es_elf": bool(etipo), "elf_tipo": etipo, "input_hash": "",
@@ -597,14 +624,14 @@ def basic_blocks(artefacto: str, funcion: str = "",
             "37 MB es un trabajo de minutos, no de segundos." % timeout]})
         return {"status": BK_BLOCKED, "precheck": pre, "ejecucion": ejec,
                 "backend": ident, "limitations": ejec["limitations"],
-                "provenance": "PROVENANCE_INCOMPLETE: no hay salida"}
+                "provenance": _prov.construir(estado=_prov.ESTADO_INCOMPLETA, motivo_incompleta='no hay salida', transformacion="rizin -c 'aa; aflj' -> json.loads -> candidatos a funcion con rango y tamano", normalizador='backends.adapters.rz_functions.functions')}
     if rc not in (0, None):
         ejec.update({"status": BK_ERROR, "limitations": [
             "el producer salio con rc=%s: %s"
             % (rc, ANSI.sub("", se).strip()[:300] or salida.strip()[:300])]})
         return {"status": BK_ERROR, "precheck": pre, "ejecucion": ejec,
                 "backend": ident, "limitations": ejec["limitations"],
-                "provenance": "PROVENANCE_INCOMPLETE: producer fallo"}
+                "provenance": _prov.construir(estado=_prov.ESTADO_INCOMPLETA, motivo_incompleta='producer fallo', transformacion="rizin -c 'aa; aflj' -> json.loads -> candidatos a funcion con rango y tamano", normalizador='backends.adapters.rz_functions.functions')}
 
     texto = ANSI.sub("", salida or "")
     inicio = texto.find("[")
@@ -615,7 +642,7 @@ def basic_blocks(artefacto: str, funcion: str = "",
             "stdout (primeros 200): %s" % texto[:200]]})
         return {"status": BK_ERROR, "precheck": pre, "ejecucion": ejec,
                 "backend": ident, "limitations": ejec["limitations"],
-                "provenance": "PROVENANCE_INCOMPLETE: salida no parseable"}
+                "provenance": _prov.construir(estado=_prov.ESTADO_INCOMPLETA, motivo_incompleta='salida no parseable', transformacion="rizin -c 'aa; aflj' -> json.loads -> candidatos a funcion con rango y tamano", normalizador='backends.adapters.rz_functions.functions')}
     try:
         crudos = json.loads(texto[inicio:])
     except ValueError as exc:
@@ -623,13 +650,13 @@ def basic_blocks(artefacto: str, funcion: str = "",
                      "limitations": ["JSON mal formado: %s" % exc]})
         return {"status": BK_ERROR, "precheck": pre, "ejecucion": ejec,
                 "backend": ident, "limitations": ejec["limitations"],
-                "provenance": "PROVENANCE_INCOMPLETE: JSON invalido"}
+                "provenance": _prov.construir(estado=_prov.ESTADO_INCOMPLETA, motivo_incompleta='JSON invalido', transformacion="rizin -c 'aa; aflj' -> json.loads -> candidatos a funcion con rango y tamano", normalizador='backends.adapters.rz_functions.functions')}
     if not isinstance(crudos, list):
         ejec.update({"status": BK_ERROR, "limitations": [
             "`afbj` devolvio %s, no una lista" % type(crudos).__name__]})
         return {"status": BK_ERROR, "precheck": pre, "ejecucion": ejec,
                 "backend": ident, "limitations": ejec["limitations"],
-                "provenance": "PROVENANCE_INCOMPLETE: forma inesperada"}
+                "provenance": _prov.construir(estado=_prov.ESTADO_INCOMPLETA, motivo_incompleta='forma inesperada', transformacion="rizin -c 'aa; aflj' -> json.loads -> candidatos a funcion con rango y tamano", normalizador='backends.adapters.rz_functions.functions')}
 
     bloques = [{"crudo": x} for x in crudos if isinstance(x, dict)]
     if limite and limite > 0:
@@ -664,7 +691,7 @@ def basic_blocks(artefacto: str, funcion: str = "",
         ejec.update({"status": BK_EMPTY, "limitations": lim})
         return {"status": BK_EMPTY, "precheck": pre, "ejecucion": ejec,
                 "backend": ident, "results": [], "n_bloques": 0,
-                "limitations": lim, "provenance": "completa"}
+                "limitations": lim, "provenance": _prov.desde_precheck(pre, transformacion="rizin -c 'aa; aflj' -> json.loads -> candidatos a funcion con rango y tamano", normalizador='backends.adapters.rz_functions.functions')}
 
     ref = fixture_json or artefacto
     res = {
@@ -672,6 +699,10 @@ def basic_blocks(artefacto: str, funcion: str = "",
             "%s|%s|%d" % (ref, backend_id, len(crudos)))[:12],
         "type": BASIC_BLOCK,
         "value": {"n_bloques": len(bloques), "bloques": bloques[:2000]},
+        "completitud": {"completo": len(bloques) <= 2000,
+                        "omitidos": max(0, len(bloques) - 2000),
+                        "limite": 2000,
+                        "elemento": "bloques"},
         "source": ref, "location": {"file": os.path.basename(ref)},
         "scope": "binary",
         "tool": "fixture" if fixture_json else backend_id,
@@ -684,5 +715,5 @@ def basic_blocks(artefacto: str, funcion: str = "",
     ejec.update({"status": BK_OK})
     return {"status": BK_OK, "precheck": pre, "ejecucion": ejec,
             "backend": ident, "results": [res], "n_bloques": len(bloques),
-            "limitations": lim, "provenance": "completa",
+            "limitations": lim, "provenance": _prov.desde_precheck(pre, transformacion="rizin -c 'aa; aflj' -> json.loads -> candidatos a funcion con rango y tamano", normalizador='backends.adapters.rz_functions.functions'),
             "diferencia_medida": DIFERENCIA_BLOQUES}

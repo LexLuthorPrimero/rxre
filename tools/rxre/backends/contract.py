@@ -142,6 +142,23 @@ def sha256_de(path: str) -> str:
     return h.hexdigest()
 
 
+def estado_firma(ruta: str) -> str:
+    """Estado de la FIRMA del artefacto: 'elf' | 'no_elf' | 'no_legible'.
+
+    AIRE: antes cada adaptador colapsaba ilegible→'no es ELF' (OSError -> False
+    / '' / {}). Una afirmación falsa: la firma no se leyó. No-saber se reporta
+    como no-saber (None en la precondición correspondiente), separando
+    existencia/lectura/firma. Fuente única: si se deben cambiar las reglas,
+    se cambian aquí y no en 8 copias.
+    """
+    try:
+        with open(ruta, "rb") as fh:
+            m = fh.read(4)
+    except OSError:
+        return "no_legible"
+    return "elf" if m[:4] == b"\x7fELF" else "no_elf"
+
+
 def sha256_texto(s: str) -> str:
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
 

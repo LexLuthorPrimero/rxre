@@ -1,0 +1,179 @@
+{
+  "classes": {
+    "Sprite_8388": {
+      "type": "game object",
+      "sprite_id": 8388,
+      "size": 3281
+    },
+    "Sprite_8389": {
+      "type": "game object",
+      "sprite_id": 8389,
+      "size": 457
+    },
+    "Sprite_8390": {
+      "type": "game object",
+      "sprite_id": 8390,
+      "size": 4776
+    },
+    "Sprite_8391": {
+      "type": "game object",
+      "sprite_id": 8391,
+      "size": 48858
+    },
+    "ItemGenerator": {
+      "type": "item generation",
+      "roles": [
+        "weapons",
+        "armor",
+        "items",
+        "store items"
+      ],
+      "sprite_id": 8392,
+      "size": 137118
+    },
+    "Sprite_8393": {
+      "type": "game object",
+      "sprite_id": 8393,
+      "size": 8714
+    },
+    "Sprite_8394": {
+      "type": "game object",
+      "sprite_id": 8394,
+      "size": 9304
+    },
+    "Sprite_8395": {
+      "type": "game object",
+      "sprite_id": 8395,
+      "size": 5899
+    },
+    "Sprite_8396": {
+      "type": "game object",
+      "sprite_id": 8396,
+      "size": 8791
+    },
+    "MadWorld": {
+      "type": "world management",
+      "roles": [
+        "world map",
+        "level generation",
+        "arena"
+      ],
+      "sprite_id": 8397,
+      "size": 106686
+    },
+    "Sprite_8398": {
+      "type": "game object",
+      "sprite_id": 8398,
+      "size": 41025
+    },
+    "Sprite_8399": {
+      "type": "game object",
+      "sprite_id": 8399,
+      "size": 8379
+    },
+    "Sprite_8400": {
+      "type": "game object",
+      "sprite_id": 8400,
+      "size": 5527
+    },
+    "Sprite_8401": {
+      "type": "game object",
+      "sprite_id": 8401,
+      "size": 10712
+    },
+    "SwainAudioPlayer": {
+      "type": "audio system",
+      "roles": [
+        "audio",
+        "sound management",
+        "music"
+      ],
+      "sprite_id": 8402,
+      "size": 52654
+    },
+    "Sprite_8403": {
+      "type": "game object",
+      "sprite_id": 8403,
+      "size": 2809
+    },
+    "Sprite_8404": {
+      "type": "game object",
+      "sprite_id": 8404,
+      "size": 1177
+    },
+    "Sprite_8405": {
+      "type": "game object",
+      "sprite_id": 8405,
+      "size": 3739
+    },
+    "Sprite_8406": {
+      "type": "game object",
+      "sprite_id": 8406,
+      "size": 27832
+    },
+    "Sprite_8407": {
+      "type": "game object",
+      "sprite_id": 8407,
+      "size": 4546
+    },
+    "Sprite_8408": {
+      "type": "game object",
+      "sprite_id": 8408,
+      "size": 5042
+    },
+    "Sprite_8409": {
+      "type": "game object",
+      "sprite_id": 8409,
+      "size": 16079
+    },
+    "Sprite_8410": {
+      "type": "game object",
+      "sprite_id": 8410,
+      "size": 1531
+    },
+    "Sprite_8411": {
+      "type": "game object",
+      "sprite_id": 8411,
+      "size": 1188
+    },
+    "Sprite_8412": {
+      "type": "game object",
+      "sprite_id": 8412,
+      "size": 1620
+    },
+    "Sprite_8413": {
+      "type": "game object",
+      "sprite_id": 8413,
+      "size": 20471
+    },
+    "Sprite_8414": {
+      "type": "game object",
+      "sprite_id": 8414,
+      "size": 598
+    },
+    "Sprite_8415": {
+      "type": "game object",
+      "sprite_id": 8415,
+      "size": 2887
+    },
+    "Sprite_8416": {
+      "type": "game object",
+      "sprite_id": 8416,
+      "size": 4804
+    },
+    "Sprite_8417": {
+      "type": "game object",
+      "sprite_id": 8417,
+      "size": 11798
+    }
+  },
+  "functions": {},
+  "variables": {},
+  "event_handlers": {},
+  "game_flow": [],
+  "state_transitions": {},
+  "input_mappings": {},
+  "audio_systems": {},
+  "menu_systems": {},
+  "world_systems": {}
+}

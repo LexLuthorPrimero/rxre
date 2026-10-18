@@ -1,0 +1,20 @@
+{
+  "12a3462_fix_resolve_trace_enum": {
+    "source": "legacy:e99a0ad",
+    "files": [
+      "tools/trace_path.py",
+      "benchmark/DOGFOOD-002.md",
+      "benchmark/dogfood-002/rxre-outputs/replay-trace-producer-kernelbuild.txt",
+      "benchmark/dogfood-002/rxre-outputs/replay-trace-consumer-kernelbuild.txt",
+      "benchmark/dogfood-002/rxre-outputs/replay-trace-working-NOTFOUND.txt"
+    ],
+    "description": "DOGFOOD-002 trace resolver fix"
+  },
+  "9ce74c5_perf_exact_word_fast_path": {
+    "source": "legacy:97bae69",
+    "files": [
+      "tools/evidence_search.py"
+    ],
+    "description": "SEARCH-OPT-003 exact-word search fast path"
+  }
+}

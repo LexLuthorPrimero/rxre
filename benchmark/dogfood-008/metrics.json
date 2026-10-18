@@ -1,0 +1,81 @@
+{
+  "dogfood": "DOGFOOD-008",
+  "pregunta": "Como se construye y termina consumiendo la escritura de VM_CONTEXT0_CNTL en el camino GFX8/Polaris12?",
+  "repo": "/home/lucas/Escritorio/rxre",
+  "repo_head": "9ce74c53ba5a356fed9893c5f62b32e01f9d883a",
+  "repo_branch": "migration/validated-legacy-work",
+  "corpus": "RESEARCH/kernelbuild/linux-7.1.3",
+  "corpus_archivos_c": 36706,
+  "amd_subtree": "drivers/gpu/drm/amd",
+  "metricas": {
+    "RXRE_INVOCATIONS": 17,
+    "FAILED_RXRE_CALLS": 3,
+    "RECOVERY_CALLS": 2,
+    "REPEATED_CALLS": 4,
+    "MANUAL_SHELL_CALLS": 18,
+    "SEARCH_CALLS": 2,
+    "REGISTER_CALLS": 3,
+    "RELATION_CALLS": 2,
+    "CLAIM_CALLS": 2,
+    "TRACE_CALLS": 4
+  },
+  "desglose": {
+    "RXRE_INVOCATIONS": "13 exploracion ([1]-[13]) + 4 re-captura (C1,C2,C3,C5)",
+    "FAILED_RXRE_CALLS": "[6] trace_path --chip POLARIS12 (token invalido, rc=2); [7] trace_path --callers-of --chip POLARIS12 (token invalido, rc=2); [9] trace_path --callers-of --chip CHIP_POLARIS12 (timeout 120000ms)",
+    "RECOVERY_CALLS": "[8] trace_path --from --chip CHIP_POLARIS12 (recupera [6] con token correcto, exito); S9 grep de callers (recupera [9] timeout por shell)",
+    "REPEATED_CALLS": "C1=reg_resolve VM_CONTEXT0_CNTL, C2=reg_resolve mmVM_CONTEXT0_CNTL, C3=evidence_search VM_CONTEXT0_CNTL, C5=trace_path --from (args identicos a [2],[5],[3],[8])",
+    "MANUAL_SHELL_CALLS": "S1-S17 (17) + C4 cp (1) = 18",
+    "clasificacion_shell": {
+      "AUXILIARY_SHELL": 16,
+      "RXRE_CAPABILITY_GAP_recovery": 1,
+      "nota": "AUXILIARY_SHELL = leer/parsear fuente (RXRE localiza, la IA interpreta la transformacion/semantica). RXRE_CAPABILITY_GAP_recovery = S9, grep de callers porque trace_path --callers-of (capacidad RXRE) hizo timeout."
+    }
+  },
+  "capacidades_rxre_usadas": {
+    "register": "tools/reg_resolve.py",
+    "search": "tools/evidence_search.py",
+    "trace": "tools/trace_path.py",
+    "relations": "tools/relations.py",
+    "claims": "tools/claims.py"
+  },
+  "gaps_rxre_observados": [
+    {
+      "id": "RXRE_CORRECTNESS_GAP-1",
+      "herramienta": "reg_resolve.py",
+      "sintoma": "--resolve VM_CONTEXT0_CNTL (sin prefijo mm) -> definition_count=0, symbol_class=constant_maybe",
+      "causa": "el resolver no prueba el prefijo 'mm' de las macros asic_reg",
+      "estado": "OBSERVADO, NO REPARADO (regla DOGFOOD-008: no reparar gaps)"
+    },
+    {
+      "id": "RXRE_CORRECTNESS_GAP-2",
+      "herramienta": "reg_resolve.py",
+      "sintoma": "--resolve mmVM_CONTEXT0_CNTL -> definition_count=11, chosen=None, candidates=[]",
+      "causa": "el resolver encuentra las 11 definiciones entre generaciones/IP-blocks pero NO elige la aplicable al ASIC (gfx_8_0/Polaris12)",
+      "estado": "OBSERVADO, NO REPARADO"
+    },
+    {
+      "id": "RXRE_CAPABILITY_GAP-3",
+      "herramienta": "trace_path.py",
+      "sintoma": "--callers-of gmc_v8_0_gart_enable --chip CHIP_POLARIS12 -> timeout 120000ms",
+      "causa": "la consulta inversa no termina sobre el corpus completo (970 ficheros del subtree amd)",
+      "estado": "OBSERVADO; recuperado por grep (S9)"
+    },
+    {
+      "id": "RXRE_LIMITATION-4",
+      "herramienta": "trace_path.py",
+      "sintoma": "--from resuelve simbolos genericos (dev_err, memset, container_of) a ubicaciones arbitrarias por coincidencia textual",
+      "causa": "el trazador indexa por nombre de simbolo sin desambiguar macro-expansion ni fn-ptr",
+      "estado": "LIMITACION conocida (selftest: 'veredicto por rama declarada, NO prueba ejecucion real')"
+    }
+  ],
+  "bidireccionalidad": {
+    "producer_a_consumer_flujo_datos": "PASS",
+    "consumer_a_producer_flujo_datos": "FAIL",
+    "producer_a_consumer_grafo_llamadas": "FAIL (no hay arista directa; relacion via registro compartido)",
+    "consumer_a_producer_grafo_llamadas": "FAIL (el consumidor nunca invoca al productor)",
+    "verdicto": "PARTIAL",
+    "justificacion": "El consumidor (gmc_v8_0_vm_fault_interrupt_state) lee y reescribe mmVM_CONTEXT0_CNTL preservando los bits que el productor (gmc_v8_0_gart_enable) establecio -> dependencia de datos productor->consumer (PASS). El productor lee el registro a t=init (valor de reset), ANTES de que el consumidor ejecute -> no fluye dato consumer->producer (FAIL). En el grafo de llamadas no hay arista en ningun sentido (ambos son llamados desde fases distintas del init). BIDIRECTIONAL_RELATION=PARTIAL: bidireccional sobre el registro compartido, unidireccional en flujo de datos y ausente en grafo de llamadas."
+  },
+  "estado_cierre": "QUESTION_RESOLVED",
+  "fecha": "2026-10-08"
+}

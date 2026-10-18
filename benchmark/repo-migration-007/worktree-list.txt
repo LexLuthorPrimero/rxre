@@ -1,0 +1,24 @@
+# REPO-MIGRATION-007 — worktree-list.txt
+# Estado de los worktrees de trabajo
+timestamp=2026-10-08T13:53:05Z
+
+## Trabajo principal
+worktree /home/lucas/Escritorio/rxre
+HEAD 9ce74c53ba5a356fed9893c5f62b32e01f9d883a
+branch refs/heads/migration/validated-legacy-work
+dirty_modified=112
+dirty_untracked=98
+dirty_total=210
+
+## Otros worktrees existentes
+HEAD 9ce74c53ba5a356fed9893c5f62b32e01f9d883a
+branch refs/heads/migration/validated-legacy-work
+
+worktree /tmp/opencode/rxre-reconcile
+HEAD 3a607d04b7a1db7e1a84aee2d594c5b73dba65fe
+branch refs/heads/p02-reconcile
+
+
+## Worktree de promoción
+worktree /tmp/rxre-promotion-pPoQZC
+status = REMOVED
