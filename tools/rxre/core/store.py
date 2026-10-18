@@ -2666,7 +2666,21 @@ def actualizar_estado_finding(c: sqlite3.Connection, finding_id: str,
     contrato es "dime si aplique". Quien quiera lanzar (reevaluar_finding)
     chequea el 0 y lanza StaleVersionError. Dos semantica, una decision:
     la funcion publica reporta, la de alto nivel exige.
+
+    [v3-2] INVALIDATED no es automatico: si alguien intenta setear
+    INVALIDATED sin haber registrado una reevaluacion documentada, se
+    rechaza. La unica via legitima es reevaluar_finding(), que registra
+    la reevaluacion Y actualiza el estado en el mismo paso.
     """
+    if nuevo_estado == "INVALIDATED":
+        reev = c.execute(
+            "SELECT 1 FROM finding_reevaluations "
+            "WHERE finding_id=? AND decision='INVALIDATED' LIMIT 1",
+            (finding_id,)).fetchone()
+        if reev is None:
+            raise ValueError(
+                "INVALIDATED requiere reevaluacion documentada "
+                "(finding_reevaluations con decision='INVALIDATED')")
     cur = c.execute(
         "UPDATE findings SET epistemic = ?, version = version + 1 "
         "WHERE finding_id = ? AND version = ?",
