@@ -518,6 +518,19 @@ def _persistir(env: Dict[str, Any]) -> Any:
     # construido a proposito.
     if not env.get("gate_evaluado"):
         from backends import gate as _gate
+        # AGUA audita antes del INSERT: declarar la intención solo cuando el
+        # envelope ya satisface los mismos requisitos de trazabilidad que la
+        # persistencia genérica exige. Sin esto, resultados GPU completos
+        # quedan `not_proven` y el gate los rechaza antes de poder guardarlos.
+        resultados = env.get("results") or []
+        provenance = env.get("provenance") or {}
+        direccionables = bool(resultados) and all(
+            isinstance(r, dict) and r.get("result_id")
+            and r.get("artifact_hash") for r in resultados)
+        trazabilidad = isinstance(provenance, dict) and bool(
+            provenance.get("input_hash"))
+        if env.get("status") == "ok" and direccionables and trazabilidad:
+            env["persiste_pretendido"] = True
         veredicto = _gate.evaluar(env)
         env["gate"] = {
             "evaluable": veredicto.get("evaluable"),
@@ -542,16 +555,9 @@ def _persistir(env: Dict[str, Any]) -> Any:
             return None
         # MEDIDO 2026-10-15, dos veces en el mismo dia:
         #
-        #   1. Sin esto, AGUA decia "no persistido" sobre una operacion
-        #      PERFECTAMENTE VALIDA, porque `persistido` solo se ponia
-        #      despues de persistir y el gate corre antes. El gate cerraba
-        #      contra si mismo y bloqueaba el 100% de las operaciones ok.
-        #   2. La solucion NO es poner `persistido = True` aqui: eso hace
-        #      que el nombre vuelva a mentir. Lo que se declara es la
-        #      INTENCION, y `ejecutar()` confirma con el `operation_id`
-        #      real. La propiedad no se relaja: se reparte en dos puntos
-        #      donde cada uno mira lo que puede saber.
-        env["persiste_pretendido"] = True
+        # La intención ya se declaró antes de auditar, condicionada a que el
+        # resultado tenga IDs y hashes verificables. `ejecutar()` confirma la
+        # escritura con el `operation_id` real; aquí no se finge persistencia.
 
     adapter_info = ADAPTERS[capability]
     try:

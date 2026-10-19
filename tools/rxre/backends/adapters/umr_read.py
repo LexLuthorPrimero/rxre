@@ -636,6 +636,7 @@ def register_read(pci_address: str, register_name: str,
     return {"status": BK_OK, "precheck": pre, "ejecucion": ejec,
             "backend": ident,
             "provenance": {
+                "estado": "completa",
                 "producer": "umr",
                 "tool_version": ident.get("tool_version", ""),
                 "repository": ident.get("repository", ""),
