@@ -1236,7 +1236,10 @@ def _handle_run(params: dict) -> dict:
     if "artefact_check" in locals():
         limitations.extend(artefact_check.get("limitations", []))
     # AIRE: boolean de validacion de contrato para consumo rapido
-    artefact_ok = bool(artefact_check.get("ok")) if "artefact_check" in locals() else True
+    artefact_ok = (
+        None if artefact_check.get("applicable") is False
+        else bool(artefact_check.get("ok"))
+    ) if "artefact_check" in locals() else True
 
     # La respuesta publica incluye tanto el status del envelope como del backend
     # y todos los campos del adapter (finding_id, claim, epistemic, relaciones,
@@ -3585,6 +3588,7 @@ def _verificar_integridad_artefacto(params: dict) -> dict:
 
     result = {
         "ok": False,
+        "applicable": True,
         "artifact_path": artifact_path,
         "artifact_exists": False,
         "artifact_readable": None,
@@ -3594,6 +3598,13 @@ def _verificar_integridad_artefacto(params: dict) -> dict:
     }
 
     if not artifact_path:
+        if params.get("capability") == "gpu.register_read":
+            # gpu.register_read toma una dirección PCI y un nombre de registro;
+            # no consume un archivo. Tratar la ausencia de archivo como fallo
+            # de integridad contaminaba el precheck y el diagnóstico.
+            result.update({"ok": True, "applicable": False,
+                           "target": params.get("pci_address")})
+            return result
         result["limitations"].append("no se proporcionó artefacto")
         return result
 

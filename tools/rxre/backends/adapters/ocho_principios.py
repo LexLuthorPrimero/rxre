@@ -166,7 +166,10 @@ def alma(env: Dict[str, Any]) -> V:
         return no_provado("sin resultados no hay proposito que evaluar")
     r0 = res[0] if isinstance(res[0], dict) else {}
     val = r0.get("value")
-    tiene_patron = bool((r0.get("raw") or {}).get("n_coincidencias"))
+    raw0 = r0.get("raw") or {}
+    if not isinstance(raw0, dict):
+        raw0 = {}
+    tiene_patron = bool(raw0.get("n_coincidencias"))
 
     # MEDIDO 2026-10-15. Conectar el gate al dispatch rompio
     # `test_dispatch004` porque `binary.inspect` no tiene `patron`. No es un
@@ -378,6 +381,13 @@ def eter(env: Dict[str, Any]) -> V:
     r0 = res[0] if isinstance(res[0], dict) else {}
     val = r0.get("value") or {}
     raw = r0.get("raw") or {}
+    # Backends como UMR entregan valores escalares y stdout crudo como texto;
+    # ETER se apoya en artifact_hash para enlazarlos. Normalizar aquí evita
+    # invocar .get sobre int/str y convierte una observación válida en rechazo.
+    if not isinstance(val, dict):
+        val = {}
+    if not isinstance(raw, dict):
+        raw = {}
 
     tiene_ruido = val.get("nodos", 0) > 0
     tiene_enlace = bool(raw.get("n_coincidencias"))
