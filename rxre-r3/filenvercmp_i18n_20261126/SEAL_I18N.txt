@@ -1,0 +1,15 @@
+12af1c158b782648a1cdf12060a20f0cb2af4857b7aa22a353c94af223b1caf8  /home/lucas/Escritorio/rxre/rxre-r3/filenvercmp_i18n_20261126/names_i18n.txt
+73617e67c68b232ed3c9fd89079733e2a90ba4e4c94ccfbc7e75e7f1fb1e290d  /home/lucas/Escritorio/rxre/rxre-r3/filenvercmp_i18n_20261126/oracle_lsAv_i18n.txt
+73617e67c68b232ed3c9fd89079733e2a90ba4e4c94ccfbc7e75e7f1fb1e290d  /home/lucas/Escritorio/rxre/rxre-r3/filenvercmp_i18n_20261126/reconstructed_sorted_i18n.txt
+462c81df124263d35c3aa82165e33453e6b791a292c6943b83948ecd19f36e9e  /home/lucas/Escritorio/rxre/rxre-r3/filenvercmp_i18n_20261126/sort_names.c
+
+## Hito 12 — filenvercmp i18n black-box en es_AR.utf8: seal  [2026-11-13 06:00 UTC aprox.]
+Objetivo: discriminar locale dependence del ordenamiento version-aware en nombres UTF-8.
+Corpus:  200 nombres UTF-8 válidos (seed 20261126, mayoría únicos; fragments sintéticos propios).
+Oráculo: export LC_ALL=es_AR.utf8; ls -Av (nombres sintéticos en tmpfs, ejecución local del binario real).
+Verificación: salida byte-idéntica de sort_names(filenvercmp reconstruction) vs ls -Av.
+Resultado: IDENTICAL_SEQUENCE (cmp, exit=0).
+Discriminación: 200/200 nombres mixtos (é, ü, 中, 🎉, α, ~, (, ), ., numéricos, case).
+Límites: ejercida LC_ALL=es_AR.utf8 únicamente; otros locales NOT_EXECUTED; el hallazgo es
+black-box (no distingue si GNU trata UTF-8 internamente distinto: sólo que el resultado coincide aquí).
+No está portado a ese locale en el paquete publicado (idéntica semántica observable aquí).
