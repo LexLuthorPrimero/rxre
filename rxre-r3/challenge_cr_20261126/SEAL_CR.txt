@@ -1,0 +1,22 @@
+80ed5336a025c6ebc16b5c19c9e35cfb7fcf5bd2591452c2f9c35188ebd972d1  cases_challenge_seed20261126.txt
+5baf097059382103518dbd2edf142a09768466c52e4910301b852b5a7ba0a7f8  matrix_challenge.txt
+914313db98853f7f8d48f60981f5f57a852ee71508a3e90c08bdd90ba6a0832d  gen_challenge_cr.py
+
+## Hito 13 — challenge corpus externo para filenvercmp: seal-before-reveal  [2026-11-13 01:45 UTC aprox.]
+Objetivo: poner a prueba el modelo sellado fuera de la distribución del generador original.
+Corpus: gen_challenge_cr.py 20261126 (generador INDEPENDIENTE; clases: long>=32B, num-pad, num-dots, unicode-lead, tilde, libre).
+sha256: 80ed5336a025c6ebc16b5c19c9e35cfb7fcf5bd2591452c2f9c35188ebd972d1  cases_challenge_seed20261126.txt
+cases:  3.100 pares. Discriminación genérica respecto al corpus sellado: 95.1% nombres con bytes >=0x80, 1.875/3.100 casos max>=32B, 225 unique return values.
+Nota de contenido: 0 casos igualdad (native nunca retornó 0) → prueba de igualdad NO ejercida aquí.
+Sello: corpus ANTES de oráculo; acceso al oracle vía mmap sobre /usr/bin/ls verificado (matrix_gen.c, hash file robusto).
+Oráculo: 5baf097059382103518dbd2edf142a09768466c52e4910301b852b5a7ba0a7f8  matrix_challenge.txt (es_AR.utf8 no aplica: filenvercmp es byte-level; LC_ALL irrelevante para este oráculo)
+Reconstrucción verificada: 3.100/3.100, 0 divergencias (exit=0), 0 defectos observables por este generador.
+Nota de método: 0 equality pairs -> segunda generación del challenge DEBE incluir pares idénticos deliberados.
+28e6de9f55070ec997caf1687ab940084d346b9b52a42fc5a67901a4cd8363a1  cases_challenge_b_seed20261126.txt
+d8e98498e957df87784e5e0ab2d9b5c7297e81909ffa8209d5592e914ddf0a10  matrix_challenge_b.txt
+
+## Hito 13b — challenge con 141 pares idénticos deliberados  [2026-11-13]
+Corpus:  refuerzo 5% de pares a==b (28e6de9f…, 3.241 casos totales).
+Oráculo: dbd93-none (matrix_challenge_b.txt; verification exit=0, equal entries=141).
+Reconstrucción verificada: 3.241/3.241, 0 divergencias (exit=0), 0.0 defectos.
+Cobertura conjunta hito 13+13b: 3.100 + 141 nuevos casos = 3.241; UTF-8 bytes=95.1%; 225 unique returns (con 141 extras zero presentes).
