@@ -1,0 +1,19 @@
+a5d0b09a7f1dd14c2d1d288a6900f3af5023ae5b0828e20768e5583e4b46103e  cases_files0_from_seed20261127.txt
+aa1a7ef220e3cb9967360f843f776c6ab93659d6d4bf4140dc2c1a78259a5142  oracle_default.txt
+7bfb8bcfbd49b6d0e3a8b4afe4295cf0f41fb66d71abf4b75e0d91e4f847aaa3  oracle_-l.txt
+8acb38055edd443c4bd267daab38d7ada3ee3974a4d03dbcb35596d1c3cdcfd1  recon_default.txt
+af3df369cdd3b7a7256537413a4b24e7b5e3afbacca83f830cc7e5c19facf791  recon_-l.txt
+876666dafa9322cc1e2e6f8fd84630beb375a4615cda9fa8ecf0c1621042b5d9  wc_files0.c
+34581279a8311a27ec89abdd1f231034fb186066b26e5b53d71e0c2cfd30c91a  wc_files0_oracle.py
+
+## Hito 15 — wc --files0-from en es_AR.utf8: seal  [2026-11-13 ~02:00 UTC]
+Objetivo: dotar a la reconstrucción cuantizada de la única dimensión GNU no cubierta.
+Corpus: 3000 archivos sintéticos mixed UTF-8 (contenido multibyte), seed 20261127, sha a5d0b09a…
+Sellos: corpus y oráculo (generado con cwd=<WORKDIR> tras detectar que GNU interpreta rutas relativas contra cwd — `wc --files0-from` requiere exactamente ese comportamiento análogo a nuestra invocación).
+Frente de verificación: tokens GNU vs tokens reconstrucción (L W B default + `-l`), exit codes y stderr por archivó faltante.
+Resultado:
+- default: 12.004 tokens idénticos (3000 líneas + total)
+- -l:      6.002 tokens idénticos
+- failure case: mismo stdout + exit code 1 + mismo texto de error
+0 divergencias observadas en los tres modos en el entorno sellado.
+Nota de método: GNU ejecuta rutas desde su cwd → el runner hace cwd=WORKDIR; equivalencia byte a byte NO aplica (padding GNU vs secuencial nuestro); la comparación por tokens es lo verificado.
