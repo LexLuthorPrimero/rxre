@@ -154,3 +154,28 @@ Probes nativos LC_ALL=es_AR.utf8:
   'aébéc\n'                       → L=5   (modelo: 5 ✓)
 -límite del modelo UTF-8: el ancho de chars de ancho doble (CJK, U+4E00...) es 2 en wcwidth pero nuestro modelo da 1.
 Not_EXECUTED: anchos Unicode completos (wcwidth) — requiere tabla de ancho Unicode; multibyte -L del corpus completo no es verificado exhaustivamente (sólo probes puntuales).
+
+## Hito 9 — wc -m (chars multibyte) en es_AR.utf8: seal-before-reveal  [2026-11-13]
+Objetivo: cerrar la vía -m NOT_EXECUTED (hito 8: -m ≡ -c verificado sólo en LC_ALL=C).
+Corpus:  python3 gen_wc_utf8char_cases.py 20261121 cases_m_utf8_seed20261121.txt
+sha256:  2a2fae5213ec9f531a4a0b47cb8bc7be107bc48e2f511852ab89b57af4c80585  cases_m_utf8_seed20261121.txt
+cases:   1526 (ASCII + secuencias UTF-8 válidas de 2/3/4 bytes: é, NBSP, NBSP, €, 中, em-dash, ZWSP, U+10000, U+10FFFF, Bengali, combinantes)
+Sello: corpus ANTES de generar oráculo (2026-11-13 03:37 UTC aprox.)
+
+Oráculo: LC_ALL=es_AR.utf8 wc -m (wc_oracle_m.py) → matrix_native_m_utf8.txt
+sha256:  8e85e0f525b13acb962f80e198387f32df001dd95f0b7c28e890b7b96e2bd881
+cases:   1526 · CRASH: 0
+
+Modelo: ext. a wc_recon.c → wc_recon_m9.c (wc_count += chars; count_utf8++ por codepoint decodificado;
+count_c chars=bytes (MB_CUR_MAX=1)). Verificador: verify_m.c (arg C|utf8 fuerza la ruta; modo utf8 usado).
+pkg privado: NO se publica (no re-release; rxre-cleanroom permanece @fe3c6f7).
+
+Verificación diferencial:
+- UTF-8 path (verify_m ... utf8): total=1526 mismatches=0 (exit=0)
+- Discriminación: 1499/1526 casos donde -m != -c (bytes-as-chars fallaría 1499 veces)
+- Fuzz diagnóstico (no sellado; seed 20261122; 2000 contenidos aleatorios válidos): 0/2000 fallos vs nativo
+
+Notas:
+- Corpus sólo UTF-8 válido; bytes inválidos fuera de alcance (NOT_EXECUTED: reparación glibc de secuencias inválidas).
+- -m en LC_ALL=C == bytes (MB_CUR_MAX=1): cierre hito 7 previo (35.941 + 4.926/4.926).
+- El hito demuestra chars ≡ codepoints para estas secuencias; no reclama exhaustividad WC_WIDTH ni East-Asian-Wide (-L sigue abierto).
