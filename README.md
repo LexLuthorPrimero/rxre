@@ -2,6 +2,11 @@
 
 Estado: `READY_NOT_PUBLISHED` (candidata preparada para actualización controlada de `https://github.com/LexLuthorPrimero/rxre`).
 
+**Identidad oficial:** ver `RXRE_IDENTIDAD.md` (2026-11-12). **Estado real:** ver `RXRE_ESTADO.md`. **Índice del Plan Maestro:** ver `RXRE_INDICE.md`.
+
+## Verificación pública de terceros
+`https://github.com/LexLuthorPrimero/rxre-cleanroom` — reconstrucción verificable de `filenvercmp` (GNU coreutils 9.10) con corpus sellado y diferencial a tolerancia cero. Estado: verificación propia (0/34.145 ×2 generaciones); **verificación por terceros: NOT_EXECUTED** (pendiente). Reproducir o refutar: ver `INDEX.md` en el paquete.
+
 ## Propósito
 RXRE es una plataforma de ingeniería inversa quirúrgica para IA basada en observación real, procedencia, razonamiento causal, pruebas discriminantes y validación epistemológica (`PROVEN`/`VALID`/`PARTIAL`/`NOT_DETERMINED`). No eleva afirmaciones a `PROVEN` automáticamente.
 

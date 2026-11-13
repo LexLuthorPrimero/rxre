@@ -1,0 +1,156 @@
+# RXRE-R3/Fase2 — Cadena sellada de /usr/bin/wc (hito 1)
+# 2026-11-12 · Autorización propietario ("sigamos trabajando" → Fase 2 acordada).
+# Seal-before-reveal: corpus sellado ANTES de producir la matriz oráculo.
+# Alcance declarado del hito 1: /usr/bin/wc en LC_ALL=C, salida por defecto (líneas palabras bytes),
+#   contenidos ASCII unibyte sin NUL, tamaños ≤ 64 B. Multibyte/locale fuera de alcance.
+# Objetivo del binario: /usr/bin/wc — sha256 81d614595c717be908fce809713702efd35ce5a56f5ab7cbc497d1a61eb1a38f
+#   BuildID 07a56ef5bcfd9b400c0dc0441530607b3c7d65f8 · 61.448 B · stripped · ELF64 PIE dinámico.
+
+## Paso 1 — corpus sellado (ANTES del oráculo)
+cmd:    python3 gen_wc_cases.py 20261114 cases_seed20261114.txt
+sha256: 4a2b85bbd12efc6507f6732fd85432be48d2d7805b96dcd902fb8a591de860cc  cases_seed20261114.txt
+cases:  4899
+metrics no incluidas en el corpus (regla: el oráculo las produce; el corpus no las presume).
+
+## Paso 2 — oráculo nativo (DESPUÉS del sellado)
+cmd:    LC_ALL=C wc <archivo-sintético-por-caso>; tokens extraídos → "L W B\n"
+sha256: (rellenado post-oráculo)
+casos sin CRASH: (rellenado post-oráculo)
+
+## Paso 3 — criterios de cierre del hito 1 (pre-registrados, vinculantes)
+- Reconstrucción semántica E2E en LC_ALL=C: diferencial int-exacta vs oráculo en los 4899 casos, 0 tolerancia.
+- Segunda generación (seed 20261115) antes de cualquier dictamen.
+- Verificación por tercero (OUTREACH del paquete público) antes de cualquier PASS.
+- Ninguna promoción de estado hasta terceros + revisión humana.
+
+## Restricciones preservadas
+Sin GPU, sin sudo, sin --auto, sin op:claim. Corpus filenvercmp 20261112/20261113 intactos.
+El oráculo usa el binario real (ejecución local permitida sobre el objetivo de análisis).
+
+## Paso 2 — oráculo nativo (DESPUÉS del sellado)  [2026-11-12]
+cmd:    python3 wc_oracle.py cases_seed20261114.txt matrix_native_wc.txt work
+sha256: 20842467ac4fa8645e7b844177b84a4e7edf37f0bbbaea4b502604683a0112bb  matrix_native_wc.txt
+cases:  4899 · CRASH: 0 · líneas no-enteras: 0
+spot-checks independientes: 'abc\n' → '1 1 4' ✓; caso vacío → '0 0 0' ✓
+
+## Estado hito 1
+Corpus y oráculo SELLADOS. Reconstrucción semántica E2E: NO INICIADA (siguiente misión).
+Clausura solo con: diferencial int-exacta 0/4899 + 2ª generación (seed 20261115) + tercero.
+
+## Segunda generación (seed 20261115) — inicio
+cmd:    python3 gen_wc_cases.py 20261115 cases_seed20261115.txt
+sha256: bb21a816da51deb656f93290850c7334f32caba9302ad2599578d9a896390067  cases_seed20261115.txt
+cases: 4914
+
+## Paso 2 (20261115) — oráculo
+cmd:    python3 wc_oracle.py cases_seed20261115.txt matrix_native_wc_20261115.txt work2
+sha256: 72cfcecd2b1506c51d6c7a5050c4cfb8f604a2879ee33128830d104ac8eb4d47  matrix_native_wc_20261115.txt
+cases: 4914 · CRASH: 0
+
+## Paso 4 — modelo reconstruido (observacional, LC_ALL=C, salida por defecto)  [2026-11-12]
+wc_recon.c: wc_count count() — bytes altos clasif. NO-espacio; {20,09,0a,0b,0c,0d}=espacio; palabras=runs no-espacio; líneas=0x0a.
+Verificado contra oráculos sellados: 4899/4899 (20261114) y 4914/4914 (20261115), exit=0.
+Fuzz diagnóstico (no sellado): 20.000 contenidos aleatorios (bytes altos/controles incluidos) → 0 divergencias.
+Límites: modelo obtenido por observación + verificación de disasm (vía unibyte langC con __ctype_b_loc);
+NO hay aún port 1:1 del disasm completo wc (main, formato, flags, -L, multibyte). Fases pendientes: flags (-c -m -l -w -L), milestone 20261115 completo, third-party.
+
+## Hito 1.5 — verificación de mecanismo desde disasm  [2026-11-12]
+Evidencia localizada (records/disas o wc.asm):
+- wc cachea el puntero de tabla ctype desde __ctype_b_loc (store global en 0x1506-0x151b y 0x184c).
+- Clasificador unibyte: WORD PTR [tabla+rax*2] & 0x4000 >> 14 (0x59b2-0x59bf) — bit de espacio C-locale; el modelo observacional coincide empíricamente (0/4899 + 0/4914 + 20.000 fuzz 0/0).
+- Alternativa unibyte vía __ctype_b_loc con test de bit 0x1000? (0x5987+): mismo origen de tabla.
+- PORT 1:1 COMPLETO DE WC: NOT_EXECUTED (8.4K líneas disasm; CPUID/init/formato/args dominantes). El lazo de conteo exacto sigue sin port; milestone 1 queda verde por diferencial sellado, no por port.
+
+## Hito 2 — flags (seed 20261116), seal-before-reveal
+cmd:    python3 gen_wc_flags_cases.py 20261116 cases_wcflags_seed20261116.txt
+sha256: 32414b9810f2a566e77ae04e5703b451595516dbe588ece46ee4800768e303b4  cases_wcflags_seed20261116.txt
+cases:  11872 (1484 contenidos únicos × 8 conjuntos de flags)
+Dominio: default, -c, -l, -w, -c -l, -c -w, -l -w, -c -l -w · LC_ALL=C · unibyte · salida vía stdin (sin nombre de archivo en la salida).
+
+## Hito 2 — flags (seed 20261116), cierre
+oráculo (DESPUÉS del sello del corpus):
+cmd:    python3 wc_flags_oracle.py cases_wcflags_seed20261116.txt matrix_native_wcflags.txt workf
+sha256: adc83227df98ccb304d1574252778628be5e0d776d91b00cf51422ead99f1df0  matrix_native_wcflags.txt
+cases:  11872 · CRASH: 0 · salida por defecto vía stdin sin nombre de archivo
+Reconstrucción (flags {default,-c,-l,-w} + combinaciones): wc_recon.c + verify_wcflags → total=11872 mismatches=0 (exit=0)
+Spot: default"0 0 0"/"0 0 1" ✓; "-c" → solo bytes ✓; "-l -w" → líneas palabras ✓; "-c -l" → líneas bytes ✓
+
+## Hito 3 — flags+L (seed 20261117), seal-before-reveal
+cmd:    python3 gen_wc_L_cases.py 20261117 cases_wcL_seed20261117.txt
+sha256: 16faf89c1d559117689887ef2ea6a100f120df69c3a64f819e3f2a871421c330  cases_wcL_seed20261117.txt
+cases:  13072 (817 contenidos × 16 conjuntos de flags {default,-l,-w,-c,-L, + combinaciones})
+Dominio: LC_ALL=C · unibyte · tab→siguiente múltiplo de 8 · ancho 1 printable · demás 0.
+oráculo: wc vía stdin, salida cruda normalizada a tokens únicos.
+
+## Hito 3 — -L (max-line) + dominio completo {l,w,c,L}, cierre  [2026-11-12]
+oráculo: sha256 de2fc092adf8ca47aa0c915bc86c2a7e086d4cf3cbecb82ca76b3e8bb865b6df  matrix_native_wcL.txt (13072 casos, 0 CRASH)
+Hallazgo clave (sondeo contra nativo): wc -L en LC_ALL=C trata 0x0c (\f) y 0x0d (\r) como RESET de columna (ancho 0, cursor→0, SIN contar línea); tab avanza a múltiplos de 8; printable ASCII=1; demás bytes=0; max por posición (no solo en \n).
+Reconstrucción (wc_recon.c actualizado): 13072/13072 · exit=0.
+Stress diagnóstico -L (no sellado): 30.000 contenidos aleatorios (ctrl/tabs/0x7f/0xff) → 0 divergencias.
+Regresión verificada: 20261114 (4899/0), 20261115 (4914/0), 20261116 flags (11872/0).
+
+## Hito 1.5 — port 1:1 desde disasm  [2026-11-12]
+LOCALIZADO CON PRECISIÓN:
+- Contador de líneas: AVX512 (apex 0x75e1: vextracti64x4/vpmovzxwd/vpaddq zmm) + AVX2 (0x77a0 vpcmpeqb+vpmovmskb+popcnt) + tail escalar (0x7680/0x78e0: cmp BYTE PTR [rax],0xa; sete cl; add rbx,rcx). Es un count_newlines() puro → modelo (lines = count(0x0a)) replica su función observable EXACTA.
+- Clasificador de bytes palabra/espacio: doble vía en el parser/rutina genérica (regiones 0x57e0–5ba1): (a) glibc ctype global vía __ctype_b_loc → WORD PTR [table+rax*2] & 0x4000 >> 14 (0x59b2–59bf); (b) bitset propio de 256 bits en .rodata ([rbp-0x70] con bt eax,ecx; words en rsi= (int*)table + (b>>5)*4) (0x59e5–5a02).
+- NO localizado/NOT_EXECUTED: la función CONCRETA de wc que instancia el lazo de palabras (candidatos: rutinas grandes en 0x4910–0x7bc0 y 0x2850–0x3d10); paths multibyte (0x1506/0x184c región init; Llamadas mbrtowc@0x15ab/0x1c21; iswspace/wcwidth en 0x8a74/0x8b8d vía función multibyte 0x8810+); parsing de flags/-L/formato de columnas; port 1:1 de TODO wc.
+VEREDICTO hito 1.5: el modelo LC_ALL=C reproduce el oráculo sellado (0/4899 + 0/4914 + 20.000 fuzz) PERO NO hay port del disasm; la semántica está verificada empíricamente, no por transcripción. Port 1:1: NOT_EXECUTED.
+
+## Hito 5 — bytes altos y multibyte (seed 20261118), seal-before-reveal
+cmd:    python3 gen_wc_high_cases.py 20261118 cases_high_seed20261118.txt
+sha256: 91e6dbbf81803941709ac0c0903ed6254522d3b33465450705cf25c1e1037b83  cases_high_seed20261118.txt
+cases:  1184 (structured + random con bytes >= 0x80 y secuencias UTF-8)
+oráculos: LC_ALL=C y es_AR.utf8 (mil locales distintos — detectan sesgos del modelo ASCII fijo)
+Nota: el corpus sello ANTES del oráculo; objetivo: exponer el sesgo del modelo ASCII fijo.
+
+## Hito 5 — discriminación de bytes altos/multibyte (seed 20261118)  [2026-11-12]
+Corpus: 1184 casos (seed 20261118, bytes >= 0x80 y secuencias UTF-8) — SEAL antes del oráculo; sha256 91e6dbbf…
+Orácalos: LC_ALL=C (e7fc6be6…) y es_AR.utf8 (608c4090…, 706 casos difieren entre locales → el dominio del locale ES relevante).
+
+Probe binario (cada byte como 'A<b>A', words vs LC_ALL=C):
+  C:   {0x09,0x0a,0x0b,0x0c,0x0d,0x20,0xa0} = separadores de palabra (incluye NBSP suelto).
+  es_AR.utf8: {0x09,0x0a,0x0b,0x0c,0x0d,0x20} (+ secuencias UTF-8 que codifican espacio, p.ej. c2 a0=U+00A0).
+Tests NBSP: C:'A\xa0A'→2w; es:'A\xc2\xa0A'→2w; C:'A\xc3\xa9A'→1w; es:'A\xa0A'→1w; -L: c2a0=1 celda (es), bytes sueltos=0 (ambos).
+
+DEFECTO REAL ENCONTRADO Y CORREGIDO: la tabla de espacios original {09,0a,0b,0c,0d,20} omitía 0xa0 (NBSP).
+Diagnóstico vía corpus de bytes altos (seed 20261118): 755 mismatches C; tras corregir {+0xa0}: 1184/1184 en LC_ALL=C.
+Regresión verificada: 20261114 (4899/0), 20261115 (4914/0), 20261116 (11872/0), 20261117 (13072/0).
+UTF-8/es_AR.utf8: 706 mismatches residuales — dominio NO cubierto por este modelo (pendiente HITO UTF-8).
+Gap histórico del corpus ASCII-only documentado (lección 791 ticket del hito 1.5).
+
+## Hito 7 — -m (chars) en LC_ALL=C: seal-before-reveal
+cmd:    python3 gen_wc_cases.py 20261119 cases_m_seed20261119.txt
+sha256: 5dbc2dfe76a3146edaa30d69927e90795608ad860d051045a33d94092b58274e  cases_m_seed20261119.txt
+cases: 4926
+Segundo oráculo/verificación binaria: todos los casos del corpus cumplen wc -m == wc -c
+(verificado en 20261119: 4926/4926; en corpora previos: 35941/35941)
+Dominio: LC_ALL=C ⇒ MB_CUR_MAX == 1 ⇒ chars == bytes por byte-ítem; verificado previamente (35941/35941 vs -c).
+
+## Hito 8 — UTF-8/multibyte (hito alcanzado parcial)  [2026-11-12]
+Byte 0x00-0x7f funciona vía misma tabla que C + regex UTF-8.
+corpus seed 20261120 = variante UTF-8 de 20261118 (gen; eneveos).
+cmd:    python3 gen_wc_high_cases.py 20261120 cases_highutf8_seed20261120.txt
+sha256: PLACEHOLDER2
+
+## Hito 8 — sellado final UTF-8 (seed 20261120)
+cmd:    python3 gen_wc_high_cases.py 20261120 cases_highutf8_seed20261120.txt
+sha256: 4aa434677a0e40c14e80d246e8fd909c5d59cdb3d17797cbf3967f0bd51267c8
+cases:  1184
+oráculos sellados DESPUÉS del sello del corpus (c837c82199… en C y 0018862154… en UTF-8; el primer intento fue
+empañado por fallback a LC_ALL=C por defecto en el runner -c837c82199- volvió a generar como el mismo hash):
+- matrix_highutf8_C.txt  c837c82199612641cb6b661b19a4c1a6d18ee8e32ce03bc50956461aab3f3893  (generado con LC_ALL=C)
+- matrix_highutf8.txt    0018862154d5400f43b5c718b7127bed689886982997325b96651e4e039efd13  (generado con LC_ALL=es_AR.utf8)
+Verificación diferencial:
+- UTF-8 path (verify_wc_utf8 sin LC_ALL):    total=1184 mismatches=0 (exit=0)
+- C path (LC_ALL=C verify_wc_utf8):          total=1184 mismatches=0 (exit=0)
+Bug encontrado y corregido: runner usaba os.environ.get('LC_ALL','C') sin exportación → siempre C; regeneración
+correcta bajo ambos locales. Sin impacto en los hitos 1-3 (todos verificados con LC_ALL=C explícito).
+
+## Hito 8 (cont.) — Multibyte -L verificación puntual  [2026-11-12]
+Probes nativos LC_ALL=es_AR.utf8:
+  'aéb\n'         (a + é + b)      → L=3   (modelo: 3 ✓)
+  'ééa\n'                          → L=3   (modelo: 3 ✓)
+  'a<NBSP>b\n'    (a + U+00A0 + b) → L=3   (modelo: 3 ✓)
+  'aébéc\n'                       → L=5   (modelo: 5 ✓)
+-límite del modelo UTF-8: el ancho de chars de ancho doble (CJK, U+4E00...) es 2 en wcwidth pero nuestro modelo da 1.
+Not_EXECUTED: anchos Unicode completos (wcwidth) — requiere tabla de ancho Unicode; multibyte -L del corpus completo no es verificado exhaustivamente (sólo probes puntuales).

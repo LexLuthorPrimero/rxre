@@ -1,0 +1,1200 @@
+ 1 prefix= 1 out= 1  x
+ 3 prefix= 1 out= 3  x.a
+ 3 prefix= 1 out= 3  x.A
+ 3 prefix= 3 out= 3  x.1
+ 4 prefix= 1 out= 4  x.q1
+ 4 prefix= 4 out= 4  x.1a
+ 5 prefix= 1 out= 5  x.AA1
+ 5 prefix= 5 out= 5  x.1AA
+ 5 prefix= 1 out= 5  x.a.a
+ 5 prefix= 1 out= 5  x.a.A
+ 5 prefix= 5 out= 5  x.a.1
+ 6 prefix= 1 out= 6  x.a.q1
+ 6 prefix= 6 out= 6  x.a.1a
+ 7 prefix= 1 out= 7  x.a.AA1
+ 7 prefix= 7 out= 7  x.a.1AA
+ 5 prefix= 1 out= 5  x.A.a
+ 5 prefix= 1 out= 5  x.A.A
+ 5 prefix= 5 out= 5  x.A.1
+ 6 prefix= 1 out= 6  x.A.q1
+ 6 prefix= 6 out= 6  x.A.1a
+ 7 prefix= 1 out= 7  x.A.AA1
+ 7 prefix= 7 out= 7  x.A.1AA
+ 5 prefix= 3 out= 5  x.1.a
+ 5 prefix= 3 out= 5  x.1.A
+ 5 prefix= 5 out= 5  x.1.1
+ 6 prefix= 3 out= 6  x.1.q1
+ 6 prefix= 6 out= 6  x.1.1a
+ 7 prefix= 3 out= 7  x.1.AA1
+ 7 prefix= 7 out= 7  x.1.1AA
+ 6 prefix= 1 out= 6  x.q1.a
+ 6 prefix= 1 out= 6  x.q1.A
+ 6 prefix= 6 out= 6  x.q1.1
+ 7 prefix= 1 out= 7  x.q1.q1
+ 7 prefix= 7 out= 7  x.q1.1a
+ 8 prefix= 1 out= 8  x.q1.AA1
+ 8 prefix= 8 out= 8  x.q1.1AA
+ 6 prefix= 4 out= 6  x.1a.a
+ 6 prefix= 4 out= 6  x.1a.A
+ 6 prefix= 6 out= 6  x.1a.1
+ 7 prefix= 4 out= 7  x.1a.q1
+ 7 prefix= 7 out= 7  x.1a.1a
+ 8 prefix= 4 out= 8  x.1a.AA1
+ 8 prefix= 8 out= 8  x.1a.1AA
+ 7 prefix= 1 out= 7  x.AA1.a
+ 7 prefix= 1 out= 7  x.AA1.A
+ 7 prefix= 7 out= 7  x.AA1.1
+ 8 prefix= 1 out= 8  x.AA1.q1
+ 8 prefix= 8 out= 8  x.AA1.1a
+ 9 prefix= 1 out= 9  x.AA1.AA1
+ 9 prefix= 9 out= 9  x.AA1.1AA
+ 7 prefix= 5 out= 7  x.1AA.a
+ 7 prefix= 5 out= 7  x.1AA.A
+ 7 prefix= 7 out= 7  x.1AA.1
+ 8 prefix= 5 out= 8  x.1AA.q1
+ 8 prefix= 8 out= 8  x.1AA.1a
+ 9 prefix= 5 out= 9  x.1AA.AA1
+ 9 prefix= 9 out= 9  x.1AA.1AA
+ 7 prefix= 1 out= 7  x.a.a.a
+ 7 prefix= 1 out= 7  x.a.a.A
+ 7 prefix= 7 out= 7  x.a.a.1
+ 8 prefix= 1 out= 8  x.a.a.q1
+ 8 prefix= 8 out= 8  x.a.a.1a
+ 9 prefix= 1 out= 9  x.a.a.AA1
+ 9 prefix= 9 out= 9  x.a.a.1AA
+ 7 prefix= 1 out= 7  x.a.A.a
+ 7 prefix= 1 out= 7  x.a.A.A
+ 7 prefix= 7 out= 7  x.a.A.1
+ 8 prefix= 1 out= 8  x.a.A.q1
+ 8 prefix= 8 out= 8  x.a.A.1a
+ 9 prefix= 1 out= 9  x.a.A.AA1
+ 9 prefix= 9 out= 9  x.a.A.1AA
+ 7 prefix= 5 out= 7  x.a.1.a
+ 7 prefix= 5 out= 7  x.a.1.A
+ 7 prefix= 7 out= 7  x.a.1.1
+ 8 prefix= 5 out= 8  x.a.1.q1
+ 8 prefix= 8 out= 8  x.a.1.1a
+ 9 prefix= 5 out= 9  x.a.1.AA1
+ 9 prefix= 9 out= 9  x.a.1.1AA
+ 8 prefix= 1 out= 8  x.a.q1.a
+ 8 prefix= 1 out= 8  x.a.q1.A
+ 8 prefix= 8 out= 8  x.a.q1.1
+ 9 prefix= 1 out= 9  x.a.q1.q1
+ 9 prefix= 9 out= 9  x.a.q1.1a
+10 prefix= 1 out=10  x.a.q1.AA1
+10 prefix=10 out=10  x.a.q1.1AA
+ 8 prefix= 6 out= 8  x.a.1a.a
+ 8 prefix= 6 out= 8  x.a.1a.A
+ 8 prefix= 8 out= 8  x.a.1a.1
+ 9 prefix= 6 out= 9  x.a.1a.q1
+ 9 prefix= 9 out= 9  x.a.1a.1a
+10 prefix= 6 out=10  x.a.1a.AA1
+10 prefix=10 out=10  x.a.1a.1AA
+ 9 prefix= 1 out= 9  x.a.AA1.a
+ 9 prefix= 1 out= 9  x.a.AA1.A
+ 9 prefix= 9 out= 9  x.a.AA1.1
+10 prefix= 1 out=10  x.a.AA1.q1
+10 prefix=10 out=10  x.a.AA1.1a
+11 prefix= 1 out=11  x.a.AA1.AA1
+11 prefix=11 out=11  x.a.AA1.1AA
+ 9 prefix= 7 out= 9  x.a.1AA.a
+ 9 prefix= 7 out= 9  x.a.1AA.A
+ 9 prefix= 9 out= 9  x.a.1AA.1
+10 prefix= 7 out=10  x.a.1AA.q1
+10 prefix=10 out=10  x.a.1AA.1a
+11 prefix= 7 out=11  x.a.1AA.AA1
+11 prefix=11 out=11  x.a.1AA.1AA
+ 7 prefix= 1 out= 7  x.A.a.a
+ 7 prefix= 1 out= 7  x.A.a.A
+ 7 prefix= 7 out= 7  x.A.a.1
+ 8 prefix= 1 out= 8  x.A.a.q1
+ 8 prefix= 8 out= 8  x.A.a.1a
+ 9 prefix= 1 out= 9  x.A.a.AA1
+ 9 prefix= 9 out= 9  x.A.a.1AA
+ 7 prefix= 1 out= 7  x.A.A.a
+ 7 prefix= 1 out= 7  x.A.A.A
+ 7 prefix= 7 out= 7  x.A.A.1
+ 8 prefix= 1 out= 8  x.A.A.q1
+ 8 prefix= 8 out= 8  x.A.A.1a
+ 9 prefix= 1 out= 9  x.A.A.AA1
+ 9 prefix= 9 out= 9  x.A.A.1AA
+ 7 prefix= 5 out= 7  x.A.1.a
+ 7 prefix= 5 out= 7  x.A.1.A
+ 7 prefix= 7 out= 7  x.A.1.1
+ 8 prefix= 5 out= 8  x.A.1.q1
+ 8 prefix= 8 out= 8  x.A.1.1a
+ 9 prefix= 5 out= 9  x.A.1.AA1
+ 9 prefix= 9 out= 9  x.A.1.1AA
+ 8 prefix= 1 out= 8  x.A.q1.a
+ 8 prefix= 1 out= 8  x.A.q1.A
+ 8 prefix= 8 out= 8  x.A.q1.1
+ 9 prefix= 1 out= 9  x.A.q1.q1
+ 9 prefix= 9 out= 9  x.A.q1.1a
+10 prefix= 1 out=10  x.A.q1.AA1
+10 prefix=10 out=10  x.A.q1.1AA
+ 8 prefix= 6 out= 8  x.A.1a.a
+ 8 prefix= 6 out= 8  x.A.1a.A
+ 8 prefix= 8 out= 8  x.A.1a.1
+ 9 prefix= 6 out= 9  x.A.1a.q1
+ 9 prefix= 9 out= 9  x.A.1a.1a
+10 prefix= 6 out=10  x.A.1a.AA1
+10 prefix=10 out=10  x.A.1a.1AA
+ 9 prefix= 1 out= 9  x.A.AA1.a
+ 9 prefix= 1 out= 9  x.A.AA1.A
+ 9 prefix= 9 out= 9  x.A.AA1.1
+10 prefix= 1 out=10  x.A.AA1.q1
+10 prefix=10 out=10  x.A.AA1.1a
+11 prefix= 1 out=11  x.A.AA1.AA1
+11 prefix=11 out=11  x.A.AA1.1AA
+ 9 prefix= 7 out= 9  x.A.1AA.a
+ 9 prefix= 7 out= 9  x.A.1AA.A
+ 9 prefix= 9 out= 9  x.A.1AA.1
+10 prefix= 7 out=10  x.A.1AA.q1
+10 prefix=10 out=10  x.A.1AA.1a
+11 prefix= 7 out=11  x.A.1AA.AA1
+11 prefix=11 out=11  x.A.1AA.1AA
+ 7 prefix= 3 out= 7  x.1.a.a
+ 7 prefix= 3 out= 7  x.1.a.A
+ 7 prefix= 7 out= 7  x.1.a.1
+ 8 prefix= 3 out= 8  x.1.a.q1
+ 8 prefix= 8 out= 8  x.1.a.1a
+ 9 prefix= 3 out= 9  x.1.a.AA1
+ 9 prefix= 9 out= 9  x.1.a.1AA
+ 7 prefix= 3 out= 7  x.1.A.a
+ 7 prefix= 3 out= 7  x.1.A.A
+ 7 prefix= 7 out= 7  x.1.A.1
+ 8 prefix= 3 out= 8  x.1.A.q1
+ 8 prefix= 8 out= 8  x.1.A.1a
+ 9 prefix= 3 out= 9  x.1.A.AA1
+ 9 prefix= 9 out= 9  x.1.A.1AA
+ 7 prefix= 5 out= 7  x.1.1.a
+ 7 prefix= 5 out= 7  x.1.1.A
+ 7 prefix= 7 out= 7  x.1.1.1
+ 8 prefix= 5 out= 8  x.1.1.q1
+ 8 prefix= 8 out= 8  x.1.1.1a
+ 9 prefix= 5 out= 9  x.1.1.AA1
+ 9 prefix= 9 out= 9  x.1.1.1AA
+ 8 prefix= 3 out= 8  x.1.q1.a
+ 8 prefix= 3 out= 8  x.1.q1.A
+ 8 prefix= 8 out= 8  x.1.q1.1
+ 9 prefix= 3 out= 9  x.1.q1.q1
+ 9 prefix= 9 out= 9  x.1.q1.1a
+10 prefix= 3 out=10  x.1.q1.AA1
+10 prefix=10 out=10  x.1.q1.1AA
+ 8 prefix= 6 out= 8  x.1.1a.a
+ 8 prefix= 6 out= 8  x.1.1a.A
+ 8 prefix= 8 out= 8  x.1.1a.1
+ 9 prefix= 6 out= 9  x.1.1a.q1
+ 9 prefix= 9 out= 9  x.1.1a.1a
+10 prefix= 6 out=10  x.1.1a.AA1
+10 prefix=10 out=10  x.1.1a.1AA
+ 9 prefix= 3 out= 9  x.1.AA1.a
+ 9 prefix= 3 out= 9  x.1.AA1.A
+ 9 prefix= 9 out= 9  x.1.AA1.1
+10 prefix= 3 out=10  x.1.AA1.q1
+10 prefix=10 out=10  x.1.AA1.1a
+11 prefix= 3 out=11  x.1.AA1.AA1
+11 prefix=11 out=11  x.1.AA1.1AA
+ 9 prefix= 7 out= 9  x.1.1AA.a
+ 9 prefix= 7 out= 9  x.1.1AA.A
+ 9 prefix= 9 out= 9  x.1.1AA.1
+10 prefix= 7 out=10  x.1.1AA.q1
+10 prefix=10 out=10  x.1.1AA.1a
+11 prefix= 7 out=11  x.1.1AA.AA1
+11 prefix=11 out=11  x.1.1AA.1AA
+ 8 prefix= 1 out= 8  x.q1.a.a
+ 8 prefix= 1 out= 8  x.q1.a.A
+ 8 prefix= 8 out= 8  x.q1.a.1
+ 9 prefix= 1 out= 9  x.q1.a.q1
+ 9 prefix= 9 out= 9  x.q1.a.1a
+10 prefix= 1 out=10  x.q1.a.AA1
+10 prefix=10 out=10  x.q1.a.1AA
+ 8 prefix= 1 out= 8  x.q1.A.a
+ 8 prefix= 1 out= 8  x.q1.A.A
+ 8 prefix= 8 out= 8  x.q1.A.1
+ 9 prefix= 1 out= 9  x.q1.A.q1
+ 9 prefix= 9 out= 9  x.q1.A.1a
+10 prefix= 1 out=10  x.q1.A.AA1
+10 prefix=10 out=10  x.q1.A.1AA
+ 8 prefix= 6 out= 8  x.q1.1.a
+ 8 prefix= 6 out= 8  x.q1.1.A
+ 8 prefix= 8 out= 8  x.q1.1.1
+ 9 prefix= 6 out= 9  x.q1.1.q1
+ 9 prefix= 9 out= 9  x.q1.1.1a
+10 prefix= 6 out=10  x.q1.1.AA1
+10 prefix=10 out=10  x.q1.1.1AA
+ 9 prefix= 1 out= 9  x.q1.q1.a
+ 9 prefix= 1 out= 9  x.q1.q1.A
+ 9 prefix= 9 out= 9  x.q1.q1.1
+10 prefix= 1 out=10  x.q1.q1.q1
+10 prefix=10 out=10  x.q1.q1.1a
+11 prefix= 1 out=11  x.q1.q1.AA1
+11 prefix=11 out=11  x.q1.q1.1AA
+ 9 prefix= 7 out= 9  x.q1.1a.a
+ 9 prefix= 7 out= 9  x.q1.1a.A
+ 9 prefix= 9 out= 9  x.q1.1a.1
+10 prefix= 7 out=10  x.q1.1a.q1
+10 prefix=10 out=10  x.q1.1a.1a
+11 prefix= 7 out=11  x.q1.1a.AA1
+11 prefix=11 out=11  x.q1.1a.1AA
+10 prefix= 1 out=10  x.q1.AA1.a
+10 prefix= 1 out=10  x.q1.AA1.A
+10 prefix=10 out=10  x.q1.AA1.1
+11 prefix= 1 out=11  x.q1.AA1.q1
+11 prefix=11 out=11  x.q1.AA1.1a
+12 prefix= 1 out=12  x.q1.AA1.AA1
+12 prefix=12 out=12  x.q1.AA1.1AA
+10 prefix= 8 out=10  x.q1.1AA.a
+10 prefix= 8 out=10  x.q1.1AA.A
+10 prefix=10 out=10  x.q1.1AA.1
+11 prefix= 8 out=11  x.q1.1AA.q1
+11 prefix=11 out=11  x.q1.1AA.1a
+12 prefix= 8 out=12  x.q1.1AA.AA1
+12 prefix=12 out=12  x.q1.1AA.1AA
+ 8 prefix= 4 out= 8  x.1a.a.a
+ 8 prefix= 4 out= 8  x.1a.a.A
+ 8 prefix= 8 out= 8  x.1a.a.1
+ 9 prefix= 4 out= 9  x.1a.a.q1
+ 9 prefix= 9 out= 9  x.1a.a.1a
+10 prefix= 4 out=10  x.1a.a.AA1
+10 prefix=10 out=10  x.1a.a.1AA
+ 8 prefix= 4 out= 8  x.1a.A.a
+ 8 prefix= 4 out= 8  x.1a.A.A
+ 8 prefix= 8 out= 8  x.1a.A.1
+ 9 prefix= 4 out= 9  x.1a.A.q1
+ 9 prefix= 9 out= 9  x.1a.A.1a
+10 prefix= 4 out=10  x.1a.A.AA1
+10 prefix=10 out=10  x.1a.A.1AA
+ 8 prefix= 6 out= 8  x.1a.1.a
+ 8 prefix= 6 out= 8  x.1a.1.A
+ 8 prefix= 8 out= 8  x.1a.1.1
+ 9 prefix= 6 out= 9  x.1a.1.q1
+ 9 prefix= 9 out= 9  x.1a.1.1a
+10 prefix= 6 out=10  x.1a.1.AA1
+10 prefix=10 out=10  x.1a.1.1AA
+ 9 prefix= 4 out= 9  x.1a.q1.a
+ 9 prefix= 4 out= 9  x.1a.q1.A
+ 9 prefix= 9 out= 9  x.1a.q1.1
+10 prefix= 4 out=10  x.1a.q1.q1
+10 prefix=10 out=10  x.1a.q1.1a
+11 prefix= 4 out=11  x.1a.q1.AA1
+11 prefix=11 out=11  x.1a.q1.1AA
+ 9 prefix= 7 out= 9  x.1a.1a.a
+ 9 prefix= 7 out= 9  x.1a.1a.A
+ 9 prefix= 9 out= 9  x.1a.1a.1
+10 prefix= 7 out=10  x.1a.1a.q1
+10 prefix=10 out=10  x.1a.1a.1a
+11 prefix= 7 out=11  x.1a.1a.AA1
+11 prefix=11 out=11  x.1a.1a.1AA
+10 prefix= 4 out=10  x.1a.AA1.a
+10 prefix= 4 out=10  x.1a.AA1.A
+10 prefix=10 out=10  x.1a.AA1.1
+11 prefix= 4 out=11  x.1a.AA1.q1
+11 prefix=11 out=11  x.1a.AA1.1a
+12 prefix= 4 out=12  x.1a.AA1.AA1
+12 prefix=12 out=12  x.1a.AA1.1AA
+10 prefix= 8 out=10  x.1a.1AA.a
+10 prefix= 8 out=10  x.1a.1AA.A
+10 prefix=10 out=10  x.1a.1AA.1
+11 prefix= 8 out=11  x.1a.1AA.q1
+11 prefix=11 out=11  x.1a.1AA.1a
+12 prefix= 8 out=12  x.1a.1AA.AA1
+12 prefix=12 out=12  x.1a.1AA.1AA
+ 9 prefix= 1 out= 9  x.AA1.a.a
+ 9 prefix= 1 out= 9  x.AA1.a.A
+ 9 prefix= 9 out= 9  x.AA1.a.1
+10 prefix= 1 out=10  x.AA1.a.q1
+10 prefix=10 out=10  x.AA1.a.1a
+11 prefix= 1 out=11  x.AA1.a.AA1
+11 prefix=11 out=11  x.AA1.a.1AA
+ 9 prefix= 1 out= 9  x.AA1.A.a
+ 9 prefix= 1 out= 9  x.AA1.A.A
+ 9 prefix= 9 out= 9  x.AA1.A.1
+10 prefix= 1 out=10  x.AA1.A.q1
+10 prefix=10 out=10  x.AA1.A.1a
+11 prefix= 1 out=11  x.AA1.A.AA1
+11 prefix=11 out=11  x.AA1.A.1AA
+ 9 prefix= 7 out= 9  x.AA1.1.a
+ 9 prefix= 7 out= 9  x.AA1.1.A
+ 9 prefix= 9 out= 9  x.AA1.1.1
+10 prefix= 7 out=10  x.AA1.1.q1
+10 prefix=10 out=10  x.AA1.1.1a
+11 prefix= 7 out=11  x.AA1.1.AA1
+11 prefix=11 out=11  x.AA1.1.1AA
+10 prefix= 1 out=10  x.AA1.q1.a
+10 prefix= 1 out=10  x.AA1.q1.A
+10 prefix=10 out=10  x.AA1.q1.1
+11 prefix= 1 out=11  x.AA1.q1.q1
+11 prefix=11 out=11  x.AA1.q1.1a
+12 prefix= 1 out=12  x.AA1.q1.AA1
+12 prefix=12 out=12  x.AA1.q1.1AA
+10 prefix= 8 out=10  x.AA1.1a.a
+10 prefix= 8 out=10  x.AA1.1a.A
+10 prefix=10 out=10  x.AA1.1a.1
+11 prefix= 8 out=11  x.AA1.1a.q1
+11 prefix=11 out=11  x.AA1.1a.1a
+12 prefix= 8 out=12  x.AA1.1a.AA1
+12 prefix=12 out=12  x.AA1.1a.1AA
+11 prefix= 1 out=11  x.AA1.AA1.a
+11 prefix= 1 out=11  x.AA1.AA1.A
+11 prefix=11 out=11  x.AA1.AA1.1
+12 prefix= 1 out=12  x.AA1.AA1.q1
+12 prefix=12 out=12  x.AA1.AA1.1a
+13 prefix= 1 out=13  x.AA1.AA1.AA1
+13 prefix=13 out=13  x.AA1.AA1.1AA
+11 prefix= 9 out=11  x.AA1.1AA.a
+11 prefix= 9 out=11  x.AA1.1AA.A
+11 prefix=11 out=11  x.AA1.1AA.1
+12 prefix= 9 out=12  x.AA1.1AA.q1
+12 prefix=12 out=12  x.AA1.1AA.1a
+13 prefix= 9 out=13  x.AA1.1AA.AA1
+13 prefix=13 out=13  x.AA1.1AA.1AA
+ 9 prefix= 5 out= 9  x.1AA.a.a
+ 9 prefix= 5 out= 9  x.1AA.a.A
+ 9 prefix= 9 out= 9  x.1AA.a.1
+10 prefix= 5 out=10  x.1AA.a.q1
+10 prefix=10 out=10  x.1AA.a.1a
+11 prefix= 5 out=11  x.1AA.a.AA1
+11 prefix=11 out=11  x.1AA.a.1AA
+ 9 prefix= 5 out= 9  x.1AA.A.a
+ 9 prefix= 5 out= 9  x.1AA.A.A
+ 9 prefix= 9 out= 9  x.1AA.A.1
+10 prefix= 5 out=10  x.1AA.A.q1
+10 prefix=10 out=10  x.1AA.A.1a
+11 prefix= 5 out=11  x.1AA.A.AA1
+11 prefix=11 out=11  x.1AA.A.1AA
+ 9 prefix= 7 out= 9  x.1AA.1.a
+ 9 prefix= 7 out= 9  x.1AA.1.A
+ 9 prefix= 9 out= 9  x.1AA.1.1
+10 prefix= 7 out=10  x.1AA.1.q1
+10 prefix=10 out=10  x.1AA.1.1a
+11 prefix= 7 out=11  x.1AA.1.AA1
+11 prefix=11 out=11  x.1AA.1.1AA
+10 prefix= 5 out=10  x.1AA.q1.a
+10 prefix= 5 out=10  x.1AA.q1.A
+10 prefix=10 out=10  x.1AA.q1.1
+11 prefix= 5 out=11  x.1AA.q1.q1
+11 prefix=11 out=11  x.1AA.q1.1a
+12 prefix= 5 out=12  x.1AA.q1.AA1
+12 prefix=12 out=12  x.1AA.q1.1AA
+10 prefix= 8 out=10  x.1AA.1a.a
+10 prefix= 8 out=10  x.1AA.1a.A
+10 prefix=10 out=10  x.1AA.1a.1
+11 prefix= 8 out=11  x.1AA.1a.q1
+11 prefix=11 out=11  x.1AA.1a.1a
+12 prefix= 8 out=12  x.1AA.1a.AA1
+12 prefix=12 out=12  x.1AA.1a.1AA
+11 prefix= 5 out=11  x.1AA.AA1.a
+11 prefix= 5 out=11  x.1AA.AA1.A
+11 prefix=11 out=11  x.1AA.AA1.1
+12 prefix= 5 out=12  x.1AA.AA1.q1
+12 prefix=12 out=12  x.1AA.AA1.1a
+13 prefix= 5 out=13  x.1AA.AA1.AA1
+13 prefix=13 out=13  x.1AA.AA1.1AA
+11 prefix= 9 out=11  x.1AA.1AA.a
+11 prefix= 9 out=11  x.1AA.1AA.A
+11 prefix=11 out=11  x.1AA.1AA.1
+12 prefix= 9 out=12  x.1AA.1AA.q1
+12 prefix=12 out=12  x.1AA.1AA.1a
+13 prefix= 9 out=13  x.1AA.1AA.AA1
+13 prefix=13 out=13  x.1AA.1AA.1AA
+ 2 prefix= 2 out= 2  y1
+ 4 prefix= 2 out= 4  y1.a
+ 4 prefix= 2 out= 4  y1.A
+ 4 prefix= 4 out= 4  y1.1
+ 5 prefix= 2 out= 5  y1.q1
+ 5 prefix= 5 out= 5  y1.1a
+ 6 prefix= 2 out= 6  y1.AA1
+ 6 prefix= 6 out= 6  y1.1AA
+ 6 prefix= 2 out= 6  y1.a.a
+ 6 prefix= 2 out= 6  y1.a.A
+ 6 prefix= 6 out= 6  y1.a.1
+ 7 prefix= 2 out= 7  y1.a.q1
+ 7 prefix= 7 out= 7  y1.a.1a
+ 8 prefix= 2 out= 8  y1.a.AA1
+ 8 prefix= 8 out= 8  y1.a.1AA
+ 6 prefix= 2 out= 6  y1.A.a
+ 6 prefix= 2 out= 6  y1.A.A
+ 6 prefix= 6 out= 6  y1.A.1
+ 7 prefix= 2 out= 7  y1.A.q1
+ 7 prefix= 7 out= 7  y1.A.1a
+ 8 prefix= 2 out= 8  y1.A.AA1
+ 8 prefix= 8 out= 8  y1.A.1AA
+ 6 prefix= 4 out= 6  y1.1.a
+ 6 prefix= 4 out= 6  y1.1.A
+ 6 prefix= 6 out= 6  y1.1.1
+ 7 prefix= 4 out= 7  y1.1.q1
+ 7 prefix= 7 out= 7  y1.1.1a
+ 8 prefix= 4 out= 8  y1.1.AA1
+ 8 prefix= 8 out= 8  y1.1.1AA
+ 7 prefix= 2 out= 7  y1.q1.a
+ 7 prefix= 2 out= 7  y1.q1.A
+ 7 prefix= 7 out= 7  y1.q1.1
+ 8 prefix= 2 out= 8  y1.q1.q1
+ 8 prefix= 8 out= 8  y1.q1.1a
+ 9 prefix= 2 out= 9  y1.q1.AA1
+ 9 prefix= 9 out= 9  y1.q1.1AA
+ 7 prefix= 5 out= 7  y1.1a.a
+ 7 prefix= 5 out= 7  y1.1a.A
+ 7 prefix= 7 out= 7  y1.1a.1
+ 8 prefix= 5 out= 8  y1.1a.q1
+ 8 prefix= 8 out= 8  y1.1a.1a
+ 9 prefix= 5 out= 9  y1.1a.AA1
+ 9 prefix= 9 out= 9  y1.1a.1AA
+ 8 prefix= 2 out= 8  y1.AA1.a
+ 8 prefix= 2 out= 8  y1.AA1.A
+ 8 prefix= 8 out= 8  y1.AA1.1
+ 9 prefix= 2 out= 9  y1.AA1.q1
+ 9 prefix= 9 out= 9  y1.AA1.1a
+10 prefix= 2 out=10  y1.AA1.AA1
+10 prefix=10 out=10  y1.AA1.1AA
+ 8 prefix= 6 out= 8  y1.1AA.a
+ 8 prefix= 6 out= 8  y1.1AA.A
+ 8 prefix= 8 out= 8  y1.1AA.1
+ 9 prefix= 6 out= 9  y1.1AA.q1
+ 9 prefix= 9 out= 9  y1.1AA.1a
+10 prefix= 6 out=10  y1.1AA.AA1
+10 prefix=10 out=10  y1.1AA.1AA
+ 8 prefix= 2 out= 8  y1.a.a.a
+ 8 prefix= 2 out= 8  y1.a.a.A
+ 8 prefix= 8 out= 8  y1.a.a.1
+ 9 prefix= 2 out= 9  y1.a.a.q1
+ 9 prefix= 9 out= 9  y1.a.a.1a
+10 prefix= 2 out=10  y1.a.a.AA1
+10 prefix=10 out=10  y1.a.a.1AA
+ 8 prefix= 2 out= 8  y1.a.A.a
+ 8 prefix= 2 out= 8  y1.a.A.A
+ 8 prefix= 8 out= 8  y1.a.A.1
+ 9 prefix= 2 out= 9  y1.a.A.q1
+ 9 prefix= 9 out= 9  y1.a.A.1a
+10 prefix= 2 out=10  y1.a.A.AA1
+10 prefix=10 out=10  y1.a.A.1AA
+ 8 prefix= 6 out= 8  y1.a.1.a
+ 8 prefix= 6 out= 8  y1.a.1.A
+ 8 prefix= 8 out= 8  y1.a.1.1
+ 9 prefix= 6 out= 9  y1.a.1.q1
+ 9 prefix= 9 out= 9  y1.a.1.1a
+10 prefix= 6 out=10  y1.a.1.AA1
+10 prefix=10 out=10  y1.a.1.1AA
+ 9 prefix= 2 out= 9  y1.a.q1.a
+ 9 prefix= 2 out= 9  y1.a.q1.A
+ 9 prefix= 9 out= 9  y1.a.q1.1
+10 prefix= 2 out=10  y1.a.q1.q1
+10 prefix=10 out=10  y1.a.q1.1a
+11 prefix= 2 out=11  y1.a.q1.AA1
+11 prefix=11 out=11  y1.a.q1.1AA
+ 9 prefix= 7 out= 9  y1.a.1a.a
+ 9 prefix= 7 out= 9  y1.a.1a.A
+ 9 prefix= 9 out= 9  y1.a.1a.1
+10 prefix= 7 out=10  y1.a.1a.q1
+10 prefix=10 out=10  y1.a.1a.1a
+11 prefix= 7 out=11  y1.a.1a.AA1
+11 prefix=11 out=11  y1.a.1a.1AA
+10 prefix= 2 out=10  y1.a.AA1.a
+10 prefix= 2 out=10  y1.a.AA1.A
+10 prefix=10 out=10  y1.a.AA1.1
+11 prefix= 2 out=11  y1.a.AA1.q1
+11 prefix=11 out=11  y1.a.AA1.1a
+12 prefix= 2 out=12  y1.a.AA1.AA1
+12 prefix=12 out=12  y1.a.AA1.1AA
+10 prefix= 8 out=10  y1.a.1AA.a
+10 prefix= 8 out=10  y1.a.1AA.A
+10 prefix=10 out=10  y1.a.1AA.1
+11 prefix= 8 out=11  y1.a.1AA.q1
+11 prefix=11 out=11  y1.a.1AA.1a
+12 prefix= 8 out=12  y1.a.1AA.AA1
+12 prefix=12 out=12  y1.a.1AA.1AA
+ 8 prefix= 2 out= 8  y1.A.a.a
+ 8 prefix= 2 out= 8  y1.A.a.A
+ 8 prefix= 8 out= 8  y1.A.a.1
+ 9 prefix= 2 out= 9  y1.A.a.q1
+ 9 prefix= 9 out= 9  y1.A.a.1a
+10 prefix= 2 out=10  y1.A.a.AA1
+10 prefix=10 out=10  y1.A.a.1AA
+ 8 prefix= 2 out= 8  y1.A.A.a
+ 8 prefix= 2 out= 8  y1.A.A.A
+ 8 prefix= 8 out= 8  y1.A.A.1
+ 9 prefix= 2 out= 9  y1.A.A.q1
+ 9 prefix= 9 out= 9  y1.A.A.1a
+10 prefix= 2 out=10  y1.A.A.AA1
+10 prefix=10 out=10  y1.A.A.1AA
+ 8 prefix= 6 out= 8  y1.A.1.a
+ 8 prefix= 6 out= 8  y1.A.1.A
+ 8 prefix= 8 out= 8  y1.A.1.1
+ 9 prefix= 6 out= 9  y1.A.1.q1
+ 9 prefix= 9 out= 9  y1.A.1.1a
+10 prefix= 6 out=10  y1.A.1.AA1
+10 prefix=10 out=10  y1.A.1.1AA
+ 9 prefix= 2 out= 9  y1.A.q1.a
+ 9 prefix= 2 out= 9  y1.A.q1.A
+ 9 prefix= 9 out= 9  y1.A.q1.1
+10 prefix= 2 out=10  y1.A.q1.q1
+10 prefix=10 out=10  y1.A.q1.1a
+11 prefix= 2 out=11  y1.A.q1.AA1
+11 prefix=11 out=11  y1.A.q1.1AA
+ 9 prefix= 7 out= 9  y1.A.1a.a
+ 9 prefix= 7 out= 9  y1.A.1a.A
+ 9 prefix= 9 out= 9  y1.A.1a.1
+10 prefix= 7 out=10  y1.A.1a.q1
+10 prefix=10 out=10  y1.A.1a.1a
+11 prefix= 7 out=11  y1.A.1a.AA1
+11 prefix=11 out=11  y1.A.1a.1AA
+10 prefix= 2 out=10  y1.A.AA1.a
+10 prefix= 2 out=10  y1.A.AA1.A
+10 prefix=10 out=10  y1.A.AA1.1
+11 prefix= 2 out=11  y1.A.AA1.q1
+11 prefix=11 out=11  y1.A.AA1.1a
+12 prefix= 2 out=12  y1.A.AA1.AA1
+12 prefix=12 out=12  y1.A.AA1.1AA
+10 prefix= 8 out=10  y1.A.1AA.a
+10 prefix= 8 out=10  y1.A.1AA.A
+10 prefix=10 out=10  y1.A.1AA.1
+11 prefix= 8 out=11  y1.A.1AA.q1
+11 prefix=11 out=11  y1.A.1AA.1a
+12 prefix= 8 out=12  y1.A.1AA.AA1
+12 prefix=12 out=12  y1.A.1AA.1AA
+ 8 prefix= 4 out= 8  y1.1.a.a
+ 8 prefix= 4 out= 8  y1.1.a.A
+ 8 prefix= 8 out= 8  y1.1.a.1
+ 9 prefix= 4 out= 9  y1.1.a.q1
+ 9 prefix= 9 out= 9  y1.1.a.1a
+10 prefix= 4 out=10  y1.1.a.AA1
+10 prefix=10 out=10  y1.1.a.1AA
+ 8 prefix= 4 out= 8  y1.1.A.a
+ 8 prefix= 4 out= 8  y1.1.A.A
+ 8 prefix= 8 out= 8  y1.1.A.1
+ 9 prefix= 4 out= 9  y1.1.A.q1
+ 9 prefix= 9 out= 9  y1.1.A.1a
+10 prefix= 4 out=10  y1.1.A.AA1
+10 prefix=10 out=10  y1.1.A.1AA
+ 8 prefix= 6 out= 8  y1.1.1.a
+ 8 prefix= 6 out= 8  y1.1.1.A
+ 8 prefix= 8 out= 8  y1.1.1.1
+ 9 prefix= 6 out= 9  y1.1.1.q1
+ 9 prefix= 9 out= 9  y1.1.1.1a
+10 prefix= 6 out=10  y1.1.1.AA1
+10 prefix=10 out=10  y1.1.1.1AA
+ 9 prefix= 4 out= 9  y1.1.q1.a
+ 9 prefix= 4 out= 9  y1.1.q1.A
+ 9 prefix= 9 out= 9  y1.1.q1.1
+10 prefix= 4 out=10  y1.1.q1.q1
+10 prefix=10 out=10  y1.1.q1.1a
+11 prefix= 4 out=11  y1.1.q1.AA1
+11 prefix=11 out=11  y1.1.q1.1AA
+ 9 prefix= 7 out= 9  y1.1.1a.a
+ 9 prefix= 7 out= 9  y1.1.1a.A
+ 9 prefix= 9 out= 9  y1.1.1a.1
+10 prefix= 7 out=10  y1.1.1a.q1
+10 prefix=10 out=10  y1.1.1a.1a
+11 prefix= 7 out=11  y1.1.1a.AA1
+11 prefix=11 out=11  y1.1.1a.1AA
+10 prefix= 4 out=10  y1.1.AA1.a
+10 prefix= 4 out=10  y1.1.AA1.A
+10 prefix=10 out=10  y1.1.AA1.1
+11 prefix= 4 out=11  y1.1.AA1.q1
+11 prefix=11 out=11  y1.1.AA1.1a
+12 prefix= 4 out=12  y1.1.AA1.AA1
+12 prefix=12 out=12  y1.1.AA1.1AA
+10 prefix= 8 out=10  y1.1.1AA.a
+10 prefix= 8 out=10  y1.1.1AA.A
+10 prefix=10 out=10  y1.1.1AA.1
+11 prefix= 8 out=11  y1.1.1AA.q1
+11 prefix=11 out=11  y1.1.1AA.1a
+12 prefix= 8 out=12  y1.1.1AA.AA1
+12 prefix=12 out=12  y1.1.1AA.1AA
+ 9 prefix= 2 out= 9  y1.q1.a.a
+ 9 prefix= 2 out= 9  y1.q1.a.A
+ 9 prefix= 9 out= 9  y1.q1.a.1
+10 prefix= 2 out=10  y1.q1.a.q1
+10 prefix=10 out=10  y1.q1.a.1a
+11 prefix= 2 out=11  y1.q1.a.AA1
+11 prefix=11 out=11  y1.q1.a.1AA
+ 9 prefix= 2 out= 9  y1.q1.A.a
+ 9 prefix= 2 out= 9  y1.q1.A.A
+ 9 prefix= 9 out= 9  y1.q1.A.1
+10 prefix= 2 out=10  y1.q1.A.q1
+10 prefix=10 out=10  y1.q1.A.1a
+11 prefix= 2 out=11  y1.q1.A.AA1
+11 prefix=11 out=11  y1.q1.A.1AA
+ 9 prefix= 7 out= 9  y1.q1.1.a
+ 9 prefix= 7 out= 9  y1.q1.1.A
+ 9 prefix= 9 out= 9  y1.q1.1.1
+10 prefix= 7 out=10  y1.q1.1.q1
+10 prefix=10 out=10  y1.q1.1.1a
+11 prefix= 7 out=11  y1.q1.1.AA1
+11 prefix=11 out=11  y1.q1.1.1AA
+10 prefix= 2 out=10  y1.q1.q1.a
+10 prefix= 2 out=10  y1.q1.q1.A
+10 prefix=10 out=10  y1.q1.q1.1
+11 prefix= 2 out=11  y1.q1.q1.q1
+11 prefix=11 out=11  y1.q1.q1.1a
+12 prefix= 2 out=12  y1.q1.q1.AA1
+12 prefix=12 out=12  y1.q1.q1.1AA
+10 prefix= 8 out=10  y1.q1.1a.a
+10 prefix= 8 out=10  y1.q1.1a.A
+10 prefix=10 out=10  y1.q1.1a.1
+11 prefix= 8 out=11  y1.q1.1a.q1
+11 prefix=11 out=11  y1.q1.1a.1a
+12 prefix= 8 out=12  y1.q1.1a.AA1
+12 prefix=12 out=12  y1.q1.1a.1AA
+11 prefix= 2 out=11  y1.q1.AA1.a
+11 prefix= 2 out=11  y1.q1.AA1.A
+11 prefix=11 out=11  y1.q1.AA1.1
+12 prefix= 2 out=12  y1.q1.AA1.q1
+12 prefix=12 out=12  y1.q1.AA1.1a
+13 prefix= 2 out=13  y1.q1.AA1.AA1
+13 prefix=13 out=13  y1.q1.AA1.1AA
+11 prefix= 9 out=11  y1.q1.1AA.a
+11 prefix= 9 out=11  y1.q1.1AA.A
+11 prefix=11 out=11  y1.q1.1AA.1
+12 prefix= 9 out=12  y1.q1.1AA.q1
+12 prefix=12 out=12  y1.q1.1AA.1a
+13 prefix= 9 out=13  y1.q1.1AA.AA1
+13 prefix=13 out=13  y1.q1.1AA.1AA
+ 9 prefix= 5 out= 9  y1.1a.a.a
+ 9 prefix= 5 out= 9  y1.1a.a.A
+ 9 prefix= 9 out= 9  y1.1a.a.1
+10 prefix= 5 out=10  y1.1a.a.q1
+10 prefix=10 out=10  y1.1a.a.1a
+11 prefix= 5 out=11  y1.1a.a.AA1
+11 prefix=11 out=11  y1.1a.a.1AA
+ 9 prefix= 5 out= 9  y1.1a.A.a
+ 9 prefix= 5 out= 9  y1.1a.A.A
+ 9 prefix= 9 out= 9  y1.1a.A.1
+10 prefix= 5 out=10  y1.1a.A.q1
+10 prefix=10 out=10  y1.1a.A.1a
+11 prefix= 5 out=11  y1.1a.A.AA1
+11 prefix=11 out=11  y1.1a.A.1AA
+ 9 prefix= 7 out= 9  y1.1a.1.a
+ 9 prefix= 7 out= 9  y1.1a.1.A
+ 9 prefix= 9 out= 9  y1.1a.1.1
+10 prefix= 7 out=10  y1.1a.1.q1
+10 prefix=10 out=10  y1.1a.1.1a
+11 prefix= 7 out=11  y1.1a.1.AA1
+11 prefix=11 out=11  y1.1a.1.1AA
+10 prefix= 5 out=10  y1.1a.q1.a
+10 prefix= 5 out=10  y1.1a.q1.A
+10 prefix=10 out=10  y1.1a.q1.1
+11 prefix= 5 out=11  y1.1a.q1.q1
+11 prefix=11 out=11  y1.1a.q1.1a
+12 prefix= 5 out=12  y1.1a.q1.AA1
+12 prefix=12 out=12  y1.1a.q1.1AA
+10 prefix= 8 out=10  y1.1a.1a.a
+10 prefix= 8 out=10  y1.1a.1a.A
+10 prefix=10 out=10  y1.1a.1a.1
+11 prefix= 8 out=11  y1.1a.1a.q1
+11 prefix=11 out=11  y1.1a.1a.1a
+12 prefix= 8 out=12  y1.1a.1a.AA1
+12 prefix=12 out=12  y1.1a.1a.1AA
+11 prefix= 5 out=11  y1.1a.AA1.a
+11 prefix= 5 out=11  y1.1a.AA1.A
+11 prefix=11 out=11  y1.1a.AA1.1
+12 prefix= 5 out=12  y1.1a.AA1.q1
+12 prefix=12 out=12  y1.1a.AA1.1a
+13 prefix= 5 out=13  y1.1a.AA1.AA1
+13 prefix=13 out=13  y1.1a.AA1.1AA
+11 prefix= 9 out=11  y1.1a.1AA.a
+11 prefix= 9 out=11  y1.1a.1AA.A
+11 prefix=11 out=11  y1.1a.1AA.1
+12 prefix= 9 out=12  y1.1a.1AA.q1
+12 prefix=12 out=12  y1.1a.1AA.1a
+13 prefix= 9 out=13  y1.1a.1AA.AA1
+13 prefix=13 out=13  y1.1a.1AA.1AA
+10 prefix= 2 out=10  y1.AA1.a.a
+10 prefix= 2 out=10  y1.AA1.a.A
+10 prefix=10 out=10  y1.AA1.a.1
+11 prefix= 2 out=11  y1.AA1.a.q1
+11 prefix=11 out=11  y1.AA1.a.1a
+12 prefix= 2 out=12  y1.AA1.a.AA1
+12 prefix=12 out=12  y1.AA1.a.1AA
+10 prefix= 2 out=10  y1.AA1.A.a
+10 prefix= 2 out=10  y1.AA1.A.A
+10 prefix=10 out=10  y1.AA1.A.1
+11 prefix= 2 out=11  y1.AA1.A.q1
+11 prefix=11 out=11  y1.AA1.A.1a
+12 prefix= 2 out=12  y1.AA1.A.AA1
+12 prefix=12 out=12  y1.AA1.A.1AA
+10 prefix= 8 out=10  y1.AA1.1.a
+10 prefix= 8 out=10  y1.AA1.1.A
+10 prefix=10 out=10  y1.AA1.1.1
+11 prefix= 8 out=11  y1.AA1.1.q1
+11 prefix=11 out=11  y1.AA1.1.1a
+12 prefix= 8 out=12  y1.AA1.1.AA1
+12 prefix=12 out=12  y1.AA1.1.1AA
+11 prefix= 2 out=11  y1.AA1.q1.a
+11 prefix= 2 out=11  y1.AA1.q1.A
+11 prefix=11 out=11  y1.AA1.q1.1
+12 prefix= 2 out=12  y1.AA1.q1.q1
+12 prefix=12 out=12  y1.AA1.q1.1a
+13 prefix= 2 out=13  y1.AA1.q1.AA1
+13 prefix=13 out=13  y1.AA1.q1.1AA
+11 prefix= 9 out=11  y1.AA1.1a.a
+11 prefix= 9 out=11  y1.AA1.1a.A
+11 prefix=11 out=11  y1.AA1.1a.1
+12 prefix= 9 out=12  y1.AA1.1a.q1
+12 prefix=12 out=12  y1.AA1.1a.1a
+13 prefix= 9 out=13  y1.AA1.1a.AA1
+13 prefix=13 out=13  y1.AA1.1a.1AA
+12 prefix= 2 out=12  y1.AA1.AA1.a
+12 prefix= 2 out=12  y1.AA1.AA1.A
+12 prefix=12 out=12  y1.AA1.AA1.1
+13 prefix= 2 out=13  y1.AA1.AA1.q1
+13 prefix=13 out=13  y1.AA1.AA1.1a
+14 prefix= 2 out=14  y1.AA1.AA1.AA1
+14 prefix=14 out=14  y1.AA1.AA1.1AA
+12 prefix=10 out=12  y1.AA1.1AA.a
+12 prefix=10 out=12  y1.AA1.1AA.A
+12 prefix=12 out=12  y1.AA1.1AA.1
+13 prefix=10 out=13  y1.AA1.1AA.q1
+13 prefix=13 out=13  y1.AA1.1AA.1a
+14 prefix=10 out=14  y1.AA1.1AA.AA1
+14 prefix=14 out=14  y1.AA1.1AA.1AA
+10 prefix= 6 out=10  y1.1AA.a.a
+10 prefix= 6 out=10  y1.1AA.a.A
+10 prefix=10 out=10  y1.1AA.a.1
+11 prefix= 6 out=11  y1.1AA.a.q1
+11 prefix=11 out=11  y1.1AA.a.1a
+12 prefix= 6 out=12  y1.1AA.a.AA1
+12 prefix=12 out=12  y1.1AA.a.1AA
+10 prefix= 6 out=10  y1.1AA.A.a
+10 prefix= 6 out=10  y1.1AA.A.A
+10 prefix=10 out=10  y1.1AA.A.1
+11 prefix= 6 out=11  y1.1AA.A.q1
+11 prefix=11 out=11  y1.1AA.A.1a
+12 prefix= 6 out=12  y1.1AA.A.AA1
+12 prefix=12 out=12  y1.1AA.A.1AA
+10 prefix= 8 out=10  y1.1AA.1.a
+10 prefix= 8 out=10  y1.1AA.1.A
+10 prefix=10 out=10  y1.1AA.1.1
+11 prefix= 8 out=11  y1.1AA.1.q1
+11 prefix=11 out=11  y1.1AA.1.1a
+12 prefix= 8 out=12  y1.1AA.1.AA1
+12 prefix=12 out=12  y1.1AA.1.1AA
+11 prefix= 6 out=11  y1.1AA.q1.a
+11 prefix= 6 out=11  y1.1AA.q1.A
+11 prefix=11 out=11  y1.1AA.q1.1
+12 prefix= 6 out=12  y1.1AA.q1.q1
+12 prefix=12 out=12  y1.1AA.q1.1a
+13 prefix= 6 out=13  y1.1AA.q1.AA1
+13 prefix=13 out=13  y1.1AA.q1.1AA
+11 prefix= 9 out=11  y1.1AA.1a.a
+11 prefix= 9 out=11  y1.1AA.1a.A
+11 prefix=11 out=11  y1.1AA.1a.1
+12 prefix= 9 out=12  y1.1AA.1a.q1
+12 prefix=12 out=12  y1.1AA.1a.1a
+13 prefix= 9 out=13  y1.1AA.1a.AA1
+13 prefix=13 out=13  y1.1AA.1a.1AA
+12 prefix= 6 out=12  y1.1AA.AA1.a
+12 prefix= 6 out=12  y1.1AA.AA1.A
+12 prefix=12 out=12  y1.1AA.AA1.1
+13 prefix= 6 out=13  y1.1AA.AA1.q1
+13 prefix=13 out=13  y1.1AA.AA1.1a
+14 prefix= 6 out=14  y1.1AA.AA1.AA1
+14 prefix=14 out=14  y1.1AA.AA1.1AA
+12 prefix=10 out=12  y1.1AA.1AA.a
+12 prefix=10 out=12  y1.1AA.1AA.A
+12 prefix=12 out=12  y1.1AA.1AA.1
+13 prefix=10 out=13  y1.1AA.1AA.q1
+13 prefix=13 out=13  y1.1AA.1AA.1a
+14 prefix=10 out=14  y1.1AA.1AA.AA1
+14 prefix=14 out=14  y1.1AA.1AA.1AA
+ 1 prefix= 1 out= 1  1
+ 3 prefix= 1 out= 3  1.a
+ 3 prefix= 1 out= 3  1.A
+ 3 prefix= 3 out= 3  1.1
+ 4 prefix= 1 out= 4  1.q1
+ 4 prefix= 4 out= 4  1.1a
+ 5 prefix= 1 out= 5  1.AA1
+ 5 prefix= 5 out= 5  1.1AA
+ 5 prefix= 1 out= 5  1.a.a
+ 5 prefix= 1 out= 5  1.a.A
+ 5 prefix= 5 out= 5  1.a.1
+ 6 prefix= 1 out= 6  1.a.q1
+ 6 prefix= 6 out= 6  1.a.1a
+ 7 prefix= 1 out= 7  1.a.AA1
+ 7 prefix= 7 out= 7  1.a.1AA
+ 5 prefix= 1 out= 5  1.A.a
+ 5 prefix= 1 out= 5  1.A.A
+ 5 prefix= 5 out= 5  1.A.1
+ 6 prefix= 1 out= 6  1.A.q1
+ 6 prefix= 6 out= 6  1.A.1a
+ 7 prefix= 1 out= 7  1.A.AA1
+ 7 prefix= 7 out= 7  1.A.1AA
+ 5 prefix= 3 out= 5  1.1.a
+ 5 prefix= 3 out= 5  1.1.A
+ 5 prefix= 5 out= 5  1.1.1
+ 6 prefix= 3 out= 6  1.1.q1
+ 6 prefix= 6 out= 6  1.1.1a
+ 7 prefix= 3 out= 7  1.1.AA1
+ 7 prefix= 7 out= 7  1.1.1AA
+ 6 prefix= 1 out= 6  1.q1.a
+ 6 prefix= 1 out= 6  1.q1.A
+ 6 prefix= 6 out= 6  1.q1.1
+ 7 prefix= 1 out= 7  1.q1.q1
+ 7 prefix= 7 out= 7  1.q1.1a
+ 8 prefix= 1 out= 8  1.q1.AA1
+ 8 prefix= 8 out= 8  1.q1.1AA
+ 6 prefix= 4 out= 6  1.1a.a
+ 6 prefix= 4 out= 6  1.1a.A
+ 6 prefix= 6 out= 6  1.1a.1
+ 7 prefix= 4 out= 7  1.1a.q1
+ 7 prefix= 7 out= 7  1.1a.1a
+ 8 prefix= 4 out= 8  1.1a.AA1
+ 8 prefix= 8 out= 8  1.1a.1AA
+ 7 prefix= 1 out= 7  1.AA1.a
+ 7 prefix= 1 out= 7  1.AA1.A
+ 7 prefix= 7 out= 7  1.AA1.1
+ 8 prefix= 1 out= 8  1.AA1.q1
+ 8 prefix= 8 out= 8  1.AA1.1a
+ 9 prefix= 1 out= 9  1.AA1.AA1
+ 9 prefix= 9 out= 9  1.AA1.1AA
+ 7 prefix= 5 out= 7  1.1AA.a
+ 7 prefix= 5 out= 7  1.1AA.A
+ 7 prefix= 7 out= 7  1.1AA.1
+ 8 prefix= 5 out= 8  1.1AA.q1
+ 8 prefix= 8 out= 8  1.1AA.1a
+ 9 prefix= 5 out= 9  1.1AA.AA1
+ 9 prefix= 9 out= 9  1.1AA.1AA
+ 7 prefix= 1 out= 7  1.a.a.a
+ 7 prefix= 1 out= 7  1.a.a.A
+ 7 prefix= 7 out= 7  1.a.a.1
+ 8 prefix= 1 out= 8  1.a.a.q1
+ 8 prefix= 8 out= 8  1.a.a.1a
+ 9 prefix= 1 out= 9  1.a.a.AA1
+ 9 prefix= 9 out= 9  1.a.a.1AA
+ 7 prefix= 1 out= 7  1.a.A.a
+ 7 prefix= 1 out= 7  1.a.A.A
+ 7 prefix= 7 out= 7  1.a.A.1
+ 8 prefix= 1 out= 8  1.a.A.q1
+ 8 prefix= 8 out= 8  1.a.A.1a
+ 9 prefix= 1 out= 9  1.a.A.AA1
+ 9 prefix= 9 out= 9  1.a.A.1AA
+ 7 prefix= 5 out= 7  1.a.1.a
+ 7 prefix= 5 out= 7  1.a.1.A
+ 7 prefix= 7 out= 7  1.a.1.1
+ 8 prefix= 5 out= 8  1.a.1.q1
+ 8 prefix= 8 out= 8  1.a.1.1a
+ 9 prefix= 5 out= 9  1.a.1.AA1
+ 9 prefix= 9 out= 9  1.a.1.1AA
+ 8 prefix= 1 out= 8  1.a.q1.a
+ 8 prefix= 1 out= 8  1.a.q1.A
+ 8 prefix= 8 out= 8  1.a.q1.1
+ 9 prefix= 1 out= 9  1.a.q1.q1
+ 9 prefix= 9 out= 9  1.a.q1.1a
+10 prefix= 1 out=10  1.a.q1.AA1
+10 prefix=10 out=10  1.a.q1.1AA
+ 8 prefix= 6 out= 8  1.a.1a.a
+ 8 prefix= 6 out= 8  1.a.1a.A
+ 8 prefix= 8 out= 8  1.a.1a.1
+ 9 prefix= 6 out= 9  1.a.1a.q1
+ 9 prefix= 9 out= 9  1.a.1a.1a
+10 prefix= 6 out=10  1.a.1a.AA1
+10 prefix=10 out=10  1.a.1a.1AA
+ 9 prefix= 1 out= 9  1.a.AA1.a
+ 9 prefix= 1 out= 9  1.a.AA1.A
+ 9 prefix= 9 out= 9  1.a.AA1.1
+10 prefix= 1 out=10  1.a.AA1.q1
+10 prefix=10 out=10  1.a.AA1.1a
+11 prefix= 1 out=11  1.a.AA1.AA1
+11 prefix=11 out=11  1.a.AA1.1AA
+ 9 prefix= 7 out= 9  1.a.1AA.a
+ 9 prefix= 7 out= 9  1.a.1AA.A
+ 9 prefix= 9 out= 9  1.a.1AA.1
+10 prefix= 7 out=10  1.a.1AA.q1
+10 prefix=10 out=10  1.a.1AA.1a
+11 prefix= 7 out=11  1.a.1AA.AA1
+11 prefix=11 out=11  1.a.1AA.1AA
+ 7 prefix= 1 out= 7  1.A.a.a
+ 7 prefix= 1 out= 7  1.A.a.A
+ 7 prefix= 7 out= 7  1.A.a.1
+ 8 prefix= 1 out= 8  1.A.a.q1
+ 8 prefix= 8 out= 8  1.A.a.1a
+ 9 prefix= 1 out= 9  1.A.a.AA1
+ 9 prefix= 9 out= 9  1.A.a.1AA
+ 7 prefix= 1 out= 7  1.A.A.a
+ 7 prefix= 1 out= 7  1.A.A.A
+ 7 prefix= 7 out= 7  1.A.A.1
+ 8 prefix= 1 out= 8  1.A.A.q1
+ 8 prefix= 8 out= 8  1.A.A.1a
+ 9 prefix= 1 out= 9  1.A.A.AA1
+ 9 prefix= 9 out= 9  1.A.A.1AA
+ 7 prefix= 5 out= 7  1.A.1.a
+ 7 prefix= 5 out= 7  1.A.1.A
+ 7 prefix= 7 out= 7  1.A.1.1
+ 8 prefix= 5 out= 8  1.A.1.q1
+ 8 prefix= 8 out= 8  1.A.1.1a
+ 9 prefix= 5 out= 9  1.A.1.AA1
+ 9 prefix= 9 out= 9  1.A.1.1AA
+ 8 prefix= 1 out= 8  1.A.q1.a
+ 8 prefix= 1 out= 8  1.A.q1.A
+ 8 prefix= 8 out= 8  1.A.q1.1
+ 9 prefix= 1 out= 9  1.A.q1.q1
+ 9 prefix= 9 out= 9  1.A.q1.1a
+10 prefix= 1 out=10  1.A.q1.AA1
+10 prefix=10 out=10  1.A.q1.1AA
+ 8 prefix= 6 out= 8  1.A.1a.a
+ 8 prefix= 6 out= 8  1.A.1a.A
+ 8 prefix= 8 out= 8  1.A.1a.1
+ 9 prefix= 6 out= 9  1.A.1a.q1
+ 9 prefix= 9 out= 9  1.A.1a.1a
+10 prefix= 6 out=10  1.A.1a.AA1
+10 prefix=10 out=10  1.A.1a.1AA
+ 9 prefix= 1 out= 9  1.A.AA1.a
+ 9 prefix= 1 out= 9  1.A.AA1.A
+ 9 prefix= 9 out= 9  1.A.AA1.1
+10 prefix= 1 out=10  1.A.AA1.q1
+10 prefix=10 out=10  1.A.AA1.1a
+11 prefix= 1 out=11  1.A.AA1.AA1
+11 prefix=11 out=11  1.A.AA1.1AA
+ 9 prefix= 7 out= 9  1.A.1AA.a
+ 9 prefix= 7 out= 9  1.A.1AA.A
+ 9 prefix= 9 out= 9  1.A.1AA.1
+10 prefix= 7 out=10  1.A.1AA.q1
+10 prefix=10 out=10  1.A.1AA.1a
+11 prefix= 7 out=11  1.A.1AA.AA1
+11 prefix=11 out=11  1.A.1AA.1AA
+ 7 prefix= 3 out= 7  1.1.a.a
+ 7 prefix= 3 out= 7  1.1.a.A
+ 7 prefix= 7 out= 7  1.1.a.1
+ 8 prefix= 3 out= 8  1.1.a.q1
+ 8 prefix= 8 out= 8  1.1.a.1a
+ 9 prefix= 3 out= 9  1.1.a.AA1
+ 9 prefix= 9 out= 9  1.1.a.1AA
+ 7 prefix= 3 out= 7  1.1.A.a
+ 7 prefix= 3 out= 7  1.1.A.A
+ 7 prefix= 7 out= 7  1.1.A.1
+ 8 prefix= 3 out= 8  1.1.A.q1
+ 8 prefix= 8 out= 8  1.1.A.1a
+ 9 prefix= 3 out= 9  1.1.A.AA1
+ 9 prefix= 9 out= 9  1.1.A.1AA
+ 7 prefix= 5 out= 7  1.1.1.a
+ 7 prefix= 5 out= 7  1.1.1.A
+ 7 prefix= 7 out= 7  1.1.1.1
+ 8 prefix= 5 out= 8  1.1.1.q1
+ 8 prefix= 8 out= 8  1.1.1.1a
+ 9 prefix= 5 out= 9  1.1.1.AA1
+ 9 prefix= 9 out= 9  1.1.1.1AA
+ 8 prefix= 3 out= 8  1.1.q1.a
+ 8 prefix= 3 out= 8  1.1.q1.A
+ 8 prefix= 8 out= 8  1.1.q1.1
+ 9 prefix= 3 out= 9  1.1.q1.q1
+ 9 prefix= 9 out= 9  1.1.q1.1a
+10 prefix= 3 out=10  1.1.q1.AA1
+10 prefix=10 out=10  1.1.q1.1AA
+ 8 prefix= 6 out= 8  1.1.1a.a
+ 8 prefix= 6 out= 8  1.1.1a.A
+ 8 prefix= 8 out= 8  1.1.1a.1
+ 9 prefix= 6 out= 9  1.1.1a.q1
+ 9 prefix= 9 out= 9  1.1.1a.1a
+10 prefix= 6 out=10  1.1.1a.AA1
+10 prefix=10 out=10  1.1.1a.1AA
+ 9 prefix= 3 out= 9  1.1.AA1.a
+ 9 prefix= 3 out= 9  1.1.AA1.A
+ 9 prefix= 9 out= 9  1.1.AA1.1
+10 prefix= 3 out=10  1.1.AA1.q1
+10 prefix=10 out=10  1.1.AA1.1a
+11 prefix= 3 out=11  1.1.AA1.AA1
+11 prefix=11 out=11  1.1.AA1.1AA
+ 9 prefix= 7 out= 9  1.1.1AA.a
+ 9 prefix= 7 out= 9  1.1.1AA.A
+ 9 prefix= 9 out= 9  1.1.1AA.1
+10 prefix= 7 out=10  1.1.1AA.q1
+10 prefix=10 out=10  1.1.1AA.1a
+11 prefix= 7 out=11  1.1.1AA.AA1
+11 prefix=11 out=11  1.1.1AA.1AA
+ 8 prefix= 1 out= 8  1.q1.a.a
+ 8 prefix= 1 out= 8  1.q1.a.A
+ 8 prefix= 8 out= 8  1.q1.a.1
+ 9 prefix= 1 out= 9  1.q1.a.q1
+ 9 prefix= 9 out= 9  1.q1.a.1a
+10 prefix= 1 out=10  1.q1.a.AA1
+10 prefix=10 out=10  1.q1.a.1AA
+ 8 prefix= 1 out= 8  1.q1.A.a
+ 8 prefix= 1 out= 8  1.q1.A.A
+ 8 prefix= 8 out= 8  1.q1.A.1
+ 9 prefix= 1 out= 9  1.q1.A.q1
+ 9 prefix= 9 out= 9  1.q1.A.1a
+10 prefix= 1 out=10  1.q1.A.AA1
+10 prefix=10 out=10  1.q1.A.1AA
+ 8 prefix= 6 out= 8  1.q1.1.a
+ 8 prefix= 6 out= 8  1.q1.1.A
+ 8 prefix= 8 out= 8  1.q1.1.1
+ 9 prefix= 6 out= 9  1.q1.1.q1
+ 9 prefix= 9 out= 9  1.q1.1.1a
+10 prefix= 6 out=10  1.q1.1.AA1
+10 prefix=10 out=10  1.q1.1.1AA
+ 9 prefix= 1 out= 9  1.q1.q1.a
+ 9 prefix= 1 out= 9  1.q1.q1.A
+ 9 prefix= 9 out= 9  1.q1.q1.1
+10 prefix= 1 out=10  1.q1.q1.q1
+10 prefix=10 out=10  1.q1.q1.1a
+11 prefix= 1 out=11  1.q1.q1.AA1
+11 prefix=11 out=11  1.q1.q1.1AA
+ 9 prefix= 7 out= 9  1.q1.1a.a
+ 9 prefix= 7 out= 9  1.q1.1a.A
+ 9 prefix= 9 out= 9  1.q1.1a.1
+10 prefix= 7 out=10  1.q1.1a.q1
+10 prefix=10 out=10  1.q1.1a.1a
+11 prefix= 7 out=11  1.q1.1a.AA1
+11 prefix=11 out=11  1.q1.1a.1AA
+10 prefix= 1 out=10  1.q1.AA1.a
+10 prefix= 1 out=10  1.q1.AA1.A
+10 prefix=10 out=10  1.q1.AA1.1
+11 prefix= 1 out=11  1.q1.AA1.q1
+11 prefix=11 out=11  1.q1.AA1.1a
+12 prefix= 1 out=12  1.q1.AA1.AA1
+12 prefix=12 out=12  1.q1.AA1.1AA
+10 prefix= 8 out=10  1.q1.1AA.a
+10 prefix= 8 out=10  1.q1.1AA.A
+10 prefix=10 out=10  1.q1.1AA.1
+11 prefix= 8 out=11  1.q1.1AA.q1
+11 prefix=11 out=11  1.q1.1AA.1a
+12 prefix= 8 out=12  1.q1.1AA.AA1
+12 prefix=12 out=12  1.q1.1AA.1AA
+ 8 prefix= 4 out= 8  1.1a.a.a
+ 8 prefix= 4 out= 8  1.1a.a.A
+ 8 prefix= 8 out= 8  1.1a.a.1
+ 9 prefix= 4 out= 9  1.1a.a.q1
+ 9 prefix= 9 out= 9  1.1a.a.1a
+10 prefix= 4 out=10  1.1a.a.AA1
+10 prefix=10 out=10  1.1a.a.1AA
+ 8 prefix= 4 out= 8  1.1a.A.a
+ 8 prefix= 4 out= 8  1.1a.A.A
+ 8 prefix= 8 out= 8  1.1a.A.1
+ 9 prefix= 4 out= 9  1.1a.A.q1
+ 9 prefix= 9 out= 9  1.1a.A.1a
+10 prefix= 4 out=10  1.1a.A.AA1
+10 prefix=10 out=10  1.1a.A.1AA
+ 8 prefix= 6 out= 8  1.1a.1.a
+ 8 prefix= 6 out= 8  1.1a.1.A
+ 8 prefix= 8 out= 8  1.1a.1.1
+ 9 prefix= 6 out= 9  1.1a.1.q1
+ 9 prefix= 9 out= 9  1.1a.1.1a
+10 prefix= 6 out=10  1.1a.1.AA1
+10 prefix=10 out=10  1.1a.1.1AA
+ 9 prefix= 4 out= 9  1.1a.q1.a
+ 9 prefix= 4 out= 9  1.1a.q1.A
+ 9 prefix= 9 out= 9  1.1a.q1.1
+10 prefix= 4 out=10  1.1a.q1.q1
+10 prefix=10 out=10  1.1a.q1.1a
+11 prefix= 4 out=11  1.1a.q1.AA1
+11 prefix=11 out=11  1.1a.q1.1AA
+ 9 prefix= 7 out= 9  1.1a.1a.a
+ 9 prefix= 7 out= 9  1.1a.1a.A
+ 9 prefix= 9 out= 9  1.1a.1a.1
+10 prefix= 7 out=10  1.1a.1a.q1
+10 prefix=10 out=10  1.1a.1a.1a
+11 prefix= 7 out=11  1.1a.1a.AA1
+11 prefix=11 out=11  1.1a.1a.1AA
+10 prefix= 4 out=10  1.1a.AA1.a
+10 prefix= 4 out=10  1.1a.AA1.A
+10 prefix=10 out=10  1.1a.AA1.1
+11 prefix= 4 out=11  1.1a.AA1.q1
+11 prefix=11 out=11  1.1a.AA1.1a
+12 prefix= 4 out=12  1.1a.AA1.AA1
+12 prefix=12 out=12  1.1a.AA1.1AA
+10 prefix= 8 out=10  1.1a.1AA.a
+10 prefix= 8 out=10  1.1a.1AA.A
+10 prefix=10 out=10  1.1a.1AA.1
+11 prefix= 8 out=11  1.1a.1AA.q1
+11 prefix=11 out=11  1.1a.1AA.1a
+12 prefix= 8 out=12  1.1a.1AA.AA1
+12 prefix=12 out=12  1.1a.1AA.1AA
+ 9 prefix= 1 out= 9  1.AA1.a.a
+ 9 prefix= 1 out= 9  1.AA1.a.A
+ 9 prefix= 9 out= 9  1.AA1.a.1
+10 prefix= 1 out=10  1.AA1.a.q1
+10 prefix=10 out=10  1.AA1.a.1a
+11 prefix= 1 out=11  1.AA1.a.AA1
+11 prefix=11 out=11  1.AA1.a.1AA
+ 9 prefix= 1 out= 9  1.AA1.A.a
+ 9 prefix= 1 out= 9  1.AA1.A.A
+ 9 prefix= 9 out= 9  1.AA1.A.1
+10 prefix= 1 out=10  1.AA1.A.q1
+10 prefix=10 out=10  1.AA1.A.1a
+11 prefix= 1 out=11  1.AA1.A.AA1
+11 prefix=11 out=11  1.AA1.A.1AA
+ 9 prefix= 7 out= 9  1.AA1.1.a
+ 9 prefix= 7 out= 9  1.AA1.1.A
+ 9 prefix= 9 out= 9  1.AA1.1.1
+10 prefix= 7 out=10  1.AA1.1.q1
+10 prefix=10 out=10  1.AA1.1.1a
+11 prefix= 7 out=11  1.AA1.1.AA1
+11 prefix=11 out=11  1.AA1.1.1AA
+10 prefix= 1 out=10  1.AA1.q1.a
+10 prefix= 1 out=10  1.AA1.q1.A
+10 prefix=10 out=10  1.AA1.q1.1
+11 prefix= 1 out=11  1.AA1.q1.q1
+11 prefix=11 out=11  1.AA1.q1.1a
+12 prefix= 1 out=12  1.AA1.q1.AA1
+12 prefix=12 out=12  1.AA1.q1.1AA
+10 prefix= 8 out=10  1.AA1.1a.a
+10 prefix= 8 out=10  1.AA1.1a.A
+10 prefix=10 out=10  1.AA1.1a.1
+11 prefix= 8 out=11  1.AA1.1a.q1
+11 prefix=11 out=11  1.AA1.1a.1a
+12 prefix= 8 out=12  1.AA1.1a.AA1
+12 prefix=12 out=12  1.AA1.1a.1AA
+11 prefix= 1 out=11  1.AA1.AA1.a
+11 prefix= 1 out=11  1.AA1.AA1.A
+11 prefix=11 out=11  1.AA1.AA1.1
+12 prefix= 1 out=12  1.AA1.AA1.q1
+12 prefix=12 out=12  1.AA1.AA1.1a
+13 prefix= 1 out=13  1.AA1.AA1.AA1
+13 prefix=13 out=13  1.AA1.AA1.1AA
+11 prefix= 9 out=11  1.AA1.1AA.a
+11 prefix= 9 out=11  1.AA1.1AA.A
+11 prefix=11 out=11  1.AA1.1AA.1
+12 prefix= 9 out=12  1.AA1.1AA.q1
+12 prefix=12 out=12  1.AA1.1AA.1a
+13 prefix= 9 out=13  1.AA1.1AA.AA1
+13 prefix=13 out=13  1.AA1.1AA.1AA
+ 9 prefix= 5 out= 9  1.1AA.a.a
+ 9 prefix= 5 out= 9  1.1AA.a.A
+ 9 prefix= 9 out= 9  1.1AA.a.1
+10 prefix= 5 out=10  1.1AA.a.q1
+10 prefix=10 out=10  1.1AA.a.1a
+11 prefix= 5 out=11  1.1AA.a.AA1
+11 prefix=11 out=11  1.1AA.a.1AA
+ 9 prefix= 5 out= 9  1.1AA.A.a
+ 9 prefix= 5 out= 9  1.1AA.A.A
+ 9 prefix= 9 out= 9  1.1AA.A.1
+10 prefix= 5 out=10  1.1AA.A.q1
+10 prefix=10 out=10  1.1AA.A.1a
+11 prefix= 5 out=11  1.1AA.A.AA1
+11 prefix=11 out=11  1.1AA.A.1AA
+ 9 prefix= 7 out= 9  1.1AA.1.a
+ 9 prefix= 7 out= 9  1.1AA.1.A
+ 9 prefix= 9 out= 9  1.1AA.1.1
+10 prefix= 7 out=10  1.1AA.1.q1
+10 prefix=10 out=10  1.1AA.1.1a
+11 prefix= 7 out=11  1.1AA.1.AA1
+11 prefix=11 out=11  1.1AA.1.1AA
+10 prefix= 5 out=10  1.1AA.q1.a
+10 prefix= 5 out=10  1.1AA.q1.A
+10 prefix=10 out=10  1.1AA.q1.1
+11 prefix= 5 out=11  1.1AA.q1.q1
+11 prefix=11 out=11  1.1AA.q1.1a
+12 prefix= 5 out=12  1.1AA.q1.AA1
+12 prefix=12 out=12  1.1AA.q1.1AA
+10 prefix= 8 out=10  1.1AA.1a.a
+10 prefix= 8 out=10  1.1AA.1a.A
+10 prefix=10 out=10  1.1AA.1a.1
+11 prefix= 8 out=11  1.1AA.1a.q1
+11 prefix=11 out=11  1.1AA.1a.1a
+12 prefix= 8 out=12  1.1AA.1a.AA1
+12 prefix=12 out=12  1.1AA.1a.1AA
+11 prefix= 5 out=11  1.1AA.AA1.a
+11 prefix= 5 out=11  1.1AA.AA1.A
+11 prefix=11 out=11  1.1AA.AA1.1
+12 prefix= 5 out=12  1.1AA.AA1.q1
+12 prefix=12 out=12  1.1AA.AA1.1a
+13 prefix= 5 out=13  1.1AA.AA1.AA1
+13 prefix=13 out=13  1.1AA.AA1.1AA
+11 prefix= 9 out=11  1.1AA.1AA.a
+11 prefix= 9 out=11  1.1AA.1AA.A
+11 prefix=11 out=11  1.1AA.1AA.1
+12 prefix= 9 out=12  1.1AA.1AA.q1
+12 prefix=12 out=12  1.1AA.1AA.1a
+13 prefix= 9 out=13  1.1AA.1AA.AA1
+13 prefix=13 out=13  1.1AA.1AA.1AA

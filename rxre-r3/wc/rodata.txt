@@ -1,0 +1,335 @@
+
+/usr/bin/wc:     formato del fichero elf64-x86-64
+
+Contenido de la sección .rodata:
+ b640 01000200 5445524d 0064756d 62002009  ....TERM.dumb. .
+ b650 0a002c3d 5b200a00 2d2d6865 6c70002d  ..,=[ ..--help.-
+ b660 2d766572 73696f6e 00776300 1b5d383b  -version.wc..]8;
+ b670 3b257325 73232573 252e2a73 001b5d38  ;%s%s#%s%.*s..]8
+ b680 3b3b2573 23257325 2e2a7300 1b5b316d  ;;%s#%s%.*s..[1m
+ b690 001b5b30 6d001b5d 383b3b1b 5c006d65  ..[0m..]8;;.\.me
+ b6a0 6d6f7279 20657868 61757374 65640067  mory exhausted.g
+ b6b0 6e756c69 62005b00 74657374 20696e76  nulib.[.test inv
+ b6c0 6f636174 696f6e00 4d756c74 692d6361  ocation.Multi-ca
+ b6d0 6c6c2069 6e766f63 6174696f 6e007368  ll invocation.sh
+ b6e0 61322075 74696c69 74696573 00736861  a2 utilities.sha
+ b6f0 32323473 756d0073 68613235 3673756d  224sum.sha256sum
+ b700 00736861 33383473 756d0073 68613531  .sha384sum.sha51
+ b710 3273756d 00526570 6f727420 62756773  2sum.Report bugs
+ b720 20746f3a 2025730a 00627567 2d636f72   to: %s..bug-cor
+ b730 65757469 6c734067 6e752e6f 72670025  eutils@gnu.org.%
+ b740 7320686f 6d652070 6167653a 203c2573  s home page: <%s
+ b750 3e0a0047 4e552063 6f726575 74696c73  >..GNU coreutils
+ b760 00687474 70733a2f 2f777777 2e676e75  .https://www.gnu
+ b770 2e6f7267 2f676574 68656c70 2f00656e  .org/gethelp/.en
+ b780 5f004675 6c6c2064 6f63756d 656e7461  _.Full documenta
+ b790 74696f6e 203c2573 25733e0a 00257320  tion <%s%s>..%s 
+ b7a0 28257329 2025730a 00284329 00577269  (%s) %s..(C).Wri
+ b7b0 7474656e 20627920 25732e0a 00577269  tten by %s...Wri
+ b7c0 7474656e 20627920 25732061 6e642025  tten by %s and %
+ b7d0 732e0a00 57726974 74656e20 62792025  s...Written by %
+ b7e0 732c2025 732c2061 6e642025 732e0a00  s, %s, and %s...
+ b7f0 474c4942 435f5455 4e41424c 45530067  GLIBC_TUNABLES.g
+ b800 6c696263 2e637075 2e687763 6170733d  libc.cpu.hwcaps=
+ b810 00556e6b 6e6f776e 20737973 74656d20  .Unknown system 
+ b820 6572726f 7200504f 53495800 22002700  error.POSIX.".'.
+ b830 60002573 3a200077 72697465 20657272  `.%s: .write err
+ b840 6f720073 74616e64 61726420 696e7075  or.standard inpu
+ b850 74002d41 56583531 3246002d 41565835  t.-AVX512F.-AVX5
+ b860 31324257 002d4156 58320075 73696e67  12BW.-AVX2.using
+ b870 20617678 32206861 72647761 72652073   avx2 hardware s
+ b880 7570706f 72740061 76783220 73757070  upport.avx2 supp
+ b890 6f727420 6e6f7420 64657465 63746564  ort not detected
+ b8a0 00757369 6e672061 76783531 32206861  .using avx512 ha
+ b8b0 72647761 72652073 7570706f 72740061  rdware support.a
+ b8c0 76783531 32207375 70706f72 74206e6f  vx512 support no
+ b8d0 74206465 74656374 65640061 75746f00  t detected.auto.
+ b8e0 2f2e6c69 62732f00 6c742d00 2f757372  /.libs/.lt-./usr
+ b8f0 2f736861 72652f6c 6f63616c 6500504f  /share/locale.PO
+ b900 5349584c 595f434f 52524543 54002d2d  SIXLY_CORRECT.--
+ b910 746f7461 6c005661 6c696420 61726775  total.Valid argu
+ b920 6d656e74 73206172 653a000a 20202d20  ments are:..  - 
+ b930 2573002c 20257300 44617669 64204d61  %s., %s.David Ma
+ b940 634b656e 7a696500 5061756c 20527562  cKenzie.Paul Rub
+ b950 696e0039 2e313000 636c4c6d 77006578  in.9.10.clLmw.ex
+ b960 74726120 6f706572 616e6420 25730063  tra operand %s.c
+ b970 616e6e6f 74206f70 656e2025 7320666f  annot open %s fo
+ b980 72207265 6164696e 6700696e 76616c69  r reading.invali
+ b990 64207a65 726f2d6c 656e6774 68206669  d zero-length fi
+ b9a0 6c65206e 616d6500 25733a25 7a753a20  le name.%s:%zu: 
+ b9b0 25730025 733a2072 65616420 6572726f  %s.%s: read erro
+ b9c0 7200746f 74616c20 6c696e65 7300746f  r.total lines.to
+ b9d0 74616c20 776f7264 7300746f 74616c20  tal words.total 
+ b9e0 63686172 61637465 72730074 6f74616c  characters.total
+ b9f0 20627974 65730069 6e76616c 69642061   bytes.invalid a
+ ba00 7267756d 656e7420 25732066 6f722025  rgument %s for %
+ ba10 7300616d 62696775 6f757320 61726775  s.ambiguous argu
+ ba20 6d656e74 20257320 666f7220 25730025  ment %s for %s.%
+ ba30 733a2575 3a200025 733a0063 68617273  s:%u: .%s:.chars
+ ba40 00646562 75670066 696c6573 302d6672  .debug.files0-fr
+ ba50 6f6d006d 61782d6c 696e652d 6c656e67  om.max-line-leng
+ ba60 74680061 6c776179 73006f6e 6c79006e  th.always.only.n
+ ba70 65766572 00000000 68747470 733a2f2f  ever....https://
+ ba80 7777772e 676e752e 6f72672f 736f6674  www.gnu.org/soft
+ ba90 77617265 2f636f72 65757469 6c732f00  ware/coreutils/.
+ baa0 68747470 733a2f2f 7777772e 676e752e  https://www.gnu.
+ bab0 6f72672f 736f6674 77617265 2f636f72  org/software/cor
+ bac0 65757469 6c732f6d 616e7561 6c2f636f  eutils/manual/co
+ bad0 72657574 696c732e 68746d6c 00000000  reutils.html....
+ bae0 00000000 00000000 54727920 27257320  ........Try '%s 
+ baf0 2d2d6865 6c702720 666f7220 6d6f7265  --help' for more
+ bb00 20696e66 6f726d61 74696f6e 2e0a0000   information....
+ bb10 55736167 653a2025 73205b4f 5054494f  Usage: %s [OPTIO
+ bb20 4e5d2e2e 2e205b46 494c455d 2e2e2e0a  N]... [FILE]....
+ bb30 20206f72 3a202025 73205b4f 5054494f    or:  %s [OPTIO
+ bb40 4e5d2e2e 2e202d2d 66696c65 73302d66  N]... --files0-f
+ bb50 726f6d3d 460a0000 5072696e 74206e65  rom=F...Print ne
+ bb60 776c696e 652c2077 6f72642c 20616e64  wline, word, and
+ bb70 20627974 6520636f 756e7473 20666f72   byte counts for
+ bb80 20656163 68204649 4c452c20 616e6420   each FILE, and 
+ bb90 6120746f 74616c20 6c696e65 2069660a  a total line if.
+ bba0 6d6f7265 20746861 6e206f6e 65204649  more than one FI
+ bbb0 4c452069 73207370 65636966 6965642e  LE is specified.
+ bbc0 20204120 776f7264 20697320 61206e6f    A word is a no
+ bbd0 6e656d70 74792073 65717565 6e636520  nempty sequence 
+ bbe0 6f66206e 6f6e2077 68697465 0a737061  of non white.spa
+ bbf0 63652064 656c696d 69746564 20627920  ce delimited by 
+ bc00 77686974 65207370 61636520 63686172  white space char
+ bc10 61637465 7273206f 72206279 20737461  acters or by sta
+ bc20 7274206f 7220656e 64206f66 20696e70  rt or end of inp
+ bc30 75742e0a 00000000 0a576974 68206e6f  ut.......With no
+ bc40 2046494c 452c206f 72207768 656e2046   FILE, or when F
+ bc50 494c4520 6973202d 2c207265 61642073  ILE is -, read s
+ bc60 74616e64 61726420 696e7075 742e0a00  tandard input...
+ bc70 0a546865 206f7074 696f6e73 2062656c  .The options bel
+ bc80 6f77206d 61792062 65207573 65642074  ow may be used t
+ bc90 6f207365 6c656374 20776869 63682063  o select which c
+ bca0 6f756e74 73206172 65207072 696e7465  ounts are printe
+ bcb0 642c2061 6c776179 7320696e 0a746865  d, always in.the
+ bcc0 20666f6c 6c6f7769 6e67206f 72646572   following order
+ bcd0 3a206e65 776c696e 652c2077 6f72642c  : newline, word,
+ bce0 20636861 72616374 65722c20 62797465   character, byte
+ bcf0 2c206d61 78696d75 6d206c69 6e65206c  , maximum line l
+ bd00 656e6774 682e0a00 20202d63 2c202d2d  ength...  -c, --
+ bd10 62797465 730a2020 20202020 20202070  bytes.         p
+ bd20 72696e74 20746865 20627974 6520636f  rint the byte co
+ bd30 756e7473 0a000000 20202d6d 2c202d2d  unts....  -m, --
+ bd40 63686172 730a2020 20202020 20202070  chars.         p
+ bd50 72696e74 20746865 20636861 72616374  rint the charact
+ bd60 65722063 6f756e74 730a0000 00000000  er counts.......
+ bd70 20202d6c 2c202d2d 6c696e65 730a2020    -l, --lines.  
+ bd80 20202020 20202070 72696e74 20746865         print the
+ bd90 206e6577 6c696e65 20636f75 6e74730a   newline counts.
+ bda0 00000000 00000000 20202020 20202d2d  ........      --
+ bdb0 64656275 670a2020 20202020 20202069  debug.         i
+ bdc0 6e646963 61746520 77686174 206c696e  ndicate what lin
+ bdd0 6520636f 756e7420 61636365 6c657261  e count accelera
+ bde0 74696f6e 20697320 75736564 0a000000  tion is used....
+ bdf0 20202020 20202d2d 66696c65 73302d66        --files0-f
+ be00 726f6d3d 460a2020 20202020 20202072  rom=F.         r
+ be10 65616420 696e7075 74206672 6f6d2074  ead input from t
+ be20 68652066 696c6573 20737065 63696669  he files specifi
+ be30 65642062 790a2020 20202020 2020204e  ed by.         N
+ be40 554c2d74 65726d69 6e617465 64206e61  UL-terminated na
+ be50 6d657320 696e2066 696c6520 463b0a20  mes in file F;. 
+ be60 20202020 20202020 49662046 20697320          If F is 
+ be70 2d2c2072 65616420 6e616d65 73206672  -, read names fr
+ be80 6f6d2073 74616e64 61726420 696e7075  om standard inpu
+ be90 740a0000 00000000 20202d4c 2c202d2d  t.......  -L, --
+ bea0 6d61782d 6c696e65 2d6c656e 6774680a  max-line-length.
+ beb0 20202020 20202020 20707269 6e742074           print t
+ bec0 6865206d 6178696d 756d2064 6973706c  he maximum displ
+ bed0 61792077 69647468 0a000000 00000000  ay width........
+ bee0 20202d77 2c202d2d 776f7264 730a2020    -w, --words.  
+ bef0 20202020 20202070 72696e74 20746865         print the
+ bf00 20776f72 6420636f 756e7473 0a000000   word counts....
+ bf10 20202020 20202d2d 746f7461 6c3d5748        --total=WH
+ bf20 454e0a20 20202020 20202020 7768656e  EN.         when
+ bf30 20746f20 7072696e 74206120 6c696e65   to print a line
+ bf40 20776974 6820746f 74616c20 636f756e   with total coun
+ bf50 74733b0a 20202020 20202020 20574845  ts;.         WHE
+ bf60 4e206361 6e206265 3a206175 746f2c20  N can be: auto, 
+ bf70 616c7761 79732c20 6f6e6c79 2c206e65  always, only, ne
+ bf80 7665720a 00000000 20202020 20202d2d  ver.....      --
+ bf90 68656c70 0a202020 20202020 20206469  help.         di
+ bfa0 73706c61 79207468 69732068 656c7020  splay this help 
+ bfb0 616e6420 65786974 0a000000 00000000  and exit........
+ bfc0 20202020 20202d2d 76657273 696f6e0a        --version.
+ bfd0 20202020 20202020 206f7574 70757420           output 
+ bfe0 76657273 696f6e20 696e666f 726d6174  version informat
+ bff0 696f6e20 616e6420 65786974 0a000000  ion and exit....
+ c000 47656e65 72616c20 68656c70 20757369  General help usi
+ c010 6e672047 4e552073 6f667477 6172653a  ng GNU software:
+ c020 203c2573 3e0a0000 5265706f 72742061   <%s>...Report a
+ c030 6e792074 72616e73 6c617469 6f6e2062  ny translation b
+ c040 75677320 746f203c 68747470 733a2f2f  ugs to <https://
+ c050 7472616e 736c6174 696f6e70 726f6a65  translationproje
+ c060 63742e6f 72672f74 65616d2f 3e0a0000  ct.org/team/>...
+ c070 6f722061 7661696c 61626c65 206c6f63  or available loc
+ c080 616c6c79 20766961 3a20696e 666f2027  ally via: info '
+ c090 28636f72 65757469 6c732920 25732573  (coreutils) %s%s
+ c0a0 270a0000 00000000 4c696365 6e736520  '.......License 
+ c0b0 47504c76 332b3a20 474e5520 47504c20  GPLv3+: GNU GPL 
+ c0c0 76657273 696f6e20 33206f72 206c6174  version 3 or lat
+ c0d0 6572203c 25733e2e 0a546869 73206973  er <%s>..This is
+ c0e0 20667265 6520736f 66747761 72653a20   free software: 
+ c0f0 796f7520 61726520 66726565 20746f20  you are free to 
+ c100 6368616e 67652061 6e642072 65646973  change and redis
+ c110 74726962 75746520 69742e0a 54686572  tribute it..Ther
+ c120 65206973 204e4f20 57415252 414e5459  e is NO WARRANTY
+ c130 2c20746f 20746865 20657874 656e7420  , to the extent 
+ c140 7065726d 69747465 64206279 206c6177  permitted by law
+ c150 2e0a0000 00000000 68747470 733a2f2f  ........https://
+ c160 676e752e 6f72672f 6c696365 6e736573  gnu.org/licenses
+ c170 2f67706c 2e68746d 6c000000 00000000  /gpl.html.......
+ c180 57726974 74656e20 62792025 732c2025  Written by %s, %
+ c190 732c2025 732c0a61 6e642025 732e0a00  s, %s,.and %s...
+ c1a0 57726974 74656e20 62792025 732c2025  Written by %s, %
+ c1b0 732c2025 732c0a25 732c2061 6e642025  s, %s,.%s, and %
+ c1c0 732e0a00 00000000 57726974 74656e20  s.......Written 
+ c1d0 62792025 732c2025 732c2025 732c0a25  by %s, %s, %s,.%
+ c1e0 732c2025 732c2061 6e642025 732e0a00  s, %s, and %s...
+ c1f0 57726974 74656e20 62792025 732c2025  Written by %s, %
+ c200 732c2025 732c0a25 732c2025 732c2025  s, %s,.%s, %s, %
+ c210 732c2061 6e642025 732e0a00 00000000  s, and %s.......
+ c220 57726974 74656e20 62792025 732c2025  Written by %s, %
+ c230 732c2025 732c0a25 732c2025 732c2025  s, %s,.%s, %s, %
+ c240 732c2025 732c0a61 6e642025 732e0a00  s, %s,.and %s...
+ c250 57726974 74656e20 62792025 732c2025  Written by %s, %
+ c260 732c2025 732c0a25 732c2025 732c2025  s, %s,.%s, %s, %
+ c270 732c2025 732c0a25 732c2061 6e642025  s, %s,.%s, and %
+ c280 732e0a00 00000000 57726974 74656e20  s.......Written 
+ c290 62792025 732c2025 732c2025 732c0a25  by %s, %s, %s,.%
+ c2a0 732c2025 732c2025 732c2025 732c0a25  s, %s, %s, %s,.%
+ c2b0 732c2025 732c2061 6e64206f 74686572  s, %s, and other
+ c2c0 732e0a00 00000000 66696c65 206f7065  s.......file ope
+ c2d0 72616e64 73206361 6e6e6f74 20626520  rands cannot be 
+ c2e0 636f6d62 696e6564 20776974 68202d2d  combined with --
+ c2f0 66696c65 73302d66 726f6d00 00000000  files0-from.....
+ c300 63616e6e 6f742072 65616420 66696c65  cannot read file
+ c310 206e616d 65732066 726f6d20 25730000   names from %s..
+ c320 7768656e 20726561 64696e67 2066696c  when reading fil
+ c330 65206e61 6d657320 66726f6d 20737461  e names from sta
+ c340 6e646172 6420696e 7075742c 206e6f20  ndard input, no 
+ c350 66696c65 206e616d 65206f66 20257320  file name of %s 
+ c360 616c6c6f 77656400 00000000 00000000  allowed.........
+ c370 00000000 00000000 00000000 00000000  ................
+ c380 4088ffff 2b89ffff 6489ffff b289ffff  @...+...d.......
+ c390 158affff 8f8affff f48affff 9d8bffff  ................
+ c3a0 6088ffff 5d87ffff 769affff 129bffff  `...]...v.......
+ c3b0 209affff 529bffff ff9affff b09affff   ...R...........
+ c3c0 749bffff 0595ffff 7894ffff 7894ffff  t.......x...x...
+ c3d0 7894ffff 8c98ffff 8c95ffff 8c95ffff  x...............
+ c3e0 8c95ffff 8c95ffff 8c95ffff 8c95ffff  ................
+ c3f0 c499ffff 5c98ffff 8c99ffff ac97ffff  ....\...........
+ c400 2498ffff 3499ffff 9c99ffff 8c95ffff  $...4...........
+ c410 8c95ffff 8c95ffff 8c95ffff 8c95ffff  ................
+ c420 8c95ffff 8c95ffff 8c95ffff 8c95ffff  ................
+ c430 8c95ffff 8c95ffff 8c95ffff 8c95ffff  ................
+ c440 8c95ffff 8c95ffff 8c95ffff 8c95ffff  ................
+ c450 8c95ffff ac99ffff 7c97ffff 7c97ffff  ........|...|...
+ c460 6c99ffff 539effff 1c9cffff 1c9cffff  l...S...........
+ c470 1c9cffff 1c9cffff 1c9cffff 1c9cffff  ................
+ c480 089fffff f59dffff de9effff 0f9effff  ................
+ c490 db9dffff 369effff 939dffff 1c9cffff  ....6...........
+ c4a0 1c9cffff 1c9cffff 1c9cffff 1c9cffff  ................
+ c4b0 1c9cffff 1c9cffff 1c9cffff 1c9cffff  ................
+ c4c0 1c9cffff 1c9cffff 1c9cffff 1c9cffff  ................
+ c4d0 1c9cffff 1c9cffff 1c9cffff 1c9cffff  ................
+ c4e0 1c9cffff 259fffff 859dffff 859dffff  ....%...........
+ c4f0 cc9effff ec9effff 6c94ffff 6c94ffff  ........l...l...
+ c500 6c94ffff 6c94ffff 6c94ffff 6c94ffff  l...l...l...l...
+ c510 ec9fffff b59fffff cc9fffff 8c96ffff  ................
+ c520 9e9fffff 709fffff 7c98ffff 6c94ffff  ....p...|...l...
+ c530 6c94ffff 6c94ffff 6c94ffff 6c94ffff  l...l...l...l...
+ c540 6c94ffff 6c94ffff 6c94ffff 6c94ffff  l...l...l...l...
+ c550 6c94ffff 6c94ffff 6c94ffff 6c94ffff  l...l...l...l...
+ c560 6c94ffff 6c94ffff 6c94ffff 6c94ffff  l...l...l...l...
+ c570 6c94ffff df9fffff 5c96ffff 5c96ffff  l.......\...\...
+ c580 d69fffff 7cbdffff 64bdffff acbdffff  ....|...d.......
+ c590 68bdffff 68bdffff 1cbdffff 1cbdffff  h...h...........
+ c5a0 1cbdffff 1cbdffff 1cbdffff 1cbdffff  ................
+ c5b0 1cbdffff 1cbdffff 1cbdffff 1cbdffff  ................
+ c5c0 1cbdffff 1cbdffff 1cbdffff 1cbdffff  ................
+ c5d0 1cbdffff 1cbdffff 1cbdffff 1cbdffff  ................
+ c5e0 a4bdffff 74c3ffff 5cc3ffff ccc3ffff  ....t...\.......
+ c5f0 2cc3ffff 2cc3ffff 2cc2ffff 2cc2ffff  ,...,...,...,...
+ c600 2cc2ffff 2cc2ffff 2cc2ffff 2cc2ffff  ,...,...,...,...
+ c610 2cc2ffff 2cc2ffff 2cc2ffff 2cc2ffff  ,...,...,...,...
+ c620 2cc2ffff 2cc2ffff 2cc2ffff 2cc2ffff  ,...,...,...,...
+ c630 2cc2ffff 2cc2ffff 2cc2ffff 2cc2ffff  ,...,...,...,...
+ c640 acc3ffff bcc4ffff b1c4ffff 94c4ffff  ................
+ c650 84c4ffff 84c4ffff fcc3ffff fcc3ffff  ................
+ c660 fcc3ffff fcc3ffff fcc3ffff fcc3ffff  ................
+ c670 fcc3ffff fcc3ffff fcc3ffff fcc3ffff  ................
+ c680 fcc3ffff fcc3ffff fcc3ffff fcc3ffff  ................
+ c690 fcc3ffff fcc3ffff fcc3ffff fcc3ffff  ................
+ c6a0 a6c4ffff 3c4dffff 8256ffff 8256ffff  ....<M...V...V..
+ c6b0 8256ffff 8256ffff 8256ffff 8256ffff  .V...V...V...V..
+ c6c0 8256ffff 8256ffff 8256ffff 8256ffff  .V...V...V...V..
+ c6d0 8256ffff 8256ffff 8256ffff 8256ffff  .V...V...V...V..
+ c6e0 8256ffff 8256ffff 8256ffff 8256ffff  .V...V...V...V..
+ c6f0 8256ffff 8256ffff 8256ffff 8256ffff  .V...V...V...V..
+ c700 2c4dffff 8256ffff 8256ffff 8256ffff  ,M...V...V...V..
+ c710 8256ffff 8256ffff 8256ffff 8256ffff  .V...V...V...V..
+ c720 8256ffff 1c4dffff 0c4dffff 8256ffff  .V...M...M...V..
+ c730 8256ffff 8256ffff 8256ffff 8256ffff  .V...V...V...V..
+ c740 8256ffff 8256ffff 8256ffff 8256ffff  .V...V...V...V..
+ c750 fc4cffff 8256ffff 8256ffff 8256ffff  .L...V...V...V..
+ c760 8256ffff 8256ffff 8256ffff 8256ffff  .V...V...V...V..
+ c770 8256ffff ec4cffff cc4cffff 3c4cffff  .V...L...L..<L..
+ c780 436f7079 72696768 74202573 20256420  Copyright %s %d 
+ c790 46726565 20536f66 74776172 6520466f  Free Software Fo
+ c7a0 756e6461 74696f6e 2c20496e 632e0000  undation, Inc...
+ c7b0 e2809800 e2809900 dfbf0000 00000000  ................
+ c7c0 00000000 01000000 02000000 03000000  ................
+ c7d0 20252a73 00000000 00000000 00000000   %*s............
+ c7e0 00000000 00000000 00000000 00000000  ................
+ c7f0 00000000 00000000 00000000 00000000  ................
+ c800 0a0a0a0a 0a0a0a0a 0a0a0a0a 0a0a0a0a  ................
+ c810 0a0a0a0a 0a0a0a0a 0a0a0a0a 0a0a0a0a  ................
+ c820 0a0a0a0a 0a0a0a0a 0a0a0a0a 0a0a0a0a  ................
+ c830 0a0a0a0a 0a0a0a0a 0a0a0a0a 0a0a0a0a  ................
+ c840 00000000 00009041 00000000 0000d03f  .......A.......?
+ c850 00000000 00006441 00000000 0000e03f  ......dA.......?
+ c860 ffffffff ffffffff ffffffff ffffffff  ................
+ c870 ffffffff ffffffff ffffffff ffffffff  ................
+ c880 00000000 00000004 00000000 00000000  ................
+ c890 01010101 01010101 01010101 01010101  ................
+ c8a0 ff00ff00 ff00ff00 ff00ff00 ff00ff00  ................
+ c8b0 00400040 00400040 00400040 00400040  .@.@.@.@.@.@.@.@
+ c8c0 e56bffff fe66ffff e56bffff e56bffff  .k...f...k...k..
+ c8d0 cf6bffff 6a6cffff fe66ffff fe66ffff  .k..jl...f...f..
+ c8e0 fe66ffff fe66ffff fe66ffff 806cffff  .f...f...f...l..
+ c8f0 6a6cffff fe66ffff fe66ffff fe66ffff  jl...f...f...f..
+ c900 e56bffff fe66ffff 5b6cffff e56bffff  .k...f..[l...k..
+ c910 cf6bffff 5b6cffff fe66ffff fe66ffff  .k..[l...f...f..
+ c920 fe66ffff fe66ffff fe66ffff fe66ffff  .f...f...f...f..
+ c930 bd6cffff fe66ffff fe66ffff fe66ffff  .l...f...f...f..
+ c940 2f6cffff fe66ffff 2f6cffff fe66ffff  /l...f../l...f..
+ c950 fe66ffff fe66ffff fe66ffff fe66ffff  .f...f...f...f..
+ c960 fe66ffff fe66ffff fe66ffff e56bffff  .f...f...f...k..
+ c970 fe66ffff fe66ffff fe66ffff fe66ffff  .f...f...f...f..
+ c980 e96cffff fe66ffff fe66ffff 196cffff  .l...f...f...l..
+ c990 196cffff fe66ffff fe66ffff fe66ffff  .l...f...f...f..
+ c9a0 fe66ffff fe66ffff fe66ffff fe66ffff  .f...f...f...f..
+ c9b0 0a6cffff fe66ffff fe66ffff fe66ffff  .l...f...f...f..
+ c9c0 fe66ffff fe66ffff 456cffff 456cffff  .f...f..El..El..
+ c9d0 cf6bffff a76cffff fe66ffff fe66ffff  .k...l...f...f..
+ c9e0 fe66ffff fe66ffff fe66ffff fe66ffff  .f...f...f...f..
+ c9f0 0a6cffff f46bffff fe66ffff fe66ffff  .l...k...f...f..
+ ca00 f46bffff fe66ffff 0a6cffff 196cffff  .k...f...l...l..
+ ca10 cf6bffff fe66ffff fe66ffff fe66ffff  .k...f...f...f..
+ ca20 fe66ffff fe66ffff fe66ffff cf6bffff  .f...f...f...k..
+ ca30 cf6bffff d36cffff fe66ffff fe66ffff  .k...l...f...f..
+ ca40 f46bffff fe66ffff f46bffff 3c6dffff  .k...f...k..<m..
+ ca50 266dffff 176dffff fe66ffff fe66ffff  &m...m...f...f..
+ ca60 fe66ffff fe66ffff fe66ffff 016dffff  .f...f...f...m..
+ ca70 526dffff 5869ffff cc65ffff cc65ffff  Rm..Xi...e...e..
+ ca80 cc65ffff 4969ffff 1e69ffff 0f69ffff  .e..Ii...i...i..
+ ca90 dc69ffff cc65ffff 8c69ffff 9e68ffff  .i...e...i...h..
+ caa0 746fffff a96fffff 1e65ffff 1e65ffff  to...o...e...e..
+ cab0 1e65ffff 8a6fffff 1e65ffff 746fffff  .e...o...e..to..
+ cac0 8a6fffff b86fffff 746fffff 1e65ffff  .o...o..to...e..
+ cad0 1e65ffff 1e65ffff 1e65ffff 1e65ffff  .e...e...e...e..
+ cae0 1e65ffff 1e65ffff 056affff           .e...e...j..    

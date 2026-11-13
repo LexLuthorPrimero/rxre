@@ -1,0 +1,27 @@
+# RXRE-R3 — SEGUNDA GENERACIÓN SELLADA (seed 20261113) — seal-before-reveal
+# Fecha: 2026-11-12. Autorizado por propietario ("el mas completo").
+# Orden causal: corpus generado y sellado ANTES de ejecutar matrix_gen (oráculo).
+# Restricciones: sin GPU, sin sudo, sin --auto, sin op:claim, corpus 20261112 intacto.
+
+## Paso 1 — corpus sellado (ANTES de oráculo)  [2026-11-12]
+cmd:    python3 gen_cases.py 20261113 cases_seed20261113.txt
+seed:   20261113
+pairs:  34145
+sha256: 8333b744b3dc1985648bd54ee432c74770bb78cba18e359ee4779d0acf885873  cases_seed20261113.txt
+
+## Paso 2 — oráculo nativo (DESPUÉS del sellado)  [2026-11-12]
+cmd:    ./matrix_gen cases_seed20261113.txt matrix_native_20261113.txt
+sha256: e031d3ed6d4c6329cf7edcae55b795fbe0d3c0b121fed34839ec8563b60cf6fd  matrix_native_20261113.txt
+cases:  34145 (0 CRASH, 0 líneas no-enteras verificadas)
+
+## Paso 3 — verificación diferencial  [2026-11-12]
+harness: harness/verify_recon_seed20261113 (copia nueva; rutas nuevas; verify_recon.c sellado intacto)
+cmd:    gcc -std=c11 -O2 -Wall -Wextra -pedantic -Werror -o harness/verify_recon_seed20261113 reconstruction/filenvercmp.c harness/verify_recon_seed20261113.c
+result: total=34145 mismatches=0 (exit=0)
+
+## Generación previa (20261112) intacta
+cases_seed20261112.txt  bfa30fb358795a7052aaff0cd0b833ccd7f77bb16658fd1aaccce48c361874d7
+matrix_native.txt       ed5e91ef5b810a2dbf21186bfd7742fb1ffa90f55cc088329d045bc9926ec0bd
+
+## Reconstrucción bajo prueba (ambas generaciones)
+filenvercmp.c  c721c5c6672f5fbbd5896a922efc7a58a71b37b9bd616f46fbefde3bcdfc943d

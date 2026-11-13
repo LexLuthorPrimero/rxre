@@ -1,0 +1,21 @@
+MISMATCH a=')88&7g=' b=').Ox' recon=-302 native=1
+MISMATCH a='A1' b='A' recon=0 native=1
+MISMATCH a='A10' b='A' recon=0 native=1
+MISMATCH a='A1A' b='A' recon=0 native=1
+MISMATCH a='B1' b='B' recon=0 native=1
+MISMATCH a='END1' b='END' recon=0 native=1
+MISMATCH a='END10' b='END' recon=0 native=1
+MISMATCH a='END2' b='END' recon=0 native=1
+MISMATCH a='[|~/pz].."@$' b='[k"rtq#' recon=0 native=273
+MISMATCH a='\x5cIn' b='\x5c' recon=0 native=74
+MISMATCH a='_DcO :' b='_' recon=0 native=69
+MISMATCH a='`$lG::Kz,' b='`(Wc5(@V|E#' recon=0 native=-4
+MISMATCH a='`,~N*i' b='`' recon=0 native=301
+MISMATCH a='a.001' b='a.' recon=0 native=1
+MISMATCH a='a.001' b='a..bc' recon=-302 native=1
+MISMATCH a='a.01' b='a.' recon=0 native=1
+MISMATCH a='a.01' b='a..bc' recon=-302 native=1
+MISMATCH a='a.1' b='a.' recon=0 native=1
+MISMATCH a='a.1' b='a..bc' recon=-302 native=1
+MISMATCH a='a.10' b='a.' recon=0 native=1
+total=34145 mismatches=97

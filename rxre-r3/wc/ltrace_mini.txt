@@ -1,0 +1,34 @@
+% time     seconds  usecs/call     calls      function
+------ ----------- ----------- --------- --------------------
+ 31.29    0.011653          46       250 mbrtowc
+ 15.96    0.005945          46       128 strlen
+ 15.93    0.005933          45       130 strcmp
+ 15.88    0.005915          46       128 memcpy
+ 15.83    0.005895          45       129 setlocale
+  0.74    0.000275         275         1 strerror_r
+  0.36    0.000133          66         2 __fprintf_chk
+  0.33    0.000123         123         1 exit_group
+  0.28    0.000104          52         2 fclose
+  0.23    0.000084          42         2 __errno_location
+  0.22    0.000082          41         2 fflush_unlocked
+  0.22    0.000082          41         2 free
+  0.22    0.000081          40         2 malloc
+  0.21    0.000080          40         2 __fpending
+  0.20    0.000076          76         1 __vfprintf_chk
+  0.18    0.000066          66         1 stat
+  0.17    0.000063          63         1 open
+  0.17    0.000062          62         1 __overflow
+  0.16    0.000060          60         1 strrchr
+  0.15    0.000057          57         1 __cxa_finalize
+  0.14    0.000052          52         1 fcntl
+  0.13    0.000049          49         1 getopt_long
+  0.13    0.000049          49         1 setvbuf
+  0.13    0.000049          49         1 bindtextdomain
+  0.13    0.000047          47         1 getenv
+  0.13    0.000047          47         1 __ctype_b_loc
+  0.13    0.000047          47         1 textdomain
+  0.12    0.000046          46         1 getpagesize
+  0.12    0.000046          46         1 __cxa_atexit
+  0.11    0.000040          40         1 __ctype_get_mb_cur_max
+------ ----------- ----------- --------- --------------------
+100.00    0.037241                   797 total

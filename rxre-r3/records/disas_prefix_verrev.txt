@@ -1,0 +1,134 @@
+
+/usr/bin/ls:     formato del fichero elf64-x86-64
+
+
+Desensamblado de la sección .text:
+
+0000000000004a50 <error_at_line@@Base+0x36f8>:
+    4a50:	b6 3c                	mov    dh,0x3c
+    4a52:	03 44 8d 4f          	add    eax,DWORD PTR [rbp+rcx*4+0x4f]
+    4a56:	bf 89 f9 44 8d       	mov    edi,0x8d44f989
+    4a5b:	57                   	push   rdi
+    4a5c:	20 41 83             	and    BYTE PTR [rcx-0x7d],al
+    4a5f:	f9                   	stc
+    4a60:	19 41 0f             	sbb    DWORD PTR [rcx+0xf],eax
+    4a63:	46 fa                	rex.RX cli
+    4a65:	44 8d 51 20          	lea    r10d,[rcx+0x20]
+    4a69:	41 0f 46 ca          	cmovbe ecx,r10d
+    4a6d:	49 39 d0             	cmp    r8,rdx
+    4a70:	75 b6                	jne    4a28 <error_at_line@@Base+0x36d0>
+    4a72:	48 8b 5d f8          	mov    rbx,QWORD PTR [rbp-0x8]
+    4a76:	29 f8                	sub    eax,edi
+    4a78:	c9                   	leave
+    4a79:	c3                   	ret
+    4a7a:	66 0f 1f 44 00 00    	nop    WORD PTR [rax+rax*1+0x0]
+    4a80:	48 8b 0e             	mov    rcx,QWORD PTR [rsi]
+    4a83:	49 89 f1             	mov    r9,rsi
+    4a86:	31 c0                	xor    eax,eax
+    4a88:	45 31 c0             	xor    r8d,r8d
+    4a8b:	eb 08                	jmp    4a95 <error_at_line@@Base+0x373d>
+    4a8d:	0f 1f 00             	nop    DWORD PTR [rax]
+    4a90:	80 fa 40             	cmp    dl,0x40
+    4a93:	7f 49                	jg     4ade <error_at_line@@Base+0x3786>
+    4a95:	48 85 c9             	test   rcx,rcx
+    4a98:	78 71                	js     4b0b <error_at_line@@Base+0x37b3>
+    4a9a:	48 39 c1             	cmp    rcx,rax
+    4a9d:	0f 84 a8 00 00 00    	je     4b4b <error_at_line@@Base+0x37f3>
+    4aa3:	4c 8d 40 01          	lea    r8,[rax+0x1]
+    4aa7:	48 83 c0 02          	add    rax,0x2
+    4aab:	48 39 c8             	cmp    rax,rcx
+    4aae:	0f 83 9e 00 00 00    	jae    4b52 <error_at_line@@Base+0x37fa>
+    4ab4:	4c 89 c0             	mov    rax,r8
+    4ab7:	66 0f 1f 84 00 00 00 	nop    WORD PTR [rax+rax*1+0x0]
+    4abe:	00 00 
+    4ac0:	80 3c 07 2e          	cmp    BYTE PTR [rdi+rax*1],0x2e
+    4ac4:	75 cf                	jne    4a95 <error_at_line@@Base+0x373d>
+    4ac6:	0f b6 54 07 01       	movzx  edx,BYTE PTR [rdi+rax*1+0x1]
+    4acb:	80 fa 5a             	cmp    dl,0x5a
+    4ace:	7e c0                	jle    4a90 <error_at_line@@Base+0x3738>
+    4ad0:	8d 72 9f             	lea    esi,[rdx-0x61]
+    4ad3:	40 80 fe 19          	cmp    sil,0x19
+    4ad7:	76 05                	jbe    4ade <error_at_line@@Base+0x3786>
+    4ad9:	80 fa 7e             	cmp    dl,0x7e
+    4adc:	75 b7                	jne    4a95 <error_at_line@@Base+0x373d>
+    4ade:	48 83 c0 02          	add    rax,0x2
+    4ae2:	48 39 c8             	cmp    rax,rcx
+    4ae5:	73 16                	jae    4afd <error_at_line@@Base+0x37a5>
+    4ae7:	0f b6 14 07          	movzx  edx,BYTE PTR [rdi+rax*1]
+    4aeb:	80 fa 5a             	cmp    dl,0x5a
+    4aee:	7f 38                	jg     4b28 <error_at_line@@Base+0x37d0>
+    4af0:	80 fa 40             	cmp    dl,0x40
+    4af3:	7f 4b                	jg     4b40 <error_at_line@@Base+0x37e8>
+    4af5:	83 ea 30             	sub    edx,0x30
+    4af8:	80 fa 09             	cmp    dl,0x9
+    4afb:	76 43                	jbe    4b40 <error_at_line@@Base+0x37e8>
+    4afd:	48 8d 50 01          	lea    rdx,[rax+0x1]
+    4b01:	48 39 ca             	cmp    rdx,rcx
+    4b04:	72 ba                	jb     4ac0 <error_at_line@@Base+0x3768>
+    4b06:	48 85 c9             	test   rcx,rcx
+    4b09:	79 8f                	jns    4a9a <error_at_line@@Base+0x3742>
+    4b0b:	80 3c 07 00          	cmp    BYTE PTR [rdi+rax*1],0x0
+    4b0f:	74 3a                	je     4b4b <error_at_line@@Base+0x37f3>
+    4b11:	4c 8d 40 01          	lea    r8,[rax+0x1]
+    4b15:	48 83 c0 02          	add    rax,0x2
+    4b19:	48 39 c8             	cmp    rax,rcx
+    4b1c:	72 96                	jb     4ab4 <error_at_line@@Base+0x375c>
+    4b1e:	4c 89 c0             	mov    rax,r8
+    4b21:	eb e8                	jmp    4b0b <error_at_line@@Base+0x37b3>
+    4b23:	0f 1f 44 00 00       	nop    DWORD PTR [rax+rax*1+0x0]
+    4b28:	8d 72 9f             	lea    esi,[rdx-0x61]
+    4b2b:	40 80 fe 19          	cmp    sil,0x19
+    4b2f:	76 0f                	jbe    4b40 <error_at_line@@Base+0x37e8>
+    4b31:	80 fa 7e             	cmp    dl,0x7e
+    4b34:	75 c7                	jne    4afd <error_at_line@@Base+0x37a5>
+    4b36:	66 2e 0f 1f 84 00 00 	cs nop WORD PTR [rax+rax*1+0x0]
+    4b3d:	00 00 00 
+    4b40:	48 83 c0 01          	add    rax,0x1
+    4b44:	48 39 c8             	cmp    rax,rcx
+    4b47:	72 9e                	jb     4ae7 <error_at_line@@Base+0x378f>
+    4b49:	eb b2                	jmp    4afd <error_at_line@@Base+0x37a5>
+    4b4b:	49 89 01             	mov    QWORD PTR [r9],rax
+    4b4e:	4c 89 c0             	mov    rax,r8
+    4b51:	c3                   	ret
+    4b52:	4c 89 c0             	mov    rax,r8
+    4b55:	e9 40 ff ff ff       	jmp    4a9a <error_at_line@@Base+0x3742>
+    4b5a:	66 0f 1f 44 00 00    	nop    WORD PTR [rax+rax*1+0x0]
+    4b60:	55                   	push   rbp
+    4b61:	49 89 d1             	mov    r9,rdx
+    4b64:	49 89 f8             	mov    r8,rdi
+    4b67:	31 d2                	xor    edx,edx
+    4b69:	31 c0                	xor    eax,eax
+    4b6b:	48 89 e5             	mov    rbp,rsp
+    4b6e:	53                   	push   rbx
+    4b6f:	48 39 f0             	cmp    rax,rsi
+    4b72:	7c 1c                	jl     4b90 <error_at_line@@Base+0x3838>
+    4b74:	48 39 ca             	cmp    rdx,rcx
+    4b77:	0f 8d 52 03 00 00    	jge    4ecf <error_at_line@@Base+0x3b77>
+    4b7d:	48 39 f0             	cmp    rax,rsi
+    4b80:	0f 8d 90 00 00 00    	jge    4c16 <error_at_line@@Base+0x38be>
+    4b86:	66 2e 0f 1f 84 00 00 	cs nop WORD PTR [rax+rax*1+0x0]
+    4b8d:	00 00 00 
+    4b90:	41 0f b6 3c 00       	movzx  edi,BYTE PTR [r8+rax*1]
+    4b95:	44 0f be d7          	movsx  r10d,dil
+    4b99:	41 83 ea 30          	sub    r10d,0x30
+    4b9d:	41 83 fa 09          	cmp    r10d,0x9
+    4ba1:	76 73                	jbe    4c16 <error_at_line@@Base+0x38be>
+    4ba3:	40 80 ff 5a          	cmp    dil,0x5a
+    4ba7:	0f 8f db 00 00 00    	jg     4c88 <error_at_line@@Base+0x3930>
+    4bad:	40 80 ff 40          	cmp    dil,0x40
+    4bb1:	0f 8f df 00 00 00    	jg     4c96 <error_at_line@@Base+0x393e>
+    4bb7:	40 80 ff 7e          	cmp    dil,0x7e
+    4bbb:	0f 84 57 03 00 00    	je     4f18 <error_at_line@@Base+0x3bc0>
+    4bc1:	48 39 ca             	cmp    rdx,rcx
+    4bc4:	0f 84 98 03 00 00    	je     4f62 <error_at_line@@Base+0x3c0a>
+    4bca:	45 0f b6 1c 11       	movzx  r11d,BYTE PTR [r9+rdx*1]
+    4bcf:	81 c7 00 01 00 00    	add    edi,0x100
+    4bd5:	41 8d 5b d0          	lea    ebx,[r11-0x30]
+    4bd9:	45 89 da             	mov    r10d,r11d
+    4bdc:	83 fb 09             	cmp    ebx,0x9
+    4bdf:	0f 86 94 00 00 00    	jbe    4c79 <error_at_line@@Base+0x3921>
+    4be5:	41 80 fb 5a          	cmp    r11b,0x5a
+    4be9:	0f 8f 59 02 00 00    	jg     4e48 <error_at_line@@Base+0x3af0>
+    4bef:	41 80 fb 40          	cmp    r11b,0x40
+    4bf3:	0f 8f 58 02 00 00    	jg     4e51 <error_at_line@@Base+0x3af9>
+    4bf9:	45 8d 93 00 01 00 00 	lea    r10d,[r11+0x100]

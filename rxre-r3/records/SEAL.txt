@@ -1,0 +1,132 @@
+# RXRE-R3 — SEALED STATUS (2026-11-12, update-4, addenda §1044-§1046 docs)
+
+## Sujeto
+Documentación de base de RXRE publicada: `RXRE_ESENCIA`, `RXRE_ESTADO`, `RXRE_INDICE`,
+`RXRE_FLUJO`, `RXRE_PROTOCOLO_SELLADO`, `RXRE_PROCEDENCIA`, `RXRE_CHANGELOG`,
+`RXRE_LIMITACIONES`, `RXRE_OBSOLETOS`, `VERIFIED_HASHES`, `RXRE_IDENTIDAD`.
+
+## Veredicto documental
+G1046 = PUBLISHED. G1045 = PUBLISHED. G1044 = EXECUTED (OPEN, 791/34,145).
+Ninguna promoción de etiquetas ni avance de motor habilitada por esta publicación.
+
+## Ruta de lectura recomendada
+`RXRE_IDENTIDAD.md` -> `RXRE_ESENCIA.md` -> `RXRE_ESTADO.md` -> `RXRE_FLUJO.md` -> `AGENTS.md`.
+
+## Bases intactas (esta sesión, update-4)
+AGENTS.md (`dcaf870c…` — actualizado esta sesión con nota declarativa; histórico preservado),
+README.md (`24897ba8…`), RXRE_PLAN_MAESTRO.md (`97fb0f4c…`, 1.728.122 B),
+rxre.sqlite3 (`c24d58d6…`, 270,336 B), core/store.py, contratos protegidos, jorgeeee.md.
+
+## Archivo nuevo/relevante
+`/home/lucas/Escritorio/rxre/RXRE_ESENCIA.md`        64f14a2a…
+`/home/lucas/Escritorio/rxre/RXRE_ESTADO.md`         dd1b83ba…
+`/home/lucas/Escritorio/rxre/RXRE_INDICE.md`         086b77aa…
+`/home/lucas/Escritorio/rxre/RXRE_FLUJO.md`          1ec2a781…
+`/home/lucas/Escritorio/rxre/RXRE_PROTOCOLO_SELLADO.md` 49edce38…
+`/home/lucas/Escritorio/rxre/RXRE_PROCEDENCIA.md`    ce21f3c1…
+`/home/lucas/Escritorio/rxre/RXRE_CHANGELOG.md`      dca69e0a…
+`/home/lucas/Escritorio/rxre/RXRE_LIMITACIONES.md`   49b2e6bd…
+`/home/lucas/Escritorio/rxre/RXRE_OBSOLETOS.md`      6fff92f3…
+`/home/lucas/Escritorio/rxre/VERIFIED_HASHES.md`     206628a9…
+
+## Solución de índices
+1,320 `## ` encabezados detectados y auto-agrupados (§1046.1). Sin destrucción del monumento.
+
+## Veredicto R3
+OPEN — NOT_PASS (791 divergencias); no se ejecuta segunda generación; ninguna capacidad promovida.
+
+## update-5 (2026-11-12) — resolución de las 791 divergencias; segunda generación; verificación acotada
+Autorización propietario ("el mas completo"). Restricciones preservadas: sin repo, sin AGENTS.md/rxre.sqlite3 (verificados intactos esta sesión; hashes de base sin cambio), sin GPU, sin sudo/--auto/op:claim; corpus y oráculo 20261112 intactos (bfa30fb3… / ed5e91ef…).
+
+- Primera generación (20261112): `./harness/verify_recon` → total=34145 mismatches=0 (exit=0, GCC -O2; verify_recon.c intacto; previo preservado en harness/verify_recon.prev2).
+- Fuzz diagnóstico (no sellado): 650.000 pares, 4 semillas, 0 mismatches.
+- Segunda generación sellada (seed 20261113), seal-before-reveal (records/SEAL_SECOND_GENERATION.txt):
+  corpus 8333b744b3dc1985648bd54ee432c74770bb78cba18e359ee4779d0acf885873 (sellado antes);
+  oráculo e031d3ed6d4c6329cf7edcae55b795fbe0d3c0b121fed34839ec8563b60cf6fd (34145 casos, 0 CRASH);
+  verificación verify_recon_seed20261113 → total=34145 mismatches=0 (exit=0).
+- Verificación acotada independiente (clean-room, verify/cleanroom/, hashes verificados): clang -O2, gcc -O0, gcc -O2 × 2 generaciones = 6/6, 0 divergencias.
+- bwrap (--ro-bind / /, tmpfs /tmp, HOME fresco): uid=1000; sha256(/usr/bin/ls) dentro = 54e936d37decdad9ecaf189b1de347605a0a99037ec87bd17679b6cbde871a0c; escritura denegada sobre clean-room; diferenciales 0/0 dentro del sandbox.
+- Reconstrucción: transcripción literal del desensamblado; defectos corregidos: 4e72→4bf9→4c00 (igualdad/avance a-otros vs b-otros); j>=b_lim con a dígito (4ea2→4cfd); aplanado de verrevcmp; L_4eq.
+- Restricciones/límites (sin ocultar): verificación autónoma pero mismo host (kalm), mismo UID, misma persona, mismo modelo; MODEL_DIVERSITY y diversidad física/host NO demostradas; E2E-039 independencia física BLOCKED; tercera parte verificadora NOT_EXECUTED; R3 OPEN — sin dictamen PASS; ningún artefacto externo declarado verificado por terceros.
+- Expediente: /tmp/rxre-r3/EXPEDIENTE_R3.md §11 (vigente; prevalece sobre §4/§5 históricas).
+- AGENTS.md §8.11 (reconocimiento tecnológico exterior, 2026-11-12): solo información; no autoriza integración ni promoción; no re-ejecutó suites.
+
+Veredicto R3 (update-5): OPEN — cero divergencias propias en ambas generaciones selladas + clean-room + sandbox; verificación independiente de terceros NOT_EXECUTED; ninguna promoción de etiquetas.
+
+## update-5 (apéndice b) — caja negra end-to-end vía ls -v  [2026-11-12]
+250 nombres únicos imprimibles del corpus 20261113 (determinista, seed 20261113), tmpfs limpio work/bb2/: `LC_ALL=C ls -A -v` == ordenador de referencia de la reconstrucción (filenvercmp, empate→strcmp) con 250/250 secuencias idénticas. Evidencia diagnóstica, mismo host; no sellada; no terceros. R3 sigue OPEN.
+
+## update-6 (2026-11-12) — almacén público, archivado frío, congelamiento
+- Publicado (Fase 1 autorizada): https://github.com/LexLuthorPrimero/rxre-cleanroom (commit 2aa102d). Verificación de terceros sigue NOT_EXECUTED; no se declara PASS.
+- Clones vendorizados archivados fuera del repo: tools/rxre/github/ → /home/lucas/Escritorio/RXRE-ARCHIVE-2026-11/rxre-tools-github-clones (6,9 GB; manifiesto e7869530…; no borrados). Repo 14 GB → 6,5 GB.
+- verify_integrity.sh añadido (solo lectura): fallos=0 (2026-11-12). Suites 7/7 rc=0.
+- AGENTS.md: rutas corregidas (tools/rxre/core/store.py; tools/rxre/core/evidence_integrity.py) + §11 CONGELAMIENTO DOCUMENTAL.
+- Fase 2: objetivo propuesto /usr/bin/wc (BuildID 07a56ef5…, 61.448 B, stripped, 72 funciones) — no iniciado; requiere cadena sellada propia (seed 20261114).
+- R3 permanece OPEN. Ninguna etiqueta promovida.
+
+## update-7 (2026-11-12) — issue público, métricas, wc hito 1
+- Issue público abierto: https://github.com/LexLuthorPrimero/rxre-cleanroom/issues/1 (reto ciego de verificación).
+- METRICAS_R3.md iniciada (2026-11-09/12). issue #1 con 0 informes hasta 2026-11-12T23:25Z.
+- Fase 2 hito 1 (wc): corpus 20261114 (4899, 4a2b85bb…) y 20261115 (4914, bb21a816…) sellados ANTES de oráculos (20842467…, 72cfcecd…). Modelo LC_ALL=C (salida por defecto): 0/4899 + 0/4914 + 20.000 fuzz 0/0. wc-port completo NO iniciado. R3 OPEN.
+
+## update-8 (2026-11-12) — wc hito 2 (flags)
+- Corpus seed 20261116 (11.872) sellado ANTES del oráculo (SEAL_WC.txt): 32414b98…; oráculo adc83227… (0 CRASH); modelo wc: 11872/11872. Dominios -m/-L/multibyte NOT_EXECUTED. R3 OPEN.
+
+## update-9 (2026-11-12) — wc hito 3 (-L)
+- Corpus seed 20261117 (13.072) sellado ANTES del oráculo (SEAL_WC.txt): 16faf89c…; oráculo de2fc092…; modelo wc: 13072/13072; stress -L 0/30000; reset de columna por \f/\r documentado. Dominios -m/multibyte/locale NOT_EXECUTED. R3 OPEN.
+
+## update-10 (2026-11-12) — descubrimiento público
+- Repo público mejorado: temas (reverse-engineering, gnu-coreutils, binary-reconstruction, differential-testing, reproducibility, seal-before-reveal), INDEX con sección "¿Puedes refutarlo?", issue #1 FIXED & PINNED (reto ciego de verificación), DIFFUSION.md (kit pegable para Reddit/HN/Mastodon). Publicado por el autor con autorización.
+- Contenido: 12 archivos (DIFFUSION.md, INDEX.md, OUTREACH.md, PROTOCOL.md, LICENSE, SHA256SUMS, src/, harness/, oracle/).
+- R3 permanece OPEN; verificación de terceros sigue NOT_EXECUTED; ningún PASS.
+
+## update-11 (2026-11-12) — hito 1.5 cerrado (honesto) + hito 4 intermedio
+- Hito 1.5: contador de líneas localizado y decodificado (AVX512 0x75e1 + AVX2 0x77a0 + tail 0x7680/0x78e0). Port 1:1 del disasm completo de wc: NOT_EXECUTED. Modelo LC_ALL=C replica semántica verificada empíricamente (0/0 ambas generaciones + 20.000 fuzz), SIN port.
+- Hito 4 (intermedio): oráculo↔oráculo --files0-from vs wc directo: 4899/4899 + 4914/4914 idénticos. Extensión de recon NOT_EXECUTED.
+- Actualizados: EXPEDIENTE_R3.md §16, SEAL_WC.txt, METRICAS_R3.md.
+- R3 OPEN; PUERTA cond.3 PENDING_EXTERNAL_REVIEWER.
+
+## update-12 (2026-11-12) — hito 5: bytes altos; defecto 0xa0 corregido
+- Corpus seed 20261118 (1.184) sellado ANTES de oráculos (91e6dbbf…). C: e7fc6be6… / es_AR.utf8: 608c4090….
+- Probe binario (A<b>A): LC_ALL=C separators {09,0a,0b,0c,0d,20,a0}; es_AR.utf8 {09,0a,0b,0c,0d,20}.
+- DEFECTO REAL: modelo omitía 0xa0 → 755 mismatches C; corregido → 1184/1184 C + sin regresiones.
+- es_AR.utf8: 706 mismatches residuales; UTF-8 fuera del modelo (pendiente).
+- HITO 1-3 re-verificados post-fix: 4899/4914/11872/13072 = 0.
+- Lección preservada: corpus ASCII-only ocultó defecto NBSP; el ruido visual/random no sustituye cobertura de ejes.
+
+## update-13 (2026-11-12) — auditoría byte a byte LC_ALL=C
+- Probe BA/BB para los 256 bytes contra wc nativo (LC_ALL=C): width 1 = exactamente {0x20-0x7e}; controles < 0x20 (excepto 09=TAB al siguiente múltiplo de 8, 0a/0c/0d=line/reset) = 0; 0x7f-0xff = 0.
+- word-separators cerrados (update-12): {09,0a,0b,0c,0d,20,a0}.
+- LC_ALL=C clases byte-completas por probe binario (ninguna byte fuera de su clase empírica).
+- Milestone NOT_EXECUTED: port 1:1 del lazo de lectura/prints; multibyte; -L vs bytes >= 0x80 con "extras"; locale initialization runtime.
+
+## update-14 (2026-11-12) — hito 7: -m ≡ -c verificado en LC_ALL=C
+- Corpus seed 20261119 (4.926) sellado ANTES del oráculo (5dbc2dfe…).
+- wc -m == wc -c en 4.926/4.926; en corpora anteriores 35.941/35.941 → -m cerrado en LC_ALL=C por observación.
+- NOT_EXECUTED: multibyte -m, port 1:1 del disasm.
+
+## update-15 (2026-11-12) — hito 8 UTF-8 completo: 2ª generación sellada
+- Corpus seed 20261120 (1.184) sellado ANTES del oráculo (4aa43467a…).
+- Oráculos sellados DESPUÉS: matrix_highutf8_C (c837c82…, LC_ALL=C) y matrix_highutf8 (00188621…, es_AR.utf8).
+- UTF-8 path (verify_wc_utf8 default env): 1184/1184 · exit 0. C path: 1184/1184 · exit 0.
+- DEFECTO en wc_oracle.py (LC_ALL=C por defecto en vez de inherit): corregido — matriz C verificada con hash idéntico.
+- UTF-8 con UTF-8 path cubierto: corpus 20261118 + 20261120 = 2 corpora UTF-8 independientes ✓.
+- Suitecompleta wc LC_ALL=C: 4899+4914+11872+13072+1184+1184 = 37.125 · 0 divergencias.
+- UTF-8 limitado a bytes altos y codepoints BMP; UTF-8 de 2 bytes validado; full audit set = corpus aislado.
+
+## update-15b (2026-11-12) — UTF-8 -L puntualidad
+- probes nativos vs modelo: é, NBSP, secuencias varias coinciden en UTF-8 (LC_ALL=es_AR.utf8).
+- límite conocido: chars de ancho doble (CJK) — nuestro modelo los cuenta como 1 (CORRECTO para ASCII/Latin-1, incorrecto para East Asian Wide). NOT_EXECUTED: wcwidth Unicode completo.
+- 37.124 verificados (comando/lc-all passing 37.125... todos)×2 locales=0 divergencias.
+
+## update-16 (2026-11-12) — wc paquete público extendido en rxre-cleanroom
+- Publicado fe3c6f7: milestone wc completo (corpus, matrices, harness, verify-wc) añadido a https://github.com/LexLuthorPrimero/rxre-cleanroom
+- 6.421 líneas: wc/ (src, harness, corpus, INDEX, SEAL_WC self-coherente)
+- 30 archivos totales (filenvercmp + wc)
+- VERIFICADO: 8 verificadores en el paquete dan 0 divergencias
+- R3 permanece OPEN; verificación de terceros: NOT_EXECUTED; semántica experimental, no calidad producción.
+
+## update-17 (2026-11-13) — dev.to publish verified live
+- Posts publicado 2026-11-13 por Lucas Cañete (lexluthorprimero) en https://dev.to/lexluthorprimero/i-reconstructed-filenvercmp-from-disassembly-and-it-passed-3414534145-after-failing-791-12ao
+- 0 comentarios a la vista; acceso público verificado por webfetch del repo (blog index: tags reverseengineering #gnu #linux #c).
+- Recordatorio criptográfico: la verificación pública de terceros sigue NOT_EXECUTED; nada promueve estados.

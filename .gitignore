@@ -8,3 +8,13 @@ KytyPS5-Source
 
 .work/
 .rxre/
+# RXRE-R3 — binarios y cargas de trabajo, no forman parte del paquete
+rxre-r3/wc/work*
+rxre-r3/wc/perf*.data
+rxre-r3/wc/huge*
+rxre-r3/wc/bigfile*
+rxre-r3/wc/*.bin
+rxre-r3/oracle/*.bin
+rxre-r3/harness/*.o
+rxre-r3/vm_*
+rxre-r3/verify/*/
