@@ -207,3 +207,28 @@ Notas/honestidad:
 - Corpus sólo UTF-8 válido. COMPORTAMIENTO EN UTF-8 INVÁLIDO (bytes raw) DIFERENTE en nativo (width 0) vs modelo (width 1 vía U+FFFD) → confirmed diverges; NOT_EXECUTED / fuera de alcance.
 - Tabla válida para ESTA glibc (host); NO es garantía universal de ancho Unicode ni de portable.
 - -m multibyte cerró (hito 9); -L multibyte ahora cerrado en este dominio; los restantes límites de hito 8 preservados.
+
+## Hito 11 — flags × multibyte UTF-8 en es_AR.utf8: seal-before-reveal  [2026-11-13]
+Objetivo: cerrar el hueco flags × multibyte (anunciado NOT_EXECUTED/parcial en hitos 5-10 e INDEX público).
+Corpus:  python3 gen_wc_flags_utf8_cases.py 20261125 cases_flags_utf8_seed20261125.txt
+sha256:  717edeb65a41557d6701dbd10bd52dc86e238dddb9ab9edb2f1d2be9a227c604
+cases:   18592 (14 sets de flags × 1328 contenidos multibyte; formato "<flags>\t<content>")
+Sello: corpus ANTES del oráculo (2026-11-13 05:02 UTC aprox.).
+Flag sets: '', -m, -L, -l -w, -l -w -m, -l -w -L, -l -m, -l -c, -l -w -c, -l -c -m, -m -L, -l -w -c -L, -l -w -c -m, -l -w -m -c -L
+Orden GNU verificado (observación nativa 2026-11-13): L W M C L.
+
+Oráculo: LC_ALL=es_AR.utf8 wc <flags> (stdin) → matrix_flags_utf8.txt
+sha256:  29cfa79734977bbcb34e3232972bcc6064e32034cc3a1a47e5c15f9b0c37b21a
+cases:  18592 · CRASH: 0
+
+Modelo: wc_recon_m10.c (chars + ancho real) vía verify_flags_u8.c (format GNU observado: L W M C L;
+flag bits l=1 w=2 c=4 L=8 m=16).
+
+Verificación diferencial:
+- UTF-8 path: total=18592 mismatches=0 (exit=0)
+- Discriminación (modelo m9 = sin tabla de anchura): 4960/18592 divergencias contra el mismo oracle
+- Fuzz válido ya que los hitos 9/10: 1457/1457 (m10) y 2000/2000 (m9)
+
+Notas/honestidad:
+- UTF-8 inválido: modelo y nativo divergen (nativo width 0); NOT_EXECUTED / fuera de alcance.
+- Otros locales: NOT_EXECUTED. Terceros = 0 informes (issue #1).
