@@ -179,3 +179,31 @@ Notas:
 - Corpus sólo UTF-8 válido; bytes inválidos fuera de alcance (NOT_EXECUTED: reparación glibc de secuencias inválidas).
 - -m en LC_ALL=C == bytes (MB_CUR_MAX=1): cierre hito 7 previo (35.941 + 4.926/4.926).
 - El hito demuestra chars ≡ codepoints para estas secuencias; no reclama exhaustividad WC_WIDTH ni East-Asian-Wide (-L sigue abierto).
+
+## Hito 10 — wc -L multibyte (tabla de ancho real) en es_AR.utf8: seal-before-reveal  [2026-11-13]
+Objetivo: cerrar el hueco histórico: -L multibyte SÓLO puntual (hito 8) → ahora exhaustivo en este dominio.
+Corpus:  python3 gen_wc_L_utf8_cases.py 20261123 cases_L_utf8_seed20261123.txt
+sha256:  44f292c1af43f77cfc06c59ae076aabdc3eeb67284d96ad7cf50502c361c92b0
+cases:   1523 (ASCII, Mn combinantes, CJK ideográficos, ぀ U+3000, full/halfwidth, emoji, ZWSP, isolates, jamo conjoining Hangul decomp., soft hyphen, unassigned probes)
+Sello: corpus ANTES de oráculo (2026-11-13 04:11 UTC aprox.)
+
+Oráculo: LC_ALL=es_AR.utf8 wc -L (wc_oracle_L.py) → matrix_native_L_utf8.txt
+sha256:  545c469fbed14f3d6622366ac1b713e5186d08627dc9e11be9897e0e6f32d29f
+cases:  1523 · CRASH: 0
+
+Modelo: ext. a wc_recon_m9.c → wc_recon_m10.c + wc_width_table_gen.h (generado, Unicode properties;
+predicados Mn|Me|Cfvisible|Cc|Cn|jamo-0|2028/2029|3164|FFA0 → 0; W|F asignados + U+3248..324F → 2;
+soft-hyphen U+00AD y 32 Cf visibles → 1; resto → 1).
+Verificación de la regla: 292.531 codepoints asignados (0..U+10FFFF sin surrogados) vs glibc wcwidth: mismatch=0.
+Verificador: verify_L.c (arg C|utf8 fuerza la ruta utf8 usada).
+pkg privado: NO se publica (rxre-cleanroom permanece @fe3c6f7).
+
+Verificación diferencial:
+- UTF-8 path: total=1523 mismatches=0 (exit=0)
+- Discriminación (modelo viejo width=1 para todo): 1265/1523 casos fallan
+- Fuzz diagnóstico (no sellado; baby fuzz 20261124-corrupt detectado y descartado: corpus inválido por bug del generador — NO válido como prueba; tras fix: 1457/1457 válidos, 0 divergencias vs nativo)
+
+Notas/honestidad:
+- Corpus sólo UTF-8 válido. COMPORTAMIENTO EN UTF-8 INVÁLIDO (bytes raw) DIFERENTE en nativo (width 0) vs modelo (width 1 vía U+FFFD) → confirmed diverges; NOT_EXECUTED / fuera de alcance.
+- Tabla válida para ESTA glibc (host); NO es garantía universal de ancho Unicode ni de portable.
+- -m multibyte cerró (hito 9); -L multibyte ahora cerrado en este dominio; los restantes límites de hito 8 preservados.
