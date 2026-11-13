@@ -1,0 +1,12 @@
+bfa30fb358795a7052aaff0cd0b833ccd7f77bb16658fd1aaccce48c361874d7  cases_seed20261112.txt
+8333b744b3dc1985648bd54ee432c74770bb78cba18e359ee4779d0acf885873  cases_seed20261113.txt
+ed5e91ef5b810a2dbf21186bfd7742fb1ffa90f55cc088329d045bc9926ec0bd  matrix_native_es_AR_utf8.txt
+e031d3ed6d4c6329cf7edcae55b795fbe0d3c0b121fed34839ec8563b60cf6fd  matrix_native_es_AR_utf8_20261113.txt
+
+## Hito 14 — filenvercmp LC_ALL invariance es_AR.utf8 vs C: test cruzado  [2026-11-13 02:00 UTC aprox.]
+Pregunta: ¿determina el locale el resultado de la comparación version-aware? El oracle encripta el resultado
+por función-pointer (es_AR.utf8) — 34.145 × 2 casos sellados generados de matriz gen2 idéntica byte a byte.
+Resultado gen 1 (20261112): bytes idénticos; gen 2 (20261113): bytes idénticos.
+Conclusión acotada: NO se observa dependencia de LC_ALL en los 68.290 casos sellados; el algoritmo es byte-level.
+Límite: resultado observacional con ESTE oracle y ESTAS 2 listas. Otros locales sin probar.
+En el paquete público esta comprobación se demuestra con verify.sh (C locale) en ambos corpus (0 divergencias).
