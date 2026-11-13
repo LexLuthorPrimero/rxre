@@ -17,3 +17,12 @@ Resultado:
 - failure case: mismo stdout + exit code 1 + mismo texto de error
 0 divergencias observadas en los tres modos en el entorno sellado.
 Nota de método: GNU ejecuta rutas desde su cwd → el runner hace cwd=WORKDIR; equivalencia byte a byte NO aplica (padding GNU vs secuencial nuestro); la comparación por tokens es lo verificado.
+
+## Hito 16 — wc --files0-from con flags L/W/B/M/F combinables, ambas locales: seal  [2026-11-13]
+Extensión: flags l,w,c,m,L combinables (offer GNU L W M C F).
+Hitos internal: wc -L con files0-from: fix bug propio (total=SUM en lugar de MAX) en wc_files0.c.
+Verificación token-equal vs nativo (C y es_AR.utf8): 12/12 corridas = MATCH (default, -c, -l, -m, -L, all-flags).
+Script (no sellado como evidencia sellada separada pero sí como validación privada):
+  for LOC in C es_AR.utf8; for FLAGS in default -c -l -m -L "l w c L";  → 12/12 MATCH.
+Cobertura uintable de hito 15-16 accepted upon PRIVATE verification — add as diagnostic, not seal.
+f856aaa06023d06cfb154bc604474d1e6eceb9f316900e2012d519e2d4af254d  wc_files0.c
