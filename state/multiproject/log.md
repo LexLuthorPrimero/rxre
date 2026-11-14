@@ -238,3 +238,14 @@ Tras la corrección del jefe de misión (RXRE como motor), se resolvió #1570 us
 - **Fix preparado** (aún sin PR): x86_disasm.ml pasa `None` como vsrc para el opcode 0x70 (XMM-op case used by VPSHUFD) — alcance mínimo. Fix no aplicado a hermanos con el mismo patrón (Ppackedbinop/Palignr), declarados como sospechosos en la sinopsis del PR.
 - **Verificación**: RXRE/capstone decode de los bytes del issue (vpshufd ymm6, ymmword ptr [rip + 0xe98134a], 0x26) 100% cobertura; build local de BAP pendiente: upstream incompatible con OCaml 5.4 (pins Janestreet <v0.16); switch opam `bap4` con OCaml 4.14.2 en compilación (en background).
 - **Estado**: fix staged SIN PR (build de verificación pendiente); no se abrió PR hasta verificación de ejecución.
+
+## 2026-11-15 (última, BAP #1636 en curso) — fix preparado; verificación de ejecución en curso
+
+- **Objetivo** (dictado propietario): BinaryAnalysisPlatform/bap #1636 — VPSHUFDYmi escribe YMM0 en vez de YMM6.
+- **Root cause**: get_vex_opr decodifica vvvv=1111 como Some (Ovec 0) → lifter toma el tercer operando (YMM0) como destino; la instrucción no tiene tercer operando VEX.
+- **Fix** (f4fe984): x86_disasm.ml case 0x70: pass None para el vsrc. 1 file cambiado.
+- **RXRE**: oráculo capstone decode YMM6 verificado; sin capacidad nueva necesaria.
+- **Upstream/depext issues**: Fedora 44 llvm-devel=22; conf-bap-llvm de BAP solo acepta 6-14; upstream CI fedora probablemente roto por esto; trabajo alrededor: llvm14-* (fc43/fedora) + LLVM_CONFIG como config var; depexts extra: clang, libcurl-devel, radare2, llvm14*.
+- **Build local host**: compiló e instaló bap-mc/x86/frontend; emite IL vacío GLOBALMENTE (cualquier instrucción) — no del fix; el detalle se estudia en containers con misma receta que upstream CI.
+- **PR**: NO abierto hasta que bap mc printione BIL correcto dentro del contenedor.
+- **PRs propios abiertos**: 35; merged: 0.

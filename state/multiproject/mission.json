@@ -2,12 +2,12 @@
   "schema_version": 1,
   "mission_id": "rxre-multiproject-v2",
   "created_at": "2026-11-14",
-  "updated_at": "2026-11-15T00:20:00Z",
+  "updated_at": "2026-11-15T03:10:00Z",
   "language_note": "Campo con null = desconocido; pending-* = explícitamente pendiente. La verdad superior son código, git, tests y el estado real de los PRs.",
-  "current_objective": "miasm #1561 RESUELTO y PR #1597 abierto (fix/thumb-adr-align @ 17b755d). Próxima: vigilar CI/review; candidatos según dictado.",
-  "active_project": "cea-sec/miasm",
-  "active_issue": "cea-sec/miasm#1561 (PR #1597 abierto)",
-  "next_objective": "Vigilar PRs (#1591-#1597, #1847, #1848, #7788, rizin, rea); siguiente según dictado.",
+  "current_objective": "BAP #1636: fix preparado (rama fix/vpshufd-dest @ f4fe984); verificación de ejecución pendiente de builds podman Fedora 44 (A=árbol fijado, B=master upstream, ambos con LLVM_CONFIG=/usr/bin/llvm-config-14 porque conf-bap-llvm solo acepta 6-14 y fedora44 trae LLVM 22).",
+  "active_project": "BinaryAnalysisPlatform/bap",
+  "active_issue": "BinaryAnalysisPlatform/bap#1636 (PR pendiente)",
+  "next_objective": "Si tras build bap mc imprime BIL correcto (YMM6 vs master YMM0): añadir cram test.t VPSHUFD; commit+push a fork LexLuthorPrimero/bap; abrir PR; actualizar registros.",
   "project_registry": [
     {
       "name": "rizin",
@@ -262,6 +262,15 @@
       "pr_author": "LexLuthorPrimero",
       "pr_state": "open",
       "note": "Thumb PC alignment AlignDown(addr+4, 4) global en Lifter_Armtl.mod_pc (spec Arm ARM); ADR T1 fix; PC-relative LDR y ADR T3 idempotentes; test adr_align.py 3/3; RXRE capstone oráculo; PR-body redactada por el agente con dictado"
+    },
+    {
+      "repo": "BinaryAnalysisPlatform/bap",
+      "issue": 1636,
+      "state": "open",
+      "pr": null,
+      "pr_author": null,
+      "pr_state": "no_pr",
+      "note": "VPSHUFD escribe YMM0 en vez de YMM6 (lift); fix: Pshufd binding 0x70 pasa None como vsrc (VPSHUFD no tiene 3er operando VEX); RXRE/capstone decode OK (destino YMM6); verificación ejecución: 2 contenedores podman Fedora 44 en curso (A=árbol fix, B=master upstream); upstream NO soporta LLVM>=22 (conf-bap-llvm 6-14) - documentado; PR NO abierto hasta verificación de ejecución"
     }
   ],
   "pull_request_registry": {
@@ -317,5 +326,5 @@
     "rizin 0.7.4 instalado ≠ dev/0.10.0 contra el que se prepararon los PRs; se requiere re-clone+build para nuevo trabajo rizin",
     "REA maintainer cierra la mayoría de PRs externos sin merge — viabilidad upstream de un wire-up grande para #4972: incierta, decisión del propietario al llegar"
   ],
-  "session_status": "handoff"
+  "session_status": "awaiting_verification"
 }
