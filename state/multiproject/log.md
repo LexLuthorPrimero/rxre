@@ -51,3 +51,13 @@
 
 **Próxima sesión:** (1) decidir con el propietario el wiring upstream REA (provider contract + CLI/MCP; REA es TS complejo y sus mantenedores cierran la mayoría de PRs externos; 21 propios abiertos, 0 mergeados); (2) revisar CI/estado de los 7 PRs rizin y 21 REA; (3) si se quiere contribución upstream esta misión: seguir REA #4972 con un provider mínimo INCONCLUSIVE-honesto SOLO tras visto bueno del propietario; (4) alternativa: fuzzing del equiv_check con funciones aleatorias; (5) seguir sin intervenir en PRs de mantenedores.
 
+
+## 2026-11-14 (añadido tras revisión de repos) — Inventario de repos del propietario + dictado "deja" sobre P2patch
+
+Revisión read-only de `gh repo list LexLuthorPrimero` (2026-11-14):
+- `rxre` (2026-10-11, propio) — repo de la misión; push autorizado 2026-11-14.
+- `rxre-cleanroom` (2026-11-12, propio), `rxre-engine` (2026-11-13, propio) — autorizados 2026-11-13 (v1.9.0).
+- `rizin` (2026-11-13, fork de rizinorg/rizin), `rea` (2026-11-13, fork de morluto/rea) — **necesarios**: todas las PRs abiertas (9 rizin, 45 REA) salen de estos forks.
+- `P2patch` (2026-11-08, fork de P2Patch/P2patch) + issue #3 ("License declaration request for benchmark POVs", firmado "RXRE provenance audit") + PR #4 (`benchmark/LICENSE`, propuesta pendiente de mantenedores) — **creados por una sesión previa fuera del scope documentado de RXRE; sin mención en METRICAS_R3/EXPEDIENTE_R3**.
+- **Dictado del propietario: "deja"** — no tocar P2patch, issue #3 ni PR #4. No cerrar, no borrar, no comentar.
+- Resto de repos de la cuenta (abr–may 2026): proyectos personales preexistentes, ajenos a esta misión.
