@@ -61,3 +61,13 @@ Revisión read-only de `gh repo list LexLuthorPrimero` (2026-11-14):
 - `P2patch` (2026-11-08, fork de P2Patch/P2patch) + issue #3 ("License declaration request for benchmark POVs", firmado "RXRE provenance audit") + PR #4 (`benchmark/LICENSE`, propuesta pendiente de mantenedores) — **creados por una sesión previa fuera del scope documentado de RXRE; sin mención en METRICAS_R3/EXPEDIENTE_R3**.
 - **Dictado del propietario: "deja"** — no tocar P2patch, issue #3 ni PR #4. No cerrar, no borrar, no comentar.
 - Resto de repos de la cuenta (abr–may 2026): proyectos personales preexistentes, ajenos a esta misión.
+
+## 2026-11-14 (purga ejecutada) — Auditoría y limpieza del repo (autorizada)
+
+- **Tier 1 borrado y purgado de toda la historia**: `RESEARCH/working` (headers AMD `_sh_mask.h` + fuente amdgpu DRM de Linux 7.1.3), `RESEARCH/kernelbuild` (árbol + build), `amdgpu.ko` (módulo compilado), gitlink `KytyPS5-Source`, `.cmd` de rx550-driver.
+- **Tier 2 borrado**: `RESEARCH/GAME-001` (corpus SWF), `benchmark/`.
+- **Tier 3 borrado**: 96 sueltos del root (informes/diálogos/métricas, incl. METRICAS_R3.md por el problema de privacidad); conservados estructurales (LICENSE, README.md, AGENTS.md, AGENTS_ESTADO_GENERADO.md, run_tests.sh, RXRE_CHANGELOG.md, VERIFY.md, VERIFIED_HASHES.md, RELEASE-NOTES.md, .gitignore, rxre) y directorios de trabajo/evidencia.
+- **Purga**: `git filter-branch --index-filter` en clon fresco; todos los refs reescritos; tag v1.0-fase2-completa sin cambios (sin contenido purgado). **Método verificado**: ningún objeto restante contiene las rutas (rev-list --objects --all × rutas = 0); fsck limpio; pack: 480 MiB → 150 MiB.
+- **Force push**: `main` → `71b37f1e` (lease sobre bf1c9903). GitHub: sin otras ramas y sin tag (verificado vía API). Objetos huérfanos permanecen server-side hasta que GitHub haga GC.
+- **Backup completo**: `/home/lucas/rxre-backup-2026-11-14.bundle` (499 MB, `--all`); recuperable con `git clone /home/lucas/rxre-backup-2026-11-14.bundle`.
+- **Árbol local del propietario NO tocado** (49 archivos M preservados); su `main` local quedó divergente del remoto (historia reescrita).
