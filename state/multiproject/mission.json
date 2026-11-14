@@ -2,12 +2,12 @@
   "schema_version": 1,
   "mission_id": "rxre-multiproject-v2",
   "created_at": "2026-11-14",
-  "updated_at": "2026-11-14T20:05:00Z",
+  "updated_at": "2026-11-14T21:20:00Z",
   "language_note": "Campo con null = desconocido; pending-* = explícitamente pendiente. La verdad superior son código, git, tests y el estado real de los PRs.",
-  "current_objective": "KLEE #1841 RESUELTO y PR #1848 abierto (fix/array-optimizer-mul-stride @ 34fb8ad). Próxima: vigilar CI/review de #1848; continuar re-triaje.",
-  "active_project": "klee/klee",
-  "active_issue": "klee/klee#1841 (PR #1848 abierto)",
-  "next_objective": "Vigilar #1848/#1847/#1591/#1592/#1593/#7788 (CI/reviews); REA #4972 pendiente de autorización; Alive2 #1383 descartado con motivo; rizin en silencio.",
+  "current_objective": "miasm #1576 RESUELTO y PR #1594 abierto (fix/arm-be8-loader @ 16443de). Próxima: vigilar CI/review de #1594 (y 1591/1592/1593/1847/1848/7788); candidatos #1578 y rizin#6974 anotados.",
+  "active_project": "cea-sec/miasm",
+  "active_issue": "cea-sec/miasm#1576 (PR #1594 abierto)",
+  "next_objective": "Vigilar PRs abiertas (#1594/#1591/#1592/#1593/#1847/#1848/#7788); seleccionar siguiente issue (candidatos: miasm#1578 Thumb IT CFG, rea#4972 wiring — requiere dictado).",
   "project_registry": [
     {
       "name": "rizin",
@@ -226,6 +226,15 @@
       "pr_author": "LexLuthorPrimero",
       "pr_state": "open",
       "note": "ArrayOptimizer constant-multiplier stride removed; repro yields completed paths = 2; test/ArrayOpt 21/22 (test_expr_arbitrary.c preexistente, confirmado master); regression test test_mul_loaded_stride.c; PR-body redactada por el agente con dictado del propietario (el texto crealo siempre vos)"
+    },
+    {
+      "repo": "cea-sec/miasm",
+      "issue": 1576,
+      "state": "open",
+      "pr": 1594,
+      "pr_author": "LexLuthorPrimero",
+      "pr_state": "open",
+      "note": "ELF BE8 (EF_ARM_BE8) → máquina armbe8 (decode LE, datos BE); regresión elf_be8.py; RXRE cs_disasm extendido arm/armbe (40/40 checks); qemu oracle no verificable en este host (limitación documentada); PR-body redactada por el agente con dictado del propietario"
     }
   ],
   "pull_request_registry": {
@@ -257,7 +266,7 @@
       1847,
       1848
     ],
-    "total_own_open": 31,
+    "total_own_open": 32,
     "klee_note": "fork creado 2026-11-14 (autorizado por el propietario ese mismo turno)",
     "capstone_own_closed": [
       3167
@@ -267,7 +276,8 @@
     "miasm_own_open": [
       1591,
       1592,
-      1593
+      1593,
+      1594
     ],
     "miasm_note": "fork + PR creado 2026-11-14 (autorizado por el propietario; cuerpo aprobado explícitamente)"
   },

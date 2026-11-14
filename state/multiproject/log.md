@@ -191,3 +191,14 @@ Tras la corrección del jefe de misión (RXRE como motor), se resolvió #1570 us
 - **PR #1848** abierto; cuerpo redactado por el agente con dictado del propietario.
 - PRs propios abiertos: 32 (5 rizin [silenciados] + angr #7788 + klee #1847/#1848 + miasm #1591/#1592/#1593 + 20 rea); merged: 0.
 - **RXRE delta**: sin capacidades nuevas; diagnóstico vía banco KLEE + unittest estilo lit-manual; la sesión de #1841 no integró RXRE como motor (limitación registrada; el dictado vigente para el próximo ciclo incluirá un fix upstream pasando por RXRE end-to-end).
+
+## 2026-11-14 (última, PR miasm #1576) — #1576 resuelto; PR #1594 abierto
+
+- **Objetivo**: miasm #1576 (ELF ARM BE8 mal interpretado como armb). Root cause: `guess_arch` ignoraba `e_flags`; BE8 = instrucciones A32 little-endian en contenedor big-endian (AAELF32).
+- **Fix** (16443de): máquina `armbe8` (decode LE + semántica IR arml + VM datos big-endian); detección EF_ARM_BE8 en `guess_arch`; BE-32 control intacto (armb).
+- **Regresión**: `test/arch/arm/elf_be8.py` (BE8→armbe8 + decode, BE-32→armb control). Suite ARM sem 22/22 OK; decode suite completa sin regresiones.
+- **RXRE**: `cs_disasm` extendido a A32 (`arm` LE, `armbe` BE) + test `t_arm_decode`; `test_disasm1634` 40/40 OK; RXRE/capstone validó los bytes del caso real (issue #1576).
+- **Oracle qemu**: NO ejecutable en este host (qemu-arm-static/qemu-armeb-static abortan silenciosamente ante ELFs hand-made); reportado como limitación; r0=0x42/r1=0x14a5/r2=0x14a coincide con el valor qemu del issue (control + fix).
+- **PR #1594** abierto (cuerpo redactado por el agente con dictado).
+- PRs propios abiertos: 32 (5 rizin [silencio] + angr #7788 + klee #1847/#1848 + miasm #1591/#1592/#1593/#1594 + 20 rea); merged: 0.
+- Próximo candidato: miasm #1578 (Thumb IT CFG) — sin dictado de pausa; rizin #6974 en pausa por dictado.

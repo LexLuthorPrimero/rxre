@@ -8,7 +8,7 @@ Método: exploración estructurada del árbol (`tools/rxre/`, 710 .py; 291 test_
 |---|---|---|---|---|---|---|
 | cap.rizin_inspect | inspección binaria rizin (`rz-bin -Ij`) | `tools/rxre/backends/adapters/rz_inspect.py` | artefacto → JSON evidencia | rizin 0.7.4 | test_backends004, test_xrefs1635 | Implementado+testado |
 | cap.r2_cfg | CFG/callgraph/dataflow JSON vía radare2 | `adapters/rz_cfg.py`, `rz_callgraph.py` | bins → CFG/callgraph | radare2 5.9.8 | test_dataflow, test_integration_cfg | Implementado+testado |
-| cap.cs_disasm | desensamblado in-process | `adapters/cs_disasm.py` | bytes → mnemos | capstone 5.0.7 | test_disasm1634 | Implementado+testado |
+| cap.cs_disasm | desensamblado in-process (x86, x86_64, arm64, thumb/T32, **arm A32 LE, armbe A32 BE**) | `adapters/cs_disasm.py` | bytes → mnemos | capstone 5.0.7 | test_disasm1634 (40 checks) | Implementado+testado |
 | cap.cocci_search | búsqueda semántica en fuente | `adapters/cocci_search.py` | spatch | coccinelle 1.3.1 | test_adapter_provenance_fix_044 | Implementado |
 | cap.ts_ast | AST de fuente (venv aislado) | `adapters/ts_ast.py` | C → árbol | tree-sitter (.venv/eco) | test_eco_ast001 | Implementado+testado |
 | cap.ghidra_decomp | decompilación PARTIAL (no ET_REL) | `adapters/gh_decompile.py` | ELF → C pseudo | Ghidra 12.1.4 | test_decomp003 | Implementado+testado (PARTIAL) |

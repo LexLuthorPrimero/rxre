@@ -348,6 +348,26 @@
       },
       "score": 72,
       "notes": "Fix: computeIndexes ya no usa getMul() para stride (falsaba OPT_I con multiplicación de valores cargados); regression test_mul_loaded_stride.c; test/ArrayOpt 21/22 (fallo preexistente test_expr_arbitrary.c verificado idéntico en master); PR #1848 (rama fix/array-optimizer-mul-stride @ 34fb8ad)."
+    },
+    {
+      "id": "miasm-1576",
+      "repo": "cea-sec/miasm",
+      "issue": 1576,
+      "title": "ELF ARM BE8 maps to armb: little-endian instructions decoded as big-endian",
+      "status": "PR_OPEN",
+      "pr": 1594,
+      "author": "LexLuthorPrimero",
+      "scores": {
+        "impacto_tecnico": 4,
+        "reproducibilidad": 5,
+        "capacidad_rxre": 5,
+        "oraculo_independiente": 5,
+        "reutilizacion": 4,
+        "evolucion_rxre": 4,
+        "viabilidad_upstream": 5
+      },
+      "score": 82,
+      "notes": "Máquina armbe8 (decode LE + datos BE); guess_arch detecta EF_ARM_BE8 (0x00800000); regresión elf_be8.py; RXRE cs_disasm extendido A32 arm/armbe (40/40 test_disasm1634); oracle qemu NO verificable en host (limitación); PR #1594 (rama fix/arm-be8-loader @ 16443de)."
     }
   ],
   "selection": {

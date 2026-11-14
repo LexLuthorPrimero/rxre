@@ -227,6 +227,41 @@ def t_gfx8():
             any("GFX8" in x for x in env["limitations"]), True)
 
 
+def t_arm_decode():
+    """A32: decode FIXTURE (instruction bytes) en little- y big-endian.
+
+    Añadido con el issue #1576 de miasm: un ELF BE8 (ELFDATA2MSB +
+    EF_ARM_BE8) almacena las instrucciones en LITTLE-endian; el control
+    BE-32 las almacena en BIG-endian. El fixture es el MISMO programa
+    codificado en ambos formatos; Capstone debe decodificar ambos a la
+    misma secuencia de mnemonicos.
+    """
+    import tempfile
+    print("\n== A32 arm/armbe: mismo programa, ambos encodings ==")
+    code_le = bytes([
+        0x12, 0x00, 0xa0, 0xe3,   # mov  r0, #0x12
+        0x30, 0x00, 0x80, 0xe2,   # add  r0, r0, #0x30
+        0x05, 0x10, 0xa0, 0xe3,   # mov  r1, #5
+    ])
+    code_be = bytes([
+        0xe3, 0xa0, 0x00, 0x12,   # mov  r0, #0x12
+        0xe2, 0x80, 0x00, 0x30,   # add  r0, r0, #0x30
+        0xe3, 0xa0, 0x10, 0x05,   # mov  r1, #5
+    ])
+    for nombre, code, arch, esperado in (
+            ("arm (LE)", code_le, "arm", ["mov", "add", "mov"]),
+            ("armbe (BE)", code_be, "armbe", ["mov", "add", "mov"])):
+        with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as fh:
+            fh.write(code)
+            ruta = fh.name
+        env = C.desensamblar(ruta, fixture_bin=ruta, inicio=0,
+                             longitud=len(code), arquitectura=arch)
+        chk("%s status ok" % nombre, env["status"], BK_OK)
+        insns = env["results"][0]["value"]["instrucciones"]
+        chk("%s mismos mnemonicos" % nombre,
+            [i["mnemonico"] for i in insns], esperado)
+
+
 def main() -> int:
     print("RXRE-1634: pruebas de binary.disassemble sobre Capstone")
     t_registro()
@@ -236,6 +271,7 @@ def main() -> int:
     t_backend_equivocado()
     t_arquitectura_no_soportada()
     t_confianza()
+    t_arm_decode()
     t_gfx8()
     print("\n%d checks, %d failures" % (_n, _f))
     return 0 if _f == 0 else 1

@@ -271,6 +271,14 @@ def desensamblar(artefacto: str, inicio: int = 0, longitud: int = 0,
         # ARM Thumb (T32), little-endian. Needed for the MIASM issue #1570
         # investigation: Thumb-2 literal loads with U=0 decode as PC-relative.
         arch, mode, familia = _cs.CS_ARCH_ARM, _cs.CS_MODE_THUMB, "arm"
+    elif arquitectura == "arm":
+        # ARM A32, little-endian. Needed for the MIASM issue #1576
+        # investigation: BE8 ELF (ELFDATA2MSB + EF_ARM_BE8) stores A32
+        # instructions little-endian in a big-endian container.
+        arch, mode, familia = _cs.CS_ARCH_ARM, _cs.CS_MODE_ARM, "arm"
+    elif arquitectura == "armbe":
+        # ARM A32, big-endian (BE-32). Control group for the same case.
+        arch, mode, familia = _cs.CS_ARCH_ARM, _cs.CS_MODE_ARM | _cs.CS_MODE_BIG_ENDIAN, "arm"
     else:
         # `unsupported` y no `error`: el adapter funciona, lo que no se
         # soporta es ESTA arquitectura. Es justo la distincion que el
@@ -280,7 +288,8 @@ def desensamblar(artefacto: str, inicio: int = 0, longitud: int = 0,
                 "precheck": pre,
                 "limitations": [
                     "arquitectura no soportada por este adapter: %r" % arquitectura,
-                    "este adapter cubre x86, x86_64, arm64 y thumb (T32). Añadir otra "
+                    "este adapter cubre x86, x86_64, arm64, thumb (T32), arm (A32 "
+                    "little-endian) y armbe (A32 big-endian, control). Añadir otra "
                     "arquitectura es trabajo propio, no un parametro: "
                     "cambia como se decodifican operandos y nombres."]}
 
