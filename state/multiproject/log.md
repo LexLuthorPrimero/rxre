@@ -112,3 +112,11 @@ LIEF #1412 → PR #1413 (Henglie) abierto; radare2 #27393/#94/#95/#96 → PRs ya
 - PRs propios abiertos esta misión: angr #7788, capstone #3167, klee #1847 (+ rizin 5 restantes, REA 20) → 28 abiertos; **merged: 0**.
 
 **RXRE delta:** el proceso de validar un fix upstream exige reconstruir del todo work-incl en el host (aquí: KLEE completo en LLVM 18) — la lección portable es la matriz {vanilla, fix} × {offset i1/i2/i16/i64} documentada; queda como evidencia reutilizable para futuros PRs de analizadores de bitcode. TODO RXRE siguen NOT_EXECUTED.
+
+## 2026-11-14 (noche, verificación en curso) — capstone #3167 CERRADO por mantenedor; lección de contribución
+
+**capstone #3167** (ARM CS_OPT_MODE) cerrado por mantenedor con comentario "See contribution guidelines" (closedAt 2026-11-14T16:58:58Z, sin merge). Causa probable identificada leyendo `capstone-engine/capstone CONTRIBUTING.md` §AI guidelines: **"It is forbidden to let AI write the PR description or commit messages!"** — la descripción y el commit fueron escritos por la sesión IA (aunque revisados por el propietario). La reparación probablemente era correcta (fix + test unit 12/12, negativo validado), pero violó la política de proceso upstream.
+
+**Lección (dura):** en capstone y proyectos análogos, la contribución debe: (a) abririssue/comentario previo ("Please always open an issue or leave a comment in one before starting work on an architecture!"), (b) descripción y commit en texto del humano, breve, no generado, (c) tests sin verbosidad.
+
+**Estado:** el fix queda en la rama `fix/arm-cs-opt-mode-3162` del fork LexLuthorPrimero/capstone (commit 041fbe5); no se reabre ni se comenta sin dictado del propietario. angr #7788 abierto, CI pendiente; klee #1847 abierto, verificación ciega en curso vía subagente en sesión hija (inputs: fuentes + reproductor; sin acceso al repo rxre ni a resultados previos).
