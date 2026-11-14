@@ -97,3 +97,18 @@ Revisión read-only de `gh repo list LexLuthorPrimero` (2026-11-14):
 
 - README amplía la tabla "Qué contiene" a un índice completo de las 40 entradas raíz, con clasificación honesta: Engine (`tools/`, `rxre`, `RXRE/`, `run_tests.sh`), Evidencia (`rxre-r3/`), Misión (`state/`), Investigación (`vk_test`, `rx550-upstream-7.2.8`, `revkit`, `03/04/07/.rxre`), Histórico (`RESEARCH/`, `findings/`, `audit/`, `archive/`, `artifacts/`, `results/`, `docs/`, `06/08-*`), Herramientas (`scripts/`, `patches/`), Metadato. Ningún rename; referencias intactas. Commit `6d4b3911` (push a main).
 - Rename de las carpetas numeradas/crípticas y de los 8 elementos: NO ejecutado (el propietario eligió solo índice; renombrar elementos es su decisión ontológica).
+
+## 2026-11-14 (última de la ronda) — KLEE añadido como 4º proyecto; PR #1847 abierto (fix #1842)
+
+**Selección:** re-triaje del ecosistema excluyendo rizin (dictado) y evitando duplicados verificados uno por repo:
+LIEF #1412 → PR #1413 (Henglie) abierto; radare2 #27393/#94/#95/#96 → PRs ya abiertos/mergeados; angr #7702/#7703 → PR #7705 (zardus); angr #7640 → binario no accesible (BLOCKED); capstone #3108 → issue cosmético débil; **KLEE #1842** (crash SIGFPE, reproducer completo, sin PR) → único candidato viable → seleccionado.
+
+**Trabajo ejecutado:**
+- Host LLVM: LLVM 21/22 no sirven (API drift); **LLVM 18** (matriz CI de KLEE) con build normal (RelWithDebInfo). `sqlite-devel` y toolchains llvm18/21/22 instalados con autorización explícita del propietario (dictado con contraseña).
+- Reproducción exacta: `repro.bc` (LLVM 16-style reproducer, recompilado con LLVM 18) → SIGFPE en vanilla (rc=136, señal 8) también en variante i1. `#load.relative.index = udiv i2 %offset, 0` confirmado en output.
+- Fix (`978c048`, rama `fix/load-relative-narrow-offset`): divisor en i32 (o tipo del offset si > i32). Verified: pre-fix SIGFPE → post-fix completa (29 instrucciones, 2 tests). Control i16 y i64 pasan.
+- **Hallazgo residual declarado:** con input simbólica enmascarada, KLEE reporta `memory error: out of bound pointer` a través de la tabla absoluta (independiente del fix; reproducido también en i16; visible con y sin KDAlloc). Fallo separado. **No** se corrigió ni se abrió issue (requeriría dictado).
+- **PR #1847** abierto (fork LexLuthorPrimero/klee creado con autorización).
+- PRs propios abiertos esta misión: angr #7788, capstone #3167, klee #1847 (+ rizin 5 restantes, REA 20) → 28 abiertos; **merged: 0**.
+
+**RXRE delta:** el proceso de validar un fix upstream exige reconstruir del todo work-incl en el host (aquí: KLEE completo en LLVM 18) — la lección portable es la matriz {vanilla, fix} × {offset i1/i2/i16/i64} documentada; queda como evidencia reutilizable para futuros PRs de analizadores de bitcode. TODO RXRE siguen NOT_EXECUTED.

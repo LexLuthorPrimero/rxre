@@ -248,6 +248,26 @@
       },
       "score": 57,
       "notes": "#27393→PR#27424; #27394→PR#27419; #27395→PR#27006 merged; #27396→PR#27420 merged. Todo reclamado/mergeado."
+    },
+    {
+      "id": "klee-1842",
+      "repo": "klee/klee",
+      "issue": 1842,
+      "title": "SIGFPE: llvm.load.relative conversion divides by zero for narrow offsets",
+      "status": "PR_OPEN",
+      "pr": 1847,
+      "author": "LexLuthorPrimero",
+      "scores": {
+        "impacto_tecnico": 4,
+        "reproducibilidad": 5,
+        "capacidad_rxre": 4,
+        "oraculo_independiente": 4,
+        "reutilizacion": 3,
+        "evolucion_rxre": 4,
+        "viabilidad_upstream": 4
+      },
+      "score": 75,
+      "notes": "Root cause: udiv offset, const 4 truncated to 0 in i1/i2. Fix: widen divisor to i32/offset type. Across both LLVM 18 build, reproducer crashes pre-fix SIGFPE, passes post-fix. Fork authorized 2026-11-14. Residual: 'out of bound pointer' under symbolic masked input — separate defect, declared not fixed."
     }
   ],
   "selection": {

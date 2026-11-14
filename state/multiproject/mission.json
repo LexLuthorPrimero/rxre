@@ -2,12 +2,12 @@
   "schema_version": 1,
   "mission_id": "rxre-multiproject-v2",
   "created_at": "2026-11-14",
-  "updated_at": "2026-11-14T13:20:00Z",
+  "updated_at": "2026-11-14T14:25:00Z",
   "language_note": "Campo con null = desconocido; pending-* = explícitamente pendiente. La verdad superior son código, git, tests y el estado real de los PRs.",
-  "current_objective": "COMPLETADO en esta sesión: re-triaje; PRs angr#7788 y capstone#3167 abiertos con fixes validados (controles negativos incluidos).",
-  "active_project": "angr/angr",
-  "active_issue": "angr/angr#7780 (PR #7788 abierto)",
-  "next_objective": "Vigilar #7788/#3167 (CI+reviews); continuar re-triaje en otras repos del ecosistema; rizin EN SILLENCIO TOTAL por dictado del propietario; REA #4972 wiring pendiente de decisión.",
+  "current_objective": "KLEE #1847 ABIERTO (fix KLEE #1842) con verificación pre/post. Mision sigue: vigilar 3 PRs propios (#7788 angr, #3167 capstone, #1847 klee).",
+  "active_project": "klee/klee",
+  "active_issue": "klee/klee#1842 (PR #1847 abierto)",
+  "next_objective": "Vigilar #7788/#3167/#1847 (CI+reviews); rizin en silencio (dictado); REA #4972 wiring pendiente de dictado; evaluar issue separado para el hallazgo \"out of bound pointer\" en la tabla absoluta bajo symbolic index (requiere dictado para outreach).",
   "project_registry": [
     {
       "name": "rizin",
@@ -181,6 +181,15 @@
       "pr_author": "LexLuthorPrimero",
       "pr_state": "open",
       "note": "ARM CS_OPT_MODE|= no volvía a ARM; fix propio estilo X86; negativo validado; fork LexLuthorPrimero/capstone (autorizado)"
+    },
+    {
+      "repo": "klee/klee",
+      "issue": 1842,
+      "state": "open",
+      "pr": 1847,
+      "pr_author": "LexLuthorPrimero",
+      "pr_state": "open",
+      "note": "SIGFPE en udiv i2 por divisor truncado a 0; fix: división en i32 o bool ancho; verificado pre/post en LLVM 18; fork LexLuthorPrimero/klee creado (autorizado). OOB hallazgo residual declarado, no fijado"
     }
   ],
   "pull_request_registry": {
@@ -209,7 +218,12 @@
     "rizin_own_merged": 0,
     "angr_own_merged": 0,
     "capstone_own_merged": 0,
-    "note": "0 PRs propios mergeados en total hasta 2026-11-14."
+    "note": "0 PRs propios mergeados en total hasta 2026-11-14.",
+    "klee_own_open": [
+      1847
+    ],
+    "total_own_open": 8,
+    "klee_note": "fork creado 2026-11-14 (autorizado por el propietario ese mismo turno)"
   },
   "capability_registry": "see capabilities/index.md (afíjado 2026-11-14; verificado por exploración estructurada, no por re-ejecución de tests)",
   "blockers": [
