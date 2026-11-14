@@ -130,3 +130,10 @@ Primer uso genuino de la maquinaria RXRE (sello-antes-de-revelar + sesión hija 
 - Veredicto formal (`VERDICT.json`): SEALED_CONSISTENT / estado TESTED_ONLY — NO PROVEN (1 host/UID/LLVM 18.1.8, residual defect unfixed, verification by fresh session not third party).
 - EXPEDIENTE.md del caso KLEE actualizado con limitations declaradas.
 - PRs propios abiertos: angr #7788 (CI pendiente review), capstone #3167 (CERRADO por AI-guidelines), klee #1847 (SEALED_CONSISTENT localmente), rizin 5 abiertos dictadas silenciadas, REA 20 abiertos → 26 abiertas, 0 merged.
+
+## 2026-11-14 (última, PR miasm) — PR #1591 abierto tras dictado del cuerpo
+
+- Owner aprobó explícitamente el cuerpo del PR de miasm (rama fix/armt-ldr-literal-neg @ 7eeccd1, basado en df358f7). PR: https://github.com/cea-sec/miasm/pull/1591 con encabezado 'Fixes #1570...' y limitación decoder-only explícita.
+- **Resumen del fix**: LDR/LDRB literal T2 U=0 (offset negativo desde PC) se decodificaba como register-offset/imm8 sin excepción (5ff80800→LDR R0,[PC,R8] confirmado en reproducer); nueva clase `armt_deref_pc_neg`, 2 reglas, exclusión de Rn=PC en las reglas register-offset/imm8 de load; 3 casos en test_thumb_ldr_literal_neg.py (4/4) - 16,384 bytes vs capstone 5.0.7 = 0 mismatch". Suite ARM tradicionalmente frágil: 1 fallo preexistente idéntico a master.
+- PRs propios abiertos: angr #7788, klee #1847, miasm #1591 + 5 rizin dictadas silenciadas + 20 REA → 28 abiertas; merged: 0.
+- **RXRE delta**: en este fix concreto, ninguna capacidad RXRE nueva — la verificación usó capstone externo + test suite de miasm; el aporte RXRE es el protocolo de preparación y el registro en expediente.

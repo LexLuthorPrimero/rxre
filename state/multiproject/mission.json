@@ -2,12 +2,12 @@
   "schema_version": 1,
   "mission_id": "rxre-multiproject-v2",
   "created_at": "2026-11-14",
-  "updated_at": "2026-11-14T14:25:00Z",
+  "updated_at": "2026-11-14T17:35:00Z",
   "language_note": "Campo con null = desconocido; pending-* = explícitamente pendiente. La verdad superior son código, git, tests y el estado real de los PRs.",
-  "current_objective": "KLEE #1847 ABIERTO (fix KLEE #1842) con verificación pre/post. Mision sigue: vigilar 3 PRs propios (#7788 angr, #3167 capstone, #1847 klee).",
-  "active_project": "klee/klee",
-  "active_issue": "klee/klee#1842 (PR #1847 abierto)",
-  "next_objective": "Vigilar #7788/#3167/#1847 (CI+reviews); rizin en silencio (dictado); REA #4972 wiring pendiente de dictado; evaluar issue separado para el hallazgo \"out of bound pointer\" en la tabla absoluta bajo symbolic index (requiere dictado para outreach).",
+  "current_objective": "PR #1591 abierto (miasm #1570). Misión continua: vigilar angr #7788, klee #1847, miasm #1591 (verificar CI), REA #4972 wiring pendiente de dictado.",
+  "active_project": "cea-sec/miasm",
+  "active_issue": "cea-sec/miasm#1570 (PR #1591 abierto)",
+  "next_objective": "Vigilar CI/review de #7788/#1847/#1591; continuar re-triaje (binsec #70 evaluable con dictado); rizin en silencio (dictado); REA #4972 wiring pendiente.",
   "project_registry": [
     {
       "name": "rizin",
@@ -190,6 +190,15 @@
       "pr_author": "LexLuthorPrimero",
       "pr_state": "open",
       "note": "SIGFPE en udiv i2 por divisor truncado a 0; fix: división en i32 o bool ancho; verificado pre/post en LLVM 18; fork LexLuthorPrimero/klee creado (autorizado). OOB hallazgo residual declarado, no fijado"
+    },
+    {
+      "repo": "cea-sec/miasm",
+      "issue": 1570,
+      "state": "open",
+      "pr": 1591,
+      "pr_author": "LexLuthorPrimero",
+      "pr_state": "open",
+      "note": "Thumb-2 literal LDR/LDRB U=0 decoded as register-offset; fix decoder-only; fork autorizado (dictado); cuerpo aprobado por el propietario"
     }
   ],
   "pull_request_registry": {
@@ -220,13 +229,17 @@
     "klee_own_open": [
       1847
     ],
-    "total_own_open": 8,
+    "total_own_open": 9,
     "klee_note": "fork creado 2026-11-14 (autorizado por el propietario ese mismo turno)",
     "capstone_own_closed": [
       3167
     ],
     "capstone_note": "#3167 cerrado por mantenedor 'see contribution guidelines' (AI guidelines: prohibido AI escribe PR/commits) 2026-11-14T16:58:58Z. Fix (041fbe5) en fork LexLuthorPrimero/capstone; no reabrir sin dictado.",
-    "total_closed_own": 1
+    "total_closed_own": 1,
+    "miasm_own_open": [
+      1591
+    ],
+    "miasm_note": "fork + PR creado 2026-11-14 (autorizado por el propietario; cuerpo aprobado explícitamente)"
   },
   "capability_registry": "see capabilities/index.md (afíjado 2026-11-14; verificado por exploración estructurada, no por re-ejecución de tests)",
   "blockers": [

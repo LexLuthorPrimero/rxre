@@ -268,6 +268,26 @@
       },
       "score": 75,
       "notes": "Root cause: udiv offset, const 4 truncated to 0 in i1/i2. Fix: widen divisor to i32/offset type. Across both LLVM 18 build, reproducer crashes pre-fix SIGFPE, passes post-fix. Fork authorized 2026-11-14. Residual: 'out of bound pointer' under symbolic masked input — separate defect, declared not fixed."
+    },
+    {
+      "id": "miasm-1570",
+      "repo": "cea-sec/miasm",
+      "issue": 1570,
+      "title": "Thumb-2 LDR/LDRB (literal) U=0 decoded as register-offset (silent)",
+      "status": "PR_OPEN",
+      "pr": 1591,
+      "author": "LexLuthorPrimero",
+      "scores": {
+        "impacto_tecnico": 4,
+        "reproducibilidad": 5,
+        "capacidad_rxre": 4,
+        "oraculo_independiente": 5,
+        "reutilizacion": 3,
+        "evolucion_rxre": 4,
+        "viabilidad_upstream": 4
+      },
+      "score": 72,
+      "notes": "Bug nm JeroenRobben (2026-10-28); reproducir con bytes 5ff80800/1ff80a00/5ff80409; fix (7eeccd1): nueva clase armt_deref_pc_neg + 2 reglas + rn=PC excluido de register-offset/imm8 negatives; 16,384 bytes vs capstone 5.0.7 = 0 mismatches; 4/4 nuevos tests; control negativo validado. PR #1591 con cuerpo dictado/aprobado por el propietario."
     }
   ],
   "selection": {
