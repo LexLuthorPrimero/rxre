@@ -210,9 +210,7 @@
     "angr_own_open": [
       7788
     ],
-    "capstone_own_open": [
-      3167
-    ],
+    "capstone_own_open": [],
     "rea_own_open": 20,
     "rea_own_merged": 0,
     "rizin_own_merged": 0,
@@ -223,7 +221,12 @@
       1847
     ],
     "total_own_open": 8,
-    "klee_note": "fork creado 2026-11-14 (autorizado por el propietario ese mismo turno)"
+    "klee_note": "fork creado 2026-11-14 (autorizado por el propietario ese mismo turno)",
+    "capstone_own_closed": [
+      3167
+    ],
+    "capstone_note": "#3167 cerrado por mantenedor 'see contribution guidelines' (AI guidelines: prohibido AI escribe PR/commits) 2026-11-14T16:58:58Z. Fix (041fbe5) en fork LexLuthorPrimero/capstone; no reabrir sin dictado.",
+    "total_closed_own": 1
   },
   "capability_registry": "see capabilities/index.md (afíjado 2026-11-14; verificado por exploración estructurada, no por re-ejecución de tests)",
   "blockers": [
