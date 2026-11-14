@@ -92,3 +92,8 @@ Revisión read-only de `gh repo list LexLuthorPrimero` (2026-11-14):
 - `README.md` reescrito: qué es este repo (R&D del engine RXRE + evidencia sellada + corpus + estado multiproyecto), qué NO es (paquete publicado, claims verificados, terceros), mapa de directorios, cómo probar, GPL v2. Commit `f6c4f1ff` (push a main).
 - Descripción del repo en GitHub actualizada vía `gh repo edit`: "...Not the published package (see rxre-engine); third-party verification NOT_EXECUTED." Verificada con `gh repo view`.
 - `AGENTS.md` no tocado (es política del propietario); `LICENSE` (GPL v2) verificada; `.md` centrales conservados.
+
+## 2026-11-14 (última) — Índice/glosario del repo en README (dictado: "Índice/glosario en README")
+
+- README amplía la tabla "Qué contiene" a un índice completo de las 40 entradas raíz, con clasificación honesta: Engine (`tools/`, `rxre`, `RXRE/`, `run_tests.sh`), Evidencia (`rxre-r3/`), Misión (`state/`), Investigación (`vk_test`, `rx550-upstream-7.2.8`, `revkit`, `03/04/07/.rxre`), Histórico (`RESEARCH/`, `findings/`, `audit/`, `archive/`, `artifacts/`, `results/`, `docs/`, `06/08-*`), Herramientas (`scripts/`, `patches/`), Metadato. Ningún rename; referencias intactas. Commit `6d4b3911` (push a main).
+- Rename de las carpetas numeradas/crípticas y de los 8 elementos: NO ejecutado (el propietario eligió solo índice; renombrar elementos es su decisión ontológica).
