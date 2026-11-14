@@ -288,6 +288,26 @@
       },
       "score": 72,
       "notes": "Bug nm JeroenRobben (2026-10-28); reproducir con bytes 5ff80800/1ff80a00/5ff80409; fix (7eeccd1): nueva clase armt_deref_pc_neg + 2 reglas + rn=PC excluido de register-offset/imm8 negatives; 16,384 bytes vs capstone 5.0.7 = 0 mismatches; 4/4 nuevos tests; control negativo validado. PR #1591 con cuerpo dictado/aprobado por el propietario."
+    },
+    {
+      "id": "miasm-1566",
+      "repo": "cea-sec/miasm",
+      "issue": 1566,
+      "title": "x86_64 decoder accepts 14 opcodes that are #UD in 64-bit mode",
+      "status": "PR_OPEN",
+      "pr": 1592,
+      "author": "LexLuthorPrimero",
+      "scores": {
+        "impacto_tecnico": 4,
+        "reproducibilidad": 5,
+        "capacidad_rxre": 4,
+        "oraculo_independiente": 5,
+        "reutilizacion": 2,
+        "evolucion_rxre": 3,
+        "viabilidad_upstream": 5
+      },
+      "score": 70,
+      "notes": "#UD en x86_64: DAA/DAS/AAA/AAS/AAM/AAD + legacy PUSH/POP de segmentos legacy; fix = bs_modeno64 en esas 14 reglas (patrón existente 9A/EA); test dedicado test_no64_illegal_opcodes.py con negativo 14/14 FAIL sin fix, 4/4 PASS con él; 16/32-bit intactos; PR #1592 con cuerpo dictado/aprobado por el propietario."
     }
   ],
   "selection": {

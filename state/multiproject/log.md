@@ -137,3 +137,11 @@ Primer uso genuino de la maquinaria RXRE (sello-antes-de-revelar + sesión hija 
 - **Resumen del fix**: LDR/LDRB literal T2 U=0 (offset negativo desde PC) se decodificaba como register-offset/imm8 sin excepción (5ff80800→LDR R0,[PC,R8] confirmado en reproducer); nueva clase `armt_deref_pc_neg`, 2 reglas, exclusión de Rn=PC en las reglas register-offset/imm8 de load; 3 casos en test_thumb_ldr_literal_neg.py (4/4) - 16,384 bytes vs capstone 5.0.7 = 0 mismatch". Suite ARM tradicionalmente frágil: 1 fallo preexistente idéntico a master.
 - PRs propios abiertos: angr #7788, klee #1847, miasm #1591 + 5 rizin dictadas silenciadas + 20 REA → 28 abiertas; merged: 0.
 - **RXRE delta**: en este fix concreto, ninguna capacidad RXRE nueva — la verificación usó capstone externo + test suite de miasm; el aporte RXRE es el protocolo de preparación y el registro en expediente.
+
+## 2026-11-14 (última, PR #1566) — #1566 cerrado con PR #1592
+
+- **Fix**: las 14 reglas (aaa/aas/aad/aam/daa/das/into + 64-bit push/pop de CS/DS/SS/ES) aceptaban bytes que son #UD en x86_64; falta de `bs_modeno64`. Ahora todas lo llevan, preservando 16/32-bit.
+- **Verificación**: reproducer del issue pasa (14 Disasm_Exception, controles intactos); decode 16/32-bit intacto para los mismos bytes; FS/GS/PUSHFQ/POPFQ intactos; float x86 sigue funciendo (miasm suite ARM existente sin regresiones para este cambio; negativo: 14 errores sin fix).
+- **PR #1592** abierto (cea-sec/miasm, base master, rama fix/x86-64-illegal-opcodes @ 9fa906c); cuerpo dictado/aprobado por el propietario.
+- **Aislamiento de rama**: el fix x86 vive en su propia rama desde df358f7 (master), no contamina la rama ARM que respalda #1591 — cada PR fue revisada como visual independiente.
+- PRs propios abiertos: 5 rizin (silenciadas) + angr #7788 + klee #1847 + miasm #1591 + miasm #1592 + 20 REA → 29 abiertos, merged: 0.

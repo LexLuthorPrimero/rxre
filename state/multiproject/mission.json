@@ -2,12 +2,12 @@
   "schema_version": 1,
   "mission_id": "rxre-multiproject-v2",
   "created_at": "2026-11-14",
-  "updated_at": "2026-11-14T17:35:00Z",
+  "updated_at": "2026-11-14T18:15:00Z",
   "language_note": "Campo con null = desconocido; pending-* = explícitamente pendiente. La verdad superior son código, git, tests y el estado real de los PRs.",
-  "current_objective": "PR #1591 abierto (miasm #1570). Misión continua: vigilar angr #7788, klee #1847, miasm #1591 (verificar CI), REA #4972 wiring pendiente de dictado.",
+  "current_objective": "PR #1592 abierto (miasm #1566). Misión continua: vigilar angr #7788, klee #1847, miasm #1591, miasm #1592 (CI); REA #4972 wiring pendiente; rizin en silencio (dictado).",
   "active_project": "cea-sec/miasm",
-  "active_issue": "cea-sec/miasm#1570 (PR #1591 abierto)",
-  "next_objective": "Vigilar CI/review de #7788/#1847/#1591; continuar re-triaje (binsec #70 evaluable con dictado); rizin en silencio (dictado); REA #4972 wiring pendiente.",
+  "active_issue": "cea-sec/miasm#1566 (PR #1592 abierto)",
+  "next_objective": "Vigilar CI/review de #7788/#1847/#1591/#1592; continuar re-triaje (binsec #70 y #61 envejecidos pero activos, evaluación cuidadosa); REA #4972 pendiente de dictado.",
   "project_registry": [
     {
       "name": "rizin",
@@ -199,6 +199,15 @@
       "pr_author": "LexLuthorPrimero",
       "pr_state": "open",
       "note": "Thumb-2 literal LDR/LDRB U=0 decoded as register-offset; fix decoder-only; fork autorizado (dictado); cuerpo aprobado por el propietario"
+    },
+    {
+      "repo": "cea-sec/miasm",
+      "issue": 1566,
+      "state": "open",
+      "pr": 1592,
+      "pr_author": "LexLuthorPrimero",
+      "pr_state": "open",
+      "note": "14 opcodes #UD en x86_64 aceptados por el decoder; bs_modeno64 añadido a las reglas; test_no64_illegal_opcodes 4/4"
     }
   ],
   "pull_request_registry": {
@@ -229,7 +238,7 @@
     "klee_own_open": [
       1847
     ],
-    "total_own_open": 9,
+    "total_own_open": 10,
     "klee_note": "fork creado 2026-11-14 (autorizado por el propietario ese mismo turno)",
     "capstone_own_closed": [
       3167
@@ -237,7 +246,8 @@
     "capstone_note": "#3167 cerrado por mantenedor 'see contribution guidelines' (AI guidelines: prohibido AI escribe PR/commits) 2026-11-14T16:58:58Z. Fix (041fbe5) en fork LexLuthorPrimero/capstone; no reabrir sin dictado.",
     "total_closed_own": 1,
     "miasm_own_open": [
-      1591
+      1591,
+      1592
     ],
     "miasm_note": "fork + PR creado 2026-11-14 (autorizado por el propietario; cuerpo aprobado explícitamente)"
   },
