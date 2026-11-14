@@ -1,0 +1,58 @@
+{
+  "issue": "klee/klee#1842",
+  "pr": 1847,
+  "state_epistemic": "TESTED_ONLY",
+  "verdict": "SEALED_CONSISTENT",
+  "verification": {
+    "access_paths_audit": "rxre not accessed; only clone dirs and reproducer; worktrees created by verifier match declared scope",
+    "blind_valid": true,
+    "limitations": [
+      "1 host, 1 UID, 1 LLVM version",
+      "residual out-of-bound-pointer defect after fix (distinct, unfixed)",
+      "no third-party review yet",
+      "same source/author verified locally; independent session verifier only"
+    ],
+    "method": "blind subagent, fresh session, two fresh worktree builds from git (6ba3a66 pre-fix, 978c048 fix)",
+    "overall": "All sealed keys matched; residual issue documented; no claim of universal equivalence (single host, LLVM 18.1.8, z3 5.3.1).",
+    "prediction_vs_observation": [
+      {
+        "item": "pre_fix exit code 136 / SIGFPE",
+        "observed": 136,
+        "predicted": 136,
+        "result": "MATCH"
+      },
+      {
+        "item": "pre_fix assembly.ll udiv line",
+        "observed": "udiv i2 %offset, 0",
+        "predicted": "udiv i2 ..., 0",
+        "result": "MATCH"
+      },
+      {
+        "item": "post_fix assembly.ll udiv widened",
+        "observed": "udiv i32 %load.relative.offset.ext, 4",
+        "result": "MATCH"
+      },
+      {
+        "item": "post_fix default run",
+        "observed": "SIGABRT exit 134, IndependentSolver.cpp:535 assert",
+        "predicted": "IndependentSolver assert abort (SIGABRT)",
+        "result": "MATCH"
+      },
+      {
+        "item": "post_fix --use-independent-solver=false",
+        "observed": "exit 0; 2 tests; total instructions = 29",
+        "predicted": "completes; generated tests >= 2",
+        "result": "MATCH"
+      },
+      {
+        "item": "residual memory error reported",
+        "observed": "memory error: out of bound pointer (still present, 1 occurrence)",
+        "result": "CONSISTENT_WITH_DECLARATION"
+      }
+    ],
+    "seal_created_utc": "2026-11-14T17:18:14Z",
+    "seal_phase": "SEALED",
+    "seal_sha256": "99d93115c577894450ffb3735c7a772e9dd0aba61f37a519f4b5459cb67eba48",
+    "verifier_session_start_utc": "2026-11-14T17:18:34"
+  }
+}

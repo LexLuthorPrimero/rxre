@@ -120,3 +120,13 @@ LIEF #1412 → PR #1413 (Henglie) abierto; radare2 #27393/#94/#95/#96 → PRs ya
 **Lección (dura):** en capstone y proyectos análogos, la contribución debe: (a) abririssue/comentario previo ("Please always open an issue or leave a comment in one before starting work on an architecture!"), (b) descripción y commit en texto del humano, breve, no generado, (c) tests sin verbosidad.
 
 **Estado:** el fix queda en la rama `fix/arm-cs-opt-mode-3162` del fork LexLuthorPrimero/capstone (commit 041fbe5); no se reabre ni se comenta sin dictado del propietario. angr #7788 abierto, CI pendiente; klee #1847 abierto, verificación ciega en curso vía subagente en sesión hija (inputs: fuentes + reproductor; sin acceso al repo rxre ni a resultados previos).
+
+## 2026-11-14 (noche, veredicto) — KLEE #1847: verificación ciega COMPLETADA = SEALED_CONSISTENT / TESTED_ONLY
+
+Primer uso genuino de la maquinaria RXRE (sello-antes-de-revelar + sesión hija independiente) sobre un fix upstream de esta misión.
+
+- Verificador ciego (sesión hija fresca; NO accedió a rxre ni a logs previos; creó worktrees y builds frescos): pre-fix 6ba3a66 = SIGFPE exit 136 en APInt::udiv; post-fix 978c048 = sin SIGFPE (udiv i32 ..., 4); with default flags aborts en IndependentSolver assert (SIGABRT exit 134) tras el memory error, igual que antes de verificar; con --use-independent-solver=false: exit 0, 2 tests, 29 instrucciones.
+- Sellado previo (SEALED_PREDICTION.json, seal 99d93115…, creado ANTES que el verificador arrancara 17:18:34): 5/5 predicciones acertadas (exit/signal, udiv pre, udiv post, assert default, completion flag-less). Audit trail de rutas: dentro de scope.
+- Veredicto formal (`VERDICT.json`): SEALED_CONSISTENT / estado TESTED_ONLY — NO PROVEN (1 host/UID/LLVM 18.1.8, residual defect unfixed, verification by fresh session not third party).
+- EXPEDIENTE.md del caso KLEE actualizado con limitations declaradas.
+- PRs propios abiertos: angr #7788 (CI pendiente review), capstone #3167 (CERRADO por AI-guidelines), klee #1847 (SEALED_CONSISTENT localmente), rizin 5 abiertos dictadas silenciadas, REA 20 abiertos → 26 abiertas, 0 merged.

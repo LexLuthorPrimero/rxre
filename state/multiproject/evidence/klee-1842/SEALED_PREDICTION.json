@@ -1,0 +1,30 @@
+{
+  "artifacts": {
+    "harness_c": "54da8b35bacb832c873f0643a6c62c3566df25c7e847e88dcccf73fa71124ca9",
+    "klee_fix_commit": "978c048",
+    "klee_pre_build_artifacts_note": null,
+    "klee_upstream": "6ba3a66",
+    "repro_bc": "e1ed9f244d5bcddefb441ac415dc32fd39be84727fd976d109b245bec7906a14",
+    "subject_patched_ir": "8ab096cb806bb09692a59bd40882034aa77750a1ba8c9596ed9d36244e65b890"
+  },
+  "note": "sello PREDICTING previo al verificador ciego; el contenido fue observado por m\u00ed en este host; el verificador independiente debe derivarlo por su cuenta.",
+  "seal": {
+    "canonical_excluded_phase": true,
+    "phase": "SEALED",
+    "prediction": {
+      "fix_commit": "978c048",
+      "issue": "klee/klee#1842",
+      "post_fix_prediction": {
+        "generated_tests_min": 2,
+        "no_sigfpe": true,
+        "total_instructions": 29,
+        "with_default_flags": "IndependentSolver abort with assertion (known residual)",
+        "with_use_independent_solver_false": "'memory error: out of bound pointer' reported (known residual)"
+      },
+      "pre_fix_observed_rc": 136,
+      "pre_fix_signal": "SIGFPE"
+    },
+    "sha256": "99d93115c577894450ffb3735c7a772e9dd0aba61f37a519f4b5459cb67eba48"
+  },
+  "sealed_utc": "2026-11-14T17:18:14Z"
+}
