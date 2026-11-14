@@ -2,12 +2,12 @@
   "schema_version": 1,
   "mission_id": "rxre-multiproject-v2",
   "created_at": "2026-11-14",
-  "updated_at": "2026-11-14T22:10:00Z",
+  "updated_at": "2026-11-14T23:30:00Z",
   "language_note": "Campo con null = desconocido; pending-* = explícitamente pendiente. La verdad superior son código, git, tests y el estado real de los PRs.",
-  "current_objective": "miasm #1578 RESUELTO y PR #1595 abierto (fix/thumb-it-branch @ 5963d7d). Próxima: vigilar CI/review de #1595 y anteriores; candidatos: #1570/#1576/#1578 todos en PR.",
+  "current_objective": "miasm #1560 RESUELTO y PR #1596 abierto (fix/thumb-hireg-add-no-flags @ 6a47aef). Próxima: vigilar CI/review PRs; candidatos #1566 (PR #1592), restaurar decisión REA.",
   "active_project": "cea-sec/miasm",
-  "active_issue": "cea-sec/miasm#1578 (PR #1595 abierto)",
-  "next_objective": "Vigilar PRs (#1591-#1595, #1847, #1848, #7788, rizin, rea); próximo candidato tras dictado; Alive2 #1383 descartado con motivo; rizin en silencio.",
+  "active_issue": "cea-sec/miasm#1560 (PR #1596 abierto)",
+  "next_objective": "Vigilar PRs (#1591-#1596, #1847, #1848, #7788, rizin, rea); siguiente según dictado.",
   "project_registry": [
     {
       "name": "rizin",
@@ -244,6 +244,15 @@
       "pr_author": "LexLuthorPrimero",
       "pr_state": "open",
       "note": "Thumb IT + PC-writer: IT-state tracking (T/E, cond^1) + splitflow predicado + POP{pc} breakflow + lifter no duplica IRDst; fixture a1 del issue (objdump bytes); ambos caminos simbólicos correctos; test test/arch/arm/it_branch.py; oráculo capstone vía RXRE (8/8, 100% cobertura); qemu no disponible en host; PR-body redactada por el agente con dictado"
+    },
+    {
+      "repo": "cea-sec/miasm",
+      "issue": 1560,
+      "state": "open",
+      "pr": 1596,
+      "pr_author": "LexLuthorPrimero",
+      "pr_state": "open",
+      "note": "Thumb T2 ADD (high-reg/SP+reg) con setflags=FALSE; rename hiregop_name ADDS→ADD; fix de 1 línea; repro 4/4 spec; test hireg_add.py (5/5); RXRE capstone oráculo (4/4); ctypes cmp/add/ble correcto; PR-body redactada por el agente con dictado"
     }
   ],
   "pull_request_registry": {
@@ -275,7 +284,7 @@
       1847,
       1848
     ],
-    "total_own_open": 33,
+    "total_own_open": 34,
     "klee_note": "fork creado 2026-11-14 (autorizado por el propietario ese mismo turno)",
     "capstone_own_closed": [
       3167
@@ -287,7 +296,8 @@
       1592,
       1593,
       1594,
-      1595
+      1595,
+      1596
     ],
     "miasm_note": "fork + PR creado 2026-11-14 (autorizado por el propietario; cuerpo aprobado explícitamente)"
   },

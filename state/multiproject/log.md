@@ -212,3 +212,12 @@ Tras la corrección del jefe de misión (RXRE como motor), se resolvió #1570 us
 - **PR #1595** abierto (cuerpo redactado por el agente con dictado). Oracle qemu NO disponible en host (documentado).
 - PRs propios abiertos: 33 (5 rizin [silencio] + angr #7788 + klee #1847/#1848 + miasm #1591/#1592/#1593/#1594/#1595 + 20 rea); merged: 0.
 - Próximo: tras dictado del propietario.
+
+## 2026-11-14 (última, PR miasm #1560) — #1560 resuelto; PR #1596 abierto
+
+- **Objetivo** (dictado): miasm #1560 (ADD Thumb T2 corrompe NZCV). Root cause: `hiregop_name = {'ADDS': 0, 'CMP': 1, 'MOV': 2}` — opcode 00 decodificaba ADDS para ADD T2 high-reg/SP+reg (setflags=FALSE según Arm ARM).
+- **Fix** (6a47aef): rename a `ADD`; regresión `test/arch/arm/hireg_add.py` (5/5); control T1 ADDS intacto; decode capstone vía RXRE 4/4 (100% cobertura).
+- **Verificación**: symbolic 4/4 (cmp/add/ble correcto para a=3; NZCV no se toca en ADD SP+reg ni high-reg); suites limpías; JIT python no disponible (preexistente).
+- **PR #1596** abierto (cuerpo redactado por el agente con dictado).
+- PRs propios abiertos: 34 (5 rizin [silencio] + angr #7788 + klee #1847/#1848 + miasm #1591-#1596 + 20 rea); merged: 0.
+- Próximo: tras dictado del propietario.

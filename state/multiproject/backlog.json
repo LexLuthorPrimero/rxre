@@ -388,6 +388,26 @@
       },
       "score": 80,
       "notes": "IT-state threading mn_armt; splitflow predicado para PC-writer en IT; breakflow POP{pc}; lifter no duplica IRDst de fallthrough; test it_branch.py (4/4); ambos caminos simbólicos; RXRE capstone/thumb oráculo (8/8); qemu no disponible en host; PR #1595 (rama fix/thumb-it-branch @ 5963d7d)."
+    },
+    {
+      "id": "miasm-1560",
+      "repo": "cea-sec/miasm",
+      "issue": 1560,
+      "title": "Thumb 16-bit ADD with high register decoded as ADDS, clobbers NZCV",
+      "status": "PR_OPEN",
+      "pr": 1596,
+      "author": "LexLuthorPrimero",
+      "scores": {
+        "impacto_tecnico": 4,
+        "reproducibilidad": 5,
+        "capacidad_rxre": 4,
+        "oraculo_independiente": 4,
+        "reutilizacion": 4,
+        "evolucion_rxre": 2,
+        "viabilidad_upstream": 5
+      },
+      "score": 78,
+      "notes": "hiregop_name opcode 00 era ADDS (no existe forma ADDS para ADD T2 high-reg/SP+reg); fix de 1 línea; repro spec 4/4 (BLE tomado, NZCV intacto); test hireg_add.py; oráculo capstone; PR #1596 (rama fix/thumb-hireg-add-no-flags @ 6a47aef)."
     }
   ],
   "selection": {
