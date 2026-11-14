@@ -1,0 +1,53 @@
+# RXRE MULTIPROYECTO v2 — Log cronológico
+
+## 2026-11-14 (primera ejecución de esta misión con continuidad persistente)
+
+**Recuperación de estado real (hechos verificados esta sesión):**
+
+- No existía `state/multiproject/` — las ejecuciones previas de esta misión (visible en `METRICAS_R3.md`) abrieron PRs pero no crearon continuidad persistente. Se crea ahora.
+- Working tree de `rxre` con cientos de cambios ajenos/preexistentes — **no tocados**. `git status --short` confirmado antes de actuar.
+- Repo público `origin` = https://github.com/LexLuthorPrimero/rxre.git (main @ d7d02230). Autorizado por el propietario (2026-11-14): push a `main` de los artefactos de la misión al terminar; PRs upstream nuevos autorizados en esta sesión.
+- Herramientas: `gh` autenticado como LexLuthorPrimero; `rizin 0.7.4` (paquete Fedora); `angr 10.0.5` (pip, py3.14); `z3 5.3.1`; `nasm`, `gcc`, `python3`. Clone angr en `~/Escritorio/rxre-angr` @ 8108445 (master). Clone REA en `~/Escritorio/rea` @ 0909d89 (main). Clone rizin fuente: NO presente (el clone de sesiones previas ya no existe; rizin instalado es 0.7.4-9.fc43, distinto de dev/0.10.0 contra el que se hicieron los PRs).
+
+**Estado real de PRs propios (verificado con `gh` 2026-11-14T11:0xZ):**
+
+- rizin, 7 OPEN (de LexLuthorPrimero): #7044 (gzip #6969, 2026-11-13), #7046 (io.c #7034, 11-14), #7048 (z80 #7011, 11-14), #7049 (hexagon LR #6975, 11-14), #7050 (hexagon dual .new #6974, 11-14), #7052 (OpenSSL SHA3 #6896, 11-14), #7054 (rz_core_arg_set #7020, 11-14).
+- rizin, 2 CLOSED sin merge por mantenedores (duplicados): #7047 (notxvilka: PR #6238 de MrQuantum1915 cubre el frente), #7051 (notxvilka: PRs #7030/#7025 cubren TMS320).
+- rizin #6866 (TMS320): asignado a Rot127/notxvilka, PR #7030 OPEN — trabajo mantenido por ellos; no intervenir.
+- rizin #6861 (x86 reg-indirect jumps): PR #7035 OPEN por notxvilka (basado en draft de Sree24-ui), cambios pedidos por Rot127 — no intervenir.
+- rizin #6969: PR propio #7044 + PR #6988 (ajeno) abiertos; CI en maintainers.
+- angr #7703: PR #7705 OPEN por zardus (maintainer angr) — no duplicar.
+- REA: 21 OPEN + 24 CLOSED (0 MERGED) de LexLuthorPrimero — mantenedores cierran sin merge; 0 fusionados hasta la fecha.
+- REA #4972 (verificación de equivalencia semántica de código nativo): OPEN, sin asignar, feature request `area:native` — sigue siendo candidato.
+
+**Sustrato técnico verificado:**
+- Rizin issues iniciales #6974/#6975/#6969/#6866/#6861 → todos con PRs abiertos (propios o de mantenedores). Ninguno disponible para nueva reparación inmediata.
+- angr #7703 → PR #7705 (zardus) OPEN.
+
+**Decisiones:**
+1. Crear `state/multiproject/` (este archivo, mission.json, backlog.json, evidence/, capabilities/) — continuidad exigida por la misión.
+2. Reconocimiento de RXRE por subagente (arquitectura ALMA/MENTE/etc., capacidades reales vs documentación).
+3. Puntuar candidatos y elegir siguiente objetivo técnico (ver backlog.json).
+
+**Pendiente antes de cerrar la sesión:** push a `main` (autorizado) solo con artefactos de la misión; sin incluir cambios ajenos.
+
+## 2026-11-14 (continua) — REA #4972 seleccionado; prototipo construido y testado; persistencia creada
+
+**Autorización del propietario (2026-11-14):** push de los artefactos de la misión a `main` al terminar; PRs upstream nuevos autorizados en esta sesión.
+
+**Selección:** puntuación REA #4972 = 84 (mayoría: reutilización 5/5, evolución 5/5). Todos los issues iniciales (rizin #6974/#6975/#6969/#6866/#6861, angr #7703) tienen PR abierto propio o de mantenedores → no duplicar. Rizin fresh triage (misma noche): 0 candidatas viables — todos los bugs recientes o tienen PR abierto (propio: #7034→#7046, #7011→#7048, #7020→#7054; #6969/#6974/#6975) o están reclamados (#3646 diseño 1.0.0 pendiente de maintainers; #4857 good-first-issue + PR #6160; #5334 A0su con PoC; #6687 root-cause fijado por ManasBagul23/wargio en rz-libdemangle#91-96; #334 Professional Contributors Only).
+
+**Capacidad nueva implementada:** `tools/rxre/semantic/equiv_check.py` — verificación acotada de equivalencia semántica nativa (binario↔binario/C) para funciones escalares int64→int64:
+- Capa simbólica: angr 10.0.5 + z3 5.3.1; UNSAT diferencial sobre dominio completo (modelo VEX) → PROVEN; SAT → counterexample → MISMATCH.
+- Capa concreta: ctypes con fork-por-llamada (crash aislado); control, no prueba.
+- Controles: PROVEN ×3 (incl. con rama), MISMATCH ×2 (incl. confirmación nativa del contraejemplo), TESTED_ONLY vía --no-symbolic, INCONCLUSIVE (orig ausente / C inválido).
+- Pruebas: `tools/rxre/tests/test_semantic_equiv_4972.py` — **7/7 PASS** (pytest y python3 -B, rc=0; compatible run_tests.sh). Sin regresión en test_diff_harness/ssa/dataflow/cfg_coverage/decompiler_lite.
+- Evidencia: `state/multiproject/evidence/rea-4972/` (5 runs JSON + EXPEDIENTE.md + fixtures pinned).
+- Honestidad: era un hueco real — ninguna capacidad RXRE daba veredicto PROVEN/MISMATCH binario↔binario (formal.check era productor vacío; z3 sin usar; angr instalado pero sin tests).
+
+**Estado epistémico:** PARTIAL (prototipo integrado y testado en RXRE; PROVEN = modelo VEX explícito; sin wiring upstream en REA; ninguna reutilización en segundo proyecto todavía).
+
+**Commit:** artefactos de misión + módulo + test, push a `main` (autorizado). Resto del árbol (cientos de cambios preexistentes) SIN tocar.
+
+**Próxima sesión:** (1) decidir con el propietario el wiring upstream REA (provider contract + CLI/MCP; REA es TS complejo y sus mantenedores cierran la mayoría de PRs externos; 21 propios abiertos, 0 mergeados); (2) revisar CI/estado de los 7 PRs rizin y 21 REA; (3) si se quiere contribución upstream esta misión: seguir REA #4972 con un provider mínimo INCONCLUSIVE-honesto SOLO tras visto bueno del propietario; (4) alternativa: fuzzing del equiv_check con funciones aleatorias; (5) seguir sin intervenir en PRs de mantenedores.
+

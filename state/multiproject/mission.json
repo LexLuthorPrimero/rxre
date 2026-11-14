@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "mission_id": "rxre-multiproject-v2",
+  "created_at": "2026-11-14",
+  "updated_at": "2026-11-14T12:40:00Z",
+  "language_note": "Campo con null = desconocido; pending-* = explícitamente pendiente. La verdad superior son código, git, tests y el estado real de los PRs.",
+  "current_objective": "COMPLETADO (2026-11-14): capa RXRE del REA #4972 (equiv_check vertical slice) entregada. Siguiente: wiring upstream REA #4972 (provider contract + CLI/MCP) — decisión del propietario.",
+  "active_project": "morluto/rea",
+  "active_issue": "morluto/rea#4972",
+  "next_objective": "Preguntar al propietario antes del wiring upstream REA #4972 (riesgo de cierre sin merge; requiere TS provider). Mientras: vigilar CI de los 7 PRs rizin / 21 REA; alternativa: fuzzing de equiv_check; otra ejecución: fresh triage rizin.",
+  "project_registry": [
+    {
+      "name": "rizin",
+      "repo": "https://github.com/rizinorg/rizin",
+      "role": "reverse engineering platform (desensamblado, RzIL, analysis)",
+      "local_clone": null,
+      "local_clone_note": "El clone fuente usado en sesiones previas ya no existe en el host; solo rizin 0.7.4 del paquete Fedora en /usr/bin. Los PRs se prepararon contra dev/0.10.0.",
+      "areas": ["desensamblado", "RzIL", "análisis de flujo", "formatos binarios"],
+      "status": "active_contributions_pending_review"
+    },
+    {
+      "name": "angr",
+      "repo": "https://github.com/angr/angr",
+      "role": "symbolic execution / decompilation",
+      "local_clone": "/home/lucas/Escritorio/rxre-angr",
+      "clone_head": "8108445 (clarirs: fix annotations inheritance type issue #7786)",
+      "local_install": "angr 10.0.5 (pip --user, python3.14)",
+      "status": "monitoring; angr#7703 resuelto por PR #7705 (zardus)"
+    },
+    {
+      "name": "rea",
+      "repo": "https://github.com/morluto/rea",
+      "role": "reverse engineering assistant (MCP/CLI), providers",
+      "local_clone": "/home/lucas/Escritorio/rea",
+      "clone_head": "0909d89 (fix(native): list ELF initializers of images with COPY relocations #10084)",
+      "local_install": "rea 6.5.0 (node, ~/.local/bin/rea)",
+      "status": "active; 21 PRs propios abiertos (0 mergeados); 24 cerrados por mantenedores sin merge"
+    },
+    {
+      "name": "rxre",
+      "repo": "https://github.com/LexLuthorPrimero/rxre.git",
+      "role": "este repositorio (RXRE engine)",
+      "local_path": "/home/lucas/Escritorio/rxre",
+      "status": "working tree con cientos de cambios preexistentes NO tocados; autorizado push a main de artefactos de esta misión al finalizar"
+    },
+    {
+      "name": "rxre-engine",
+      "repo": "https://github.com/LexLuthorPrimero/rxre-engine",
+      "role": "motor limpio publicado (v1.9.0)",
+      "status": "PARTIAL; verificación de terceros NOT_EXECUTED; no se toca sin dictado"
+    }
+  ],
+  "issue_registry": [
+    {"repo": "rizinorg/rizin", "issue": 6974, "state": "open", "pr": 7050, "pr_author": "LexLuthorPrimero", "pr_state": "open", "note": "Hexagon IL dual .new jumps; fix propio; review pendiente maintainers"},
+    {"repo": "rizinorg/rizin", "issue": 6975, "state": "open", "pr": 7049, "pr_author": "LexLuthorPrimero", "pr_state": "open", "note": "Hexagon IL unexecuted call sets LR; fix propio; review pendiente; mantenedor discutió revert"},
+    {"repo": "rizinorg/rizin", "issue": 6969, "state": "open", "pr": 7044, "pr_author": "LexLuthorPrimero", "pr_state": "open", "note": "gzip concatenated members; PR ajeno #6988 competidor; AppVeyor pendiente"},
+    {"repo": "rizinorg/rizin", "issue": 6866, "state": "open", "pr": 7030, "pr_author": "notxvilka", "pr_state": "open", "note": "TMS320 RzIL; asignado a mantenedores; PR propio #7051 CERRADO por mantenedor (duplicado)"},
+    {"repo": "rizinorg/rizin", "issue": 6861, "state": "open", "pr": 7035, "pr_author": "notxvilka", "pr_state": "open", "note": "x86 reg-indirect jumps; Rot127 pidió cambios; no intervenir"},
+    {"repo": "rizinorg/rizin", "issue": 7011, "state": "open", "pr": 7048, "pr_author": "LexLuthorPrimero", "pr_state": "open", "note": "z80 OOB reads; fix propio"},
+    {"repo": "rizinorg/rizin", "issue": 7034, "state": "open", "pr": 7046, "pr_author": "LexLuthorPrimero", "pr_state": "open", "note": "rz_io_nread_at_new_buf; fix propio"},
+    {"repo": "rizinorg/rizin", "issue": 6896, "state": "open", "pr": 7052, "pr_author": "LexLuthorPrimero", "pr_state": "open", "note": "OpenSSL SHA3 plugin names; fix propio"},
+    {"repo": "rizinorg/rizin", "issue": 7020, "state": "open", "pr": 7054, "pr_author": "LexLuthorPrimero", "pr_state": "open", "note": "rz_core_arg_set CC guard; fix propio"},
+    {"repo": "rizinorg/rizin", "issue": 6236, "state": "open", "pr": 7047, "pr_author": "LexLuthorPrimero", "pr_state": "closed", "note": "PUSHA/POPA; CERRADO sin merge por notxvilka (duplicado de #6238 de MrQuantum1915)"},
+    {"repo": "angr/angr", "issue": 7703, "state": "open", "pr": 7705, "pr_author": "zardus", "pr_state": "open", "note": "Decompiler continue-node; fix de maintainer en review; no duplicar"},
+    {"repo": "morluto/rea", "issue": 4972, "state": "open", "pr": null, "pr_author": null, "pr_state": null, "note": "Feature: verificación de equivalencia semántica nativa. Capa RXRE construida 2026-11-14 (tools/rxre/semantic/equiv_check.py, 7/7 tests); wiring upstream pendiente de decisión del propietario."}
+  ],
+  "pull_request_registry": {
+    "rizin_own_open": [7044, 7046, 7048, 7049, 7050, 7052, 7054],
+    "rizin_own_closed_duplicate": [7047, 7051],
+    "rea_own_open": 21,
+    "rea_own_closed_unmerged": 24,
+    "rea_own_merged": 0,
+    "rizin_own_merged": 0,
+    "note": "0 PRs propios mergeados en total. Maintainers cierran por duplicado o no mergean. Lección registrada: pre-flight `gh pr list --search` antes de abrir."
+  },
+  "capability_registry": "see capabilities/index.md (afíjado 2026-11-14; verificado por exploración estructurada, no por re-ejecución de tests)",
+  "blockers": [
+    "Ningún issue inicial disponible: todos tienen PR abierto (propio o de mantenedores) o están reclamados",
+    "rizin 0.7.4 instalado ≠ dev/0.10.0 contra el que se prepararon los PRs; se requiere re-clone+build para nuevo trabajo rizin",
+    "REA maintainer cierra la mayoría de PRs externos sin merge — viabilidad upstream de un wire-up grande para #4972: incierta, decisión del propietario al llegar"
+  ],
+  "session_status": "handoff"
+}

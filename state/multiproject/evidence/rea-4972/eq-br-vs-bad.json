@@ -1,0 +1,56 @@
+{
+  "tool": "rxre-equiv_check",
+  "schema": "rxre.equiv_check/v1",
+  "issue": "morluto/rea#4972",
+  "hashes": {
+    "orig": "d8ac22d7257a971a44d93841398d8d6d3f38310ed8649d0848090b328d1581b9",
+    "cand_source": "8a550f14c8483728b50d971af21374c9483beb298a5282a78c47a0e89e97c48e",
+    "cand_build": "21cd345e96058986596829758961bc04a7c65808f2ca150422968f42624c966a"
+  },
+  "versions": {
+    "python": "3.14.8",
+    "angr": "10.0.5",
+    "z3": "5.3.1",
+    "gcc": "gcc (GCC) 16.2.1 20260819 (Red Hat 16.2.1-2)"
+  },
+  "inputs": {
+    "orig": "/tmp/opencode/eq/br.so",
+    "orig_func": "f",
+    "orig_addr": null,
+    "cand_input": "/home/lucas/Escritorio/rxre/state/multiproject/evidence/rea-4972/fixtures/br_bad.c",
+    "sig": "u64",
+    "cases": 64,
+    "seed": 20261114
+  },
+  "layers": {
+    "symbolic": {
+      "ok": true,
+      "detail": "paths orig[0] vs cand[0]",
+      "counterexample": "0x0"
+    },
+    "concrete": {
+      "state": "ran",
+      "cases": 64,
+      "crashes": 0,
+      "equivalent_on_corpus": false,
+      "diff": {
+        "input": "0x0",
+        "orig": "0x64",
+        "cand": "0x63"
+      },
+      "note": null
+    }
+  },
+  "result": "MISMATCH",
+  "counterexample": "0x0",
+  "scope": [
+    "single argument integer scalar function",
+    "SysV AMD64: arg in rdi, ret in rax",
+    "binary lift semantics (angr/VEX), not source-level semantics",
+    "memory/global side effects and environment NOT modeled",
+    "domain: uint64 full range"
+  ],
+  "limitations": [],
+  "counterexample_confirmed_native": true,
+  "elapsed_s": 2.256
+}

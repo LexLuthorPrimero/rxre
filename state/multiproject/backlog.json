@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-11-14T11:20:00Z",
+  "scoring_weights": {
+    "impacto_tecnico": 15,
+    "reproducibilidad": 15,
+    "capacidad_rxre": 10,
+    "oraculo_independiente": 15,
+    "reutilizacion": 20,
+    "evolucion_rxre": 15,
+    "viabilidad_upstream": 10
+  },
+  "candidates": [
+    {
+      "id": "rizin-inicial-6974",
+      "repo": "rizinorg/rizin",
+      "issue": 6974,
+      "title": "Hexagon IL: wrong reordering of dual jumps (.new)",
+      "status": "PR_OPEN",
+      "pr": 7050,
+      "author": "LexLuthorPrimero",
+      "scores": {"impacto_tecnico": 3, "reproducibilidad": 5, "capacidad_rxre": 4, "oraculo_independiente": 4, "reutilizacion": 2, "evolucion_rxre": 3, "viabilidad_upstream": 4},
+      "score": 69,
+      "notes": "Reparado localmente y en revisión upstream. Esperado: review mantenedores. No duplicar."
+    },
+    {
+      "id": "rizin-inicial-6975",
+      "repo": "rizinorg/rizin",
+      "issue": 6975,
+      "title": "Hexagon IL: unexecuted call still sets the link register",
+      "status": "PR_OPEN",
+      "pr": 7049,
+      "author": "LexLuthorPrimero",
+      "scores": {"impacto_tecnico": 3, "reproducibilidad": 5, "capacidad_rxre": 4, "oraculo_independiente": 4, "reutilizacion": 2, "evolucion_rxre": 3, "viabilidad_upstream": 4},
+      "score": 69,
+      "notes": "Idem. Maintainer discutía posible revert del cambio que introdujo el bug (Rot127, Oct 28)."
+    },
+    {
+      "id": "rizin-inicial-6969",
+      "repo": "rizinorg/rizin",
+      "issue": 6969,
+      "title": "gzip:// exposes only the first member of concatenated gzip",
+      "status": "PR_OPEN",
+      "pr": 7044,
+      "author": "LexLuthorPrimero",
+      "scores": {"impacto_tecnico": 3, "reproducibilidad": 5, "capacidad_rxre": 4, "oraculo_independiente": 5, "reutilizacion": 3, "evolucion_rxre": 2, "viabilidad_upstream": 5},
+      "score": 75,
+      "notes": "PR ajeno #6988 también abierto. CI/review en maintainers. AppVeyor pendiente."
+    },
+    {
+      "id": "rizin-inicial-6866",
+      "repo": "rizinorg/rizin",
+      "issue": 6866,
+      "title": "TMS320C6000 RzIL: packet/delay-slot model gaps",
+      "status": "CLAIMED_UPSTREAM",
+      "assigned": ["Rot127", "notxvilka"],
+      "pr": 7030,
+      "scores": {"impacto_tecnico": 4, "reproducibilidad": 5, "capacidad_rxre": 2, "oraculo_independiente": 4, "reutilizacion": 4, "evolucion_rxre": 3, "viabilidad_upstream": 1},
+      "score": 58,
+      "notes": "PR propio #7051 cerrado por mantenedor (duplicado de #7030/#7025). Lección registrada: pre-flight check de PRs abiertos obligatorio."
+    },
+    {
+      "id": "rizin-inicial-6861",
+      "repo": "rizinorg/rizin",
+      "issue": 6861,
+      "title": "x86 reg-indirect jumps not resolved (LEA/MOV)",
+      "status": "CLAIMED_UPSTREAM",
+      "pr": 7035,
+      "scores": {"impacto_tecnico": 4, "reproducibilidad": 4, "capacidad_rxre": 3, "oraculo_independiente": 3, "reutilizacion": 4, "evolucion_rxre": 3, "viabilidad_upstream": 1},
+      "score": 55,
+      "notes": "PR #7035 de notxvilka (basado en draft de Sree24-ui); Rot127 pidió cambios. No intervenir."
+    },
+    {
+      "id": "angr-7703",
+      "repo": "angr/angr",
+      "issue": 7703,
+      "title": "Decompiler prints `continue` skipping loop end-of-string test since #7658",
+      "status": "CLAIMED_UPSTREAM",
+      "pr": 7705,
+      "assigned": ["zardus"],
+      "scores": {"impacto_tecnico": 4, "reproducibilidad": 3, "capacidad_rxre": 4, "oraculo_independiente": 4, "reutilizacion": 3, "evolucion_rxre": 4, "viabilidad_upstream": 1},
+      "score": 57,
+      "notes": "PR #7705 abierto por zardus (maintainer). No duplicar; posible trabajo complementario: reproducer sintético fuera del binario no público."
+    },
+    {
+      "id": "rea-4972",
+      "repo": "morluto/rea",
+      "issue": 4972,
+      "title": "add semantic-equivalence verification for reconstructed native code",
+      "status": "PROTOTYPE_DONE",
+      "scores": {"impacto_tecnico": 5, "reproducibilidad": 5, "capacidad_rxre": 3, "oraculo_independiente": 4, "reutilizacion": 5, "evolucion_rxre": 5, "viabilidad_upstream": 3},
+      "score": 84,
+      "notes": "Prototipo RXRE vertical construido 2026-11-14: tools/rxre/semantic/equiv_check.py (PROVEN/MISMATCH/TESTED_ONLY/INCONCLUSIVE; angr+z3 simbólico + ctypes fork-per-call concreto); 7/7 tests PASS; evidencia en evidence/rea-4972/. Pendiente: wiring upstream provider/CLI/MCP (decisión del propietario)."
+    },
+    {
+      "id": "rizin-fresh-triage",
+      "repo": "rizinorg/rizin",
+      "issue": null,
+      "title": "Fresh bounded Rizin issue (bug, good reproducer, no open PR)",
+      "status": "NO_VIABLE_CANDIDATE_2026-11-14",
+      "scores": {"impacto_tecnico": 3, "reproducibilidad": 5, "capacidad_rxre": 4, "oraculo_independiente": 4, "reutilizacion": 2, "evolucion_rxre": 2, "viabilidad_upstream": 4},
+      "score": 63,
+      "notes": "2026-11-14: 0 candidatas viables. Recientes: #7034→PR#7046, #7020→PR#7054, #7011→PR#7048, #6974/#6975/#6969→PRs propios abiertos; #334 PCO+PR#897; #4857 good-first-issue+PR#6160; #5334 A0su con PoC; #6687 root-cause fijado en rz-libdemangle#91-96; #3646 diseño 1.0.0 pendiente de maintainers; viejo backlog (6059/6771/6549/5806/3880/4751/3462/5334...) ya descartado con motivos. Clon dev en /tmp/opencode/rizin-issue-6969 (fork del propietario, rama actual fix/core-arg-set-explicit-cc @ 916bc18); rizin-install/ built tree; rizin-testbins 906M."
+    }
+  ],
+  "selection": {
+    "date": "2026-11-14",
+    "selected": "rea-4972",
+    "rationale": "Mayor puntuación (84). Todos los issues iniciales tienen PR abierto (propio o de mantenedores); duplicar viola el protocolo antiduplicados. REA #4972 demuestra una capacidad nueva de RXRE (verificación de equivalencia semántica) reutilizable en Rizin/angr/REA, y es el único candidato con puntuación alta en reutilización (5) y evolución (5).",
+    "fallback": "rizin-fresh-triage si la viabilidad de REA #4972 se descarta tras reconocimiento (p.ej. rechazo mantenedor o bloqueo de provider contract)."
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "tool": "rxre-equiv_check",
+  "schema": "rxre.equiv_check/v1",
+  "issue": "morluto/rea#4972",
+  "hashes": {
+    "orig": "e24a4839238c7f5aca1974e3a2f3c8df27bc3dc0e281d842115deea39459216b",
+    "cand_source": "330fa94b201fd8548bc21c045ed160be26f216ed9456a0accd071c615c6a60bc",
+    "cand_build": "35a1a7cce4aab15980b1350508556597a51a4fa5444a05bc1fea7a4749d86489"
+  },
+  "versions": {
+    "python": "3.14.8",
+    "angr": "10.0.5",
+    "z3": "5.3.1",
+    "gcc": "gcc (GCC) 16.2.1 20260819 (Red Hat 16.2.1-2)"
+  },
+  "inputs": {
+    "orig": "/tmp/opencode/eq/orig.so",
+    "orig_func": "f",
+    "orig_addr": null,
+    "cand_input": "/home/lucas/Escritorio/rxre/state/multiproject/evidence/rea-4972/fixtures/cand_ok2.c",
+    "sig": "u64",
+    "cases": 64,
+    "seed": 20261114
+  },
+  "layers": {
+    "symbolic": {
+      "ok": true,
+      "detail": "z3 UNSAT diferencial; cobertura total en ambos lados"
+    },
+    "concrete": {
+      "state": "ran",
+      "cases": 64,
+      "crashes": 0,
+      "equivalent_on_corpus": true,
+      "diff": null,
+      "note": null
+    }
+  },
+  "result": "PROVEN",
+  "counterexample": null,
+  "scope": [
+    "single argument integer scalar function",
+    "SysV AMD64: arg in rdi, ret in rax",
+    "binary lift semantics (angr/VEX), not source-level semantics",
+    "memory/global side effects and environment NOT modeled",
+    "domain: uint64 full range"
+  ],
+  "limitations": [],
+  "native_spot_check_mismatches": [],
+  "elapsed_s": 2.422
+}
