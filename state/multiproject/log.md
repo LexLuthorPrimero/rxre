@@ -145,3 +145,12 @@ Primer uso genuino de la maquinaria RXRE (sello-antes-de-revelar + sesión hija 
 - **PR #1592** abierto (cea-sec/miasm, base master, rama fix/x86-64-illegal-opcodes @ 9fa906c); cuerpo dictado/aprobado por el propietario.
 - **Aislamiento de rama**: el fix x86 vive en su propia rama desde df358f7 (master), no contamina la rama ARM que respalda #1591 — cada PR fue revisada como visual independiente.
 - PRs propios abiertos: 5 rizin (silenciadas) + angr #7788 + klee #1847 + miasm #1591 + miasm #1592 + 20 REA → 29 abiertos, merged: 0.
+
+## 2026-11-14 (verificación miasm #1570) — Sello sellado; verificador ciego lanzado
+
+En respuesta a la observación 'el prompt te dice que uses RXRE', se aplica el protocolo RXRE completo al fix de miasm #1570 antes de abrir PR:
+- `state/multiproject/evidence/miasm-1570/SEALED_PREDICTION.json` creado con seal sha256 b9ae044c… ANTES de lanzar al verificador.
+- Verificador ciego: subagente en sesión hija fresca, sin acceso a /home/lucas/Escritorio/rxre ni a resultados previos; clona el fork LexLuthorPrimero/miasm (master y fix/armt-ldr-literal-neg @ 7eeccd1), crea venv nueva, decodifica los 4 bytes con miasm y con capstone independientemente, ejecuta el test de regresión, reporta accesos.
+- Veredicto pendiente de retorno.
+
+Caso previo con la misma metodología: klee #1847 (SEALED_CONSISTENT).
