@@ -162,3 +162,15 @@ Verificador ciego completó: master df358f7 vs fix 7eeccd1 contra capstone 5.0.9
 Veredicto registrado: SEALED_CONSISTENT / TESTED_ONLY (1 host, sesión hija fresca, no tercero humano, decoder-only scope).
 
 Intervención del jefe de misión: RXRE debe ser el motor real — se extenderá cs_disasm adapter (Thumb mode) y se añadirá decoder_oracle para demostrar RXRE participando en la resolución.
+
+## 2026-11-14 (post-verificación) — RXRE como motor: adapter extendido + capacidad nueva RE-1639
+
+Tras la corrección del jefe de misión (RXRE como motor), se resolvió #1570 usando RXRE:
+
+1. `cs_disasm` extendido a Thumb + ARM operands (antes solo x86/arm64). RXRE desensambla los 4 bytes del issue con ORÍTCULO declarado: `ldr.w r0,[pc,#-8]`, `ldrb.w r0,[pc,#-0xa]`, `ldr.w r0,[pc,#-0x904]`, `ldr.w r0,[pc,#8]`.
+2. `test_disasm1634`: 36 checks 0 failures. `test_backends004`: 3 failures preexistentes sin cambios.
+3. Nueva capacidad RE-1639 (`thumb_literal_oracle.py`): diferencial RXRE-capstone vs candidato externo vía venv subprocess. Mediato 8,192 bytes (4096 × 2 familias):
+   - pre-fix df358f7: ldr_neg y ldrb_neg 0/4096 matched; ldr_pos/ldrb_pos 4096/4096.
+   - post-fix 7eeccd1: las 4 familias 4096/4096, 0 disagreements.
+4. El fix de miasm #1570 ya estaba validado con capstone independiente y verificador ciego (SEALED_CONSISTENT, bb80…); agora RXRE lo ejecuta y lo valida end-to-end.
+5. **RXRE now executed on the case.** Registro: `state/multiproject/evidence/miasm-1570/EXPEDIENTE.md` + capabilities/thumb_literal_oracle.md.

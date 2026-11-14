@@ -122,7 +122,7 @@ def disponible() -> Dict[str, Any]:
     return d
 
 
-def _operandos(ins, cs) -> List[Dict[str, Any]]:
+def _operandos(ins, cs, familia="x86") -> List[Dict[str, Any]]:
     """Operando con su TIPO, no solo su texto.
 
     MEDIDO: `op_str` es texto y no permite saber si un `0x10` es un
@@ -135,6 +135,26 @@ def _operandos(ins, cs) -> List[Dict[str, Any]]:
         ops = ins.operands
     except Exception:
         return out
+    if familia in ("arm", "arm64"):
+        for o in ops:
+            t = o.type
+            if t == cs.CS_OP_REG:
+                out.append({"tipo": "reg", "reg": ins.reg_name(o.value.reg)})
+            elif t == cs.CS_OP_IMM:
+                out.append({"tipo": "imm", "valor": o.value.imm})
+            elif t == cs.CS_OP_MEM:
+                m = o.value.mem
+                idx = m.index
+                out.append({"tipo": "mem",
+                            "base": ins.reg_name(m.base) if m.base else "",
+                            "indice": ins.reg_name(idx) if idx else "",
+                            "desplazamiento": m.disp,
+                            "escala": getattr(m, "scale", 0),
+                            "segmento": ""})
+            else:
+                out.append({"tipo": "tipo%d" % t})
+        return out
+    # familia x86
     for o in ops:
         t = o.type
         if t == cs.x86.X86_OP_REG:
@@ -242,11 +262,15 @@ def desensamblar(artefacto: str, inicio: int = 0, longitud: int = 0,
     pre["ok"] = True
 
     if arquitectura == "x86_64":
-        arch, mode = _cs.CS_ARCH_X86, _cs.CS_MODE_64
+        arch, mode, familia = _cs.CS_ARCH_X86, _cs.CS_MODE_64, "x86"
     elif arquitectura == "x86":
-        arch, mode = _cs.CS_ARCH_X86, _cs.CS_MODE_32
+        arch, mode, familia = _cs.CS_ARCH_X86, _cs.CS_MODE_32, "x86"
     elif arquitectura == "arm64":
-        arch, mode = _cs.CS_ARCH_ARM64, _cs.CS_MODE_ARM
+        arch, mode, familia = _cs.CS_ARCH_ARM64, _cs.CS_MODE_ARM, "arm64"
+    elif arquitectura == "thumb":
+        # ARM Thumb (T32), little-endian. Needed for the MIASM issue #1570
+        # investigation: Thumb-2 literal loads with U=0 decode as PC-relative.
+        arch, mode, familia = _cs.CS_ARCH_ARM, _cs.CS_MODE_THUMB, "arm"
     else:
         # `unsupported` y no `error`: el adapter funciona, lo que no se
         # soporta es ESTA arquitectura. Es justo la distincion que el
@@ -256,7 +280,7 @@ def desensamblar(artefacto: str, inicio: int = 0, longitud: int = 0,
                 "precheck": pre,
                 "limitations": [
                     "arquitectura no soportada por este adapter: %r" % arquitectura,
-                    "este adapter cubre x86, x86_64 y arm64. Añadir otra "
+                    "este adapter cubre x86, x86_64, arm64 y thumb (T32). Añadir otra "
                     "arquitectura es trabajo propio, no un parametro: "
                     "cambia como se decodifican operandos y nombres."]}
 
@@ -293,7 +317,7 @@ def desensamblar(artefacto: str, inicio: int = 0, longitud: int = 0,
     instr = [{
         "direccion": i.address, "tam": i.size, "mnemonico": i.mnemonic,
         "op_str": i.op_str, "id": i.id,
-        "operandos": _operandos(i, _cs),
+        "operandos": _operandos(i, _cs, familia),
         "grupos": _grupos(i),
         "crudo": {"bytes": i.bytes.hex()},
     } for i in insns]
