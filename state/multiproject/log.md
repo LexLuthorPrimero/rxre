@@ -174,3 +174,11 @@ Tras la corrección del jefe de misión (RXRE como motor), se resolvió #1570 us
    - post-fix 7eeccd1: las 4 familias 4096/4096, 0 disagreements.
 4. El fix de miasm #1570 ya estaba validado con capstone independiente y verificador ciego (SEALED_CONSISTENT, bb80…); agora RXRE lo ejecuta y lo valida end-to-end.
 5. **RXRE now executed on the case.** Registro: `state/multiproject/evidence/miasm-1570/EXPEDIENTE.md` + capabilities/thumb_literal_oracle.md.
+
+## 2026-11-14 (última, PR miasm #1580) — #1580 resuelto y PR #1593 abierto
+
+- **Objetivo**: miasm #1580 (movq mm, r/m64 crashea lifter). Reproducido el pre-fix bug exactamente como reportado (ValueError ExprAssign size mismatch); fix = movd() size-aware; reproducer pasa (5/5 encodings); test test_MMX_MOVQ_64 agregado a test/arch/x86/sem.py (los 5 tests pasan); sin regresiones en x86 suite.
+- **PR #1593** abierto (rama fix/x86-movq-mm-lift @ 90270c6); cuerpo redactado por el agente con dictado del propietario.
+- **Alive2 #1383 evaluado y descartado**: requiere LLVM "latest" (host tiene 18/20/21/22 solamente y las APIs rompen todas sobre conocido); el host no puede acceso a LLVM 23/24 — BLOCKED con motivo concreto.
+- PRs propios abiertos: 5 rizin + angr #7788 + klee #1847 + miasm #1591 + #1592 + #1593 + 20 REA → 31 abiertas, merged: 0.
+- **RXRE delta**: sin capacidades nuevas esta ejecución; RXRE participó en el diagnóstico previo vía miasm venv pero la reparación fue en vivo sobre el proyecto externo (unittest).

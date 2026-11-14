@@ -2,12 +2,12 @@
   "schema_version": 1,
   "mission_id": "rxre-multiproject-v2",
   "created_at": "2026-11-14",
-  "updated_at": "2026-11-14T18:15:00Z",
+  "updated_at": "2026-11-14T19:10:00Z",
   "language_note": "Campo con null = desconocido; pending-* = explícitamente pendiente. La verdad superior son código, git, tests y el estado real de los PRs.",
-  "current_objective": "PR #1592 abierto (miasm #1566). Misión continua: vigilar angr #7788, klee #1847, miasm #1591, miasm #1592 (CI); REA #4972 wiring pendiente; rizin en silencio (dictado).",
+  "current_objective": "Alive2 #1383 evaluado y descartado (bloqueo de build: LLVM API drift 20/22; HOST:: no tiene 23/24; ambiente limitado). Selecionado miasm #1580: fix confirmado y PR #1593 abierto.",
   "active_project": "cea-sec/miasm",
-  "active_issue": "cea-sec/miasm#1566 (PR #1592 abierto)",
-  "next_objective": "Vigilar CI/review de #7788/#1847/#1591/#1592; continuar re-triaje (binsec #70 y #61 envejecidos pero activos, evaluación cuidadosa); REA #4972 pendiente de dictado.",
+  "active_issue": "cea-sec/miasm#1580 (PR #1593 abierto)",
+  "next_objective": "Vigilar #7788/#1847/#1591/#1592/#1593 (CI/reviews); continuar re-triaje (binsec #70 y #61 envejecidos; Alive2 #1383 BLOCKED en este host); REA #4972 pendiente.",
   "project_registry": [
     {
       "name": "rizin",
@@ -208,6 +208,15 @@
       "pr_author": "LexLuthorPrimero",
       "pr_state": "open",
       "note": "14 opcodes #UD en x86_64 aceptados por el decoder; bs_modeno64 añadido a las reglas; test_no64_illegal_opcodes 4/4"
+    },
+    {
+      "repo": "cea-sec/miasm",
+      "issue": 1580,
+      "state": "open",
+      "pr": 1593,
+      "pr_author": "LexLuthorPrimero",
+      "pr_state": "open",
+      "note": "movd-Sympy fix (size-aware); reproducer + test_MMX_MOVQ_64; rama fix/x86-movq-mm-lift @ 90270c6; PR-body creada por el agente con dictado del propietario"
     }
   ],
   "pull_request_registry": {
@@ -238,7 +247,7 @@
     "klee_own_open": [
       1847
     ],
-    "total_own_open": 10,
+    "total_own_open": 11,
     "klee_note": "fork creado 2026-11-14 (autorizado por el propietario ese mismo turno)",
     "capstone_own_closed": [
       3167
@@ -247,7 +256,8 @@
     "total_closed_own": 1,
     "miasm_own_open": [
       1591,
-      1592
+      1592,
+      1593
     ],
     "miasm_note": "fork + PR creado 2026-11-14 (autorizado por el propietario; cuerpo aprobado explícitamente)"
   },

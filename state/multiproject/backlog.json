@@ -308,6 +308,26 @@
       },
       "score": 70,
       "notes": "#UD en x86_64: DAA/DAS/AAA/AAS/AAM/AAD + legacy PUSH/POP de segmentos legacy; fix = bs_modeno64 en esas 14 reglas (patrón existente 9A/EA); test dedicado test_no64_illegal_opcodes.py con negativo 14/14 FAIL sin fix, 4/4 PASS con él; 16/32-bit intactos; PR #1592 con cuerpo dictado/aprobado por el propietario."
+    },
+    {
+      "id": "miasm-1580",
+      "repo": "cea-sec/miasm",
+      "issue": 1580,
+      "title": "x86 lifter crash: movq mm, r/m64 (REX.W) — ExprAssign size mismatch",
+      "status": "PR_OPEN",
+      "pr": 1593,
+      "author": "LexLuthorPrimero",
+      "scores": {
+        "impacto_tecnico": 3,
+        "reproducibilidad": 5,
+        "capacidad_rxre": 4,
+        "oraculo_independiente": 4,
+        "reutilizacion": 3,
+        "evolucion_rxre": 3,
+        "viabilidad_upstream": 5
+      },
+      "score": 68,
+      "notes": "Fix x86 lifter movd(): size-aware assign; no encoding change; test_MMX_MOVQ_64 (incl #0001020304050607 MM); all 5 x86 sem.py tests OK; x86 arch suite sin nuevas regresiones; PR #1593 (vuelve a la branma fix/x86-movq-mm-lift @ 90270c6);cuerpo autónomo con dictado del propietario."
     }
   ],
   "selection": {
