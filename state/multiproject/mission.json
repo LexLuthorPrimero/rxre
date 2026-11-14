@@ -2,12 +2,12 @@
   "schema_version": 1,
   "mission_id": "rxre-multiproject-v2",
   "created_at": "2026-11-14",
-  "updated_at": "2026-11-14T23:30:00Z",
+  "updated_at": "2026-11-15T00:20:00Z",
   "language_note": "Campo con null = desconocido; pending-* = explícitamente pendiente. La verdad superior son código, git, tests y el estado real de los PRs.",
-  "current_objective": "miasm #1560 RESUELTO y PR #1596 abierto (fix/thumb-hireg-add-no-flags @ 6a47aef). Próxima: vigilar CI/review PRs; candidatos #1566 (PR #1592), restaurar decisión REA.",
+  "current_objective": "miasm #1561 RESUELTO y PR #1597 abierto (fix/thumb-adr-align @ 17b755d). Próxima: vigilar CI/review; candidatos según dictado.",
   "active_project": "cea-sec/miasm",
-  "active_issue": "cea-sec/miasm#1560 (PR #1596 abierto)",
-  "next_objective": "Vigilar PRs (#1591-#1596, #1847, #1848, #7788, rizin, rea); siguiente según dictado.",
+  "active_issue": "cea-sec/miasm#1561 (PR #1597 abierto)",
+  "next_objective": "Vigilar PRs (#1591-#1597, #1847, #1848, #7788, rizin, rea); siguiente según dictado.",
   "project_registry": [
     {
       "name": "rizin",
@@ -253,6 +253,15 @@
       "pr_author": "LexLuthorPrimero",
       "pr_state": "open",
       "note": "Thumb T2 ADD (high-reg/SP+reg) con setflags=FALSE; rename hiregop_name ADDS→ADD; fix de 1 línea; repro 4/4 spec; test hireg_add.py (5/5); RXRE capstone oráculo (4/4); ctypes cmp/add/ble correcto; PR-body redactada por el agente con dictado"
+    },
+    {
+      "repo": "cea-sec/miasm",
+      "issue": 1561,
+      "state": "open",
+      "pr": 1597,
+      "pr_author": "LexLuthorPrimero",
+      "pr_state": "open",
+      "note": "Thumb PC alignment AlignDown(addr+4, 4) global en Lifter_Armtl.mod_pc (spec Arm ARM); ADR T1 fix; PC-relative LDR y ADR T3 idempotentes; test adr_align.py 3/3; RXRE capstone oráculo; PR-body redactada por el agente con dictado"
     }
   ],
   "pull_request_registry": {
@@ -284,7 +293,7 @@
       1847,
       1848
     ],
-    "total_own_open": 34,
+    "total_own_open": 35,
     "klee_note": "fork creado 2026-11-14 (autorizado por el propietario ese mismo turno)",
     "capstone_own_closed": [
       3167
@@ -297,7 +306,8 @@
       1593,
       1594,
       1595,
-      1596
+      1596,
+      1597
     ],
     "miasm_note": "fork + PR creado 2026-11-14 (autorizado por el propietario; cuerpo aprobado explícitamente)"
   },

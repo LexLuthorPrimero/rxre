@@ -408,6 +408,26 @@
       },
       "score": 78,
       "notes": "hiregop_name opcode 00 era ADDS (no existe forma ADDS para ADD T2 high-reg/SP+reg); fix de 1 línea; repro spec 4/4 (BLE tomado, NZCV intacto); test hireg_add.py; oráculo capstone; PR #1596 (rama fix/thumb-hireg-add-no-flags @ 6a47aef)."
+    },
+    {
+      "id": "miasm-1561",
+      "repo": "cea-sec/miasm",
+      "issue": 1561,
+      "title": "Thumb 16-bit ADR does not align PC to 4 at half-word addresses",
+      "status": "PR_OPEN",
+      "pr": 1597,
+      "author": "LexLuthorPrimero",
+      "scores": {
+        "impacto_tecnico": 3,
+        "reproducibilidad": 5,
+        "capacidad_rxre": 4,
+        "oraculo_independiente": 4,
+        "reutilizacion": 3,
+        "evolucion_rxre": 3,
+        "viabilidad_upstream": 5
+      },
+      "score": 75,
+      "notes": "Lifter_Armtl.mod_pc alinea PC a 4 (Arm ARM PC reads Thumb); ADR T1 2-mod-4 fix; control alineado intacto; test adr_align.py (3/3); RXRE capstone decode 100%; PR #1597 (rama fix/thumb-adr-align @ 17b755d)."
     }
   ],
   "selection": {

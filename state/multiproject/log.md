@@ -221,3 +221,12 @@ Tras la corrección del jefe de misión (RXRE como motor), se resolvió #1570 us
 - **PR #1596** abierto (cuerpo redactado por el agente con dictado).
 - PRs propios abiertos: 34 (5 rizin [silencio] + angr #7788 + klee #1847/#1848 + miasm #1591-#1596 + 20 rea); merged: 0.
 - Próximo: tras dictado del propietario.
+
+## 2026-11-15 (última, PR miasm #1561) — #1561 resuelto; PR #1597 abierto
+
+- **Objetivo** (dictado): miasm #1561 (Thumb ADR T1 mal PC). Root cause: `Lifter_Armtl.mod_pc` usaba `instr.offset + 4` sin alinear; Arm ARM exige AlignDown(addr + 4, 4).
+- **Fix** (17b755d): PC replacement alineado en mod_pc; regresión `test/arch/arm/adr_align.py` (3/3); PC-relative LDR y ADR T3 ya enmascaran internamente (idempotentes).
+- **Verificación**: r0=0x40000a → 0x400008 en 2-mod-4; control alineado intacto; suites arm.semit/decodelimpias; RXRE capstone decode 100% cobertura.
+- **PR #1597** abierto (cuerpo redactado por el agente con dictado). Oracle qemu NO disponible en host (documentado).
+- PRs propios abiertos: 35 (5 rizin [silencio] + angr #7788 + klee #1847/#1848 + miasm #1591-#1597 + 20 rea); merged: 0.
+- Próximo: tras dictado del propietario.
