@@ -2,12 +2,12 @@
   "schema_version": 1,
   "mission_id": "rxre-multiproject-v2",
   "created_at": "2026-11-14",
-  "updated_at": "2026-11-14T21:20:00Z",
+  "updated_at": "2026-11-14T22:10:00Z",
   "language_note": "Campo con null = desconocido; pending-* = explícitamente pendiente. La verdad superior son código, git, tests y el estado real de los PRs.",
-  "current_objective": "miasm #1576 RESUELTO y PR #1594 abierto (fix/arm-be8-loader @ 16443de). Próxima: vigilar CI/review de #1594 (y 1591/1592/1593/1847/1848/7788); candidatos #1578 y rizin#6974 anotados.",
+  "current_objective": "miasm #1578 RESUELTO y PR #1595 abierto (fix/thumb-it-branch @ 5963d7d). Próxima: vigilar CI/review de #1595 y anteriores; candidatos: #1570/#1576/#1578 todos en PR.",
   "active_project": "cea-sec/miasm",
-  "active_issue": "cea-sec/miasm#1576 (PR #1594 abierto)",
-  "next_objective": "Vigilar PRs abiertas (#1594/#1591/#1592/#1593/#1847/#1848/#7788); seleccionar siguiente issue (candidatos: miasm#1578 Thumb IT CFG, rea#4972 wiring — requiere dictado).",
+  "active_issue": "cea-sec/miasm#1578 (PR #1595 abierto)",
+  "next_objective": "Vigilar PRs (#1591-#1595, #1847, #1848, #7788, rizin, rea); próximo candidato tras dictado; Alive2 #1383 descartado con motivo; rizin en silencio.",
   "project_registry": [
     {
       "name": "rizin",
@@ -235,6 +235,15 @@
       "pr_author": "LexLuthorPrimero",
       "pr_state": "open",
       "note": "ELF BE8 (EF_ARM_BE8) → máquina armbe8 (decode LE, datos BE); regresión elf_be8.py; RXRE cs_disasm extendido arm/armbe (40/40 checks); qemu oracle no verificable en este host (limitación documentada); PR-body redactada por el agente con dictado del propietario"
+    },
+    {
+      "repo": "cea-sec/miasm",
+      "issue": 1578,
+      "state": "open",
+      "pr": 1595,
+      "pr_author": "LexLuthorPrimero",
+      "pr_state": "open",
+      "note": "Thumb IT + PC-writer: IT-state tracking (T/E, cond^1) + splitflow predicado + POP{pc} breakflow + lifter no duplica IRDst; fixture a1 del issue (objdump bytes); ambos caminos simbólicos correctos; test test/arch/arm/it_branch.py; oráculo capstone vía RXRE (8/8, 100% cobertura); qemu no disponible en host; PR-body redactada por el agente con dictado"
     }
   ],
   "pull_request_registry": {
@@ -266,7 +275,7 @@
       1847,
       1848
     ],
-    "total_own_open": 32,
+    "total_own_open": 33,
     "klee_note": "fork creado 2026-11-14 (autorizado por el propietario ese mismo turno)",
     "capstone_own_closed": [
       3167
@@ -277,7 +286,8 @@
       1591,
       1592,
       1593,
-      1594
+      1594,
+      1595
     ],
     "miasm_note": "fork + PR creado 2026-11-14 (autorizado por el propietario; cuerpo aprobado explícitamente)"
   },

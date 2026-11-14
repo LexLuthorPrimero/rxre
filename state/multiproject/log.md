@@ -202,3 +202,13 @@ Tras la corrección del jefe de misión (RXRE como motor), se resolvió #1570 us
 - **PR #1594** abierto (cuerpo redactado por el agente con dictado).
 - PRs propios abiertos: 32 (5 rizin [silencio] + angr #7788 + klee #1847/#1848 + miasm #1591/#1592/#1593/#1594 + 20 rea); merged: 0.
 - Próximo candidato: miasm #1578 (Thumb IT CFG) — sin dictado de pausa; rizin #6974 en pausa por dictado.
+
+## 2026-11-14 (última, PR miasm #1578) — #1578 resuelto; PR #1595 abierto
+
+- **Objetivo** (dictado): miasm #1578 (Thumb IT + PC-writer). Root causes: (1) decoder sin tracking de estado IT → PC-writer en IT era unconditional BX (CFG truncado); (2) do_it_block appendaba IRDst := loc_next duplicando IRDst (ValueError Multiple destinations!).
+- **Fix** (5963d7d): mn_armt IT-state (T=cond, E=inverse cond^1); splitflow predicado para PC-writer en IT; breakflow POP{pc}; lifter no duplica fallthrough IRDst.
+- **Regresión**: test/arch/arm/it_branch.py (4/4; fixture a1 del issue desde objdump bytes); suites ARM (sem 22/22, decode total, BE8) sin regresiones.
+- **RXRE**: oráculo capstone thumb (8/8, 100% cobertura, mismos cortes); ejecución simbólica ambos caminos (r0=5 → 2; r0=0xfffffffb → r0).
+- **PR #1595** abierto (cuerpo redactado por el agente con dictado). Oracle qemu NO disponible en host (documentado).
+- PRs propios abiertos: 33 (5 rizin [silencio] + angr #7788 + klee #1847/#1848 + miasm #1591/#1592/#1593/#1594/#1595 + 20 rea); merged: 0.
+- Próximo: tras dictado del propietario.
