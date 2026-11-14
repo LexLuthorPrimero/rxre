@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-11-14T11:20:00Z",
+  "updated_at": "2026-11-14T13:20:00Z",
   "scoring_weights": {
     "impacto_tecnico": 15,
     "reproducibilidad": 15,
@@ -19,7 +19,15 @@
       "status": "PR_OPEN",
       "pr": 7050,
       "author": "LexLuthorPrimero",
-      "scores": {"impacto_tecnico": 3, "reproducibilidad": 5, "capacidad_rxre": 4, "oraculo_independiente": 4, "reutilizacion": 2, "evolucion_rxre": 3, "viabilidad_upstream": 4},
+      "scores": {
+        "impacto_tecnico": 3,
+        "reproducibilidad": 5,
+        "capacidad_rxre": 4,
+        "oraculo_independiente": 4,
+        "reutilizacion": 2,
+        "evolucion_rxre": 3,
+        "viabilidad_upstream": 4
+      },
       "score": 69,
       "notes": "Reparado localmente y en revisión upstream. Esperado: review mantenedores. No duplicar."
     },
@@ -31,7 +39,15 @@
       "status": "PR_OPEN",
       "pr": 7049,
       "author": "LexLuthorPrimero",
-      "scores": {"impacto_tecnico": 3, "reproducibilidad": 5, "capacidad_rxre": 4, "oraculo_independiente": 4, "reutilizacion": 2, "evolucion_rxre": 3, "viabilidad_upstream": 4},
+      "scores": {
+        "impacto_tecnico": 3,
+        "reproducibilidad": 5,
+        "capacidad_rxre": 4,
+        "oraculo_independiente": 4,
+        "reutilizacion": 2,
+        "evolucion_rxre": 3,
+        "viabilidad_upstream": 4
+      },
       "score": 69,
       "notes": "Idem. Maintainer discutía posible revert del cambio que introdujo el bug (Rot127, Oct 28)."
     },
@@ -43,7 +59,15 @@
       "status": "PR_OPEN",
       "pr": 7044,
       "author": "LexLuthorPrimero",
-      "scores": {"impacto_tecnico": 3, "reproducibilidad": 5, "capacidad_rxre": 4, "oraculo_independiente": 5, "reutilizacion": 3, "evolucion_rxre": 2, "viabilidad_upstream": 5},
+      "scores": {
+        "impacto_tecnico": 3,
+        "reproducibilidad": 5,
+        "capacidad_rxre": 4,
+        "oraculo_independiente": 5,
+        "reutilizacion": 3,
+        "evolucion_rxre": 2,
+        "viabilidad_upstream": 5
+      },
       "score": 75,
       "notes": "PR ajeno #6988 también abierto. CI/review en maintainers. AppVeyor pendiente."
     },
@@ -53,9 +77,20 @@
       "issue": 6866,
       "title": "TMS320C6000 RzIL: packet/delay-slot model gaps",
       "status": "CLAIMED_UPSTREAM",
-      "assigned": ["Rot127", "notxvilka"],
+      "assigned": [
+        "Rot127",
+        "notxvilka"
+      ],
       "pr": 7030,
-      "scores": {"impacto_tecnico": 4, "reproducibilidad": 5, "capacidad_rxre": 2, "oraculo_independiente": 4, "reutilizacion": 4, "evolucion_rxre": 3, "viabilidad_upstream": 1},
+      "scores": {
+        "impacto_tecnico": 4,
+        "reproducibilidad": 5,
+        "capacidad_rxre": 2,
+        "oraculo_independiente": 4,
+        "reutilizacion": 4,
+        "evolucion_rxre": 3,
+        "viabilidad_upstream": 1
+      },
       "score": 58,
       "notes": "PR propio #7051 cerrado por mantenedor (duplicado de #7030/#7025). Lección registrada: pre-flight check de PRs abiertos obligatorio."
     },
@@ -66,7 +101,15 @@
       "title": "x86 reg-indirect jumps not resolved (LEA/MOV)",
       "status": "CLAIMED_UPSTREAM",
       "pr": 7035,
-      "scores": {"impacto_tecnico": 4, "reproducibilidad": 4, "capacidad_rxre": 3, "oraculo_independiente": 3, "reutilizacion": 4, "evolucion_rxre": 3, "viabilidad_upstream": 1},
+      "scores": {
+        "impacto_tecnico": 4,
+        "reproducibilidad": 4,
+        "capacidad_rxre": 3,
+        "oraculo_independiente": 3,
+        "reutilizacion": 4,
+        "evolucion_rxre": 3,
+        "viabilidad_upstream": 1
+      },
       "score": 55,
       "notes": "PR #7035 de notxvilka (basado en draft de Sree24-ui); Rot127 pidió cambios. No intervenir."
     },
@@ -77,8 +120,18 @@
       "title": "Decompiler prints `continue` skipping loop end-of-string test since #7658",
       "status": "CLAIMED_UPSTREAM",
       "pr": 7705,
-      "assigned": ["zardus"],
-      "scores": {"impacto_tecnico": 4, "reproducibilidad": 3, "capacidad_rxre": 4, "oraculo_independiente": 4, "reutilizacion": 3, "evolucion_rxre": 4, "viabilidad_upstream": 1},
+      "assigned": [
+        "zardus"
+      ],
+      "scores": {
+        "impacto_tecnico": 4,
+        "reproducibilidad": 3,
+        "capacidad_rxre": 4,
+        "oraculo_independiente": 4,
+        "reutilizacion": 3,
+        "evolucion_rxre": 4,
+        "viabilidad_upstream": 1
+      },
       "score": 57,
       "notes": "PR #7705 abierto por zardus (maintainer). No duplicar; posible trabajo complementario: reproducer sintético fuera del binario no público."
     },
@@ -88,7 +141,15 @@
       "issue": 4972,
       "title": "add semantic-equivalence verification for reconstructed native code",
       "status": "PROTOTYPE_DONE",
-      "scores": {"impacto_tecnico": 5, "reproducibilidad": 5, "capacidad_rxre": 3, "oraculo_independiente": 4, "reutilizacion": 5, "evolucion_rxre": 5, "viabilidad_upstream": 3},
+      "scores": {
+        "impacto_tecnico": 5,
+        "reproducibilidad": 5,
+        "capacidad_rxre": 3,
+        "oraculo_independiente": 4,
+        "reutilizacion": 5,
+        "evolucion_rxre": 5,
+        "viabilidad_upstream": 3
+      },
       "score": 84,
       "notes": "Prototipo RXRE vertical construido 2026-11-14: tools/rxre/semantic/equiv_check.py (PROVEN/MISMATCH/TESTED_ONLY/INCONCLUSIVE; angr+z3 simbólico + ctypes fork-per-call concreto); 7/7 tests PASS; evidencia en evidence/rea-4972/. Pendiente: wiring upstream provider/CLI/MCP (decisión del propietario)."
     },
@@ -98,15 +159,101 @@
       "issue": null,
       "title": "Fresh bounded Rizin issue (bug, good reproducer, no open PR)",
       "status": "NO_VIABLE_CANDIDATE_2026-11-14",
-      "scores": {"impacto_tecnico": 3, "reproducibilidad": 5, "capacidad_rxre": 4, "oraculo_independiente": 4, "reutilizacion": 2, "evolucion_rxre": 2, "viabilidad_upstream": 4},
+      "scores": {
+        "impacto_tecnico": 3,
+        "reproducibilidad": 5,
+        "capacidad_rxre": 4,
+        "oraculo_independiente": 4,
+        "reutilizacion": 2,
+        "evolucion_rxre": 2,
+        "viabilidad_upstream": 4
+      },
       "score": 63,
       "notes": "2026-11-14: 0 candidatas viables. Recientes: #7034→PR#7046, #7020→PR#7054, #7011→PR#7048, #6974/#6975/#6969→PRs propios abiertos; #334 PCO+PR#897; #4857 good-first-issue+PR#6160; #5334 A0su con PoC; #6687 root-cause fijado en rz-libdemangle#91-96; #3646 diseño 1.0.0 pendiente de maintainers; viejo backlog (6059/6771/6549/5806/3880/4751/3462/5334...) ya descartado con motivos. Clon dev en /tmp/opencode/rizin-issue-6969 (fork del propietario, rama actual fix/core-arg-set-explicit-cc @ 916bc18); rizin-install/ built tree; rizin-testbins 906M."
+    },
+    {
+      "id": "angr-7780",
+      "repo": "angr/angr",
+      "issue": 7780,
+      "title": "IndexError during VFG (UltraPage page-end sentinel)",
+      "status": "PR_OPEN",
+      "pr": 7788,
+      "author": "LexLuthorPrimero",
+      "scores": {
+        "impacto_tecnico": 3,
+        "reproducibilidad": 4,
+        "capacidad_rxre": 4,
+        "oraculo_independiente": 4,
+        "reutilizacion": 3,
+        "evolucion_rxre": 4,
+        "viabilidad_upstream": 4
+      },
+      "score": 68,
+      "notes": "10.0.2 crash; master/10.0.5 gate it (min(size) cap) but sentinel at page_size persisted. Fix de 1 línea + test de regresión; validado con suite storage (52 passed) contra copia parcheada localmente. Fork autorizado."
+    },
+    {
+      "id": "capstone-3162",
+      "repo": "capstone-engine/capstone",
+      "issue": 3162,
+      "title": "ARM CS_OPT_MODE fails to switch back to ARM",
+      "status": "PR_OPEN",
+      "pr": 3167,
+      "author": "LexLuthorPrimero",
+      "scores": {
+        "impacto_tecnico": 3,
+        "reproducibilidad": 5,
+        "capacidad_rxre": 4,
+        "oraculo_independiente": 5,
+        "reutilizacion": 2,
+        "evolucion_rxre": 3,
+        "viabilidad_upstream": 5
+      },
+      "score": 72,
+      "notes": "Root cause: |= + CS_MODE_ARM==0. Reproducer OK en master (823242a); fix estilo X86 + unit test registrado. Fork autorizado. 12/12 unit tests."
+    },
+    {
+      "id": "lief-1412",
+      "repo": "LIEF-Project/LIEF",
+      "issue": 1412,
+      "title": "PE parser memory grows 1000x on overlapping section headers",
+      "status": "CLAIMED_UPSTREAM",
+      "pr": 1413,
+      "scores": {
+        "impacto_tecnico": 4,
+        "reproducibilidad": 5,
+        "capacidad_rxre": 4,
+        "oraculo_independiente": 4,
+        "reutilizacion": 3,
+        "evolucion_rxre": 2,
+        "viabilidad_upstream": 2
+      },
+      "score": 62,
+      "notes": "PR #1413 de Henglie ya abierto (2026-11-13) — no duplicar."
+    },
+    {
+      "id": "radare2-27393-96",
+      "repo": "radareorg/radare2",
+      "issue": 27394,
+      "title": "ET_REL/COFF/Mach-O symbol table reporting bugs (0verflowme batch)",
+      "status": "CLAIMED_UPSTREAM",
+      "pr": 27419,
+      "scores": {
+        "impacto_tecnico": 3,
+        "reproducibilidad": 5,
+        "capacidad_rxre": 4,
+        "oraculo_independiente": 4,
+        "reutilizacion": 2,
+        "evolucion_rxre": 2,
+        "viabilidad_upstream": 1
+      },
+      "score": 57,
+      "notes": "#27393→PR#27424; #27394→PR#27419; #27395→PR#27006 merged; #27396→PR#27420 merged. Todo reclamado/mergeado."
     }
   ],
   "selection": {
     "date": "2026-11-14",
-    "selected": "rea-4972",
-    "rationale": "Mayor puntuación (84). Todos los issues iniciales tienen PR abierto (propio o de mantenedores); duplicar viola el protocolo antiduplicados. REA #4972 demuestra una capacidad nueva de RXRE (verificación de equivalencia semántica) reutilizable en Rizin/angr/REA, y es el único candidato con puntuación alta en reutilización (5) y evolución (5).",
-    "fallback": "rizin-fresh-triage si la viabilidad de REA #4972 se descarta tras reconocimiento (p.ej. rechazo mantenedor o bloqueo de provider contract)."
+    "selected": null,
+    "rationale": "Re-triaje completado: candidatos frescos LIEF#1412 y radare2#27393-96 ya reclamados upstream. angr#7780 y capstone#3162 seleccionados por ser los únicos con PR libre, reproducer claro y capacidad RXRE adecuada; ambos abiertos (forks autorizados).",
+    "fallback": "rizin: prohibido por dictado ('está lleno… ignóralo'); angr: máx. 1 PR más pendiente de review de #7788; REA #4972: wiring pendiente de decisión del propietario."
   }
 }

@@ -71,3 +71,18 @@ Revisión read-only de `gh repo list LexLuthorPrimero` (2026-11-14):
 - **Force push**: `main` → `71b37f1e` (lease sobre bf1c9903). GitHub: sin otras ramas y sin tag (verificado vía API). Objetos huérfanos permanecen server-side hasta que GitHub haga GC.
 - **Backup completo**: `/home/lucas/rxre-backup-2026-11-14.bundle` (499 MB, `--all`); recuperable con `git clone /home/lucas/rxre-backup-2026-11-14.bundle`.
 - **Árbol local del propietario NO tocado** (49 archivos M preservados); su `main` local quedó divergente del remoto (historia reescrita).
+
+## 2026-11-14 (noche) — Nueva entrega del prompt; rizin bloqueado por mantenedores; 2 PRs nuevos (angr #7788, capstone #3167)
+
+**Reconstrucción de estado:** repo local re-sincronizado contra el remoto reescrito (`main` ahora `13b5b862`; rama de respaldo `main-local-pre-purge`). 454 entradas ajenas preservadas. PRs propios: rizin 5 abiertos (2 cerrados por mantenedores como duplicados: #7049, #7050 — Rot127: ya hay PR suyo para v0.10); notxvilka en #7054: "please stop spamming with AI-generated PRs... otherwise we'll block you from the organization". **Dictado del propietario: "rizin está lleno, pásalo a otra, ignóralo."** REA: 20 abiertos, 0 mergeados. angr #7703 → PR #7705 de zardus (no duplicar).
+
+**Selección:** re-triaje completo exigió el protocolo antiduplicados por repo:
+- LIEF #1412 (PE 1000× memory) → PR **#1413** de Henglie ya abierto → descartado.
+- radare2 #27393/#27394/#27395/#27396 → PRs #27424/#27419 abiertos por 0verflowme y #27006/#27420 mergeados → descartado.
+- angr #7702/#7703 → mismo PR de zardus (#7705) o cluster #7658 → descartado. angr #7640 → P-Code 16-bit DOS MZ, binario no accesible → BLOCKED.
+- **angr #7780** (IndexError VFG/UltraPage): sin PR, crash real en 10.0.2, verificado empíricamente; master/10.0.5 ya gatea el IndexError (cap `min(size, off+length)`), pero el centinela fuera de rango seguía creándose. Fix de 1 línea (`addr + size < memory.page_size`) + test de regresión. Verificado con suite de storage (52 passed) contra copia parcheada localmente (restaurada después). PR **#7788** abierto (fork LexLuthorPrimero/angr creado con autorización del propietario).
+- **capstone #3162** (ARM CS_OPT_MODE no vuelve a ARM): reproducido en master 823242a tras build local (cmake+ninja). Root cause: `ARM_option()` usa `|=` y CS_MODE_ARM==0 → no-op. Fix estilo X86 (asignación con máscara `CS_MODE_THUMB|CS_MODE_MCLASS|CS_MODE_V8|CS_MODE_BIG_ENDIAN`) + `tests/unit/arm_mode_switch.c` registrado en CMakeLists. Test falla sin el fix y pasa con él; 12/12 unit tests; valgrind fail = preexistente (PATH, "cstest: command not found"). PR **#3167** abierto (fork LexLuthorPrimero/capstone, base `next`, con autorización del propietario).
+
+**RXRE delta esta sesión:** 0 capacidades nuevas "propias" (solo contribuciones upstream); descubrimiento empírico valioso: verificación pre-fix/post-fix con suite propia + control negativo (parche revertido debe fallar el test) — patrón reutilizable para futuros PRs upstream. PRs abiertos por esta misión: 7 rizin + 2 propios nuevos (angr #7788, capstone #3167) + 20 REA; merged en total: 0.
+
+**Pendiente:** estado upstream de #7788/#3167; rizin en silencio total (dictado); REA #4972 wiring sigue sin autorizar.
