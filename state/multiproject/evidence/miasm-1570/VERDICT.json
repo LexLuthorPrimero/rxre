@@ -1,0 +1,49 @@
+{
+  "issue": "cea-sec/miasm#1570",
+  "pr": 1591,
+  "state_epistemic": "TESTED_ONLY",
+  "verdict": "SEALED_CONSISTENT",
+  "verification": {
+    "clone_fix_sha": "7eeccd168a7b13d1aa64959b48c85af32c3e59fa",
+    "clone_master_sha": "df358f7dabf63c4b8739c5d610579deb5f6c907a",
+    "limitations": [
+      "1 host, 1 UID, 1 LLVM/Python toolchain",
+      "verification by fresh session, not by a human third party",
+      "decoder-only scope, no asm() support claimed"
+    ],
+    "method": "blind subagent, fresh session, fresh clone from GitHub + fresh venv, capstone 5.0.9 as independent oracle",
+    "prediction_results": [
+      {
+        "capstone": "ldr.w r0, [pc, #-0x8]",
+        "case": "5ff80800",
+        "fix": "LDR R0, [PC, 0xFFFFFFF8]",
+        "master": "LDR R0, [PC, R8]",
+        "result": "MATCH"
+      },
+      {
+        "capstone": "ldr.w r0, [pc, #-0xa]",
+        "case": "1ff80a00",
+        "fix": "LDRB R0, [PC, 0xFFFFFFF6]",
+        "master": "LDRB R0, [PC, R10]",
+        "result": "MATCH"
+      },
+      {
+        "capstone": "ldr.w r0, [pc, #-0x904]",
+        "case": "5ff80409",
+        "fix": "LDR R0, [PC, 0xFFFFF6FC]",
+        "master": "LDR R0, [PC], 0xFFFFFFFC",
+        "result": "MATCH"
+      },
+      {
+        "capstone": "ldr.w r0, [pc, #8]",
+        "case": "dff80800",
+        "fix": "LDR R0, [PC, 0x8]",
+        "master": "LDR R0, [PC, 0x8]",
+        "result": "MATCH"
+      }
+    ],
+    "residual": null,
+    "test_regression": "4/4 unittest OK at fix commit",
+    "verifier_report": "full report in session 12ab... ses_e24cab4ecffezRsv5ynmeiVqQO"
+  }
+}

@@ -154,3 +154,11 @@ En respuesta a la observación 'el prompt te dice que uses RXRE', se aplica el p
 - Veredicto pendiente de retorno.
 
 Caso previo con la misma metodología: klee #1847 (SEALED_CONSISTENT).
+
+## 2026-11-14 (verificación miasm CERRADA) — SEALED_CONSISTENT con sello b9ae044c
+
+Verificador ciego completó: master df358f7 vs fix 7eeccd1 contra capstone 5.0.9 → mismatch antes del fix; match después; dff80800 idéntica en ambas versiones; 4/4 regression tests OK; rxre tree NO accedido durante la auditoría; master clon limpio.
+
+Veredicto registrado: SEALED_CONSISTENT / TESTED_ONLY (1 host, sesión hija fresca, no tercero humano, decoder-only scope).
+
+Intervención del jefe de misión: RXRE debe ser el motor real — se extenderá cs_disasm adapter (Thumb mode) y se añadirá decoder_oracle para demostrar RXRE participando en la resolución.

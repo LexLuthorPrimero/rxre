@@ -1,0 +1,37 @@
+{
+  "artifacts": {
+    "base": "df358f7",
+    "fix_branch": "fix/armt-ldr-literal-neg",
+    "fix_commit": "7eeccd168a7b13d1aa64959b48c85af32c3e59fa",
+    "hashes": {
+      "arch_py": "81d06a2f81457b3447b30358128f19f158422a381210653dcd1a078f2775eccc",
+      "repro_venv_script_eq": "abfb3c2ba8bab2908af6376b5d6c4ccfe102cc570af790cd82e5728b1d32d63e",
+      "test_file": "c04d7de998a3f7e8c27eff3e8038f08fa46fe22fcc49980f2109ef939cc12622"
+    },
+    "issue": "cea-sec/miasm#1570"
+  },
+  "note": "Sello previo a verificador ciego; conexi\u00f3n con PR #1591 abierto.",
+  "seal": {
+    "canonical_excluded_phase": true,
+    "phase": "SEALED",
+    "prediction": {
+      "control": {
+        "dff80800": "LDR R0, [PC, 0x8] (unchanged)"
+      },
+      "fixes": "Thumb-2 LDR/LDRB literal U=0 decoded as literal PC-relative negative loads",
+      "issue": "cea-sec/miasm#1570",
+      "post_fix_expected": {
+        "1ff80a00": "LDRB R0, [PC, 0xFFFFFFF6]",
+        "5ff80409": "LDR R0, [PC, 0xFFFFF6FC]",
+        "5ff80800": "LDR R0, [PC, 0xFFFFFFF8]"
+      },
+      "pre_fix_wrong_decodes": {
+        "1ff80a00": "LDRB R0, [PC, R10]",
+        "5ff80409": "LDR R0, [PC], 0xFFFFFFFC",
+        "5ff80800": "LDR R0, [PC, R8]"
+      }
+    },
+    "sha256": "b9ae044c7305f1673d527a609aa60d276e2a8befcc1f804850e4840a545f6bae"
+  },
+  "sealed_utc": "2026-11-14T17:57:29Z"
+}
