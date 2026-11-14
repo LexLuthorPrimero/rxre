@@ -230,3 +230,11 @@ Tras la corrección del jefe de misión (RXRE como motor), se resolvió #1570 us
 - **PR #1597** abierto (cuerpo redactado por el agente con dictado). Oracle qemu NO disponible en host (documentado).
 - PRs propios abiertos: 35 (5 rizin [silencio] + angr #7788 + klee #1847/#1848 + miasm #1591-#1597 + 20 rea); merged: 0.
 - Próximo: tras dictado del propietario.
+
+## 2026-11-15 (último, BAP #1636 en curso) — objetivo BAP seleccionado y fix preparado
+
+- **Objetivo** (dictado propietario): BinaryAnalysisPlatform/bap #1636 — VPSHUFDYmi escribe YMM0 en vez de YMM6.
+- **Root cause** (estático, confirmado código + decode bytes RXRE): `get_vex_opr` decodifica vvvv=0b1111 como `Some (Ovec 0)`; binding 0x70 en x86_disasm.ml enlaza YMM0 como "tercer operando" aunque VPSHUFD no tiene tercero; lifter (x86_lifter.ml, `Some vdst`) escribe YMM0 → bug.
+- **Fix preparado** (aún sin PR): x86_disasm.ml pasa `None` como vsrc para el opcode 0x70 (XMM-op case used by VPSHUFD) — alcance mínimo. Fix no aplicado a hermanos con el mismo patrón (Ppackedbinop/Palignr), declarados como sospechosos en la sinopsis del PR.
+- **Verificación**: RXRE/capstone decode de los bytes del issue (vpshufd ymm6, ymmword ptr [rip + 0xe98134a], 0x26) 100% cobertura; build local de BAP pendiente: upstream incompatible con OCaml 5.4 (pins Janestreet <v0.16); switch opam `bap4` con OCaml 4.14.2 en compilación (en background).
+- **Estado**: fix staged SIN PR (build de verificación pendiente); no se abrió PR hasta verificación de ejecución.
