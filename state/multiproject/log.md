@@ -86,3 +86,9 @@ Revisión read-only de `gh repo list LexLuthorPrimero` (2026-11-14):
 **RXRE delta esta sesión:** 0 capacidades nuevas "propias" (solo contribuciones upstream); descubrimiento empírico valioso: verificación pre-fix/post-fix con suite propia + control negativo (parche revertido debe fallar el test) — patrón reutilizable para futuros PRs upstream. PRs abiertos por esta misión: 7 rizin + 2 propios nuevos (angr #7788, capstone #3167) + 20 REA; merged en total: 0.
 
 **Pendiente:** estado upstream de #7788/#3167; rizin en silencio total (dictado); REA #4972 wiring sigue sin autorizar.
+
+## 2026-11-14 (noche, última) — README y descripción del repo alineados a la realidad post-purga
+
+- `README.md` reescrito: qué es este repo (R&D del engine RXRE + evidencia sellada + corpus + estado multiproyecto), qué NO es (paquete publicado, claims verificados, terceros), mapa de directorios, cómo probar, GPL v2. Commit `f6c4f1ff` (push a main).
+- Descripción del repo en GitHub actualizada vía `gh repo edit`: "...Not the published package (see rxre-engine); third-party verification NOT_EXECUTED." Verificada con `gh repo view`.
+- `AGENTS.md` no tocado (es política del propietario); `LICENSE` (GPL v2) verificada; `.md` centrales conservados.
