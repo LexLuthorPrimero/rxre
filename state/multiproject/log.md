@@ -182,3 +182,12 @@ Tras la corrección del jefe de misión (RXRE como motor), se resolvió #1570 us
 - **Alive2 #1383 evaluado y descartado**: requiere LLVM "latest" (host tiene 18/20/21/22 solamente y las APIs rompen todas sobre conocido); el host no puede acceso a LLVM 23/24 — BLOCKED con motivo concreto.
 - PRs propios abiertos: 5 rizin + angr #7788 + klee #1847 + miasm #1591 + #1592 + #1593 + 20 REA → 31 abiertas, merged: 0.
 - **RXRE delta**: sin capacidades nuevas esta ejecución; RXRE participó en el diagnóstico previo vía miasm venv pero la reparación fue en vivo sobre el proyecto externo (unittest).
+
+## 2026-11-14 (última, PR klee #1841) — #1841 resuelto y PR #1848 abierto
+
+- **Objetivo**: klee #1841 (falso ASSERTION FAIL con --optimize-array=index, multiplicación de un valor cargado). Root cause: `ExprOptimizer::computeIndexes` usaba cualquier factor constante del predicado como stride (`getMul()`), incluida la multiplicación del propio valor leído.
+- **Fix** (34fb8ad): stride solo desde read width; regresión `test/ArrayOpt/test_mul_loaded_stride.c`.
+- **Verificación**: reproducer fijo → completed paths = 2; suite ArrayOpt 21/22 (test_expr_arbitrary.c fallo preexistente, verificado idéntico pre/post patch con stash+rebuild); runner manual estilo lit (lit ausente en el host).
+- **PR #1848** abierto; cuerpo redactado por el agente con dictado del propietario.
+- PRs propios abiertos: 32 (5 rizin [silenciados] + angr #7788 + klee #1847/#1848 + miasm #1591/#1592/#1593 + 20 rea); merged: 0.
+- **RXRE delta**: sin capacidades nuevas; diagnóstico vía banco KLEE + unittest estilo lit-manual; la sesión de #1841 no integró RXRE como motor (limitación registrada; el dictado vigente para el próximo ciclo incluirá un fix upstream pasando por RXRE end-to-end).

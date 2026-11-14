@@ -328,6 +328,26 @@
       },
       "score": 68,
       "notes": "Fix x86 lifter movd(): size-aware assign; no encoding change; test_MMX_MOVQ_64 (incl #0001020304050607 MM); all 5 x86 sem.py tests OK; x86 arch suite sin nuevas regresiones; PR #1593 (vuelve a la branma fix/x86-movq-mm-lift @ 90270c6);cuerpo autónomo con dictado del propietario."
+    },
+    {
+      "id": "klee-1841",
+      "repo": "klee/klee",
+      "issue": 1841,
+      "title": "False assertion with --optimize-array=index when multiplying a loaded value",
+      "status": "PR_OPEN",
+      "pr": 1848,
+      "author": "LexLuthorPrimero",
+      "scores": {
+        "impacto_tecnico": 4,
+        "reproducibilidad": 5,
+        "capacidad_rxre": 3,
+        "oraculo_independiente": 4,
+        "reutilizacion": 4,
+        "evolucion_rxre": 2,
+        "viabilidad_upstream": 5
+      },
+      "score": 72,
+      "notes": "Fix: computeIndexes ya no usa getMul() para stride (falsaba OPT_I con multiplicación de valores cargados); regression test_mul_loaded_stride.c; test/ArrayOpt 21/22 (fallo preexistente test_expr_arbitrary.c verificado idéntico en master); PR #1848 (rama fix/array-optimizer-mul-stride @ 34fb8ad)."
     }
   ],
   "selection": {

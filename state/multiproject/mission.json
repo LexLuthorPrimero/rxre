@@ -2,12 +2,12 @@
   "schema_version": 1,
   "mission_id": "rxre-multiproject-v2",
   "created_at": "2026-11-14",
-  "updated_at": "2026-11-14T19:10:00Z",
+  "updated_at": "2026-11-14T20:05:00Z",
   "language_note": "Campo con null = desconocido; pending-* = explícitamente pendiente. La verdad superior son código, git, tests y el estado real de los PRs.",
-  "current_objective": "Alive2 #1383 evaluado y descartado (bloqueo de build: LLVM API drift 20/22; HOST:: no tiene 23/24; ambiente limitado). Selecionado miasm #1580: fix confirmado y PR #1593 abierto.",
-  "active_project": "cea-sec/miasm",
-  "active_issue": "cea-sec/miasm#1580 (PR #1593 abierto)",
-  "next_objective": "Vigilar #7788/#1847/#1591/#1592/#1593 (CI/reviews); continuar re-triaje (binsec #70 y #61 envejecidos; Alive2 #1383 BLOCKED en este host); REA #4972 pendiente.",
+  "current_objective": "KLEE #1841 RESUELTO y PR #1848 abierto (fix/array-optimizer-mul-stride @ 34fb8ad). Próxima: vigilar CI/review de #1848; continuar re-triaje.",
+  "active_project": "klee/klee",
+  "active_issue": "klee/klee#1841 (PR #1848 abierto)",
+  "next_objective": "Vigilar #1848/#1847/#1591/#1592/#1593/#7788 (CI/reviews); REA #4972 pendiente de autorización; Alive2 #1383 descartado con motivo; rizin en silencio.",
   "project_registry": [
     {
       "name": "rizin",
@@ -217,6 +217,15 @@
       "pr_author": "LexLuthorPrimero",
       "pr_state": "open",
       "note": "movd-Sympy fix (size-aware); reproducer + test_MMX_MOVQ_64; rama fix/x86-movq-mm-lift @ 90270c6; PR-body creada por el agente con dictado del propietario"
+    },
+    {
+      "repo": "klee/klee",
+      "issue": 1841,
+      "state": "open",
+      "pr": 1848,
+      "pr_author": "LexLuthorPrimero",
+      "pr_state": "open",
+      "note": "ArrayOptimizer constant-multiplier stride removed; repro yields completed paths = 2; test/ArrayOpt 21/22 (test_expr_arbitrary.c preexistente, confirmado master); regression test test_mul_loaded_stride.c; PR-body redactada por el agente con dictado del propietario (el texto crealo siempre vos)"
     }
   ],
   "pull_request_registry": {
@@ -245,9 +254,10 @@
     "capstone_own_merged": 0,
     "note": "0 PRs propios mergeados en total hasta 2026-11-14.",
     "klee_own_open": [
-      1847
+      1847,
+      1848
     ],
-    "total_own_open": 11,
+    "total_own_open": 32,
     "klee_note": "fork creado 2026-11-14 (autorizado por el propietario ese mismo turno)",
     "capstone_own_closed": [
       3167
