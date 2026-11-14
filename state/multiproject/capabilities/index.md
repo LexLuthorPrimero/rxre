@@ -51,7 +51,8 @@ Método: exploración estructurada del árbol (`tools/rxre/`, 710 .py; 291 test_
 | cap.ir_sim / cap.diff_harness | Comparación IR-vs-binario; base de equiv_check (ver D abajo) |
 | cap.indirect_targets / jump_tables | CFG de rizin; aplicables a lifting y a angr CFG |
 | **cap.equiv_check** (NUEVA, este slice) | Equivalencia semántica binario↔binario; objetivo REA #4972; reutilizable para validar transformaciones rizin y diffs de compiler/angr |
+| cap.thumb_literal_oracle (NUEVA, RE-1639) | Punto diferencial Thumb-2 LDR/LDRB literal U=0/U=1 vs RXRE-capstone; caso real miasm #1570; 4 familias × 4096 offsets: 0 disagreements post-fix/4096 previos (fix correcto) |
 
 ## Detalle
 
-Ver `capabilities/equiv_check.md` (nuevo), `evidence/`. El mapa base proviene de la exploración 2026-11-14; los estados deben reverificarse antes de citarlos como vigentes.
+Ver `capabilities/equiv_check.md`, `capabilities/thumb_literal_oracle.md` (RE-1639), `evidence/`. El mapa base proviene de la exploración 2026-11-14; los estados deben reverificarse antes de citarlos como vigentes.
