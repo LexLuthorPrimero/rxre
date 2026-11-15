@@ -294,3 +294,12 @@ Tras la corrección del jefe de misión (RXRE como motor), se resolvió #1570 us
 - **Archivo «tres»**: `documentacion/tres/` intacta. `/home/lucas/Escritorio/rxre-archive-2026-11-15/` guarda: manifiesto SHA-256 de 62+12 (verificado), `LEEME_ARCHIVO.md`, y los 12 huérfanos byte-idénticos movidos desde la raíz del repo. `jorgeeee.md` y `Crítica al proyecto RXRE.md` contienen contraseña de sudo en claro — credencial EXPUESTA, rotar si se reutilizó; jamás se publican.
 - **Verificación pública**: `revkit`, `tools/`, etc. intactos; solo se tocaron `machine.py` (fix), `tests/test_discover_mision_idempotencia.py` (nuevo), `docs/ier/*`, log.
 - Pendiente dictado: push de este commit; decisión sobre los ~30 worktrees huérfanos en `.rxre-wt/`.
+
+## 2026-11-15 (IER Core v0.1) — arquitectura IER construida y verificada localmente
+
+- **Dictado**: ejecutar todo el plan IER (Fases A–I implícitas; sin push/release/PR sin dictado específico).
+- **Construido**: iter del paquete `tools/rxre/ier/` con 8 módulos y 9 tests propios (todo verde): mission, capability, investigate, deficiency, lab, verify, evolve, explore, upstream.
+- **Hito importante**: IER-001 (op:discover duplicados) sigue verde tras el resto; test-cli009 158/158 (fresh clone) y 156/156 local; backends_bulk 118/118; B7 132/132; backends004 165/165; container1632 120/120. Cero regresiones.
+- **Límite honesto**: toda la capability/promoción se invoca solo bajo dictado; terceros NOT_EXECUTED; ningún PROMOTED automático; nada se publica sin dictado.
+- **Docs**: `docs/ier/EXPEDIENTE_IER_CORE_001.md` marca PARTIAL (no release completo; no promoción; no tercero).
+- **Pendiente dictado**: tag/push v1.10.0; revisión por terceros; push del paquete completo si dicta.
