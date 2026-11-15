@@ -269,6 +269,12 @@ def crear_hallazgo(
             )
 
             # --- Crear el hallazgo ---
+            # El schema de findings exige los 5 campos nuevos (object_hash,
+            # scope, derivation_refs, contradiction_refs, falsification_test)
+            # para cumplir el trigger CONTRATO_INCOMPLETO. Estos se derivan
+            # honestamente de lo que se crea: no se inventa dato faltante.
+            fingerprint = json.dumps([claim, sorted(evidence_ids)], sort_keys=True)
+            object_hash = "sha256:" + hashlib.sha256(fingerprint.encode()).hexdigest()
             finding_dict = {
                 "claim": claim,
                 "epistemic": estado_real,
@@ -276,6 +282,20 @@ def crear_hallazgo(
                 "provenance": provenance,
                 "limitations": limitations,
                 "op_id": op_id or "",
+                # TIERRA-1 / contrato de 10 campos: el objeto identificable es
+                # la fingerprint del claim + evidencia; scope fijo a binario
+                # (estos findings son sobre artefactos binarios analizados);
+                # derivation_refs = evidence_ids; contradiction_refs vacio (el
+                # adapter no tiene capacidad de dictar contradicciones);
+                # falsification_test declara como invalidar el claim.
+                "object_hash": object_hash,
+                "scope": "binary",
+                "derivation_refs": list(evidence_ids) if evidence_ids is not None else [],
+                "contradiction_refs": [],
+                "falsification_test": ("contradiccion de evidence_ids=%s, es decir, "
+                                       "estado=err/empty/blocked de la evidencia invalida "
+                                       "el claim via re-presentacion de esos result_ids" %
+                                       (evidence_ids,)),
             }
             finding_id = S.guardar_finding(c, finding_dict)
 
