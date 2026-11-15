@@ -2,12 +2,12 @@
   "schema_version": 1,
   "mission_id": "rxre-multiproject-v2",
   "created_at": "2026-11-14",
-  "updated_at": "2026-11-15T03:10:00Z",
+  "updated_at": "2026-11-15T06:30:00Z",
   "language_note": "Campo con null = desconocido; pending-* = explícitamente pendiente. La verdad superior son código, git, tests y el estado real de los PRs.",
-  "current_objective": "BAP #1636: fix preparado (rama fix/vpshufd-dest @ f4fe984); verificación de ejecución pendiente de builds podman Fedora 44 (A=árbol fijado, B=master upstream, ambos con LLVM_CONFIG=/usr/bin/llvm-config-14 porque conf-bap-llvm solo acepta 6-14 y fedora44 trae LLVM 22).",
+  "current_objective": "BAP #1636 RESUELTO y verificado localmente: fix YMM0→YMM6 confirmado con bap mc (pre/post); test.t + 84/84 cram-equivalent casos PASS. PR pendiente de dictado del propietario.",
   "active_project": "BinaryAnalysisPlatform/bap",
-  "active_issue": "BinaryAnalysisPlatform/bap#1636 (PR pendiente)",
-  "next_objective": "Si tras build bap mc imprime BIL correcto (YMM6 vs master YMM0): añadir cram test.t VPSHUFD; commit+push a fork LexLuthorPrimero/bap; abrir PR; actualizar registros.",
+  "active_issue": "BinaryAnalysisPlatform/bap#1636 (verificado localmente; PR pendiente de dictado)",
+  "next_objective": "Confirmar con el propietario si abrir PR (miasm precedent: el texto lo redacto yo); si sí, commit y PR; si no, esperar otra dictado.",
   "project_registry": [
     {
       "name": "rizin",
@@ -270,7 +270,7 @@
       "pr": null,
       "pr_author": null,
       "pr_state": "no_pr",
-      "note": "VPSHUFD escribe YMM0 en vez de YMM6 (lift); fix: Pshufd binding 0x70 pasa None como vsrc (VPSHUFD no tiene 3er operando VEX); RXRE/capstone decode OK (destino YMM6); verificación ejecución: 2 contenedores podman Fedora 44 en curso (A=árbol fix, B=master upstream); upstream NO soporta LLVM>=22 (conf-bap-llvm 6-14) - documentado; PR NO abierto hasta verificación de ejecución"
+      "note": "fix (x86_disasm.ml 0x70 → None vsrc) + test.t VPSHUFD; bap-* instalado en local switch bap4 (deps via conf-binutils pinned a testing repo local clone + LLVM_CONFIG=/usr/bin/llvm-config-14 por requisito conf-bap-llvm de v6-14); verificación: opam pin fix/vpshufd-dest @bc0a7eb; bap mc output YMM6 post-fix; 84/84 test.t cases PASS; branch fix/vpshufd-dest pushed a fork LexLuthorPrimero/bap. PR-not-opened needs owner dictado."
     }
   ],
   "pull_request_registry": {
@@ -326,5 +326,5 @@
     "rizin 0.7.4 instalado ≠ dev/0.10.0 contra el que se prepararon los PRs; se requiere re-clone+build para nuevo trabajo rizin",
     "REA maintainer cierra la mayoría de PRs externos sin merge — viabilidad upstream de un wire-up grande para #4972: incierta, decisión del propietario al llegar"
   ],
-  "session_status": "awaiting_verification"
+  "session_status": "awaiting_owner_direction"
 }

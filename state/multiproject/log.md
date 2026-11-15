@@ -249,3 +249,11 @@ Tras la corrección del jefe de misión (RXRE como motor), se resolvió #1570 us
 - **Build local host**: compiló e instaló bap-mc/x86/frontend; emite IL vacío GLOBALMENTE (cualquier instrucción) — no del fix; el detalle se estudia en containers con misma receta que upstream CI.
 - **PR**: NO abierto hasta que bap mc printione BIL correcto dentro del contenedor.
 - **PRs propios abiertos**: 35; merged: 0.
+
+## 2026-11-15 (última) — BAP #1636 resuelto y verificado; PR pendiente dictado
+
+- **Fix**: `plugins/x86/x86_disasm.ml` (0x70 Pshufd) — el campo VEX vvvv=1111b para VPSHUFD decodificaba a Some(Ovec 0) (YMM0); el binding cambia a None → el lifter escribe YMM6 (ModRM.reg).
+- **Verificación**: `bap mc --show-insn=pretty --show-bil=pretty C5FD70354A13980E26` → post-fix imprime `YMM6 := low:32[...]` (antes `YMM0 := ...`). Pin del switch bap4 reapuntado a `fix/vpshufd-dest` (f4fe984 → bc0a7eb). Suite test.t emulada 84/84 PASS. test.t añade caso VPSHUFDYmi (output pinning de output real verificado byte-a-byte).
+- **Fork**: `LexLuthorPrimero/bap` rama `fix/vpshufd-dest` empujada. PR no abierto — pendiente dictado propietario.
+- **Build upstream**: depext fedora 44 ofrece llvm-devel 22; conf-bap-llvm solo acepta LLVM 6–14; solución: instalar llvm14-* (fc43/fc44) + LLVM_CONFIG=/usr/bin/llvm-config-14; conf-binutils del repo bap-testing roto en default repo (checksum stale) → pin local a clone de testing repo con el archivo .in copiado a raíz del paquete (`files/` no es leído por substs).
+- **PRs propios abiertos**: 35; merged: 0.

@@ -434,7 +434,7 @@
       "repo": "BinaryAnalysisPlatform/bap",
       "issue": 1636,
       "title": "[x86] Incorrect destination register for VPSHUFDYmi",
-      "status": "FIX_STAGED_NO_PR",
+      "status": "FIX_VERIFIED_NO_PR",
       "pr": null,
       "author": "LexLuthorPrimero",
       "scores": {
@@ -446,8 +446,8 @@
         "evolucion_rxre": 2,
         "viabilidad_upstream": 4
       },
-      "score": 74,
-      "notes": "Bug en parse_modrm_vec/get_vex_opr: vvvv=1111 (0b1111) decodifica a Some(Ovec 0) → lifter escribe YMM0 en vez de YMM6; fix: binding 0x70 pasa None para vsrc (VPSHUFD no tiene 3er operando); RXRE/capstone decode vpshufd ymm6 verificado 100%; build BAP con opam switch OCaml 4.14 en curso (upstream incompatible con OCaml 5.4: pins Janestreet <v0.16); PR pendiente de verificación de build local."
+      "score": 0,
+      "notes": "fix x86_disasm.ml (0x70 Pshufd → vsrc=None); verificado localmente: bap mc BIL escribe YMM6 (antes YMM0); test.t añade caso VPSHUFDYmi; 84/84 cases PASS; branch fix/vpshufd-dest @bc0a7eb pushed a fork; PR pendiente de dictado propietario."
     }
   ],
   "selection": {
