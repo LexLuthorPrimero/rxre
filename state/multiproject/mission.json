@@ -2,12 +2,12 @@
   "schema_version": 1,
   "mission_id": "rxre-multiproject-v2",
   "created_at": "2026-11-14",
-  "updated_at": "2026-11-15T07:05:00Z",
+  "updated_at": "2026-11-15T09:30:00Z",
   "language_note": "Campo con null = desconocido; pending-* = explícitamente pendiente. La verdad superior son código, git, tests y el estado real de los PRs.",
-  "current_objective": "BAP #1636 → PR #1638 abierto (fix/vpshufd-dest @ bc0a7eb). Esperando review.",
-  "active_project": "BinaryAnalysisPlatform/bap",
-  "active_issue": "BinaryAnalysisPlatform/bap#1636 (PR #1638 abierto, dictado propietario)",
-  "next_objective": "Vigilar PR BAP #1638; mantener misión; seleccionar siguiente frente según dictado.",
+  "current_objective": "radare2 #26992 RESUELTO y PR #27453 abierto (fix/arm-aea-conditional-union @ d1af789). Próxima: vigilar PRs abiertas; candidatos rizin/REA según dictado.",
+  "active_project": "radareorg/radare2",
+  "active_issue": "radareorg/radare2#26992 (PR #27453 abierto)",
+  "next_objective": "Vigilar PRs CI/review; rizin#6974 candidato; REA pendiente de wiring (owner dictado); mantener misión.",
   "project_registry": [
     {
       "name": "rizin",
@@ -271,6 +271,15 @@
       "pr_author": null,
       "pr_state": "open",
       "note": "PR #1638 abierto (owner dictado): fix x86_disasm.ml 0x70 → None vsrc; 84/84 cases PASS local; branch fix/vpshufd-dest @bc0a7eb; fork LexLuthorPrimero/bap; PR body redactado por agente con dictado."
+    },
+    {
+      "repo": "radareorg/radare2",
+      "issue": 26992,
+      "state": "open",
+      "pr": 27453,
+      "pr_author": "LexLuthorPrimero",
+      "pr_state": "open",
+      "note": "anal aea: union efectos de ambas vías de condicionales ARM (16 NZCV combos); test 2 casos nuevos en test/db/anal/arm-esil; verificación local: moveq y bxeq lr imprimen I: zf r1 / W: r0 (antes solo zf); malloc:// cases 6 OK; 11 XX preexistentes por falta de testbins; PR #27453 (branch fix/arm-aea-conditional-union @ d1af789); PR body redactado por agente con dictado"
     }
   ],
   "pull_request_registry": {
@@ -302,7 +311,7 @@
       1847,
       1848
     ],
-    "total_own_open": 36,
+    "total_own_open": 37,
     "klee_note": "fork creado 2026-11-14 (autorizado por el propietario ese mismo turno)",
     "capstone_own_closed": [
       3167
@@ -321,6 +330,9 @@
     "miasm_note": "fork + PR creado 2026-11-14 (autorizado por el propietario; cuerpo aprobado explícitamente)",
     "bap_own_open": [
       1638
+    ],
+    "radare2_own_open": [
+      27453
     ]
   },
   "capability_registry": "see capabilities/index.md (afíjado 2026-11-14; verificado por exploración estructurada, no por re-ejecución de tests)",

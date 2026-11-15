@@ -448,6 +448,26 @@
       },
       "score": 0,
       "notes": "PR #1638: fix x86_disasm.ml (0x70 Pshufd vsrc=None); verificado local; 84/84 cases PASS; fork LexLuthorPrimero/bap fix/vpshufd-dest @bc0a7eb; PR body redactado por agente con dictado."
+    },
+    {
+      "id": "radare2-26992",
+      "repo": "radareorg/radare2",
+      "issue": 26992,
+      "title": "aea reports nothing an ARM conditional instruction does when its condition fails under clear flags",
+      "status": "PR_OPEN",
+      "pr": 27453,
+      "author": "LexLuthorPrimero",
+      "scores": {
+        "impacto_tecnico": 3,
+        "reproducibilidad": 5,
+        "capacidad_rxre": 5,
+        "oraculo_independiente": 5,
+        "reutilizacion": 3,
+        "evolucion_rxre": 3,
+        "viabilidad_upstream": 4
+      },
+      "score": 78,
+      "notes": "aea: NZCV sweep 16 combos regen de ESIL; union I/A/R/W/N; test 2 nuevos; 6 OK malloc://; 11 XX preexistentes (testbins absent); PR #27453 (rama fix/arm-aea-conditional-union @ d1af789); PR body redactado por agente con dictado propietario."
     }
   ],
   "selection": {

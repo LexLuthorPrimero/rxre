@@ -264,3 +264,13 @@ Tras la corrección del jefe de misión (RXRE como motor), se resolvió #1570 us
 - **PR**: https://github.com/BinaryAnalysisPlatform/bap/pull/1638 (owner dictado; cuerpo redactado por agente).
 - **Verificación**: `bap mc` post-fix imprime `YMM6 := low:32[...]` (antes `YMM0 := ...`); test.t añade caso VPSHUFDYmi; 84/84 cases históricos PASS.
 - PRs propios abiertos: 36 (5 rizin + angr #7788 + klee #1847/#1848 + miasm #1591-#1597 + bap #1638 + 20 rea); merged: 0.
+
+## 2026-11-15 (última, PR radare2 #27453) — #26992 resuelto; PR abierto
+
+- **Objetivo** (dictado propietario): radare2 #26992 — aea de ESIL ARM ignoraba el camino alternativo (con zf=0, `moveq` arrojó solo `zf`).
+- **Fix** (d1af789): en `cmd_aea_stuff`, para ARM/Thumb con ESIL con `?{`, ejecutar 16 combos NZCV y unir I/A/R/W/N (unión de conjuntos de accesos). Test: 2 casos nuevos (`moveq`/`bxeq lr`).
+- **Verificación**: outputs `movq/bxeq` = `I: zf r1 / A: zf r1 r0 / R: zf r1 / W: r0 / N: zf r1` y `I: zf pc lr / ... / W: pc / ...` (casos del issue ejecutados con build local meson/ninja r2 6.2.7 del fork). malloc:// cases del archivo: 6 OK; 11 XX por falta de testbins (preexistentes).
+- **PR #27453** abierto; fork LexLuthorPrimero/radare2 fix/arm-aea-conditional-union @ d1af789.
+- PRs propios abiertos: 37 (5 rizin [silencio] + angr #7788 + klee #1847/#1848 + miasm #1591-#1597 + bap #1638 + radare2 #27453 + 20 rea); merged: 0.
+- Próximo: tras dictado del propietario.
+- **RXRE delta**: sin capacidad nueva; RXRE auditó/panels, motor = r2 (aNIlao).
