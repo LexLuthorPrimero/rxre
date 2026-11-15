@@ -257,3 +257,10 @@ Tras la corrección del jefe de misión (RXRE como motor), se resolvió #1570 us
 - **Fork**: `LexLuthorPrimero/bap` rama `fix/vpshufd-dest` empujada. PR no abierto — pendiente dictado propietario.
 - **Build upstream**: depext fedora 44 ofrece llvm-devel 22; conf-bap-llvm solo acepta LLVM 6–14; solución: instalar llvm14-* (fc43/fc44) + LLVM_CONFIG=/usr/bin/llvm-config-14; conf-binutils del repo bap-testing roto en default repo (checksum stale) → pin local a clone de testing repo con el archivo .in copiado a raíz del paquete (`files/` no es leído por substs).
 - **PRs propios abiertos**: 35; merged: 0.
+
+## 2026-11-15 (última, PR BAP #1638) — PR abierto
+
+- **Dictado propietario**: abrir PR BAP #1638 sobre rama fix/vpshufd-dest @ bc0a7eb.
+- **PR**: https://github.com/BinaryAnalysisPlatform/bap/pull/1638 (owner dictado; cuerpo redactado por agente).
+- **Verificación**: `bap mc` post-fix imprime `YMM6 := low:32[...]` (antes `YMM0 := ...`); test.t añade caso VPSHUFDYmi; 84/84 cases históricos PASS.
+- PRs propios abiertos: 36 (5 rizin + angr #7788 + klee #1847/#1848 + miasm #1591-#1597 + bap #1638 + 20 rea); merged: 0.

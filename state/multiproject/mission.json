@@ -2,12 +2,12 @@
   "schema_version": 1,
   "mission_id": "rxre-multiproject-v2",
   "created_at": "2026-11-14",
-  "updated_at": "2026-11-15T06:30:00Z",
+  "updated_at": "2026-11-15T07:05:00Z",
   "language_note": "Campo con null = desconocido; pending-* = explícitamente pendiente. La verdad superior son código, git, tests y el estado real de los PRs.",
-  "current_objective": "BAP #1636 RESUELTO y verificado localmente: fix YMM0→YMM6 confirmado con bap mc (pre/post); test.t + 84/84 cram-equivalent casos PASS. PR pendiente de dictado del propietario.",
+  "current_objective": "BAP #1636 → PR #1638 abierto (fix/vpshufd-dest @ bc0a7eb). Esperando review.",
   "active_project": "BinaryAnalysisPlatform/bap",
-  "active_issue": "BinaryAnalysisPlatform/bap#1636 (verificado localmente; PR pendiente de dictado)",
-  "next_objective": "Confirmar con el propietario si abrir PR (miasm precedent: el texto lo redacto yo); si sí, commit y PR; si no, esperar otra dictado.",
+  "active_issue": "BinaryAnalysisPlatform/bap#1636 (PR #1638 abierto, dictado propietario)",
+  "next_objective": "Vigilar PR BAP #1638; mantener misión; seleccionar siguiente frente según dictado.",
   "project_registry": [
     {
       "name": "rizin",
@@ -267,10 +267,10 @@
       "repo": "BinaryAnalysisPlatform/bap",
       "issue": 1636,
       "state": "open",
-      "pr": null,
+      "pr": 1638,
       "pr_author": null,
-      "pr_state": "no_pr",
-      "note": "fix (x86_disasm.ml 0x70 → None vsrc) + test.t VPSHUFD; bap-* instalado en local switch bap4 (deps via conf-binutils pinned a testing repo local clone + LLVM_CONFIG=/usr/bin/llvm-config-14 por requisito conf-bap-llvm de v6-14); verificación: opam pin fix/vpshufd-dest @bc0a7eb; bap mc output YMM6 post-fix; 84/84 test.t cases PASS; branch fix/vpshufd-dest pushed a fork LexLuthorPrimero/bap. PR-not-opened needs owner dictado."
+      "pr_state": "open",
+      "note": "PR #1638 abierto (owner dictado): fix x86_disasm.ml 0x70 → None vsrc; 84/84 cases PASS local; branch fix/vpshufd-dest @bc0a7eb; fork LexLuthorPrimero/bap; PR body redactado por agente con dictado."
     }
   ],
   "pull_request_registry": {
@@ -302,7 +302,7 @@
       1847,
       1848
     ],
-    "total_own_open": 35,
+    "total_own_open": 36,
     "klee_note": "fork creado 2026-11-14 (autorizado por el propietario ese mismo turno)",
     "capstone_own_closed": [
       3167
@@ -318,7 +318,10 @@
       1596,
       1597
     ],
-    "miasm_note": "fork + PR creado 2026-11-14 (autorizado por el propietario; cuerpo aprobado explícitamente)"
+    "miasm_note": "fork + PR creado 2026-11-14 (autorizado por el propietario; cuerpo aprobado explícitamente)",
+    "bap_own_open": [
+      1638
+    ]
   },
   "capability_registry": "see capabilities/index.md (afíjado 2026-11-14; verificado por exploración estructurada, no por re-ejecución de tests)",
   "blockers": [
@@ -326,5 +329,5 @@
     "rizin 0.7.4 instalado ≠ dev/0.10.0 contra el que se prepararon los PRs; se requiere re-clone+build para nuevo trabajo rizin",
     "REA maintainer cierra la mayoría de PRs externos sin merge — viabilidad upstream de un wire-up grande para #4972: incierta, decisión del propietario al llegar"
   ],
-  "session_status": "awaiting_owner_direction"
+  "session_status": "handoff"
 }

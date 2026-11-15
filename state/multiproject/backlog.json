@@ -434,8 +434,8 @@
       "repo": "BinaryAnalysisPlatform/bap",
       "issue": 1636,
       "title": "[x86] Incorrect destination register for VPSHUFDYmi",
-      "status": "FIX_VERIFIED_NO_PR",
-      "pr": null,
+      "status": "PR_OPEN",
+      "pr": 1638,
       "author": "LexLuthorPrimero",
       "scores": {
         "impacto_tecnico": 3,
@@ -447,7 +447,7 @@
         "viabilidad_upstream": 4
       },
       "score": 0,
-      "notes": "fix x86_disasm.ml (0x70 Pshufd → vsrc=None); verificado localmente: bap mc BIL escribe YMM6 (antes YMM0); test.t añade caso VPSHUFDYmi; 84/84 cases PASS; branch fix/vpshufd-dest @bc0a7eb pushed a fork; PR pendiente de dictado propietario."
+      "notes": "PR #1638: fix x86_disasm.ml (0x70 Pshufd vsrc=None); verificado local; 84/84 cases PASS; fork LexLuthorPrimero/bap fix/vpshufd-dest @bc0a7eb; PR body redactado por agente con dictado."
     }
   ],
   "selection": {
