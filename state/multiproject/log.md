@@ -285,3 +285,12 @@ Tras la corrección del jefe de misión (RXRE como motor), se resolvió #1570 us
 - **amdgpu.ko**: ausentes por purga deliberate — tests ahora SKIP explícito documentado (no se falsifica).
 - **Ramas origin**: solo `main` (`recreo/2026-11-15` y `repair/2026-11-15` borradas en local y origin). `.rxre-wt/` 46 worktrees huérfanos pendientes del propietario.
 - **Estado epistemológico**: PARTIAL — reparación pública sin verificación independiente por terceros; las resoluciones de conflicto eran del propietario.
+
+## 2026-11-15 (IER-001 + archivo de «tres») — ciclo IER real y cuarentena histórica
+
+- **Dictado**: nada se toca de `documentacion/tres/`; huérfanos decididos uno a uno; resto ejecutado.
+- **IER-001** (ciclo completo, la única falla que sigue real del oct-2026): `op:discover` duplicaba misiones/tareas por `crear_mision` aleatoria. Fix mínimo en `machine.py` (reusar misión PENDING del mismo artefacto; no duplicar tarea; log `mission_creation: reused`). Test: rojo antes (2 misiones, 2 tareas) → verde después (1/1). `test_dispatch004` 132/132, `test_backends_bulk` 118/118, `test_cli009` 156/156 — sin regresión. `PASS PARTIAL`: solo dominio discover.
+- **Documentos IER añadidos**: `docs/ier/CONTEXTO_TRES_2026-11-15.md` (CONTEXTO-NO-EVIDENCIA) y `docs/ier/BACKLOG_IER_CLI.md` (verificación de las 8 fallas originales: 5 ya implementadas en el árbol; solo 2 acciones reales).
+- **Archivo «tres»**: `documentacion/tres/` intacta. `/home/lucas/Escritorio/rxre-archive-2026-11-15/` guarda: manifiesto SHA-256 de 62+12 (verificado), `LEEME_ARCHIVO.md`, y los 12 huérfanos byte-idénticos movidos desde la raíz del repo. `jorgeeee.md` y `Crítica al proyecto RXRE.md` contienen contraseña de sudo en claro — credencial EXPUESTA, rotar si se reutilizó; jamás se publican.
+- **Verificación pública**: `revkit`, `tools/`, etc. intactos; solo se tocaron `machine.py` (fix), `tests/test_discover_mision_idempotencia.py` (nuevo), `docs/ier/*`, log.
+- Pendiente dictado: push de este commit; decisión sobre los ~30 worktrees huérfanos en `.rxre-wt/`.

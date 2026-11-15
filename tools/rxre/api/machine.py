@@ -639,19 +639,38 @@ def _handle_discover(params: dict) -> dict:
         task_created = None
         if total_symbols > 0 and findings:
             try:
-                mission_created = store.crear_mision(
-                    c,
-                    title="Investigación: %s (%d símbolos)" % (artefacto, total_symbols),
-                    description="Misión derivada de discover sobre %s. Justificación: %d hallazgos observados (%s). Criterio de cierre: análisis de funciones/xrefs/callgraph completado." % (artefacto, len(findings), ", ".join(f["finding_type"] for f in findings)),
-                )
-                task_created = store.agregar_tarea_a_mision(
-                    c, mission_created,
-                    title="Analizar símbolos descubiertos en %s" % artefacto,
-                    description="Tarea vinculada a finding de discover. Evidencia: %s. Objetivo: descompilar funciones y validar cross-references." % (
-                        "; ".join("%s(%d)" % (f["finding_type"], f["n"]) for f in findings),
-                    ),
-                    priority=1,
-                )
+                # IER-001: `crear_mision` aleatoriza mission_id; dos discover
+                # equivalentes sobre el mismo artefacto creaban dos misiones y
+                # dos tareas idénticas. Reutilizar la mision PENDING si ya
+                # existe; conservar la tarea solo al crear.
+                titulo = "Investigación: %s (%d símbolos)" % (artefacto, total_symbols)
+                existente = c.execute(
+                    "SELECT mission_id FROM missions "
+                    "WHERE title = ? AND status = 'PENDING' "
+                    "ORDER BY created_at DESC LIMIT 1",
+                    (titulo,)).fetchone()
+                if existente:
+                    mission_created = existente[0] if isinstance(existente, tuple) else existente["mission_id"]
+                    task_created = None
+                    findings.append({
+                        "finding_type": "mission_creation",
+                        "estado": "reused",
+                        "motivo": "misión PENDING ya existente para el mismo artefacto; se reutiliza en vez de duplicar",
+                    })
+                else:
+                    mission_created = store.crear_mision(
+                        c,
+                        title=titulo,
+                        description="Misión derivada de discover sobre %s. Justificación: %d hallazgos observados (%s). Criterio de cierre: análisis de funciones/xrefs/callgraph completado." % (artefacto, len(findings), ", ".join(f["finding_type"] for f in findings)),
+                    )
+                    task_created = store.agregar_tarea_a_mision(
+                        c, mission_created,
+                        title="Analizar símbolos descubiertos en %s" % artefacto,
+                        description="Tarea vinculada a finding de discover. Evidencia: %s. Objetivo: descompilar funciones y validar cross-references." % (
+                            "; ".join("%s(%d)" % (f["finding_type"], f["n"]) for f in findings),
+                        ),
+                        priority=1,
+                    )
                 c.commit()
             except Exception as exc:
                 # No romper discover si la mision falla; documentar limitacion
