@@ -1,6 +1,6 @@
 # AGENTS.md — INSTRUCCIONES PERMANENTES DEL AGENTE (RXRE)
 
-Estado: **ACTIVE** (2026-11-13). Autoridad y precedencia:
+Estado: **ACTIVE** (2026-11-15). Autoridad y precedencia:
 
 1. Instrucciones explícitas de la sesión actual.
 2. Evidencia verificable en el árbol/tag/manifest vigente.
@@ -54,11 +54,28 @@ Reglas:
 
 ## 4. Qué es RXRE hoy (estado real)
 
-- RXRE es un **motor de investigación en ingeniería inversa asistida por IA**, no un producto, no un descompilador general y no un driver GPU.
-- Evidencia pública: `rxre-engine` y `rxre-cleanroom` **v1.9.0**; **seis** objetivos acotados (`filenvercmp`, `wc`, `fold`, `tr -s x`, `dirname`, `basename`) con **0 divergencias** en su dominio declarado.
-- Estado epistemológico público: **PARTIAL**; verificación de terceros: **NOT_EXECUTED**; PUERTA condición 3: **PENDING_EXTERNAL_REVIEWER**.
-- **P0**, descubrimiento semántico general sobre binarios sin conocimiento previo: **OPEN/NOT_DETERMINED**.
-- RX550: caracterización/experimentos Vulkan/SPIR-V pueden ser evidencia auxiliar; **no** un driver ni una capacidad GPU general.
+**Identidad vigente:** RXRE es un motor de **Ingeniería Inversa Evolutiva y Reparativa (IER)** — un enfoque propio de RXRE, no una terminología académica universalmente establecida. No es un producto, no un descompilador general y no un driver GPU.
+
+Definición operativa: RXRE utiliza problemas reales de ingeniería inversa para **detectar limitaciones en herramientas y las reproduce**, las analiza, y luego **repara, extiende, sustituye, combina o crea** la tecnología necesaria, valida mediante evidencia independiente, devuelve correcciones upstream, incorpora conocimiento a RXRE y repite con problemas nuevos. Es la diferencia respecto de un motor tradicional: no solo utiliza herramientas; investiga sus limitaciones y desarrolla capacidades para superarlas.
+
+Ciclo fundamental:
+
+\[ \text{Problema} \rightarrow \text{Diagnóstico} \rightarrow \text{Intervención} \rightarrow \text{Validación} \rightarrow \text{Conocimiento} \rightarrow \text{Evolución} \]
+
+Con fases explícitas: `DESCUBRIR → REPRODUCIR/DIAGNOSTICAR → ANALIZAR CON RXRE → IDENTIFICAR CUELLO → DECIDIR INTERVENCIÓN → VALIDAR INDEPENDIENTEMENTE → CONTRIBUIR Y EXTRAER → EVOLUCIONAR → REPETIR`.
+
+Principios rectores, ninguno negociable:
+
+- Si una tecnología no alcanza el objetivo, RXRE desarrolla la capacidad necesaria.
+- La reparación es el mecanismo de intervención. La evolución es el resultado acumulativo. La ingeniería inversa es el dominio de aplicación. La evidencia independiente es la condición para considerar real ese progreso.
+- Ninguna capacidad se declara demostrada sin evidencia suficiente sobre ella: \( \Delta C_i \notin C_{t+1} \) si la validación \( V_i \) no alcanza las condiciones de aceptación de esa capacidad (las condiciones de aceptación las define el enfoque IER por capacidad, no una puntuación arbitraria). El mecanismo que decide esto es §3 de este archivo; los matices viven en `RXRE_IER.md`.
+- Estado empírico (verificable): **PARTIAL; terceros NOT_EXECUTED; PUERTA condición 3 PENDING_EXTERNAL_REVIEWER; P0 OPEN/NOT_DETERMINED**. Ninguna frase de identidad cambia esos estados.
+
+Evidencia pública: `rxre-engine` y `rxre-cleanroom` **v1.9.0**; **seis** objetivos acotados (`filenvercmp`, `wc`, `fold`, `tr -s x`, `dirname`, `basename`) con **0 divergencias** en su dominio declarado.
+
+RX550: caracterización/experimentos Vulkan/SPIR-V pueden ser evidencia auxiliar; **no** un driver ni una capacidad GPU general.
+
+El documento normativo del enfoque (modelo matemático, ciclo, formulaciones, decisión reparar/extender/sustituir/combinar/crear, acumulación de capacidades, objetivo y diferencia frente a motores tradicionales) es `RXRE_IER.md`; este archivo solo contiene lo indispensable para operar bajo IER.
 
 ## 5. Flujo operativo mínimo
 
