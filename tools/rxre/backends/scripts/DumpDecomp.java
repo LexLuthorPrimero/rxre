@@ -195,7 +195,7 @@ public class DumpDecomp extends GhidraScript {
 			boolean primero = true;
 			int tomadas = 0;
 			for (Iterator<Function> ci = candidatas.iterator();
-					ci.hasNext() && tomadas < maxFuncs; ci.next()) {
+					ci.hasNext() && tomadas < maxFuncs; ) {
 				Function f = ci.next();
 				tomadas++;
 				if (!primero) {

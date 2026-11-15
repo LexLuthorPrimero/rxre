@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-<<<<<<< HEAD
 """RXRE-007 FASE 1. El catalogo de lo que RXRE puede PREGUNTAR.
 
 GENERADO, NO ESCRITO A MANO
@@ -151,7 +150,12 @@ CAPACIDADES = [{'capability': 'binary.basic_blocks',
                'corpus': False},
   'resolved_by': ['radare2', 'rizin'],
   'gfx_generation': 'gfx_8_0'},
- {'capability': 'gpu.register_read',
+ {'capability': 'gpu.mmr_read',
+  'question': 'que valor tiene un registro MMR de la GPU mediante mecanismo no privilegiado',
+  'requires': {'artefacto': False, 'target': True, 'evidencia_previa': False, 'corpus': False},
+  'scope': 'gpu',
+  'status': 'AVAILABLE'},
+{'capability': 'gpu.register_read',
   'question': 'que valor tiene un registro de la GPU',
   'requires': {'artefacto': False,
                'target': True,
@@ -230,42 +234,7 @@ CAPACIDADES = [{'capability': 'binary.basic_blocks',
                'evidencia_previa': False,
                'corpus': True},
   'resolved_by': ['coccinelle'],
-  'gfx_generation': 'gfx_8_0'}]
-
-#: Indice por nombre. Se construye del mismo objeto para que no puedan
-#: divergir: anadir una capacidad a CAPACIDADES la anade aqui.
-por_nombre = {c["capability"]: c for c in CAPACIDADES}
-=======
-"""FASE B. Resolucion de CAPACIDAD, independiente del nombre del script.
-
-EL PROBLEMA QUE RESUELVE, y por que un registro de adapters NO lo resuelve.
-
-RXRE-001 tiene `ADAPTERS`, que empareja `search` con `evidence_search.py`. Eso
-es un verbo -> un script. Pero una IA no pregunta "dame search", pregunta
-**"¿quien escribe este registro?"** — y eso no es un verbo, es una INTENCION.
-
-Si el unico mapa es verbo -> script, la IA tiene que saber el verbo. Que es
-justo lo que este modulo quita: se registra la INTENCION, con su esquema de
-entrada y salida, y la intencion declara que herramientas la resuelven.
-
-La resolucion es por PALABRAS del enunciado, y se declara como tal: es
-determinista, explicable y una IA puede leer por que eligio eso. No hay modelo
-linguistico dentro de RXRE (§26: la IA decide, RXRE es la infraestructura), y
-tampoco hay adivinanza silenciosa: si la intencion no esta clara, se responden
-las INTENCIONES DISPONIBLES en vez de elegir una.
-
-Y el punto donde NO se inventa una capacidad: la intencion declara `resolved_by`
-con herramientas que EXISTEN. Una intencion que no se puede resolver con lo que
-hay se marca `unsupported`, y se dice, en vez de devolver un hueco.
-"""
-from __future__ import annotations
-
-import re
-from typing import Any, Dict, List, Optional
-
-#: Las intenciones. Cada una es lo que la IA dice que quiere saber, no lo que
-#: hay que ejecutar. `requires` es lo que RXRE necesita para responder.
-CAPACIDADES: List[Dict[str, Any]] = [
+  'gfx_generation': 'gfx_8_0'},
     {
         "capability": "register.definition",
         "question": "¿De qué offset y de qué campos consta este registro?",
@@ -400,26 +369,36 @@ CAPACIDADES: List[Dict[str, Any]] = [
         "example": {"operation": "capabilities"},
         "limitations": ["verifica por ejecucion, no por presencia del fichero"],
     },
-]
+    ]
 
-#: Orden de resolucion: el mas especifico primero. Un `register.writers` tiene
-#: que ganar a un `register.uses` cuando la pregunta menciona "escribe". Por eso
-#: `order` es explicito y no el orden del diccionario: el orden de un dict es un
-#: detalle de implementacion y no puede decidir que se responde.
-_PRIORIDAD = [
-    "register.writers", "register.readers", "register.uses",
-    "register.definition",
-    "symbol.callers", "symbol.callgraph", "symbol.locate",
-    "value.defuse",
-    "pm4.opcodes", "provenance.keys", "evidence.search",
-    "project.capabilities",
-]
-_ORDEN = {c: i for i, c in enumerate(_PRIORIDAD)}
+#: Indice por nombre. Se construye del mismo objeto para que no puedan
+#: divergir: anadir una capacidad a CAPACIDADES la anade aqui.
+# MEDIDO 2026-10-20 (RXRE-109): contrato restaurado; antes era dict (rotado)
+# `commands/query.py:300` lo invoca como funcion; TypeError en producción.
+# El indice _POR_NOMBRE se reconstruye con capa de resolucion.
 
-#: Pistas de intencion. Formato: (nombre de capacidad, regex, peso).
-#: Se puntua por coincidencia y gana la de mayor peso; el peso existe para
-#: desempatar "quien escribe este registro" (writers) de "donde aparece este
-#: registro" (uses), que comparten la palabra "registro".
+# ------------------------------------------------------------------
+# Recuperacion de contrato ejecutable (RXRE-109 / 108)
+# ------------------------------------------------------------------
+
+# ------------------------------------------------------------------
+# Capa de resolucion de capacidades (RXRE-109 / 108).
+#
+# Reconstruye el contrato que `commands/query.py` consume:
+#   resolver(texto)      -> intencion en texto a capacidad
+#   disponibles()         -> el catalogo, ordenado
+#   entradas_faltan()     -> que entradas del contrato faltan
+#   por_nombre(cap)       -> la ficha de una capacidad
+#
+# El catalogo NO se duplica: CAPACIDADES es la lista vigente (generada
+# desde backends.registry) mas las capacidades de INTENCION del contrato
+# historico (lado B del conflicto de c682c4a4), que el registry no
+# declara porque no son capacidades de producer sino de PREGUNTA.
+# PISTAS es la tabla de patrones de intencion; no es un catalogo.
+# ------------------------------------------------------------------
+from typing import Any, Dict, List, Optional
+import re
+
 PISTAS: List[tuple] = [
     ("register.writers", r"\b(escribe|escritor|writers?|write[sd]?)\b", 3),
     ("register.readers", r"\b(lee|lector|readers?|reads?)\b", 3),
@@ -436,106 +415,171 @@ PISTAS: List[tuple] = [
     ("project.capabilities", r"\b(que\s+puedo|que\s+sabes|capabilities)\b", 3),
 ]
 
-_POR_NOMBRE = {c["capability"]: c for c in CAPACIDADES}
+_PRIORIDAD = [
+    "register.writers", "register.readers", "register.uses",
+    "register.definition",
+    "symbol.callers", "symbol.callgraph", "symbol.locate",
+    "value.defuse",
+    "pm4.opcodes", "provenance.keys", "evidence.search",
+    "project.capabilities",
+]
+_ORDEN = {c: i for i, c in enumerate(_PRIORIDAD)}
 
-#: Techo de resultados por capacidad. Va AQUI y no en el dispatcher porque es
-#: parte del contrato de la capacidad, no un detalle de transporte: una IA que
-#: lee el catalogo tiene que poder ver el techo.
-#:
-#: MEDIDO 2026-10-05: sin esto, `query` sobre `VM_CONTEXT0_CNTL` devolvio
-#: 6166562 resultados en 817s. `evidence_search.py --max-hits` es el tope de
-#: ALMACENAMIENTO, no un limite de la consulta: recorre el universo entero.
-#:
-#:     un "max_hits" que no limita la consulta no es un limite
 MAX_HITS_DEFECTO = 200
-
-#: COMO se llama a cada capacidad. MEDIDO 2026-10-05: el catalogo declaraba
-#: `resolved_by` -- los VERBOS de RXRE-001 que usa por dentro -- pero no decia
-#: como se pide por la interfaz. Una IA leia `resolved_by: ["register","search"]`
-#: y no podia saber si tinha que escribir `{"op":"register"}` (que no existe) o
-#: `{"op":"query","capability":"register.writers"}` (que si).
-#:
-#:     resolved_by dice por dentro; invocable dice por fuera
-#:
-#: Es un campo derivado, no duplicado: sale de `example`, que ya existe. Se
-#: expone aparte porque es lo que una IA necesita para llamar, y esconderlo en un
-#: ejemplo obliga a leer el ejemplo como si fuera documentacion.
-def _invocable(c: Dict[str, Any]) -> Dict[str, Any]:
-    ej = c.get("example") or {}
-    args: Dict[str, Any] = dict(ej.get("inputs") or {})
-    args["op"] = "query"
-    args["target"] = "0000:01:00.0"
-    if c["capability"] not in (ej.get("operation") or ""):
-        args["capability"] = c["capability"]
-    return args
-
 
 for _c in CAPACIDADES:
     _c.setdefault("max_hits", MAX_HITS_DEFECTO)
-    _c["invocable"] = _invocable(_c)
 
-# `_POR_NOMBRE` guarda las MISMAS referencias que la lista, y el bucle de arriba
-# muta esas referencias, asi que el dict queda al dia. Se reconstruye de todos
-# modos para que el orden de las dos lineas no importe: si alguien mueve el
-# `setdefault`, el techo se pierde en silencio y el defecto vuelve.
 _POR_NOMBRE = {c["capability"]: c for c in CAPACIDADES}
 
 
+#: Namespace -> requisito. Derivado de la regla documentada en la cabeada
+#: del modulo (RXRE-007 FASE 1), y medido en la tabla. Una capacida sin
+#: namespace cubierto no tiene requisito: es honesto decir que no hay entradas.
+_REQUIRES_POR_NAMESPACE: Dict[str, Dict[str, bool]] = {
+    "binary": {"artefacto": True},
+    "gpu": {"target": True},
+    "rxre": {"evidencia_previa": True},
+    "source": {"corpus": True},
+}
+# (`rea.*` no tiene regla documentada; se retorna vacio -> None/{} como
+# trumento fisico honesto, no inventando requisito.)
+
+
+def _capacidades_del_registry() -> Dict[str, Dict[str, Any]]:
+    """Capacidades que el registry declara AHORA. Fuente EFECTIVA del catalogo.
+
+    Si el registry y la tabla estatica divergen, el registry manda y la tabla
+    solo proporciona metadatos (pregunta/requisitos/generacion) para las
+    capacidades que la tabla conata.
+    """
+    from backends import registry  # import local; evita ciclos con core
+    out: Dict[str, Dict[str, Any]] = {}
+    for b in registry.catalogo():
+        bid = b.get("backend_id")
+        if bid is None:
+            continue
+        caps = b.get("capacities") or {}
+        for cap, estado in caps.items():
+            e = out.setdefault(cap, {
+                "resolved_by": [], "estados": {}, "limitaciones": []})
+            e["resolved_by"].append(bid)
+            e["estados"][bid] = (estado or "UNAVAILABLE")
+            if isinstance(estado, dict) and estado.get("error"):
+                e["limitaciones"].append(
+                    "%s la declara ERROR: %s" % (bid, estado.get("error")))
+    return out
+
+
+def _requires_por_namespace(cap: str) -> Dict[str, bool]:
+    ns = cap.split(".", 1)[0]
+    base = _REQUIRES_POR_NAMESPACE.get(ns)
+    if base is None:
+        return {}
+    return dict(base)
+
+
+def _catalogo_efectivo() -> List[Dict[str, Any]]:
+    """Catalogo EFECTIVO = tabla estatica + capacidades heredadas del registry."""
+    merged: Dict[str, Dict[str, Any]] = {}
+    # Lado A + lado B (intenciones): de la tabla estatica.
+    for c in CAPACIDADES:
+        merged[c["capability"]] = dict(c)
+    # Lado A (registry, fuente de verdad): nombres + metadata.
+    for cap, e in _capacidades_del_registry().items():
+        if cap not in merged:
+            merged[cap] = {
+                "capability": cap,
+                "question": None,  # registry no describe preguntas; honestamente
+                                   # no hay pregunta para estas capacidades.
+                "requires": _requires_por_namespace(cap),
+                "resolved_by": sorted(e["resolved_by"]),
+                "estado_agregado": sorted(set(e["estados"].values())),
+                "limitaciones": sorted(e["limitaciones"]),
+                "src": "registry",
+            }
+        else:
+            # El registry manda en resolved_by (siemPrec  diverge la tabla,
+            # como en binary.decompile [ghidra] vs registry [ghidra, radare2, rizin].
+            existing = merged[cap]
+            if e["resolved_by"]:
+                existing["resolved_by"] = sorted(e["resolved_by"])
+            if e["limitaciones"]:
+                ex = set(existing.get("limitaciones") or [])
+                ex |= set(e["limitaciones"])
+                existing["limitaciones"] = sorted(ex)
+            if e.get("estado_agregado"):
+                s1 = set((existing.get("estado_agregado") or "").split("|")) if existing.get("estado_agregado") else set()
+                s2 = set(e["estado_agregado"].split("|")) if isinstance(e.get("estado_agregado"), str) else set()
+                existing["estado_agregado"] = sorted(s1 | s2)
+    return list(merged.values())
+
+
 def por_nombre(cap: str) -> Optional[Dict[str, Any]]:
-    c = _POR_NOMBRE.get(cap)
-    return dict(c) if c else None
+    """La ficha de una capacidad, o None si no existe. Busca el catalogo
+    EFECTIVO (tabla + registry), como cualquier consumidor de produccion."""
+    for c in _catalogo_efectivo():
+        if c.get("capability") == cap:
+            return dict(c)
+    return None
 
 
 def disponibles() -> List[Dict[str, Any]]:
-    """El catalogo, en orden de especificidad. Es la respuesta a '¿qué sé hacer?'."""
-    return [dict(c) for c in sorted(CAPACIDADES,
-                                    key=lambda x: _ORDEN.get(x["capability"], 99))]
-
+    """El catalogo, en orden de especificidad. Usa el catalogo EFECTIVO."""
+    return [dict(c) for c in sorted(_catalogo_efectivo(),
+                                    key=lambda x: _ORDEN.get(x.get("capability"), 99))]
 
 
 def resolver(texto: str) -> Dict[str, Any]:
-    """Resuelve una intencion en texto a una capacidad. Explicable y determinista.
+    """Resuelve una intencion en texto a una capacidad.
 
-    Devuelve SIEMPRE el reparto, no solo el ganador: una IA necesita ver por que
-    se eligio, y sobre todo necesita ver que hubo otra candidata. Un ganador sin
-    runners-up es una caja negra, y una caja negra en la capa que decide es
-    donde nace una conclusion falsa.
+    Devuelve SIEMPRE el reparto, no solo el ganador: una IA necesita
+    ver por que se eligio, y sobre todo necesita ver que hubo otra
+    candidata.
     """
     t = (texto or "").lower()
     punt: Dict[str, List[int]] = {}
+    cap_names = {c.get("capability") for c in _catalogo_efectivo()}
     for cap, rx, peso in PISTAS:
+        if cap not in cap_names:
+            continue
         if re.search(rx, t):
             punt.setdefault(cap, []).append(peso)
     if not punt:
         return {"resolved": None, "candidates": [],
                 "reason": "ninguna intencion del catalogo casa con el enunciado",
-                "options": [c["capability"] for c in disponibles()]}
-    # El peso se SUMA por coincidencia, y la especificidad rompe el empate.
-    orden = sorted(
-        punt.items(),
-        key=lambda kv: (-sum(kv[1]), _ORDEN.get(kv[0], 99)),
-    )
+                "options": [c.get("capability") for c in disponibles()]}
+    orden = sorted(punt.items(),
+                   key=lambda kv: (-sum(kv[1]), _ORDEN.get(kv[0], 99)))
     cap, pesos = orden[0]
     runners = [c for c, _ in orden[1:3]]
     return {
         "resolved": cap,
         "confidence": "pista_explicita",
         "matched": {"capability": cap, "pistas": pesos,
-                    "peso_total": sum(pesos)},
+                     "peso_total": sum(pesos)},
         "candidates": runners,
         "reason": "pista(s) de intencion que casaron en el enunciado",
         "detail": {"matched_patterns": [p for c, p, _w in PISTAS if c in punt]},
-        "options": [c["capability"] for c in disponibles()],
+        "options": [c.get("capability") for c in disponibles()],
     }
 
 
 def entradas_faltan(cap: str, request: Dict[str, Any]) -> List[str]:
-    """Que entradas del contrato no trae el request. Para responder 400, no para fallar."""
-    c = _POR_NOMBRE.get(cap)
+    """Que entradas del contrato no trae el request."""
+    c = None
+    for item in _catalogo_efectivo():
+        if item.get("capability") == cap:
+            c = item
+            break
     if not c:
         return []
     dados = set((request.get("inputs") or {}).keys())
     tgt = (request.get("inputs") or {}).get("target") or request.get("question") or ""
-    faltan = [r for r in c["requires"] if r not in dados and not tgt]
-    return faltan
->>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
+    requires = c.get("requires") or []
+    if isinstance(requires, dict):
+        # Catalogo derivado del registry: `requires` son CATEGORIAS
+        # (artefacto, target, evidencia_previa, corpus), no nombres de
+        # entrada. Se exponen como categorias faltantes.
+        return [k for k, v in requires.items() if v and k not in dados and not tgt]
+    return [r for r in requires if r not in dados and not tgt]

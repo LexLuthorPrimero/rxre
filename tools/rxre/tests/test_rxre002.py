@@ -255,28 +255,37 @@ v("empty ofrece un segundo metodo", any(
     a["action"] in ("cross_check", "widen_scope")
     for a in env4.get("next_actions", [])), env4.get("next_actions"))
 
-# --- 6. EXPLAIN: DE DONDE SALE UN RESULTADO ----------------------------
-env5 = out[0]
-rid = (env5["results"][0]["result_id"] if env5["results"]
-       else (env["results"][0]["result_id"] if env["results"] else None))
-if rid is None:
-    v("hay un result_id para explicar", False, "no hay resultados previos")
+# --- 6. EXPLAIN: DOS CASOS SEPARADOS --------------------------------------
+# Caso A (exito, con rid real): debe usar un result_id confirmado por la
+# operacion creadora (env de linea 69), no el ultimo out del flujo.
+rid_ok = env["results"][0]["result_id"] if env.get("results") else None
+if rid_ok is None:
+    v("hay un result_id valido para explicar (exito)", False, "env sin results")
 else:
-    _p, out6 = machine([{"op": "explain", "result_id": rid}])
+    _p, out6 = machine([{"op": "explain", "result_id": rid_ok}])
     e6 = out6[0]
     v("explain de un resultado real responde ok", e6.get("status") == "ok",
       e6.get("status"))
-    r6 = e6["results"][0]
-    v("explain da el resultado", bool(r6["result"]["result_id"]))
-    v("explain da la operacion", bool(r6["operation"]["operation_id"]))
-    v("explain nombra la herramienta", bool(r6["result"]["tool"]),
-      r6["result"].get("tool"))
-    v("explain da la cadena", "operation" in r6.get("chain", []),
-      r6.get("chain"))
+    if e6.get("status") == "ok" and e6.get("results"):
+        r6 = e6["results"][0]
+        v("explain da el resultado", bool(r6["result"]["result_id"]))
+        v("explain da la operacion", bool(r6["operation"]["operation_id"]))
+        v("explain nombra la herramienta", bool(r6["result"]["tool"]),
+          r6["result"].get("tool"))
+        v("explain da la cadena", "operation" in r6.get("chain", []),
+          r6.get("chain"))
+    else:
+        v("explain ok tiene results no vacio", False,
+          "status=%s results=%s" % (e6.get("status"), len(e6.get("results") or [])))
 
+# Caso B (vacío, identificador inexistente): contrato empty, sin excepciones.
 _p, out7 = machine([{"op": "explain", "result_id": "res_no_existe_000"}])
+e7 = out7[0]
 v("explain de uno inexistente da empty, no error",
-  out7[0].get("status") == "empty", out7[0].get("status"))
+  e7.get("status") == "empty", e7.get("status"))
+if e7.get("status") == "empty":
+    v("explain empty: results es lista vacia", e7.get("results") == [],
+      e7.get("results"))
 v("y dice que no esta REGISTRADO, no que no exista",
   any("no se ha registrado" in l or "no exista" in l
       for l in out7[0].get("limitations", [])),

@@ -162,10 +162,11 @@ def _busqueda(args: Dict[str, Any], op: str) -> Tuple[Dict[str, Any], int]:
                         tools_used=[_tool_used(a, r)]), 1
     d = _load(r["stdout"], r["stderr"])
     if d is None:
+        raw_preview = (r.get("stdout") or "")[:240].replace("\n", " ")
         return envelope(op, target=args.get("target"), status=ST_ERROR,
                         limitations=["la salida de %s no es JSON legible; "
-                                     "no se inventa un resultado"
-                                     % a.cmd[0]],
+                                     "no se inventa un resultado (raw: %s)"
+                                     % (a.cmd[0], raw_preview)],
                         tools_used=[_tool_used(a, r)]), 1
     hits = d.get("hits", []) or []
     fp = d.get("universe_fingerprint")

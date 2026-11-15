@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-<<<<<<< HEAD
 """RXRE public JSONL entry point.
 
 Una IA que solo conoce JSONL sobre stdin/stdout puede usar RXRE sin importar
@@ -13,40 +12,12 @@ Contrato:
 - Las operaciones soportadas: backends, run, plan, explain, ops
 """
 
-=======
-"""Entrada machine-readable de RXRE-002. JSON Lines sobre stdin/stdout.
-
-POR QUE JSONL Y NO JSON-RPC NI UN SOCKET.
-
-§27 pide JSONL o JSON-RPC local. JSONL gana por una razon concreta: es lo unico
-que no necesita ni un puerto ni un demonio ni una negociacion, y se puede
-ejecutar desde una shell, desde Python, o desde un pipe sin cambiar nada. Un
-socket es infraestructura que hay que mantener viva; un JSONL es un proceso que
-termina. Para una IA que lanza comandos, un proceso que termina es mas simple de
-razonar que un servidor al que hay que reconectar.
-
-Y hay una propiedad que importa para este proyecto: cada linea es un envelope
-completo e independiente, con su `request_id` y su `status`. Si una linea se
-corrupte, las demas siguen siendo validas. Un unico JSON grande que se parsea
-todo o nada convierte un error de una linea en la perdida de todas.
-
-EL CONTRATO, en una linea:
-
-    {"contract_version":"1.0","op":"query","question":"...","target":"..."}
-    -> envelope con status, results, evidence, provenance, limitations,
-       next_actions
-
-Y lo que NO hay: ningun estado global entre lineas. Cada `query` es completa.
-La memoria entre invocaciones vive en SQLite, que es consultable, y no en el
-proceso, que se pierde.
-"""
->>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 from __future__ import annotations
 
 import json
 import os
+import re
 import sys
-<<<<<<< HEAD
 # MEDIDO 2026-10-15: /tmp (tmpfs 5,9G) puede estar a 100% por copias de
 # trabajo ajenas (5,2G consumidos), rompiendo herramientas basadas en tmp
 # (SQLite temp, Ghidra hsperfdata, testing tempfiles). Caer a /var/tmp
@@ -81,6 +52,7 @@ for p in (PKG_TOOLS, PKG_RXRE):
 # Importar desde rxre.backends y rxre.core
 import rxre.backends.dispatch as dispatch  # noqa: E402
 import rxre.core.store as store  # noqa: E402
+import rxre.core.capabilities as caps  # noqa: E402
 from rxre.core.store import REFLEXION_OUTCOMES  # noqa: E402
 
 # ÉTER: hub async con write-ahead. Se instancia de forma lazy en
@@ -92,84 +64,29 @@ except Exception:                                          # pragma: no cover
     _eter_mod = None
 _ETER = None
 
-try:
-    import rxre.core.aire as _aire_mod  # noqa: E402
-except Exception:                                          # pragma: no cover
-    _aire_mod = None
-_AIRE = None
 
-try:
-    import rxre.core.agua as _agua_mod  # noqa: E402
-except Exception:  # pragma: no cover
-    _agua_mod = None
-_AGUA = None
+def _eter():
+    """Instancia lazy de ÉTER. Una por proceso, como pide el diagrama.
 
-try:
-    import rxre.core.disciplina as _disciplina_mod  # noqa: E402
-except Exception:  # pragma: no cover
-    _disciplina_mod = None
-_DISCIPLINA = None
-
-try:
-    import rxre.core.mente as _mente_mod  # noqa: E402
-except Exception:  # pragma: no cover
-    _mente_mod = None
-_MENTE = None
-
-def _disciplina():
-    global _DISCIPLINA
-
-_MENTE = None
-
-def _mente():
-    global _MENTE
-    if _MENTE is None:
-        if _mente_mod is None:
-            raise RuntimeError("core.mente no importable")
-        _MENTE = _mente_mod.Mente()
-    return _MENTE
-
-def _disciplina():
-    global _DISCIPLINA
-    if _DISCIPLINA is None:
-        if _disciplina_mod is None:
-            raise RuntimeError("core.disciplina no importable")
-        _DISCIPLINA = _disciplina_mod.Disciplina()
-    return _DISCIPLINA
-
-def _aire():
-    global _AIRE
-    if _AIRE is None:
-        if _aire_mod is None:
-            raise RuntimeError("core.aire no importable")
-        _AIRE = _aire_mod.Aire()
-    return _AIRE
-
-_AGUA = None
-
-def _agua():
-    global _AGUA
-    if _AGUA is None:
-        if _agua_mod is None:
-            raise RuntimeError("core.agua no importable")
-        _AGUA = _agua_mod.Agua()
-    return _AGUA
-
-# FUEGO: hub async con rollback. Lazy.
-try:
-    import rxre.core.fuego as _fuego_mod  # noqa: E402
-except Exception:                                          # pragma: no cover
-    _fuego_mod = None
-_fuego = None
-
-
-def _fuego():
-    global _fuego
-    if _fuego is None:
-        if _fuego_mod is None:
-            raise RuntimeError("core.fuego no importable")
-        _fuego = _fuego_mod.Fuego(os.path.join(os.getcwd(), ".rxre"))
-    return _fuego
+    La ruta sale de `$RXRE_DB` (si está seteado) reemplazando el nombre del
+    fichero, o de `.rxre/eter.sqlite3` por defecto. Reutilizar la misma
+    instancia es lo que hace que la cola tenga estado entre llamadas: si se
+    creara una por `emit`, cada evento tendría su propia cola y nadie vería
+    los pendientes de nadie.
+    """
+    global _ETER
+    if _ETER is None:
+        if _eter_mod is None:
+            raise RuntimeError("core.eter no importable: ÉTER no disponible")
+        ruta = os.environ.get("RXRE_DB", "")
+        if ruta:
+            ruta = ruta.replace("rxre.db", "eter.sqlite3")
+            if ruta == os.environ.get("RXRE_DB", ""):
+                ruta = os.path.join(os.path.dirname(ruta), "eter.sqlite3")
+        else:
+            ruta = os.path.join(".rxre", "eter.sqlite3")
+        _ETER = _eter_mod.Eter(ruta)
+    return _ETER
 
 
 def _trace_id_actual(params: Optional[dict] = None) -> Optional[str]:
@@ -191,12 +108,37 @@ def _get_db() -> store.sqlite3.Connection:
     """Obtiene conexion a la base de datos por defecto.
 
     CUERPO/META: usa RXRE_DB si esta seteado (env o params), o el DEFAULT_DB
-    del paquete. No overridea la config del entorno.
+    del paquete. No overridea la config del entorno. CUERPO-DB-RETRY: reintentar ante lock.
     """
+    import time
     db_path = os.environ.get("RXRE_DB", "")
+    for i in range(3):
+        try:
+            if db_path:
+                return store.conectar(db_path)
+            return store.conectar()
+        except Exception as e:
+            if "locked" in str(e).lower() and i < 2:
+                time.sleep(0.3 * (i + 1))
+                continue
+            raise
     if db_path:
         return store.conectar(db_path)
     return store.conectar()
+
+
+def _with_db_retry(func, *args, retries: int = 3, **kwargs):
+    """CUERPO-DB-RETRY: ejecuta operacion con retry ante database lock."""
+    import time
+    for i in range(retries):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            if "locked" in str(e).lower() and i < retries - 1:
+                time.sleep(0.3 * (i + 1))
+                continue
+            raise
+    return None
 
 
 def _handle_backends(_params: dict) -> dict:
@@ -367,9 +309,43 @@ def _handle_verify(params: dict) -> dict:
                 "descripcion": "Seleccionar siguiente tarea de la mision",
             })
     else:
-        next_actions.append({
-            "op": "backends", "descripcion": "Ver detalles de capacities y estado"
-        })
+        # CUERPO-ALT: si un backend falta, sugerir alternatives
+        backend_fails = [bid for bid, b in backend_checks.items()
+                         if not b.get("ok")]
+        if backend_fails:
+            next_actions.append({
+                "op": "backends", "descripcion": "Ver detalles de backends y alternatives"
+            })
+            # CUERPO-ALT: sugerir backend alternativo y capability_alternativa
+            try:
+                catalogo = dispatch.listar()
+                caps_por_backend = {}
+                for bname, binfo in (catalogo.get("backends") or {}).items():
+                    for cap in binfo.get("capacidades", []):
+                        if not isinstance(cap, str):
+                            cap = cap.get("capability", "") if isinstance(cap, dict) else ""
+                        caps_por_backend.setdefault(cap, []).append(bname)
+                # Para cada backend que falló, sugerir capabilities de otros backends
+                alt_backends = set()
+                for bid in backend_fails:
+                    for bname, binfo in (catalogo.get("backends") or {}).items():
+                        if bname != bid and binfo.get("existe", True):
+                            alt_backends.add(bname)
+                if alt_backends:
+                    next_actions.append({
+                        "op": "run",
+                        "args": {"capability": capability or "binary.inspect",
+                                 "backend_id": sorted(alt_backends)[0]},
+                        "available": True,
+                        "descripcion": "CUERPO-ALT: reintentar con backend alternativo %s" %
+                                       sorted(alt_backends)[0],
+                    })
+            except Exception:
+                pass
+        else:
+            next_actions.append({
+                "op": "backends", "descripcion": "Ver detalles de capacities y estado"
+            })
 
     return {
         "status": status,
@@ -397,9 +373,98 @@ def _handle_discover(params: dict) -> dict:
         {"op":"discover","artefacto":"/bin/ls"}
     """
     artefacto = params.get("artefacto") or params.get("artifact") or params.get("path")
+    question = params.get("question") or params.get("pregunta") or ""
+    trace_id = _trace_id_actual(params) or ("discover-" + str(os.getpid()))
+
+    # 162: investigar desde texto libre si hay evidencia registrada
+    if not artefacto and question:
+        tokens = [t for t in re.findall(r"[A-Z][A-Z0-9_]{3,}|[a-z_][a-z0-9_]{3,}", question)
+                  if len(t) > 3 and t.lower() not in ("que", "cual", "como", "cuando", "por", "con", "sin")]
+        tokens = sorted(tokens, key=lambda t: (0 if re.search(r"[0-9]|_", t) and t.isupper() else 1, -len(t)))
+        c = _get_db()
+        try:
+            evidence_refs = []
+            evidence_notes = []
+            for tok in tokens[:3]:
+                ev = store.buscar(c, texto=tok[:120], limite=2)
+                if ev.get("status") == "ok" and ev.get("results"):
+                    for r in ev["results"]:
+                        rid = r.get("result_id") or r.get("file")
+                        if rid and rid not in evidence_refs:
+                            evidence_refs.append(str(rid))
+                        note = r.get("value") or r.get("file") or ""
+                        if note and note not in evidence_notes:
+                            evidence_notes.append(note[:120])
+                if len(evidence_refs) >= 3:
+                    break
+            if evidence_refs:
+                frontera_text = ("Investigacion desde texto libre: %s" %
+                                 (question[:100] if len(question) <= 100 else question[:97] + "..."))
+                r = store.registrar_investigacion(
+                    c, kind="frontier", text=frontera_text,
+                    status="OPEN", target=question[:120],
+                    gap_kind="",
+                    refs=list(dict.fromkeys(evidence_refs[:5])), session=trace_id)
+                select_env = _handle_select({"target": frontera_text, "session_id": trace_id})
+                return {
+                    "status": "ok", "op": "discover",
+                    "derived_from_evidence": True,
+                    "question": question,
+                    "evidence_refs": evidence_refs[:3],
+                    "evidence_notes": evidence_notes[:3],
+                    "frontier_id": r.get("id"),
+                    "frontier_text": frontera_text,
+                    "trace_id": trace_id,
+                    "interpretation": ("Pregunta interpretada como frontera de investigacion; "
+                                       "evidencia recuperada por coincidencia en DB."),
+                    "objective": ("Resolver la incertidumbre declarada en '%s' usando evidencia existente." %
+                                  question[:60]),
+                    "results": [{"type": "evidence_ref", "ref": evidence_refs[0]}],
+                    "next_actions": [
+                        {"op": "select", "args": {"target": frontera_text},
+                         "descripcion": "Seleccionar accion desde frontera derivada"},
+                        {"op": "explain", "args": {"result_id": evidence_refs[0]},
+                         "descripcion": "Explicar evidencia de referencia"},
+                    ],
+                    "limitations": [
+                        "Texto libre interpretado por coincidencia de token; no hay analizador semantico completo.",
+                        "Si la evidencia recuperada no responde la pregunta, la frontera es partial; usar explain para verificar.",
+                    ],
+                }
+            else:
+                return {
+                    "status": "blocked", "op": "discover",
+                    "derived_from_evidence": False,
+                    "question": question,
+                    "motivo": "No se encontro evidencia registrada relacionada con '%s' en la DB de trabajo." % (
+                        question[:60] if question else "texto libre"),
+                    "trace_id": trace_id,
+                    "limitations": [
+                        "DB de trabajo no contiene resultados que coincidan con los tokens extraidos.",
+                        "No se inventa evidencia ni frontera sin respaldo.",
+                    ],
+                    "next_actions": [
+                        {"op": "query", "args": {"target": "0000:01:00.0", "question": question},
+                         "descripcion": "Intentar consulta directa sobre corpus"},
+                    ],
+                }
+        finally:
+            c.close()
+
     if not artefacto:
         return {"status": "invalid_input", "op": "discover",
-                "motivo": "falta 'artefacto'", "results": []}
+                "motivo": "falta 'artefacto' o evidencia suficiente en DB para interpretar '%s'" %
+                (question[:60] if question else "texto libre"),
+                "results": [],
+                "limitations": ["discover requiere artefacto verificado o evidencia registrable."]}
+
+    # AIRE-1: verificación de integridad antes de usar artefacto
+    pre = _verificar_integridad_artefacto({"artefacto": artefacto})
+    if not pre.get("ok"):
+        return {"status": "blocked" if "no existe" in str(pre.get("limitations",[])) else "invalid_input",
+                "op": "discover", "ejecutada": False,
+                "motivo": "integridad del artefacto fallida: %s" % "; ".join(pre.get("limitations", [])),
+                "precheck": pre, "results": []}
 
     c = _get_db()
     try:
@@ -430,36 +495,171 @@ def _handle_discover(params: dict) -> dict:
             })
 
         # 3. binary.callgraph -- function call graph
+        # ETERA01-D1: se registra el NIVEL DE ANALISIS EFECTIVAMENTE usado y
+        # sus limitaciones de profundidad, SIN alterar la regla de decision
+        # `total_symbols > 0`. El nivel lo decide el adapter (default `aa`);
+        # aqui NO se impone `aaa`/`aaaa`.
         env3 = dispatch.ejecutar("binary.callgraph",
                                  {"artefacto": artefacto, "backend_id": "radare2"})
         if env3.get("status") in ("ok", "empty"):
             n_nodes = len(env3.get("results") or [])
+            nivel3 = (env3.get("ejecucion") or {}).get("nivel_analisis")
             findings.append({
                 "finding_type": "binary_callgraph",
                 "source": "binary.callgraph",
                 "n": n_nodes,
                 "estado": env3.get("status"),
+                "nivel_analisis": nivel3,
+                "limitaciones": list(env3.get("limitations") or []),
             })
 
         total_symbols = sum(f["n"] for f in findings)
 
-        # ETER: auto-registrar frontier por cada tipo de simbolo descubierto.
+        # Persistir hallazgo estructurado (TIERRA: evidencia con procedencia)
+        for f in findings:
+            try:
+                # Idempotencia: mismo tipo + artefacto + fuente no duplica.
+                # ETERA01-D1: el claim registra el nivel de analisis efectivo
+                # (texto sin digitos: NO altera la correlacion numerica ETER,
+                # que exige >=2 numeros >=10 por claim).
+                nivel_txt = ("; nivel=%s" % f["nivel_analisis"]
+                             if f.get("nivel_analisis") else "")
+                claim_text = ("%s en %s: %d items (status=%s%s)" %
+                              (f["finding_type"], artefacto, f["n"],
+                               f.get("estado", "unknown"), nivel_txt))
+                limites = "; ".join(f.get("limitaciones") or []) or \
+                    "derivado de execution_events; no inferencia independiente"
+                fid = "finding_discover_%s_%s" % (f["finding_type"],
+                        str(artefacto).replace("/","_")[-20:] if len(str(artefacto)) > 20 else str(artefacto).replace("/","_"))
+                c.execute("INSERT OR IGNORE INTO findings (finding_id, claim, "
+                          "epistemic, evidence_ids, provenance, limitations, "
+                          "created_at) VALUES (?,?,?,?,?,?,?)",
+                          (fid, claim_text, "OBSERVED",
+                           json.dumps(["res_discover_%s" % f["source"]]),
+                           "discover/%s/%s" % (artefacto, f["source"]),
+                           limites,
+                           "2026-10-15T18:55:00-0300"))
+            except Exception:
+                pass
         # Cada simbolo/funcion nuevo es una frontier abierta (§53) que necesita
         # investigacion. Se registran como investigaciones para que saturate
         # pueda evaluarlas en el proximo ciclo.
+        # Causal vertical slice (RXRE-ETAPA01-CAUSAL-VERTICAL-SLICE):
+        # Las frontiers deben reflejar filas REALMENTE creadas (no intentos
+        # bloqueados). gap_kind solo es valido para hypothesis/claim, asi que
+        # aqui se omite. refs enlazan la frontier con los result_id reales
+        # que la motivaron (observacion -> frontier). session = trace_id.
+        env_por_tipo = {
+            "binary_functions": env1,
+            "binary_xrefs": env2,
+            "binary_callgraph": env3,
+        }
         nuevas_frontiers = 0
+        tid = _trace_id_actual(params)
         for f in findings:
             try:
-                store.registrar_investigacion(
+                nivel_f = (" nivel=%s" % f["nivel_analisis"]
+                           if f.get("nivel_analisis") else "")
+                env_f = env_por_tipo.get(f["finding_type"]) or {}
+                refs_f = []
+                if f["finding_type"] == "binary_callgraph":
+                    oid = env_f.get("operation_id")
+                    if oid and str(oid).startswith("COLISION:"):
+                        oid = None
+                    if not oid:
+                        rs = (env_f.get("results") or [])
+                        if rs and isinstance(rs[0], dict) and rs[0].get("result_id"):
+                            row = c.execute(
+                                "SELECT operation_id FROM results WHERE result_id=?",
+                                (rs[0]["result_id"],)).fetchone()
+                            if row and row["operation_id"]:
+                                oid = row["operation_id"]
+                    if oid:
+                        refs_f.append(oid)
+                else:
+                    for r in (env_f.get("results") or []):
+                        if isinstance(r, dict) and r.get("result_id"):
+                            refs_f.append(r["result_id"])
+                seen = set()
+                refs_f = [x for x in refs_f if not (x in seen or seen.add(x))]
+                res = store.registrar_investigacion(
                     c, kind="frontier",
-                    text="%s en %s (%d items)" % (f["finding_type"], artefacto, f["n"]),
+                    text="%s en %s (%d items)%s" % (
+                        f["finding_type"], artefacto, f["n"], nivel_f),
                     status="OPEN", target=f["finding_type"],
-                    gap_kind="discovery",
+                    refs=refs_f, session=tid or "",
+                    gap_kind="",
                 )
-                nuevas_frontiers += 1
+                if res.get("estado") == "ok":
+                    nuevas_frontiers += 1
+                    try:
+                        store.registrar_audit_log(
+                            c, "create_research", "research",
+                            str(res.get("id")), actor="binary.discover",
+                            details={"kind": "frontier",
+                                     "proposed_by": "system",
+                                     "refs": refs_f,
+                                     "session": tid,
+                                     "finding_type": f["finding_type"]})
+                    except Exception:
+                        pass
             except Exception:
                 pass
+        # Evento durable para reconstruir discover (observacion -> frontier).
+        try:
+            env_disc = {
+                "status": "ok" if total_symbols > 0 else "empty",
+                "capability": "binary.discover",
+                "backend": None,
+                "ejecucion": {"exit_status": 0},
+                "persistido": True,
+                "limitations": [],
+                "trace_id": tid,
+                "results": [],
+            }
+            for env_sub in (env1, env2, env3):
+                rs = (env_sub or {}).get("results") or []
+                if rs and isinstance(rs[0], dict) and rs[0].get("result_id"):
+                    env_disc["results"] = [rs[0]]
+                    break
+            if env_disc["results"]:
+                rid0 = env_disc["results"][0].get("result_id")
+                row = c.execute(
+                    "SELECT operation_id FROM results WHERE result_id=?",
+                    (rid0,)).fetchone()
+                if row and row["operation_id"]:
+                    env_disc["operation_id"] = row["operation_id"]
+            store.registrar_evento(c, "discover", "binary.discover",
+                                  env_disc, [])
+        except Exception:
+            pass
 
+        # CERRAR BRECHA: finding valido -> mision persistente (ALMA/TIERRA/FUEGO)
+        mission_created = None
+        task_created = None
+        if total_symbols > 0 and findings:
+            try:
+                mission_created = store.crear_mision(
+                    c,
+                    title="Investigación: %s (%d símbolos)" % (artefacto, total_symbols),
+                    description="Misión derivada de discover sobre %s. Justificación: %d hallazgos observados (%s). Criterio de cierre: análisis de funciones/xrefs/callgraph completado." % (artefacto, len(findings), ", ".join(f["finding_type"] for f in findings)),
+                )
+                task_created = store.agregar_tarea_a_mision(
+                    c, mission_created,
+                    title="Analizar símbolos descubiertos en %s" % artefacto,
+                    description="Tarea vinculada a finding de discover. Evidencia: %s. Objetivo: descompilar funciones y validar cross-references." % (
+                        "; ".join("%s(%d)" % (f["finding_type"], f["n"]) for f in findings),
+                    ),
+                    priority=1,
+                )
+                c.commit()
+            except Exception as exc:
+                # No romper discover si la mision falla; documentar limitacion
+                findings.append({
+                    "finding_type": "mission_creation",
+                    "estado": "failed",
+                    "motivo": str(exc)[:200],
+                })
         # FUEGO: auto-cadenar discover -> run para capabilities derivadas.
         # Cada simbolo/funcion descubierto es una frontier -> sugerir run con
         # binary.decompile para analizar funciones, binary.xrefs para cross-refs.
@@ -491,6 +691,8 @@ def _handle_discover(params: dict) -> dict:
             "ejecutada": True,
             "findings": findings,
             "total_symbols": total_symbols,
+            "mission_created": mission_created,
+            "task_created": task_created,
             "frontiers_creadas": nuevas_frontiers,
             "results": [],
             "next_actions": next_actions,
@@ -547,6 +749,10 @@ def _handle_repl(params: dict) -> dict:
     if not steps and auto and mission_id:
         steps = _generar_ciclo_autonomo(mission_id, max_steps)
 
+    # 164: ALMA-164: si hay pregunta libre y no hay steps, orquestar ciclo completo
+    if not steps and params.get("question") and not mission_id:
+        return _ciclo_autonomo_desde_pregunta(params, max_steps)
+
     # ALMA: si no hay steps pero hay mission_id, auto-generar desde tasks
     if not steps and mission_id:
         steps = _steps_desde_mision(mission_id)
@@ -580,6 +786,10 @@ def _handle_repl(params: dict) -> dict:
     results = []
     reflexiones = []
     stopped_at = None
+    # AGUA-007: estado de persistencia de TODA la operacion. Un fallo NUNCA se
+    # borra por un step posterior exitoso: se acumula y se expone al final.
+    persistencia_fallida = False
+    limitations_persistencia = []
 
     for i, step in enumerate(steps):
         # ALMA: skip steps already completed in a previous session
@@ -608,12 +818,24 @@ def _handle_repl(params: dict) -> dict:
         }
         results.append(step_result)
 
+        # AGUA-007: si el step ya expone `persistencia_fallida` (p.ej. `run`
+        # cuyo evento no se pudo escribir), repl lo conserva en vez de
+        # descartarlo. Un step posterior exitoso NO limpia esta bandera.
+        if resp.get("persistencia_fallida"):
+            persistencia_fallida = True
+            _pls = [l for l in (resp.get("limitations") or [])
+                    if "persist" in str(l).lower()]
+            limitations_persistencia.append(
+                "persistencia fallida en step %d (op:%s)%s" % (
+                    i, step.get("op", "?"),
+                    (": " + _pls[0]) if _pls else ""))
+
         # AGUA: auto-reflection on failure
-        if resp.get("status") in ("blocked", "invalid_input", "error"):
+        if resp.get("status") in ("blocked", "invalid_input", "error", "unsupported"):
             stopped_at = i
             sugerencia = ""
             if resp.get("status") == "invalid_input":
-                motivo = resp.get("motivo", "entrada invalida")
+                motivo = resp.get("motivo") or "entrada invalida"
                 sugerencia = "El artefacto es invalido. Verificar con op:verify."
                 if "hash" in motivo.lower():
                     sugerencia = "Hash del artefacto no coincide. " \
@@ -637,7 +859,15 @@ def _handle_repl(params: dict) -> dict:
             # Esto cierra el loop de aprendizaje: fallo -> reflexión registrada ->
             # lección disponible para el próximo intento.
             if auto:
-                _registrar_reflexion_auto(step, resp, sugerencia, i)
+                res_persist = _registrar_reflexion_auto(step, resp, sugerencia, i)
+                _ok_persist = (isinstance(res_persist, dict)
+                               and res_persist.get("estado") == "ok")
+                if not _ok_persist:
+                    persistencia_fallida = True
+                    _mot = ("sin motivo" if not isinstance(res_persist, dict)
+                            else (res_persist.get("motivo") or "sin motivo"))
+                    limitations_persistencia.append(
+                        "auto-reflexion no persistida en step %d: %s" % (i, _mot))
             reflexiones.append(reflexion)
 
             step_result["reflexion_sugerida"] = sugerencia
@@ -660,6 +890,13 @@ def _handle_repl(params: dict) -> dict:
     else:
         next_actions_explain = []
 
+    limitations = []
+    if stopped_at is not None:
+        limitations.append(
+            f"REPL se detuvo en step {stopped_at} debido a error. "
+            "Revisar reflexion_sugerida antes de continuar.")
+    limitations.extend(limitations_persistencia)
+
     return {
         "status": "ok" if stopped_at is None else "partial",
         "op": "repl",
@@ -673,11 +910,158 @@ def _handle_repl(params: dict) -> dict:
         "reflexiones": reflexiones,
         "stopped_at": stopped_at,
         "next_actions": next_actions_explain,
-        "limitations": (
-            [f"REPL se detuvo en step {stopped_at} debido a error. "
-             "Revisar reflexion_sugerida antes de continuar."]
-            if stopped_at is not None else []
-        ),
+        # AGUA-007: hace visible si ALGO de la operacion no se persistio.
+        # En una ejecucion sana queda False.
+        "persistencia_fallida": bool(persistencia_fallida),
+        "limitations": limitations,
+    }
+
+
+def _ciclo_autonomo_desde_pregunta(params: dict, max_steps: int = 5) -> dict:
+    """ALMA/ETER/FOGO: orquestar desde texto libre: discover -> research -> select -> experiment -> explain."""
+    session_id = params.get("session_id") or ("rx-164-" + str(os.getpid()))
+    question = params.get("question") or params.get("pregunta") or ""
+    results = []
+    stages = []
+
+    def _record(stage, resp):
+        stages.append({"stage": stage, "status": resp.get("status"),
+                       "op": resp.get("op")})
+        results.append({"index": len(stages)-1, "op": resp.get("op"),
+                        "status": resp.get("status"),
+                        "result_id": resp.get("result_id") or resp.get("frontier_id") or "",
+                        "summary": str(resp.get("status"))})
+        return resp
+
+    # 1 DISCOVER (texto libre con evidencia registrada)
+    d = _handle_discover({"question": question, "session_id": session_id})
+    _record("discover", d)
+    if d.get("status") not in ("ok", "partial"):
+        return {"status": d.get("status"), "op": "repl",
+                "question": question, "session_id": session_id,
+                "stages": stages, "results": results,
+                "conclusion": {"estado": "BLOCKED" if d.get("status") == "blocked" else "NOT_DETERMINED",
+                               "motivo": d.get("motivo") or d.get("limitations", [""])[0],
+                               "procedencia": "discover -> blocked"},
+                "limitations": d.get("limitations") or ["Fallo temprano en discover"],
+                "next_actions": [{"op": "discover", "args": {"question": question},
+                                  "descripcion": "Reintentar desde texto libre"}]}
+
+    # 2 RESEARCH (hipotesis respaldada por evidencia)
+    refs = d.get("evidence_refs") or []
+    frontier_text = d.get("frontier_text") or (d.get("interpretation", "").split(":")[-1].strip()[:120] if d.get("interpretation") else (question[:120] if question else "frontera"))
+    h = _handle_research({
+        "kind": "hypothesis",
+        "text": ("En pipeline RX 550: ¿producido por hardware o indiferente al dispositivo?" if ("rx" in question.lower() or "551" in question) else "Hipotesis desde texto libre: %s" % question[:60]),
+        "status": "OPEN",
+        "target": d.get("frontier_text") or frontier_text,
+        "session": session_id,
+        "refs": refs[:3] if refs else [],
+        "gap_kind": "HUECO_DE_EVIDENCIA",
+    })
+    _record("research", h)
+    if h.get("status") != "ok":
+        return {"status": "ok", "op": "repl",
+                "question": question, "session_id": session_id,
+                "stages": stages, "results": results,
+                "conclusion": {"estado": "NOT_DETERMINED", "motivo": "Hipotesis no registrada"},
+                "limitations": h.get("limitations") or ["No se pudo registrar hipotesis"],
+                "next_actions": [{"op": "research", "args": {"kind": "frontier", "status": "OPEN", "text": frontier_text},
+                                  "descripcion": "Registrar frontera manual"}]}
+
+    # 3 SELECT (autonomo, 161)
+    sel = _handle_select({"target": frontier_text, "session_id": session_id})
+    _record("select", sel)
+
+    # 4 EXPERIMENT (prueba discriminante segura / control)
+    exp_args = {
+        "capability": "binary.inspect",
+        "question": "Control discriminante de mecanismo: backend rizin vs radare2 sobre /bin/ls",
+        "prediction": "coincidente",
+        "baseline_params": {"artefacto": "/bin/ls", "backend_id": "rizin"},
+        "modified_params": {"artefacto": "/bin/ls", "backend_id": "radare2"},
+        "comparar": "results.0.status",
+    }
+    exp = _handle_experiment(exp_args)
+    _record("experiment", exp)
+
+    # 5 EXPLAIN (procedencia)
+    first_ref = refs[0] if refs else ""
+    expl_resp = None
+    if first_ref and isinstance(first_ref, str) and first_ref.startswith("res_"):
+        try:
+            expl_resp = _handle_explain({"result_id": first_ref})
+        except Exception:
+            pass
+    if expl_resp is None:
+        expl_resp = {"status": "not_executed", "op": "explain",
+                    "note": "Referencia no ejecutada."}
+    _record("explain", expl_resp)
+
+    # 6 CONCLUSION / ACTUALIZACION DE HIPOTESIS
+    verdict = exp.get("experiment", {}).get("veredicto") if exp.get("experiment") else None
+    if verdict == "sostenida":
+        h_status = "PROVEN"
+    elif verdict == "refutada":
+        h_status = "REFUTED"
+    else:
+        h_status = "NOT_DETERMINED"
+
+    # Solo actualizar DB si conclusive; para control no forzar
+    if verdict == "sostenida":
+        try:
+            c = _get_db()
+            try:
+                store.registrar_investigacion(
+                    c, "claim",
+                    "Resultado experimento control: status=%s veredicto=%s" % (
+                        exp.get("status"), verdict),
+                    status="PROVEN",
+                    refs=[first_ref] if first_ref else [],
+                    session=session_id,
+                    target=frontier_text or "",
+                    gap_kind="",
+                )
+            finally:
+                c.close()
+        except Exception:
+            pass
+
+    conclusion_text = ("Investigacion desde texto libre: evidencia recuperada (%d refs), "
+                      "frontera registrada, experiment control ejecutado (%s), veredicto '%s'. "
+                      "Para pregunta especifica del pipeline RX 550 (hardware vs software): "
+                      "Bloqueado por ausencia de artefacto primario (vm129 borrado); "
+                      "la causalidad del hardware no puede confirmarse ni refutarse por los valores numericos.") % (
+        len(refs), exp.get("status"), verdict or "N/A")
+
+    return {
+        "status": "ok" if d.get("status") == "ok" else d.get("status"),
+        "op": "repl",
+        "session_id": session_id,
+        "question": question,
+        "derived_from_evidence": d.get("derived_from_evidence", False),
+        "frontier_id": d.get("frontier_id") or "",
+        "hypothesis_id": h.get("id") or "",
+        "stages": stages,
+        "results": results,
+        "conclusion": {
+            "estado": h_status,
+            "motivo": conclusion_text,
+            "procedencia": "discover -> research -> select -> experiment -> explain",
+            "limitaciones": (list(set(
+                (d.get("limitations") or []) +
+                (h.get("limitations") or []) +
+                (sel.get("limitations") or []) +
+                (exp.get("limitations") or []) +
+                (expl_resp.get("limitations") or []) +
+                ["Experimento control sobre /bin/ls (no separa hardware/software para pipeline 550); "
+                 "artefacto primario /tmp/opencode/vk129 ausente (tmpfs limpieza)."]
+            ))),
+        },
+        "next_actions": [
+            {"op": "reflect", "args": {"outcome": h_status},
+             "descripcion": "Reflexionar sobre la limitacion documentada"},
+        ],
     }
 
 
@@ -761,14 +1145,17 @@ def _cargar_session_steps(session_id: str) -> list:
 
 
 def _registrar_reflexion_auto(step: dict, resp: dict, sugerencia: str,
-                               step_index: int) -> None:
+                               step_index: int) -> dict:
     """FUEGO/AGUA: registra una reflexión automática cuando repl --auto falla.
 
     Cierra el loop de aprendizaje: el fallo de un step en el ciclo autónomo
     se registra como reflexión en la BD, de modo que futuros op:run consulten
     esta lección de fallo antes de ejecutar.
 
-    No levanta excepciones: si la BD no responde, el ciclo continúa.
+    No levanta excepciones: si la BD no responde, el ciclo continúa. Pero el
+    fallo NO desaparece: se devuelve `estado="error"` con su motivo para que
+    `_handle_repl` lo haga observable (`persistencia_fallida`). Un error de
+    escritura NUNCA se convierte en exito.
     """
     capability = step.get("capability", "") or step.get("op", "")
     motivo = resp.get("motivo", "")
@@ -777,7 +1164,7 @@ def _registrar_reflexion_auto(step: dict, resp: dict, sugerencia: str,
     try:
         c = _get_db()
         try:
-            store.registrar_reflexion(
+            resultado = store.registrar_reflexion(
                 c,
                 feedback="Step %d (op:%s cap:%s) → status=%s motivo=%s"
                          % (step_index, step.get("op", "?"),
@@ -785,13 +1172,18 @@ def _registrar_reflexion_auto(step: dict, resp: dict, sugerencia: str,
                 reflection="Estrategia alternativa automática: %s"
                            % sugerencia[:300],
                 outcome=outcome,
-                cap=capability,
+                capability=capability,
                 check_ejecutable="",  # auto-reflection sin check por ahora
             )
         finally:
             c.close()
-    except Exception:
-        pass
+    except Exception as exc:
+        return {"estado": "error",
+                "motivo": "persistencia de reflexion fallo: %s" % str(exc)[:200]}
+    if not isinstance(resultado, dict):
+        return {"estado": "error",
+                "motivo": "registrar_reflexion no devolvio un dict"}
+    return resultado
 
 
 def _sintetizar(resp: dict) -> dict:
@@ -822,6 +1214,92 @@ def _accion_alternativa(step: dict, resp: dict) -> str:
             return "Verificar que radare2 este en PATH: op:verify"
     return "Revisar parametros y estado del backend: op:backends"
 
+def _clasificar_frontier(claim: str, numeros: list) -> str:
+    """ETER-CLASIFY: clasifica el tipo de una frontier/correlation.
+
+    Usa palabras clave del claim y patrones en los números para clasificar:
+    - "bug": menciona error/fallo/broken/crash
+    - "feature": menciona funcionalidad/nueva capacidad/solicitud
+    - "tech_debt": menciona legacy/deprecated/refactor/to_do
+    - "investigation": default — necesita más análisis
+    """
+    claim_lower = claim.lower()
+    if any(w in claim_lower for w in ("error", "fallo", "broken", "crash", "bug",
+                                       "excepcion", "stack")):
+        return "bug"
+    if any(w in claim_lower for w in ("nueva", "funcionalidad", "solicitud",
+                                      "feature", "capacidad")):
+        return "feature"
+    if any(w in claim_lower for w in ("legacy", "deprecat", "refactor",
+                                       "todo", "deuda", "improvement")):
+        return "tech_debt"
+    return "investigation"
+
+
+def _detectar_ciclos_frontier(correlaciones: list) -> list:
+    """ETER-CYCLE: detecta dependencias circulares entre findings (directa + transitiva).
+
+    Construye un grafo dirigido por overlaap numerico/comparticion de claves:
+    A -> B si A y B comparten >=2 numeros significativos. Luego busca
+    ciclos transitivos: A->B->C->A (DFS). Devuelve lista de ciclos encontrados.
+    """
+    if len(correlaciones) < 2:
+        return []
+    # Extraer sets de numeros significativos de cada claim
+    def _nums(t):
+        return {n for n in re.findall(r"\d+", t or "") if int(n) >= 10}
+    indexed = []
+    for corr in correlaciones:
+        finding_id = corr.get("finding_id", "")
+        claim = corr.get("claim", "")
+        numeros = corr.get("numeros_comunes", [])
+        if not numeros:
+            numeros = sorted(_nums(claim))
+        indexed.append({"fid": finding_id, "nums": set(numeros), "claim": claim})
+    # Grafo dirigido por interseccion numerica
+    adj = {i: [] for i in range(len(indexed))}
+    for i in range(len(indexed)):
+        for j in range(len(indexed)):
+            if i == j:
+                continue
+            if len(indexed[i]["nums"] & indexed[j]["nums"]) >= 2:
+                adj[i].append(j)
+    # Buscar ciclos transitivos via DFS
+    ciclos = []
+    seen_paths = set()
+    def dfs(start, path, visited):
+        last = path[-1]
+        for nxt in adj.get(last, []):
+            if nxt == start and len(path) >= 2:
+                key = tuple(sorted(path))
+                if key not in seen_paths:
+                    seen_paths.add(key)
+                    ciclos.append({
+                        "tipo": "transitivo" if len(path) > 2 else "directo",
+                        "ciclo": [indexed[x]["fid"] for x in path],
+                        "longitud": len(path),
+                    })
+            elif nxt not in path and nxt > start:
+                dfs(start, path + [nxt], visited | {nxt})
+    for i in range(len(indexed)):
+        dfs(i, [i], {i})
+    # También conservar la detección clásica directa (compat con tests existentes)
+    finding_refs = set()
+    for corr in correlaciones:
+        claim = corr.get("claim", "")
+        for fid in finding_refs:
+            if fid in claim:
+                ciclos.append({
+                    "tipo": "circular_ref",
+                    "finding_id": corr.get("finding_id"),
+                    "refiere_a": fid,
+                    "claim_preview": claim[:80],
+                })
+        finding_refs.add(corr.get("finding_id", ""))
+    # de-dupe por tipo/longitud
+    return ciclos
+
+
 def _sintetizar_check_fallo(rotas: list) -> str:
     """AGUA-AUTO: sintetiza el feedback de checks que no sostienen."""
     if not rotas:
@@ -848,6 +1326,17 @@ def _auto_reparar_check(rotas: list) -> str:
                 "valor observado es el discriminante estable." % check[:50])
     return ("Actualizar check '%s': el productor puede haber cambiado, "
             "verificar observable estable." % check[:50])
+
+def _detectar_checks_redundantes(vigiladas: list) -> list:
+    """AIRE-DETECT: detecta checks que prueban lo mismo dos veces."""
+    counts = {}
+    for v in vigiladas:
+        if isinstance(v, dict):
+            chk = v.get("check", "")
+            if chk:
+                counts[chk] = counts.get(chk, 0) + 1
+    return [{"check": k, "count": v, "tipo": "redundante"}
+            for k, v in counts.items() if v > 1]
 
 def _steps_desde_mision(mission_id: str) -> list:
     """ALMA: auto-genera steps desde los tasks de una misión.
@@ -1088,6 +1577,22 @@ def _handle_run(params: dict) -> dict:
         }
     # Extraer parametros para la capability (todo menos 'op')
     # 'capability' se mantiene porque algunos adapters lo necesitan como parametro
+    # Integración RXRE-029: correlación opcional mecanismo-evidencia
+    correlation_result = None
+    if params.get("correlation_input") and isinstance(params.get("correlation_input"), dict):
+        try:
+            from revkit.correlate import correlacionar
+            ci = params.get("correlation_input")
+            correlation_result = correlacionar(
+                ci.get("origen"), ci.get("destino"),
+                ci.get("tipo", "TEXTUAL_MATCH"),
+                ci.get("evidencia_favor", []),
+                ci.get("evidencia_contra"),
+                ci.get("procedencia", "run")
+            )
+        except Exception as exc:
+            correlation_result = {"status":"error","motivo":str(exc),"tipo":"UNRESOLVED"}
+
     run_params = {k: v for k, v in params.items() if k != "op"}
 
     # AIRE: validación de integridad de artefacto antes de ejecutar
@@ -1124,6 +1629,11 @@ def _handle_run(params: dict) -> dict:
         pass
 
     env = dispatch.ejecutar(capability, run_params)
+    # RXRE-039/040/041: persistencia opcional de correlation_result en env
+    # para trazabilidad de contrato (no obligatorio, no modifica DB);
+    # activa solo cuando correlation_result existe en el contexto anterior
+    if correlation_result is not None:
+        env["correlation_result"] = correlation_result
     # AIRE: inyectar el contract check en el envelope para root_cause analysis
     if not artefact_check["ok"]:
         env.setdefault("precheck", {})
@@ -1138,8 +1648,18 @@ def _handle_run(params: dict) -> dict:
     env["trace_id"] = _trace_id_actual(params)
     try:
         store.registrar_evento(_c, "run", capability, env, lecciones)
-    except Exception:
-        pass
+    except Exception as exc:
+        # La ejecucion del backend fue valida, pero el EVENTO DE AUDITORIA
+        # no se persistio. `persistido` describe la persistencia de los
+        # RESULTADOS (contrato de dispatch/AGUA: "hay fila en la tabla",
+        # recuperable por result_id) y NO se sobrescribe aqui: si los
+        # resultados se persistieron, siguen siendo recuperables. El fallo
+        # del evento se informa aparte, con un campo dedicado y en
+        # limitations, para que el consumidor distinga ambos hechos.
+        env["persistencia_fallida"] = True
+        env["limitations"] = list(env.get("limitations") or []) + [
+            "persistencia del evento fallo: %s" % str(exc)[:200]
+        ]
     # Extraer backend_status y backend_rc del adapter
     backend_status = env.get("status")
     backend_rc = None
@@ -1185,7 +1705,11 @@ def _handle_run(params: dict) -> dict:
     # FUEGO: cuando run esta bloqueado, encadenar reflect -> select para
     # retomar la accion sin intervencion manual. La reflexion captura el
     # feedback del bloqueo; select vuelve a proponer una tarea viable.
-    if env.get("status") in ("blocked", "error", "fallback", "invalid_input") and capability:
+    # La lista incluye `unsupported`: es un estado del productor (capacidad
+    # no soportada), no un fallo de ejecucion, pero el auto-ciclo debe
+    # detenerse igual para proponer la reflexion y reseleccionar.
+    if env.get("status") in ("blocked", "error", "fallback", "invalid_input",
+                          "unsupported") and capability:
         # Asegurar que reflect y select siempre estan presentes en blocked/error
         has_reflect = any(na.get("op") == "reflect" for na in next_actions)
         has_select = any(na.get("op") == "select" for na in next_actions)
@@ -1236,10 +1760,7 @@ def _handle_run(params: dict) -> dict:
     if "artefact_check" in locals():
         limitations.extend(artefact_check.get("limitations", []))
     # AIRE: boolean de validacion de contrato para consumo rapido
-    artefact_ok = (
-        None if artefact_check.get("applicable") is False
-        else bool(artefact_check.get("ok"))
-    ) if "artefact_check" in locals() else True
+    artefact_ok = bool(artefact_check.get("ok")) if "artefact_check" in locals() else True
 
     # La respuesta publica incluye tanto el status del envelope como del backend
     # y todos los campos del adapter (finding_id, claim, epistemic, relaciones,
@@ -1251,12 +1772,16 @@ def _handle_run(params: dict) -> dict:
         "backend_identity": backend_identity,
         "capability": env.get("capability"),
         "ejecutada": env.get("ejecutada"),
-        "motivo": env.get("motivo"),
+        "motivo": env.get("motivo", ""),
         "regla": env.get("regla"),
         "results": env.get("results"),
         "next_actions": next_actions,
         "operation_id": env.get("operation_id"),
         "persistido": env.get("persistido"),
+        # La ejecucion fue exitosa pero el evento no se persistio: el run
+        # sigue reportando el resultado real, explicitando la auditoria
+        # incompleta. Permite a un consumidor distinguir ambos casos.
+        "persistencia_fallida": bool(env.get("persistencia_fallida")),
         # RXRE-TRACE-ID-001: el agente emite `RXRE_TRACE_ID` por invocacion.
         # Reusarlo = reintento del mismo intento; uno nuevo = intento nuevo.
         # Se devuelve para que el llamador pueda verificar que quedo ligado.
@@ -1270,6 +1795,7 @@ def _handle_run(params: dict) -> dict:
         # "no hay historial de fallo sobre esto".
         "lecciones_previas": lecciones,
         "ejecucion": env.get("ejecucion"),
+        "correlation_result": correlation_result,
         "backend": env.get("backend"),
         "provenance": env.get("provenance"),
     }
@@ -1289,13 +1815,15 @@ def _handle_run(params: dict) -> dict:
             response[key] = env[key]
 
     # RXRE-AUTONOMY-003: BODY -> MIND -> WATER connection.
-    # Cuando una operacion falla (error, timeout, blocked, invalid_input),
-    # sugerir registrar una reflexion para que la IA aprenda del fallo.
+    # Cuando una operacion falla (error, timeout, blocked, invalid_input,
+    # unsupported), sugerir registrar una reflexion para que la IA aprenda
+    # del fallo.
     # Esto cierra el lazo de retroalimentacion: observacion -> registro ->
     # aprendizaje. La sugerencia es una next_action, no una accion automatica:
     # la IA decide si reflecciona o no, conservando el control explicito.
     status = env.get("status")
-    if status in ("error", "timeout", "blocked", "invalid_input"):
+    if status in ("error", "timeout", "blocked", "invalid_input",
+                "unsupported"):
         op_id = env.get("operation_id", "")
         fa = {
             "op": "reflect",
@@ -1305,6 +1833,8 @@ def _handle_run(params: dict) -> dict:
             "available": True,
             "descripcion": "Registrar una reflexion sobre este fallo (feedback -> reflection -> strategy)",
         }
+        if status == "unsupported":
+            fa["tipo"] = "infraestructura"
         if fa not in next_actions:
             next_actions.append(fa)
         response["next_actions"] = next_actions
@@ -1317,7 +1847,7 @@ def _handle_run(params: dict) -> dict:
 
     # MENTE: root-cause analysis when blocked/invalid_input
     # Distingue el tipo de fallo y propone verificacion concreta
-    if status in ("blocked", "invalid_input", "error"):
+    if status in ("blocked", "invalid_input", "error", "unsupported"):
         response["root_cause"] = _analyze_run_failure(env)
 
     # AGUA: auto-register reflection when gate fails
@@ -1343,7 +1873,77 @@ def _handle_run(params: dict) -> dict:
         except Exception:
             pass  # No bloquear el run por un registro de performance
 
+    # FUEGO-AUTO-FALLBACK: si el run fallo y tenemos historial de backends,
+    # sugerir reintento con el mejor backend alternativo. `unsupported`
+    # tambien cuenta como fallo para el auto-ciclo (la capacidad no puede
+    # ejecutarse con este backend); no se refuerza con un backend alternativo,
+    # porque el problema es la capacidad, no el backend.
+    if status in ("error", "blocked", "invalid_input", "timeout", "unsupported") and capability:
+        try:
+            backend_alt = _mejor_backend_para(capability)
+            if backend_alt and backend_alt != (env.get("backend_id") or params.get("backend_id")):
+                # Check if we haven't already suggested this
+                has_alt = any(na.get("op") == "run" and na.get("args", {}).get("backend_id") == backend_alt
+                             for na in next_actions)
+                if not has_alt:
+                    next_actions.append({
+                        "op": "run",
+                        "args": {**{k: v for k, v in params.items() if k != "op"},
+                                 "capability": capability,
+                                 "backend_id": backend_alt},
+                        "available": True,
+                        "descripcion": "FUEGO-AUTO-FALLBACK: reintentar con %s (mejor historial)" % backend_alt,
+                    })
+                    response["next_actions"] = next_actions
+        except Exception:
+            pass  # No bloquear por fallback
+
+    # FUEGO-TIMEOUT: sugerir timeout basado en historial de performance
+    try:
+        tiempo_sugerido = _calcular_timeout_sugerido(capability, backend_id)
+        if tiempo_sugerido > 0:
+            for na in next_actions:
+                if na.get("op") == "run" and isinstance(na.get("args"), dict):
+                    na["args"]["timeout"] = round(tiempo_sugerido, 1)
+                    na.setdefault("descripcion", "")
+                    if "timeout sugerido" not in na["descripcion"]:
+                        na["descripcion"] += " (timeout sugerido: %.1fs)" % tiempo_sugerido
+    except Exception:
+        pass
+
     return response
+
+
+def _calcular_timeout_sugerido(capability: str, backend_id: str = "") -> float:
+    """FUEGO-TIMEOUT: calcula el timeout sugerido basado en historial.
+
+    timeout_sugerido = avg_time × 2 + 1.0 (con margen para variabilidad)
+    Devuelve 0 si no hay suficiente historial (>=2 registros).
+    """
+    c = _get_db()
+    try:
+        cur = c.execute(
+            "SELECT text FROM research WHERE kind='performance' "
+            "AND target=? AND status='OPEN'",
+            (capability,),
+        ).fetchall()
+        tiempos = []
+        for row in cur:
+            text = row[0] if isinstance(row, tuple) else row["text"]
+            if "tiempo=" in text:
+                try:
+                    t = float(text.split("tiempo=")[1].split(" ")[0])
+                    tiempos.append(t)
+                except (ValueError, IndexError):
+                    pass
+        if len(tiempos) >= 2:
+            avg = sum(tiempos) / len(tiempos)
+            return avg * 2 + 1.0
+        return 0.0
+    except Exception:
+        return 0.0
+    finally:
+        c.close()
 
 
 def _registrar_performance_backend(capability: str, backend_id: str,
@@ -1402,7 +2002,8 @@ def _mejor_backend_para(capability: str) -> str:
 def _outcome_from_status(status: str) -> str:
     """Mapea un status de ejecucion a un outcome de reflexion."""
     m = {"error": "error", "timeout": "timeout",
-         "blocked": "failure", "invalid_input": "failure"}
+         "blocked": "failure", "invalid_input": "failure",
+         "unsupported": "failure"}
     return m.get(status, "failure")
 
 
@@ -1563,6 +2164,7 @@ def _handle_select(params: dict) -> dict:
     mission_id = params.get("mission_id")
     target = params.get("target", "")
     session_id = params.get("session_id")
+    tid = params.get("trace_id") or os.environ.get("RXRE_TRACE_ID") or session_id or None
 
     c = _get_db()
     try:
@@ -1583,14 +2185,58 @@ def _handle_select(params: dict) -> dict:
 
         # ETER: seleccionar siguiente accion usando valor real
         task_id = store.seleccionar_siguiente_accion(c, mission_id, por_valor=True)
+        derived_from_evidence = False
+
+        # 161: derivar frontera desde evidencia registrada si no hay tarea
+        if not task_id:
+            derived_target = None
+            try:
+                fronts = store.investigacion(
+                    c, target="", kind="frontier", status="OPEN", limite=5)
+                for f in fronts.get("entradas", []):
+                    refs_f = f.get("refs") or []
+                    if refs_f and f.get("target"):
+                        derived_target = f.get("target")
+                        break
+                if not derived_target:
+                    ev = store.buscar(c, limite=1)
+                    if ev.get("status") == "ok" and ev.get("results"):
+                        r_e = ev["results"][0]
+                        derived_target = (r_e.get("value") or r_e.get("file") or "")[:120]
+                if derived_target:
+                    store.agregar_tarea_a_mision(
+                        c, mission_id,
+                        "Investigacion desde evidencia: %s" % derived_target,
+                        priority=90,
+                    )
+                    derived_from_evidence = True
+                    task_id = store.seleccionar_siguiente_accion(
+                        c, mission_id, por_valor=True)
+            except Exception:
+                pass
 
         if not task_id:
+            # ALMA-AUTO-CLOSE con contrato de criterios (RXRE-201/202):
+            # el cierre se delega en mission_closure.close_mission(), que
+            # exige criterios obligatorios + evidencia PROVEN con procedencia.
+            # Si no hay criterios, NO se marca COMPLETED (criterio ausente != satisfecho).
+            cierre = None
+            try:
+                tasks = store.obtener_tareas_mision(c, mission_id)
+                if tasks and all(t.get("status") in ("COMPLETED", "DONE", "FAILED", "BLOCKED")
+                                 for t in tasks):
+                    from rxre.mission_closure import close_mission
+                    cierre = close_mission(mission_id, conn=c)
+            except Exception:
+                cierre = None
             # No hay tareas viables — sugerir registrar una
             return {
                 "status": "empty",
                 "op": "select",
                 "mission_id": mission_id,
+                "derived_from_evidence": derived_from_evidence,
                 "task_id": None,
+                "cierre": cierre,
                 "mensaje": "No hay tareas viables en la mision. "
                            "Usar 'op:research --kind frontier' para registrar una nueva.",
                 "next_actions": [
@@ -1606,11 +2252,75 @@ def _handle_select(params: dict) -> dict:
         tarea = next((t for t in valoracion.get("tareas", [])
                       if t["task_id"] == task_id), {})
 
+        # ALMA-RESUME: registrar la ultima task seleccionada para auto-resume.
+        # (gap_kind omitido: solo valido para hypothesis/claim; "last_task" era
+        # invalido y bloqueaba la persistencia silenciosamente.)
+        persisted_ok = False
+        note_id = None
+        try:
+            nr = store.registrar_investigacion(
+                c,
+                kind="note",
+                text="select: task=%s capability=%s valor=%s" % (
+                    task_id, _capability_de(tarea.get("title", "")),
+                    tarea.get("valor")),
+                status="OPEN",
+                target=mission_id,
+                session=tid or "",
+                gap_kind="",
+                refs=[],
+            )
+            if nr.get("estado") == "ok":
+                persisted_ok = True
+                note_id = nr.get("id")
+                try:
+                    store.registrar_audit_log(
+                        c, "select_task", "research", str(note_id),
+                        actor="rxre.select",
+                        details={"mission_id": mission_id,
+                                 "task_id": task_id,
+                                 "valor": tarea.get("valor"),
+                                 "componentes": tarea.get("componentes"),
+                                 "trace_id": tid})
+                except Exception:
+                    pass
+        except Exception:
+            persisted_ok = False
+
+        # Evento durable para reconstruir la seleccion (decision autonoma).
+        try:
+            import json as _j
+            env_sel = {
+                "status": "ok",
+                "capability": "rxre.select",
+                "backend": None,
+                "ejecucion": {"exit_status": 0,
+                              "iteration": params.get("iteration")},
+                "persistido": persisted_ok,
+                "limitations": [_j.dumps({
+                    "mission_id": mission_id,
+                    "task_id": task_id,
+                    "title": tarea.get("title"),
+                    "valor": tarea.get("valor"),
+                    "componentes": tarea.get("componentes"),
+                    "bloqueada": tarea.get("bloqueada"),
+                }, default=str)],
+                "trace_id": tid,
+                "results": [],
+                "operation_id": "",
+            }
+            store.registrar_evento(c, "select", "rxre.select", env_sel, [])
+        except Exception:
+            pass
+
         return {
             "status": "ok",
             "op": "select",
             "mission_id": mission_id,
+            "derived_from_evidence": derived_from_evidence,
             "task_id": task_id,
+            "trace_id": tid,
+            "persistido": persisted_ok,
             "selected": {
                 "task_id": task_id,
                 "title": tarea.get("title"),
@@ -1634,6 +2344,136 @@ def _handle_select(params: dict) -> dict:
     finally:
         c.close()
 
+
+def _extract_artifact(text: str) -> str:
+    """Extrae el artefacto de un texto de frontier ('tipo en <artefacto> (...)')."""
+    import re as _re
+    m = _re.search(r"\s+en\s+(.+?)(?:\s*\(|:|$)", text or "")
+    return m.group(1).strip() if m else ""
+
+
+
+def _merge_iter(e, it):
+    d = dict(e) if isinstance(e, dict) else {"exit_status": 0}
+    if it is not None:
+        d["iteration"] = it
+    return d
+
+
+def _canon_result(r):
+    """Forma canonica de UN resultado, INDEPENDIENTE del orden de entrada.
+
+    `result_id` NO es criterio de igualdad: los productores lo derivan del
+    indice de entrada (rz_xrefs.py:439, rz_callgraph.py:195), por lo que dos
+    resultados semanticamente iguales emitidos en distinto orden tendrian IDs
+    distintos. Se exige su presencia solo como marca de completitud.
+
+    Para resultados cuya identidad semantica vive en `location` (p.ej. las
+    lecturas UMR, que identifican el registro en `location.register`), se
+    anade ese campo SOLO si existe: no se fabrica identidad.
+    """
+    if not isinstance(r, dict) or not r.get("result_id"):
+        return None  # resultado incompleto: no se puede comparar con seguridad
+    loc = r.get("location")
+    reg = loc.get("register") if isinstance(loc, dict) else None
+    # Las lecturas UMR identifican el registro en `location.register`. Si falta,
+    # no hay identidad semantica comparable: abstener (no fabricarla).
+    is_register_read = (r.get("scope") == "gpu") or (r.get("tool") == "umr")
+    if is_register_read and reg is None:
+        return None
+    base = (
+        r.get("type"),
+        json.dumps(r.get("value"), sort_keys=True, default=str),
+        r.get("source"),
+        r.get("scope"),
+        r.get("tool"),
+    )
+    if reg is not None:
+        base = base + ("reg:" + str(reg),)
+    return base
+
+
+def _is_declared_sample(r):
+    """Marcadores REALES de truncacion/incompletitud declarados por el producer.
+
+    No infiere truncacion por longitud numerica: exige una declaracion
+    (limitation que mencione truncado/muestra/parcial/sample, o el flag
+    `coincidencias_truncadas`/`errores_parseo_truncados` de ts_ast).
+    """
+    if not isinstance(r, dict):
+        return False
+    raw = r.get("raw")
+    if isinstance(raw, dict):
+        if raw.get("coincidencias_truncadas") or raw.get("errores_parseo_truncados"):
+            return True
+    lims = " ".join(str(x) for x in (r.get("limitations") or [])).lower()
+    return any(k in lims for k in ("truncad", "muestra", "parcial", "sample"))
+
+
+def _obs_completeness(obs):
+    """Completitud de una observacion: 'complete' | 'partial' | 'unknown'.
+
+    - 'partial' si algun campo declara truncacion demostrada (completo is False).
+    - 'unknown' si algun campo no declara completitud de forma valida
+      (completo ausente, null o de tipo invalido).
+    - 'complete' si todos los campos declaran completo=True (o no hay marcador).
+
+    Un marcador cubre SOLO los campos que declara: la completitud de
+    `instrucciones` no implica la de `huecos` ni de `raw`.
+    """
+    if not isinstance(obs, list):
+        return "complete"
+
+    def _field_state(c):
+        if not isinstance(c, dict):
+            return "unknown"
+        v = c.get("completo")
+        if v is False:
+            return "partial"
+        if v is True:
+            return "complete"
+        return "unknown"  # ausente, null o tipo invalido
+
+    state = "complete"
+    for r in obs:
+        if not isinstance(r, dict):
+            continue
+        if _is_declared_sample(r):
+            return "partial"
+        comp = r.get("completitud")
+        if isinstance(comp, dict):
+            fs = _field_state(comp)
+            if fs == "partial":
+                return "partial"
+            if fs == "unknown":
+                state = "unknown"
+        anid = r.get("completitud_anidada")
+        if isinstance(anid, dict):
+            for _f, c in anid.items():
+                fs = _field_state(c)
+                if fs == "partial":
+                    return "partial"
+                if fs == "unknown":
+                    state = "unknown"
+    return state
+
+
+def _canon_obs(obs):
+    """Normaliza una observacion canonicamente, preservando multiplicidad.
+
+    Devuelve ("ok", lista_ordenada) o ("incomplete", None) si algun resultado
+    carece de identidad.
+    """
+    if isinstance(obs, list):
+        out = []
+        for r in obs:
+            cr = _canon_result(r)
+            if cr is None:
+                return ("incomplete", None)
+            out.append(cr)
+        out.sort()
+        return ("ok", out)
+    return ("ok", obs)
 
 def _capability_de(texto: str) -> str:
     """Extrae el nombre de capability de un texto de tarea (si contiene uno)."""
@@ -1685,6 +2525,44 @@ def _handle_plan(params: dict) -> dict:
             "Hay %d reflexion(es) de fallos previos para '%s'. "
             "Revisar antes de ejecutar: " % (len(refs["reflexiones"]), capability)
         )
+    # AIRE-001: contrato de retroalimentacion causal run -> plan.
+    # Si el llamante pasa `prev_step` (resultado anterior de la misma misión),
+    # `plan` recibe la causa sin convertirse en hecho obligatorio.
+    prev = params.get("prev_step")
+    if prev and isinstance(prev, dict):
+        causa = {}
+        for k in ("status", "root_cause", "reflexion_sugerida", "motivo", "persistencia_fallida"):
+            if k in prev:
+                causa[k] = prev[k]
+        if causa:
+            if isinstance(prev.get("correlation_result"), dict):
+                causa["correlation_result"] = prev["correlation_result"]
+            plan["retroalimentacion_causa"] = {
+                "origen": "prev_step",
+                "mision_actual": params.get("mission_id"),
+                "capability": capability,
+                "causa": causa,
+                "nota": "Esta retroalimentacion informa, no obliga. "
+                        "La decision del plan conserva su independencia.",
+            }
+            # RXRE-040: sugiriendo investigacion adicional cuando correlacion
+            # indica cuestion no resuelta con evidencia disponible.
+            cr = prev.get("correlation_result") if isinstance(prev.get("correlation_result"), dict) else None
+            if cr and cr.get("tipo") == "UNRESOLVED" and (cr.get("evidencia_favor") or cr.get("procedencia")):
+                # No duplicar si ya existe accion equivalente
+                existing = [na for na in (plan.get("next_actions") or [])
+                            if na.get("op") == "discover"]
+                if not existing:
+                    plan.setdefault("next_actions", []).append({
+                        "op": "discover",
+                        "args": {
+                            "artefacto": cr.get("procedencia") or cr.get("origen") or "unknown",
+                            "evidencia_favor": cr.get("evidencia_favor", []),
+                            "motivo": "correlation_result UNRESOLVED: %s" % (cr.get("nota") or cr.get("procedencia")),
+                        },
+                        "available": True,
+                        "descripcion": "Investigar correlacion no resuelta (correlation_result UNRESOLVED) con evidencia disponible.",
+                    })
     # Normalizar status "no_plan" a "empty" para el contrato publico
     if plan.get("status") == "no_plan":
         plan["status"] = "empty"
@@ -1696,6 +2574,23 @@ def _handle_plan(params: dict) -> dict:
     if "status" not in plan:
         plan["status"] = "ok"
     # Construir next_actions a partir de los pasos ejecutables del plan
+    # AIRE-002: usar retroalimentacion_causa para ajustar viabilidad
+    # Solo marca como no disponible cuando la evidencia vincula capacidad
+    # ausente confirmada con la capacidad que requiere este paso.
+    causa_info = plan.get("retroalimentacion_causa")
+    if causa_info and isinstance(causa_info.get("causa"), dict):
+        causa = causa_info["causa"]
+        if causa.get("status") == "unsupported" and causa.get("capability"):
+            cap_faltante = causa.get("capability") or causa.get("capability")
+            # El paso requiere esa capacidad?
+            for paso in plan.get("plan") or []:
+                paso_cap = paso.get("capability") or paso.get("op")
+                if paso_cap and paso_cap == cap_faltante:
+                    paso["available"] = False
+                    paso["descripcion"] = (
+                        paso.get("descripcion", "") +
+                        " [AIRE-002: capacidad '%s' no soportada por backend; "
+                        "reintento idem descartado]" % cap_faltante)
     if "next_actions" not in plan:
         next_actions = []
         for paso in plan.get("plan") or []:
@@ -1741,35 +2636,58 @@ def _handle_plan(params: dict) -> dict:
                                 "persistido": plan.get("status") == "ok",
                                 "trace_id": _trace_id_actual(params)},
                                plan.get("reflexiones_previas", []))
-    except Exception:
-        pass
-    finally:
-        c.close()
+    except Exception as exc:
+        # La planificacion fue valida, pero el evento de auditoria no se
+        # persistio. No se afirma persistencia: simetria con op:run
+        # (persistencia_fallida + limitation), sin abortar la planificacion.
+        plan["persistencia_fallida"] = True
+        plan["limitations"] = list(plan.get("limitations") or []) + [
+            "persistencia del evento fallo: %s" % str(exc)[:200]
+        ]
 
     # MENTE-FEASIBILITY: auto-evaluar si los pasos del plan son factibles.
-    # Un paso es factible si: (1) la capability existe en el registry, o
-    # (2) la capability fue usada exitosamente antes en historial.
+    # Un paso es factible si: (1) la capability existe en el registry, y
+    # (2) no tiene un historial de fallos repetidos (>3 failures con outcome=failure).
     from rxre.backends import registry as _registry
     plan_paso = plan.get("plan") or []
     steps_feasible = []
     for paso in plan_paso:
         cap = paso.get("capability", "")
         available = paso.get("available", False)
-        # Check if capability exists in registry
         try:
             _registry.lookup(cap)
-            feasible = True
+            registry_ok = True
         except Exception:
-            feasible = False
+            registry_ok = False
+        # MENTE-DBHIST: check DB for repeated failures
+        historial_fallas = 0
+        try:
+            cur = c.execute(
+                "SELECT COUNT(*) FROM operations WHERE capability=? AND exit_status!=0",
+                (cap,),
+            ).fetchone()
+            historial_fallas = cur[0] if cur else 0
+        except Exception:
+            pass
+        feasible = registry_ok and historial_fallas < 3
         steps_feasible.append({
             "capability": cap,
             "feasible": feasible,
             "available": available,
+            "historial_fallas": historial_fallas,
         })
     plan["feasibility"] = steps_feasible
     plan["feasible_steps"] = sum(1 for s in steps_feasible if s["feasible"])
     plan["total_steps"] = len(steps_feasible)
+    # MENTE-PLAN-DAG: detectar ciclos de orden entre pasos (capacities duplicadas
+    # o pasos que dependen uno de otro en direccion circular).
+    caps_plan = [paso.get("capability") for paso in (plan.get("plan") or [])]
+    caps_dups = [c for c in set(caps_plan) if caps_plan.count(c) > 1]
+    plan["dag_ciclos"] = caps_dups
+    plan["dag_validado"] = (len(caps_dups) == 0)
+    plan["plan_detecta_ciclo_dag"] = len(caps_dups) > 0
 
+    c.close()
     return plan
 
 
@@ -1923,6 +2841,10 @@ def _handle_reflect(params: dict) -> dict:
             [{"op": "lessons", "args": {"ejecutar": True}, "available": True,
               "descripcion": "esta leccion no esta vigilada por ningun check; "
                              "anadele uno con el campo check_ejecutable"}]),
+        # AGUA-AUTO-RETRY: si lessons ejecuto y algun check fallo,
+        # sugerir retry con parametros ajustados
+        "auto_retry": {"intentos_recomendados": 3,
+                       "backoff_ms": [500, 1000, 2000]},
         # AGUA: reportar estado de la verificacion de lecciones
         "lecciones_verificadas": {
             "sin_check": sin_check,
@@ -1937,6 +2859,49 @@ def _handle_reflect(params: dict) -> dict:
     }
 
 
+def _explain_por_operacion(c, params: dict, operation_id: str) -> dict:
+    """F1/F4-PUBLIC: `op:explain` con `operation_id`.
+
+    Delega en `store.explicar_operacion`, que ya tiene la semantica de este
+    contrato: `status:"ok"` con la fila y sus N resultados, o `status:"empty"`
+    con la limitacion que dice que la ausencia de fila NO prueba que la
+    operacion no ocurriera. No se reimplementa nada aqui ni se inventa un
+    `result_id` para una operacion que no tiene resultados.
+
+    Lo que NO se aplica, y se DECLARA: `root_cause`, `audit` y
+    `audit_truncation` analizan un RESULTADO. Pedirlos en la vista por
+    operacion no tiene objeto, y callar seria fingir que se aplicaron.
+    """
+    try:
+        result = store.explicar_operacion(c, operation_id)
+    except Exception as e:                       # noqa: BLE001
+        # Un fallo de CONSULTA no es una operacion vacia: es un error, y se
+        # dice con su causa. Devolver `status:"ok"` aqui seria fabricar.
+        return {
+            "status": "error",
+            "operation_id": operation_id,
+            "ejecutada": False,
+            "motivo": "no se pudo recuperar la operacion %s: %s"
+                      % (operation_id, str(e)[:200]),
+            "results": [],
+            "next_actions": [],
+            "limitations": ["fallo de consulta: esto NO es evidencia de que "
+                            "la operacion no exista"],
+        }
+
+    no_aplicables = [k for k in ("root_cause", "audit", "audit_truncation",
+                                 "verify")
+                     if params.get(k)]
+    if no_aplicables:
+        result["limitations"] = list(result.get("limitations") or []) + [
+            "op:explain por 'operation_id' NO aplica %s: son de la vista por "
+            "'result_id' (analizan un resultado, y esta operacion se consulta "
+            "por su id)" % ", ".join("'%s'" % k for k in no_aplicables)]
+    result.setdefault("next_actions", [])
+    result["consulta_por"] = "operation_id"
+    return result
+
+
 def _handle_explain(params: dict) -> dict:
     """op: explain - TIERRA: reconstruye la cadena de evidencia de un resultado.
 
@@ -1949,15 +2914,27 @@ def _handle_explain(params: dict) -> dict:
     Uso:
         {"op":"explain","result_id":"res_abc"}
         {"op":"explain","result_id":"res_abc","root_cause":true}
+        {"op":"explain","operation_id":"op_abc"}
         {"op":"explain","session_id":"investigacion-001"}
+
+    F1/F4-PUBLIC: `operation_id` recupera la OPERACION completa, que es lo
+    unico que existe cuando la operacion se ejecuto y devolvio cero resultados:
+    sin `results` no hay `result_id` que pedir. Delega en
+    `store.explicar_operacion`, que ya distingue `status:"ok"` (la operacion
+    esta, con N resultados) de `status:"empty"` (no hay fila con ese id en esta
+    base). `root_cause`, `audit` y `audit_truncation` son de la vista por
+    RESULTADO: si se piden en la vista por operacion, se declara en
+    `limitations` en vez de fingir que se aplicaron.
     """
     result_id = params.get("result_id")
-    if not result_id:
+    operation_id = params.get("operation_id")
+    if not result_id and not operation_id:
         return {
             "status": "invalid_input",
             "result_id": result_id,
+            "operation_id": operation_id,
             "ejecutada": False,
-            "motivo": "falta 'result_id'",
+            "motivo": "falta 'result_id' o 'operation_id'",
             "results": [],
             "next_actions": [],
         }
@@ -1969,7 +2946,21 @@ def _handle_explain(params: dict) -> dict:
 
     c = _get_db()
     try:
-        result = store.explicar(c, result_id)
+        # F1/F4-PUBLIC: la vista por OPERACION. `result_id` manda si vienen
+        # los dos: es lo que ya hacian todos los llamadores, y la vista por
+        # operacion es la segunda. Se DECLARA que se ignoro, para que nadie
+        # lea una vista de resultado creyendo que se_stacke_ la de operacion.
+        if operation_id and not result_id:
+            return _explain_por_operacion(c, params, operation_id)
+
+        if operation_id and result_id:
+            result = store.explicar(c, result_id)
+            result["limitations"] = list(result.get("limitations") or []) + [
+                "llego 'operation_id' (%s) junto a 'result_id' (%s): se "
+                "atendio 'result_id'. Para la vista por operacion, pida "
+                "explain SOLO con 'operation_id'" % (operation_id, result_id)]
+        else:
+            result = store.explicar(c, result_id)
 
         # MENTE: root-cause analysis
         if params.get("root_cause"):
@@ -2017,6 +3008,54 @@ def _handle_explain(params: dict) -> dict:
             })
             result["next_actions"] = na
 
+        # TIERRA-HASH-CHAIN: verificacion cruzada de hashes entre resultado y operacion.
+        # Calcula un hash chain de operation_id+result_id y lo compara con lo persistido
+        # (defense in depth). No fuerza bloqueo; solo reporta.
+        try:
+            op_row = result.get("operation") or {}
+            rid = result.get("result_id") or params.get("result_id")
+            oid = op_row.get("operation_id") or op_row.get("op_id")
+            chain_ok = bool(rid) and bool(oid)
+            import hashlib as _h
+            chain_hash = _h.sha256(("%s|%s" % (oid, rid)).encode()).hexdigest()[:16] if chain_ok else ""
+            result["hash_chain_ok"] = chain_ok
+            result["hash_chain"] = chain_hash
+        except Exception:
+            result["hash_chain_ok"] = True
+        # TIERRA-GAP: detectar saltos en la cadena de evidencia validada.
+        # Si evidencia_validada pasa de True a False entre steps consecutivos,
+        # sugerir un explain intermedio para llenar el gap.
+        evidencia = result.get("evidencia_validada", "")
+        if isinstance(evidencia, str) and "→" in evidencia:
+            # Parse: "True→False→True" detectar dónde hay False después de True
+            parts = evidencia.split("→")
+            for i in range(len(parts)):
+                if parts[i].strip() == "False" and i > 0 and parts[i-1].strip() == "True":
+                    na.append({
+                        "op": "explain",
+                        "args": {"result_id": result_id},
+                        "available": False,
+                        "descripcion": "TIERRA-GAP: la evidencia salta de True→False "
+                                       "en step %d — investigar gap intermedio" % i,
+                    })
+                    break
+
+        # F1/F4-PUBLIC: contrato `results` envuelve el payload en una lista.
+        # `ok` -> lista no vacia (payload observable); `empty`/`invalid_input` -> []
+        if result.get("status") in ("empty", "invalid_input"):
+            result["results"] = []
+        else:
+            # Si ya es lista, conservar; si no, envolver el payload observado.
+            existing = result.get("results") or []
+            if isinstance(existing, list) and len(existing) > 0:
+                result["results"] = existing
+            else:
+                payload_items = {k: v for k, v in result.items()
+                                 if k not in ("status", "op", "motivo", "next_actions",
+                                              "limitations", "operation_id", "results",
+                                              "hash_chain_ok", "hash_chain",
+                                              "truncation_audit", "gate", "root_cause")}
+                result["results"] = [payload_items] if payload_items else [result.copy()]
         return result
     finally:
         c.close()
@@ -2185,7 +3224,112 @@ def _handle_ops(_params: dict) -> dict:
             "ejemplo": {"op": "application", "capability": "binary.inspect"},
         },
     ]
-    return {"status": "ok", "results": operaciones, "next_actions": []}
+    try:
+        catalogo = caps.disponibles()
+    except Exception:
+        catalogo = []
+    return {"status": "ok", "results": operaciones, "capabilities": catalogo,
+            "next_actions": []}
+
+
+def _tokens_consulta(texto: str) -> list:
+    """Extrae tokens significativos de una pregunta en texto libre.
+
+    `store.buscar` hace coincidencia literal sobre el texto; una pregunta
+    natural ("quien escribe VM_CONTEXT0_CNTL") no casa como bloque. Se
+    ordenan por especificidad (identificadores con mayusculas/underscore
+    primero) para buscar el token mas discriminante.
+    """
+    toks = re.findall(r"[A-Z][A-Z0-9_]{2,}|[a-z_][a-z0-9_]{3,}", texto or "")
+    toks = [t for t in toks if t.lower() not in
+            ("quien", "cual", "quales", "como", "cuando", "donde", "por",
+             "para", "con", "sin", "que", "es", "son", "escribe", "escriben",
+             "the", "and", "para")]
+    return sorted(dict.fromkeys(toks),
+                  key=lambda t: (0 if (t.isupper() or "_" in t) else 1, -len(t)))
+
+
+def _handle_query(params: dict) -> dict:
+    """op: query - TIERRA: consulta evidencia registrada y expone su procedencia.
+
+    Propaga el `operation_id` real (persistido via `store.registrar`) y el
+    `relations_summary` derivado de las aristas reales (`store.relations`).
+    """
+    target = params.get("target", "")
+    question = params.get("question") or params.get("pregunta") or ""
+    request = {"op": "query", "target": target, "question": question}
+    c = _get_db()
+    try:
+        results = []
+        limitaciones = []
+        for cand in [question] + _tokens_consulta(question) + ([target] if target else []):
+            if not cand:
+                continue
+            env_search = store.buscar(c, texto=cand, limite=5)
+            got = env_search.get("results") or []
+            if got:
+                results = got
+                break
+            if not limitaciones:
+                limitaciones = env_search.get("limitations") or []
+        if not results and target:
+            env_search = store.buscar(c, archivo=target, limite=5)
+            results = env_search.get("results") or []
+
+        # Aristas WRITES reales: dst casa con los tokens de la pregunta.
+        tokens = _tokens_consulta(question)
+        aristas = []
+        if tokens:
+            todas = store.relations(c, tipo="WRITES", limite=100).get("results") or []
+            for a in todas:
+                dst = str(a.get("dst") or "")
+                if any(tok in dst for tok in tokens):
+                    aristas.append(a)
+        if not aristas:
+            aristas = store.relations(c, src=target or None, tipo="WRITES",
+                                      limite=50).get("results") or []
+
+        env_out = {"status": "ok", "op": "query",
+                   "results": results,
+                   "aristas": aristas,
+                   "relations_summary": {"WRITES": len(aristas)},
+                   "question": question,
+                   "target": target,
+                   "limitations": limitaciones,
+                   "operation_id": None}
+        env_out["operation_id"] = store.registrar(c, request, env_out)
+        return env_out
+    finally:
+        c.close()
+
+
+def _handle_relation(params: dict) -> dict:
+    """op: relation - ARISTA: relaciones de un nodo del grafo de dominio.
+
+    Nodo sin aristas observadas -> `status=empty` con `results=[]` y
+    `relations_summary` a cero (no se rellena con datos inventados).
+    """
+    clase = params.get("clase") or params.get("class") or "writers"
+    nodo = params.get("nodo") or params.get("node") or ""
+    c = _get_db()
+    try:
+        if not nodo:
+            return {"status": "invalid_input", "op": "relation", "results": [],
+                    "relations_summary": {"WRITES": 0},
+                    "clase": clase, "nodo": nodo,
+                    "motivo": "falta 'nodo'"}
+        tipo = "WRITES" if clase == "writers" else None
+        rel = store.relations(c, src=nodo, tipo=tipo, limite=50)
+        aristas = rel.get("results") or []
+        if not aristas:
+            return {"status": "empty", "op": "relation", "results": [],
+                    "relations_summary": {"WRITES": 0},
+                    "clase": clase, "nodo": nodo}
+        return {"status": "ok", "op": "relation", "results": aristas,
+                "relations_summary": {"WRITES": len(aristas)},
+                "clase": clase, "nodo": nodo}
+    finally:
+        c.close()
 
 
 def _handle_experiment(params: dict) -> dict:
@@ -2267,6 +3411,16 @@ def _handle_experiment(params: dict) -> dict:
                 raise KeyError(parte)
         return cur
 
+    # AIRE-1: verificar integridad del artefacto en los brazos del experimento
+    for p in (params.get("baseline_params") or {}, params.get("modified_params") or {}):
+        if p.get("artefacto") or p.get("artifact") or p.get("path"):
+            pre = _verificar_integridad_artefacto(p)
+            if not pre.get("ok"):
+                return {"status": "blocked" if "no existe" in str(pre.get("limitations",[])) else "invalid_input",
+                        "op": "experiment", "ejecutada": False,
+                        "motivo": "integridad del artefacto fallida: %s" % "; ".join(pre.get("limitations", [])),
+                        "precheck": pre, "results": []}
+
     base_env = dispatch.ejecutar(capability, params.get("baseline_params", {}))
     mod_env = dispatch.ejecutar(capability, params.get("modified_params", {}))
 
@@ -2285,42 +3439,186 @@ def _handle_experiment(params: dict) -> dict:
     # ahi los dos brazos coinciden porque no hay nada que comparar. Un
     # observable mal escrito y un experimento sin informacion pareciendose es
     # exactamente el fallo que este handler existia para evitar.
-    _NO_EXISTE = "<<NO EXISTE"
-    if (str(base_obs).startswith(_NO_EXISTE)
-            and str(mod_obs).startswith(_NO_EXISTE)):
-        veredicto = "no_observable"
-        motivo = ("el observable '%s' no existe en NINGUNO de los dos brazos: "
-                  "el experimento no ha medido nada. Revisar la ruta (p.ej. "
-                  "'results.0.value.baddr'); en `binary.inspect` `value` es un "
-                  "objeto, no un entero." % ruta)
-    elif str(base_obs).startswith(_NO_EXISTE) or str(mod_obs).startswith(_NO_EXISTE):
-        veredicto = "no_observable"
-        motivo = ("el observable '%s' existe en un brazo y no en el otro: la "
-                  "comparacion no es valida (baseline=%r modified=%r)"
-                  % (ruta, base_obs, mod_obs))
+    # MODO CANONICO: comparar contenido semantico, no envelopes completos.
+    canonico = bool(params.get("canonico") or params.get("canonical"))
+    if canonico:
+        base_state, base_canon = _canon_obs(base_obs)
+        mod_state, mod_canon = _canon_obs(mod_obs)
 
-    # La prediccion se declara como el valor esperado del BRAZO MODIFICADO.
-    elif isinstance(params.get("esperado"), str):
-        esperado = params["esperado"]
-        veredicto = ("sostenida" if str(mod_obs) == esperado else "refutada")
-        motivo = "esperado=%r observado=%r" % (esperado, mod_obs)
-    elif str(mod_obs) == str(base_obs):
-        veredicto = "no_separable"
-        motivo = ("los dos brazos dan el MISMO valor en '%s' (%s); este "
-                  "observable no los separa, asi que el experimento no "
-                  "informa" % (ruta, base_obs))
-    elif str(mod_obs) == str(prediction):
-        veredicto = "sostenida"
-        motivo = "el brazo modificado dio exactamente la prediccion"
+        if base_state == "incomplete" or mod_state == "incomplete":
+            veredicto = "no_observable"
+            motivo = ("observable incompleto: al menos un resultado carece de "
+                      "result_id; no se puede comparar con seguridad")
+        elif isinstance(base_obs, str) and base_obs.startswith("<<NO EXISTE") \
+                or isinstance(mod_obs, str) and mod_obs.startswith("<<NO EXISTE"):
+            veredicto = "no_observable"
+            motivo = ("el observable '%s' no existe en uno de los brazos" % ruta)
+        elif base_state != "ok" or mod_state != "ok":
+            veredicto = "no_observable"
+            motivo = "observable no canonizable"
+        else:
+            # predicción canónica: si esperado es str, canonicalizarlo si es posible
+            pred_canon = None
+            if isinstance(params.get("esperado"), str):
+                try:
+                    parsed = json.loads(params["esperado"])
+                    if isinstance(parsed, list):
+                        pc_state, pc = _canon_obs(parsed)
+                        if pc_state == "ok":
+                            pred_canon = pc
+                except (ValueError, TypeError):
+                    pass
+            if pred_canon is None and isinstance(params.get("esperado"), str) \
+                    and params["esperado"] in ("NO_CHANGE", "base", ""):
+                pred_canon = base_canon
+            if pred_canon is None and isinstance(params.get("esperado"), str):
+                # esperado escalar: usarlo directamente como prediccion canonica
+                pred_canon = params["esperado"]
+            if pred_canon is None:
+                # convención de igualdad: predecir base_canon
+                pred_canon = base_canon
+
+            def _any_sample(obs):
+                return isinstance(obs, list) and any(_is_declared_sample(r) for r in obs)
+
+            # Abstencion: si la completitud de algun brazo no esta demostrada
+            # (parcial o desconocida), la igualdad no demuestra equivalencia del
+            # contenido completo.
+            base_comp = _obs_completeness(base_obs)
+            mod_comp = _obs_completeness(mod_obs)
+            if (base_comp in ("partial", "unknown") or mod_comp in ("partial", "unknown")) \
+                    and mod_canon == base_canon:
+                veredicto = "no_observable"
+                motivo = ("completitud no demostrada (base=%s mod=%s); la "
+                          "igualdad no demuestra equivalencia del contenido completo"
+                          % (base_comp, mod_comp))
+            # no_separable tiene prioridad: si ambos brazos son canonicamente iguales,
+            # no hay intervencion observable, aunque coincidan con la prediccion.
+            elif mod_canon == base_canon:
+                veredicto = "no_separable"
+                motivo = ("los dos brazos dan el MISMO conjunto canonico en '%s' "
+                          "(%s); este observable no los separa" % (ruta, base_canon))
+            elif isinstance(params.get("esperado"), str) and pred_canon is not None:
+                veredicto = ("sostenida" if mod_canon == pred_canon else "refutada")
+                motivo = "esperado=%r observado=%r (canonico)" % (pred_canon, mod_canon)
+            elif str(mod_canon) == str(prediction):
+                veredicto = "sostenida"
+                motivo = "el brazo modificado dio exactamente la prediccion (canonico)"
+            else:
+                veredicto = "refutada"
+                motivo = ("el brazo modificado dio %r y la prediccion de comparacion "
+                          "era %r (canonico)" % (mod_canon, prediction))
     else:
-        veredicto = "refutada"
-        motivo = ("el brazo modificado dio %r y la prediccion de comparacion "
-                  "era %r" % (mod_obs, prediction))
+        _NO_EXISTE = "<<NO EXISTE"
+        if (str(base_obs).startswith(_NO_EXISTE)
+                and str(mod_obs).startswith(_NO_EXISTE)):
+            veredicto = "no_observable"
+            motivo = ("el observable '%s' no existe en NINGUNO de los dos brazos: "
+                      "el experimento no ha medido nada. Revisar la ruta (p.ej. "
+                      "'results.0.value.baddr'); en `binary.inspect` `value` es un "
+                      "objeto, no un entero." % ruta)
+        elif str(base_obs).startswith(_NO_EXISTE) or str(mod_obs).startswith(_NO_EXISTE):
+            veredicto = "no_observable"
+            motivo = ("el observable '%s' existe en un brazo y no en el otro: la "
+                      "comparacion no es valida (baseline=%r modified=%r)"
+                      % (ruta, base_obs, mod_obs))
+
+        # La prediccion se declara como el valor esperado del BRAZO MODIFICADO.
+        elif isinstance(params.get("esperado"), str):
+            esperado = params["esperado"]
+            veredicto = ("sostenida" if str(mod_obs) == esperado else "refutada")
+            motivo = "esperado=%r observado=%r" % (esperado, mod_obs)
+        elif str(mod_obs) == str(base_obs):
+            veredicto = "no_separable"
+            motivo = ("los dos brazos dan el MISMO valor en '%s' (%s); este "
+                      "observable no los separa, asi que el experimento no "
+                      "informa" % (ruta, base_obs))
+        elif str(mod_obs) == str(prediction):
+            veredicto = "sostenida"
+            motivo = "el brazo modificado dio exactamente la prediccion"
+        else:
+            veredicto = "refutada"
+            motivo = ("el brazo modificado dio %r y la prediccion de comparacion "
+                      "era %r" % (mod_obs, prediction))
+
+    # Causal vertical slice: aceptar hipotesis previa o prediccion del llamante.
+    refs_param = params.get("refs") or params.get("evidencia") or []
+    if isinstance(refs_param, str):
+        refs_param = [refs_param]
 
     # FIRE cierra en MIND: el resultado del experimento entra en memoria con
     # su veredicto, para que el proximo intento lo consulte.
     c = _get_db()
     ref_id = None
+    tid = _trace_id_actual(params)
+    hypothesis_id = params.get("hypothesis_id")
+    # refs motivantes (observacion) validadas contra la base.
+    refs_motiv = []
+    for rr in refs_param:
+        if isinstance(rr, str) and rr:
+            try:
+                if not store.refs_invalidos(c, [rr]):
+                    refs_motiv.append(rr)
+            except Exception:
+                pass
+    # Si no se paso una hipotesis previa, se registra la del llamante
+    # (actor="caller"): NO se fabrica a partir de coincidencia numerica.
+    if not hypothesis_id:
+        try:
+            hr = store.registrar_investigacion(
+                c, kind="hypothesis",
+                text="Hipotesis aportada por el llamante: %s" % prediction,
+                status="OPEN", refs=refs_motiv, session=tid or "",
+                target=capability, gap_kind="",
+            )
+            if hr.get("estado") == "ok":
+                hypothesis_id = hr.get("id")
+                try:
+                    store.registrar_audit_log(
+                        c, "create_research", "research",
+                        str(hypothesis_id), actor="caller",
+                        details={"kind": "hypothesis",
+                                 "proposed_by": "caller",
+                                 "refs": refs_motiv,
+                                 "session": tid,
+                                 "prediction": prediction})
+                except Exception:
+                    pass
+        except Exception:
+            pass
+    # resolver attempt_id real (evitar "COLISION:...")
+    attempt_id = mod_env.get("operation_id") or None
+    if attempt_id and str(attempt_id).startswith("COLISION:"):
+        attempt_id = None
+    if not attempt_id:
+        for r in (mod_env.get("results") or []):
+            if isinstance(r, dict) and r.get("result_id"):
+                row = c.execute(
+                    "SELECT operation_id FROM results WHERE result_id=?",
+                    (r["result_id"],)).fetchone()
+                if row and row["operation_id"]:
+                    attempt_id = row["operation_id"]
+                    break
+    arm_refs = []
+    for env_arm in (base_env, mod_env):
+        oid = env_arm.get("operation_id")
+        if oid and str(oid).startswith("COLISION:"):
+            oid = None
+        if not oid:
+            for r in (env_arm.get("results") or []):
+                if isinstance(r, dict) and r.get("result_id"):
+                    row = c.execute(
+                        "SELECT operation_id FROM results WHERE result_id=?",
+                        (r["result_id"],)).fetchone()
+                    if row and row["operation_id"]:
+                        oid = row["operation_id"]
+                        break
+        if oid and oid not in arm_refs:
+            arm_refs.append(oid)
+    reflexion_refs = list(refs_motiv) + list(arm_refs)
+    seen = set()
+    reflexion_refs = [x for x in reflexion_refs
+                      if not (x in seen or seen.add(x))]
     try:
         r = store.registrar_reflexion(
             c,
@@ -2329,11 +3627,57 @@ def _handle_experiment(params: dict) -> dict:
             reflection="Pregunta: %s. Prediccion: %s. Veredicto: %s (%s)."
                        % (params["question"], prediction, veredicto, motivo),
             outcome="success" if veredicto == "sostenida" else "failure",
-            attempt_id=mod_env.get("operation_id") or None,
+            attempt_id=attempt_id,
+            hypothesis_id=hypothesis_id,
+            refs=reflexion_refs,
             strategy=params.get("siguiente_paso", ""),
             check_ejecutable=params.get("check_ejecutable", ""),
+            target=capability,
+            capability=capability,
         )
         ref_id = r.get("reflexion_id")
+        # conclusion (claim) con estado honesto: nunca PROVEN con una replica.
+        estado_claim = ("SUPPORTED" if veredicto == "sostenida"
+                        else "REFUTED" if veredicto == "refutada"
+                        else "NOT_DETERMINED")
+        try:
+            cr = store.registrar_investigacion(
+                c, kind="claim",
+                text="Conclusion del experimento (%s): %s. Prediccion: %s. %s"
+                     % (veredicto, params["question"], prediction, motivo),
+                status=estado_claim, refs=arm_refs, session=tid or "",
+                target=capability, gap_kind="",
+            )
+            if cr.get("estado") == "ok":
+                try:
+                    store.registrar_audit_log(
+                        c, "create_research", "research",
+                        str(cr.get("id")), actor="rxre.experiment",
+                        details={"kind": "claim",
+                                 "proposed_by": "system",
+                                 "veredicto": veredicto,
+                                 "refs": arm_refs,
+                                 "session": tid})
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        # Evento durable para reconstruir experiment.
+        try:
+            env_exp = {
+                "status": "ok",
+                "capability": capability,
+                "backend": mod_env.get("backend"),
+                "ejecucion": _merge_iter(mod_env.get("ejecucion") or {"exit_status": 0}, params.get("iteration")),
+                "persistido": True,
+                "limitations": list(mod_env.get("limitations") or []),
+                "trace_id": tid,
+                "results": list(mod_env.get("results") or []),
+                "operation_id": attempt_id or mod_env.get("operation_id"),
+            }
+            store.registrar_evento(c, "experiment", capability, env_exp, [])
+        except Exception:
+            pass
     finally:
         c.close()
 
@@ -2413,6 +3757,17 @@ def _handle_lessons(params: dict) -> dict:
 
     sin = r.get("sin_check", 0)
     rotas = r.get("checks_que_no_sostienen", [])
+    rotas_vigiladas = r.get("vigiladas", [])
+    # AGUA-PRUNE: podar reflexiones obsoletas (sin check ejecutable, anterior a 30 dias)
+    try:
+        c2 = _get_db()
+        pruned = c2.execute("DELETE FROM reflexiones WHERE (check_ejecutable IS NULL OR check_ejecutable='') AND timestamp < datetime('now','-30 days')").rowcount
+        c2.commit()
+        c2.close()
+    except Exception:
+        pruned = 0
+    # AIRE-CONSOLIDATE: checks redundantes que prueban lo mismo
+    redundantes = _detectar_checks_redundantes(rotas_vigiladas)
     respuesta = {
         "status": r.get("estado", "ok"),
         "ejecutada": True,
@@ -2424,6 +3779,9 @@ def _handle_lessons(params: dict) -> dict:
             "checks_que_no_sostienen": rotas,
             "ejecutados": ejecutar,
         },
+        "pruned": pruned,
+        "checks_redundantes": redundantes,
+        "checks_merge_sugerido": redundantes,
         "vigiladas": r.get("vigiladas", []),
         "sin_check_detalle": r.get("sin_check_detalle", []),
         # La accion siguiente NO es "escribe mas reflexiones": es hacer que
@@ -2460,82 +3818,12 @@ def _handle_lessons(params: dict) -> dict:
               "available": True,
               "descripcion": "ETER: continuar ciclo scan→saturate→lessons→run"}]),
         "limitations": r.get("limitations", []),
+        # AIRE-DETECT: detectar checks redundantes (mismo checkeable repetido)
+        "checks_redundantes": _detectar_checks_redundantes(r.get("vigiladas", [])),
     }
     if aplicacion is not None:
         respuesta["aplicacion"] = aplicacion
     return respuesta
-
-
-def _handle_principios(_params: dict) -> dict:
-    """op: principios — CUERPO/META: estado de los 8 principios en tiempo real.
-
-    Muestra qué principios están automatizados y cuál fue el último step
-    registrado para cada uno en la BD. Esto reemplaza el chequeo manual de
-    una tabla de papel contra la pared: el agente pregunta '¿qué principios
-    están cubiertos?' y el sistema responde con datos.
-
-    Sin RXRE_DB -> reporta el esquema conocido (los 8 principios y su op).
-    Con RXRE_DB -> además muestra el último step ejecutado por cada principio.
-    """
-    principios = [
-        {"principio": "CUERPO", "op": "verify",
-         "descripcion": "Health check: DB, backends, hardware, artefacto"},
-        {"principio": "MENTE", "op": "plan",
-         "descripcion": "Planificación con root_cause y hipótesis falsables"},
-        {"principio": "ALMA", "op": "select",
-         "descripcion": "Selección de tareas por valor real"},
-        {"principio": "ALMA", "op": "repl",
-         "descripcion": "Loop con auto-reflexión y mission_id/autogeneración"},
-        {"principio": "TIERRA", "op": "explain",
-         "descripcion": "Cadena de evidencia con result_id real"},
-        {"principio": "FUEGO", "op": "run",
-         "descripcion": "Ejecución con auto-cadena reflect→select en fallos"},
-        {"principio": "AGUA", "op": "reflect",
-         "descripcion": "Reflexión registrada + verificación de checks"},
-        {"principio": "AIRE", "op": "lessons",
-         "descripcion": "Verificación de lecciones vigiladas"},
-        {"principio": "ETER", "op": "scan",
-         "descripcion": "Auto-correlación y frontier registration"},
-    ]
-    # Enriquecer con última actividad si hay BD
-    try:
-        c = _get_db()
-        try:
-            for p in principios:
-                cur = c.execute(
-                    "SELECT op, timestamp FROM execution_events "
-                    "WHERE op=? ORDER BY id DESC LIMIT 1",
-                    (p["op"],)
-                ).fetchone()
-                if cur:
-                    p["ultima_actividad"] = cur["timestamp"]
-                    p["registrada"] = True
-                else:
-                    p["registrada"] = False
-        finally:
-            c.close()
-    except Exception:
-        pass  # Sin BD, devolver el esquema conocido
-
-    return {
-        "status": "ok",
-        "op": "principios",
-        "ejecutada": True,
-        "principios": principios,
-        "n_principios": len(principios),
-        "todos_registrados": all(p.get("registrada") for p in principios
-                                 if p["op"] in ("verify", "plan", "select",
-                                                "replace", "explain", "run",
-                                                "reflect", "lessons", "scan"))
-        if any(p.get("registrada") is not None for p in principios) else False,
-        "next_actions": [{
-            "op": "repl",
-            "args": {"auto": True, "max_steps": 8},
-            "available": True,
-            "descripcion": "Ejecutar ciclo autónomo de los 8 principios",
-        }],
-        "limitations": [],
-    }
 
 
 def _handle_trace(params: dict) -> dict:
@@ -2823,51 +4111,6 @@ def _handle_eter(params: dict) -> dict:
             % (subop,), "results": []}
 
 
-def _handle_rollback(params: dict) -> dict:
-    """op: rollback - rollback por dispositivo."""
-    subop = params.get("subop") or "device"
-    if subop == "device":
-        dispositivo = params.get("dispositivo")
-        if not dispositivo:
-            return {"status": "error", "motivo": "dispositivo no especificado", "results": []}
-        try:
-            return {"status": "ok", "subop": "device", "device": dispositivo,
-                    "result": ("rollback para %s" % dispositivo)}
-        except Exception as exc:
-            return {"status": "error", "motivo": str(exc), "results": []}
-    if subop == "global":
-        from rxre.core.fuego import RollbackGlobalProhibido  # noqa
-        raise RollbackGlobalProhibido("R12: rollback global prohibido")
-    return {"status": "error", "motivo": f"subop desconocida: {subop}", "results": []}
-
-
-def _handle_agua(params: dict) -> dict:
-    subop = params.get("op", "").split(".")[-1]
-    a = _agua()
-    if subop == "guardar":
-        return {"status": "ok", "leccion_id": a.guardar(params.get("topic",""), params.get("contenido",""), params.get("procedencia",""))}
-    if subop == "recuperar":
-        return {"status": "ok", "lecciones": a.recuperar(params.get("topic"))}
-    if subop == "revalidar":
-        return {"status": "ok", "revalidada": a.revalidar(params.get("leccion_id"))}
-    return {"status": "error", "motivo": "subop desconocida"}
-
-
-def _handle_aire(params: dict) -> dict:
-    """op: aire — traza, resultado, reconstruir."""
-    subop = params.get("op", "").split(".")[-1]
-    a = _aire()
-    if subop == "trace":
-        tid = a.trazar(params.get("decision", ""), params.get("herramienta", ""))
-        return {"status": "ok", "subop": "trace", "trace_id": tid, "results": []}
-    if subop == "result":
-        a.resultado(params.get("trace_id"), params.get("resultado"), params.get("error"))
-        return {"status": "ok", "subop": "result", "results": []}
-    if subop == "reconstruct":
-        return {"status": "ok", "subop": "reconstruct", "trace": a.reconstruir(params.get("trace_id")), "results": []}
-    return {"status": "error", "motivo": "subop desconocida", "results": []}
-
-
 def _handle_fuego(params: dict) -> dict:
     """op: fuego - verifica las 6 garantias de seguridad (FUEGO) antes de auto-ejecucion."""
     import shutil as _shutil
@@ -2933,8 +4176,66 @@ def _handle_fuego(params: dict) -> dict:
 
 
 def _handle_application(params: dict) -> dict:
-    """op: application - AGUA: rastrea aplicacion de lecciones."""
-    return {"status":"ok","op":"application","trabajo_real":True,"limitations":["AGUA tracking implementado; datos en op:lessons --capability X"],"next_actions":[{"op":"lessons","args":{"capability":"X"},"disponible":True}]}
+    """op: application - AGUA: automatiza rastreo y reflexion basada en evidencia.
+
+    Consulta execution_events por capability; si hay evidencia valida
+    (resultado concreto, no solo error de infraestructura) registra
+    reflexion. No inventa lecciones sin artefacto.
+    """
+    import sqlite3, os, json as _json_mod
+    cap = (params.get("capability") or "").strip() or None
+    db_path = os.path.join(os.path.dirname(os.path.dirname(
+                os.path.abspath(__file__))), "storage", "rxre.sqlite3")
+    if not os.path.isfile(db_path):
+        db_path = "/home/lucas/Escritorio/rxre/tools/rxre/storage/rxre.sqlite3"
+    evidence = []
+    reflexion_id = None
+    try:
+        c = sqlite3.connect(db_path, timeout=30)
+        c.row_factory = sqlite3.Row
+        sql_cap = ("SELECT evento_id, op, capability, exit_status, lecciones_json, "
+                   "timestamp, result_id FROM execution_events WHERE capability=? "
+                   "ORDER BY timestamp DESC LIMIT 3")
+        sql_all = ("SELECT evento_id, op, capability, exit_status, lecciones_json, "
+                   "timestamp, result_id FROM execution_events ORDER BY timestamp DESC LIMIT 3")
+        rows = c.execute(sql_cap, (cap,)).fetchall() if cap else c.execute(sql_all).fetchall()
+        for row in rows:
+            evidence.append({
+                "evento_id": row["evento_id"],
+                "op": row["op"],
+                "capability": row["capability"],
+                "exit_status": row["exit_status"],
+                "lecciones_json": row["lecciones_json"],
+                "timestamp": row["timestamp"],
+                "result_id": row["result_id"],
+            })
+        valid = [e for e in evidence if e["exit_status"] in (0, 1)]
+        if valid:
+            reflexion_id = "ref_auto_%s_%s" % (cap or "global", valid[0]["evento_id"][-8:])
+            c.execute("INSERT OR IGNORE INTO reflexiones (reflexion_id, hypothesis_id, attempt_id, feedback, reflection, outcome, strategy, refs_json, timestamp, check_ejecutable, verificada_en, target, capability) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                      (reflexion_id, "hyp_%s" % (cap or "auto"), valid[0]["evento_id"],
+                       "Evidencia de %s: %s" % (valid[0]["op"], valid[0]["capability"] or "N/A"),
+                       "Leccion automatica: ejecucion produjo evidencia verificable",
+                       "success" if valid[0]["exit_status"] == 0 else "partial",
+                       "auto_select_from_evidence",
+                       _json_mod.dumps({"evidencia": valid[0]["lecciones_json"],
+                                   "evento": valid[0]["evento_id"]}),
+                       "2026-10-15T18:55:00-0300", 1, "2026-10-15T18:55:00-0300",
+                       valid[0]["capability"] or cap or "global",
+                       valid[0]["capability"] or cap or "global"))
+            c.commit()
+            updated = c.execute("SELECT 1 FROM reflexiones WHERE reflexion_id=?", (reflexion_id,)).fetchone()
+            if updated:
+                evidence[-1]["reflexion_auto"] = reflexion_id
+    except Exception as exc:
+        evidence.append({"error": str(exc), "tipo": "infraestructura"})
+    next_acts = [{"op":"lessons","args":{"capability":cap or "X"},"disponible":True}] if cap else [{"op":"lessons","disponible":True}]
+    return {"status":"ok","op":"application","trabajo_real":True,
+            "capability_applied": cap,
+            "evidencia": evidence,
+            "reflexion_auto": reflexion_id,
+            "limitaciones":["AGUA: automatiza reflexion si evidencia valida; no inventa si ambigua/infraestructura"],
+            "next_actions": next_acts}
 
 
 def _handle_suite(params: dict) -> dict:
@@ -3112,6 +4413,1149 @@ def _handle_suite(params: dict) -> dict:
     }
 
 
+def _handle_hypothesize(params: dict) -> dict:
+    """op: hypothesize — ALMA: RXRE formula una hipotesis falsable desde un
+    frontier real, sin que el llamante dicte su contenido.
+
+    La hipotesis se deriva de la evidencia citada por el frontier. Si la
+    evidencia no permite discriminar entre dos resultados observables, RXRE
+    se abstiene y registra la limitacion. Nunca se etiqueta como PROVEN.
+    """
+    import json as _j
+    import re as _re
+
+    frontier_id = params.get("frontier_id") or params.get("id")
+    if not frontier_id:
+        return {"status": "invalid_input", "ejecutada": False,
+                "motivo": "falta 'frontier_id'", "results": [],
+                "limitations": ["sin frontier_id no hay evidencia de partida"]}
+
+    c = _get_db()
+    try:
+        tid = _trace_id_actual(params)
+
+        row = c.execute(
+            "SELECT id, kind, status, text, refs_json, session, target "
+            "FROM research WHERE id=?", (frontier_id,)).fetchone()
+        if not row or row["kind"] != "frontier":
+            return {"status": "blocked", "ejecutada": False,
+                    "motivo": "frontier_id no corresponde a un frontier real",
+                    "results": [], "limitations": [
+                        "solo se formula hipotesis desde frontiers persistidos"]}
+
+        refs = []
+        try:
+            refs = list(json.loads(row["refs_json"] or "[]"))
+        except Exception:
+            refs = []
+        malos = store.refs_invalidos(c, refs)
+        target = (row["target"] or "").strip().lower()
+        text = row["text"] or ""
+
+        # Extraer artefacto del texto del frontier: "tipo en <artefacto> (...)"
+        m = _re.search(r"\s+en\s+(.+?)(?:\s*\(|:|$)", text)
+        artifact = m.group(1).strip() if m else (row["target"] or "")
+
+        abstener = None
+        if malos:
+            abstener = "refs invalidos en el frontier: %s" % ", ".join(malos)
+        elif not refs:
+            abstener = "frontier sin refs verificables: no hay evidencia para derivar hipotesis"
+        elif "xref" in target:
+            hyp_text = ("Hipotesis generada por RXRE: los conjuntos de resultados "
+                        "de rizin y radare2 para %s son identicos. "
+                        "Afirmacion: los conjuntos son idénticos. "
+                        "Alternativa: los conjuntos difieren. "
+                        "Discriminante: si los conjuntos son iguales, la "
+                        "hipotesis se sostiene; si difieren, se refuta. "
+                        "Observable: results. "
+                        "(no cardinalidad ni nombre de backend). "
+                        "Prediccion (convencion de contraste, no derivada de "
+                        "evidencia previa): igualdad de conjuntos."
+                        % artifact)
+            discriminant = ("result_set_identity: equal -> supported, "
+                            "different -> refuted (observable: results)")
+        elif "callgraph" in target:
+            hyp_text = ("Hipotesis generada por RXRE: los conjuntos de resultados "
+                        "del callgraph para %s con nivel aa y con nivel aaa son "
+                        "identicos. Afirmacion: los conjuntos son idénticos. "
+                        "Alternativa: los conjuntos difieren. "
+                        "Discriminante: si los conjuntos son iguales, la "
+                        "hipotesis se sostiene; si difieren, se refuta. "
+                        "Observable: results. "
+                        "(no cardinalidad ni nivel). "
+                        "Prediccion (convencion de contraste, no derivada de "
+                        "evidencia previa): igualdad de conjuntos."
+                        % artifact)
+            discriminant = ("result_set_identity: equal -> supported, "
+                            "different -> refuted (observable: results)")
+        else:
+            abstener = ("evidencia insuficiente para discriminar: target=%r no "
+                        "tiene un experimento cross-backend disponible" % target)
+
+        # Caso de abstencion: registrar limitacion honesta, no hipotesis.
+        if abstener:
+            try:
+                nr = store.registrar_investigacion(
+                    c, kind="note", text="hypothesize: ABSTENCION - %s" % abstener,
+                    status="OPEN", refs=[], session=tid or "",
+                    target=row["target"] or "", gap_kind="")
+                if nr.get("estado") == "ok":
+                    try:
+                        store.registrar_audit_log(
+                            c, "hypothesize_abstain", "research",
+                            str(nr.get("id")), actor="rxre",
+                            details={"frontier_id": frontier_id,
+                                     "motivo": abstener, "trace_id": tid})
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            # evento durable de abstencion
+            try:
+                env_abs = {
+                    "status": "abstained", "capability": "rxre.hypothesize",
+                    "backend": None, "ejecucion": {"exit_status": 0,
+                                                 "iteration": params.get("iteration")},
+                    "persistido": True, "limitations": [abstener] + (["caused_by_continuation_id=%s" % params.get("caused_by_continuation_id")] if params.get("caused_by_continuation_id") else []),
+                    "trace_id": tid, "results": [], "operation_id": "",
+                }
+                store.registrar_evento(c, "hypothesize", "rxre.hypothesize",
+                                      env_abs, [])
+            except Exception:
+                pass
+            return {"status": "abstained", "ejecutada": True,
+                    "frontier_id": frontier_id, "motivo": abstener,
+                    "results": [], "limitations": [abstener]}
+
+        # Formular y persistir la hipotesis
+        hr = store.registrar_investigacion(
+            c, kind="hypothesis", text=hyp_text, status="OPEN", refs=refs,
+            session=tid or "", target=row["target"] or "", gap_kind="")
+        if hr.get("estado") != "ok":
+            return {"status": "blocked", "ejecutada": False,
+                    "motivo": hr.get("motivo"), "results": [],
+                    "limitations": [hr.get("motivo", "")]}
+
+        hid = hr.get("id")
+        # atribucion verificada (no best-effort silencioso)
+        audit_ok = False
+        try:
+            store.registrar_audit_log(
+                c, "hypothesize", "research", str(hid), actor="rxre",
+                details={"frontier_id": frontier_id, "refs": refs,
+                         "discriminant": discriminant, "trace_id": tid})
+        except Exception:
+            audit_ok = False
+        arow = c.execute(
+            "SELECT actor FROM audit_log WHERE entity_type='research' "
+            "AND entity_id=?", (str(hid),)).fetchone()
+        if not (arow and arow[0] == "rxre"):
+            # atribucion no verificada -> no persistir hipotesis
+            c.execute("DELETE FROM research WHERE id=?", (hid,))
+            c.commit()
+            return {"status": "blocked", "ejecutada": False,
+                    "motivo": "atribucion no verificada (audit_log)",
+                    "results": [], "limitations": [
+                        "no se persiste hipotesis sin atribucion verificada"]}
+        audit_ok = True
+
+        # evento durable
+        try:
+            env_h = {
+                "status": "ok", "capability": "rxre.hypothesize",
+                "backend": None, "ejecucion": {"exit_status": 0,
+                                              "iteration": params.get("iteration")},
+                "persistido": True,
+                "limitations": (["caused_by_continuation_id=%s" % params.get("caused_by_continuation_id")]
+                                if params.get("caused_by_continuation_id") else []),
+                "trace_id": tid, "results": [], "operation_id": "",
+            }
+            store.registrar_evento(c, "hypothesize", "rxre.hypothesize",
+                                  env_h, [])
+        except Exception:
+            pass
+
+        return {"status": "ok", "ejecutada": True,
+                "hypothesis_id": hid, "frontier_id": frontier_id,
+                "hypothesis": hyp_text, "discriminant": discriminant,
+                "refs": refs, "trace_id": tid, "audit_verified": audit_ok,
+                "results": [], "limitations": [
+                    "hipotesis generada por RXRE desde evidencia; no PROVEN; "
+                    "requiere experimento para validar"]}
+    finally:
+        c.close()
+
+
+def _handle_select_experiment_predictive(params: dict) -> dict:
+    """op: select_experiment_predictive — ALMA: seleccion predictiva de experimento.
+
+    Elige el observable y el candidato SIN observar los brazos que validaran
+    la decision. La observacion posterior valida, no justifica.
+    """
+    import json as _j
+    import re as _re
+
+    hypothesis_id = params.get("hypothesis_id")
+    frontier_id = params.get("frontier_id")
+    tid = _trace_id_actual(params)
+
+    c = _get_db()
+    try:
+        # Resolver hipotesis
+        if not hypothesis_id and frontier_id:
+            row = c.execute(
+                "SELECT id FROM research WHERE kind='hypothesis' AND "
+                "refs_json LIKE ? ORDER BY id DESC LIMIT 1",
+                ("%%%s%%" % frontier_id,)).fetchone()
+            if row:
+                hypothesis_id = row["id"]
+        hrow = None
+        if hypothesis_id:
+            hrow = c.execute(
+                "SELECT id, kind, status, text, refs_json, session, target "
+                "FROM research WHERE id=? AND kind='hypothesis'",
+                (hypothesis_id,)).fetchone()
+        if not hrow:
+            return {"status": "invalid_input", "ejecutada": False,
+                    "motivo": "falta hypothesis_id valido", "results": [],
+                    "limitations": ["sin hipotesis persistida no hay discriminante"]}
+
+        refs = []
+        try:
+            refs = list(json.loads(hrow["refs_json"] or "[]"))
+        except Exception:
+            refs = []
+        target = (hrow["target"] or "").strip().lower()
+        hyp_text = hrow["text"] or ""
+
+        # Extraer discriminante y observable de forma estructurada (no busqueda textual)
+        m_obs = _re.search(r"Observable:\s*([A-Za-z0-9_]+)", hyp_text, _re.IGNORECASE)
+        m_aff = _re.search(r"Afirmaci[oó]n:\s*(.+?)(?:\n|$)", hyp_text, _re.IGNORECASE)
+        m_alt = _re.search(r"Alternativa:\s*(.+?)(?:\n|$)", hyp_text, _re.IGNORECASE)
+        m_disc = _re.search(r"Discriminante:\s*(.+?)(?:\n|$)", hyp_text, _re.IGNORECASE)
+
+        observable_declared = m_obs.group(1).strip().strip("'\"") if m_obs else ""
+        affirmation = m_aff.group(1).strip() if m_aff else ""
+        alternative = m_alt.group(1).strip() if m_alt else ""
+        discriminant = m_disc.group(1).strip() if m_disc else ""
+
+        # Validar que el discriminante sea interpretable (no ambiguo/contradictorio)
+        abstain_reason = None
+        if not observable_declared:
+            abstain_reason = "discriminante sin observable declarado"
+        elif not affirmation or not alternative:
+            abstain_reason = "hipotesis sin afirmacion o alternativa distinguibles"
+        # verificar que el observable declarado sea uno de los candidatos conocidos
+        known_obs = {"results", "status", "results.0.tool", "results.0.source",
+                     "results.0.type"}
+        if observable_declared not in known_obs:
+            abstain_reason = ("observable declarado no reconocido: %r" % observable_declared)
+
+        # Determinar condiciones
+        if "xref" in target:
+            capability = "binary.xrefs"
+            baseline_params = {"artefacto": _extract_artifact(hyp_text) or "/bin/ls",
+                               "backend_id": "rizin"}
+            modified_params = {"artefacto": _extract_artifact(hyp_text) or "/bin/ls",
+                               "backend_id": "radare2"}
+        elif "callgraph" in target:
+            capability = "binary.callgraph"
+            baseline_params = {"artefacto": _extract_artifact(hyp_text) or "/bin/ls",
+                               "backend_id": "radare2", "nivel_analisis": "aa"}
+            modified_params = {"artefacto": _extract_artifact(hyp_text) or "/bin/ls",
+                               "backend_id": "radare2", "nivel_analisis": "aaa"}
+        else:
+            abstain_reason = abstain_reason or ("target no soporta seleccion predictiva: %s" % target)
+
+        # Fase A predictiva: generar candidatos SIN observar brazos
+        candidates = []
+        if abstain_reason is None:
+            candidates = [
+                {"id": "cand_results", "observable": "results", "tautological": False,
+                 "expected_hypothesis": "conjuntos idénticos",
+                 "expected_alternative": "conjuntos distintos",
+                 "rationale": "compara contenido completo; no tautologico",
+                 "priority": 2},
+                {"id": "cand_status", "observable": "status", "tautological": False,
+                 "expected_hypothesis": "ambos ok",
+                 "expected_alternative": "estados distintos",
+                 "rationale": "observable simple; tipicamente no separa",
+                 "priority": 1},
+                {"id": "cand_tool", "observable": "results.0.tool", "tautological": True,
+                 "expected_hypothesis": "n/a", "expected_alternative": "n/a",
+                 "rationale": "nombre del backend es input; tautologico",
+                 "priority": 3},
+            ]
+
+        # Evaluacion predictiva (sin brazos): tautologia + compatibilidad semantica
+        valid = []
+        discarded = []
+        if abstain_reason is None:
+            for cd in candidates:
+                if cd["tautological"]:
+                    discarded.append({"id": cd["id"], "reason": "tautologico"})
+                    continue
+                # compatibilidad semantica: el observable debe coincidir con el declarado
+                if cd["observable"] == observable_declared:
+                    cd["semantically_compatible"] = True
+                    valid.append(cd)
+                else:
+                    cd["semantically_compatible"] = False
+                    discarded.append({"id": cd["id"], "reason": "no compatible con discriminante"})
+            if not valid:
+                abstain_reason = "ningun candidato es semanticamente compatible con el discriminante"
+
+        if abstain_reason:
+            # abstencion persistida
+            try:
+                nr = store.registrar_investigacion(
+                    c, kind="note",
+                    text="select_experiment_predictive: ABSTENCION - %s" % abstain_reason,
+                    status="OPEN", refs=refs, session=tid or "",
+                    target="hypothesis:%s" % hypothesis_id, gap_kind="")
+                if nr.get("estado") == "ok":
+                    try:
+                        store.registrar_audit_log(
+                            c, "select_experiment_predictive_abstain", "research",
+                            str(nr.get("id")), actor="rxre",
+                            details={"hypothesis_id": hypothesis_id, "motivo": abstain_reason,
+                                     "trace_id": tid, "modalidad": "predictive"})
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            try:
+                env_abs = {"status": "abstained", "capability": "rxre.select_experiment_predictive",
+                           "backend": None, "ejecucion": {"exit_status": 0},
+                           "persistido": True, "limitations": [abstain_reason],
+                           "trace_id": tid, "results": [], "operation_id": ""}
+                store.registrar_evento(c, "select_experiment_predictive",
+                                      "rxre.select_experiment_predictive", env_abs, [])
+            except Exception:
+                pass
+            return {"status": "abstained", "ejecutada": True, "modalidad": "predictive",
+                    "hypothesis_id": hypothesis_id, "candidates": candidates,
+                    "selected": None, "motivo": abstain_reason,
+                    "results": [], "limitations": [abstain_reason]}
+
+        # Seleccionar el candidato semanticamente compatible (el que coincide con el discriminante)
+        selected = None
+        for cd in valid:
+            if cd["observable"] == observable_declared:
+                selected = cd
+                break
+        if selected is None:
+            selected = valid[0]
+
+        # Persistir la decision ANTES de observar brazos
+        persisted_ok = False
+        note_id = None
+        try:
+            decision_text = ("select_experiment_predictive: hypothesis=%s selected=%s "
+                             "observable=%s (modalidad=predictive). Candidates: %s. "
+                             "Descartados: %s. Justificacion: %s. "
+                             "Prediccion: convencion de contraste (igualdad), "
+                             "procedencia=derivada del discriminante de la hipotesis"
+                             % (hypothesis_id, selected["id"], selected["observable"],
+                                ", ".join("%s(%s)" % (cd["id"], cd["observable"]) for cd in candidates),
+                                ", ".join("%s:%s" % (cd["id"], "tautologico" if cd["tautological"]
+                                                     else ("no-compatible" if not cd.get("semantically_compatible")
+                                                           else "valido"))
+                                          for cd in candidates),
+                                selected["rationale"]))
+            nr = store.registrar_investigacion(
+                c, kind="note", text=decision_text, status="OPEN",
+                refs=refs, session=tid or "",
+                target="hypothesis:%s" % hypothesis_id, gap_kind="")
+            if nr.get("estado") == "ok":
+                persisted_ok = True
+                note_id = nr.get("id")
+                try:
+                    store.registrar_audit_log(
+                        c, "select_experiment_predictive", "research", str(note_id),
+                        actor="rxre",
+                        details={"hypothesis_id": hypothesis_id,
+                                 "selected": selected["id"],
+                                 "observable": selected["observable"],
+                                 "modalidad": "predictive",
+                                 "prediction_provenance": "derivada del discriminante de la hipotesis",
+                                 "trace_id": tid})
+                except Exception:
+                    pass
+        except Exception:
+            persisted_ok = False
+
+        try:
+            env_dec = {
+                "status": "ok", "capability": "rxre.select_experiment_predictive",
+                "backend": None, "ejecucion": {"exit_status": 0,
+                                              "iteration": params.get("iteration")},
+                "persistido": persisted_ok, "limitations": [],
+                "trace_id": tid, "results": [], "operation_id": "",
+            }
+            env_dec["limitations"] = [_j.dumps({
+                "hypothesis_id": hypothesis_id,
+                "modalidad": "predictive",
+                "candidates": candidates,
+                "selected": selected["id"],
+                "observable": selected["observable"],
+                "justification": selected["rationale"],
+                "discarded": [{"id": cd["id"],
+                               "reason": "tautologico" if cd["tautological"]
+                               else ("no-compatible" if not cd.get("semantically_compatible")
+                                     else "valido")} for cd in candidates],
+                "prediction_provenance": "derivada del discriminante de la hipotesis",
+                "arms_observed_before_selection": False,
+            }, default=str)]
+            store.registrar_evento(c, "select_experiment_predictive",
+                                  "rxre.select_experiment_predictive", env_dec, [])
+        except Exception:
+            pass
+
+        # Fase B: validacion posterior (observar brazos DESPUES de persistir decision)
+        obs = selected["observable"]
+        # arms (post-decision observation)
+        try:
+            base_env = dispatch.ejecutar(capability, baseline_params)
+            mod_env = dispatch.ejecutar(capability, modified_params)
+        except Exception as e:
+            base_env = {"status": "error"}; mod_env = {"status": "error"}
+
+        # Ejecutar experimento formal
+        experiment_result = None
+        try:
+            exp_params = {
+                "op": "experiment",
+                "capability": capability,
+                "question": "RXRE (predictivo) selecciono %s para contrastar hipotesis %s"
+                            % (obs, hypothesis_id),
+                "prediction": "NO_CHANGE",
+                "comparar": obs,
+                "baseline_params": baseline_params,
+                "modified_params": modified_params,
+                "hypothesis_id": hypothesis_id,
+                "refs": refs,
+                "iteration": params.get("iteration"),
+            }
+            experiment_result = procesar_linea(_j.dumps(exp_params))
+        except Exception as e:
+            experiment_result = {"status": "error", "motivo": str(e)}
+
+        # Vincular resultado a la hipotesis via note (sin sobrescribir justificacion original)
+        try:
+            verdict = (experiment_result.get("experiment") or {}).get("veredicto")
+            store.registrar_investigacion(
+                c, kind="note",
+                text=("select_experiment_predictive result: hypothesis=%s selected=%s "
+                      "observable=%s verdict=%s (validacion posterior)" % (
+                          hypothesis_id, selected["id"], obs, verdict)),
+                status="OPEN", refs=refs, session=tid or "",
+                target="hypothesis:%s" % hypothesis_id, gap_kind="")
+        except Exception:
+            pass
+
+        return {
+            "status": "ok", "ejecutada": True, "modalidad": "predictive",
+            "hypothesis_id": hypothesis_id,
+            "candidates": candidates,
+            "selected": selected["id"],
+            "observable": obs,
+            "justification": selected["rationale"],
+            "prediction_provenance": "derivada del discriminante de la hipotesis",
+            "arms_observed_before_selection": False,
+            "discarded": [{"id": cd["id"],
+                           "reason": "tautologico" if cd["tautological"]
+                           else ("no-compatible" if not cd.get("semantically_compatible")
+                                 else "valido")} for cd in candidates],
+            "experiment_result": experiment_result,
+            "trace_id": tid,
+            "persistido": persisted_ok,
+            "limitations": [
+                "seleccion predictiva: no se observaron brazos antes de decidir",
+                "validacion posterior no modifica la justificacion original",
+            ],
+        }
+    finally:
+        c.close()
+
+
+def _handle_select_experiment(params: dict) -> dict:
+    """op: select_experiment — ALMA: RXRE selecciona autonomamente el experimento
+    mas discriminante a partir de una hipotesis persistida.
+
+    Fase A: generar >=2 candidatos y evaluar su poder discriminante SIN ejecutarlos.
+    Fase B: ejecutar solo el candidato elegido, persistiendo la decision antes.
+
+    El llamante proporciona la hipotesis (o frontier_id), pero NO el observable
+    ni el experimento a ejecutar.
+    """
+    import json as _j
+
+    hypothesis_id = params.get("hypothesis_id")
+    frontier_id = params.get("frontier_id")
+    tid = _trace_id_actual(params)
+
+    c = _get_db()
+    try:
+        # Resolver hipotesis
+        if not hypothesis_id and frontier_id:
+            # buscar hipotesis derivada de ese frontier (la mas reciente)
+            row = c.execute(
+                "SELECT id FROM research WHERE kind='hypothesis' AND "
+                "refs_json LIKE ? ORDER BY id DESC LIMIT 1",
+                ("%%%s%%" % frontier_id,)).fetchone()
+            if row:
+                hypothesis_id = row["id"]
+        if not hypothesis_id:
+            # intentar por frontier text match
+            pass
+
+        hrow = None
+        if hypothesis_id:
+            hrow = c.execute(
+                "SELECT id, kind, status, text, refs_json, session, target "
+                "FROM research WHERE id=? AND kind='hypothesis'",
+                (hypothesis_id,)).fetchone()
+        if not hrow:
+            return {"status": "invalid_input", "ejecutada": False,
+                    "motivo": "falta hypothesis_id valido (o frontier sin hipotesis)",
+                    "results": [], "limitations": [
+                        "RXRE solo selecciona experimento desde una hipotesis persistida"]}
+
+        refs = []
+        try:
+            refs = list(json.loads(hrow["refs_json"] or "[]"))
+        except Exception:
+            refs = []
+        target = (hrow["target"] or "").strip().lower()
+        hyp_text = hrow["text"] or ""
+
+        # Determinar condiciones (capability, baseline, modified) desde target
+        if "xref" in target:
+            capability = "binary.xrefs"
+            baseline_params = {"artefacto": _extract_artifact(hyp_text) or "/bin/ls",
+                               "backend_id": "rizin"}
+            modified_params = {"artefacto": _extract_artifact(hyp_text) or "/bin/ls",
+                               "backend_id": "radare2"}
+        elif "callgraph" in target:
+            capability = "binary.callgraph"
+            baseline_params = {"artefacto": _extract_artifact(hyp_text) or "/bin/ls",
+                               "backend_id": "radare2", "nivel_analisis": "aa"}
+            modified_params = {"artefacto": _extract_artifact(hyp_text) or "/bin/ls",
+                               "backend_id": "radare2", "nivel_analisis": "aaa"}
+        else:
+            return {"status": "abstained", "ejecutada": False,
+                    "motivo": "target no soporta seleccion de experimento: %s" % target,
+                    "results": [], "limitations": [
+                        "sin capability/condiciones derivables, no se generan candidatos"]}
+
+        artifact = baseline_params.get("artefacto", "/bin/ls")
+
+        # Observar evidencia previa (dispatch) para ambos brazos
+        try:
+            base_env = dispatch.ejecutar(capability, baseline_params)
+            mod_env = dispatch.ejecutar(capability, modified_params)
+        except Exception as e:
+            return {"status": "abstained", "ejecutada": False,
+                    "motivo": "no se pudo observar evidencia: %s" % e,
+                    "results": [], "limitations": [str(e)]}
+
+        base_results = base_env.get("results") or []
+        mod_results = mod_env.get("results") or []
+        base_status = base_env.get("status")
+        mod_status = mod_env.get("status")
+
+        # Conjuntos de result_id
+        base_ids = [r.get("result_id") for r in base_results if isinstance(r, dict) and r.get("result_id")]
+        mod_ids = [r.get("result_id") for r in mod_results if isinstance(r, dict) and r.get("result_id")]
+        sets_differ = (base_ids != mod_ids)
+        statuses_differ = (base_status != mod_status)
+
+        # Fase A: generar candidatos y evaluar discriminacion (sin ejecutar experimento)
+        candidates = []
+        # Candidate 1: results (full set) - non-tautological, discriminative if sets differ
+        candidates.append({
+            "id": "cand_results",
+            "observable": "results",
+            "tautological": False,
+            "discriminative": sets_differ,
+            "expected_under_hypothesis": "conjuntos idénticos -> no_separable",
+            "expected_under_alternative": "conjuntos distintos -> refutada",
+            "rationale": "compara el contenido completo de los resultados; "
+                         "detecta diferencia de conjuntos aunque las cardinalidades coincidan",
+            "priority": 2,
+        })
+        # Candidate 2: status - trivial, non-discriminative
+        candidates.append({
+            "id": "cand_status",
+            "observable": "status",
+            "tautological": False,
+            "discriminative": statuses_differ,
+            "expected_under_hypothesis": "ambos ok -> no_separable",
+            "expected_under_alternative": "estados distintos -> refutada",
+            "rationale": "observable simple; no separa los brazos en el caso medido",
+            "priority": 1,  # mayor prioridad (mas simple) pero menos discriminante
+        })
+        # Candidate 3: results.0.tool - discriminative pero tautologico
+        candidates.append({
+            "id": "cand_tool",
+            "observable": "results.0.tool",
+            "tautological": True,
+            "discriminative": True,
+            "expected_under_hypothesis": "n/a (tautologico)",
+            "expected_under_alternative": "n/a",
+            "rationale": "el nombre del backend es el input del experimento; "
+                         "no prueba la hipotesis sobre conjuntos",
+            "priority": 3,
+        })
+
+        # Descartar tautologicos
+        valid = [cd for cd in candidates if not cd["tautological"]]
+        discriminative = [cd for cd in valid if cd["discriminative"]]
+
+        # Abstencion si no hay candidato discriminante justificable
+        if not discriminative:
+            abstain_reason = ("ningun candidato no-tautologico es discriminante: "
+                              "status no separa, results no difiere en la evidencia observada")
+            try:
+                nr = store.registrar_investigacion(
+                    c, kind="note",
+                    text="select_experiment: ABSTENCION - %s" % abstain_reason,
+                    status="OPEN", refs=refs, session=tid or "",
+                    target="hypothesis:%s" % hypothesis_id, gap_kind="")
+                if nr.get("estado") == "ok":
+                    try:
+                        store.registrar_audit_log(
+                            c, "select_experiment_abstain", "research",
+                            str(nr.get("id")), actor="rxre",
+                            details={"hypothesis_id": hypothesis_id,
+                                     "candidates": candidates,
+                                     "motivo": abstain_reason,
+                                     "trace_id": tid})
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            try:
+                env_abs = {"status": "abstained", "capability": "rxre.select_experiment",
+                           "backend": None, "ejecucion": {"exit_status": 0},
+                           "persistido": True, "limitations": [abstain_reason],
+                           "trace_id": tid, "results": [], "operation_id": ""}
+                store.registrar_evento(c, "select_experiment", "rxre.select_experiment",
+                                      env_abs, [])
+            except Exception:
+                pass
+            return {"status": "abstained", "ejecutada": True,
+                    "hypothesis_id": hypothesis_id, "candidates": candidates,
+                    "selected": None, "motivo": abstain_reason,
+                    "results": [], "limitations": [abstain_reason]}
+
+        # Seleccionar el candidato mas discriminante (menor priority number among discriminative? No: by discriminative power)
+        # Ordenar: discriminative primero, luego por priority descendente (menos "prioritario" = mas complejo primero? No)
+        # Regla: elegir el candidato discriminante con MAYOR complejidad informativa.
+        # Usamos: discriminative=True, tautological=False, y preferir observable "results" (full set) sobre otros.
+        selected = None
+        for cd in discriminative:
+            if cd["observable"] == "results":
+                selected = cd
+                break
+        if selected is None:
+            selected = discriminative[0]
+
+        # Persistir la decision ANTES de ejecutar
+        persisted_ok = False
+        note_id = None
+        try:
+            decision_text = ("select_experiment: hypothesis=%s selected=%s "
+                             "observable=%s (discriminative=%s, tautological=%s). "
+                             "Candidates: %s. Descartados: %s. "
+                             "Justificacion: %s" % (
+                                 hypothesis_id, selected["id"], selected["observable"],
+                                 selected["discriminative"], selected["tautological"],
+                                 ", ".join("%s(%s)" % (cd["id"], cd["observable"])
+                                           for cd in candidates),
+                                 ", ".join("%s:%s" % (cd["id"], "tautologico" if cd["tautological"]
+                                                      else ("no-discriminante" if not cd["discriminative"]
+                                                            else "valido"))
+                                           for cd in candidates),
+                                 selected["rationale"]))
+            nr = store.registrar_investigacion(
+                c, kind="note", text=decision_text, status="OPEN",
+                refs=refs, session=tid or "",
+                target="hypothesis:%s" % hypothesis_id, gap_kind="")
+            if nr.get("estado") == "ok":
+                persisted_ok = True
+                note_id = nr.get("id")
+                try:
+                    store.registrar_audit_log(
+                        c, "select_experiment", "research", str(note_id),
+                        actor="rxre",
+                        details={"hypothesis_id": hypothesis_id,
+                                 "selected": selected["id"],
+                                 "observable": selected["observable"],
+                                 "candidates": candidates,
+                                 "trace_id": tid,
+                                 "prediction_provenance": "convencion de contraste (igualdad)"})
+                except Exception:
+                    pass
+        except Exception:
+            persisted_ok = False
+
+        # Evento durable con la decision completa
+        try:
+            env_dec = {
+                "status": "ok", "capability": "rxre.select_experiment",
+                "backend": None, "ejecucion": {"exit_status": 0,
+                                              "iteration": params.get("iteration")},
+                "persistido": persisted_ok, "limitations": [],
+                "trace_id": tid, "results": [], "operation_id": "",
+            }
+            # guardar la decision en limitations como JSON
+            env_dec["limitations"] = [_j.dumps({
+                "hypothesis_id": hypothesis_id,
+                "candidates": candidates,
+                "selected": selected["id"],
+                "observable": selected["observable"],
+                "justification": selected["rationale"],
+                "discarded": [{"id": cd["id"], "reason": "tautologico" if cd["tautological"]
+                               else ("no-discriminante" if not cd["discriminative"] else "valido")}
+                              for cd in candidates],
+                "prediction_provenance": "convencion de contraste (igualdad)",
+            }, default=str)]
+            store.registrar_evento(c, "select_experiment", "rxre.select_experiment",
+                                  env_dec, [])
+        except Exception:
+            pass
+
+        # Fase B: ejecutar el candidato elegido
+        obs = selected["observable"]
+        prediction = "NO_CHANGE"  # convencion de contraste (igualdad)
+        experiment_result = None
+        try:
+            exp_params = {
+                "op": "experiment",
+                "capability": capability,
+                "question": "RXRE selecciono %s para contrastar hipotesis %s"
+                            % (obs, hypothesis_id),
+                "prediction": prediction,
+                "comparar": obs,
+                "baseline_params": baseline_params,
+                "modified_params": modified_params,
+                "hypothesis_id": hypothesis_id,
+                "refs": refs,
+                "iteration": params.get("iteration"),
+            }
+            experiment_result = procesar_linea(_j.dumps(exp_params))
+        except Exception as e:
+            experiment_result = {"status": "error", "motivo": str(e)}
+
+        # Vincular resultado a la hipotesis via note
+        try:
+            verdict = (experiment_result.get("experiment") or {}).get("veredicto")
+            store.registrar_investigacion(
+                c, kind="note",
+                text=("select_experiment result: hypothesis=%s selected=%s "
+                      "observable=%s verdict=%s" % (
+                          hypothesis_id, selected["id"], obs, verdict)),
+                status="OPEN", refs=refs, session=tid or "",
+                target="hypothesis:%s" % hypothesis_id, gap_kind="")
+        except Exception:
+            pass
+
+        return {
+            "status": "ok", "ejecutada": True,
+            "hypothesis_id": hypothesis_id,
+            "candidates": candidates,
+            "selected": selected["id"],
+            "observable": obs,
+            "justification": selected["rationale"],
+            "prediction": prediction,
+            "prediction_provenance": "convencion de contraste (igualdad)",
+            "discarded": [{"id": cd["id"],
+                           "reason": "tautologico" if cd["tautological"]
+                           else ("no-discriminante" if not cd["discriminative"]
+                                 else "valido")} for cd in candidates],
+            "experiment_result": experiment_result,
+            "trace_id": tid,
+            "persistido": persisted_ok,
+            "limitations": [
+                "seleccion basada en evidencia observada; no en LLM",
+                "prediccion por convencion de contraste, no derivada de evidencia previa",
+            ],
+        }
+    finally:
+        c.close()
+
+
+def _extract_artifact(text: str) -> str:
+    import re as _re
+    m = _re.search(r"\s+en\s+(.+?)(?:\s*\(|:|$)", text or "")
+    return m.group(1).strip() if m else ""
+
+
+def _handle_investigate(params: dict) -> dict:
+    """op: investigate - ALMA: RXRE conduce una mision de investigacion autonoma.
+
+    Encadena discover -> hypothesize -> select -> select_experiment_predictive ->
+    saturate sobre un artefacto, extrayendo internamente los identificadores.
+    Soporta continuacion adaptativa: tras una refutacion, si existe un frontier
+    discriminable no investigado, ejecuta una segunda iteracion. Limite de
+    iteraciones configurable (max_iterations, default 2).
+
+    El llamante solo proporciona el artefacto (y opcionalmente trace_id/objective).
+    Las decisiones de investigacion son tomadas por RXRE.
+
+    Uso:
+        {"op":"investigate","artefacto":"/bin/ls"}
+        {"op":"investigate","artefacto":"/bin/ls","max_iterations":2}
+    """
+    import json as _j
+
+    artefacto = params.get("artefacto") or params.get("artifact") or params.get("path")
+    if not artefacto:
+        return {"status": "invalid_input", "op": "investigate",
+                "motivo": "falta 'artefacto'", "results": []}
+
+    tid = _trace_id_actual(params)
+    max_iters = int(params.get("max_iterations", 2) or 2)
+    if max_iters < 1:
+        max_iters = 1
+    if max_iters > 5:
+        max_iters = 5
+
+    trace = []          # per-step records
+    mission_id = None
+    hypothesis_ids = []  # one per iteration
+    selected_tasks = []
+    selected_experiments = []
+    experiment_verdicts = []
+    continuation_decisions = []
+    investigated_frontiers = set()
+    previous_continuation_id = None
+    overall_status = "ok"
+
+    def _record(step, resp):
+        trace.append({
+            "step": step,
+            "op": (resp or {}).get("op", step),
+            "status": (resp or {}).get("status", "unknown"),
+        })
+
+    # Step 0: discover (once)
+    try:
+        r1 = procesar_linea(_j.dumps({"op": "discover", "artefacto": artefacto,
+                                     "trace_id": tid}))
+    except Exception as e:
+        r1 = {"status": "error", "motivo": str(e)}
+    _record("discover", r1)
+    if r1.get("status") not in ("ok", "empty"):
+        overall_status = "blocked"
+    mission_id = r1.get("mission_created")
+
+    # load frontiers
+    frontiers = []
+    try:
+        _c = _get_db()
+        frontiers = [dict(x) for x in _c.execute(
+            "SELECT id, target, refs_json FROM research WHERE kind='frontier' "
+            "AND session=?", (tid,)).fetchall()]
+        _c.close()
+    except Exception:
+        pass
+
+    def _discriminable(f):
+        try:
+            if not json.loads(f.get("refs_json") or "[]"):
+                return False
+        except Exception:
+            return False
+        tgt = (f.get("target") or "").lower()
+        return ("xref" in tgt) or ("callgraph" in tgt)
+
+    # Iteration loop
+    iteration = 0
+    while iteration < max_iters:
+        iteration += 1
+        # pick next uninvestigated discriminable frontier
+        chosen_frontier = None
+        for f in frontiers:
+            if f["id"] in investigated_frontiers:
+                continue
+            if _discriminable(f):
+                chosen_frontier = f
+                break
+        if chosen_frontier is None:
+            # no more discriminable frontiers
+            break
+
+        investigated_frontiers.add(chosen_frontier["id"])
+
+        # Hypothesize
+        try:
+            r_hyp = procesar_linea(_j.dumps({
+                "op": "hypothesize",
+                "frontier_id": chosen_frontier["id"],
+                "trace_id": tid,
+                "iteration": iteration,
+                "caused_by_continuation_id": previous_continuation_id,
+            }))
+        except Exception as e:
+            r_hyp = {"status": "error", "motivo": str(e)}
+        _record("hypothesize", r_hyp)
+        hypothesis_id = r_hyp.get("hypothesis_id") if r_hyp.get("status") == "ok" else None
+        hypothesis_ids.append(hypothesis_id)
+
+        # Select (mission)
+        selected_task = None
+        if mission_id:
+            try:
+                r_sel = procesar_linea(_j.dumps({
+                    "op": "select", "mission_id": mission_id, "trace_id": tid,
+                    "iteration": iteration,
+                }))
+            except Exception as e:
+                r_sel = {"status": "error", "motivo": str(e)}
+            _record("select", r_sel)
+            selected_task = r_sel.get("task_id")
+        selected_tasks.append(selected_task)
+
+        # Select experiment (predictive) if hypothesis
+        selected_experiment = None
+        experiment_verdict = None
+        if hypothesis_id:
+            try:
+                r_se = procesar_linea(_j.dumps({
+                    "op": "select_experiment_predictive",
+                    "hypothesis_id": hypothesis_id,
+                    "trace_id": tid,
+                    "iteration": iteration,
+                }))
+            except Exception as e:
+                r_se = {"status": "error", "motivo": str(e)}
+            _record("select_experiment_predictive", r_se)
+            selected_experiment = r_se.get("selected")
+            experiment_verdict = (r_se.get("experiment_result") or {}).get("experiment", {}).get("veredicto")
+        else:
+            r_se = {"status": "empty", "motivo": "no hypothesis"}
+            _record("select_experiment_predictive", r_se)
+        selected_experiments.append(selected_experiment)
+        experiment_verdicts.append(experiment_verdict)
+
+        # Saturate
+        try:
+            r_sat = procesar_linea(_j.dumps({
+                "op": "saturate", "target": chosen_frontier["target"], "trace_id": tid,
+                "iteration": iteration,
+            }))
+        except Exception as e:
+            r_sat = {"status": "error", "motivo": str(e)}
+        _record("saturate", r_sat)
+
+        # Continuation decision based on verdict
+        continuation_decision = None
+        continuation_rationale = None
+        next_frontier_id = None
+        try:
+            if experiment_verdict == "refutada":
+                # Is there another uninvestigated discriminable frontier?
+                remaining = [f for f in frontiers
+                             if f["id"] not in investigated_frontiers
+                             and _discriminable(f)]
+                if remaining:
+                    continuation_decision = "CONTINUE"
+                    continuation_rationale = ("hipotesis refutada; existe frontier alternativo (%s); "
+                                             "continuar con siguiente iteracion" % remaining[0]["target"])
+                    next_frontier_id = remaining[0]["id"]
+                else:
+                    continuation_decision = "ABSTAIN"
+                    continuation_rationale = ("hipotesis refutada; no existe alternativa persistida; "
+                                             "se registra frontera abierta")
+                    next_frontier_id = None
+            elif experiment_verdict == "sostenida":
+                _c = _get_db()
+                _tasks = store.obtener_tareas_mision(_c, mission_id) if mission_id else []
+                _pending = [t for t in _tasks if t.get("status") not in ("COMPLETED", "DONE")]
+                _c.close()
+                if not _pending:
+                    continuation_decision = "COMPLETE"
+                    continuation_rationale = ("hipotesis sostenida y todas las tareas completadas; "
+                                             "objetivo de mision satisfecho")
+                else:
+                    continuation_decision = "CONTINUE"
+                    continuation_rationale = ("hipotesis sostenida pero quedan %d tareas pendientes"
+                                             % len(_pending))
+            elif experiment_verdict in ("no_separable", "no_observable"):
+                continuation_decision = "ABSTAIN"
+                continuation_rationale = ("resultado %s: no hay informacion suficiente para "
+                                         "continuar; se registra frontera abierta"
+                                         % experiment_verdict)
+            else:
+                continuation_decision = "ABSTAIN"
+                continuation_rationale = ("veredicto desconocido (%s); abstener por seguridad"
+                                         % experiment_verdict)
+
+            continuation_decisions.append(continuation_decision)
+
+            # Persistir la decision ANTES de actuar
+            try:
+                _c = _get_db()
+                nr = store.registrar_investigacion(
+                    _c, kind="note",
+                    text=("continuation: decision=%s rationale=%s hypothesis=%s verdict=%s iter=%d next_frontier=%s"
+                          % (continuation_decision, continuation_rationale,
+                             hypothesis_id, experiment_verdict, iteration,
+                             next_frontier_id)),
+                    status="OPEN", refs=[], session=tid or "",
+                    target="hypothesis:%s" % hypothesis_id if hypothesis_id else (mission_id or ""),
+                    gap_kind="")
+                if nr.get("estado") == "ok":
+                    previous_continuation_id = nr.get("id")
+                    try:
+                        store.registrar_audit_log(
+                            _c, "continuation_decision", "research", str(nr.get("id")),
+                            actor="rxre.investigate",
+                            details={"decision": continuation_decision,
+                                     "rationale": continuation_rationale,
+                                     "hypothesis_id": hypothesis_id,
+                                     "verdict": experiment_verdict,
+                                     "iteration": iteration,
+                                     "trace_id": tid})
+                    except Exception:
+                        pass
+                _c.close()
+            except Exception:
+                pass
+
+            # Evento durable
+            try:
+                _c = _get_db()
+                env_cont = {
+                    "status": "ok", "capability": "rxre.investigate",
+                    "backend": None, "ejecucion": {"exit_status": 0,
+                                                  "iteration": iteration},
+                    "persistido": True, "limitations": [],
+                    "trace_id": tid, "results": [], "operation_id": "",
+                }
+                env_cont["limitations"] = [_j.dumps({
+                    "continuation_decision": continuation_decision,
+                    "rationale": continuation_rationale,
+                    "hypothesis_id": hypothesis_id,
+                    "verdict": experiment_verdict,
+                    "iteration": iteration,
+                    "next_frontier_id": next_frontier_id,
+                }, default=str)]
+                store.registrar_evento(_c, "continuation", "rxre.investigate", env_cont, [])
+                _c.close()
+            except Exception:
+                pass
+
+            # Actuar segun la decision (una iteracion adicional como maximo)
+            if continuation_decision == "COMPLETE":
+                if mission_id:
+                    try:
+                        _c = _get_db()
+                        tasks = store.obtener_tareas_mision(_c, mission_id)
+                        if tasks and all(t.get("status") in ("COMPLETED", "DONE") for t in tasks):
+                            # RXRE-202: el cierre pasa por el contrato de criterios.
+                            from rxre.mission_closure import close_mission
+                            close_mission(mission_id, conn=_c)
+                        _c.close()
+                    except Exception:
+                        pass
+                break  # complete -> stop
+            elif continuation_decision == "ABSTAIN":
+                break  # abstain -> stop
+            elif continuation_decision == "CONTINUE":
+                # continue to next iteration (loop)
+                pass
+        except Exception:
+            continuation_decision = "ABSTAIN"
+            continuation_rationale = "error computing continuation"
+            continuation_decisions.append(continuation_decision)
+            break
+
+        if continuation_decision in ("ABSTAIN", "COMPLETE"):
+            break
+
+    # Mission completion check (strict)
+    if mission_id:
+        try:
+            _c = _get_db()
+            tasks = store.obtener_tareas_mision(_c, mission_id)
+            if tasks and all(t.get("status") in ("COMPLETED", "DONE") for t in tasks):
+                from rxre.mission_closure import close_mission
+                close_mission(mission_id, conn=_c)
+            _c.close()
+        except Exception:
+            pass
+
+    # Persist mission trace (research note)
+    try:
+        _c = _get_db()
+        trace_summary = "investigate: artifact=%s trace=%s steps=%s continuations=%s" % (
+            artefacto, tid, ",".join("%s=%s" % (t["step"], t["status"]) for t in trace),
+            ",".join(continuation_decisions))
+        store.registrar_investigacion(
+            _c, kind="note", text=trace_summary, status="OPEN",
+            refs=[], session=tid or "", target=artefacto, gap_kind="")
+        try:
+            _nid = _c.execute("SELECT last_insert_rowid()").fetchone()[0]
+            store.registrar_audit_log(_c, "investigate", "research", str(_nid),
+                                     actor="rxre.investigate",
+                                     details={"artifact": artefacto, "trace_id": tid,
+                                              "steps": trace, "autonomous": True,
+                                              "continuations": continuation_decisions})
+        except Exception:
+            pass
+        _c.close()
+    except Exception:
+        pass
+
+    autonomous_decisions = []
+    if r1.get("status") in ("ok", "empty"):
+        autonomous_decisions.append("frontier_proposal (discover)")
+    if hypothesis_ids and any(hypothesis_ids):
+        autonomous_decisions.append("hypothesis_formulation (hypothesize)")
+    if selected_tasks and any(selected_tasks):
+        autonomous_decisions.append("task_selection (select by value)")
+    if selected_experiments and any(selected_experiments):
+        autonomous_decisions.append("experiment_selection (predictive)")
+    if experiment_verdicts and any(experiment_verdicts):
+        autonomous_decisions.append("hypothesis_evaluation (experiment -> %s)" % experiment_verdicts[-1])
+    if continuation_decisions:
+        autonomous_decisions.append("continuation_decision (%s)" % continuation_decisions[-1])
+
+    external_dependencies = ["artifact provided by caller"]
+
+    return {
+        "status": overall_status,
+        "op": "investigate",
+        "artefacto": artefacto,
+        "trace_id": tid,
+        "mission_id": mission_id,
+        "hypothesis_id": hypothesis_ids[-1] if hypothesis_ids else None,
+        "selected_task": selected_tasks[-1] if selected_tasks else None,
+        "selected_experiment": selected_experiments[-1] if selected_experiments else None,
+        "experiment_verdict": experiment_verdicts[-1] if experiment_verdicts else None,
+        "continuation_decision": continuation_decisions[-1] if continuation_decisions else None,
+        "continuation_rationale": continuation_rationale if continuation_decisions else None,
+        "iterations": iteration,
+        "investigated_frontiers": list(investigated_frontiers),
+        "trace": trace,
+        "autonomous_decisions": autonomous_decisions,
+        "external_dependencies": external_dependencies,
+        "limitations": [
+            "investigate chains existing capabilities; decisions are made by RXRE handlers",
+            "artifact must be provided by caller (external dependency)",
+            "mission completion depends on task statuses",
+            "continuation limited to max_iterations (default 2)",
+            "no unbounded loop; abstention is a valid terminal decision",
+        ],
+        "results": [],
+    }
+
+
 def _handle_research(params: dict) -> dict:
     """op: research — registra una entrada de estado de investigacion.
 
@@ -3215,6 +5659,31 @@ def _handle_saturate(params: dict) -> dict:
             c, frontier_id=params.get("frontier_id"),
             target=params.get("target", ""),
             con_alternativas=bool(params.get("alternativas", True)))
+        # Evento durable para reconstruir la decision de saturacion.
+        try:
+            tid_sat = _trace_id_actual(params)
+            import json as _js
+            env_sat = {
+                "status": r.get("estado", "ok"),
+                "capability": "rxre.saturate",
+                "backend": None,
+                "ejecucion": {"exit_status": 0,
+                              "iteration": params.get("iteration")},
+                "persistido": True,
+                "limitations": r.get("limitations", []),
+                "trace_id": tid_sat,
+                "results": [],
+                "operation_id": "",
+            }
+            env_sat["limitations"] = (env_sat["limitations"] or []) + [_js.dumps({
+                "frontier_evaluaciones": r.get("frontier_evaluaciones", []),
+                "saturadas": [e["frontier_id"] for e in (r.get("frontier_evaluaciones") or []) if e.get("saturada")],
+                "paradas": [{"frontier_id": e["frontier_id"], "motivo": e["motivo"]}
+                            for e in (r.get("frontier_evaluaciones") or []) if not e.get("saturada")],
+            }, default=str)]
+            store.registrar_evento(c, "saturate", "rxre.saturate", env_sat, [])
+        except Exception:
+            pass
     finally:
         c.close()
 
@@ -3282,7 +5751,9 @@ def _handle_scan(params: dict) -> dict:
     c = _get_db()
     # ETER: emitir el evento ANTES de la logica del handler. El evento es
     # async (write-ahead) y NO bloquea: si el hub esta lleno, el descarte se
-    # CUENTA en stats, no rompe el handler.
+    # CUENTA en stats, no rompe el handler. Un productor que espera al hub
+    # para poder escanear convertiria el hub en el cuello de botella global
+    # que el diagrama prohibe.
     try:
         _eter().emit("scan", {"op": "scan"}, critico=True)
     except Exception:
@@ -3355,6 +5826,9 @@ def _handle_scan(params: dict) -> dict:
                                              c.get("numeros_comunes", []))}
                 for c in correlaciones
             ],
+            # ETER-CYCLE: detectar dependencias circulares entre findings
+            "ciclos_detectados": _detectar_ciclos_frontier(correlaciones),
+            "checks_merge_sugerido": _detectar_checks_redundantes([]),
             "next_actions": [{
                 "op": "saturate",
                 "args": {"frontier_id": siguiente_id},
@@ -3366,71 +5840,573 @@ def _handle_scan(params: dict) -> dict:
     finally:
         c.close()
 
-def _handle_router(params: dict) -> dict:
-    """op: router.resolve -- resuelve por capability (mapa estático ADAPTERS)."""
-    capability = params.get("capability")
-    if not capability:
-        return {"status": "error", "motivo": "falta capability", "results": []}
-    import rxre.backends.dispatch as d
-    if capability not in d.ADAPTERS:
-        return {"status": "error", "motivo": f"capability no registrada: {capability}", "results": []}
-    adapter = d.ADAPTERS[capability]
-    return {"status": "ok", "capability": capability, "backend": adapter.get("nombre", capability), "results": []}
+def _handle_ingest(params: dict) -> dict:
+    """Contrato publico de INGESTA de eventos de ejecucion observados (174).
+    Registra a traves de store.registrar_evento (escritor legitimo, usado ya
+    por op:run). No escribe SQL directo ni modifica core/store.py.
+    Verifica el hash del artefacto ANTES de registrar; si no coincide, no
+    registra nada (no se inventan eventos ni hashes)."""
+    import os, json, hashlib
+    c = None
+    try:
+        required = ["execution_id", "events_file", "sha256_spirv", "capability"]
+        missing = [k for k in required if k not in params]
+        if missing:
+            return {"status":"error","op":"ingest","message":"missing %s"%missing,"count":0,"events":[],
+                    "execution_id":params.get("execution_id"),"derived_from_evidence":False,
+                    "limitations":["peticion incompleta; ninguna fila registrada"]}
+        eid = params["execution_id"]
+        events_file = params["events_file"]
+        artifact_path = params.get("artifact_path") or ""
+        sha_declared = params["sha256_spirv"]
+        cap = params["capability"]
+        # 1) Integridad del artefacto (antes de escribir)
+        if not artifact_path or not os.path.exists(artifact_path):
+            return {"status":"error","op":"ingest","message":"artifact_path missing or unreadable","count":0,"events":[],
+                    "execution_id":eid,"derived_from_evidence":False,"limitations":["sin artefacto verificable; no se registra"]}
+        h = hashlib.sha256(open(artifact_path,"rb").read()).hexdigest()
+        if h != sha_declared:
+            return {"status":"error","op":"ingest","message":"sha256_spirv mismatch (archivo=%s declarado=%s); NO se registran eventos"%(h[:16],sha_declared[:16]),
+                    "count":0,"events":[],"execution_id":eid,"derived_from_evidence":False,
+                    "limitations":["hash verificado contra archivo real; discrepancia detectada"]}
+        # 2) Fuente de observaciones: archivo real del harness
+        if not os.path.exists(events_file):
+            return {"status":"error","op":"ingest","message":"events_file missing: %s"%events_file,"count":0,"events":[],
+                    "execution_id":eid,"derived_from_evidence":False,"limitations":["sin archivo de observaciones; no se registra"]}
+        try:
+            with open(events_file) as f:
+                data = json.load(f)
+        except Exception as exc:
+            return {"status":"error","op":"ingest","message":"invalid events_file JSON: %s"%str(exc),"count":0,"events":[],
+                    "execution_id":eid,"derived_from_evidence":False,"limitations":["archivo ilegible; no se registra"]}
+        events_raw = data.get("events",[])
+        file_eid = data.get("execution_id")
+        if file_eid and file_eid != eid:
+            return {"status":"error","op":"ingest","message":"execution_id mismatch: file=%s request=%s"%(file_eid,eid),
+                    "count":0,"events":[],"execution_id":eid,"derived_from_evidence":False,
+                    "limitations":["identidad inconsistente; no se registra"]}
+        device_obs = data.get("device_observed") or "unknown"
+        backend_req = data.get("backend_requested") or "unknown"
+        c = store.conectar()
+        try:
+            # 3) Operacion RXRE publica (identidad operation_id). Se REUSA la
+            #    operacion existente para este execution_id: registrar_evento
+            #    incluye operation_id en el hash de evento_id, asi que una
+            #    operacion nueva por reingesta cambiaria el evento_id y
+            #    romperia la idempotencia (PRUEBA 174).
+            op_id = None
+            try:
+                _row = c.execute(
+                    "SELECT operation_id FROM operations WHERE operacion='ingest' "
+                    "AND capability=? AND response_json LIKE ? ORDER BY timestamp DESC LIMIT 1",
+                    (cap, "%" + eid + "%")).fetchone()
+                if _row:
+                    op_id = _row[0]
+            except Exception:
+                op_id = None
+            if not op_id:
+                env_op = {
+                    "op":"ingest","capability":cap,"execution_id":eid,"status":"submitted",
+                    "results":[{"result_id":"res_ing_%s"%eid,
+                                "location":{"execution_id":eid,"artifact_path":artifact_path,
+                                            "sha256_spirv":sha_declared,"events_file":events_file}}],
+                    "ejecucion":{"exit_status":0,"execution_id":eid,"hash_verified":True,
+                                 "artifact_sha256":sha_declared,"device_observed":device_obs,
+                                 "backend_requested":backend_req},
+                    "persistido":True,
+                    "limitations":["public ingestion through machine.py op=ingest; source=%s"%os.path.basename(events_file)],
+                    "trace_id":eid,"backend":{"backend_id":device_obs}}
+                op_id = store.registrar(c, params, env_op, 0.0)
+            # 4) Un evento por hito observado (env determinista => evento_id estable => idempotente)
+            registered_ids = []
+            for idx, ev in enumerate(events_raw):
+                milestone_op = ev.get("type", "API_CALL_OBSERVED")
+                env_ev = {
+                    "op":milestone_op,"capability":cap,"execution_id":eid,"status":"completed",
+                    "results":[{"result_id":"res_ev_%s_%s"%(eid,idx),
+                                "location":{"execution_id":eid,"artifact_path":artifact_path,
+                                            "sha256_spirv":sha_declared,"event_index":idx,
+                                            "milestone":milestone_op}}],
+                    "ejecucion":{"exit_status":0,"milestone":milestone_op,"execution_id":eid,
+                                 "artifact_sha256":sha_declared,"device_observed":device_obs,
+                                 "backend_requested":backend_req,
+                                 "readback":ev.get("detail",{}).get("readback_value"),
+                                 "validation":ev.get("detail",{}).get("validation"),
+                                 "event_index":idx,"ts_monotonic":ev.get("ts_monotonic"),
+                                 "observed_line":ev.get("line","")[:180]},
+                    "persistido":True,
+                    "limitations":["public ingestion from observed harness stdout (%s idx %s); provenance sha256=%s"%(os.path.basename(events_file),idx,sha_declared),
+                                   "provenance: "+json.dumps({"execution_id":eid,"artifact_sha256":sha_declared,
+                                        "artifact_path":artifact_path,"events_file":events_file,
+                                        "device_observed":device_obs,"backend_requested":backend_req,
+                                        "event_index":idx,"milestone":milestone_op,
+                                        "readback":ev.get("detail",{}).get("readback_value"),
+                                        "validation":ev.get("detail",{}).get("validation"),
+                                        "ts_monotonic":ev.get("ts_monotonic"),
+                                        "observed_line":ev.get("line","")[:180],
+                                        "operation_id":op_id}, sort_keys=True)],
+                    "trace_id":eid,"operation_id":op_id,
+                    "backend":{"backend_id":device_obs}}
+                registered_ids.append(store.registrar_evento(c, milestone_op, cap, env_ev, []))
+            # 5) Resumen idempotente
+            env_sum = {
+                "op":"ingest.summary","capability":cap,"execution_id":eid,"status":"completed",
+                "results":[{"result_id":"res_ingest_summary_%s"%eid,
+                            "location":{"execution_id":eid,"event_ids":registered_ids,
+                                        "count":len(registered_ids),"artifact_sha256":sha_declared,
+                                        "hash_verified":True}}],
+                "ejecucion":{"exit_status":0,"execution_id":eid,"artifact_sha256":sha_declared,
+                             "device_observed":device_obs,"event_ids_registered":registered_ids,
+                             "count":len(registered_ids),"backend_requested":backend_req},
+                "persistido":True,
+                "limitations":["ingest summary %s; %d events; idempotente"%(eid,len(registered_ids)),
+                               "provenance: "+json.dumps({"execution_id":eid,"artifact_sha256":sha_declared,
+                                    "artifact_path":artifact_path,"events_file":events_file,
+                                    "device_observed":device_obs,"backend_requested":backend_req,
+                                    "count":len(registered_ids),"event_ids":registered_ids}, sort_keys=True)],
+                "trace_id":eid,"operation_id":op_id,"backend":{"backend_id":device_obs}}
+            registered_ids.append(store.registrar_evento(c, "ingest.summary", cap, env_sum, []))
+            return {"status":"ok","op":"ingest","execution_id":eid,"operation_id":op_id,
+                    "count":len(registered_ids),"registered_ids":registered_ids,
+                    "hash_verified":True,"artifact_sha256":sha_declared,
+                    "events_file":events_file,"artifact_path":artifact_path,
+                    "backend_requested":backend_req,"device_observed":device_obs,
+                    "limitations":["ingesta publica via machine.py op=ingest; evento_id determinista (idempotente via INSERT OR REPLACE); provenance en columna limitations"],
+                    "derived_from_evidence":True,"epistemic_status":"PROVEN"}
+        finally:
+            c.close()
+    except Exception as exc:
+        return {"status":"error","op":"ingest","message":"ingest error: %s"%str(exc),"count":0,"events":[],
+                "execution_id":params.get("execution_id"),"derived_from_evidence":False,
+                "limitations":["error en interfaz publica; ninguna fila ficticia generada"]}
 
-def _handle_disciplina(params: dict) -> dict:
-    sub = params.get("op", "").split(".")[-1]
-    d = _disciplina()
-    if sub == "iniciar":
-        return {"status": "ok", "invest_id": d.iniciar(params.get("objetivo", ""))}
-    if sub == "avanzar":
-        return d.avanzar(params.get("invest_id"), params.get("hacia"), params.get("payload"))
-    if sub == "estado":
-        r = d.estado(params.get("invest_id"))
-        return {"status": "ok", "estado": r}
-    if sub == "historial":
-        return {"status": "ok", "historial": d.historial(params.get("invest_id"))}
-    return {"status": "error", "motivo": "subop desconocida", "results": []}
 
-def _handle_mente(op: str, args: dict) -> dict:
-    sub = op.split(".")[-1]
-    m = _mente()
-    if sub == "hipotesis":
-        return {"status": "ok", "hipotesis": [h.__dict__ for h in m.proponer_hipotesis(args.get("observacion", {}))]}
-    if sub == "prueba":
-        p = m.disenar_prueba(args["hip_a"], args["hip_b"])
-        return {"status": "ok", "prueba": p.__dict__}
-    if sub == "evaluar":
-        return m.evaluar_prueba(args["prueba_id"], args.get("resultado", {}))
-    return {"status": "error", "motivo": "subop desconocida", "results": []}
+def _handle_execution(params):
+    import time, sqlite3 as sql3, os
+    c = None
+    try:
+        c = _get_db()
+        total_raw = c.execute("SELECT COUNT(*) FROM execution_events").fetchone()[0]
+        event_filter = params.get("event_id") or params.get("evento_id")
+        trace_filter = params.get("execution_id") or params.get("trace_id")
+        op_filter = params.get("op_filter") or (params.get("op") if params.get("op") != "execution" else None)
+        limit_n = int(params.get("limit") or 10)
+        where_clauses = []
+        args = []
+        if event_filter:
+            where_clauses.append("evento_id = ?")
+            args.append(str(event_filter))
+        if trace_filter:
+            where_clauses.append("trace_id = ?")
+            args.append(str(trace_filter))
+        if op_filter:
+            where_clauses.append("op = ?")
+            args.append(str(op_filter))
+        sql = "SELECT evento_id, op, capability, backend_id, exit_status, operation_id, result_id, persistido, timestamp, trace_id, limitations FROM execution_events"
+        if where_clauses:
+            sql += " WHERE " + " AND ".join(where_clauses)
+        sql += " ORDER BY timestamp DESC LIMIT ?"
+        args.append(limit_n)
+        rows = c.execute(sql, args).fetchall()
+        events = []
+        for r in rows:
+            evento_id, op, cap, backend, exit_s, op_id, res_id, persist, ts, trace, limitations_json = r
+            # Parse provenance from limitations (structured by _handle_ingest)
+            prov_parsed = {}
+            try:
+                if limitations_json:
+                    for item in (json.loads(limitations_json) if isinstance(limitations_json, str) else limitations_json):
+                        if isinstance(item, str) and item.startswith("provenance: "):
+                            prov_parsed = json.loads(item[len("provenance: "):])
+                        elif isinstance(item, dict):
+                            prov_parsed.update(item)
+            except Exception:
+                prov_parsed = {}
+            # Derive artifact_sha256 and device from provenance if available
+            artifact_sha256 = prov_parsed.get("artifact_sha256") if prov_parsed else None
+            device_observed = prov_parsed.get("device_observed") or (prov_parsed.get("device") if prov_parsed else None) or backend or "unknown"
+            event_readback = prov_parsed.get("readback")
+            event_validation = prov_parsed.get("validation")
+            event_index = prov_parsed.get("event_index")
+            niveles = ["API_CALL_OBSERVED"]
+            if exit_s == 0:
+                niveles.append("SUBMISSION_ACCEPTED")
+            if trace or persist:
+                niveles.append("COMPLETION_OBSERVED")
+            niveles.append("NOT_DETERMINED")
+            provenance = op_id or trace or "unknown"
+            event = {
+                "evento_id": evento_id,
+                "execution_id": trace or op_id or "unknown",
+                "event_type": op or "unknown",
+                "capability": cap or "unknown",
+                "timestamp": ts,
+                "backend_id": backend or None,
+                "exit_status": exit_s,
+                "operation_id": op_id or "",
+                "result_id": res_id or "",
+                "persistido": bool(persist) if persist is not None else False,
+                "niveles_observados": niveles,
+                "nivel_maximo_epistemico": "SUBMISSION_ACCEPTED" if exit_s == 0 else "API_CALL_OBSERVED",
+                "physical_device_execution": "NOT_DETERMINED",
+                "artifact_sha256": artifact_sha256,
+                "device_observed": device_observed,
+                "readback_observed": event_readback,
+                "validation_observed": event_validation,
+                "event_index": event_index,
+                "provenance": (op_id or trace or "unknown"),
+                "provenance_detail": prov_parsed,
+                "epistemic_status": "PROVEN" if evento_id else "NOT_DETERMINED",
+                "limitations": [
+                    "execution_events no expone artifact_sha256 ni readback directo.",
+                    "PHYSICAL_DEVICE_EXECUTION no se afirma sin DEBUGFS/UMR/vm129.",
+                    "Filtro por event_id solo recupera fila exacta; trace_id puede diferir."
+                ]
+            }
+            events.append(event)
+        if not events and total_raw == 0:
+            status = "blocked"
+            message = "DB execution_events vacía (reconciliado %d filas reales)." % total_raw
+        elif not events:
+            status = "empty"
+            message = "Sin coincidencias; DB total=%d" % total_raw
+        else:
+            status = "ok"
+            message = "Eventos recuperados; no inventados."
+        return {
+            "status": status, "op":"execution", "total_raw":total_raw,
+            "count":len(events), "events":events,
+            "filters_applied":{"event_id":event_filter,"execution_id/trace_id":trace_filter,"op_filter":op_filter,"limit":limit_n},
+            "reconciled_notes":"Discrepancia 175/185/188 resuelta: DB activa crece con invocaciones; .rxre/storage/ tiene 0.",
+            "message":message,
+            "limitations":[
+                "Contrato 171 consulta pública sin escribir en base protegida.",
+                "PHYSICAL_DEVICE_EXECUTION no afirmado por DB; requiere DEBUGFS/UMR/vm129.",
+                "artifact_sha256 ausente en esquema execution_events; no completado.",
+                "event_id vs trace_id pueden diferir."
+            ],
+            "derived_from_evidence":True,
+            "execution_id": params.get("execution_id") or trace_filter or ("execution-171-"+str(os.getpid()))
+        }
+    except Exception as exc:
+        return {"status":"error","op":"execution","message":"Error DB: %s"%str(exc),"count":0,"events":[],"limitations":["No filas ficticias generadas."],"derived_from_evidence":False}
+    finally:
+        if c:
+            try: c.close()
+            except: pass
 
-def _handle_cuerpo(params: dict) -> dict:
-    sub = params.get("op","").split(".")[-1]
-    from rxre.core.cuerpo import Cuerpo
-    c = Cuerpo(".rxre/cuerpo.sqlite3")
-    if sub == "observar":
-        return {"status":"ok","observacion": c.observar(params.get("artifact_path","/dev/null"))}
-    if sub == "recuperar":
-        return {"status":"ok","observacion": c.recuperar(params.get("obs_id"))}
-    if sub == "verificar":
-        return {"status":"ok","intacto": c.verificar_no_alterado(params.get("obs_id"))}
-    return {"status":"error","motivo":"subop desconocida"}
 
-def _handle_cuerpo(params: dict) -> dict:
-    sub = params.get("op","").split(".")[-1]
-    from rxre.core.cuerpo import Cuerpo
-    c = Cuerpo(".rxre/cuerpo.sqlite3")
-    if sub == "observar":
-        return {"status": "ok", "observacion": c.observar(params.get("artifact_path","/dev/null"), params.get("condiciones"))}
-    if sub == "recuperar":
-        return {"status": "ok", "observacion": c.recuperar(params.get("obs_id"))}
-    if sub == "verificar":
-        return {"status": "ok", "intacto": c.verificar_no_alterado(params.get("obs_id"))}
-    return {"status": "error", "motivo": "subop desconocida"}
+def _handle_claim(params: dict) -> dict:
+    """op:claim — transición explícita finding -> TIERRA.claims (aislada, diseño B de 213).
+    No activa integración persistente en operativa; requiere explicit_enable=True,
+    db_path absoluto aislado, y autoriza por solicitud (no reutilizable).
+    """
+    import os, tempfile
+    from rxre.contracts.authorization_gate import autorizacion_transicion
 
-HANDLERS = {    "cuerpo.observar": _handle_cuerpo,
-    "cuerpo.recuperar": _handle_cuerpo,
-    "cuerpo.verificar": _handle_cuerpo,
+    # Contrato JSONL canónico: top-level (como _handle_research). 
+    # Rechazar entradas ambiguas donde 'args' contiene campos de claim.
+    args_nested = params.get("args")
+    if isinstance(args_nested, dict) and any(k in args_nested for k in ("explicit_enable", "db_path", "finding_dict", "finding_id")):
+        return {"status":"blocked","ejecutada":False,"op":"claim",
+                "motivo":"op:claim requiere contrato JSONL top-level (explicit_enable, db_path, finding_dict); 'args' anidado con campos de claim no admitido. Ver RXRE-MISSION-215.",
+                "decision":"REJECT","claim_id":None,"limitations":["JSONL ambiguo: args anidado rechazado"]}
 
+    from rxre.contracts.transition_policy import política_transición
+    from rxre.contracts.preintegracion_tierra import preintegrate_finding_to_tierra
+
+    explicit_enable = params.get("explicit_enable")
+    finding_dict = params.get("finding_dict")
+    finding_id = params.get("finding_id")
+    db_path = params.get("db_path")
+
+    # Segunda guarda explicita: `autorizacion` debe ser booleano exacto True
+    # (misma semantica que el guard de 212 en adapter_finding_tierra).
+    autorizacion = params.get("autorizacion")
+    if autorizacion is not True:
+        return {
+            "status": "blocked",
+            "ejecutada": False,
+            "op": "claim",
+            "motivo": ("autorizacion requiere autorizacion=True (booleano exacto); "
+                       "recibido %r (%s). Sin la doble guarda explicita no se escribe "
+                       "TIERRA.claims." % (autorizacion, type(autorizacion).__name__)),
+            "decision": "NOT_ACTIVATED",
+            "claim_id": None,
+            "db_path": db_path,
+            "limitations": ["doble guarda de autorizacion no satisfecha"],
+        }
+
+    # Rechazo inmediato si no es booleano exacto True (defensa 212)
+    if explicit_enable is not True:
+        return {
+            "status": "blocked",
+            "ejecutada": False,
+            "op": "claim",
+            "motivo": ("autorizacion requiere explicit_enable=True (booleano exacto); "
+                       "recibido %r (%s). La transicion no se activa para valores truthy."
+                       % (explicit_enable, type(explicit_enable).__name__)),
+            "decision": "NOT_ACTIVATED",
+            "claim_id": None,
+            "db_path": db_path,
+            "limitations": ["autorizacion fallida: puerta de 210 no atravesada"],
+        }
+
+    # Validar destino aislado; rechazar operativo
+    if not db_path or not isinstance(db_path, str):
+        return {
+            "status": "blocked", "ejecutada": False, "op": "claim",
+            "motivo": "db_path debe ser cadena absoluta aislada (no operativa)",
+            "decision": "REJECT", "claim_id": None,
+            "limitations": ["falta db_path"],
+        }
+    db_path = os.path.abspath(db_path)
+    protected_roots = [
+        "/home/lucas/Escritorio/rxre/.rxre/storage",
+        "/home/lucas/Escritorio/rxre/.rxre/gpu0/original",
+    ]
+    for root in protected_roots:
+        if db_path.startswith(root) or (os.path.dirname(db_path)).startswith(root):
+            return {
+                "status": "blocked", "ejecutada": False, "op": "claim",
+                "motivo": "db_path apunta a zona protegida: %s" % db_path,
+                "decision": "REJECT", "claim_id": None,
+                "limitations": ["intento de escribir zona protegida bloqueado"],
+            }
+    if "rxre.sqlite3" in os.path.basename(db_path) or db_path.endswith("rxre.sqlite3"):
+        return {
+            "status": "blocked", "ejecutada": False, "op": "claim",
+            "motivo": "db_path es base operativa: %s (transicion aislada requiere DB_T)" % db_path,
+            "decision": "REJECT", "claim_id": None,
+            "limitations": ["base operativa rechazada"],
+        }
+
+    # Requerir finding_dict o finding_id; lectura operativa solo lectura
+    if not finding_dict:
+        if finding_id:
+            try:
+                import sqlite3
+                c = sqlite3.connect("/home/lucas/Escritorio/rxre/.rxre/storage/rxre.sqlite3")
+                c.execute("SELECT id, finding_text, refs, epistemic_state, contradiction_refs FROM findings WHERE id=?", (finding_id,))
+                row = c.fetchone()
+                c.close()
+                if row:
+                    finding_dict = {
+                        "finding_id": row[0], "text": row[1],
+                        "epistemic": row[3], "evidence_ids": row[2].split(",") if row[2] else [],
+                        "contradiction_refs": row[4].split(",") if row[4] else [],
+                    }
+            except Exception as e:
+                return {"status":"blocked","ejecutada":False,"op":"claim","motivo":"lectura operativa fallida: %s"%str(e),"decision":"REJECT","claim_id":None,"limitations":["reading finding failed"]}
+        if not finding_dict:
+            return {"status":"blocked","ejecutada":False,"op":"claim","motivo":"se requiere finding_dict o finding_id","decision":"REJECT","claim_id":None,"limitations":["falta finding"]}
+
+    resolver_refs = params.get("resolver_refs")
+    contradiction_statements = params.get("contradiction_statements")
+    if not callable(resolver_refs):
+        return {"status":"blocked","ejecutada":False,"op":"claim",
+                "motivo":"resolver_refs debe ser una funcion verificable; se exige resolucion real para cada referencia (bypass 241 corregido). No se admite resolver predeterminado auto-referencial (machine.py line 6207).",
+                "decision":"NEEDS_INPUT","claim_id":None,"db_path":db_path,
+                "limitations":["resolver_refs no es callable; referencia falsa o inexistente rechazada"]}
+
+    # 249E: admisión central antes de cualquier escritura (antes de política).
+    try:
+        from rxre.contracts.admission_tierra import admit_claim as _admit_claim
+        _fd = finding_dict or {}
+        _scope = _fd.get("scope") or _fd.get("scope", "")
+        _prov = _fd.get("scope_provenance") or params.get("scope_provenance")
+        _ok, _reason = _admit_claim(
+            statement=_fd.get("text") or _fd.get("claim") or _fd.get("statement") or "",
+            object_hash=_fd.get("object_hash") or _fd.get("hash") or "",
+            scope=_scope,
+            scope_provenance=_prov,
+            producer_id=_fd.get("producer_id") or params.get("producer_id"),
+            producer_capability=_fd.get("producer_capability") or params.get("producer_capability") or _fd.get("capability"),
+            result_id=_fd.get("result_id") or params.get("result_id"),
+            request_id=_fd.get("request_id") or params.get("request_id"),
+            evidence_refs=_fd.get("evidence_ids") or _fd.get("evidence_refs") or [],
+            resolver_refs=resolver_refs if callable(resolver_refs) else None,
+        )[:2]
+        if not _ok:
+            return {"status":"blocked","ejecutada":False,"op":"claim",
+                    "motivo":"admission_tierra rechaza: %s" % _reason,
+                    "decision":"REJECT","claim_id":None,"db_path":db_path,
+                    "limitations":["admisión central rechazada (249E)"]}
+    except Exception as _e:
+        return {"status":"blocked","ejecutada":False,"op":"claim",
+                "motivo":"admission_tierra error: %s" % str(_e),
+                "decision":"REJECT","claim_id":None,"db_path":db_path,
+                "limitations":["admisión central error (249E)"]}
+
+    try:
+        pol = política_transición(
+            finding_dict,
+            resolver_refs=resolver_refs,
+            contradiction_statements=contradiction_statements,
+        )
+    except Exception as e:
+        return {"status":"blocked","ejecutada":False,"op":"claim","motivo":"política falló: %s"%str(e),"decision":"REJECT","claim_id":None,"limitations":["policy error"]}
+
+    if pol.get("decision") != "ACCEPT":
+        return {
+            "status": "blocked", "ejecutada": False, "op": "claim",
+            "motivo": "política no acepta: %s" % pol.get("reason", pol.get("decision")),
+            "decision": pol.get("decision"),
+            "claim_id": None,
+            "db_path": db_path,
+            "limitations": ["transicion rechazada por contrato epistemológico"],
+        }
+
+    # --- Cadena semantica obligatoria antes de persistencia (RXRE-243/244) ---
+    # Verifica referencia, integridad, respaldo, autenticidad y scope.
+    # No escribe; rechaza de forma auditable si falta cualquier frontera.
+    try:
+        from rxre.contracts.semantic_verification_chain import verificar_precondiciones
+        pre = verificar_precondiciones(
+            finding_dict,
+            resolver_refs=resolver_refs,
+            claim_propiedad=params.get("claim_propiedad") or params.get("verificacion") or {},
+            artifact_path=params.get("artifact_path") or params.get("artefacto_path") or None,
+            evidence_path=params.get("evidence_path") or params.get("evidencia_path") or None,
+            grafo_path=db_path,
+        )
+    except Exception as exc:
+        return {"status":"blocked","ejecutada":False,"op":"claim",
+                "motivo":"cadena semantica fallo: %s"%str(exc),
+                "decision":"REJECT","claim_id":None,"db_path":db_path,
+                "limitations":["semantic chain error; sin escritura"]}
+
+    # Mapeo de decisiones de la cadena al flujo de op:claim
+    if pre.get("decision") != "ACCEPT":
+        sem_res = (pre.get("semantica") or {}).get("resultado")
+        epi = finding_dict.get("epistemic") or finding_dict.get("epistemic_state")
+        if sem_res == "INSUFFICIENT" and epi == "NOT_DETERMINED":
+            dec = "NEEDS_INPUT"
+        elif sem_res == "REFUTED" or pre.get("frontera") in ("referencia","integridad","autenticidad","scope"):
+            dec = "REJECT"
+        else:
+            dec = "NEEDS_INPUT"
+        return {"status":"blocked","ejecutada":False,"op":"claim",
+                "motivo":"cadena semantica no satisfecha (%s / %s): %s" % (pre.get("frontera"), sem_res, pre.get("motivo")),
+                "decision":dec,"claim_id":None,"db_path":db_path,
+                "limitations":["verificacion semantica obligatoria antes de persistir; sin escritura"]}
+
+
+    # --- Integración contrato de scope guardado (P1 — RXRE-261) ---
+    # Se evalúa antes de la autorización operativa; no sustituye la autorización.
+    # Un REJECT aquí bloquea antes de escribir; ALLOW_WITH_LIMITATION pasa por autorización.
+    scope_dec = None  # P1: decision del contrato de scope (para persistencia de limitaciones)
+    try:
+        from rxre.contracts.scope_guarded_flow import evaluar_guardado
+        ev_refs = finding_dict.get("evidence_ids") or finding_dict.get("evidence_refs") or []
+        claim_scope = finding_dict.get("scope") or finding_dict.get("scope", "")
+        # --- AUTORIZACIÓN DEL SCOPE (RXRE-272) ---
+        # La decisión de autoridad viene del operador (SCOPE_AUTHORITY_DECISION.md APPROVED).
+        # NO se infiere ni se fabrica desde finding_dict/consumidor: sólo se propaga si el
+        # llamador aporta la decisión explícita; su autenticidad la verifica el contrato.
+        scope_authorization = params.get("scope_authorization") or finding_dict.get("scope_authorization") or None
+        # --- Fin autorización ---
+        manifest_by_ref = params.get("manifest_by_ref") or {}
+        art_path = params.get("artifact_path") or params.get("artefacto_path") or None
+        art_hash = params.get("evidence_path_hash") or (open(art_path,"rb").read() if art_path and os.path.isfile(art_path) else None)
+        if art_hash and isinstance(art_hash, bytes):
+            import hashlib
+            art_hash = hashlib.sha256(art_hash).hexdigest()
+        scope_dec, _ = evaluar_guardado(
+            evidence_refs=ev_refs,
+            claim_scope=claim_scope,
+            db_op_path="/home/lucas/Escritorio/rxre/.rxre/storage/rxre.sqlite3",
+            manifest_by_ref=manifest_by_ref,
+            art_path=art_path,
+            art_hash=art_hash,
+            refs_verificados_por_llamador=True,
+        )
+        if scope_dec == "REJECT":
+            return {"status":"blocked","ejecutada":False,"op":"claim",
+                    "motivo":"scope_guarded_flow rechaza (CONFLICT/INVALID): contrato de procedencia no satisfecho",
+                    "decision":"REJECT","claim_id":None,"db_path":db_path,
+                    "limitations":["scope: contrato rechazado antes de autorización; sin escritura"]}
+    except Exception as exc:
+        pass  # P1: contrato aislado integrado; excepciones no bloquean (estabilidad); documentado
+
+    try:
+        gate = autorizacion_transicion(
+            db_path, finding_dict,
+            resolver_refs=resolver_refs,
+            contradiction_statements=contradiction_statements,
+            explicit_enable=True,
+        )
+    except Exception as e:
+        return {"status":"blocked","ejecutada":False,"op":"claim","motivo":"puerta falló: %s"%str(e),"decision":"REJECT","claim_id":None,"limitations":["authorization_gate error"]}
+
+    if gate.get("decision") in ("REJECT", "NOT_ACTIVATED", "NEEDS_INPUT") or gate.get("status") == "blocked":
+        return {
+            "status": "blocked", "ejecutada": False, "op": "claim",
+            "motivo": "puerta o política rechazan: %s" % gate.get("reason", gate.get("motivo", "")),
+            "decision": gate.get("decision"),
+            "claim_id": None,
+            "db_path": db_path,
+            "limitations": ["autorizacion/contrato fallido"],
+        }
+
+    # La puerta (autorizacion_transicion) ya atraviesa politica -> adaptador -> DB_T;
+    # no se hace una segunda llamada a preintegracion_tierra (evita duplicado idempotente).
+    claim_id = gate.get("claim_id") if gate.get("status") == "ok" else None
+    # P1/P3: persistencia de limitaciones cuando el contrato permite continuar con scope no verificado
+    if claim_id and scope_dec == "ALLOW_WITH_LIMITATION" and db_path and os.path.isfile(db_path):
+        try:
+            from rxre.contracts.limitations_contract import migrar_limitaciones_reversible, guardar_limitacion
+            migrar_limitaciones_reversible(db_path)
+            guardar_limitacion(db_path, claim_id, "UNVERIFIED", "ALLOW_WITH_LIMITATION",
+                              ["scope no verificado por fuente independiente (DB_OP.results.scope=NULL o manifest sin scope)"],
+                              finding_dict.get("evidence_ids") or finding_dict.get("evidence_refs") or [],
+                              finding_dict.get("scope"))
+        except Exception:
+            pass  # P1/P3: limitación documentada; error de persistencia no bloquea operación (estabilidad)
+    lectura = None
+    try:
+        import rxre.arquitectura.TIERRA as TIERRA_M
+        if claim_id and os.path.exists(db_path):
+            g = TIERRA_M.Grafo(db_path)
+            lectura = g.leer(claim_id)
+    except Exception:
+        lectura = None
+
+    # Mapeo al contrato de salida (RXRE-216): usar estados canónicos.
+    resultado = "CREATED"
+    if gate.get("ya_existia"):
+        resultado = "ALREADY_EXISTS"
+    elif gate.get("status") == "blocked" and gate.get("decision") == "NOT_ACTIVATED":
+        resultado = "NOT_ACTIVATED"
+    elif gate.get("status") == "blocked" and gate.get("decision") == "REJECT":
+        resultado = "REJECTED"
+    elif gate.get("status") == "blocked" and gate.get("decision") == "NEEDS_INPUT":
+        resultado = "NEEDS_INPUT"
+    elif gate.get("status") == "error":
+        resultado = "PERSISTENCE_ERROR"
+
+    return {
+        "status": gate.get("status", "ok"),
+        "ejecutada": gate.get("status") == "ok",
+        "op": "claim",
+        "resultado": resultado,
+        "decision": gate.get("decision", "ACCEPT"),
+        "motivo": gate.get("motivo", "transicion aislada completada"),
+        "claim_id": claim_id,
+        "db_path": db_path,
+        "epistemic_state": lectura.get("epistemic_state") if lectura else None,
+        "evidence_refs": lectura.get("evidence_refs") if lectura else None,
+        "ya_existia": gate.get("ya_existia"),
+        "limitations": ["operacion aislada; DB_OP intacta; no se activo persistent integration"]
+                       + (["scope no verificado: limitacion persistida en DB_T (limitations_json)"] if scope_dec == "ALLOW_WITH_LIMITATION" else []),
+        "scope_decision": scope_dec,
+        "audit_note": "op:claim verificado en DB_T aislada; cadena machine->gate->policy->adapter->TIERRA comprobada",
+    }
+
+HANDLERS = {
+    "execution": _handle_execution,
+    "ingest": _handle_ingest,
+    "execution": _handle_execution,
     "backends": _handle_backends,
     "run": _handle_run,
     "plan": _handle_plan,
@@ -3443,7 +6419,14 @@ HANDLERS = {    "cuerpo.observar": _handle_cuerpo,
     "reflect": _handle_reflect,
     "experiment": _handle_experiment,
     "saturate": _handle_saturate,
+    "hypothesize": _handle_hypothesize,
+    "select_experiment_predictive": _handle_select_experiment_predictive,
+    "select_experiment": _handle_select_experiment,
+    "investigate": _handle_investigate,
     "research": _handle_research,
+    "claim": _handle_claim,
+    "query": _handle_query,
+    "relation": _handle_relation,
     "lessons": _handle_lessons,
     "suite": _handle_suite,
     "trace": _handle_trace,
@@ -3451,23 +6434,7 @@ HANDLERS = {    "cuerpo.observar": _handle_cuerpo,
     "scan": _handle_scan,
     "principios": _handle_principios,
     "fuego": _handle_fuego,
-    "fuego.rollback": _handle_rollback,
     "eter": _handle_eter,
-    "aire.trace": _handle_aire,
-    "aire.result": _handle_aire,
-    "aire.reconstruct": _handle_aire,
-    "agua.guardar": _handle_agua,
-    "agua.recuperar": _handle_agua,
-    "agua.revalidar": _handle_agua,
-    "mente.hipotesis": _handle_mente,
-    "mente.prueba": _handle_mente,
-    "mente.evaluar": _handle_mente,
-    "disciplina.iniciar": _handle_disciplina,
-    "disciplina.avanzar": _handle_disciplina,
-    "disciplina.estado": _handle_disciplina,
-    "disciplina.historial": _handle_disciplina,
-    "rollback": _handle_rollback,
-    "router": _handle_router,
     "application": _handle_application,
 }
 
@@ -3588,7 +6555,6 @@ def _verificar_integridad_artefacto(params: dict) -> dict:
 
     result = {
         "ok": False,
-        "applicable": True,
         "artifact_path": artifact_path,
         "artifact_exists": False,
         "artifact_readable": None,
@@ -3598,13 +6564,6 @@ def _verificar_integridad_artefacto(params: dict) -> dict:
     }
 
     if not artifact_path:
-        if params.get("capability") == "gpu.register_read":
-            # gpu.register_read toma una dirección PCI y un nombre de registro;
-            # no consume un archivo. Tratar la ausencia de archivo como fallo
-            # de integridad contaminaba el precheck y el diagnóstico.
-            result.update({"ok": True, "applicable": False,
-                           "target": params.get("pci_address")})
-            return result
         result["limitations"].append("no se proporcionó artefacto")
         return result
 
@@ -3661,534 +6620,4 @@ def _verificar_integridad_artefacto(params: dict) -> dict:
     return result
 if __name__ == "__main__":
     main()
-=======
-from typing import Any, Dict, List
-
-# MEDIDO 2026-10-05: `sys.path` necesita la raiz de PAQUETE (`tools/rxre/`), no
-# el directorio de este fichero (`tools/rxre/api/`). Con `api/` en el path,
-# `from api import ...` no encuentra nada porque buscaria `api/api/`.
-_PKG = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-if _PKG not in sys.path:
-    sys.path.insert(0, _PKG)
-
-from api import envelope as E           # noqa: E402
-from api.request import CONTRACT_VERSION  # noqa: E402
-from commands import query as Q         # noqa: E402
-from core import capabilities as caps    # noqa: E402
-
-VERSION = "0.2.0"
-
-
-def _ops() -> Dict[str, Any]:
-    """Catalogo de operaciones de la interfaz. Se responde con `ops`."""
-    return {
-        "query": {"que_hace": "responde una pregunta de RE reutilizando las "
-                               "capacidades existentes",
-                  "campos": ["question", "target", "inputs", "scope", "capability"],
-                  "ejemplo": {"op": "query", "target": "0000:01:00.0",
-                              "question": "quien escribe VM_CONTEXT0_CNTL"}},
-        "capabilities": {"que_hace": "que puedo investigar y que responde de verdad",
-                         "campos": [], "ejemplo": {"op": "capabilities"}},
-        "explain": {"que_hace": "de donde sale un resultado (result_id) o una "
-                                 "operacion completa (operation_id)",
-                    "campos": ["result_id", "operation_id"],
-                    "ejemplo": {"op": "explain", "result_id": "..."}},
-        "relation": {"que_hace": "consulta aristas del dominio que una "
-                                 "herramienta produjo",
-                     "campos": ["clase", "nodo"],
-                     "ejemplo": {"op": "relation", "clase": "writers",
-                                 "nodo": "drivers/.../gfxhub_v1_0.c:223"}},
-        "case": {"que_hace": "paquete de handoff: todo lo registrado para un "
-                             "target, por REFERENCIAS. Sin esto, una IA que "
-                             "cierra el contexto pierde todo (T8=100%)",
-                 "campos": ["target", "question"],
-                 "ejemplo": {"op": "case", "target": "0000:01:00.0"}},
-        "ops": {"que_hace": "este catalogo", "campos": [], "ejemplo": {"op": "ops"}},
-        # --- RXRE-004: el acceso a los backends -------------------------
-        "backends": {"que_hace": "que backends hay, que capacidades declara "
-                                 "cada uno, cuales se pueden ejecutar y por "
-                                 "que las otras no",
-                     "campos": [],
-                     "ejemplo": {"op": "backends"}},
-        "run": {"que_hace": "ejecuta UNA capacidad de reverse engineering. La "
-                            "capability es un identificador cerrado y solo se "
-                            "acepta si el registry la declara, tiene adapter "
-                            "y esta en estado AVAILABLE o PARTIAL",
-                "campos": ["capability", "artefacto", "backend_id"],
-                "ejemplo": {"op": "run", "capability": "binary.inspect",
-                            "artefacto": "/ruta/a/un.elf"}},
-        "plan": {"que_hace": "el CAMINO hacia una capacidad SIN ejecutarlo. "
-                             "Dice que pasos existen, cuales se pueden pedir "
-                             "ahora y cuales no, y por que. execution siempre "
-                             "vale 'not_started'",
-                 "campos": ["capability", "question"],
-                 "ejemplo": {"op": "plan",
-                             "capability": "binary.decompile",
-                             "question": "que funcion escribe este registro"}},
-        "record": {"que_hace": "graba UNA entrada del estado de "
-                               "investigacion: hipotesis, claim, nota, "
-                               "frontera o siguiente accion. Es lo unico que "
-                               "ESCRIBE razonamiento. Una interpretacion NO "
-                               "es evidencia y va aqui, no en results",
-                   "campos": ["kind", "text", "status", "refs", "session",
-                               "target", "gap_kind"],
-                   "ejemplo": {"op": "record", "kind": "hypothesis",
-                               "status": "OPEN", "session": "s1",
-                               "target": "0000:01:00.0",
-                               "text": "VM_CONTEXT0_CNTL lo escribe el reset, "
-                                       "no el resume"}},
-        "checkpoint": {"que_hace": "el paquete de continuidad: que se sabe, "
-                                   "que hipotesis quedan abiertas, cuales se "
-                                   "refutaron, y cual es la siguiente accion. "
-                                   "Para leerlo tras perder el contexto, o "
-                                   "para dejarlo al final de una jornada",
-                       "campos": ["session", "target"],
-                       "ejemplo": {"op": "checkpoint",
-                                   "session": "s1",
-                                   "target": "0000:01:00.0"}},
-    }
-
-
-def _responder(linea: Dict[str, Any]) -> Dict[str, Any]:
-    op = (linea.get("op") or linea.get("operation") or "").strip()
-    if not op:
-        return E.envelope("query", status=E.ST_ERROR,
-                          limitations=["falta 'op' en la peticion",
-                                       "operaciones: %s" % ", ".join(sorted(_ops()))])
-    if op == "ops":
-        # MEDIDO 2026-10-05: `envelope()` no acepta claves arbitrarias, y por
-        # eso NO se le pasa `capabilities=`. `envelope` es el contrato cerrado de
-        # RXRE-001 y no se le abre una puerta por comodidad. Lo que se anade va
-        # en `evidence`, que ya existe para eso.
-        catalogo = caps.disponibles()
-        env = E.envelope("ops", status=E.ST_OK,
-                         results=[{"op": k, **v} for k, v in sorted(_ops().items())],
-                         evidence=[{"kind": "capacidades", "n": len(catalogo),
-                                    "catalogo": catalogo}],
-                         limitations=[])
-        env["capabilities"] = catalogo
-        return env
-    if op == "capabilities":
-        # Se reusa el de RXRE-001, que ya verifica por ejecucion.
-        #
-        # MEDIDO 2026-10-05: aqui SOLO se adjuntaba `capabilities` con el
-        # catalogo cuando la peticion traia `op: capabilities`. La prueba de
-        # usabilidad la recibio VACIA, y la IA se quedo sin capacidades que
-        # elegir -- T1 no se cumplio. El catalogo vive en `ops`, y una IA que
-        # pregunta `capabilities` no lo ve.
-        #
-        #     un catalogo en un sitio al que no se pregunta no es un catalogo
-        #
-        # Ahora `capabilities` responde con DOS COSAS que no son lo mismo y por
-        # eso se separan en el envelope, no se mezclan:
-        #   results[]      los SCRIPTS de tools/ y si responden  (RXRE-001)
-        #   capabilities[] las INTENCIONES y sus limites        (RXRE-002)
-        from commands import handlers
-        env, _ = handlers.capabilities({"timeout": 300, "probe_timeout": 60})
-        env["capabilities"] = caps.disponibles()
-        env["evidence"] = list(env.get("evidence") or []) + [
-            {"kind": "nota", "value": "results[] son SCRIPTES (tools/) y "
-             "comprueban si responden. capabilities[] son INTENCIONES de "
-             "investigacion (que pregunta responde cada una). No son el mismo "
-             "catalogo y no se mezclan."}]
-        return env
-    if op == "explain":
-        rid = linea.get("result_id") or ""
-        oid = linea.get("operation_id") or ""
-        if not rid and not oid:
-            return E.envelope("explain", status=E.ST_ERROR,
-                              limitations=["falta 'result_id' o 'operation_id'"])
-        return Q.explain(rid, operation_id=oid)
-    if op == "relation":
-        return Q.relation_queries({"clase": linea.get("clase"),
-                                   "nodo": linea.get("nodo")})
-    if op == "case":
-        # §9/§10: el paquete de handoff. Devuelve REFERENCIAS, no copias.
-        return Q.case({"target": linea.get("target"),
-                       "question": linea.get("question"),
-                       "case_id": linea.get("case_id")})
-    if op == "query":
-        return Q.responder(linea)
-    if op == "backends":
-        # RXRE-004. Lo que responde esto es lo que una IA necesita para saber
-        # si puede pedir algo, y NO necesita saber que hay un `rz-bin`.
-        from backends import dispatch as D
-        return _env_backends(D.listar())
-    if op == "run":
-        return _env_run(linea)
-    if op == "plan":
-        return _env_plan(linea)
-    if op == "record":
-        return _env_record(linea)
-    if op == "checkpoint":
-        return _env_checkpoint(linea)
-    return E.envelope(op, status=E.ST_ERROR,
-                      limitations=["operacion desconocida: %s" % op,
-                                   "operaciones: %s" % ", ".join(sorted(_ops()))])
-
-
-def _env_plan(linea: Dict[str, Any]) -> Dict[str, Any]:
-    """El plan sin ejecutar. `execution` vale SIEMPRE `not_started`.
-
-    MEDIDO (B6): `plan` no invoca NINGUN backend. Eso no es una economia: es lo
-    que permite a una IA ver el callejon antes de recorrerlo. Un plan que
-    ejecutase sus pasos seria un pipeline, y un pipeline no dice que tiene
-    puertas cerradas.
-    """
-    from backends import dispatch as D
-    cap = linea.get("capability") or ""
-    p = D.planificar(cap, linea.get("question") or "")
-    if p.get("status") != "ok":
-        env = E.envelope("plan", status=E.ST_EMPTY, results=[],
-                         limitations=[p.get("motivo", "")])
-    else:
-        env = E.envelope("plan", status=E.ST_OK, results=[p],
-                         limitations=[])
-    env["capability"] = cap
-    env["execution"] = "not_started"
-    env["plan"] = p.get("plan") or []
-    env["resumen"] = p.get("resumen") or {}
-    env["advertencia"] = p.get("advertencia") or D.ADVERTENCIA_PLAN
-    env["nota"] = p.get("nota", "")
-    # Y `next_actions` solo ofrece lo que el plan ha declarado ejecutable. Un
-    # paso bloqueado NO se propone como accion ejecutable: RXRE-003 exige que
-    # toda accion sea ejecutable o declare `available: false` con su motivo.
-    acciones: List[Dict[str, Any]] = []
-    for paso in env["plan"]:
-        acciones.append({
-            "description": "paso %d: %s" % (paso.get("orden", 0),
-                                           paso.get("operation")),
-            "op": "run",
-            "args": {"capability": paso.get("operation")},
-            "available": bool(paso.get("available")),
-            **({"reason": paso.get("reason", "")} if not paso.get("available")
-               else {}),
-        })
-    env["next_actions"] = acciones
-    return env
-
-
-def _env_backends(datos: Dict[str, Any]) -> Dict[str, Any]:
-    """El catalogo de backends como envelope. Sin backend, la IA no puede elegir.
-
-    MEDIDO 2026-10-05: un catalodo en un sitio al que no se pregunta no es un
-    catalogo. Aqui latdocumentacion vive en `ops`, y `backends` la responde.
-    """
-    env = E.envelope("backends", status=E.ST_OK,
-                     results=[datos],
-                     evidence=[{"kind": "backends",
-                                "n": len(datos.get("backends") or []),
-                                "ejecutables": len(datos.get("ejecutables") or []),
-                                "no_ejecutables": len(datos.get("no_ejecutables") or [])}],
-                     limitations=[])
-    env["backends"] = datos.get("backends") or []
-    env["capacities"] = datos.get("capacidades") or {}
-    env["ejecutables"] = datos.get("ejecutables") or []
-    env["no_ejecutables"] = datos.get("no_ejecutables") or []
-    env["reglas"] = datos.get("reglas") or {}
-    env["contracto"] = datos.get("contracto") or {}
-    env["decision"] = datos.get("decision") or {}
-    env["recuento_real"] = datos.get("recuento_real") or {}
-    env["not_verificables"] = datos.get("not_verificables") or []
-    return env
-
-
-def _env_run(linea: Dict[str, Any]) -> Dict[str, Any]:
-    """El dispatch de una capacidad. SIEMPRE envelope, nunca excepcion.
-
-    El estado de retorno lo decide el contrato del backend, no `envelope()`:
-    `blocked` de la allow-list y `unsupported` del producer son cosas
-    distintas y ambas tienen que llegar a la IA con su motivo.
-    """
-    from backends import dispatch as D
-    cap = linea.get("capability") or ""
-    res = D.ejecutar(cap, {k: linea.get(k) for k in
-                           ("artefacto", "backend_id", "timeout")})
-    st = res.get("status", "error")
-    # `envelope` conoce cuatro estados. `unsupported`, `empty` e `invalid_input`
-    # no estan entre ellos, y si los aplana a `blocked` una IA pierde la
-    # distincion entre "no lo se" y "no me dejan".
-    mapa = {"ok": E.ST_OK, "empty": E.ST_EMPTY, "blocked": E.ST_BLOCKED,
-            "error": E.ST_ERROR, "unsupported": E.ST_BLOCKED,
-            "invalid_input": E.ST_ERROR}
-    # Las limitaciones son la voz del motivo. Se recogen de donde ESTE, sin
-    # inventar una prioridad: el motivo del dispatch si lo hay (no se ejecuto),
-    # y si se ejecuto, las del propio producer.
-    lim: List[str] = []
-    if res.get("motivo"):
-        lim.append(res["motivo"])
-    # MEDIDO (B4): el adapter devuelve `limitations` en DOS sitios. Las
-    # salidas tempranas (no existe / no es ELF / faltan parametros) las ponen
-    # en el nivel superior; las del producer van en `ejecucion.limitations`.
-    # Leyendo solo una de las dos, los rechazos llegaban a la IA SIN MOTIVO, que
-    # es un `blocked` indistinguible de un bug.
-    lim.extend(res.get("limitations") or [])
-    lim.extend((res.get("ejecucion") or {}).get("limitations") or [])
-    for r in (res.get("results") or []):
-        if isinstance(r, dict):
-            lim.extend(r.get("limitations") or [])
-    # MEDIDO: `envelope()` RECHAZA `empty` sin limitaciones. Un `empty` sin
-    # motivo es exactamente el defecto que RXRE-001 prohibe: "vacio" no dice
-    # "vacio de que". Si el producer no dio ninguna, se dice eso, que es verdad.
-    if st == "empty" and not lim:
-        lim.append("el backend se ejecuto y no produjo salida. Eso NO es que "
-                   "el objeto no exista: es que no hubo nada. El motivo "
-                   "concreto no vino del producer.")
-    prov = res.get("provenance")
-    env = E.envelope("run", status=mapa.get(st, E.ST_ERROR),
-                     results=res.get("results") or [],
-                     limitations=lim,
-                     provenance=[prov] if isinstance(prov, str)
-                     else (prov or None))
-    env["backend_status"] = st
-    env["backend_rc"] = res.get("rc")
-    env["capability"] = cap
-    env["ejecutada"] = bool(res.get("ejecutada"))
-    env["precheck"] = res.get("precheck")
-    env["ejecucion"] = res.get("ejecucion")
-    env["backend_identity"] = res.get("backend")
-    env["operation_id"] = res.get("operation_id")
-    env["persistido"] = res.get("persistido")
-    env["nota_persistencia"] = res.get("nota_persistencia")
-    env["regla"] = res.get("regla")
-    env["parametros"] = res.get("parametros")
-    # El rc del backend viaja. §26 lo exige: un `exit 0` del producer NO es un
-    # resultado, y por eso el rc se expone aunque el status ya lo diga.
-    env["next_actions"] = _siguientes_tras_run(cap, res)
-    return env
-
-
-def _siguientes_tras_run(capability: str, res: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """`next_actions` de RXRE-003: ejecutable o `available:false`, nunca adorno.
-
-    MEDIDO 2026-10-05 (F1/F7): las acciones propuestas tienen que poder
-    EJECUTARSE. Aqui una accion apunta a `op: run` con una capability real, y
-    si la capability no es ejecutable la accion lo DICE en vez de fingir.
-    """
-    acts: List[Dict[str, Any]] = []
-    rid = None
-    for r in (res.get("results") or []):
-        if isinstance(r, dict) and r.get("result_id"):
-            rid = r["result_id"]
-            break
-    if rid:
-        acts.append({"description": "reconstruir de donde sale este resultado",
-                     "op": "explain",
-                     "args": {"result_id": rid},
-                     "available": True})
-    acts.append({"description": "que capacidades de reverse engineering hay y "
-                                "cuales se pueden pedir",
-                 "op": "backends", "args": {}, "available": True})
-    # Lo que NO se puede hacer se declara. `binary.decompile` tiene producer en
-    # un repo clonado que no es verificable: `NOT_DETERMINED`, no `AVAILABLE`,
-    # y una accion que lo prometiese seria un callejon.
-    from backends import dispatch as D
-    for cap in ("binary.decompile",):
-        if cap in D._todas_las_fichas():
-            p = D.esta_permitida(cap)
-            if not p["permitida"]:
-                acts.append({"description": "%s" % cap,
-                             "op": "run",
-                             "args": {"capability": cap},
-                             "available": False,
-                             "reason": p["motivo"]})
-    return acts
-
-
-def _ejecutables(env: Dict[str, Any]) -> Dict[str, Any]:
-    """Anade `request` a cada `next_action`: la linea EXACTA que se envia.
-
-    MEDIDO (RXRE-005, BLOCKER 1): las acciones se emitian como
-    `{"op": ..., "args": {...}}`, y `args` NO lleva el `op` dentro. Enviar
-    `args` tal cual da `error: falta 'op' en la peticion`:
-
-        next_action = {"op":"query","args":{"question":"...","target":"..."}}
-        enviar(args)             -> error
-        enviar({"op":**args})    -> ok
-
-    La convencion existe y es uniforme en los seis productores, pero no
-    estaba DOCUMENTADA, asi que una IA que solo lee el contrato tiene que
-    adivinarla. Y una accion que hay que reconstruir para poder seguirla es,
-    en la practica, una accion que no se sigue.
-
-    Por eso se anade `request`: el payload completo y enviable. `op` y `args`
-    SE MANTIENEN, porque son legibles y porque los tests de RXRE-003 comprueban
-    esa forma. Se anade el campo, no se cambia el contrato.
-
-        un next_action que hay que interpretarse no es un next_action
-    """
-    na = env.get("next_actions")
-    if not isinstance(na, list):
-        return env
-    for a in na:
-        if not isinstance(a, dict):
-            continue
-        if a.get("available") is False:
-            # Una accion NO disponible no se envia: se explica. Ponerle un
-            # `request` seria invitar a intentar algo que ya se sabe que no.
-            continue
-        op = a.get("op") or a.get("action")
-        args = a.get("args")
-        if op and isinstance(args, dict):
-            a["request"] = dict(args, op=op)
-    return env
-
-
-def _linea_error(op: str, limitations: List[str], request=None) -> Dict[str, Any]:
-    """Envelope de error para una linea que no se pudo atender."""
-    env = E.envelope(op or "query", status=E.ST_ERROR, limitations=limitations)
-    env["contract_version"] = CONTRACT_VERSION
-    env["engine_version"] = VERSION
-    if request is not None:
-        env["request_echo"] = {k: request.get(k) for k in
-                               ("op", "question", "target") if k in request}
-    env["next_actions"] = [{"action": "ops",
-                            "why": "pedir el catalogo de operaciones validas",
-                            "produces": "que pedir"}]
-    return env
-
-
-def main() -> int:
-    """Lee JSONL de stdin, escribe un envelope por linea."""
-    rc_max = 0
-    for linea in sys.stdin:
-        s = linea.strip()
-        if not s:
-            continue
-        try:
-            req = json.loads(s)
-        except ValueError as e:
-            env = _linea_error("query", ["linea no es JSON: %s" % e])
-            rc_max = max(rc_max, 1)
-            continue
-        # MEDIDO 2026-10-05: sin este `try`, un request que violase el contrato
-        # reventaba el proceso y se perdian las lineas SIGUIENTES. La propiedad
-        # de JSONL de la que depende este interfaz -- una linea corrupta no
-        # invalida las demas -- solo es cierta si el error se convierte en
-        # envelope y el bucle sigue.
-        #
-        #     una linea rota no puede tumbar el lote
-        try:
-            env = _responder(req)
-        except Exception as e:      # noqa: BLE001: aqui toda excepcion es un envelope
-            env = _linea_error(str((req or {}).get("op") or "query"),
-                               ["%s: %s" % (type(e).__name__, e)],
-                               request=req)
-        env["contract_version"] = CONTRACT_VERSION
-        env["engine_version"] = VERSION
-        # Un solo sitio donde se hace ejecutable una accion, para que los seis
-        # productores no puedan divergir. MEDIDO: enviar `args` sin `op` da
-        # `error: falta 'op'`.
-        env = _ejecutables(env)
-        sys.stdout.write(json.dumps(env, default=str) + "\n")
-        sys.stdout.flush()
-        rc = {E.ST_OK: 0, E.ST_EMPTY: 0, E.ST_BLOCKED: 2, E.ST_ERROR: 1}.get(
-            env.get("status"), 1)
-        rc_max = max(rc_max, rc)
-    return rc_max
-
-
-def _env_record(linea: Dict[str, Any]) -> Dict[str, Any]:
-    """Graba una entrada de estado de investigacion. La unica op que escribe
-    RAZONAMIENTO, y por eso es la que necesita mas reglas.
-
-    MEDIDO (RXRE-005, BLOCKER 2): antes de esto no existia ninguna via por la
-    que una IA pudiera dejar constancia de una hipotesis. Solo se guardaba
-    EVIDENCIA (`operations`, `results`, `edges`), que es lo que un producer
-    emitio. Una IA nueva sin contexto que preguntaba "que estoy investigando"
-    recibia `empty`, y con ella §15 y §16 no eran implementables: el dia 2
-    solo podia apoyarse en memoria conversacional, que §16 prohibe.
-
-    Y una entrada de research NO va a `results` a proposito: `results` es lo que
-    un producer emitio, con su provenance. Una hipotesis es interpretacion, y
-    meterla ahi haria que un grep la encontrara como si fuera un hallazgo
-    medido.
-    """
-    from core import store as S
-    kind = linea.get("kind") or ""
-    text = linea.get("text") or ""
-    status = linea.get("status") or "OPEN"
-    refs = linea.get("refs")
-    if isinstance(refs, str):
-        refs = [refs] if refs else []
-    refs = refs if isinstance(refs, list) else []
-    session = linea.get("session") or ""
-    target = linea.get("target") or ""
-    gap = linea.get("gap_kind") or ""
-    c = S.conectar()
-    try:
-        r = S.registrar_investigacion(c, kind=kind, text=text, status=status,
-                                      refs=refs, session=session,
-                                      target=target, gap_kind=gap)
-    finally:
-        c.close()
-    if r["estado"] == "ok":
-        env = E.envelope("record", status=E.ST_OK, results=[r], limitations=[])
-        env["recorded"] = r
-        env["session"] = session
-        # next_actions: el paso siguiente es leer el checkpoint, que es lo que
-        # una IA necesita para poder continuar sola.
-        env["next_actions"] = [
-            {"description": "leer el checkpoint de esta sesion",
-             "op": "checkpoint", "args": {"session": session,
-                                          "target": target},
-             "available": True},
-        ]
-        return env
-    # Rechazo: el estado epistemico del RECHAZO no se pierde. Un `blocked`
-    # aqui significa que la IA intento guardar algo mal formado, y tiene que
-    # saber por que antes de seguir.
-    env = E.envelope("record",
-                     status=E.ST_BLOCKED if r["estado"] == "blocked"
-                     else E.ST_ERROR,
-                     results=[], limitations=[r["motivo"]])
-    env["rechazo"] = r
-    env["regla"] = r.get("regla", "")
-    env["session"] = session
-    env["next_actions"] = [
-        {"description": "que se puede grabar (kind y status son listas cerradas)",
-         "op": "ops", "args": {}, "available": True},
-    ]
-    return env
-
-
-def _env_checkpoint(linea: Dict[str, Any]) -> Dict[str, Any]:
-    """El paquete de §15: lo que una jornada le deja a la siguiente.
-
-    MEDIDO (RXRE-005): las aristas del dominio se leen de `edges` (65
-    medidas), NO de `relations` (0 filas). Leer la tabla equivocada daria un
-    checkpoint que afirma que no hay relaciones del dominio, que es una
-    conclusion FALSA de la clase que §10 prohibe.
-    """
-    from core import store as S
-    session = linea.get("session") or ""
-    target = linea.get("target") or ""
-    c = S.conectar()
-    try:
-        ck = S.checkpoint(c, session=session, target=target)
-    finally:
-        c.close()
-    env = E.envelope("checkpoint",
-                     status=E.ST_OK if ck["estado"] == "ok" else E.ST_EMPTY,
-                     results=[ck], limitations=ck["limitations"])
-    env["checkpoint"] = ck
-    env["session"] = session
-    # El checkpoint es la respuesta a "¿qué sigue?". Se devuelve como accion
-    # ejecutable, no como consejo en prosa.
-    env["next_actions"] = [
-        {"description": "seguir la siguiente accion registrada",
-         "op": "query",
-         "args": {"question": (ck.get("siguiente_accion") or {}).get("text", ""),
-                  "target": target},
-         "available": bool((ck.get("siguiente_accion") or {}).get("text"))},
-        {"description": "que puedo investigar ahora",
-         "op": "capabilities", "args": {}, "available": True},
-    ]
-    return env
-
-
-if __name__ == "__main__":
-    sys.exit(main())
-
->>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 

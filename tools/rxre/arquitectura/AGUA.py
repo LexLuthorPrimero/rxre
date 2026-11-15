@@ -160,3 +160,8 @@ class Agua:
 
     def cerrar(self) -> None:
         self.db.close()
+# §22 #5 PROPUESTA ABIERTA (no contrato v3): frontera AGUA / TIERRA
+# El diagrama no define la frontera entre aprendizaje reutilizable (AGUA)
+# y evidencia/afirmacion auditable (TIERRA). Requiere definicion de
+# que es reutilizable vs auditado. Propuesta abierta.
+

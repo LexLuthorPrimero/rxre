@@ -56,6 +56,10 @@ if PKG not in sys.path:
     sys.path.insert(0, PKG)
 
 from backends import registry  # noqa: E402
+from . import provenance as _prov
+import hashlib
+import tempfile
+import shutil
 from backends.contract import (  # noqa: E402
     BK_BLOCKED, BK_EMPTY, BK_ERROR, BK_INVALID, BK_OK,
     SEMANTIC_HYPOTHESIS, Backend, sha256_de, sha256_texto,
@@ -140,6 +144,45 @@ def _validar_patron(fichero_patron: str) -> Dict[str, Any]:
             "hash": sha256_de(fichero_patron)}
 
 
+def _instantanea(artefacto: str) -> Dict[str, Any]:
+    """Lectura unica e inmutable del artefacto, con hash de los bytes
+    consumidos y copia temporal aislada para el backend.
+
+    TOCTOU: si se leyera el archivo dos veces (una para hash, otra para el
+    backend), el contenido podria cambiar entre ambas lecturas y la
+    provenance describiria bytes que el backend nunca vio. Aqui los bytes se
+    leen una sola vez en un stream, se hashean y se escriben inmediatamente
+    en una copia aislada (dir 0700, archivo 0400) que es la que el backend
+    consume.
+    """
+    try:
+        d = tempfile.mkdtemp(prefix="rxre-snapshot-")
+        destino = os.path.join(d, os.path.basename(artefacto) or "artefacto")
+        h = hashlib.sha256()
+        with open(artefacto, "rb") as src, open(destino, "wb") as dst:
+            for bloque in iter(lambda: src.read(1 << 16), b""):
+                h.update(bloque)
+                dst.write(bloque)
+        digest = h.hexdigest()
+        # La copia debe conservar EXACTAMENTE esos bytes (verificacion de
+        # integridad del mecanismo temporal, no solo del hash).
+        with open(destino, "rb") as fh:
+            datos = fh.read()
+        if hashlib.sha256(datos).hexdigest() != digest:
+            shutil.rmtree(d, ignore_errors=True)
+            return {"ok": False, "motivo": "la copia temporal no reproduce "
+                    "los bytes del archivo original: posible corrupcion del "
+                    "mecanismo temporal", "dir": d}
+        # Proteccion: solo lectura para minimizar mutaciones concurrentes
+        # (aunque la garantia real es la lectura unica del original + copia).
+        os.chmod(destino, 0o400)
+        return {"ok": True, "hash": digest, "ruta": destino,
+                "dir": d, "bytes": len(datos)}
+    except OSError as exc:
+        return {"ok": False, "motivo": "error al crear la instantanea: %s" % exc,
+                "dir": d if 'd' in locals() else ""}
+
+
 def buscar(artefacto: str, patron: str, backend_id: str = "coccinelle",
            timeout: int = 600, include_dirs: Optional[List[str]] = None,
            fixture_diff: str = "") -> Dict[str, Any]:
@@ -174,8 +217,19 @@ def buscar(artefacto: str, patron: str, backend_id: str = "coccinelle",
             return {"status": BK_BLOCKED, "precheck": pre,
                     "limitations": ["spatch no esta en PATH"]}
         pre["input_es_c"] = True
-        pre["input_hash"] = sha256_de(artefacto)
+        snap = _instantanea(artefacto)
+        if not snap.get("ok"):
+            return {"status": BK_INVALID,
+                    "precheck": pre,
+                    "limitations": [snap.get("motivo",
+                        "no se pudo crear la instantanea del artefacto")]}
+        pre["input_hash"] = snap["hash"]
+        pre["snap"] = snap["ruta"]
+        pre["snap_dir"] = snap.get("dir", "")
         pre["ok"] = True
+
+    ident = b.identidad()
+    ident["coccinelle"] = disp
 
     argv: List[str] = []
     rc: Optional[int] = None
@@ -187,9 +241,31 @@ def buscar(artefacto: str, patron: str, backend_id: str = "coccinelle",
         argv = ["<fixture>", fixture_diff]
         rc, so, se = 0, "", "modo fixture: producer simulado"
         salida = fixture_diff
+        ejec = {
+            "backend_id": "fixture" if fixture_diff else backend_id,
+            "operation": "source.semantic_search",
+            "command_or_api": "spatch --sp-file <patron.cocci> <fuente.c>",
+            "argv": argv,
+            "exit_status": rc,
+            "stderr": se.strip()[:400],
+            "timeout": timedout,
+            "duration_s": dur,
+        }
     else:
         exe = disp["path"]
-        argv = [exe, "--sp-file", patron, artefacto]
+        # TOCTOU ELIMINATION: la instantanea se crea con una lectura UNICA
+        # del archivo original. El hash (`pre["input_hash"]`) corresponde a
+        # esos bytes exactos; el backend consume la copia (`snap["ruta"]`),
+        # no la ruta original. Esto elimina la carrera entre lectura para
+        # hash y consumo por el backend.
+        if not pre.get("snap"):
+            # seguridad: si la instantanea no se creo antes (ej. fixture),
+            # usar el archivo original (no aplica en fixture porque no se
+            # invoca el backend real).
+            ruta_consumo = artefacto
+        else:
+            ruta_consumo = pre.get("snap", "")
+        argv = [exe, "--sp-file", patron, ruta_consumo]
         for inc in (include_dirs or []):
             argv += ["-D", inc]
         t0 = time.time()
@@ -204,26 +280,88 @@ def buscar(artefacto: str, patron: str, backend_id: str = "coccinelle",
             rc, so, se = None, "", str(exc)
         dur = round(time.time() - t0, 2)
         salida = so
-
-    ejec = {
-        "backend_id": "fixture" if fixture_diff else backend_id,
-        "operation": "source.semantic_search",
-        "command_or_api": "spatch --sp-file <patron.cocci> <fuente.c>",
-        "argv": argv,
-        "exit_status": rc,
-        "stderr": se.strip()[:400],
-        "timeout": timedout,
-        "duration_s": dur,
-    }
-    ident = b.identidad()
-    ident["coccinelle"] = disp
+        ejec = {
+            "backend_id": "fixture" if fixture_diff else backend_id,
+            "operation": "source.semantic_search",
+            "command_or_api": "spatch --sp-file <patron.cocci> <fuente.c>",
+            "argv": argv,
+            "exit_status": rc,
+            "stderr": se.strip()[:400],
+            "timeout": timedout,
+            "duration_s": dur,
+        }
+        # COMPROBACION: la copia consumida debe conservar exactamente los
+        # bytes registrados. Si no, el backend no puede afirmar que proceso
+        # el contenido con ese hash.
+        ruta_consumida_real = ruta_consumo if pre.get("snap") else artefacto
+        if pre.get("snap") and pre.get("input_hash"):
+            if not os.path.isfile(ruta_consumida_real):
+                ejec.update({"status": BK_ERROR,
+                             "limitations": ["el archivo consumido "
+                                              "(instantanea aislada) "
+                                              "fue eliminado o movido: no se "
+                                              "puede verificar el contenido."]})
+                # Si la copia desaparecio, la afirmacion de procedencia
+                # debe ser INCOMPLETA.
+                return {"status": BK_ERROR, "precheck": pre,
+                        "ejecucion": ejec,
+                        "backend": ident,
+                        "provenance": _prov.construir(
+                            estado=_prov.ESTADO_INCOMPLETA,
+                            input_hash=pre.get("input_hash", ""),
+                            backend=ident.get("backend_id", ""),
+                            transformacion="spatch --sp-file <patron> <artefacto> -> diff unificado -> coincidencias",
+                            normalizador="backends.adapters.cocci_search.buscar",
+                            motivo_incompleta="instantanea consumida eliminada o alterada durante la ejecucion")}
+            # Si existe y el hash coincide con el registrado, la procedencia
+            # es autentica. Si no coincide, el archivo consumido fue alterado.
+            if sha256_de(ruta_consumida_real) == pre.get("input_hash", ""):
+                ejec["snapshot"] = {
+                    "origen": artefacto,
+                    "ruta_consumida": ruta_consumida_real,
+                    "hash": pre.get("input_hash", ""),
+                    "bytes": len(open(ruta_consumida_real,"rb").read()),
+                    "verificado_tras_ejecucion": True,
+                    "nota": "instantanea aislada; los bytes consumidos son los bytes hasheados (TOCTOU eliminado)",
+                }
+            else:
+                ejec.update({"status": BK_ERROR,
+                             "limitations": ["la copia consumida NO coincide "
+                                              "con el hash registrado (el "
+                                              "contenido consumido difiere del "
+                                              "registrado): posible mutacion "
+                                              "del archivo original o corrupcion "
+                                              "de la instantanea."]})
+                return {"status": BK_ERROR, "precheck": pre,
+                        "ejecucion": ejec,
+                        "backend": ident,
+                        "provenance": _prov.construir(
+                            estado=_prov.ESTADO_INCOMPLETA,
+                            input_hash=pre.get("input_hash", ""),
+                            backend=ident.get("backend_id", ""),
+                            transformacion="spatch --sp-file <patron> <artefacto> -> diff unificado -> coincidencias",
+                            normalizador="backends.adapters.cocci_search.buscar",
+                            motivo_incompleta="mutacion detectada: la copia consumida no coincide con el hash registrado")}
+        # Limpieza de la instantanea tras la ejecucion
+        if pre.get("snap"):
+            try:
+                import shutil
+                shutil.rmtree(pre.get("snap_dir", ""), ignore_errors=True)
+            except Exception:
+                pass
 
     if timedout:
         ejec.update({"status": BK_BLOCKED,
                      "limitations": ["timeout a los %ds" % timeout]})
         return {"status": BK_BLOCKED, "precheck": pre, "ejecucion": ejec,
                 "backend": ident,
-                "provenance": "PROVENANCE_INCOMPLETE: no hay salida"}
+                "provenance": _prov.construir(
+                    estado=_prov.ESTADO_INCOMPLETA,
+                    input_hash=pre.get("input_hash", ""),
+                    backend=ident.get("backend_id", ""),
+                    transformacion="spatch --sp-file <patron> <artefacto> -> diff unificado -> coincidencias",
+                    normalizador="backends.adapters.cocci_search.buscar",
+                    motivo_incompleta="timeout: no hay salida que provenancear")}
 
     # --- LA DISTINCION IMPORTANTE ----------------------------------------
     # MEDIDO 2026-10-12: hay DOS fallos que NO son un resultado sobre el
@@ -248,7 +386,13 @@ def buscar(artefacto: str, patron: str, backend_id: str = "coccinelle",
                          % (rc, (se.strip() or so.strip())[:200])]})
         return {"status": BK_INVALID, "precheck": pre, "ejecucion": ejec,
                 "backend": ident, "results": [],
-                "provenance": "PROVENANCE_INCOMPLETO: invocacion invalida"}
+                "provenance": _prov.construir(
+                    estado=_prov.ESTADO_INCOMPLETA,
+                    input_hash=pre.get("input_hash", ""),
+                    backend=ident.get("backend_id", ""),
+                    transformacion="spatch --sp-file <patron> <artefacto> -> diff unificado -> coincidencias",
+                    normalizador="backends.adapters.cocci_search.buscar",
+                    motivo_incompleta="invocacion invalida")}
 
     if RE_NO_RULES.search(se or "") or RE_NO_RULES.search(so or ""):
         ejec.update({"status": BK_INVALID,
@@ -261,7 +405,13 @@ def buscar(artefacto: str, patron: str, backend_id: str = "coccinelle",
                          "stderr: %s" % (se.strip() or so.strip())[:300]]})
         return {"status": BK_INVALID, "precheck": pre, "ejecucion": ejec,
                 "backend": ident, "results": [],
-                "provenance": "PROVENANCE_INCOMPLETO: parche no usable"}
+                "provenance": _prov.construir(
+                    estado=_prov.ESTADO_INCOMPLETA,
+                    input_hash=pre.get("input_hash", ""),
+                    backend=ident.get("backend_id", ""),
+                    transformacion="spatch --sp-file <patron> <artefacto> -> diff unificado -> coincidencias",
+                    normalizador="backends.adapters.cocci_search.buscar",
+                    motivo_incompleta="parche no usable")}
 
     if rc not in (0, None) and rc != RC_SIN_MATCH:
         ejec.update({"status": BK_ERROR,
@@ -269,7 +419,13 @@ def buscar(artefacto: str, patron: str, backend_id: str = "coccinelle",
                                      % (rc, (se.strip() or so.strip())[:300])]})
         return {"status": BK_ERROR, "precheck": pre, "ejecucion": ejec,
                 "backend": ident,
-                "provenance": "PROVENANCE_INCOMPLETO: backend fallo"}
+                "provenance": _prov.construir(
+                    estado=_prov.ESTADO_INCOMPLETA,
+                    input_hash=pre.get("input_hash", ""),
+                    backend=ident.get("backend_id", ""),
+                    transformacion="spatch --sp-file <patron> <artefacto> -> diff unificado -> coincidencias",
+                    normalizador="backends.adapters.cocci_search.buscar",
+                    motivo_incompleta="backend fallo")}
 
     # --- ¿HAY COINCIDENCIA? ---------------------------------------------
     # El productor de Coccinelle para un `+` es un DIFF. Sin diff, no
@@ -312,9 +468,18 @@ def buscar(artefacto: str, patron: str, backend_id: str = "coccinelle",
                          "invocacion correcta, esto es `empty` de verdad "
                          "(MEDIDO: el control negativo da el mismo rc sin "
                          "diff)."]})
+        prov_struct = {
+            "estado": "PROVENANCE_INCOMPLETE",
+            "input_hash": pre.get("input_hash", ""),
+            "backend": ident,
+            "transformacion": "spatch --sp-file <patron> <artefacto> -> diff unificado -> coincidencias",
+            "normalizador": "backends.adapters.cocci_search.buscar",
+            "provenance_estado": "PROVENANCE_INCOMPLETE",
+            "motivo_incompleta": "modo fixture: productor simulado; los bytes del archivo NO fueron procesados por el backend real (la instantanea no se aplica en modo fixture).",
+        }
         return {"status": BK_EMPTY, "precheck": pre, "ejecucion": ejec,
                 "backend": ident, "results": [], "n_hits": 0,
-                "raw_output": salida[:4000], "provenance": "completa"}
+                "raw_output": salida[:4000], "provenance": prov_struct}
 
     artefacto_ref = artefacto
     rid = "res_semsrc_" + sha256_texto(
@@ -351,7 +516,14 @@ def buscar(artefacto: str, patron: str, backend_id: str = "coccinelle",
     return {"status": BK_OK, "precheck": pre, "ejecucion": ejec,
             "backend": ident, "results": [res], "n_hits": n_hits,
             "raw_output": salida[:4000], "limitations": lim,
-            "provenance": "completa"}
+            "provenance": {
+                "estado": "completa",
+                "input_hash": pre.get("input_hash", ""),
+                "backend": ident,
+                "transformacion": "spatch --sp-file <patron> <artefacto> -> diff unificado -> coincidencias",
+                "normalizador": "backends.adapters.cocci_search.buscar",
+                "provenance_estado": "completa",
+            }}
 
 
 def _ficheros_de(lineas: List[str]) -> List[str]:

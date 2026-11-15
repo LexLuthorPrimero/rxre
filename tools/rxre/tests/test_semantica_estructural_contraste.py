@@ -17,10 +17,10 @@ def test_e2e_010_existe_y_distinto():
     assert meta10.get("artefacto_path") == "/bin/ls"
     assert meta10.get("tipo_evidencia") == "relacion_semantica_estructural_contrastada"
     assert meta10.get("artefacto_hash_sha256") == "54e936d37decdad9ecaf189b1de347605a0a99037ec87bd17679b6cbde871a0c"
-    # Diferentes de amdgpu (e2e_001) y fixtures (e2e_006) y semántica (e2e_009)
+    # Diferentes de amdgpu (e2e_001) y fixtures (e2e_006); e2e_009 comparte /bin/ls (mismo hash esperado)
     assert meta10.get("artefacto_hash_sha256") != meta1.get("artefacto_hash_sha256")
     assert meta10.get("artefacto_hash_sha256") != meta6.get("artefacto_hash_sha256")
-    assert meta10.get("artefacto_hash_sha256") != meta9.get("artefacto_hash_sha256") if meta9.get("artefacto_hash_sha256") else True
+    assert meta10.get("e2e_id") != meta9.get("e2e_id") and meta10.get("tipo_evidencia") == "relacion_semantica_estructural_contrastada"
 
 def test_e2e_010_gate():
     """PROVEN: evidencia estructural contrastada pasa gate (archivo existente, hash real)."""

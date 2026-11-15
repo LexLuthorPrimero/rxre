@@ -446,6 +446,9 @@ _reg(
         "rxre.search_findings": "AVAILABLE",
         "rxre.evaluate_applicability": "AVAILABLE",
         "rxre.plan_investigation": "AVAILABLE",
+        # RXRE-022: Adapter fdinfo_engine (observacion drm-engine-* solo lectura).
+        # Solo lectura /proc; sin root; sin DEBUGFS/MMIO.
+        "rxre.observation_engine": "AVAILABLE",
     },
     notas=[
         "MEDIDO: el backend 'knowledge' existe y es importable. Sus "
@@ -554,6 +557,48 @@ _reg(
         "gpu.register_write / gpu.vm_write (UMR soporta -w pero es DESTRUCTIVO)",
         "gpu.wave_dump, gpu.profiler (funcionalidades avanzadas no verificadas)",
         "cualquier operacion que requiera debugfs (/sys/kernel/debug/dri/)",
+    ],
+)
+# RXRE-MMIO-ADAPTER-012 / FLOW-INTEGRATION-013: backend MMR UNPRIVILEGIADO.
+# Producer DISTINTO de UMR para la MISMA capacidad `gpu.register_read`: no es
+# un segundo catalogo, es un segundo producer medido. UMR necesita euid==0;
+# este camino no lo necesita. Se declara aparte porque su modo de fallo y su
+# alcance de registros son OTROS (solo gfx MMIO, y hay registros que el propio
+# mecanismo rechaza con 'Bad address').
+_reg(
+    Backend("mmr_ioctl", "mmr_ioctl", ["--help"], timeout=10,
+            repo="kernel:drivers/gpu/drm/amd/amdgpu (AMDGPU_INFO_READ_MMR_REG 0x15)",
+            commit="local:tx_mmr_fixed.c"),
+    caps={
+        "gpu.mmr_read": "AVAILABLE",
+    },
+    notas=[
+        "MECANISMO MEDIDO 2026-10-19: ioctl DRM_IOCTL_AMDGPU_INFO con query",
+        "  AMDGPU_INFO_READ_MMR_REG (0x15) sobre /dev/dri/renderD128.",
+        "  Implementacion de referencia: /tmp/tx_mmr_fixed.c (C, compilado a",
+        "  /tmp/tx_mmr_fixed). Lee solo: read_mmr_reg.flags=0.",
+        "SIN PRIVILEGIOS: el usuario tiene ACL rw sobre /dev/dri/card1 y la",
+        "  lectura se hace sin root (MEDIDO: mmGRBM_STATUS => 0x00003028 en",
+        "  instancias gfx 0/1/2, repetible).",
+        "ALCANCE DE REGISTROS: solo los verificados por el adapter, todos en",
+        "  gfx800 MMIO accesible por instancia gfx:",
+        "  polaris12.gfx800.mmGRBM_STATUS  (0x2004), polaris12.gfx800.mmGRBM_STATUS2 (0x2002).",
+        "LO QUE NO ADMITE (MEDIDO, no inventado): registros GMC como",
+        "  VM_CONTEXT0_PAGE_TABLE_BASE_ADDR (0x54f) devuelven 'Bad address'",
+        "  (EFAULT) en instancias gfx: no se puede leer la base de la tabla de",
+        "  paginas por esta via. NO se extrapola a 'todos los registros MMR'.",
+        "SOLO LECTURA: en amdgpu_drm.h no existe query MMR de escritura; el",
+        "  query 0x15 solo lee (amdgpu_mm_rreg). No hay -w ni --vm-write.",
+    ],
+    no_medidas=[
+        "semantica de los valores: se registra lo que el mecanismo devuelve;",
+        "  que significa cada bit NO esta verificado contra la hoja de datos.",
+        "cambio temporal del valor bajo carga de GPU: no medido en esta sesion.",
+    ],
+    unsuitable=[
+        "gpu.register_write / gpu.vm_write (este producer es de solo lectura por",
+        "  construccion: el query MMR no tiene variante de escritura)",
+        "lectura de tablas de pagina / VMID (0x54f no es accesible por esta via)",
     ],
 )
 # RXRE-REA-001: REA adapter for firmware/binary inspection.

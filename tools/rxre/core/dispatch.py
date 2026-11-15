@@ -62,14 +62,31 @@ class Adapter:
     def exists(self) -> bool:
         return os.path.isfile(self.path)
 
-    def run(self, args: List[str], timeout: int = DEFAULT_TIMEOUT) -> Dict[str, Any]:
+    def run(self, args: List[str], timeout: int = DEFAULT_TIMEOUT,
+            investigacion: Any = None) -> Dict[str, Any]:
         """Ejecuta la herramienta y devuelve rc/stderr/stdout sin interpretar.
 
-        NO se interpreta aqui. Interpretar la salida de una herramienta es
-        trabajo del adaptador de esa capacidad, no del transporte: si el
-        transporte decide que un rc significa una cosa, cada capacidad con
-        semantica distinta necesita una excepcion y las excepciones se acumulan.
+        Si `investigacion` es una propuesta formal y el Research Gate no la
+        admite, retorna `blocked` SIN ejecutar la herramienta (fail-closed).
+        Esto protege rutas que pasan por `core/dispatch.py` sin pasar por
+        `backends/dispatch.py` (ver `RESEARCH_GATE_SEMANTIC_INTEGRATION_010.md`).
+        No se modifica `backends/gate.py`.
         """
+        if investigacion is not None:
+            from core import research_gate as _rg
+            _verdict = _rg.veredicto_de({"investigacion": investigacion})
+            if _rg.bloquear_ejecucion(_verdict):
+                return {
+                    "rc": None, "stdout": "", "stderr": "",
+                    "argv": [], "timeout": False,
+                    "status": "blocked", "ejecutada": False,
+                    "motivo": "RESEARCH-GATE: %s (%s)"
+                              % (_verdict.get("estado", "NOT_DETERMINED"),
+                                 _verdict.get("motivo", "")),
+                    "regla": "research-gate",
+                    "research_gate": _verdict,
+                    "results": [], "next_actions": []}
+
         argv = [sys.executable, self.path] + list(args)
         try:
             p = subprocess.run(
@@ -185,43 +202,32 @@ def _b_provenance(a: Dict[str, Any]) -> List[str]:
     return ["--dir", d, "--json"]
 
 
-<<<<<<< HEAD
 def _b_register_fields(a: Dict[str, Any]) -> List[str]:
     return ["--kernel", _corpus(), "--gfx", a.get("gfx", "gfx_8_0"),
             "--reg", a.get("target", ""), "--json"]
-=======
+
 def _b_defuse(a: Dict[str, Any]) -> List[str]:
-    # `defuse` habla el contrato de lachesis_defuse.py: --intent y
-    # --subject. El sujeto viaja en `target` como en el resto de
-    # capacidades. MEDIDO: el kernel por defecto es `kernelbuild`
-    # (la unica raiz verificada con include/drm completo); `working`
-    # tambien tiene asic_reg, pero `kernelbuild` es la raiz que
-    # RXRE-1629 midio para identidad de registro.
-    # El timeout de la OPERACION no es el del probe: una consulta
-    # de lachesis mide ~65 s, y `def-use` de un registro hace
-    # find-entity + value-history por identidad.
     argv = ["--intent", a.get("intent", "def-use"),
-            "--subject", a["target"],
+            "--subject", a.get("target", ""),
             "--kernel", a.get("kernel") or _kernelbuild(),
             "--gfx", a.get("gfx", "gfx_8_0"), "--json"]
     if a.get("ip_block"):
         argv += ["--ip-block", a["ip_block"]]
     if a.get("address"):
-        argv += ["--address", str(a["address"])]
+        argv += ["--address", str(a.get("address", ""))]
     if a.get("graph"):
         argv += ["--graph", a["graph"]]
     elif a.get("corpus"):
         argv += ["--corpus", a["corpus"]]
     if a.get("lachesis_bin"):
-        argv += ["--lachesis-bin", a["lachesis_bin"]]
+        argv += ["--lachesis-bin", a.get("lachesis_bin", "")]
     if a.get("timeout"):
-        argv += ["--timeout", str(a["timeout"])]
+        argv += ["--timeout", str(a.get("timeout", 30))]
     if a.get("build_timeout"):
-        argv += ["--build-timeout", str(a["build_timeout"])]
+        argv += ["--build-timeout", str(a.get("build_timeout", 120))]
     if a.get("budget_tokens"):
-        argv += ["--budget-tokens", str(a["budget_tokens"])]
+        argv += ["--budget-tokens", str(a.get("budget_tokens", 0))]
     return argv
->>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 
 
 def _b_capabilities(_a: Dict[str, Any]) -> List[str]:
@@ -298,8 +304,6 @@ _reg(Adapter(
     summary="Claves de procedencia mas usadas en el arbol.",
     build=_b_provenance))
 
-<<<<<<< HEAD
-
 _reg(Adapter(
     name="register-fields", cmd=["rxre_register_fields.py"],
     probe=["--selftest"], stage=3,
@@ -312,16 +316,13 @@ _reg(Adapter(
     summary="Rastreo de acceso a registros (READ/WRITE/RMW) con provenance por funcion y archivo.",
     build=lambda a: ["--function", a["function"], "--json"] if a.get("function") else
                     ["--register", a["target"], "--json"]))
-=======
-#: stage 4: primera capacidad respaldada por un EXTERNO invocado
-#: por CLI. El adaptador es nuevo; el registro es el mismo.
+
 _reg(Adapter(
     name="defuse", cmd=["rxre/adapters/lachesis_defuse.py"],
     probe=["--selftest"], stage=4,
     summary="Flujo de datos interprocedural (def-use) con identidad "
             "de registro por bloque de IP, via Lachesis por CLI.",
     build=_b_defuse))
->>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 
 
 def probe_all(timeout: int = 60) -> List[Dict[str, Any]]:
@@ -365,3 +366,25 @@ def get(name: str) -> Adapter:
     if name not in ADAPTERS:
         raise KeyError("capacidad desconocida: %s" % name)
     return ADAPTERS[name]
+    def resolve_contract(self, capability: str, args: dict = None, preconditions: dict = None) -> dict:
+        """Resolucion por contrato (Paso 6)."""
+        backends = self.get_available_backends(capability)
+        if not backends:
+            return {"backend": None, "score": 0, "reason": "NO_BACKEND_MATCH", "limitations": ["no backend"], "timestamp": __import__("time").strftime("%Y-%m-%dT%H:%M:%S")}
+        best = max(backends, key=lambda b: (b.get("coverage", 0)+b.get("precision", 0))/2)
+        return {"backend": best.get("name"), "score": best.get("score", 0), "args": args or {}, "limitations": best.get("limitations", []), "timestamp": __import__("time").strftime("%Y-%m-%dT%H:%M:%S")}
+
+
+CAPACIDADES_MINIMAS = {
+    "binary.functions": "identificación de funciones en binario",
+    "binary.disassemble": "desensamblado",
+    "binary.xrefs": "referencias cruzadas",
+    "source.semantic_search": "búsqueda semántica en fuente",
+}
+
+def verificar_capacidades_minimas(registry: dict) -> dict:
+    faltantes = []
+    for cap in CAPACIDADES_MINIMAS:
+        if cap not in registry or registry[cap] is None:
+            faltantes.append(cap)
+    return {"completas": len(faltantes)==0, "faltantes": faltantes, "total_requeridas": len(CAPACIDADES_MINIMAS)}

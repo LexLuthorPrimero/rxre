@@ -64,7 +64,7 @@ def validate_evidence_path(ev_path: str, art_path: str = None) -> dict:
                 expected_hash = meta.get("artefacto_hash_sha256", meta.get("hash_sha256", ""))
                 if expected_hash:
                     h = hashlib.sha256(art.read_bytes()).hexdigest()
-                    result["checks"]["hash_matches"] = h.startswith(expected_hash[:16])
+                    result["checks"]["hash_matches"] = h == expected_hash
                     if not result["checks"]["hash_matches"]:
                         result["errors"].append(f"hash_mismatch: expected={expected_hash[:16]}, actual={h[:16]}")
         else:

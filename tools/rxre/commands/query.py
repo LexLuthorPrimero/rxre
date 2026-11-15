@@ -36,6 +36,59 @@ from core import normalize as N
 from core import store as S
 
 
+def _archivo_de_resultado(r: Dict[str, Any]) -> Optional[str]:
+    """Resuelve la ruta del artefacto igual que registrar() / integridad_referencia()."""
+    if not isinstance(r, dict):
+        return None
+    loc = r.get("location") or {}
+    path = loc.get("file") or loc.get("loc")
+    if path and isinstance(path, str):
+        return path
+    # Fallback para resultados que ponen file en top-level (consumo existente)
+    path = r.get("file") or r.get("file_path")
+    if path and isinstance(path, str):
+        return path
+    return None
+
+
+def _normalizar_hash_referencia(env: Dict[str, Any]) -> None:
+    """Enriquece resultados con sha256_file_ref si su archivo existe y no tiene declaración previa.
+    No modifica archivos protegidos; no calcula hashes inventados."""
+    import hashlib, os
+    for r in env.get("results") or []:
+        if not isinstance(r, dict):
+            continue
+        file_path = _archivo_de_resultado(r)
+        if not file_path or not isinstance(file_path, str):
+            continue
+        # Solo cuando es archivo concreto y legible (evita directorios / rutas rotas)
+        if not os.path.isfile(file_path) or not os.access(file_path, os.R_OK):
+            continue
+        # Resuelve declaracion PREVIA en el nivel superior del resultado: es
+        # exactamente el nivel donde `integridad_referencia()` busca el hash
+        # cuando relee lo persistido (`raw_json = json.dumps(r)`). Un hash
+        # anidado en `r["raw"]` NO es la declaracion que va a leer el
+        # verificador, asi que no se considera aqui: se calcula el del
+        # artefacto, que es lo unico inequivoco.
+        declared = None
+        for k in ("sha256_file_ref", "hash_ref", "sha256", "artefacto_hash_sha256"):
+            val = r.get(k)
+            if isinstance(val, str) and len(val) == 64:
+                declared = val
+                break
+        # Si no hay declaración previa, calcular sobre los bytes reales
+        if declared is None:
+            try:
+                h = hashlib.sha256()
+                with open(file_path, "rb") as fh:
+                    for chunk in iter(lambda: fh.read(65536), b""):
+                        h.update(chunk)
+                r["sha256_file_ref"] = h.hexdigest()
+            except Exception:
+                # No interrumpir: archivo inaccesible => sin declaración
+                pass
+
+
 def _objetivo_de_la_pregunta(q: str) -> Optional[str]:
     """Saca el OBJETIVO del enunciado en prosa.
 
@@ -335,6 +388,50 @@ def responder(request: Dict[str, Any], db: Optional[Any] = None,
     env = engine.ejecutar_pipeline(cap, req)
     dur = time.time() - t0
 
+    # INTEGRACION 147: normalizar la referencia de hash ANTES de verificar y de
+    # persistir. Es el punto no protegido mas temprano donde el llamador tiene
+    # a la vez el resultado y el archivo que ese resultado representa:
+    # `registrar()` escribe `raw_json = json.dumps(r)` y `integridad_referencia()`
+    # busca el hash declarado en ese mismo dict. Sin esta normalizacion, un
+    # resultado con `file` pero sin `sha256_file_ref` se guardaba y se releia
+    # como `NO_VERIFICABLE` aunque el archivo estuviera integro.
+    #
+    # El hash se calcula sobre los bytes REALES del archivo referenciado por
+    # `location.file` (el mismo campo que `registrar()` persiste). Nunca sobre
+    # una ruta deducida del texto de un informe: el hash de un informe NO es el
+    # hash del artefacto que ese informe menciona.
+    _normalizar_hash_referencia(env)
+
+    # INTEGRACION 067: verificacion de integridad de referencias en resultados
+    # consumidos por la IA. Usa contratos existentes (core/store.integridad_referencia).
+    # No oculta errores ni degrada silenciosamente la integridad.
+    try:
+        from core.store import integridad_referencia
+        # Verifica cualquier resultado que tenga referencia a archivo en raw_json/file
+        no_proven_consumer = []
+        for r in env.get("results") or []:
+            if isinstance(r, dict):
+                file_r = _archivo_de_resultado(r)
+                # `registrar()` persiste `raw_json = json.dumps(r)`: el dict
+                # COMPLETO del resultado. Por eso la verificacion de consumo
+                # usa `r` y no `r["raw"]`: si se usara el sub-dict `raw`, el
+                # hash declarado en el nivel superior no se veria y todo
+                # saldria NO_VERIFICABLE aunque acabase de calcularse.
+                raw_r = r.get("raw_json") or r
+                # Si no hay file pero hay raw con referencia al archivo, usar raw
+                if file_r and isinstance(file_r, str):
+                    integ_result = integridad_referencia(file_r, raw_r)
+                    r["integridad"] = integ_result
+                    if integ_result.get("estado") != "PROVEN":
+                        no_proven_consumer.append(str(integ_result.get("estado")) + ":" + str(r.get("result_id", r.get("operation_id", "unknown"))))
+        if no_proven_consumer:
+            env.setdefault("limitations", []).append(
+                "integridad de referencias en resultados consumidos distinta de PROVEN: %s"
+                % ", ".join(no_proven_consumer))
+    except Exception as exc:
+        env.setdefault("limitations", []).append(
+            "error al verificar integridad de referencias (%s)" % exc)
+
     # Las aristas se derivan SOLO de lo que las etapas produjeron. Para
     # capacidades de registro, de los hits de la etapa de busqueda.
     aristas: List[Dict[str, Any]] = []
@@ -491,14 +588,79 @@ def case(consulta: Dict[str, Any], db: Optional[Any] = None) -> Dict[str, Any]:
     return env
 
 
+def _chains_de_consulta(c, consulta: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Causal chains already registered, queried through the SAME public op.
+
+    MEDIDO (RXRE-MISSION-141): `relation_chains` se registraba (via
+    `core.relations.registrar_cadena`) pero NO era consultable por la
+    superficie publica: `relation` solo miraba `edges`, que son aristas
+    DERIVADAS por herramientas de busqueda de codigo. Una cadena causal
+    registrada y verificada (producer -> transformation -> representation ->
+    consumer -> effect, con provenance_json, evidence_json, confidence y
+    epistemic_state) quedaba en la base y no se podia recuperar.
+
+    Esto NO crea una tabla ni un subsistema nuevo: LEE la tabla que ya
+    existe (`relation_chains`) con el motor que ya existe
+    (`core.relations.listar_cadenas`), y lo expone por la MISMA operacion
+    publica. La diferencia entre `edges` y `relation_chains` es de origen:
+    `edges` se derivan de texto de codigo; `relation_chains` las declara
+    quien produjo la evidencia, con su procedencia y su nivel epistemico.
+    """
+    from core import relations as R
+    rel_id = (consulta.get("relation_id") or "").strip()
+    if rel_id:
+        ch = R.obtener_cadena(c, rel_id)
+        return [ch] if ch else []
+    target = consulta.get("target") or ""
+    nodo = consulta.get("nodo") or ""
+    filtro_nodo = consulta.get("producer") or consulta.get("consumer") or ""
+    if nodo and not filtro_nodo:
+        # `nodo` puede ser producer O consumer: se buscan ambos y se unen.
+        a = R.listar_cadenas(c, target=target, producer=nodo, limite=200)
+        b = R.listar_cadenas(c, target=target, consumer=nodo, limite=200)
+        vistos = {}
+        for ch in a + b:
+            vistos[ch["relation_id"]] = ch
+        return sorted(vistos.values(), key=lambda x: x.get("created_at") or "")
+    return R.listar_cadenas(
+        c,
+        target=target,
+        relation_type=consulta.get("relation_type") or "",
+        epistemic_state=consulta.get("epistemic_state") or "",
+        producer=filtro_nodo,
+        consumer=consulta.get("consumer") or "",
+        limite=int(consulta.get("limite") or 200))
+
+
+def _db(db_param):
+    if isinstance(db_param, str):
+        return S.conectar(db_param)
+    return db_param or S.conectar()
+
+
 def relation_queries(consulta: Dict[str, Any], db: Optional[Any] = None
                      ) -> Dict[str, Any]:
-    """`relation writers|consumers|path`. Consulta aristas; no las inventa."""
-    c = db or S.conectar()
+    """`relation writers|consumers|references|path|chains`. Consulta aristas y
+    cadenas causales; no las inventa."""
+    c = _db(db)
     clase = (consulta.get("clase") or "").lower()
     nodo = consulta.get("nodo") or ""
     tipo = {"writers": "WRITES", "readers": "READS",
             "references": "REFERENCES"}.get(clase)
+    if clase in ("chains", "chain"):
+        cadenas = _chains_de_consulta(c, consulta)
+        env = E.envelope("relation", target=consulta.get("target") or nodo,
+                         status=E.ST_OK if cadenas else E.ST_EMPTY,
+                         results=cadenas,
+                         limitations=[] if cadenas else
+                         ["no hay cadenas causales registradas para esta "
+                          "consulta. Las cadenas solo existen si se "
+                          "registraron con core.relations.registrar_cadena"],
+                         provenance=[{"kind": "consulta",
+                                      "op": "core.relations.listar_cadenas",
+                                      "clase": clase}])
+        c.close()
+        return env
     if clase == "path":
         aristas = [dict(x) for x in c.execute(
             "SELECT src,tipo,dst,status,scope,tool,timestamp FROM edges "

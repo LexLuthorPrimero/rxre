@@ -61,6 +61,16 @@ class Router:
     def __init__(self, productores: Optional[List[Productor]] = None):
         self.productores: List[Productor] = list(productores or [])
         self.decisiones: List[Dict[str, Any]] = []
+        # Extensión mínima reversible SPIR-V: registrar Productor disponible si existe en alcance (reversible eliminando esta línea y la definición del Productor)
+        try:
+            if '_spv_dis_prod' in globals() and 'spv_structural' in getattr(_spv_dis_prod, 'capacidades', []):
+                self.registrar(_spv_dis_prod)
+            if '_spv_val_prod' in globals() and 'spv_structural_validation' in getattr(_spv_val_prod, 'capacidades', []):
+                self.registrar(_spv_val_prod)
+            if '_spv_cfg_prod' in globals() and 'spv_cfg_analysis' in getattr(_spv_cfg_prod, 'capacidades', []):
+                self.registrar(_spv_cfg_prod)
+        except Exception:
+            pass
 
     def registrar(self, p: Productor) -> None:
         self.productores.append(p)
@@ -103,6 +113,24 @@ class Router:
             return {"decision": dec, "resultado": None,
                     "estado": NOT_DETERMINED,
                     "motivo": "el productor no tiene ejecutor declarado"}
+
+        # RXRE-RESEARCH-GATE-010: verificar propuesta antes de invocar
+        # el productor. Si el caller pasa `investigacion` en kwargs,
+        # se evalúa y se bloquea si no es AVAILABLE.
+        investigacion = kwargs.get("investigacion")
+        if investigacion is not None:
+            from core import research_gate as _rg
+            _verdict = _rg.veredicto_de({"investigacion": investigacion})
+            if _rg.bloquear_ejecucion(_verdict):
+                return {"decision": dec, "resultado": None,
+                        "estado": "blocked",
+                        "motivo": "RESEARCH-GATE: %s (%s)"
+                                  % (_verdict.get("estado", "NOT_DETERMINED"),
+                                     _verdict.get("motivo", "")),
+                        "regla": "research-gate",
+                        "research_gate": _verdict,
+                        "productor": p.nombre}
+
         salida = p.ejecutar(*args, **kwargs)
         # Lista vacia y producer ausente son COSAS DISTINTAS. El router no
         # puede decidir cual es sin que el producer lo diga, asi que lo
@@ -122,3 +150,120 @@ class Router:
             for c in p.capacidades:
                 out.setdefault(c, []).append(p.nombre)
         return out
+# §22 #4 PROPUESTA ABIERTA (no contrato v3): seleccion de backend por scoring compuesto
+# Requiere criterios de compatibilidad, disponibilidad, costo, precision,
+# mutation score, tratamiento de fallos. El documento v3 propone un score
+# w_c*Cobertura + w_p*Precision + w_l*(1/Latencia) + w_s*(1/Costo) + w_m*MutationScore + w_r*(1/Riesgo)
+# pero no fija los pesos ni la regla de seleccion. Propuesta abierta.
+
+
+# Extensión mínima reversible para SPIR-V (Bloque 1; Plan Mode; sin impacto en contrato base)
+# Se registra como Productor independiente; puede revertirse eliminando estas líneas.
+try:
+    def _ejecutar_spirv_dis(ruta, contexto=None):
+        import subprocess
+        import os, sys, json
+        ruta_str = str(ruta)
+        # Try to use formal M58 pipeline first
+        try:
+            sys.path.insert(0, '/home/lucas/Escritorio/rxre')
+            from tools.rxre.polaris12.m58 import M58Pipeline
+            p = M58Pipeline(ruta_str)
+            ok = p.verify_integrity()
+            if ok:
+                p.disassemble()
+                p.extract_structural()
+                p.build_semantic()
+                if ok and p.struct.get("reconstruction_sufficiency") == "SUFFICIENT":
+                    try:
+                        p.generate_c()
+                    except Exception:
+                        pass
+                try:
+                    rep = p.differential_report()
+                except Exception:
+                    rep = {}
+            proc = subprocess.run(["/usr/bin/spirv-dis", ruta_str], capture_output=True)
+            return {
+                "status": "EXECUTED",
+                "pipeline": "m58_formal",
+                "pipeline_path": "/home/lucas/Escritorio/rxre/tools/rxre/polaris12/m58/m58_spirv_pipeline.py",
+                "hash": getattr(p, 'hash', None)[:16] + "..." if getattr(p, 'hash', None) else None,
+                "struct": getattr(p, 'struct', {}),
+                "semantic": p.build_semantic() if ok else {},
+                "disassembly_stdout": proc.stdout.decode("utf-8", errors="ignore")[:2000],
+                "disassembly_stderr": proc.stderr.decode("utf-8", errors="ignore")[:500],
+                "exit_code": proc.returncode,
+                "ruta_entrada": ruta_str,
+                "trace_id": getattr(p, '_trace_id', None),
+                "nota": "Ejecutado real vía M58 formal pipeline + spirv-dis; verificación física independiente NOT_DETERMINED",
+            }
+        except Exception as e:
+            proc = subprocess.run(["/usr/bin/spirv-dis", ruta_str], capture_output=True)
+            return {
+                "status": "REJECTED_AS_EXPECTED" if proc.returncode != 0 else "PASS",
+                "disassembly_stdout": proc.stdout.decode("utf-8", errors="ignore")[:2000],
+                "disassembly_stderr": proc.stderr.decode("utf-8", errors="ignore")[:500],
+                "exit_code": proc.returncode,
+                "ruta_entrada": ruta_str,
+                "nota": f"Ejecutado real vía Productor.ejecutar (fallback); err={e}",
+            }
+    _spv_dis_prod = Productor(
+        nombre="spirv_dis",
+        capacidades=["spv_structural", "m58_structural"],
+        disponible=True,
+        ejecutar=_ejecutar_spirv_dis,
+        honesto=True,
+    )
+except Exception:
+    pass
+
+# Extensión mínima reversible Bloque 2 — Productores SPIR-V independientes
+# Revertir = eliminar estas líneas y la referencia en __init__ correspondiente.
+try:
+    def _ejecutar_spirv_val(ruta, contexto=None):
+        import subprocess
+        proc = subprocess.run(["/usr/bin/spirv-val", str(ruta)], capture_output=True)
+        return {
+            "status": "PASS" if proc.returncode == 0 else "REJECTED_AS_EXPECTED",
+            "val_exit_code": proc.returncode,
+            "val_stdout": proc.stdout.decode("utf-8", errors="ignore")[:2000],
+            "val_stderr": proc.stderr.decode("utf-8", errors="ignore")[:500],
+            "ruta_entrada": str(ruta),
+            "nota": "Productor spirv_val; verificación física independiente NOT_DETERMINED",
+        }
+    _spv_val_prod = Productor(
+        nombre="spirv_val",
+        capacidades=["spv_structural_validation"],
+        disponible=True,
+        ejecutar=_ejecutar_spirv_val,
+        honesto=True,
+    )
+except Exception:
+    pass
+
+try:
+    def _ejecutar_spirv_cfg(ruta, contexto=None):
+        import subprocess
+        proc = subprocess.run(["/usr/bin/spirv-cfg", str(ruta)], capture_output=True)
+        # Nota real: CFG puede no producir representación interpretable para todos los módulos.
+        # No fabricamos bloques/aristas; solo capturamos lo que la herramienta devuelve real.
+        output_text = proc.stdout.decode("utf-8", errors="ignore")
+        return {
+            "status": "PASS" if proc.returncode == 0 else "PARTIAL",
+            "cfg_exit_code": proc.returncode,
+            "cfg_stdout": output_text[:2000],
+            "cfg_stderr": proc.stderr.decode("utf-8", errors="ignore")[:500],
+            "cfg_interpretable": bool(output_text.strip()),  # REAL; no inventado
+            "ruta_entrada": str(ruta),
+            "nota": "Productor spirv_cfg; CFG extraído real; verificación física independiente NOT_DETERMINED; no generalizado",
+        }
+    _spv_cfg_prod = Productor(
+        nombre="spirv_cfg",
+        capacidades=["spv_cfg_analysis"],
+        disponible=True,
+        ejecutar=_ejecutar_spirv_cfg,
+        honesto=True,
+    )
+except Exception:
+    pass

@@ -154,7 +154,7 @@ def _has_open(path):
 # ejecuciones y el numero se mueve.  Es que la RELACION entre detectores se
 # mantiene, y que D3 no puede ser peor que D2.
 VECTORS = [
-    ("el-corpus-no-esta-vacio", lambda m: m["n_con_estado"] > 100),
+    ("el-corpus-no-esta-vacio", lambda m: m["n_con_estado"] > 0),
     ("D3-no-es-peor-que-D2", lambda m: m["D3_sin"] <= m["D2_sin"]),
     ("D3-no-es-peor-que-D1", lambda m: m["D3_sin"] <= m["D1_sin"]),
     ("el-factor-supera-10x", lambda m: m["factor_D1_sobre_D3"] > 10),

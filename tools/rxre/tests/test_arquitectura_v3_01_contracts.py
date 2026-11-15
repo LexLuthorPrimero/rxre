@@ -131,7 +131,7 @@ sin = nuevo.invocar("runtime.trace")
 v("router_por_capacidad: sin producers -> NOT_DETERMINED, no PROVEN_ABSENT",
   sin["estado"] == NOT_DETERMINED, str(sin))
 v("router_por_capacidad: un producer NUEVO no obliga a tocar al consumidor",
-  set(r.cobertura()) == {"binary.functions", "source.semantic_search"},
+  {"binary.functions", "source.semantic_search"} <= set(r.cobertura()),
   str(sorted(r.cobertura())))
 
 # =====================================================================
@@ -269,7 +269,7 @@ v("tierra_claim_completo: RECHAZA PROVEN sin evidence_refs",
 
 # =====================================================================
 print("\n--- schemas: las casillas nacen TODAS en HIPOTESIS ---")
-aud = schemas.auditoria_de_diseno()
+aud = schemas.casillas_por_estado_auditoria()
 # TIERRA-2, EVIDENCE-1 y PUERTA-1 se promovieron a VERIFICADO con evidencia
 # de artefacto. E5 se promovio con crash test (evento sobrevive SIGKILL).
 # Las otras 15 siguen en HIPOTESIS.

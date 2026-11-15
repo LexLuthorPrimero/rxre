@@ -330,6 +330,17 @@ class Grafo:
             raise ValueError(
                 "una evidencia no puede supersedirse a si misma")
 
+        # [v3-6] Verificar si la evidencia con este contenido ya existe
+        # (mismo contenido -> mismo evidence_id). Evitar error UNIQUE
+        # al insertar evidencia repetida (mismo kernel ejecutado dos veces).
+        existente = self.db.execute(
+            "SELECT evidence_id FROM evidence WHERE evidence_id = ?",
+            (ev_id,)).fetchone()
+        if existente is not None:
+            # Evidencia ya existe: retornar el ID existente sin INSERT nuevo
+            # Se preserva la integridad referencial y los contratos de TIERRA
+            return existente[0]
+
         self.db.execute(
             "INSERT INTO evidence (evidence_id, claim_id, kind, payload,"
             " producer, transformacion, row_hash, supersedes_ref, created_at)"

@@ -253,3 +253,8 @@ def una_allow_list_se_demuestra_por_lo_que_rechaza() -> Dict[str, bool]:
         "acepta_con_revisor_que_participo": False,
         "acepta_sin_autoridad_nombrada": False,
     }
+# §22 #3 PROPUESTA ABIERTA (no contrato v3): designacion de autoridad de aceptacion
+# Requiere procedimiento que determine quien acepta (persona/rol autorizado).
+# El documento v3 requiere esta autoridad como condicion P4 (§15.1) pero no
+# define el procedimiento. Se marca como propuesta abierta, no cierre.
+

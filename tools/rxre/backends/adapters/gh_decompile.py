@@ -175,6 +175,15 @@ def _version_de_propiedades(home: str) -> str:
     return ""
 
 
+def _asegurar_precompilado() -> bool:
+    """Compila DumpDecomp.class si falta. Idempotente; true si existe al final."""
+    destino = os.path.join(BUILD, CLASE)
+    if os.path.isfile(destino):
+        return True
+    compilar()
+    return os.path.isfile(destino)
+
+
 def disponible() -> Dict[str, Any]:
     """Disponibilidad REAL. No un `which` y ya."""
     hl = os.path.join(GHIDRA_HOME, "support", "analyzeHeadless")
@@ -187,8 +196,11 @@ def disponible() -> Dict[str, Any]:
         "existe": ok_exe,
         "version": ver,
         "version_verificada": bool(ver),
-        "script_precompilado": os.path.isfile(
-            os.path.join(BUILD, CLASE)),
+        # El .class NO viaja en git; se compila cuando falta y hace falta.
+        # Un clone limpio no deberia fallar 'script precompilado' sin que
+        # nadie compile, y sin romper el rol read-only de `disponible()`:
+        # la compilacion aqui es idempotente.
+        "script_precompilado": _asegurar_precompilado(),
         "java": _java_version(),
         "scripts_dir": SCRIPTS,
     }

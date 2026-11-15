@@ -74,3 +74,7 @@ __all__ = [
     "PROVEN_ABSENT", "DEFERRED", "INVALIDATED",
     "VERIFICADO", "HIPOTESIS",
 ]
+# §22 #7 PROPUESTA ABIERTA (no contrato v3): metricas de experimentos A/B
+# Requiere definicion de variable principal, controles, presupuesto,
+# condiciones de parada, interpretacion. Propuesta abierta, no contrato.
+

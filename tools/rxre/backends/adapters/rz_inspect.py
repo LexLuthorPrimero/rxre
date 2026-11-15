@@ -41,7 +41,9 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import sys
+import tempfile
 from typing import Any, Dict, List, Optional
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -53,11 +55,9 @@ from backends import registry  # noqa: E402
 from backends.contract import (  # noqa: E402
     BK_BLOCKED, BK_EMPTY, BK_ERROR, BK_INVALID, BK_OK, BK_UNSUPPORTED,
     RAW_BINARY, Backend, sha256_de,
-<<<<<<< HEAD
     estado_firma,
-=======
->>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 )
+from . import provenance as _prov
 
 
 class NoEsBinario(Exception):
@@ -76,19 +76,6 @@ def _exe_de(backend_id: str, nombre: str) -> Optional[str]:
     return shutil.which(nombre)
 
 
-<<<<<<< HEAD
-=======
-def _es_elf(p: str) -> bool:
-    """Comprobacion minima de la firma. MEDIDO: `rz-bin` acepta cualquier cosa
-    y devuelve `info: []`, que es indistinguible de un binario sin secciones."""
-    try:
-        with open(p, "rb") as fh:
-            m = fh.read(4)
-    except OSError:
-        return False
-    return m[:4] == b"\x7fELF"
-
->>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
 
 def _id_resultado(artefacto: str, backend: str, valor: Any,
                   donde: Optional[Dict[str, Any]] = None) -> str:
@@ -170,6 +157,37 @@ def _normalizar(insp: Dict[str, Any], artefacto: str, backend: str,
     }
 
 
+def _instantanea(artefacto: str) -> Dict[str, Any]:
+    """Lectura unica e inmutable del artefacto con hash de los bytes
+    consumidos y copia temporal aislada para el backend.
+
+    TOCTOU: elimina la carrera entre lectura para hash y consumo,
+    porque los bytes leidos una sola vez son los que se escriben en la
+    copia aislada que el backend consume.
+    """
+    try:
+        d = tempfile.mkdtemp(prefix="rxre-snapshot-")
+        destino = os.path.join(d, os.path.basename(artefacto) or "artefacto")
+        h = hashlib.sha256()
+        with open(artefacto, "rb") as src, open(destino, "wb") as dst:
+            for bloque in iter(lambda: src.read(1 << 16), b""):
+                h.update(bloque)
+                dst.write(bloque)
+        digest = h.hexdigest()
+        with open(destino, "rb") as fh:
+            datos = fh.read()
+        if hashlib.sha256(datos).hexdigest() != digest:
+            shutil.rmtree(d, ignore_errors=True)
+            return {"ok": False, "motivo": "integridad de la instantanea "
+                    "fallida: los bytes de la copia no coinciden", "dir": d}
+        os.chmod(destino, 0o400)
+        return {"ok": True, "hash": digest, "ruta": destino,
+                "dir": d, "bytes": len(datos)}
+    except OSError as exc:
+        return {"ok": False, "motivo": "error al crear instantanea: %s" % exc,
+                "dir": d if 'd' in locals() else ""}
+
+
 def inspect(artefacto: str, backend_id: str = "rizin",
             timeout: int = 900) -> Dict[str, Any]:
     """La operacion. Devuelve SIEMPRE los seis canales del contrato."""
@@ -178,10 +196,7 @@ def inspect(artefacto: str, backend_id: str = "rizin",
 
     # --- PRE-EXECUTION CONTRACT CHECK (§15). Antes de invocar. -----------
     pre = {"input_existe": os.path.isfile(artefacto),
-<<<<<<< HEAD
            "input_legible": None,
-=======
->>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
            "input_es_elf": False, "input_hash": "",
            "backend_existe": b.existe(),
            "entrypoint_existe": bool(b.path()),
@@ -191,7 +206,6 @@ def inspect(artefacto: str, backend_id: str = "rizin",
     if not pre["input_existe"]:
         return {"status": BK_INVALID, "precheck": pre,
                 "limitations": ["la entrada no existe: %s" % artefacto]}
-<<<<<<< HEAD
     firma = estado_firma(artefacto)
     if firma == "no_legible":
         # MEDIDO 2026-10-15 (chmod 000): aqui antes se respondia lo mismo que
@@ -208,9 +222,6 @@ def inspect(artefacto: str, backend_id: str = "rizin",
                                 "no se invoco al backend"]}
     pre["input_legible"] = True
     if firma == "no_elf":
-=======
-    if not _es_elf(artefacto):
->>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
         # No se invoca al backend. `rz-bin` sobre un no-ELF devuelve `info: []`,
         # que es indistinguible de un ELF sin secciones.
         return {"status": BK_INVALID, "precheck": pre,
@@ -220,7 +231,14 @@ def inspect(artefacto: str, backend_id: str = "rizin",
                                 "no-ELF responde `info: []`, indistinguible de "
                                 "un binario sin secciones"]}
     pre["input_es_elf"] = True
-    pre["input_hash"] = sha256_de(artefacto)
+    snap = _instantanea(artefacto)
+    if not snap.get("ok"):
+        return {"status": BK_INVALID, "precheck": pre,
+                "limitations": [snap.get("motivo",
+                    "no se pudo crear la instantanea del artefacto")]}
+    pre["input_hash"] = snap["hash"]
+    pre["snap"] = snap["ruta"]
+    pre["snap_dir"] = snap.get("dir", "")
     if not pre["backend_existe"]:
         return {"status": BK_BLOCKED, "precheck": pre,
                 "limitations": ["el backend %s no esta en PATH" % backend_id]}
@@ -240,7 +258,8 @@ def inspect(artefacto: str, backend_id: str = "rizin",
     # es decir, `exit 0` con una salida que NO es la pedida. Un rc=0 no es un
     # resultado (§26), y aqui se ve por que: el comando se construyo con el
     # ejecutable equivocado y el rc seguia diciendo "todo bien".
-    argv = [_exe_de(backend_id, "rz-bin") or exe, "-I", "-j", artefacto]
+    arg_consumo = pre.get("snap", artefacto)
+    argv = [_exe_de(backend_id, "rz-bin") or exe, "-I", "-j", arg_consumo]
     import subprocess
     import time as _t
     t0 = _t.time()
@@ -269,19 +288,84 @@ def inspect(artefacto: str, backend_id: str = "rizin",
     }
     ident = b.identidad()
 
+    # --- COMPROBACION DE IDENTIDAD DE LOS BYTES CONSUMIDOS ---------------
+    # TOCTOU: el hash se registro sobre una lectura UNICA y el backend
+    # consumio esa MISMA instantanea. Aqui se comprueba, DESPUES de la
+    # ejecucion, que la copia consumida conserva los bytes registrados.
+    if pre.get("snap") and pre.get("input_hash"):
+        if not os.path.isfile(arg_consumo):
+            ejec.update({"status": BK_ERROR,
+                         "limitations": ["la instantanea consumida fue "
+                                          "eliminada o movida durante la "
+                                          "ejecucion: no se puede verificar "
+                                          "el contenido procesado."]})
+            return {"status": BK_ERROR, "precheck": pre, "ejecucion": ejec,
+                    "backend": ident,
+                    "provenance": _prov.construir(
+                        estado=_prov.ESTADO_INCOMPLETA,
+                        input_hash=pre.get("input_hash", ""),
+                        backend=ident.get("backend_id", ""),
+                        transformacion="rz-bin -I -j -> limpieza -> json -> _normalizar",
+                        normalizador="backends.adapters.rz_inspect._normalizar",
+                        motivo_incompleta="instantanea consumida eliminada o alterada durante la ejecucion")}
+        if sha256_de(arg_consumo) == pre.get("input_hash", ""):
+            ejec["snapshot"] = {
+                "origen": artefacto,
+                "ruta_consumida": arg_consumo,
+                "hash": pre.get("input_hash", ""),
+                "verificado_tras_ejecucion": True,
+                "nota": "instantanea aislada; los bytes consumidos son los "
+                        "bytes hasheados (TOCTOU eliminado)",
+            }
+        else:
+            ejec.update({"status": BK_ERROR,
+                         "limitations": ["la copia consumida NO coincide con "
+                                          "el hash registrado: el contenido "
+                                          "procesado difiere del declarado."]})
+            return {"status": BK_ERROR, "precheck": pre, "ejecucion": ejec,
+                    "backend": ident,
+                    "provenance": _prov.construir(
+                        estado=_prov.ESTADO_INCOMPLETA,
+                        input_hash=pre.get("input_hash", ""),
+                        backend=ident.get("backend_id", ""),
+                        transformacion="rz-bin -I -j -> limpieza -> json -> _normalizar",
+                        normalizador="backends.adapters.rz_inspect._normalizar",
+                        motivo_incompleta="mutacion detectada: la copia consumida no coincide con el hash registrado")}
+
+    # Limpieza de la instantanea (ya verificada). El registro `ejec`
+    # conserva la traza en `ejec["snapshot"]`.
+    if pre.get("snap"):
+        try:
+            shutil.rmtree(pre.get("snap_dir", ""), ignore_errors=True)
+        except Exception:
+            pass
+
     if timedout:
         ejec.update({"status": BK_BLOCKED,
                      "limitations": ["timeout a los %ds" % timeout]})
         return {"status": BK_BLOCKED, "precheck": pre, "ejecucion": ejec,
-                "backend": ident, "provenance": "PROVENANCE_INCOMPLETE: "
-                                                "no hay salida que provenancear"}
+                "backend": ident,
+                "provenance": _prov.construir(
+                    estado=_prov.ESTADO_INCOMPLETA,
+                    input_hash=pre.get("input_hash", ""),
+                    backend=ident.get("backend_id", ""),
+                    transformacion="rz-bin -I -j -> limpieza -> json",
+                    normalizador="backends.adapters.rz_inspect._normalizar",
+                    motivo_incompleta="timeout: no hay salida que provenancear")}
     if rc != 0:
         ejec.update({"status": BK_ERROR,
                      "limitations": ["el backend salio con rc=%s: %s"
                                      % (rc, (se.strip() or so.strip())[:200])]})
         return {"status": BK_ERROR, "precheck": pre, "ejecucion": ejec,
-                "backend": ident, "provenance": "PROVENANCE_INCOMPLETE: "
-                                                "backend fallo, no hay salida"}
+                "backend": ident,
+                "provenance": _prov.construir(
+                    estado=_prov.ESTADO_INCOMPLETA,
+                    input_hash=pre.get("input_hash", ""),
+                    backend=ident.get("backend_id", ""),
+                    transformacion="rz-bin -I -j -> limpieza -> json",
+                    normalizador="backends.adapters.rz_inspect._normalizar",
+                    motivo_incompleta="backend fallo (rc=%s): no hay salida"
+                                      % rc)}
 
     d = parsear_json(limpio)
     if d is None:
@@ -293,8 +377,14 @@ def inspect(artefacto: str, backend_id: str = "rizin",
                                      "stdout crudo (primeros 200): %s"
                                      % limpio[:200]]})
         return {"status": BK_ERROR, "precheck": pre, "ejecucion": ejec,
-                "backend": ident, "provenance": "PROVENANCE_INCOMPLETE: "
-                                                "salida no parseable"}
+                "backend": ident,
+                "provenance": _prov.construir(
+                    estado=_prov.ESTADO_INCOMPLETA,
+                    input_hash=pre.get("input_hash", ""),
+                    backend=ident.get("backend_id", ""),
+                    transformacion="rz-bin -I -j -> limpieza -> json",
+                    normalizador="backends.adapters.rz_inspect._normalizar",
+                    motivo_incompleta="salida no parseable (JSON inaccesible)")}
     info = d.get("info") if isinstance(d, dict) else None
     if not info:
         ejec.update({"status": BK_EMPTY,
@@ -303,7 +393,12 @@ def inspect(artefacto: str, backend_id: str = "rizin",
                                      "que el binario no tenga formato"]})
         return {"status": BK_EMPTY, "precheck": pre, "ejecucion": ejec,
                 "backend": ident, "raw_output": d, "results": [],
-                "provenance": "completa"}
+                "provenance": _prov.construir(
+                    estado=_prov.ESTADO_COMPLETA,
+                    input_hash=pre.get("input_hash", ""),
+                    backend=ident.get("backend_id", ""),
+                    transformacion="rz-bin -I -j -> limpieza -> json",
+                    normalizador="backends.adapters.rz_inspect._normalizar")}
 
     # --- ARQUITECTURA SOPORTADA O NO (B2-A) ----------------------------
     # MEDIDO 2026-10-06: sobre un ELF con `e_machine` desconocido (0xFFFF),
@@ -348,8 +443,14 @@ def inspect(artefacto: str, backend_id: str = "rizin",
         return {"status": BK_UNSUPPORTED, "precheck": pre, "ejecucion": ejec,
                 "backend": ident, "raw_output": d, "results": [],
                 "arquitectura": {"arch": arch, "machine": machine},
-                "provenance": "completa: la salida EXISTE y es trazable; lo "
-                              "que no se puede es interpretarla"}
+                "provenance": _prov.construir(
+                    estado=_prov.ESTADO_COMPLETA,
+                    input_hash=pre.get("input_hash", ""),
+                    backend=ident.get("backend_id", ""),
+                    transformacion="rz-bin -I -j -> limpieza -> json",
+                    normalizador="backends.adapters.rz_inspect._normalizar",
+                    extra={"nota": "la salida EXISTE y es trazable; "
+                                  "lo que no se puede es interpretarla"})}
 
     res = _normalizar(d, artefacto, backend_id, pre["input_hash"])
     res["tool_version"] = ident.get("tool_version", "")
@@ -420,7 +521,6 @@ def cadena_backend(env: Dict[str, Any]) -> Dict[str, Any]:
     probaria que la funcion de lectura funciona, no que la evidencia existe.
     """
     ej = env.get("ejecucion") or {}
-<<<<<<< HEAD
     be = env.get("backend") or {}
     # MEDIDO 2026-10-12 (RXRE-1632): `env["provenance"]` es POLIMORFICO.
     # Este mismo modulo pone las dos formas - `{"artefacto": ...}` en las
@@ -443,10 +543,6 @@ def cadena_backend(env: Dict[str, Any]) -> Dict[str, Any]:
     # Cuando `provenance` es una cadena, su contenido es el ESTADO. No se
     # pierde: sale por `provenance_estado`, que es donde lo lee el resto.
     estado_prov = (prov.get("estado") if prov else None) or crudo_prov or ""
-=======
-    prov = env.get("provenance") or {}
-    be = env.get("backend") or {}
->>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
     return {
         "backend_id": be.get("backend_id") or prov.get("backend_id", ""),
         "tool_version": be.get("tool_version", ""),
@@ -465,13 +561,7 @@ def cadena_backend(env: Dict[str, Any]) -> Dict[str, Any]:
         "transformacion": prov.get("transformacion", ""),
         "normalizador": prov.get("normalizador", ""),
         "limitaciones": prov.get("limitaciones") or ej.get("limitations") or [],
-<<<<<<< HEAD
         "provenance_estado": (estado_prov or "PROVENANCE_INCOMPLETE"),
-=======
-        "provenance_estado": (prov.get("estado")
-                              or env.get("provenance")
-                              or "PROVENANCE_INCOMPLETE"),
->>>>>>> c682c4a4cf4e2c5c518a90f41e54107a7ecde6db
         "chain": ["result_id", "operation_id", "backend", "tool_version",
                   "repository_commit", "input_artifact", "input_hash",
                   "command_or_api", "argv", "raw_output", "transformacion",

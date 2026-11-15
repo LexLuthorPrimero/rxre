@@ -56,9 +56,9 @@ def analyze_dependencies(op_id: str, evidence_path: str = None) -> dict:
         has_missing = any(d.get("missing") for d in dependencies if d.get("relevant"))
         if art and ev.exists():
             meta_ev = json.loads(ev.read_text())
-            current_h = hashlib.sha256(Path(art).read_bytes()).hexdigest()[:16]
-            ev_h = meta_ev.get("artefacto_hash_sha256", "")[:16]
-            if current_h == ev_h and not has_missing:
+            current_h = hashlib.sha256(Path(art).read_bytes()).hexdigest()
+            ev_h = meta_ev.get("artefacto_hash_sha256", "")
+            if ev_h and current_h == ev_h and not has_missing:
                 return {"op_id": op_id, "classification": "VALID", "reason": "dependencias verificadas y compatibles (artefacto, hash, herramienta, estructura)", "dependencies": dependencies}
             elif current_h != ev_h:
                 return {"op_id": op_id, "classification": "STALE", "reason": "hash artefacto modificado respecto a evidencia registradas", "dependencies": dependencies, "evidence_path": str(ev)}
@@ -135,8 +135,8 @@ def verify_reinvestigation(plan: dict, result: dict) -> dict:
                 art_path = meta.get("artefacto_path", meta.get("artefacto", ""))
                 art = Path(art_path) if art_path else None
                 if art and art.exists():
-                    current_h = hashlib.sha256(art.read_bytes()).hexdigest()[:16]
-                    ev_hash = meta.get("artefacto_hash_sha256", meta.get("hash_sha256", ""))[:16]
+                    current_h = hashlib.sha256(art.read_bytes()).hexdigest()
+                    ev_hash = meta.get("artefacto_hash_sha256", meta.get("hash_sha256", ""))
                     if ev_hash and current_h != ev_hash:
                         evidence_integrity = False
             except Exception:
@@ -193,14 +193,14 @@ def replay_operacion(op_id: str) -> dict:
                     res = ejecutar(capability, {"artefacto": art, "timeout": 10})
                     result_replay["reproducible"] = (res.get("status") == "ok")
                     result_replay["replay_status"] = res.get("status")
-                    result_replay["hash_actual"] = hashlib.sha256(Path(art).read_bytes()).hexdigest()[:16]
+                    result_replay["hash_actual"] = hashlib.sha256(Path(art).read_bytes()).hexdigest()
                     # Comparar con evidencia canónica (e2e_001.json) si existe
                     ev_path = Path("audit/evidence/e2e_001.json")
                     if ev_path.exists():
                         meta = json.loads(ev_path.read_text())
                         result_replay["evidence_found"] = True
-                        result_replay["hash_evidence"] = meta.get("artefacto_hash_sha256", "")[:16]
-                        result_replay["hash_match"] = result_replay["hash_actual"] == meta.get("artefacto_hash_sha256", "")[:16]
+                        result_replay["hash_evidence"] = meta.get("artefacto_hash_sha256", "")
+                        result_replay["hash_match"] = result_replay["hash_actual"] == meta.get("artefacto_hash_sha256", "")
                     else:
                         result_replay["evidence_found"] = False
                     result_replay["differences"] = []
@@ -257,7 +257,7 @@ def evaluate_contract(result: dict, evidence_path: str = None) -> dict:
     elif status == "ok" and precheck is True:
         if results:
             first = results[0] if isinstance(results, list) else results
-            limitations = first.get("limitations", []) if isinstance(first, dict) else []
+            limitations = first.get("limitations", first.get("limitaciones", [])) if isinstance(first, dict) else []
             if isinstance(limitations, list) and len(limitations) > 0:
                 contract_state = "PARTIAL"
                 epistemic = "PARTIAL"
@@ -289,7 +289,7 @@ def evaluate_contract(result: dict, evidence_path: str = None) -> dict:
         "execution_status_backend": ejecucion,
         "evidence_integrity": integrity,
         "results_count": len(results),
-        "limitations_present": bool(results and isinstance(results[0], dict) and results[0].get("limitations")),
+        "limitations_present": bool(results and isinstance(results[0], dict) and (results[0].get("limitations") or results[0].get("limitaciones"))),
         "note": "Estado técnico (status) != validez semántica (epistemic). No se eleva automáticamente a PROVEN."
     }
 

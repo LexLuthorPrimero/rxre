@@ -9,6 +9,14 @@
       evento -> id unico -> fsync -> confirmacion -> idempotencia
       eventos criticos: siempre disco, nunca solo RAM
 
+    §22 #1 (PROPUESTA ABIERTA — no contrato v3):
+      Clasificacion de eventos criticos: por tipo de operacion y por impacto.
+      No es contrato; requiere definicion por audit. Ejemplo de regla propuesta:
+      · evento con persistencia obligatoria si afecta estado de dispositivo
+      · evento con persistencia obligatoria si es parte de rollback (R12)
+      · evento sin persistencia obligatoria si es solo observacion o log
+      Se marca como propuesta en §22, no como cierre.
+
 QUE ES Y QUE NO ES
 ------------------
 El diagrama escribe, literalmente, "hub async · NO media sync". Son dos

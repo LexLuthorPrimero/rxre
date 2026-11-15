@@ -249,12 +249,10 @@ def casillas_por_correccion(correccion: str) -> List[Dict]:
 # TIERRA-2: promovido a VERIFICADO por evidencia de artefacto.
 # Los 4 triggers estan activos en la BD de desarrollo (verificado 2026-10-18).
 # El resto de las casillas siguen en HIPOTESIS hasta que el audit las promueva.
-_CASILLAS_VERIFICADAS = {"TIERRA-2", "EVIDENCE-1", "EVIDENCE-2", "PUERTA-1", "PUERTA-2", "PUERTA-3", "PUERTA-4", "PUERTA-5", "PUERTA-6", "PUERTA-7", "ETER-1", "ETER-2", "ETER-3", "TIERRA-3", "TIERRA-5", "ROUTER-1", "ROUTER-3", "E5", "TIERRA-1", "AIRE-1", "AIRE-2", "AIRE-3", "AGUA-1", "AGUA-2", "AGUA-3", "DISCIPLINA-1", "DISCIPLINA-2", "DISCIPLINA-3", "ALMA-1", "ALMA-2", "ALMA-3", "MENTE-3", "MENTE-5", "MENTE-6", "CUERPO-1", "CUERPO-3", "CUERPO-4"}
-# T11 es DUPLICATE de TIERRA-2: mismo trigger, mismo verbo (6 estados).
-# No se cuenta como casilla separada. Total de casillas reales: 18.
+_CASILLAS_VERIFICADAS = {"AIRE-1", "ETER-1", "ETER-2", "ETER-3", "EVIDENCE-1", "EVIDENCE-2", "ROUTER-1", "TIERRA-2", "TIERRA-5"}
 
 
-def auditoria_de_diseno() -> Dict[str, Any]:
+def casillas_por_estado_auditoria() -> Dict[str, Any]:
     """Lo que el diagrama HACE, sin afirmar nada del mundo.
 
     Devuelve el recuento de casillas por estado de auditoria. Todas en
@@ -273,7 +271,8 @@ def auditoria_de_diseno() -> Dict[str, Any]:
         "por_estado": por_estado,
         "correcciones_v3": list(CORRECCIONES_V3),
         "claims_sin_falsification_test": [
-            c["casilla"] for c in CASILLAS if not c["falsification_test"]],
+            c["casilla"] for c in CASILLAS if not c["falsification_test"]
+        ],
     }
 
 
@@ -297,3 +296,4 @@ def validar_claim(claim: Dict[str, Any]) -> List[str]:
             "INVALIDATED sin reevaluation_ref: la invalidacion v3 no es "
             "automatica, tiene que documentar quien reevalua")
     return errores
+auditoria_de_diseno = casillas_por_estado_auditoria

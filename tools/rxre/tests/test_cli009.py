@@ -245,7 +245,7 @@ def test_capabilities_json():
     alguien registre una capacidad inventada. Sube a 26 mientras el producer
     este medido, y si vuelve a bajar el test dice por que.
     """
-    N_CAPACIDADES = 26
+    N_CAPACIDADES = 29
     rc, out, err = run_cli("capabilities", "--json")
     check("cli.caps.rc_0", rc == 0, "rc=%d stderr=%s" % (rc, err[:200]))
     try:

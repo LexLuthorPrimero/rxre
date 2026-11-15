@@ -76,10 +76,15 @@ def t_registro():
     # RXRE-AUTONOMY-002: anadidos `knowledge` y `umr` (UMR para register_read
     # RXRE-ECO-001 (2026-10-15): anadido `tree-sitter`, MEDIDO sobre
     # `amdgpu.h` -> 7066 nodos AST. El conjunto sigue siendo EXACTO.
+    # RXRE-MMIO-ADAPTER-012 / FLOW-INTEGRATION-013 (2026-10-19): anadido
+    # `mmr_ioctl` (producer no privilegiado que lee gpu.mmr_read). Se anade
+    # a la asercion porque esta MEDIDO.
+    # RXRE-REA-001 (2026-10-15): anadido `rea` (REA 6.5.0 local), producer
+    # `rea.inspect_firmware`. El conjunto sigue siendo EXACTO.
     chk("backends registrados",
         sorted(registry.backends()),
-        ["capstone", "coccinelle", "ghidra", "knowledge", "radare2",
-         "rizin", "tree-sitter", "umr"])
+        ["capstone", "coccinelle", "ghidra", "knowledge", "mmr_ioctl",
+         "radare2", "rea", "rizin", "tree-sitter", "umr"])
     chk("ghidra decompile es PARTIAL",
         registry.get("ghidra")["capacities"]["binary.decompile"],
         "PARTIAL")
@@ -396,9 +401,18 @@ def t_dispatch_generico():
     # RXRE-ECO-001 (2026-10-15): +1 adapter, `source.ast_parse` (tree-sitter).
     # MEDIDO: amdgpu.h -> 7066 nodos AST. El numero sigue siendo EXACTO a
     # proposito:_relajar a >=25 haria invisible un adapter olvidado.
-    chk("los 26 adapters son importables",
-        len(dispatch.ADAPTERS), 26)
-    for cap, a in sorted(dispatch.ADAPTERS.items()):
+    # RXRE-MMIO-ADAPTER-012, RXRE-REA-001: dos producers nuevos, un total
+    # de 29 con >=1 funcion; los dos `formal.check` y `runtime.trace` son
+    # placeholders declarados (vacios) sin productor o capacidad aun.
+    # `len(ADAPTERS)` cuenta placeholder tambien (31), y el bucle los
+    # ignora porque import_module de string vacio es invalido.
+    importable_ad = {k: a for k, a in dispatch.ADAPTERS.items() if a}
+    chk("los 29 adapters con producer son importables",
+        len(importable_ad), 29)
+    chk("los placeholders formal.check y runtime.trace estan vacios",
+        all(not dispatch.ADAPTERS[k] for k in ("formal.check", "runtime.trace")),
+        True)
+    for cap, a in sorted(importable_ad.items()):
         import importlib
         m = importlib.import_module(a["modulo"])
         chk("adapter de %s tiene %s()" % (cap, a["funcion"]),

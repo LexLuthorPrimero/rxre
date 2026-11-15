@@ -1,0 +1,1050 @@
+{
+  "contract_version": "RXRE-LXXV-domain-v1",
+  "created_utc": "2026-11-11T17:30:00Z",
+  "basis": {
+    "plan_sections": [
+      "RXRE_PLAN_MAESTRO.md §926-930 (Plan LXIX)",
+      "RXRE_PLAN_MAESTRO.md §931-935 (Plan LXX)"
+    ],
+    "artifacts": [
+      "/tmp/m1156/*.dis",
+      "/tmp/m1161/B2.bin",
+      "/tmp/m1162/per_insn.log",
+      "/tmp/m1162/miasm_per_insn.log",
+      "/tmp/m1163/m1163_vector2",
+      "/tmp/m1163/m1163_gpr",
+      "/tmp/m1163/native_sigill_note.txt",
+      "/tmp/m1163/m1163_gpr.c"
+    ],
+    "binaries": {
+      "wc_sha256": "81d614595c717be908fce809713702efd35ce5a56f5ab7cbc497d1a61eb1a38f",
+      "six_txt_sha256": "1896df7721408353fd903c4b9c126639624324a3fd19de263f2d3950b32caffa"
+    },
+    "limitations_of_evidence": [
+      "host Intel Core i7-4790 (Haswell, family=6 model=60): avx, avx2, fma; NO avx512f/dq/bw/vl",
+      "QEMU x86_64-static 10.2.2: TCG NO AVX-512 ('TCG doesn't support requested feature EBX.avx512f/dq/bw')",
+      "retdec WC.bc: poison known (Plan LXVII), not used",
+      "no second independent oracle for EVEX data path"
+    ]
+  },
+  "states": [
+    "FAITHFUL",
+    "PARTIAL",
+    "UNSUPPORTED",
+    "INVALID"
+  ],
+  "precedence": {
+    "FAITHFUL": 1,
+    "PARTIAL": 2,
+    "UNSUPPORTED": 3,
+    "INVALID": 4
+  },
+  "tiers": {
+    "A": "semantica validada empiricamente (harness nativo o concordancia Fases A+Triton+Miasm sobre el dump exacto)",
+    "B": "IR/semantica modelada por al menos una herramienta con decodificacion concordante; sin ejecucion nativa completa fiable",
+    "U": "fuera de dominio, sin semantica utilizable o sin evidencia suficiente"
+  },
+  "flag_evidence": {
+    "yes": "flags verificados por ejecucion nativa + concordancia Triton/Miasm en presets concretos",
+    "composite": "validacion compuesta (p.ej. barrido n<=1e6 del loop div-by-10); suficiente solo para PARTIAL",
+    "no": "flags no cubiertos o inutilizables como garantia"
+  },
+  "rows": [
+    {
+      "id": "AND_REG_IMM",
+      "mnemonic": "and",
+      "form": "reg_imm",
+      "tier": "A",
+      "flags": "no",
+      "flags_consumed_by": "any_branch",
+      "effects": {
+        "reg": "write",
+        "memory": "none"
+      },
+      "evidence": [
+        "LXIX §928",
+        "/tmp/m1156/m1156_native_check",
+        "LXX §933"
+      ],
+      "notes": "resultado bit-exacto vs in & ~0x3f (6/6 MATCH); flags AND no verificados",
+      "width": "64"
+    },
+    {
+      "id": "SUB_REG_REG",
+      "mnemonic": "sub",
+      "form": "reg_reg",
+      "tier": "A",
+      "flags": "no",
+      "effects": {
+        "reg": "write",
+        "memory": "none"
+      },
+      "evidence": [
+        "LXIX §928-929",
+        "/tmp/m1156/m1156_native_check (subq %rcx,%rax sweep n<=1e6)"
+      ],
+      "notes": "subrfacto intermedio del div-by-10; sweep 1,000,001/1,000,001 PASS",
+      "width": "64"
+    },
+    {
+      "id": "SUB_REG_IMM",
+      "mnemonic": "sub",
+      "form": "reg_imm",
+      "tier": "B",
+      "flags": "no",
+      "effects": {
+        "reg": "write",
+        "memory": "none"
+      },
+      "evidence": [
+        "LXIX §928",
+        "/tmp/m1162/miasm_per_insn.log (Miasm IR)"
+      ],
+      "notes": "sub $0x1,%rdi / sub $0x1000,%rsp / sub $0x30,%rsp; ni sweep nativo ni harness dedicado",
+      "width": "64"
+    },
+    {
+      "id": "ADD_REG_REG",
+      "mnemonic": "add",
+      "form": "reg_reg",
+      "tier": "A",
+      "flags": "no",
+      "effects": {
+        "reg": "write",
+        "memory": "none"
+      },
+      "evidence": [
+        "/tmp/m1156/m1156_native_check (addq %rcx,%rcx sweep)"
+      ],
+      "notes": "sweep 1,000,001 muestras PASS",
+      "width": "64"
+    },
+    {
+      "id": "ADD_REG_IMM32_WRAP",
+      "mnemonic": "add",
+      "form": "reg_imm",
+      "tier": "U",
+      "flags": "no",
+      "effects": {
+        "reg": "write",
+        "memory": "none"
+      },
+      "evidence": [],
+      "notes": "harness ejecutó addq (64b) pero wc usa 32b 'add $0x30,%eax'; encoding real no verificada → U for safety",
+      "width": "64"
+    },
+    {
+      "id": "SHR_REG_IMM",
+      "mnemonic": "shr",
+      "form": "reg_imm",
+      "tier": "A",
+      "flags": "no",
+      "effects": {
+        "reg": "write",
+        "memory": "none"
+      },
+      "evidence": [
+        "/tmp/m1156/m1156_native_check (shrq $3,%rdx sweep)"
+      ],
+      "notes": "1,000,001 muestras + 6 valores limite PASS",
+      "width": "64"
+    },
+    {
+      "id": "SHL_REG_IMM",
+      "mnemonic": "shl",
+      "form": "reg_imm",
+      "tier": "B",
+      "flags": "no",
+      "effects": {
+        "reg": "write",
+        "memory": "none"
+      },
+      "evidence": [
+        "LXIX §928 (Miasm IR ok)",
+        "LXX §932"
+      ],
+      "notes": "",
+      "width": "64"
+    },
+    {
+      "id": "MUL_REG",
+      "mnemonic": "mul",
+      "form": "reg",
+      "tier": "A",
+      "flags": "none",
+      "flags_semantics": "x86-64 mul flags undefined-defined-by-OF/CF edge; not used",
+      "effects": {
+        "reg": "write",
+        "rdx_rax": "product128",
+        "memory": "none"
+      },
+      "evidence": [
+        "/tmp/m1156/m1156_native_check",
+        "LXIX §929"
+      ],
+      "notes": "unsigned 64x64→128; 1,000,001 muestras PASS; 6 limites PASS (incl 0xffffffffffffffff)",
+      "width": "64"
+    },
+    {
+      "id": "LEA_REG_SIB_NO_MEM",
+      "mnemonic": "lea",
+      "form": "reg_sib",
+      "tier": "A",
+      "flags": "none",
+      "effects": {
+        "reg": "write",
+        "memory": "none"
+      },
+      "evidence": [
+        "/tmp/m1156/m1156_native_check (leaq (%rdx,%rdx,4),%rcx sweep)"
+      ],
+      "notes": "address-arith SIB sin memoria; 1,000,001 muestras PASS; lea con target RIP-rel .rodata NO cubierto",
+      "width": "64"
+    },
+    {
+      "id": "MOV_REG_REG",
+      "mnemonic": "mov",
+      "form": "reg_reg",
+      "tier": "A",
+      "flags": "none",
+      "effects": {
+        "reg": "write",
+        "memory": "none"
+      },
+      "evidence": [
+        "LXX §933 (mov rcx,rax 0xdeadbeefcafe1234 MATCH)",
+        "LXIX §929"
+      ],
+      "notes": "",
+      "width": "64"
+    },
+    {
+      "id": "MOV_RM8_STORE",
+      "mnemonic": "mov",
+      "form": "reg8_mem",
+      "tier": "A",
+      "flags": "none",
+      "effects": {
+        "mem": "write_8bit",
+        "memory": "write"
+      },
+      "evidence": [
+        "/tmp/m1156/m1156_native_check (movb %al,(%rdi) en B3 loop)"
+      ],
+      "notes": "almacenamiento 8-bit verificado por sweep; efecto memoria SIN modelar -> bloque no puede ser FAITHFUL",
+      "width": "8"
+    },
+    {
+      "id": "MOV_MOVRMEM",
+      "mnemonic": "mov",
+      "form": "reg_mem",
+      "tier": "U",
+      "flags": "none",
+      "effects": {
+        "reg": "write",
+        "memory": "read"
+      },
+      "evidence": [],
+      "notes": "lectura memoria sin contenido verificado",
+      "width": "64"
+    },
+    {
+      "id": "MOV_MEMREG",
+      "mnemonic": "mov",
+      "form": "mem_reg",
+      "tier": "U",
+      "flags": "none",
+      "effects": {
+        "memory": "write"
+      },
+      "evidence": [],
+      "notes": "",
+      "width": "64"
+    },
+    {
+      "id": "MOVABS_REG_IMM64",
+      "mnemonic": "movabs",
+      "form": "imm_reg",
+      "tier": "B",
+      "flags": "none",
+      "effects": {
+        "reg": "write",
+        "memory": "none"
+      },
+      "evidence": [
+        "LXIX §928",
+        "LXX §934"
+      ],
+      "notes": "imm64,reg form (objdump prints \"movabs $0xcccccccccccccccd,%r8\"); not natively executed",
+      "width": "64"
+    },
+    {
+      "id": "CMP_REG_IMM",
+      "mnemonic": "cmp",
+      "form": "reg_imm",
+      "tier": "A-weak",
+      "flag_evidence": "composite",
+      "effects": {
+        "flags": "write"
+      },
+      "evidence": [
+        "/tmp/m1156/m1156_native_check (cmp $0x9,%r13; ja loop exits correct)"
+      ],
+      "notes": "solo composite; NO sostiene FAITHFUL",
+      "width": "64"
+    },
+    {
+      "id": "CMP_REG_REG",
+      "mnemonic": "cmp",
+      "form": "reg_reg",
+      "tier": "B",
+      "flags": "no",
+      "effects": {
+        "flags": "write"
+      },
+      "evidence": [
+        "LXIX §928",
+        "LXX §932 (Miasm IR CC_EQ; Triton decode)"
+      ],
+      "notes": "",
+      "width": "64"
+    },
+    {
+      "id": "TEST_REG_REG",
+      "mnemonic": "test",
+      "form": "reg_reg",
+      "tier": "A",
+      "flag_evidence": "yes",
+      "effects": {
+        "flags": "write",
+        "reg": "none_write"
+      },
+      "evidence": [
+        "LXX §931-934 (6/6 native: INT64_MIN->SF=1,OF=0; 1->SF=0,ZF=0)",
+        "/tmp/m1163/m1163_gpr"
+      ],
+      "notes": "flags exact: ZF=ite(rax==0) SF=bit63 CF=OF=0 PF=paridad del byte bajo",
+      "width": "64"
+    },
+    {
+      "id": "JLE",
+      "mnemonic": "jle",
+      "form": "branch_rel",
+      "tier": "A",
+      "flag_evidence": "yes",
+      "reads_flags": [
+        "sf",
+        "of",
+        "zf"
+      ],
+      "effects": {
+        "rip": "write",
+        "control_flow": "signed_le"
+      },
+      "evidence": [
+        "LXX §933 (6/6: INT64_MIN->taken, INT64_MAX->not, 0->taken, 1->not, -1->taken)",
+        "Miasm CC_S<=; Triton predicado identical"
+      ],
+      "notes": "",
+      "width": "64"
+    },
+    {
+      "id": "JA",
+      "mnemonic": "ja",
+      "form": "branch_rel",
+      "tier": "A-weak",
+      "flag_evidence": "composite",
+      "reads_flags": [
+        "cf",
+        "zf"
+      ],
+      "effects": {
+        "rip": "write",
+        "control_flow": "unsigned_gt"
+      },
+      "evidence": [
+        "/tmp/m1156/m1156_native_check (loop div10 emite 1,000,001 digitos correctos con ja back-branch)"
+      ],
+      "notes": "composite; NO sostiene FAITHFUL",
+      "width": "64"
+    },
+    {
+      "id": "JNE",
+      "mnemonic": "jne",
+      "form": "branch_rel",
+      "tier": "B",
+      "flags": "no",
+      "reads_flags": [
+        "zf"
+      ],
+      "effects": {
+        "rip": "write",
+        "control_flow": "zf==0"
+      },
+      "evidence": [
+        "LXIX §928 (stack probe loop)",
+        "LXX §932 (Miasm CC_EQ; Triton decode)"
+      ],
+      "notes": "",
+      "width": "64"
+    },
+    {
+      "id": "VPXOR_XMM_SELF",
+      "mnemonic": "vpxor",
+      "form": "xmm_xmm_xmm_self",
+      "tier": "A",
+      "flags": "none",
+      "effects": {
+        "xmm": "write_zero128",
+        "memory": "none"
+      },
+      "evidence": [
+        "LXX §933 (exact bytes c5 c9 ef f6 nativo PASS)",
+        "Triton track ref!0 bvxor(0,0) zero-extend 512"
+      ],
+      "notes": "solo forma auto-xor (zmm6 := 0^0 -> 0); formas con operandos no-identicos = U",
+      "width": "128"
+    },
+    {
+      "id": "VPXOR_OTHER",
+      "mnemonic": "vpxor",
+      "form": "xmm_other",
+      "tier": "U",
+      "flags": "none",
+      "effects": {},
+      "evidence": [],
+      "notes": "",
+      "width": "128"
+    },
+    {
+      "id": "NOP_CLASS",
+      "mnemonic": "nop_class",
+      "form": "any",
+      "tier": "A",
+      "flags": "none",
+      "effects": {
+        "reg": "none",
+        "memory": "none"
+      },
+      "evidence": [
+        "LXIX §928 (5 decoders concordantes sobre wc/ls)"
+      ],
+      "notes": "endbr64/nopl/nopw/cs nopw/data16*/fs/gs - multibyte NOPs; sin memoria",
+      "width": "64"
+    },
+    {
+      "id": "AND_IMM_REG",
+      "mnemonic": "and",
+      "form": "imm_reg",
+      "tier": "A",
+      "flags": "no",
+      "effects": {
+        "reg": "write",
+        "memory": "none"
+      },
+      "evidence": [
+        "Plan LXIX secc 928",
+        "/tmp/m1156/m1156_native_check 6/6",
+        "Plan LXX secc 933"
+      ],
+      "notes": "resultado bit-exacto vs in & ~0x3f",
+      "width": "64"
+    },
+    {
+      "id": "SUB_IMM_REG",
+      "mnemonic": "sub",
+      "form": "imm_reg",
+      "tier": "B",
+      "flags": "no",
+      "effects": {
+        "reg": "write",
+        "memory": "none"
+      },
+      "evidence": [
+        "Plan LXIX secc 928",
+        "Plan LXX secc 932"
+      ],
+      "notes": "",
+      "width": "64"
+    },
+    {
+      "id": "ADD_IMM_REG",
+      "mnemonic": "add",
+      "form": "imm_reg",
+      "tier": "B",
+      "flags": "no",
+      "effects": {
+        "reg": "write",
+        "memory": "none"
+      },
+      "evidence": [
+        "Plan LXIX secc 928",
+        "Plan LXX secc 932"
+      ],
+      "notes": "%eax 32-bit lines en wc son off-domain; solo fila 64b cubierta",
+      "width": "64"
+    },
+    {
+      "id": "SHR_IMM_REG",
+      "mnemonic": "shr",
+      "form": "imm_reg",
+      "tier": "A",
+      "flags": "no",
+      "effects": {
+        "reg": "write",
+        "memory": "none"
+      },
+      "evidence": [
+        "/tmp/m1156/m1156_native_check (shrq $3 inputs 1M+6 limites)",
+        "Plan LXX secc 932"
+      ],
+      "notes": "1,000,001 muestras + 6 limites",
+      "width": "64"
+    },
+    {
+      "id": "SHL_IMM_REG",
+      "mnemonic": "shl",
+      "form": "imm_reg",
+      "tier": "B",
+      "flags": "no",
+      "effects": {
+        "reg": "write",
+        "memory": "none"
+      },
+      "evidence": [
+        "Plan LXX secc 932 (Miasm IR OK)"
+      ],
+      "notes": "",
+      "width": "64"
+    },
+    {
+      "id": "CMP_IMM_REG",
+      "mnemonic": "cmp",
+      "form": "imm_reg",
+      "tier": "A-weak",
+      "flag_evidence": "composite",
+      "effects": {
+        "flags": "write"
+      },
+      "evidence": [
+        "/tmp/m1156/m1156_native_check (cmp $0x9,%r13 loop n<=1e6)"
+      ],
+      "notes": "composite; nunca FAITHFUL",
+      "width": "64"
+    },
+    {
+      "id": "MOV_REG32_REG32",
+      "mnemonic": "mov",
+      "form": "reg_reg_32",
+      "width": "32",
+      "tier": "A",
+      "flags": "none",
+      "effects": {
+        "reg32": "write_zext",
+        "memory": "none"
+      },
+      "evidence": [
+        "LXXV §956-960",
+        "/tmp/m1186",
+        "/tmp/m1189"
+      ],
+      "notes": "mov eax,reg32 zero-extends into rax"
+    },
+    {
+      "id": "MOV_REG32_IMM32",
+      "mnemonic": "mov",
+      "form": "reg_imm_32",
+      "width": "32",
+      "tier": "A",
+      "flags": "none",
+      "effects": {
+        "reg32": "write_zext",
+        "memory": "none"
+      },
+      "evidence": [
+        "LXXV §956-960",
+        "/tmp/m1189"
+      ],
+      "notes": "mov eax,imm32 zero-extends into rax (c7 operand encoding)"
+    },
+    {
+      "id": "MOV_IMM32_REG32",
+      "mnemonic": "mov",
+      "form": "imm_reg_32",
+      "width": "32",
+      "tier": "A",
+      "flags": "none",
+      "effects": {
+        "reg32": "write_zext",
+        "memory": "none"
+      },
+      "evidence": [
+        "LXXV §956-960"
+      ],
+      "notes": "mov eax, imm32 encoding c7; zero-extends; same semantics as MOV_REG32_IMM32 with reversed operand order"
+    },
+    {
+      "id": "ADD_REG32_REG32",
+      "mnemonic": "add",
+      "form": "reg_reg_32",
+      "width": "32",
+      "tier": "A",
+      "flags": "no",
+      "effects": {
+        "reg32": "write_zext",
+        "memory": "none"
+      },
+      "evidence": [
+        "LXXV §956-961",
+        "/tmp/m1186",
+        "/tmp/m1189"
+      ],
+      "notes": "addl %edi,%eax etc; native sweep matches 64-bit lane semantics"
+    },
+    {
+      "id": "ADD_REG32_IMM32",
+      "mnemonic": "add",
+      "form": "reg_imm_32",
+      "width": "32",
+      "tier": "A",
+      "flags": "no",
+      "effects": {
+        "reg32": "write_zext",
+        "memory": "none"
+      },
+      "evidence": [
+        "LXXV §956-961",
+        "/tmp/m1189"
+      ],
+      "notes": "add eax, imm32 zero-extends"
+    },
+    {
+      "id": "ADD_IMM_REG32",
+      "mnemonic": "add",
+      "form": "imm_reg_32",
+      "width": "32",
+      "tier": "A",
+      "flags": "no",
+      "effects": {
+        "reg32": "write_zext",
+        "memory": "none"
+      },
+      "evidence": [
+        "LXXV §956-961",
+        "/tmp/m1189"
+      ],
+      "notes": "add eax, imm32 zero-extends"
+    },
+    {
+      "id": "SUB_REG32_REG32",
+      "mnemonic": "sub",
+      "form": "reg_reg_32",
+      "width": "32",
+      "tier": "A",
+      "flags": "no",
+      "effects": {
+        "reg32": "write_zext",
+        "memory": "none"
+      },
+      "evidence": [
+        "LXXV §956-961",
+        "/tmp/m1189"
+      ],
+      "notes": "subl; zero-extends; flags same as 64-bit subtract"
+    },
+    {
+      "id": "SUB_REG32_IMM32",
+      "mnemonic": "sub",
+      "form": "reg_imm_32",
+      "width": "32",
+      "tier": "B",
+      "flags": "no",
+      "effects": {
+        "reg32": "write_zext",
+        "memory": "none"
+      },
+      "evidence": [
+        "LXXV §956-961",
+        "/tmp/m1189"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "MUL32_REG",
+      "mnemonic": "mul",
+      "form": "reg_x_32",
+      "width": "32",
+      "tier": "A",
+      "flags": "none",
+      "effects": {
+        "reg32pair": "rdx:eax=>edx:eax (zext)",
+        "memory": "none"
+      },
+      "evidence": [
+        "LXXV §956-961",
+        "/tmp/m1187"
+      ],
+      "notes": "32x32 unsigned multiply writes edx:eax (both zero-extend into rdx:rax)"
+    },
+    {
+      "id": "TEST_REG32_REG32",
+      "mnemonic": "test",
+      "form": "reg_reg_32",
+      "width": "32",
+      "tier": "A",
+      "flags": "yes",
+      "flag_evidence": "yes",
+      "effects": {
+        "reg32": "none_write",
+        "flags": "write"
+      },
+      "evidence": [
+        "LXXV §956-961",
+        "/tmp/m1187"
+      ],
+      "notes": "32-bit test == 64-bit test on rax/eax lower lanes (zero-extended)"
+    },
+    {
+      "id": "CMP_REG32_IMM32",
+      "mnemonic": "cmp",
+      "form": "reg_imm_32",
+      "width": "32",
+      "tier": "A-weak",
+      "flag_evidence": "composite",
+      "effects": {
+        "flags": "write"
+      },
+      "evidence": [
+        "LXXV §956-961",
+        "/tmp/m1187"
+      ],
+      "notes": "composite-only does not sustain FAITHFUL"
+    },
+    {
+      "id": "SHR_REG32_IMM32",
+      "mnemonic": "shr",
+      "form": "reg_imm_32",
+      "width": "32",
+      "tier": "A",
+      "flags": "no",
+      "effects": {
+        "reg32": "write_zext",
+        "memory": "none"
+      },
+      "evidence": [
+        "LXXV §956-961"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "SHL_REG32_IMM32",
+      "mnemonic": "shl",
+      "form": "reg_imm_32",
+      "width": "32",
+      "tier": "B",
+      "flags": "no",
+      "effects": {
+        "reg32": "write_zext",
+        "memory": "none"
+      },
+      "evidence": [
+        "LXXV §956-961"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "JLE_32",
+      "mnemonic": "jle",
+      "form": "branch_rel_32",
+      "width": "64",
+      "tier": "A",
+      "flag_evidence": "yes",
+      "reads_flags": [
+        "sf",
+        "of",
+        "zf"
+      ],
+      "effects": {
+        "rip": "write",
+        "control_flow": "signed_le"
+      },
+      "evidence": [
+        "LXXV §956-961"
+      ],
+      "notes": "flags semantics identical to 64-bit jle"
+    },
+    {
+      "id": "JNE_32",
+      "mnemonic": "jne",
+      "form": "branch_rel_32",
+      "width": "64",
+      "tier": "B",
+      "flags": "no",
+      "reads_flags": [
+        "zf"
+      ],
+      "effects": {
+        "rip": "write",
+        "control_flow": "zf==0"
+      },
+      "evidence": [
+        "LXXV §956-961"
+      ]
+    },
+    {
+      "id": "JA_32",
+      "mnemonic": "ja",
+      "form": "branch_rel_32",
+      "width": "64",
+      "tier": "A-weak",
+      "flag_evidence": "composite",
+      "reads_flags": [
+        "cf",
+        "zf"
+      ],
+      "effects": {
+        "rip": "write",
+        "control_flow": "unsigned_gt"
+      },
+      "evidence": [
+        "LXXV §956-961"
+      ]
+    },
+    {
+      "id": "RET",
+      "mnemonic": "ret",
+      "form": "return",
+      "width": "64",
+      "tier": "A",
+      "flags": "none",
+      "effects": {
+        "rsp": "add_8",
+        "control_flow": "return",
+        "stack": "read_pop_8"
+      },
+      "evidence": [
+        "LXXV §958-960",
+        "/tmp/m1188"
+      ],
+      "notes": "[rsp]->rip; rsp:=rsp+8; no stack NA or memory UNK; validated local"
+    },
+    {
+      "id": "RET_IMM16",
+      "mnemonic": "ret",
+      "form": "return_imm16",
+      "width": "64",
+      "tier": "A",
+      "flags": "none",
+      "effects": {
+        "rsp": "add_8+imm16",
+        "control_flow": "return"
+      },
+      "evidence": [
+        "LXXV §958-960",
+        "/tmp/m1188"
+      ],
+      "notes": "ret $imm16 supported as ret family; imm16 parsed from operand text"
+    },
+    {
+      "id": "SUB_IMM_REG32",
+      "mnemonic": "sub",
+      "form": "imm_reg_32",
+      "width": "32",
+      "tier": "B",
+      "flags": "no",
+      "effects": {
+        "reg32": "write_zext",
+        "memory": "none"
+      },
+      "evidence": [
+        "LXXV §956-961"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "AND_REG_IMM32",
+      "mnemonic": "and",
+      "form": "reg_imm_32",
+      "width": "32",
+      "tier": "A",
+      "flags": "no",
+      "effects": {
+        "reg32": "write_zext",
+        "memory": "none"
+      },
+      "evidence": [
+        "LXXV §956-961"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "AND_IMM_REG32",
+      "mnemonic": "and",
+      "form": "imm_reg_32",
+      "width": "32",
+      "tier": "A",
+      "flags": "no",
+      "effects": {
+        "reg32": "write_zext",
+        "memory": "none"
+      },
+      "evidence": [
+        "LXXV §956-961"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "SHR_IMM_REG32",
+      "mnemonic": "shr",
+      "form": "imm_reg_32",
+      "width": "32",
+      "tier": "A",
+      "flags": "no",
+      "effects": {
+        "reg32": "write_zext",
+        "memory": "none"
+      },
+      "evidence": [
+        "LXXV §956-961"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "SHL_IMM_REG32",
+      "mnemonic": "shl",
+      "form": "imm_reg_32",
+      "width": "32",
+      "tier": "B",
+      "flags": "no",
+      "effects": {
+        "reg32": "write_zext",
+        "memory": "none"
+      },
+      "evidence": [
+        "LXXV §956-961"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "CMP_IMM_REG32",
+      "mnemonic": "cmp",
+      "form": "imm_reg_32",
+      "width": "32",
+      "tier": "A-weak",
+      "flag_evidence": "composite",
+      "effects": {
+        "flags": "write"
+      },
+      "evidence": [
+        "LXXV §956-961"
+      ],
+      "notes": "composite"
+    }
+  ],
+  "unsupported_hard": [
+    {
+      "mnemonic": "vmovdqa32",
+      "reason": "EVEX 512-bit; decoders OK pero semantics NO track; host sin AVX-512 (CPUID) y TCG sin AVX-512"
+    },
+    {
+      "mnemonic": "vpternlogd",
+      "reason": "EVEX 512-bit type=0 en Triton; sin host con AVX-512; sin sweep nativo posible"
+    },
+    {
+      "mnemonic": "vpcmpb",
+      "reason": "EVEX; fuera de dominio"
+    },
+    {
+      "mnemonic": "vpaddq",
+      "reason": "EVEX; fuera de dominio"
+    },
+    {
+      "mnemonic": "vpmovzxdq",
+      "reason": "EVEX; fuera de dominio"
+    },
+    {
+      "mnemonic": "vpmovzxwd",
+      "reason": "EVEX; fuera de dominio"
+    },
+    {
+      "mnemonic": "popcnt",
+      "reason": "VEX/EVEX-adjacent; no verificado nativamente (host sin avx512; popcnt clasico no ejecutado) -> U conservador"
+    },
+    {
+      "mnemonic": "vzeroupper",
+      "reason": "VEX-3, no cubierto por tests LXX (solo VEX-128 vpxor) -> U conservador"
+    },
+    {
+      "mnemonic": "fld/fstp/fcom",
+      "reason": "x87; fuera de dominio"
+    },
+    {
+      "mnemonic": "addss/mulss/subss/divss",
+      "reason": "SSE scalar FP; fuera de dominio"
+    },
+    {
+      "mnemonic": "call",
+      "reason": "control-flow escape sin control de target"
+    },
+    {
+      "mnemonic": "ret",
+      "reason": "control-flow return sin modelo"
+    },
+    {
+      "mnemonic": "push",
+      "reason": "escritura pila sin validacion"
+    },
+    {
+      "mnemonic": "pop",
+      "reason": "lectura pila sin validacion"
+    },
+    {
+      "mnemonic": "orb",
+      "reason": "memoria sin modelo (probe write); 'orb $0x0,(%rsp)' no admitido"
+    },
+    {
+      "mnemonic": "movb",
+      "reason": "top-level 'movb %al,(%rax)' etc sin validacion individuo; solo 'mov %al,(%rdi)' cubierto como MOV_RM8_STORE y aun asi nunca FAITHFUL"
+    },
+    {
+      "mnemonic": "cmpb",
+      "reason": "sin sweep implicito verificado en este plan"
+    },
+    {
+      "mnemonic": "endbr64_indirect",
+      "reason": "rules contradicen indirecto-indirect branch - conservador: U"
+    },
+    {
+      "mnemonic": "ud2",
+      "reason": "instructiontrap; U"
+    }
+  ],
+  "invalid_rules": [
+    "line with '.byte' token (slice-boundary corruption) -> INVALID",
+    "line with 'rex.' prefix-only token -> INVALID",
+    "instruction .text offset enum: branch resolution target out-of-file or negative -> INVALID",
+    "operand parse failure -> INVALID",
+    "addresses not strictly increasing within block -> INVALID"
+  ],
+  "faithful_gate": {
+    "rule": "block FAITHFUL iff every instruction tier A AND no enforced degradation AND (flags consumed by branches verified 'yes') AND no unvalidated memory effects",
+    "degradation_order": [
+      "U -> UNSUPPORTED",
+      "B -> PARTIAL",
+      "flag_evidence composite -> PARTIAL",
+      "memory unvalidated -> PARTIAL",
+      "INVALID dominan"
+    ]
+  },
+  "based_on_lxx": "RXRE-LXXI-domain-v1#e9fbed85ed000494f3d7e48344e419d48a7717728d490141f629a4a38fc11790",
+  "feature_flags": {
+    "allow_gpr32_epl": true,
+    "allow_ret": true,
+    "allow_ret_imm16": true
+  },
+  "restriction_notes": [
+    "8-bit y 16-bit GPR writes mantienen fuera del dominio (no zero-extend)",
+    "memoria general (stacks distintos de RSP, RIP-rel) permanece fuera; solo ret hace pop desde [rsp]",
+    "movabs-32/64-void immediates tratados como contratos específicos (ret imm16=admitido)"
+  ]
+}

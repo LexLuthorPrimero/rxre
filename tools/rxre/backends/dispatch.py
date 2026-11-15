@@ -86,11 +86,12 @@ ADAPTERS = {
     # es justo la clase del driver del proyecto; la limitacion viaja con la
     # capacidad y el adaptador la clasifica como `unsupported`, no `empty`.
     "binary.decompile": {
-        "modulo": "backends.adapters.gh_decompile",
-        "funcion": "decompile",
+        "modulo": "backends.adapters.fidelity_gate",
+        "funcion": "decompile_with_fidelity_gate",
         "backend_por_defecto": "ghidra",
         "parametros": ["artefacto", "backend_id", "timeout", "max_funcs",
-                       "filtro_nombre", "project_dir", "fixture_json"],
+                       "filtro_nombre", "project_dir", "fixture_json", "domain",
+                       "accept_functions"],
         "obligatorio": ["artefacto"],
     },
     # MEDIDO: spatch 1.3.1 aplica el patron y el control negativo no
@@ -110,6 +111,13 @@ ADAPTERS = {
     # `empty` de uno es discriminante para el otro.
     "runtime.trace": [],
     "formal.check": [],
+    "gpu.mmr_read": {
+        "modulo": "backends.adapters.mmr_read",
+        "funcion": "leer",
+        "backend_por_defecto": "mmr_ioctl",
+        "parametros": ["pci_address", "register_name", "timeout", "instance"],
+        "obligatorio": ["register_name"],
+    },
     "source.ast_parse": {
         "modulo": "backends.adapters.ts_ast",
         "funcion": "parsear",
@@ -366,6 +374,15 @@ ADAPTERS = {
     # returning `blocked` when not root. The capability is NOT executable
     # (NOT_DETERMINED is not in EJECUTABLES), but the adapter is registered
     # so that when permissions are available, it works.
+    # RXRE-022: adapter fdinfo_engine (observacion drm-engine-* solo lectura).
+    # NO requiere sudo, NO usa DEBUGFS/MMIO, NO modifica mecanismos protegidos.
+    "rxre.observation_engine": {
+        "modulo": "backends.adapters.fdinfo_engine",
+        "funcion": "observe_engine",
+        "backend_por_defecto": "knowledge",
+        "parametros": ["pci_address", "pid", "fd", "artefacto", "baseline"],
+        "obligatorio": ["pci_address"],
+    },
     "gpu.register_read": {
         "modulo": "backends.adapters.umr_read",
         "funcion": "register_read",
@@ -420,6 +437,16 @@ def _persistir_generico(env: Dict[str, Any]) -> Optional[str]:
     no lo tocara: `getattr(mod, "persistir", None)` gana.
     """
     from core import store as S
+    from rxre.core import store_compat as sc
+
+    # RXRE_DB: se respeta si se pasa por el entorno. Antes siempre se
+    # escribía en /tmp/opencode/m416_operativo, ignorando RXRE_DB y rompiendo
+    # todo flujo que pidiera una DB aislada (p.ej. tests).
+    _oper_path = __import__('os').environ.get(
+        "RXRE_DB",
+        __import__('os').path.join("/tmp/opencode/m416_operativo", "operativo.sqlite3"))
+    if not __import__('os').environ.get("RXRE_DB"):
+        __import__('os').makedirs("/tmp/opencode/m416_operativo", exist_ok=True)
 
     res = env.get("results") or []
     ids = [r.get("result_id") for r in res
@@ -451,12 +478,45 @@ def _persistir_generico(env: Dict[str, Any]) -> Optional[str]:
     res0 = res[0] if (res and isinstance(res[0], dict)) else {}
     artefacto = res0.get("source", "") or res0.get("artifact", "") or ""
     cap = env.get("capability") or ""
-    scope = res0.get("scope") or ("source" if cap.startswith("source.") else
-                                  "binary")
+    _raw_scope = res0.get("scope")
+    if isinstance(_raw_scope, str) and _raw_scope.strip():
+        scope = _raw_scope.strip()
+        scope_provenance = "EXPLICIT"
+    else:
+        scope = ("source" if cap.startswith("source.") else "binary")
+        scope_provenance = "INFERRED"
+    if not scope:
+        scope = "UNKNOWN"
+        scope_provenance = "UNKNOWN"
     target = "%s:%s" % (scope, os.path.basename(artefacto) or cap)
 
-    c = S.conectar()
+    # M416: usar copia operativa (store_compat) en vez de base protegida.
+    # El bloque concreto: sin DB_AUTH_ACTOR_M294, rxre.sqlite3 NO es la ruta.
+    oper_path = __import__('os').environ.get(
+        "RXRE_DB",
+        __import__('os').path.join("/tmp/opencode/m416_operativo", "operativo.sqlite3"))
+    repo_root = __import__('os').path.abspath(__import__('os').path.join(
+        __import__('os').path.dirname(__import__('os').path.abspath(__file__)), "..", "..", ".."))
+    origen = __import__('os').path.join(repo_root, "rxre.sqlite3")
+    if not __import__('os').path.isfile(origen):
+        origen = __import__('os').path.join(repo_root, "tools", "rxre", "storage", "rxre.sqlite3")
+    # Abrir / crear la copia operativa migrada
+    if __import__('os').path.exists(oper_path):
+        c = S.conectar(oper_path)
+    elif os.environ.get("RXRE_DB"):
+        # caller pasó RXRE_DB (test aislado) sin DB previa: crear vacía
+        c = S.conectar(oper_path)
+    else:
+        from rxre.core import store_compat as sc
+        r = sc.migrar_copia(origen, oper_path)
+        if r.get("status") != "PROVEN":
+            env["motivo_persistencia"] = "M416 BLOCKED: migracion fallida (%s)" % r.get("reason")
+            env["persistencia_fallida"] = True
+            return None
+        c = S.conectar(oper_path)
     try:
+        # Invariantes M416: verificacion de idempotencia de copia
+        # (si la copia fue corrompida, reconstruir; si no, seguir)
         existentes = []
         for i in ids:
             if c.execute(
@@ -464,17 +524,18 @@ def _persistir_generico(env: Dict[str, Any]) -> Optional[str]:
             ).fetchone():
                 existentes.append(i)
         if existentes:
-            # Colision: el resultado ya esta guardado. No se reescribe, y se
-            # devuelve el identificador que YA existe, porque guardar dos veces
-            # lo mismo es crear dos filas que dicen lo mismo.
+            # Colision auditada: el result_id ya existe; no se sobrescribe.
+            # Append-only: la fila existente mantiene row_hash original.
             return "COLISION:%s" % ",".join(existentes)
 
+        # Persistencia real mediante mecanismo existente (no shim de escritura)
         op_id = S.registrar(
             c,
             {"request_id": "",
              "question": env.get("question") or cap,
              "capability": cap,
              "scope": scope,
+             "scope_provenance": scope_provenance,
              "target": target},
             {"operation": cap,
              "status": env.get("status"),
@@ -483,7 +544,7 @@ def _persistir_generico(env: Dict[str, Any]) -> Optional[str]:
              "provenance": env.get("provenance"),
              "precheck": env.get("precheck"),
              "cadena_backend": env.get("cadena_backend", {}),
-             "results": res,
+             "results": [dict(r, scope_provenance=scope_provenance) if isinstance(r, dict) else r for r in res],
              # RXRE-AUTO-003: persistido en response_json para que el gate
              # en explain pueda leerlo sin inferir.
              "persistido": True},
@@ -559,6 +620,26 @@ def _persistir(env: Dict[str, Any]) -> Any:
         # resultado tenga IDs y hashes verificables. `ejecutar()` confirma la
         # escritura con el `operation_id` real; aquí no se finge persistencia.
 
+    # RXRE-RESEARCH-GATE-006: integracion obligatoria ANTES de ejecutar o
+    # persistir un adapter. Usa los helpers comunes de `core.research_gate`
+    # para no duplicar lógica de decisión en cada ruta. Consulta el gate SOLO
+    # cuando el envío declara `investigacion`; en otro caso (sin propuesta
+    # formal) NO evalúa para no romper el flujo operativo (`PROVEN` por
+    # `core/research_gate.py` y `RESEARCH_GATE_CALLSITE_CLASSIFICATION_008.md`).
+    # Separado del `operational_gate` (`backends/gate.py`).
+    try:
+        from core import research_gate as _rg
+        _verdict = _rg.veredicto_de(env)
+    except Exception as _exc:
+        _verdict = {"estado": "NOT_DETERMINED",
+                    "motivo": "Research Gate no disponible: %s: %s"
+                              % (type(_exc).__name__, _exc)}
+    env["research_gate"] = _verdict
+    if _rg.bloquear_ejecucion(_verdict):
+        env["motivo_persistencia"] = (
+            "RESEARCH-GATE decides NO ejecutar: %s (%s)" % (
+                _verdict["estado"], _verdict.get("motivo", "")))
+        return None
     adapter_info = ADAPTERS[capability]
     try:
         mod = importlib.import_module(adapter_info["modulo"])
@@ -940,6 +1021,37 @@ def ejecutar(capability: str, params: Dict[str, Any]) -> Dict[str, Any]:
                 or sorted(_todas_las_fichas()),
                 "results": [],
                 "next_actions": []}
+    # RXRE-RESEARCH-GATE-006: punto OBLIGATORIO anterior a la ejecucion del
+    # adapter. Impide que el adapter sea IMPORTADO o INVOCADO cuando la
+    # propuesta declarada no esta admitida. Es fail-closed: si el Research
+    # Gate no se puede cargar o falla, la ejecucion NO ocurre y la respuesta
+    # es controlada (`blocked`), no un traceback.
+    #
+    # Separado del `operational_gate` (`backends/gate.py`): este decide sobre
+    # la PROPUESTA, no sobre los ocho principios. El bloque equivalente en
+    # `_persistir` protege la ESCRITURA; este protege la EJECUCION.
+    #
+    # La decision vive en `core/research_gate.py` (helpers `veredicto_de`,
+    # `bloquear_ejecucion`, `respuesta_bloqueo`): aqui no se reimplementa.
+    try:
+        from core import research_gate as _rg
+        _verdict = _rg.veredicto_de(params)
+    except Exception as _exc:
+        # Si el import o la evaluacion fallan: fail-closed (bloquea) con mensaje
+        # controlado, sin lanzar exception ni permitir ejecucion sin proteccion.
+        return {"status": "blocked", "capability": capability,
+                "ejecutada": False,
+                "motivo": "RESEARCH-GATE: NOT_DETERMINED (%s: %s)"
+                          % (type(_exc).__name__, _exc),
+                "regla": "research-gate",
+                "research_gate": {
+                    "estado": "NOT_DETERMINED",
+                    "motivo": "error interno: %s: %s" % (type(_exc).__name__, _exc),
+                    "recomendacion": "revisar core/research_gate.py"},
+                "results": [], "next_actions": []}
+    if _rg.bloquear_ejecucion(_verdict):
+        return _rg.respuesta_bloqueo(_verdict, capability)
+
     a = ADAPTERS[capability]
     faltan = [k for k in a["obligatorio"] if not params.get(k)]
     if faltan:

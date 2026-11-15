@@ -87,6 +87,20 @@ class Libro:
         """
         if estado not in (PROVEN, PROVEN_ABSENT, NOT_DETERMINED):
             raise ValueError("estado de hipotesis invalido: %r" % (estado,))
+        # MINIMAL: consultar AGUA si hay referencia de aprendizaje (reverso, seguro)
+        ag_result = None
+        try:
+            import sqlite3, os
+            db_path = os.environ.get("RXRE_DB") or "/home/lucas/Escritorio/rxre/rxre.sqlite3"
+            if os.path.isfile(db_path):
+                con = sqlite3.connect(db_path)
+                cur = con.execute("SELECT aprendizaje_id, regla FROM aprendizajes ORDER BY created_at DESC LIMIT 1")
+                row = cur.fetchone()
+                con.close()
+                if row:
+                    ag_result = {"aprendizaje_id": row[0], "regla": row[1], "estatus": "recuperado_desde_AGUA"}
+        except Exception:
+            pass
         for h in self.preguntas.get(pregunta, []):
             if h.id == hipotesis_id:
                 if estado == PROVEN and not h.mediciones:
@@ -94,11 +108,14 @@ class Libro:
                         "PROVEN sin medicion: la hipotesis %s no tiene "
                         "nada detras" % h.id)
                 h.estado = estado
-                return {"hipotesis": h.id, "estado": estado,
-                        "razon": razon,
-                        "rivales_pendientes": [
-                            o.id for o in self.preguntas[pregunta]
-                            if o.id != h.id and o.estado == NOT_DETERMINED]}
+                result = {"hipotesis": h.id, "estado": estado,
+                          "razon": razon,
+                          "rivales_pendientes": [
+                              o.id for o in self.preguntas[pregunta]
+                              if o.id != h.id and o.estado == NOT_DETERMINED]}
+                if ag_result is not None:
+                    result["agencia_recuperada"] = ag_result
+                return result
         raise KeyError(hipotesis_id)
 
     def sin_resolver(self) -> List[Dict[str, str]]:
@@ -259,3 +276,8 @@ class FUEGO:
             "es_global": (len(pedidos) > 1 and not fuera),
             "unitario": len(pedidos) == 1,
         }
+# §22 #6 PROPUESTA ABIERTA (no contrato v3): protocolo sync MENTE/CUERPO/FUEGO
+# Propuesta: Kahn Process Network (FIFO 1:1 unidireccional, rendezvous).
+# No es contrato v3 implementado; es formalizacion propuesta para el bus sync.
+# Requiere definicion de interfaces, errores, concurrencia.
+
