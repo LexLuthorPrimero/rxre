@@ -274,3 +274,14 @@ Tras la corrección del jefe de misión (RXRE como motor), se resolvió #1570 us
 - PRs propios abiertos: 37 (5 rizin [silencio] + angr #7788 + klee #1847/#1848 + miasm #1591-#1597 + bap #1638 + radare2 #27453 + 20 rea); merged: 0.
 - Próximo: tras dictado del propietario.
 - **RXRE delta**: sin capacidad nueva; RXRE auditó/panels, motor = r2 (aNIlao).
+
+## 2026-11-15 (última, reparación pública) — origin/main reparado a baseline funcional
+
+- **Objetivo** (dictado): reparar el repo público (github) con enfoque "completo y coherente".
+- **Hallazgo raíz**: HEAD público servía 6 ficheros con marcadores `<<<<<<<` sin resolver (`tools/rxre/backends/decision.json`, `tools/rxre/README.md`, `tools/rxre/docs/AI_QUICKSTART.md`, `tools/toolreg.py`, `tools/reg_resolve.py`, `tools/trace_path.py`) — JSON inválido y SyntaxError en clon fresco; más `tools/rxre/decompiler/` sin commitear (bloqueaba `backends.adapters.fidelity_gate`).
+- **Publicación** (`main` f80989fc..0438586e): resoluciones del propietario publicadas con crédito (los hunks preexistentes eran del propietario; reparación asistida de decision.json con `knowledge: 9`). Tooling recreado adaptado (`verifier/dry_drift.py`, `harness/declared_mutation.py`) + contrato TIERRA-1 10-campos (rxre.create_finding persistente) + `gh_decompile` autocompila DumpDecomp.class si falta (`.class` no viaja).
+- **Verificación clon público fresco**: `test_backends004` 165/165; `test_backends_bulk` 118/118; `test_dispatch004` 132/132; `test_cli009` 158/158 (era crash JSONDecodeError); `test_container1632` 120/120; `test_callgraph1636` 21/21; `test_xrefs1635` 30/30; `test_decomp003` 23/23; `rxre verify` / `inventory` OK; `test_arquitectura_v3_01_contracts` OK.
+- **Regresiones del repair**: 0. Fallos restantes idénticos a públicos antes: `test_tierra1_contrato` (DB local no viaja), corpus no públicos (p003/p0_2/cobertura), `test_orchestrator_e2e` (DB pública vacía, preexistente).
+- **amdgpu.ko**: ausentes por purga deliberate — tests ahora SKIP explícito documentado (no se falsifica).
+- **Ramas origin**: solo `main` (`recreo/2026-11-15` y `repair/2026-11-15` borradas en local y origin). `.rxre-wt/` 46 worktrees huérfanos pendientes del propietario.
+- **Estado epistemológico**: PARTIAL — reparación pública sin verificación independiente por terceros; las resoluciones de conflicto eran del propietario.

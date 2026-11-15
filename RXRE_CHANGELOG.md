@@ -1,5 +1,13 @@
 # RXRE — CHANGELOG documental
 
+## 2026-11-15 (reparación pública)
+
+- **PARTIAL — baseline público funcional** (`main` f80989fc..0438586e): el público servía 6 ficheros con marcadores `<<<<<<<` sin resolver (incl. `decision.json` JSON inválido; `tools/toolreg.py` SyntaxError; `tools/rxre/decompiler/` no commiteado). Reparado con resoluciones del propietario + coherencia del registro medido (`mmr_ioctl`, `rea`, `observation_engine`) + tooling recreado adaptado (`verifier/dry_drift.py`, `harness/declared_mutation.py`) + contrato TIERRA-1 en `rxre.create_finding`.
+- Verificación pública (clon fresco): `test_cli009` 158/158; `test_backends_bulk` 118/118; `test_dispatch004` 132/132; `test_backends004` 165/165; `test_container1632` 120/120; `test_decomp003` OK; `test_arquitectura_v3_01_contracts` OK.
+- Tests dependientes de `amdgpu.ko`: SKIP documentado (artefacto purgado deliberadamente).
+- Fallos preexistentes idénticos vs público (DB/corpus locales no públicos): `test_tierra1_contrato`, `test_p003/p004/p0_2_conflict014/cobertura_validacion013`, `test_orchestrator_e2e`.
+- **NOT_DETERMINED** independencia por terceros; estado epistemológico PARTIAL, sin `PROVEN`.
+
 ## 2026-11-12
 
 - **§1044 R3** — cadena E2E de `filevercmp` sobre `/usr/bin/ls`: `OPEN — NOT_PASS` (791/34.145).
