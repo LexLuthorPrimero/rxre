@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+import argparse, json, os, shutil, sqlite3, subprocess, sys, time
+P0_ROOT = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, P0_ROOT)
+
+from p0.seal import sha256_file, snapshot, restore
+from p0.evidence import collect, missing
+from p0.diagnose import diagnosticar
+from p0.repair import migrate as repair_migrate
+from p0.report import build as build_report
+from p0.io import scratch_dir, cargar_expected
+
+EXPECT = cargar_expected()
+DEF_SCRATCH = os.environ.get("P0_SCRATCH", "/tmp/opencode/p0-scratch")
+
+def cmd_investigate(args):
+    run_dir = scratch_dir("F02", "investigate")
+    src = EXPECT["origin"]["path"]
+    src_sha = sha256_file(src)
+    ok = src_sha == EXPECT["origin"]["sha256"]
+    print(json.dumps({"step": "seal", "src_sha256": src_sha, "expected_match": ok}, sort_keys=True))
+    if not ok:
+        print("ABORT: source hash mismatch", file=sys.stderr); sys.exit(3)
+    # copia para inspeccion
+    work = os.path.join(run_dir, "work_pre.sqlite3")
+    shutil.copy2(src, work)
+    ev = collect(work)
+    miss = missing(ev)
+    ev["missing"] = miss
+    diag = diagnosticar(ev, src_sha)
+    manifest = {"run_dir": run_dir, "work_pre": work, "sha256_work_pre": sha256_file(work), 
+                "origin_sha256": src_sha, "expected": EXPECT, "evidence": ev, "diagnosis": diag}
+    mpath = os.path.join(run_dir, "manifest.json")
+    with open(mpath, "w", encoding="utf-8") as f: json.dump(manifest, f, indent=2, sort_keys=True, ensure_ascii=False)
+    print(json.dumps({"step": "investigate", "manifest": mpath, "missing_columns": miss,
+                      "expected_match": True, "verdict": "PASS_PARTIAL"}, sort_keys=True))
+    return manifest, run_dir
+
+def cmd_repair(args):
+    manifest, run_dir = cmd_investigate(args)
+    src = EXPECT["origin"]["path"]
+    work = os.path.join(run_dir, "work_mig.sqlite3")
+    shutil.copy2(src, work)
+    sha_pre = sha256_file(work)
+    res = repair_migrate(work)
+    # registrar() sobre copia migrada
+    sys.path.insert(0, "/home/lucas/Escritorio/rxre/tools/rxre")
+    from core import store
+    os.environ["RXRE_DB"] = work
+    c = store.conectar(work)
+    op_id = store.registrar(c, {"target": "/bin/ls", "contract_version": "1.0", "capability": "p0_probe"},
+                                {"status": "ok", "operation": "p0_probe", "results": []})
+    c.close()
+    sha_post = sha256_file(work)
+    repair = {"work_mig": work, "sha256_pre": sha_pre, "sha256_post": sha_post,
+              "migration": res, "registrar_op_id": op_id}
+    rpath = os.path.join(run_dir, "repair.json")
+    with open(rpath, "w", encoding="utf-8") as f: json.dump(repair, f, indent=2, sort_keys=True)
+    print(json.dumps({"step": "repair", "repair": rpath, "registrar_op_id": op_id}, sort_keys=True))
+    return manifest, repair, run_dir
+
+def cmd_verify(args):
+    manifest, repair, run_dir = cmd_repair(args)
+    work = repair["work_mig"]
+    out = subprocess.run([sys.executable, os.path.join(P0_ROOT, "verifier", "p0_verify.py"),
+                          os.path.join(P0_ROOT, "expected.json"), EXPECT["origin"]["path"], work],
+                         capture_output=True, text=True, check=False)
+    # parse: react JSON on stdout
+    try:
+        verify = json.loads(out.stdout)
+    except Exception:
+        verify = {"verdict": "FAIL", "stdout": out.stdout, "stderr": out.stderr}
+    vpath = os.path.join(run_dir, "verify.json")
+    with open(vpath, "w", encoding="utf-8") as f: json.dump(verify, f, indent=2, sort_keys=True)
+    print(json.dumps({"step": "verify", "verdict": verify.get("verdict"), "integrity": verify.get("integrity"),
+                      "all_columns_present": verify.get("all_columns_present"),
+                      "counts_preserved": verify.get("counts_preserved"),
+                      "delta_ops": verify.get("delta_ops")}, sort_keys=True))
+    return manifest, repair, verify, run_dir
+
+def cmd_report(args):
+    manifest, repair, verify, run_dir = cmd_verify(args)
+    informe = build_report(manifest, repair, verify, None, os.path.join(P0_ROOT, "reports"))
+    print(json.dumps({"step": "report", "informe": informe}, sort_keys=True))
+
+def cmd_all(args):
+    manifest, run_dir = cmd_investigate(args)
+    manifest2, repair, run_dir = cmd_repair(args)
+    _, _, verify, run_dir = cmd_verify(args)
+    informe = build_report(manifest, repair, verify, None, os.path.join(P0_ROOT, "reports"))
+    print(json.dumps({"step": "all", "informe": informe}, sort_keys=True))
+    return informe
+
+p = argparse.ArgumentParser()
+sub = p.add_subparsers(dest="cmd", required=True)
+for name, fn in [("investigate", cmd_investigate), ("repair", cmd_repair), ("verify", cmd_verify),
+                 ("report", cmd_report), ("all", cmd_all)]:
+    sp = sub.add_parser(name)
+    sp.add_argument("case", nargs="?", default="F-02")
+    sp.set_defaults(fn=fn)
+args = p.parse_args()
+args.fn(args)

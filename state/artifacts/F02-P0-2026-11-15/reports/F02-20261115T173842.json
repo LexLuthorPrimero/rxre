@@ -1,0 +1,300 @@
+{
+  "case": "F-02",
+  "estado_final": "PASS_PARTIAL",
+  "limitaciones": [
+    "verificacion sobre copia; la DB protegida no fue tocada ni leida con intencion de modificacion",
+    "terceros no participaron; PROVEN no se declara",
+    "prediccion de rendimiento no hecha; solo correctitud estructural",
+    "hipótesis H3 (corrupción) sigue NO_DETERMINADA"
+  ],
+  "manifest": {
+    "diagnosis": {
+      "case": "F-02",
+      "causa": "Esquema SQLite persistido incompatible con contrato de escritura de store.registrar() (faltan columnas M281).",
+      "evidencias": [
+        {
+          "fuente": "PRIME_SRC_SHA256",
+          "id": "EV-1",
+          "validez": "inmutable_en_reporte",
+          "valor": "195f68fb25db674b41408ee8283df952b158528c9ccb58cdb1dc42b0810f8ef2"
+        },
+        {
+          "fuente": "PRAGMA table_info(operations)",
+          "id": "EV-2",
+          "validez": "static",
+          "valor": [
+            "operation_id",
+            "request_id",
+            "contract_ver",
+            "operacion",
+            "capability",
+            "question",
+            "target",
+            "scope",
+            "status",
+            "n_results",
+            "request_json",
+            "response_json",
+            "target_pci",
+            "timestamp",
+            "duracion_s"
+          ]
+        },
+        {
+          "fuente": "PRAGMA table_info(results)",
+          "id": "EV-3",
+          "validez": "static",
+          "valor": [
+            "result_id",
+            "operation_id",
+            "type",
+            "value",
+            "source",
+            "file",
+            "line",
+            "scope",
+            "tool",
+            "tool_version",
+            "status",
+            "raw_json",
+            "timestamp",
+            "row_hash",
+            "supersedes_ref"
+          ]
+        },
+        {
+          "fuente": "counts_pre",
+          "id": "EV-4",
+          "validez": "static",
+          "valor": {
+            "edges": 35,
+            "execution_events": 547,
+            "findings": 12,
+            "operations": 360,
+            "relations": 0,
+            "research": 622,
+            "results": 330
+          }
+        },
+        {
+          "fuente": "integrity_check",
+          "id": "EV-5",
+          "validez": "static",
+          "valor": "ok"
+        }
+      ],
+      "hipotesis": [
+        {
+          "descripcion": "Esquema pre-M281 incompatible con contrato actual",
+          "discriminante": "PRAGMA table_info",
+          "estado": "CONFIRMADA",
+          "id": "H1"
+        },
+        {
+          "descripcion": "Base equivocada / ruta incorrecta",
+          "discriminante": "sha256(src) igual a esperado",
+          "estado": "RECHAZADA",
+          "id": "H2"
+        },
+        {
+          "descripcion": "Corrupción del archivo",
+          "discriminante": "integrity_check antes=ok, tras añadir columnas=ok -> no demuestra antes; queda abierta",
+          "estado": "NO_DETERMINADA",
+          "id": "H3"
+        },
+        {
+          "descripcion": "INSERT mal formado en registrar()",
+          "discriminante": "registrar() sobre copia migrada escribe op_* correctamente",
+          "estado": "DESCARTADA",
+          "id": "H4"
+        }
+      ],
+      "limitaciones": [
+        "Candidato reparado sobre copia; DB protegida nunca tocada",
+        "Terceros NO verificaron este diagnóstico",
+        "H3 sigue abierta: no se ejecutó PRAGMA integrity sobre la DB original (acceder a protegida no estaba autorizado)"
+      ],
+      "recomendacion": "REPARAR_COLUMNAS_ALTER"
+    },
+    "evidence": {
+      "columns": {
+        "operations": [
+          "operation_id",
+          "request_id",
+          "contract_ver",
+          "operacion",
+          "capability",
+          "question",
+          "target",
+          "scope",
+          "status",
+          "n_results",
+          "request_json",
+          "response_json",
+          "target_pci",
+          "timestamp",
+          "duracion_s"
+        ],
+        "results": [
+          "result_id",
+          "operation_id",
+          "type",
+          "value",
+          "source",
+          "file",
+          "line",
+          "scope",
+          "tool",
+          "tool_version",
+          "status",
+          "raw_json",
+          "timestamp",
+          "row_hash",
+          "supersedes_ref"
+        ]
+      },
+      "counts": {
+        "edges": 35,
+        "execution_events": 547,
+        "findings": 12,
+        "operations": 360,
+        "relations": 0,
+        "research": 622,
+        "results": 330
+      },
+      "integrity": "ok",
+      "missing": {
+        "operations": [
+          "declared_scope",
+          "authorized_scope",
+          "auth_decision",
+          "auth_actor",
+          "auth_timestamp"
+        ],
+        "results": [
+          "verified_scope",
+          "scope_decision",
+          "limitations_json"
+        ]
+      }
+    },
+    "expected": {
+      "case": "F-02",
+      "contract_ddl": {
+        "path": "/home/lucas/Escritorio/rxre/tools/rxre/core/store.py",
+        "sha256": "e9c0cc5ff66196c380d125f5115a1de51aae044d4375fb46eb9ed1cbbab26864"
+      },
+      "counts_pre": {
+        "edges": 35,
+        "execution_events": 547,
+        "findings": 12,
+        "operations": 360,
+        "relations": 0,
+        "research": 622,
+        "results": 330
+      },
+      "expected_columns_pre": {
+        "operations": 15,
+        "results": 15
+      },
+      "origin": {
+        "path": "/home/lucas/Escritorio/rxre/tools/rxre/storage/rxre.sqlite3",
+        "sha256": "195f68fb25db674b41408ee8283df952b158528c9ccb58cdb1dc42b0810f8ef2"
+      }
+    },
+    "origin_sha256": "195f68fb25db674b41408ee8283df952b158528c9ccb58cdb1dc42b0810f8ef2",
+    "run_dir": "/tmp/opencode/p0-scratch/F02-investigate-20261115T173841",
+    "sha256_work_pre": "195f68fb25db674b41408ee8283df952b158528c9ccb58cdb1dc42b0810f8ef2",
+    "work_pre": "/tmp/opencode/p0-scratch/F02-investigate-20261115T173841/work_pre.sqlite3"
+  },
+  "repair_detail": {
+    "migration": {
+      "added": [
+        "operations.declared_scope",
+        "operations.authorized_scope",
+        "operations.auth_decision",
+        "operations.auth_actor",
+        "operations.auth_timestamp",
+        "results.verified_scope",
+        "results.scope_decision",
+        "results.limitations_json"
+      ],
+      "already": []
+    },
+    "registrar_op_id": "op_7ee25e22867d3d9b",
+    "sha256_post": "103a7aa19082fa1e9dd24083e9f66695c71b483790bf32132c02d6d57998cc85",
+    "sha256_pre": "195f68fb25db674b41408ee8283df952b158528c9ccb58cdb1dc42b0810f8ef2",
+    "work_mig": "/tmp/opencode/p0-scratch/F02-investigate-20261115T173841/work_mig.sqlite3"
+  },
+  "run_id": "F02-20261115T173842",
+  "sha256_manifest": "fd58dccb71602174a62d6186268dcb81e72527e727ee329820f717b5ed83c6c8",
+  "sha256_oracle": "ce61d1165bb204b406438616b12950e058fd434a48b04429f579d1f081f5ea1c",
+  "sha256_verify_db": "103a7aa19082fa1e9dd24083e9f66695c71b483790bf32132c02d6d57998cc85",
+  "verdict": "PASS_PARTIAL",
+  "verify_detail": {
+    "all_columns_present": true,
+    "columns": {
+      "operations": [
+        "operation_id",
+        "request_id",
+        "contract_ver",
+        "operacion",
+        "capability",
+        "question",
+        "target",
+        "scope",
+        "status",
+        "n_results",
+        "request_json",
+        "response_json",
+        "target_pci",
+        "timestamp",
+        "duracion_s",
+        "declared_scope",
+        "authorized_scope",
+        "auth_decision",
+        "auth_actor",
+        "auth_timestamp"
+      ],
+      "results": [
+        "result_id",
+        "operation_id",
+        "type",
+        "value",
+        "source",
+        "file",
+        "line",
+        "scope",
+        "tool",
+        "tool_version",
+        "status",
+        "raw_json",
+        "timestamp",
+        "row_hash",
+        "supersedes_ref",
+        "verified_scope",
+        "scope_decision",
+        "limitations_json"
+      ]
+    },
+    "counts": {
+      "edges": 35,
+      "execution_events": 547,
+      "findings": 12,
+      "operations": 361,
+      "relations": 0,
+      "research": 622,
+      "results": 330
+    },
+    "counts_preserved": true,
+    "delta_ops": 1,
+    "integrity": "ok",
+    "migrated_columns": 8,
+    "missing_after_migration": [],
+    "oracle_sha256": "ce61d1165bb204b406438616b12950e058fd434a48b04429f579d1f081f5ea1c",
+    "sha256_verify": "103a7aa19082fa1e9dd24083e9f66695c71b483790bf32132c02d6d57998cc85",
+    "v_integrity": true,
+    "verdict": "PASS_PARTIAL",
+    "verify_db": "/tmp/opencode/p0-scratch/F02-investigate-20261115T173841/work_mig.sqlite3"
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "archive": "F02-P0-2026-11-15",
+  "created": "2026-11-16T18:06:00Z",
+  "exclusions": "__pycache__/ (7 .pyc, desechable, no archivado); /tmp/opencode/p0-scratch/*; /tmp/opencode/p0-tests* (auxiliares de ejecución, origen po/t)",
+  "files": [
+    {
+      "path": "expected.json",
+      "sha256": "ce61d1165bb204b406438616b12950e058fd434a48b04429f579d1f081f5ea1c",
+      "source": "/home/lucas/Escritorio/RXRE-EVOLUTION-ENGINE — P0/expected.json"
+    },
+    {
+      "path": "rxre_evolve",
+      "sha256": "c830ec5d145e8d2610a35de23c88f1bd3b35ebafafed94d1169c9122fd009fbd",
+      "source": "/home/lucas/Escritorio/RXRE-EVOLUTION-ENGINE — P0/rxre_evolve"
+    },
+    {
+      "path": "cases/F02/payload.json",
+      "sha256": "d08e4826b6293c2ef990ee5280418aac0f6df7f7199d8a5611bd8fea774eb504",
+      "source": "/home/lucas/Escritorio/RXRE-EVOLUTION-ENGINE — P0/cases/F02/payload.json"
+    },
+    {
+      "path": "p0/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "/home/lucas/Escritorio/RXRE-EVOLUTION-ENGINE — P0/p0/__init__.py"
+    },
+    {
+      "path": "p0/diagnose.py",
+      "sha256": "a8258e65926b65ce8479835fa09ea15d0689d991d10fd0491d4dff17cc892ea5",
+      "source": "/home/lucas/Escritorio/RXRE-EVOLUTION-ENGINE — P0/p0/diagnose.py"
+    },
+    {
+      "path": "p0/evidence.py",
+      "sha256": "e2413ad372ce034d937e08a89930ca5cca5f318d237099c724436832918b4901",
+      "source": "/home/lucas/Escritorio/RXRE-EVOLUTION-ENGINE — P0/p0/evidence.py"
+    },
+    {
+      "path": "p0/io.py",
+      "sha256": "2185058d732cf24c543fdd93d6b9e068797120d411ff42256d7dd986e6d66682",
+      "source": "/home/lucas/Escritorio/RXRE-EVOLUTION-ENGINE — P0/p0/io.py"
+    },
+    {
+      "path": "p0/repair.py",
+      "sha256": "9c1b03939016074204e8e10d2999d36653a5f0b3d1604c64eadc4d2bf3e65abe",
+      "source": "/home/lucas/Escritorio/RXRE-EVOLUTION-ENGINE — P0/p0/repair.py"
+    },
+    {
+      "path": "p0/report.py",
+      "sha256": "faf16f5a02ae4e4af1493f82ae127853884ca9481a7430bfd967fb461ae4c684",
+      "source": "/home/lucas/Escritorio/RXRE-EVOLUTION-ENGINE — P0/p0/report.py"
+    },
+    {
+      "path": "p0/seal.py",
+      "sha256": "609e42dff6ec987a2376c239c02f8d13c10ede636aed0866baf157745a0049ea",
+      "source": "/home/lucas/Escritorio/RXRE-EVOLUTION-ENGINE — P0/p0/seal.py"
+    },
+    {
+      "path": "reports/F02-20261115T173753.json",
+      "sha256": "a8bfba3fe0c5810ede8dce9dad6f997b32f7b32c34a82ea3178c0b04a23b4257",
+      "source": "/home/lucas/Escritorio/RXRE-EVOLUTION-ENGINE — P0/reports/F02-20261115T173753.json"
+    },
+    {
+      "path": "reports/F02-20261115T173842.json",
+      "sha256": "42168cb5d8bd2b00106146c3000af0b07e8cc1c2524f6232661804b9d023fb95",
+      "source": "/home/lucas/Escritorio/RXRE-EVOLUTION-ENGINE — P0/reports/F02-20261115T173842.json"
+    },
+    {
+      "path": "tests/test_p0.py",
+      "sha256": "5e8b629180ed11cf1672cf7f438d766a1ec71a71da57205fd75f5d4dae058faa",
+      "source": "/home/lucas/Escritorio/RXRE-EVOLUTION-ENGINE — P0/tests/test_p0.py"
+    },
+    {
+      "path": "verifier/p0_verify.py",
+      "sha256": "b61187f0d84a3417f589b35e8b779f41826ef1e468996d7c76a92d56e38f57a5",
+      "source": "/home/lucas/Escritorio/RXRE-EVOLUTION-ENGINE — P0/verifier/p0_verify.py"
+    }
+  ],
+  "note": "POC histórico del caso F-02 (2026-11-15 17:35-17:38). Foto histórica del POC; NO operativo. expected.json es snapshot PRE-integración de M281: su hash de store.py (e9c0cc5f…) está OBSOLETO frente al store.py vigente de A (6d38ea1e…). NO es oráculo.",
+  "origin": "/home/lucas/Escritorio/RXRE-EVOLUTION-ENGINE — P0/",
+  "verification": {
+    "before_after_byte_comparison": "14/14 idénticos (sha256)",
+    "ledger_crosscheck_173842": "compare OK (log.md:1552: fd58dccb…, 103a7aa1…)"
+  }
+}
