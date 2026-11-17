@@ -114,12 +114,19 @@ v("el contrato separa version de commit",
 # `mmr_ioctl`, producer no privilegiado que lee `gpu.mmr_read`. Se anade
 # a la asercion porque esta MEDIDO.
 # RXRE-REA-001 (2026-10-15): se anadio `rea` (REA 6.5.0 local), producer
-# `rea.inspect_firmware`, tambien MEDIDO. El conjunto sigue siendo EXACTO.
+#   `rea.inspect_firmware`, tambien MEDIDO.
+# RXRE-M1110-001 (2026-11-16): se anadio `rxre-lifter` (modulo `backends.adapters.rxre_lifter`,
+#   EN PROCESO como capstone), producer de `binary.lift`, PARTIAL, medido sobre
+#   el dominio admitido del lifter RXRE. El conjunto sigue siendo EXACTO.
 v("el registro tiene backends MEDIDOS, no capacidades inventadas",
   set(registry.backends()) == {"rizin", "radare2", "ghidra", "coccinelle",
                                "capstone", "knowledge", "umr", "tree-sitter",
-                               "mmr_ioctl", "rea"},
+                               "mmr_ioctl", "rea", "rxre-lifter"},
   sorted(registry.backends()))
+v("rxre-lifter cierra binary.lift con producer medido (PARTIAL, no AVAILABLE)",
+  registry.get("rxre-lifter")["capacities"].get("binary.lift")
+  in registry.ESTADOS_CON_PRODUCER,
+  registry.get("rxre-lifter")["capacities"])
 # Y que `tree-sitter` entre por MEDIR, no por declararse: su capacidad
 # tiene producer con estado AVAILABLE, no NOT_DETERMINED.
 v("tree-sitter cierra source.ast_parse con producer medido",

@@ -402,6 +402,19 @@ ADAPTERS = {
         "parametros": ["artefacto", "backend_id", "timeout"],
         "obligatorio": ["artefacto"],
     },
+    # RXRE-M1110-001 (M11.10): `binary.lift` — el lifter RXRE como producer.
+    # MEDIDO: el dominio admitido del lifter ha sido auditado byte a byte en
+    # M11.2..M11.9. No cubre el lenguaje x86-64 general; fuera de él, el
+    # producer RECHAZA como unsupported. Status PARTIAL (nunca AVAILABLE),
+    # porque la capacidad existe y trabaja pero no demuestra equivalencia
+    # semántica fuera del dominio medido.
+    "binary.lift": {
+        "modulo": "backends.adapters.rxre_lifter",
+        "funcion": "lift",
+        "backend_por_defecto": "rxre-lifter",
+        "parametros": ["artefacto", "funcion", "backend_id", "timeout"],
+        "obligatorio": ["artefacto"],
+    },
 
 }
 

@@ -722,6 +722,66 @@ def catalogo() -> List[Dict[str, Any]]:
     return [ficha(b) for b in sorted(_BACKENDS)]
 
 
+# RXRE-M1110-001 (M11.10): producer propio, modulo en proceso, dominio acotado.
+#
+# Tras M11.2..M11.9 (modelo de flags, signed/unsigned, literales, registros
+# parciales, preservacion de bits, argc, pila PUSH/POP) con tests diferenciales
+# que NO degradan, el lifter estabiliza evidencia suficiente para integrarse
+# en el flujo productivo como producer medida — no como capacidad declarada
+# por nombre. ADVERTENCIA: NO demuestra equivalencia semantica general
+# (equivalence_claim NOT_PROVEN por diseno). Declara PARTIAL y no AVAILABLE
+# justamente porque eso es lo unico medido.
+#
+# CRITERIO ELEGIDO: `modulo=` porque el lifter es una libreria en el arbol,
+# igual que capstone es un modulo en proceso. `exe` no aplica.
+_reg(
+    Backend("rxre-lifter", None, [], timeout=60,
+            repo="https://github.com/LexLuthorPrimero/rxre.git",
+            commit="02eb4ba295c17fbbaf8aae086a5ae1005d0848cb",
+            modulo="backends.adapters.rxre_lifter"),
+    caps={
+        "binary.lift": "PARTIAL",
+    },
+    notas=[
+        "MEDIDO 2026-11-16 (M11.2..M11.9): el lifter `decompiler.lifter` corre "
+        "en proceso sobre ELF x86-64, restricciones x86 -O0 para el dominio "
+        "admitido: push/pop/mov/cmp/test/add/sub/and/or/xor/shl/shr/sar/imul/jle/jg/je/jne/jmp/setcc/cmov/movzbl/movsbl/movzbw/movsbw/xor-self/ret.",
+        "MEDIDO: `binary.lift` SOBRE ELF COMPLETA via objdump -d produce C con "
+        "certificate de trazabilidad (M430): traceability_coverage, consumption_coverage y "
+        "nodes_unknown explicitos; equivalence_claim siempre NOT_PROVEN.",
+        "MEDIDO: la funcion integradora `max2`(ET_DYN, -O0, 15 instrucciones: push/pop "
+        "frame, cmp+jle) se levanta 100% (consumption=1.0) sin tocar ninguna de las "
+        "capacidades no admitidas. Sobre `cltd` (x86 sign-extend), el adapter retorna "
+        "unsupported con el mnemonico responsable en el cuerpo — nunca traduce.",
+        "TRAZABILIDAD: cada resultado lleva certificado-M430; consumption_coverage "
+        "solo es 1.0 cuando cada nodo recibido es consumido por la reconstruccion; "
+        "traceability_coverage=1.0 no aumenta C nunca.",
+        "NO ES EQUIVALENCIA GENERAL: el dominio validado es x86-64/-O0/dominio-admitido-auditado. "
+        "No se extrapola a otras ISA, ni a -O1/-O2/-Os (el modelo se resquebraja "
+        "con tail-call y memcpy), ni a GFX8, ni a equivalencia formal.",
+        "POR QUE PARTIAL: la capacidad EXISTE y TRABAJA sobre su dominio, pero NO "
+        "demuestra nada fuera de el. Pragmatico: no es AVAILABLE porque no cubre el "
+        "lenguaje x86-64 admitido por otros producers; no es UNAVAILABLE porque "
+        "existe y se midio; no es NOT_DETERMINED porque el producer si puede ejecutar.",
+        "LIMITACION DE ALCANCE: los tests especificos de equivalencia (differential "
+        "vs original) viven en la suite del repo (tests/); el consumer productivo "
+        "opta por el certificado para saber 'hasta donde llega' cada lift, no para "
+        "declarar semantica validada.",
+    ],
+    no_medidas=[
+        "funciones fuera del dominio admitido: cmov-negacion extendida, imul con "
+        "efectos de flags, code saturacion x86-64, code irreducible, x87, SSE/AVX (ISA vectorial no admitida por el lifter).",
+        "x86-16/32/64 mezclado; arm, arm64, riscv: no probados aqui.",
+        "funciones de >~100 instrucciones: el lifter escala linealmente pero el "
+        "consumo se mide por fixture, no por limite de tamaño.",
+    ],
+    unsuitable=[
+        "ELF sin seccion .text legible (ET_REL stripped sin codigos utilizables).",
+        "cualquier opcode no conocido por el lifter devuelve unsupported explicito.",
+        "producers de otras ISA: no se declara `arm64` ni `riscv` ni `x86-16`.",
+    ],
+)
+
 #: Backends MEDIDOS que no se pueden verificar en esta maquina. Se declaran
 #: para que su ausencia no parezca una conclusion.
 NO_VERIFICABLES = [

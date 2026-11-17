@@ -32,7 +32,8 @@
     "tree-sitter": 1,
     "umr": 1,
     "mmr_ioctl": 1,
-    "rea": 1
+    "rea": 1,
+    "rxre-lifter": 1
   },
   "recuento_desde_la_matriz_al_principio": {
     "fecha": "2026-10-12",
@@ -44,6 +45,7 @@
     "knowledge_delta": "RXRE-022/1644 (2026-10-14): `rxre.observation_engine` (fdinfo_engine, solo lectura /proc); El vector B7 detecto que knowledge=8 y real=9",
     "por_que_cambio": "RXRE-022/1644: `knowledge` paso de 8 a 9 por anadida la capacidad `rxre.observation_engine` (fdinfo_engine, solo lectura /proc). El vector B7 de nuevo detecto la diferencia. RXRE-MMIO-ADAPTER-012 (2026-10-19): `mmr_ioctl` cierra 1 capacidad (gpu.mmr_read) y `rea` cierra 1 (inspect_firmware); B7 detecto correctamente que el registro real no coincidia con decision.json, y esta actualizacion corrige el contrato en vez de ocultarlo. Ninguno cambia `primary` (rizin 14). Ademas: RXRE-BMS-EXT-002-A, 2026-10-14. `gpu.register_read` paso de NOT_DETERMINED a AVAILABLE porque su lectura se ha MEDIDO contra el ASIC de esta RX550, no porque el registro se haya editado: `umr -dbp <db> -g =0000:01:00.0 -r polaris12.gfx800.mmGRBM_STATUS` devuelve `gfx800.mmGRBM_STATUS => 0x00003028` con rc=0. Antes valia 0 porque una capability en NOT_DETERMINED no cuenta como cerrada. El vector B7 lo detecto: el registro decia 0 y la realidad era 1. Eso es para lo que existe este fichero.",
     "por_que_no_cambio_primary": "umr cierra 1 capacidad y ademas una que no compite con ninguna: leer un registro MMIO del ASIC no es alternativa a desensamblar un ELF. rizin sigue cerrando 14. Un recuento que no cambia el ORDEN no obliga a revisar la decision entera.",
+  "rxre_m1110_001": "RXRE-M1110-001 (M11.10): se anade `rxre-lifter` (modulo `backends.adapters.rxre_lifter`, modulo EN PROCESO como capstone), que cierra `binary.lift` con status PARTIAL medido sobre el dominio admitido del lifter RXRE (x86-64 -O0, opcodes admitidos auditados en M11.2..M11.9). No Cambia primary (rizin=14) ni secondary (radare2=8): la capacidad es distinta de las que ellos construyen (desensamblado, decompilacion), no compite por filas de la matriz. El lifter NO demuestra equivalencia de semantica general: se registra PARTIAL justamente por eso; si alguien pretende que `binary.lift` sea AVAILABLE, el registro esta configurado para bloquearlo.",
     "estado": "CORREGIDO contra el registro"
   },
   "revisado_por_mutacion": "tools/rxre/tests/test_mutations003.py (M_PRIMARY_CAMBIA)",
