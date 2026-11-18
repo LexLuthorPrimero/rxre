@@ -1,160 +1,75 @@
-# AI_QUICKSTART
+# Inicio rápido para agentes de IA
 
-Todo lo que necesitas para usar RXRE. Nada de esto requiere saber qué hay
-dentro.
+Esta guía sirve para orientarse en un checkout de RXRE sin adivinar el estado del árbol ni las operaciones disponibles. Las instrucciones obligatorias están en [`AGENTS.md`](../AGENTS.md) y [`../../AGENTS.md`](../../AGENTS.md); léelas primero.
 
-```bash
-RXRE=tools/rxre/api/machine.py
-```
+## 1. Conserva el estado encontrado
 
-Se habla por **JSONL**: una petición JSON por línea, una respuesta por línea.
-
----
-
-## 1. ¿Qué puedes hacer?
+Desde la raíz del repositorio:
 
 ```bash
-echo '{"op":"ops"}' | python3 $RXRE
+git status --short --branch
 ```
 
-Trae `capabilities[]`: 11 intenciones con `question`, `requires`,
-`limitations`, `max_hits` e **`invocable`** — el request literal para llamarla.
+No limpies, sobrescribas, reorganices ni incluyas en commits los cambios que ya estaban allí. Inspecciona también cualquier estado generado o artefacto local que afecte la tarea.
 
-`results[]` en esa misma respuesta son **scripts**; `capabilities[]` son
-**intenciones**. No son el mismo catálogo.
-
----
-
-## 2. Haz una pregunta
+## 2. Descubre la interfaz vigente
 
 ```bash
-echo '{"op":"query","target":"0000:01:00.0",
-       "question":"quien escribe VM_CONTEXT0_CNTL"}' | python3 $RXRE
+./rxre ops
+./rxre capabilities
 ```
 
-`question` va en prosa. El objetivo se extrae solo, o se pasa explícito:
+La primera lista operaciones anunciadas por el engine; la segunda consulta las capacidades y su estado. `op:ops` es curada, no necesariamente exhaustiva: si falta una operación, revisa `HANDLERS` en `tools/rxre/api/machine.py` y `ENGINE_OPS` en el launcher raíz. El checkout actual tiene precedencia sobre ejemplos históricos.
 
-```json
-{"op":"query","target":"0000:01:00.0","capability":"register.writers",
- "inputs":{"target":"VM_CONTEXT0_CNTL"}}
-```
-
----
-
-## 3. Lee el estado. Es lo que decide todo
-
-| `status` | rc | qué pasó | qué **no** significa |
-|---|---|---|---|
-| `ok` | 0 | produjo resultados | que un resultado sea un hecho |
-| `empty` | 0 | **corrió y no encontró** | **que no exista** |
-| `blocked` | 2 | **no se ejecutó** | que no haya nada |
-| `error` | 1 | la herramienta falló | — |
-
-`empty` y `blocked` comparten rc=0. **`status` es la verdad, no el código.**
-
-- `empty` sale **siempre** con `limitations` diciendo por qué, y **nunca** propone
-  concluir que no existe.
-- `blocked` significa que no se ejecutó. Sobre el hardware no se concluye nada.
-
----
-
-## 4. Sigue `next_actions`
-
-Cada acción lleva `op` y `args` **reales**. Se ejecutan tal cual:
-
-```json
-"next_actions": [
-  {"action":"explain","available":true,"op":"explain",
-   "args":{"result_id":"res_register_124ada0de01e"}}
-]
-```
+También se puede enviar JSONL directamente a `machine.py`:
 
 ```bash
-echo '{"op":"explain","result_id":"res_register_124ada0de01e"}' | python3 $RXRE
+printf '%s\n' '{"op":"ops"}' \
+  | RXRE_DB=/tmp/rxre-agent-exploration.sqlite3 python3 tools/rxre/api/machine.py
 ```
 
-Si `available` es `false`, hay un motivo. **No hay pasos a ciegas.**
+Una línea contiene una petición JSON y produce una respuesta JSON. Usa `op:backends` para descubrir adapters. Antes de `op:run`, valida que la capability esté disponible y que su dominio cubra el artefacto.
 
-Cada acción trae `success` y `stop`: cuándo funcionó y cuándo la vía está agotada.
+## 3. Interpreta el resultado correctamente
 
----
+| Estado operativo | Significado |
+| --- | --- |
+| `ok` | Se produjo una respuesta o resultados; evalúa su evidencia |
+| `empty` | Se ejecutó y no encontró en ese alcance; no demuestra ausencia |
+| `blocked` | No se ejecutó por una precondición o límite |
+| `error` | La herramienta o el handler falló |
 
-## 5. De dónde salió
+Los estados operativos no sustituyen a los estados epistémicos. Usa `PROVEN`, `PARTIAL`, `NOT_DETERMINED` y `BLOCKED` solo según el alcance y los requisitos de evidencia definidos en [`AGENTS.md`](../../AGENTS.md). La revisión por terceros no se sustituye con revisión propia.
+
+## 4. Elige la superficie adecuada
+
+- `defect`: formula una reconstrucción causal a partir del artefacto y síntoma; no hace reparaciones.
+- `territory`: identifica el tipo de artefacto y su contexto tecnológico; la evaluación de herramientas puede ampliar el alcance.
+- `plan`: inspecciona una capacidad antes de ejecutarla.
+- `explain`: reconstruye procedencia y evidencia de un resultado registrado.
+- `run`: ejecuta una capability; puede invocar herramientas y persistir resultados.
+
+Las operaciones `defect` y `territory` se envían por JSONL a `machine.py`; no son subcomandos del launcher raíz:
 
 ```bash
-echo '{"op":"explain","result_id":"..."}'     | python3 $RXRE   # un resultado
-echo '{"op":"explain","operation_id":"op_..."}' | python3 $RXRE   # toda la operación
+printf '%s\n' '{"op":"territory","path":"/ruta/al/artefacto"}' \
+  | RXRE_DB=/tmp/rxre-agent-exploration.sqlite3 python3 tools/rxre/api/machine.py
+printf '%s\n' '{"op":"defect","path":"/ruta/al/artefacto","symptom":"describir el fallo observado"}' \
+  | RXRE_DB=/tmp/rxre-agent-exploration.sqlite3 python3 tools/rxre/api/machine.py
 ```
 
-Por `operation_id` salen **todas** las etapas del pipeline y todos sus
-resultados. Sin esto, una operación de dos etapas no se puede explicar entera.
+Sustituye la ruta y el síntoma por datos del caso real. Consulta `./rxre ops` para los campos, límites y ejemplos de las operaciones que sí aparecen en ese catálogo.
 
-Un `result_id` que no está en la base → `empty` diciendo que **no está
-registrado**, no que no exista.
+## 5. Protege datos y hardware
 
----
+- La base predeterminada es persistente. Para exploración y pruebas, establece `RXRE_DB` a una ruta temporal y verifica que la operación respete esa configuración.
+- No toques `rxre.sqlite3`, WAL, contratos protegidos o esquemas append-only sin autorización específica.
+- No uses `sudo` ni accedas a GPU, MMIO, `sysfs` o `debugfs` sin autorización. Toda submission física a GPU debe pasar por `require_gpu()`; prefiere `--no-run` para inspección/captura ISA.
+- Revisa el cuerpo del test antes de lanzarlo. El runner completo puede ejecutar pruebas con dependencias externas, corpus local o hardware.
+- No instales herramientas ni dependencias en el sistema para resolver un bloqueo sin autorización.
 
-## 6. Relaciones
+## 6. Mantén acotadas las conclusiones
 
-```bash
-echo '{"op":"relation","clase":"writers","nodo":"drivers/.../gfxhub_v1_0.c:223"}' \
-  | python3 $RXRE
-```
+Para una transformación, verifica identidad del artefacto, procedencia, cobertura de observaciones, efectos preservados y oráculo independiente cuando corresponda. `SAFE_TO_TRANSFORM` se aplica solo al caso y modelo evaluados; `IRRELEVANT` no autoriza una transformación. Si hay incertidumbre, abstente y declara qué falta.
 
-`writers` · `readers` · `references` · `path`.
-
-Las aristas de escritura nacen **`observed`**, con su limitación escrita:
-
-> un uso que casa con `REG_SET_FIELD` es un **candidato** a escritor;
-> demostrar que escribe exige ejecutar la función
-
-No hay herramienta que clasifique lectura/escritura. La derivación es por
-**patrón de texto**, y se dice.
-
----
-
-## 7. Handoff
-
-```bash
-echo '{"op":"case","target":"0000:01:00.0"}' | python3 $RXRE
-```
-
-Devuelve todo lo registrado para ese target: operaciones, resultados y aristas
-**por referencia** (`operation_id`, `result_id`), no copias.
-
-Cierra el contexto, entrega el `case_id`, y otra IA sigue con `explain` sin
-volver a ejecutar.
-
----
-
-## 8. Alcance
-
-`target` es lista **blanca**: `0000:01:00.0`, `01:00.0` y `rx550`.
-
-Cualquier otra cosa —incluida la Intel `0000:00:02.0`, `i915`, `unknown` o
-vacío— devuelve **`blocked`** antes de ejecutar. Un target que no se reconoce no
-se asume que sea la RX550.
-
----
-
-## 9. Lo que no existe
-
-| falta | qué hacer en su lugar |
-|---|---|
-| `op: plan` | inspecciona `capability_resolution` de la respuesta |
-| `--field` en composición | usa la CLI: `tools/rxre/rxre register X --field F` |
-| `dwarf`, `binary` | no hay adaptador |
-| lectura/escritura de registros | `relation` da candidatos, no hechos |
-
----
-
-## 10. Errores que verás
-
-| mensaje | qué hacer |
-|---|---|
-| `no se pudo extraer el objetivo` | pasa `inputs.target` |
-| `ninguna intencion casa con el enunciado` | mira `capability_resolution.options` y elige `capability` |
-| `objetivo fuera del alcance` | el target no es la RX550 |
-| `no hay ninguna fila con ese result_id` | no está **registrado**, no inexistente |
-
-Ninguno de esos es un fallo de la herramienta: son respuestas.
+Registra qué inspeccionaste, qué ejecutaste, el resultado, los límites y qué no quedó determinado. No presentes hashes, informes o auto-revisión como validación de terceros.

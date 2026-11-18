@@ -6,8 +6,8 @@
 # escribe JSONL a stdout, y expone subcomandos operativos.
 #
 #   ./rxre help                         esta ayuda
-#   ./rxre ops                          lista las 10 operaciones del engine
-#   ./rxre capabilities                 lista las 25 capabilities con estado
+#   ./rxre ops                          lista las operaciones anunciadas por el engine
+#   ./rxre capabilities                 lista las capabilities anunciadas con estado
 #   ./rxre backends                     alias de capabilities
 #   ./rxre run binary.inspect --artefacto /bin/ls        ejecuta una capability
 #   ./rxre plan binary.decompile --question "..."        planifica sin ejecutar
@@ -424,7 +424,7 @@ def cmd_capabilities(args):
 def cmd_run(args):
     argv_clean, flags = extract_flags(args.argv_after, ["--json", "--human"])
     if not argv_clean:
-        print("rxre run: falta capability. Usa ./rxre ops para listar.",
+        print("rxre run: falta capability. Usa ./rxre capabilities para consultar.",
               file=sys.stderr)
         return 2
     capability = argv_clean[0]
@@ -953,13 +953,13 @@ def cmd_mutate(args):
 def print_help():
     """Ayuda legible para humanos, con estado de cada comando."""
     out = []
-    out.append("RXRE — RX550 Reverse Engineering Engine")
+    out.append("RXRE — Motor de Ingeniería Inversa Evolutiva y Reparativa")
     out.append("Punto de entrada unico. Lee JSONL de stdin, escribe JSONL a stdout.")
     out.append("")
     out.append("SUBCOMANDOS DE MOTOR (reenvian a machine.py como JSONL):")
     out.append("  help                  esta ayuda")
-    out.append("  ops                   lista las 10 operaciones del engine")
-    out.append("  capabilities          lista las 25 capabilities con estado en vivo")
+    out.append("  ops                   lista las operaciones anunciadas por el engine")
+    out.append("  capabilities          consulta las capabilities y su estado en vivo")
     out.append("  backends              alias de capabilities")
     out.append("  run <cap> [--key v]    ejecuta una capability")
     out.append("  plan <cap> --question  planifica sin ejecutar")

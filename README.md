@@ -8,6 +8,18 @@
 
 Este repositorio es el **espacio de investigación y desarrollo** de RXRE. No es la publicación ni el paquete de instalación.
 
+## Si eres una IA que acaba de entrar
+
+1. Lee [`AGENTS.md`](AGENTS.md) antes de actuar: fija los límites, la autorización y los estados de evidencia.
+2. Inspecciona `git status --short --branch` y conserva todos los cambios existentes.
+3. Para el motor, lee [`tools/rxre/AGENTS.md`](tools/rxre/AGENTS.md), [`tools/rxre/README.md`](tools/rxre/README.md) y su [guía de inicio](tools/rxre/docs/AI_QUICKSTART.md).
+4. Consulta `./rxre ops` y `./rxre capabilities` para ver los catálogos anunciados. `op:ops` no enumera necesariamente todos los handlers: comprueba `HANDLERS` en `tools/rxre/api/machine.py` y `ENGINE_OPS` en `rxre` antes de concluir que una ruta no existe.
+5. Antes de probar, inspecciona los efectos del test y usa una `RXRE_DB` temporal. No ejecutes una prueba de hardware ni accedas a la GPU sin autorización y sin pasar por `require_gpu()`.
+
+`AGENTS_ESTADO_GENERADO.md` es una instantánea fechada, no estado en vivo; no la edites a mano. Verifica su fecha y vuelve a ejecutar el verificador indicado antes de usarla como evidencia actual.
+
+Los archivos bajo `tools/rxre/docs/archive/` son referencias históricas. No son instrucciones vigentes.
+
 | Repositorio | Qué es | Estado |
 | --- | --- | --- |
 | este (`rxre`) | Código del engine + evidencia de reconstrucción + corpus de investigación + estado de la misión multiproyecto | público, en desarrollo |
@@ -20,7 +32,7 @@ Clasificación honesta de cada entrada raíz. **RXRE/Engine** = código del moto
 
 | Entrada | Qué es | Clase |
 | --- | --- | --- |
-| `tools/` | Engine RXRE completo: adapters, backends, `machine.py` CLI, `verifier/`, `analysis/`, tests | **RXRE/Engine** |
+| `tools/` | Engine RXRE completo: adapters, backends, `machine.py` CLI, `verifier/`, `analysis/`, tests y guías específicas para agentes | **RXRE/Engine** |
 | `rxre` | Launcher del CLI (`python3`) | **Engine** |
 | `rxre-r3/` | Evidencia sellada de reconstrucciones (wc, filenvercmp…) | **Evidencia** |
 | `vk_test/` | Pruebas Vulkan/SPIR-V (shaders, binarios) | **Investigación/GPU** |
@@ -78,11 +90,11 @@ Las pruebas que usan evidencia sellada M10/M11 esperan esos artefactos locales b
 ## Cómo probar
 
 ```bash
-./run_tests.sh                 # corre tools/rxre/tests/*.py (rc=0 PASS, rc=3 SKIP)
-python3 -B tools/rxre/tests/test_semantic_equiv_4972.py   # ejemplo: 7/7 PASS
+./run_tests.sh                 # runner amplio; inspecciona primero sus dependencias y efectos
+RXRE_DB=/tmp/rxre-ier-focused-tests.sqlite3 python3 -B tools/rxre/tests/test_evidence_contract.py
 ```
 
-Requisitos: Python 3, angr, z3, capstone, radare2, rizin, Ghidra (opcional según tests), bwrap.
+El runner amplio puede encontrar pruebas que requieren herramientas externas, corpus local o hardware; no lo uses como primer paso de una tarea. Ejecuta primero una prueba específica, con `RXRE_DB` temporal cuando pueda haber persistencia. Requisitos de herramientas: Python 3; angr, z3, capstone, radare2, rizin, Ghidra y bwrap solo según la prueba o capability elegida.
 
 ## Licencia
 

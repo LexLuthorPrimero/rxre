@@ -189,7 +189,7 @@ El documento normativo del enfoque (modelo matemático, ciclo, formulaciones, de
 
 Para cualquier tarea:
 
-1. **Inspeccionar antes**: `git status --short`, leer los archivos concretos; no tocar cambios ajenos.
+1. **Inspeccionar antes**: leer `README.md`, ejecutar `git status --short --branch`, revisar las instrucciones y guías del subárbol de trabajo, y leer los archivos concretos; no tocar cambios ajenos.
 2. **Acotar**: problema, dominio, entradas, oráculo, artefactos y qué no se reclama.
 3. **Evidenciar**: hash/manifiesto/sello; si falla, fail-closed.
 4. **Cambiar mínimo**: preservar invariantes; trabajo reversible; revertir ante deriva.
@@ -219,6 +219,7 @@ Detener y reportar antes de seguir si aparece cualquiera de estos:
 
 ## 8. Referencia operativa
 
+- Orientación inicial: `README.md`; para el motor, `tools/rxre/AGENTS.md`, `tools/rxre/README.md` y `tools/rxre/docs/AI_QUICKSTART.md`.
 - Código y verificación: `tools/rxre/`, `tools/rxre/tests/`, `evidence/r3/` en `rxre-engine`.
 - Corpus/sellos: `manifest.txt`, `SHA256SUMS`, `EXPEDIENTE_R3.md` en `evidence/r3/`.
 - Estado y métricas: `METRICAS_R3.md` (privado), `docs/RXRE_CHANGELOG.md` y releases públicos.

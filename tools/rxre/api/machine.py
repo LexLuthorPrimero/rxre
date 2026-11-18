@@ -9,7 +9,9 @@ Contrato:
 - Lee JSONL de stdin (una peticion por linea)
 - Escribe JSONL a stdout (una respuesta por linea)
 - Cada peticion tiene un campo obligatorio "op"
-- Las operaciones soportadas: backends, run, plan, explain, ops
+- `HANDLERS` define las operaciones despachables en este checkout.
+- `op:ops` devuelve un catalogo curado y puede no enumerar todos los handlers.
+- Comprueba precondiciones y efectos del handler antes de ejecutar una operacion.
 """
 
 from __future__ import annotations
