@@ -1,6 +1,6 @@
 # Inicio rápido para agentes de IA
 
-Esta guía sirve para orientarse en un checkout de RXRE sin adivinar el estado del árbol ni las operaciones disponibles. Las instrucciones obligatorias están en [`AGENTS.md`](../AGENTS.md) y [`../../AGENTS.md`](../../AGENTS.md); léelas primero.
+Esta guía sirve para orientarse en un checkout de RXRE sin adivinar el estado del árbol ni las operaciones disponibles. Las instrucciones obligatorias están en [`AGENTS.md`](../AGENTS.md) y [`../../AGENTS.md`](../../AGENTS.md); léelas primero. Para saber cuáles capabilities son propias de RXRE y cuáles delegan en otras herramientas, consulta [`CAPABILITIES.md`](CAPABILITIES.md).
 
 ## 1. Conserva el estado encontrado
 

@@ -6,7 +6,7 @@ Este subárbol contiene el motor RXRE: una API de operaciones JSONL, un CLI, ada
 
 1. Lee [`AGENTS.md`](AGENTS.md) y [`../../AGENTS.md`](../../AGENTS.md).
 2. Conserva el estado actual del árbol: `git status --short --branch`.
-3. Lee la [guía de inicio para IA](docs/AI_QUICKSTART.md).
+3. Lee la [guía de inicio para IA](docs/AI_QUICKSTART.md) y el [inventario de capabilities y operaciones](docs/CAPABILITIES.md).
 4. Descubre la superficie del checkout con `./rxre ops` y `./rxre capabilities` desde la raíz del repositorio.
 5. Antes de ejecutar una prueba o una operación, inspecciona sus efectos. Usa una base temporal cuando pueda haber persistencia y no inicies acceso a hardware sin autorización.
 
@@ -86,6 +86,7 @@ No instales dependencias ni actives hardware por iniciativa propia. Las pruebas 
 
 ## Referencias
 
+- [Inventario de capabilities y operaciones](docs/CAPABILITIES.md)
 - [Guía de inicio para IA](docs/AI_QUICKSTART.md)
 - [Enfoque IER](../../RXRE_IER.md)
 - [Instrucciones del repositorio](../../AGENTS.md)

@@ -1,6 +1,6 @@
 # Instrucciones para agentes en `tools/rxre/`
 
-Estas reglas complementan la [`AGENTS.md` de la raíz](../../AGENTS.md), que conserva autoridad superior. Antes de trabajar en este subárbol, lee también [`README.md`](README.md) y [`docs/AI_QUICKSTART.md`](docs/AI_QUICKSTART.md).
+Estas reglas complementan la [`AGENTS.md` de la raíz](../../AGENTS.md), que conserva autoridad superior. Antes de trabajar en este subárbol, lee también [`README.md`](README.md), [`docs/AI_QUICKSTART.md`](docs/AI_QUICKSTART.md) y [`docs/CAPABILITIES.md`](docs/CAPABILITIES.md).
 
 ## Entrada y cambios
 

@@ -12,7 +12,7 @@ Este repositorio es el **espacio de investigación y desarrollo** de RXRE. No es
 
 1. Lee [`AGENTS.md`](AGENTS.md) antes de actuar: fija los límites, la autorización y los estados de evidencia.
 2. Inspecciona `git status --short --branch` y conserva todos los cambios existentes.
-3. Para el motor, lee [`tools/rxre/AGENTS.md`](tools/rxre/AGENTS.md), [`tools/rxre/README.md`](tools/rxre/README.md) y su [guía de inicio](tools/rxre/docs/AI_QUICKSTART.md).
+3. Para el motor, lee [`tools/rxre/AGENTS.md`](tools/rxre/AGENTS.md), [`tools/rxre/README.md`](tools/rxre/README.md), la [guía de inicio](tools/rxre/docs/AI_QUICKSTART.md) y el [inventario de capabilities y operaciones](tools/rxre/docs/CAPABILITIES.md).
 4. Consulta `./rxre ops` y `./rxre capabilities` para ver los catálogos anunciados. `op:ops` no enumera necesariamente todos los handlers: comprueba `HANDLERS` en `tools/rxre/api/machine.py` y `ENGINE_OPS` en `rxre` antes de concluir que una ruta no existe.
 5. Antes de probar, inspecciona los efectos del test y usa una `RXRE_DB` temporal. No ejecutes una prueba de hardware ni accedas a la GPU sin autorización y sin pasar por `require_gpu()`.
 
@@ -68,6 +68,8 @@ Ninguna entrada de esta tabla tiene valor normativo por sí sola; la verdad son 
 ## Capacidades IER incorporadas
 
 El código de `tools/rxre/ier/` incluye ahora capacidades acotadas para evaluar transformaciones con evidencia y para analizar vidas temporales de regiones:
+
+Para el recuento de capabilities propias, híbridas y delegadas, y la diferencia frente a operaciones API y módulos internos, consulta el [inventario completo](tools/rxre/docs/CAPABILITIES.md). No sumes esas superficies como si fueran una sola categoría.
 
 - `evidence_contract.py` vincula la fuente sellada, el caso, la transformación propuesta y las observaciones que deben preservarse. Un manifiesto íntegro por sí solo no basta para admitir una transformación.
 - `transformer_witness.py` evalúa seis condiciones (`B`, `W`, `O`, `L`, `C`, `D`) sobre un modelo explícito de la transformación. `SAFE_TO_TRANSFORM` requiere que todas estén demostradas; una condición desconocida produce abstención. El módulo no prueba por sí solo el comportamiento del binario ni del driver.

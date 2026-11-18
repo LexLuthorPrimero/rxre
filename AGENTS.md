@@ -219,7 +219,7 @@ Detener y reportar antes de seguir si aparece cualquiera de estos:
 
 ## 8. Referencia operativa
 
-- Orientación inicial: `README.md`; para el motor, `tools/rxre/AGENTS.md`, `tools/rxre/README.md` y `tools/rxre/docs/AI_QUICKSTART.md`.
+- Orientación inicial: `README.md`; para el motor, `tools/rxre/AGENTS.md`, `tools/rxre/README.md`, `tools/rxre/docs/AI_QUICKSTART.md` y `tools/rxre/docs/CAPABILITIES.md`.
 - Código y verificación: `tools/rxre/`, `tools/rxre/tests/`, `evidence/r3/` en `rxre-engine`.
 - Corpus/sellos: `manifest.txt`, `SHA256SUMS`, `EXPEDIENTE_R3.md` en `evidence/r3/`.
 - Estado y métricas: `METRICAS_R3.md` (privado), `docs/RXRE_CHANGELOG.md` y releases públicos.
