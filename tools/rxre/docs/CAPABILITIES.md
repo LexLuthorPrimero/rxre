@@ -88,7 +88,7 @@ El registro contiene **11 identificadores de backend**:
 
 Entre las 13 operaciones API no enumeradas por `op:ops` están `defect`, `territory`, `query`, `relation`, `investigate`, `hypothesize`, `select_experiment`, `select_experiment_predictive`, `bench`, `eter`, `execution`, `ingest` y `claim`. `defect` reconstruye un defecto sin repararlo; `territory` identifica el entorno de un artefacto. Ambas se envían por JSONL a `api/machine.py`, no son subcomandos de `./rxre`. Que un nombre esté en `HANDLERS` no significa que sea inocuo, autorizado o adecuado para exploración: inspecciona el handler y las instrucciones antes de invocarlo. En particular, `claim` tiene restricciones explícitas.
 
-Los módulos de `ier/` —por ejemplo `evidence_contract`, `transformer_witness`, `independent_verifier`, `lifetime_contract`, `region_analyzer` y `call_summary_admission`— son componentes internos del motor. No se suman al registro de 30 hasta que exista una capability registrada que los exponga.
+Los módulos de `ier/` —por ejemplo `evidence_contract`, `transformer_witness`, `independent_verifier`, `lifetime_contract`, `region_analyzer`, `call_summary_admission` y `expression_metadata_witness`— son componentes internos del motor. No se suman al registro de 30 hasta que exista una capability registrada que los exponga. `expression_metadata_witness` compara metadatos de expresiones IR antes/después de una reescritura; el [expediente IER-EMW-001](IER_EXPRESSION_METADATA_WITNESS_001.md) registra su reproducción reducida del issue angr #7013, límites y uso.
 
 ## Cómo refrescar este inventario
 

@@ -73,3 +73,11 @@ Sustituye la ruta y el síntoma por datos del caso real. Consulta `./rxre ops` p
 Para una transformación, verifica identidad del artefacto, procedencia, cobertura de observaciones, efectos preservados y oráculo independiente cuando corresponda. `SAFE_TO_TRANSFORM` se aplica solo al caso y modelo evaluados; `IRRELEVANT` no autoriza una transformación. Si hay incertidumbre, abstente y declara qué falta.
 
 Registra qué inspeccionaste, qué ejecutaste, el resultado, los límites y qué no quedó determinado. No presentes hashes, informes o auto-revisión como validación de terceros.
+
+### Auditar preservación de metadatos de IR
+
+Para comprobar que un reescritor conservó campos de una expresión IR, RXRE ofrece el módulo puro [`ier/expression_metadata_witness.py`](../ier/expression_metadata_witness.py). El perfil inicial comprueba `bits`, `vector_count` y `vector_size` de `BinaryOp`; también acepta listas de campos definidas por el llamador. Requiere snapshots con referencias de evidencia y completitud declarada. Devuelve `FAIL` si pierde o cambia un campo conocido y `BLOCKED / NOT_DETERMINED` si falta cobertura o el valor original es desconocido. Un `PASS` solo cubre los campos y snapshots suministrados y nunca emite `PROVEN`. Consulta el [expediente IER-EMW-001](IER_EXPRESSION_METADATA_WITNESS_001.md) antes de aplicarlo a un caso.
+
+```bash
+python3 -B tools/rxre/tests/test_expression_metadata_witness.py
+```
