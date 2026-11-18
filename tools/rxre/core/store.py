@@ -55,6 +55,17 @@ DEFAULT_DB = os.path.join(RXRE_DIR, "storage", "rxre.sqlite3")
 
 SCHEMA_VERSION = 1
 
+
+class _M281Connection(sqlite3.Connection):
+    """Connection marcada con el estado de su esquema M281."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.m281_status = None
+        self.m281_bloqueado = True
+        self.m281_problemas = []
+        self.m281_faltantes = []
+
+
 DDL = """
 PRAGMA journal_mode=WAL;
 PRAGMA foreign_keys=ON;
@@ -699,12 +710,168 @@ KIND_CORRELATION = "correlation"
 GAP_KINDS = ("HUECO_DE_EVIDENCIA", "HUECO_DE_CONEXION")
 
 
+
+def _asegurar_columnas_m281(c: sqlite3.Connection) -> str:
+    """[M281→R2A] Clasifica y, si corresponde, incorpora las 8 columnas que
+    `store.DDL` declara y `store.registrar()` escribe.
+
+    Estados posibles (se exponen como `c.m281_status`):
+      SCHEMA_CURRENT       todas las columnas presentes con tipo y DEFAULT.
+      MIGRATION_APPLIED    se aplicó en esta conexión (solo rutas NO protegidas).
+      MIGRATION_REQUIRED   faltan columnas y la ruta es la base PROTEGIDA;
+                           no se altera nada; las escrituras deben rechazarse.
+      SCHEMA_INCOMPATIBLE  existe una o más columnas con tipo o DEFAULT
+                           incompatibles; nada se altera; las escrituras
+                           deben rechazarse.
+      MIGRATION_FAILED     error durante el ALTER sobre ruta permitida; no se
+                           altera nada (ROLLBACK TO); las escrituras deben
+                           rechazarse.
+
+    REGLAS ESTRICTAS:
+    - Nunca migra la base protegida (storage/rxre.sqlite3).
+    - Nunca sobreescribe una columna existente incompatible.
+    - Si detecta estado distinto de SCHEMA_CURRENT/MIGRATION_APPLIED,
+      marca `c.m281_bloqueado = True`.
+    """
+    import os as _os, sqlite3 as _sqlite3
+
+    OPS = (
+        ("declared_scope",  "TEXT", "''"),
+        ("authorized_scope","TEXT", "''"),
+        ("auth_decision",   "TEXT", "'UNAUTH'"),
+        ("auth_actor",      "TEXT", "''"),
+        ("auth_timestamp",  "TEXT", "''"),
+    )
+    RES = (
+        ("verified_scope",  "TEXT", "''"),
+        ("scope_decision",  "TEXT", "'UNVERIFIED'"),
+        ("limitations_json","TEXT", "'{}'"),
+    )
+
+    def _ruta_base():
+        try:
+            for fila in c.execute("PRAGMA database_list"):
+                if fila[1] == "main":
+                    return fila[2] or ""
+        except _sqlite3.Error:
+            pass
+        return ""
+
+    PROTECTED = (
+        os.path.join(RXRE_DIR, "storage", "rxre.sqlite3"),
+        os.path.abspath(os.path.join(RXRE_DIR, "..", "rxre.sqlite3")),
+    )
+    ruta = _ruta_base()
+    protected = bool(ruta) and any(
+        _os.path.realpath(r) == _os.path.realpath(ruta) for r in PROTECTED)
+
+    def _cols(tabla):
+        try:
+            return {r[1]: {"type": r[2], "default": r[4]}
+                    for r in c.execute("PRAGMA table_info(%s)" % tabla)}
+        except _sqlite3.Error:
+            return {}
+
+    ops = _cols("operations")
+    res = _cols("results")
+
+    def _normaliza_default(v):
+        if v is None:
+            return None
+        return str(v).strip().replace("'", "")
+
+    # 1. Compatibilidad de columnas existentes
+    incompat = []
+    for tabla, exp_cols in (("operations", OPS), ("results", RES)):
+        actual = ops if tabla == "operations" else res
+        for nombre, tipo, dflt in exp_cols:
+            if nombre not in actual:
+                continue
+            a_tipo = (actual[nombre]["type"] or "").strip().upper()
+            if a_tipo != tipo.upper():
+                incompat.append({"tabla": tabla, "col": nombre,
+                                  "tipo_actual": actual[nombre]["type"],
+                                  "tipo_esperado": tipo})
+                continue
+            a_dflt = _normaliza_default(actual[nombre]["default"])
+            e_dflt = _normaliza_default(dflt)
+            if a_dflt != e_dflt:
+                incompat.append({"tabla": tabla, "col": nombre,
+                                  "default_actual": actual[nombre]["default"],
+                                  "default_esperado": dflt})
+
+    if incompat:
+        c.m281_status = "SCHEMA_INCOMPATIBLE"
+        c.m281_bloqueado = True
+        c.m281_problemas = incompat
+        return "SCHEMA_INCOMPATIBLE"
+
+    # 2. ¿Faltan columnas?
+    faltan = []
+    for tabla, exp_cols in (("operations", OPS), ("results", RES)):
+        actual = ops if tabla == "operations" else res
+        for nombre, tipo, dflt in exp_cols:
+            if nombre not in actual:
+                decl = "TEXT"
+                if dflt == "''":
+                    decl = "TEXT DEFAULT ''"
+                elif dflt == "'UNAUTH'":
+                    decl = "TEXT DEFAULT 'UNAUTH'"
+                elif dflt == "'UNVERIFIED'":
+                    decl = "TEXT DEFAULT 'UNVERIFIED'"
+                elif dflt == "'{}'":
+                    decl = "TEXT DEFAULT '{}'"
+                faltan.append((tabla, nombre, decl))
+
+    if not faltan:
+        c.m281_status = "SCHEMA_CURRENT"
+        c.m281_bloqueado = False
+        return "SCHEMA_CURRENT"
+
+    if protected:
+        c.m281_status = "MIGRATION_REQUIRED"
+        c.m281_bloqueado = True
+        c.m281_faltantes = faltan
+        return "MIGRATION_REQUIRED"
+
+    # 3. Ruta permitida: aplicar, transaccional
+    try:
+        c.execute("SAVEPOINT m281_apply")
+        for tabla, nombre, decl in faltan:
+            c.execute("ALTER TABLE %s ADD COLUMN %s %s" % (tabla, nombre, decl))
+        c.execute("RELEASE m281_apply")
+        c.m281_status = "MIGRATION_APPLIED"
+        c.m281_bloqueado = False
+        return "MIGRATION_APPLIED"
+    except _sqlite3.Error:
+        try:
+            c.execute("ROLLBACK TO m281_apply")
+        except _sqlite3.Error:
+            pass
+        c.m281_status = "MIGRATION_FAILED"
+        c.m281_bloqueado = True
+        c.m281_problemas = ["ALTER TABLE falló; transacción revertida"]
+        return "MIGRATION_FAILED"
+
+
+def _exige_schema_ok(c: sqlite3.Connection, op: str = "escritura"):
+    """Exige que la conexión esté lista para escribir.
+    Lanza RuntimeError si el esquema no es CURRENT/APPLIED."""
+    status = getattr(c, "m281_status", None)
+    bloqueado = getattr(c, "m281_bloqueado", True)
+    if status not in ("SCHEMA_CURRENT", "MIGRATION_APPLIED") or bloqueado:
+        raise RuntimeError(
+            "M281: esquema no listo para %s (status=%s). "
+            "Acción: migración autorizada sobre copia verificada." % (op, status))
+
+
+
 def conectar(ruta: Optional[str] = None) -> sqlite3.Connection:
     ruta = ruta or os.environ.get("RXRE_DB") or DEFAULT_DB
     d = os.path.dirname(ruta)
     if d:
         os.makedirs(d, exist_ok=True)
-    c = sqlite3.connect(ruta, timeout=30)
+    c = sqlite3.connect(ruta, timeout=30, factory=_M281Connection)
     c.row_factory = sqlite3.Row
     # MEDIDO 2026-10-15: el `commit` (fsync de FULL) era el 68% del tiempo de
     # `op:plan`. Medido EN EL CAMINO REAL (1 escritura por proceso):
@@ -730,6 +897,7 @@ def conectar(ruta: Optional[str] = None) -> sqlite3.Connection:
     _asegurar_columnas_version(c)
     _asegurar_columnas_results(c)
     _asegurar_columnas_findings_contrato(c)
+    _asegurar_columnas_m281(c)
     return c
 
 
@@ -871,6 +1039,8 @@ def _asegurar_columnas_execution_events(c: sqlite3.Connection) -> None:
 
 def _auto_correlate_findings(c: sqlite3.Connection, kind: str, text: str,
                              session: str = "") -> List[Dict[str, Any]]:
+    _exige_schema_ok(c, op="_auto_correlate_findings")
+
     """ETER: detecta COINCIDENCIA NUMERICA entre investigacion nueva y hallazgos.
 
     ALCANCE (lo que esta funcion NO dice): no es causalidad ni correlacion
@@ -1062,6 +1232,8 @@ def eventos_por_trace(c: sqlite3.Connection, trace_id: Optional[str]) -> Dict[st
 
 def registrar_evento(c: sqlite3.Connection, op: str, capability: str,
                      env: Dict[str, Any], lecciones: List[Any]) -> str:
+    _exige_schema_ok(c, op="registrar_evento")
+
     """Registra un evento de ejecucion orquestada (op:run / op:plan).
 
     MEDIDO 2026-10-14: el event-log DURABLE que cierra el cuello §6
@@ -1106,6 +1278,8 @@ def registrar_evento(c: sqlite3.Connection, op: str, capability: str,
 
 def registrar(c: sqlite3.Connection, request: Dict[str, Any], env: Dict[str, Any],
               duracion: float = 0.0) -> str:
+    _exige_schema_ok(c, op="registrar")
+
     """Guarda una operacion completa. Devuelve su `operation_id`."""
     op_json = json.dumps(request, sort_keys=True, default=str)
     # M281: integración del contrato de alcance/autorización del escritor.
@@ -1694,6 +1868,8 @@ def registrar_investigacion(c: sqlite3.Connection, kind: str, text: str,
                             refs: Optional[List[str]] = None,
                             session: str = "", target: str = "",
                             gap_kind: str = "") -> Dict[str, Any]:
+    _exige_schema_ok(c, op="registrar_investigacion")
+
     """Graba UNA entrada de estado de investigacion.
 
     Devuelve SIEMPRE un dict con `estado`. Los rechazos son `blocked` o
@@ -1905,6 +2081,8 @@ def registrar_dependency(c: sqlite3.Connection,
                         source: Optional[str] = None,
                         context: Optional[Dict[str, Any]] = None,
                         validated_by: Optional[str] = None) -> Dict[str, Any]:
+    _exige_schema_ok(c, op="registrar_dependency")
+
     """Registra un estado de dependency observado para una validacion concreta.
 
     Cada fila es una medicion FROZEN de un momento concreto. El mismo nombre
@@ -1963,6 +2141,8 @@ def registrar_remediation(c: sqlite3.Connection,
                          remediation: str,
                          remediation_type: str = "INSTALL",
                          target: Optional[str] = None) -> Dict[str, Any]:
+    _exige_schema_ok(c, op="registrar_remediation")
+
     """Registra una remediation propuesta o intentada para un dependency.
 
     Args:
@@ -1997,6 +2177,8 @@ def marcar_remediation_completada(c: sqlite3.Connection,
                                  rem_id: str,
                                  verification_result: str,
                                  verification_evidence: Optional[str] = None) -> Dict[str, Any]:
+    _exige_schema_ok(c, op="marcar_remediation_completada")
+
     """Marca una remediation como intentada y verificada.
 
     Args:
@@ -2133,6 +2315,8 @@ def query_validation_chain(c: sqlite3.Connection,
 # =====================================================================
 
 def crear_mision(c: sqlite3.Connection, title: str, description: str = "") -> str:
+    _exige_schema_ok(c, op="crear_mision")
+
     """Crea una nueva misión en la base de datos. Devuelve su mission_id."""
     mission_id = "mission_" + _sha(title + str(time.time()))
     c.execute(
@@ -2145,6 +2329,8 @@ def crear_mision(c: sqlite3.Connection, title: str, description: str = "") -> st
 def agregar_tarea_a_mision(c: sqlite3.Connection, mission_id: str, title: str,
                           description: str = "", priority: int = 0,
                           dependencies: Optional[List[str]] = None) -> str:
+    _exige_schema_ok(c, op="agregar_tarea_a_mision")
+
     """Añade una tarea a una misión existente. Devuelve su task_id."""
     task_id = "task_" + _sha(title + str(time.time()) + str(priority))
     deps = json.dumps(dependencies) if dependencies else None
@@ -2158,6 +2344,8 @@ def agregar_tarea_a_mision(c: sqlite3.Connection, mission_id: str, title: str,
 
 def marcar_tarea_completada(c: sqlite3.Connection, task_id: str,
                            completed_at: Optional[str] = None) -> None:
+    _exige_schema_ok(c, op="marcar_tarea_completada")
+
     """Marca una tarea como completada con su timestamp."""
     if completed_at is None:
         completed_at = time.strftime("%Y-%m-%dT%H:%M:%S%z")
@@ -2680,6 +2868,8 @@ def seleccionar_siguiente_accion(c: sqlite3.Connection, mission_id: str,
     return None
 
 def marcar_mision_completada(c: sqlite3.Connection, mission_id: str) -> Dict[str, Any]:
+    _exige_schema_ok(c, op="marcar_mision_completada")
+
     """Marca una misión como completada solo si todos los criterios requeridos están satisfechos.
     
     Returns:
@@ -2715,6 +2905,8 @@ def crear_criterio_mision(c: sqlite3.Connection, mission_id: str, description: s
                           epistemic: str = 'NOT_DETERMINED',
                           evidence_ids: Optional[List[str]] = None,
                           required: int = 1) -> str:
+    _exige_schema_ok(c, op="crear_criterio_mision")
+
     """Crea un criterio de aceptación para una misión. Devuelve su criterion_id."""
     criterion_id = "crit_" + _sha(description + str(time.time()))
     c.execute(
@@ -2749,6 +2941,8 @@ def resumir_mision(c: sqlite3.Connection, mission_id: str) -> Dict[str, Any]:
 
 def capturar_evidencia_desde_ejecucion(c: sqlite3.Connection, execution_result: Dict[str, Any], 
                                        capability: str = "") -> str:
+    _exige_schema_ok(c, op="capturar_evidencia_desde_ejecucion")
+
     """Captura los resultados de una ejecución dispatch como evidencia de finding.
     
     Crea un registro en la tabla findings con:
@@ -2843,6 +3037,8 @@ class StaleVersionError(RuntimeError):
 def actualizar_estado_finding(c: sqlite3.Connection, finding_id: str,
                               nuevo_estado: str,
                               version_esperada: int) -> int:
+    _exige_schema_ok(c, op="actualizar_estado_finding")
+
     """[v3-4] UPDATE optimista de `findings.epistemic`.
 
     Retorna rowcount: 1 = aplico, 0 = otro escritor gano la carrera.
@@ -2877,6 +3073,8 @@ def actualizar_estado_finding(c: sqlite3.Connection, finding_id: str,
 
 
 def guardar_finding(c: sqlite3.Connection, finding_dict: Dict[str, Any]) -> str:
+    _exige_schema_ok(c, op="guardar_finding")
+
     """Persiste un hallazgo con ID determinista basado en claim + evidence_ids.
 
     Contrato del adapter (rz_findings.py:273):
@@ -2968,6 +3166,8 @@ def guardar_finding(c: sqlite3.Connection, finding_dict: Dict[str, Any]) -> str:
 def registrar_audit_log(c: sqlite3.Connection, action: str, entity_type: str,
                          entity_id: str, actor: str = "system",
                          details: Optional[Dict[str, Any]] = None) -> int:
+    _exige_schema_ok(c, op="registrar_audit_log")
+
     """Registra una entrada en el audit_log.
 
     Contrato: cada registrar(), guardar_finding() y relacionar_findings()
@@ -3068,6 +3268,8 @@ _ESTADO_POR_DECISION = {
 def reevaluar_finding(c: sqlite3.Connection, finding_id: str,
                       contradiction: str, decision: str, rationale: str,
                       reviewer: str) -> Dict[str, Any]:
+    _exige_schema_ok(c, op="reevaluar_finding")
+
     """[v3-2] Reevalúa un finding y REGISTRA quién lo hizo y por qué.
 
     El diagrama: "INVALIDATED ≠ automático: contradicción → reevaluación
@@ -3224,6 +3426,8 @@ def relacionar_findings(
     evidence: Dict[str, Any],
     confidence: str = "DEBIL",
 ) -> str:
+    _exige_schema_ok(c, op="relacionar_findings")
+
     """Crea una relacion entre dos hallazgos con ID determinista.
 
     Contrato del adapter (rz_findings.py:661):
@@ -3330,6 +3534,8 @@ def registrar_reflexion(
     target: str = "",
     capability: str = "",
 ) -> Dict[str, Any]:
+    _exige_schema_ok(c, op="registrar_reflexion")
+
     """Registra una reflexion tras un intento (Reflexion-style feedback loop).
 
     `check_ejecutable` es `fichero.py` (o `fichero.py::etiqueta`) y es lo que
@@ -3490,6 +3696,8 @@ def buscar_reflexiones(c: sqlite3.Connection,
 
 def verificar_lecciones(c: sqlite3.Connection,
                         ejecutar: bool = False) -> Dict[str, Any]:
+    _exige_schema_ok(c, op="verificar_lecciones")
+
     """Cuantas lecciones de este arbol estan vigiladas por un check real.
 
     `ejecutar=True` lanza cada check y recoge su exit status: cuesta tiempo
@@ -4003,6 +4211,8 @@ def evaluar_saturacion_frontier(c: sqlite3.Connection,
 
 def reabrir_frontier(c: sqlite3.Connection, frontier_id: str,
                      nueva_evidencia: str) -> Dict[str, Any]:
+    _exige_schema_ok(c, op="reabrir_frontier")
+
     """Reabre una frontera porque nueva evidencia invalida lo que la sostenia.
 
     MEDIDO 2026-10-14: sin esto, una frontera que se cerro bien se queda

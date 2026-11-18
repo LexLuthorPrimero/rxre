@@ -5637,6 +5637,87 @@ def _handle_research(params: dict) -> dict:
     }
 
 
+def _handle_defect(params: dict) -> dict:
+    """op: defect — ER: reconstruye un defecto con EVIDENCIA (sin reparar).
+
+    Entrada: {"op":"defect","path":..., "symptom":..., [expected],[observed],
+               [conditions]}
+    Salida: envelope results=[contrato de reconstrucción causal].
+    """
+    import os as _os, sys as _sys
+    path = params.get("path") or params.get("artefacto")
+    if not path:
+        return {"status": "invalid_input", "op": "defect", "results": [],
+                "limitations": ["falta 'path'"]}
+    try:
+        _here = _os.path.dirname(_os.path.abspath(__file__))
+        _p = _os.path.join(_here, "..")
+        if _p not in _sys.path:
+            _sys.path.insert(0, _p)
+        from ier import defect as _defect
+        result = _defect.reconstruir({
+            "path": path,
+            "symptom": params.get("symptom") or params.get("sintoma") or "",
+            "expected": params.get("expected") or params.get("expected_behavior") or "",
+            "observed": params.get("observed") or params.get("observed_behavior") or "",
+            "conditions": params.get("conditions", {}),
+        })
+        status = "ok" if result.get("epistemic_status") != "BLOCKED" else "blocked"
+        return {
+            "status": status,
+            "op": "defect",
+            "target": path,
+            "results": [result],
+            "limitations": list(result.get("limitations", [])),
+            "evidence": result.get("candidates", []),
+        }
+    except Exception as e:
+        return {"status": "error", "op": "defect", "target": path,
+                "results": [], "limitations": ["%s: %s" % (type(e).__name__, e)]}
+
+def _handle_territory(params: dict) -> dict:
+    """op: territory — ER: reconoce el territorio tecnologico de un artefacto.
+
+    Entrada: {"op":"territory","path":"/ruta/desconocida"}
+    Salida: envelope con `results=[contrato]` (ver ier/territory.py).
+
+    No ejecuta herramientas de analisis. Solo lecturas, firmas y deteccion
+    de manifiestos/dependencias; la disponibilidad de herramientas se
+    consulta en el propio RXRE (registry + entorno).
+    """
+    import os as _os, json as _json
+    target = params.get("path") or params.get("artefacto") or params.get("input")
+    if not target:
+        return {
+            "status": "invalid_input", "op": "territory",
+            "results": [], "limitations": ["falta 'path' (artefacto o directorio)"],
+        }
+    try:
+        import sys as _sys
+        _here = _os.path.dirname(_os.path.abspath(__file__))
+        _p = _os.path.join(_here, "..")
+        if _p not in _sys.path:
+            _sys.path.insert(0, _p)
+        from ier import territory as _territory
+        contract = _territory.reconocer(target)
+        if params.get("evaluate_tools"):
+            contract["tool_evaluations"] = _territory.verificar_herramientas()
+        status = "ok" if contract.get("epistemic_status") != "BLOCKED" else "blocked"
+        return {
+            "status": status,
+            "op": "territory",
+            "target": target,
+            "results": [contract],
+            "limitations": [] if status != "blocked" else list(contract.get("unknowns", [])),
+            "evidence": contract.get("evidence", []),
+        }
+    except Exception as e:
+        return {
+            "status": "error", "op": "territory", "target": target,
+            "results": [], "error": "%s: %s" % (type(e).__name__, e),
+            "limitations": ["%s: %s" % (type(e).__name__, e)],
+        }
+
 def _handle_saturate(params: dict) -> dict:
     """op: saturate — AETHER: POR QUE se ha parado, y QUE hacer.
 
@@ -6427,6 +6508,8 @@ HANDLERS = {
     "ingest": _handle_ingest,
     "execution": _handle_execution,
     "backends": _handle_backends,
+    "territory": _handle_territory,
+    "defect": _handle_defect,
     "run": _handle_run,
     "plan": _handle_plan,
     "explain": _handle_explain,
